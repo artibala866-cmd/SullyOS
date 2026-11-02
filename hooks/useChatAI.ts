@@ -645,6 +645,7 @@ export const useChatAI = ({
         if (isTyping || !char)
             return (opts?.immediateMusicInvite || opts?.automaticUserReply) ? 'busy' as const : undefined;
         // 固定本次回复开始时的投递状态。生成中途解除拉黑，也不能把早已认定发送失败的回复改成送达。
+        const replyBlockTrackingStartedAt = Date.now();
         const userBlockedAtReplyStart = userBlocksCharacter(charRef.current?.chatBlock ?? char.chatBlock);
         const effectiveApi = resolveDialogueApi(apiConfig, char, overrideApiConfig);
         if (!effectiveApi.baseUrl) {
@@ -2146,6 +2147,7 @@ export const useChatAI = ({
                 // 逐气泡持久化：不会随解封丢失历史感叹号；不影响用户发出的消息。
                 messageSendFailedByUserBlock: didCharReplyFailDuringGeneration(
                     userBlockedAtReplyStart, userBlocksCharacter(charRef.current?.chatBlock),
+                    charRef.current?.chatBlock, replyBlockTrackingStartedAt,
                 ),
             }));
             // 原版 [BLOCK_USER:原因] 是模型的独立行为，不当成聊天气泡。
