@@ -2430,6 +2430,34 @@ export const ActiveMsgClient = {
    * 用户等到的是一句「云端已处理这条消息，但回复没能取回」，还得自己把话重发一遍。
    * 退回本地清单的那条路天然不含即时对话（本地任务记录里从来没有它）。
    */
+  /** OFF switch only: cancel scheduled CHAT messages, never instant replies
+   * or the unrelated amsgKind background jobs using the same cloud clock.
+   * Character deletion retains the broader cancelAllTasksForChar path.
+   */
+  async cancelScheduledChatTasksForChar(
+    charId: string,
+    localTaskUuids: string[],
+  ): Promise<{ targets: string[]; failed: Set<string> }> {
+    let targets: string[];
+    try {
+      const remote = await this.listRemoteTasksForChar(charId);
+      targets = [...new Set([
+        ...remote.filter(task =>
+          task.messageSubtype !== AMSG_INSTANT_CHAT_SUBTYPE &&
+          task.messageSubtype !== AMSG_BACKGROUND_JOB_SUBTYPE,
+        ).map(task => task.uuid),
+        ...localTaskUuids,
+      ])];
+    } catch {
+      targets = localTaskUuids;
+    }
+    const failed = new Set<string>();
+    for (const uuid of targets) {
+      try { await this.cancelTask(uuid); } catch { failed.add(uuid); }
+    }
+    return { targets, failed };
+  },
+
   async cancelAllTasksForChar(
     charId: string,
     localTaskUuids: string[],
