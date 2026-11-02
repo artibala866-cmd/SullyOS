@@ -531,19 +531,21 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // 第一件事：告诉云端这个角色关了。下面逐条取消要花几秒，这期间正在跑的那一轮
         // （尤其是即时对话——它不在取消范围里）还可能顺手给自己排一条；云端先知道「关了」，
         // 这种漏网的到点就会被直接跳过。传不上去也照样往下关：取消本身才是主线。
+        let cloudGateSynced = false;
         if (globalReady) {
           try {
             await ActiveMsgClient.putCharLimits({
               ...char,
               activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: false }), enabled: false },
             });
+            cloudGateSynced = true;
           } catch (error) {
             console.warn('[ActiveMsg2Settings] 关闭 2.0 时没能先通知云端（照常取消任务）', error);
           }
         }
         // 关闭 2.0 = 取消该角色全部远端任务（远端清单优先的口径见 cancelAllTasksForChar，
         // 与删角色共用一份）。取消失败的保留在本地清单里，下次重开面板可重试。
-        const { targets, failed } = await ActiveMsgClient.cancelScheduledChatTasksForChar(
+        const { targets, failed, inventoryConfirmed } = await ActiveMsgClient.cancelScheduledChatTasksForChar(
           char.id,
           tasks.map((t) => t.taskUuid),
         );
@@ -573,11 +575,17 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             failed: '关闭时远端取消失败，可重试',
             appeared: '关闭主动消息时新出现，未被取消，请单独处理',
           }),
-          { enabled: false, lastSyncedAt: Date.now() },
+          { enabled: false, lastSyncedAt: Date.now(),
+            ...(!cloudGateSynced || !inventoryConfirmed || failed.size
+              ? { lastError: '主动消息已关闭，但云端停用授权或任务清单尚未全部确认；将自动重试' }
+              : { lastError: undefined }),
+          },
         ));
-        addToast(failed.size
-          ? `主动消息 2.0 已关闭，但有 ${failed.size} 个任务远端取消失败，请稍后重开面板重试。`
-          : '主动消息 2.0 已关闭，全部任务已取消。', failed.size ? 'error' : 'info');
+        const cloudConfirmed = cloudGateSynced && inventoryConfirmed && failed.size === 0;
+        addToast(cloudConfirmed
+          ? '主动消息 2.0 已关闭，云端任务已核对并取消。'
+          : '主动消息 2.0 本地已关闭；云端停用或任务取消尚未完全确认，会在联网后自动重试。',
+          cloudConfirmed ? 'info' : 'error');
         onClose();
         return;
       }
