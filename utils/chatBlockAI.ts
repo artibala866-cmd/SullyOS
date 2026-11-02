@@ -118,7 +118,7 @@ export function forgivenessCooldownRemaining(state: ChatBlockState | undefined, 
 }
 
 /** 只向求原谅判定提供角色实际收到过的私聊内容；拒收消息绝不可补读。 */
-export function buildForgivenessMessages(character: CharacterProfile, userName: string, messages: Message[], now = Date.now()): Array<{role: 'system' | 'user'; content: string}> {
+export function buildForgivenessMessages(character: CharacterProfile, userName: string, messages: Message[], now = Date.now(), withTheater = false): Array<{role: 'system' | 'user'; content: string}> {
   const state = character.chatBlock;
   const lastBlock = [...(state?.history || [])].reverse().find(e => e.actor === 'character' && e.action === 'block');
   // 原版仅使用封锁发生前的最后十二条真实对话；解除后不可补读被拒收内容。
@@ -148,13 +148,23 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
       '上一次心软度：' + softness + '/100。只能根据自己的回忆、时间、底线、自尊和性格独立调整，可升可降。',
       '综合拉黑原因、已经过去的时间、关系经历和角色性格独立决定；时间到了不等于必须原谅。',
       '不要因为用户按了一次 AI 按钮就自动同意；也不要无理由永久拒绝。',
-      '只返回一行 JSON：{\"decision\":\"stay或unblock\",\"softness\":0,\"thought\":\"自己的内心想法\",\"status\":\"简短状态\",\"sign\":\"可观察的短动作\",\"draft\":\"打了但没发送的草稿\"}。decision 只能为 stay 或 unblock，softness 是 0-100 整数，draft 可以为空。没有充分理由默认 stay。不得附加聊天正文。',
+      '只返回单个 JSON 对象，decision 必须取 stay 或 unblock；softness 为 0-100 整数，不能因为达到固定分数就自动解封。没有充分理由默认 stay。',
+      'thought 是角色独处时真实但不一定外露的 1-3 句心声；status 是极简状态；sign 是第三人称可观察的动作（这是用户唯一能直接察觉的迹象）。',
+      'draft 是想发却没有发送的一段话；可以为空，绝不当作已经送达的聊天消息。',
+      '{"decision":"stay","softness":10,"thought":"内心独白","status":"简短状态","sign":"可观察动作","draft":""}'
+        + (withTheater ? '；启用独处小剧场时还要包含 theater: {"title":"标题","body":"第三人称独处片段，约80-200字"}，不能写成发给用户的消息。' : '；不要生成 theater 字段。'),
+      '输出必须是合法 JSON，不能附加解释文字。',
     ].join('\n') },
     { role: 'user', content: `双方此前实际对话：\n${history || '（暂无可用的对话记录）'}\n现在请独立判定。` },
   ];
 }
 
-export type ForgivenessDecision = { decision: 'unblock' | 'stay'; sign: string; softness: number | null; thought: string; status: string; draft: string; valid: boolean };
+export type ForgivenessTheater = { title: string; body: string };
+export type ForgivenessDecision = {
+  decision: 'unblock' | 'stay'; sign: string; softness: number | null;
+  thought: string; status: string; draft: string;
+  theater: ForgivenessTheater | null; valid: boolean;
+};
 
 /** AI 判定返回后，先确认仍是发起判定时的那轮拉黑。
  * 用户拉黑 Char 是另一条独立关系，不可阻止 Char 解开自己的拉黑。
@@ -179,24 +189,66 @@ export function applyCharacterForgivenessDecision(
     forgivenessDrafts: decision.draft
       ? [...(next?.forgivenessDrafts || []), { text: decision.draft, at: checkedAt }].slice(-10)
       : (next?.forgivenessDrafts || []),
+    // 和原版 theater 消息一样可回看，但留在角色资料而非伪造一条被成功送达的私聊回复。
+    forgivenessScenes: decision.theater?.body
+      ? [...(next?.forgivenessScenes || []), {
+          at: checkedAt, blockedAt: expectedBlockedAt,
+          title: decision.theater.title, body: decision.theater.body,
+        }].slice(-8)
+      : (next?.forgivenessScenes || []),
   };
 }
+/** 模型可能在代码围栏/文字之后返回 JSON；theater 是嵌套对象，非贪婪 \{...\} 会截断。 */
+export function extractForgivenessJson(raw: string): string | null {
+  const source = String(raw || '');
+  let open = -1, depth = 0, inString = false, escaped = false;
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') { inString = true; continue; }
+    if (c === '{') { if (depth === 0) open = i; depth++; }
+    if (c === '}' && depth > 0 && --depth === 0 && open >= 0) return source.slice(open, i + 1);
+  }
+  return null;
+}
+
 export function parseForgivenessDecision(raw: string): ForgivenessDecision {
-  const match = String(raw || '').match(/\{[\s\S]*?\}/);
-  if (!match) return { decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', valid: false };
+  const empty: ForgivenessDecision = {
+    decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', theater: null, valid: false,
+  };
+  const source = extractForgivenessJson(raw);
+  if (!source) return empty;
   try {
-    const value = JSON.parse(match[0]);
+    const value = JSON.parse(source);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return empty;
+    const isDecisionValid = value.decision === 'unblock' || value.decision === 'stay';
+    const theaterValue = value.theater;
+    const theater = theaterValue && typeof theaterValue === 'object' && !Array.isArray(theaterValue)
+      && typeof theaterValue.body === 'string' && theaterValue.body.trim()
+      ? {
+          title: typeof theaterValue.title === 'string' ? theaterValue.title.trim().slice(0, 100) : '',
+          body: theaterValue.body.trim().slice(0, 1200),
+        }
+      : null;
+    const rawSoftness = Number(value.softness);
     return {
-      decision: value?.decision === 'unblock' ? 'unblock' : 'stay',
-      valid: value?.decision === 'unblock' || value?.decision === 'stay',
-      softness: Number.isFinite(Number(value?.softness)) && value?.softness !== null
-        ? Math.max(0, Math.min(100, Math.round(Number(value.softness)))) : null,
-      thought: typeof value?.thought === 'string' ? value.thought.trim().slice(0, 700) : '',
-      status: typeof value?.status === 'string' ? value.status.trim().slice(0, 150) : '',
-      sign: typeof value?.sign === 'string' ? value.sign.trim().slice(0, 180) : '',
-      draft: typeof value?.draft === 'string' ? value.draft.trim().slice(0, 500) : '',
+      decision: value.decision === 'unblock' ? 'unblock' : 'stay',
+      valid: isDecisionValid,
+      softness: value.softness === null || value.softness === undefined || value.softness === ''
+        || !Number.isFinite(rawSoftness)
+        ? null : Math.max(0, Math.min(100, Math.round(rawSoftness))),
+      thought: typeof value.thought === 'string' ? value.thought.trim().slice(0, 700) : '',
+      status: typeof value.status === 'string' ? value.status.trim().slice(0, 150) : '',
+      sign: typeof value.sign === 'string' ? value.sign.trim().slice(0, 180) : '',
+      draft: typeof value.draft === 'string' ? value.draft.trim().slice(0, 500) : '',
+      theater,
     };
-  } catch { return { decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', valid: false }; }
+  } catch { return empty; }
 }
 
 /** 原版 AI 键单独判断心软，不把求原谅当作正常回复。
@@ -207,8 +259,9 @@ export async function requestCharacterForgiveness(args: {
   userName: string;
   messages: Message[];
   apiConfig: APIConfig;
+  withTheater?: boolean;
 }): Promise<Omit<ForgivenessDecision, 'valid'>> {
-  const { character, userName, messages, apiConfig } = args;
+  const { character, userName, messages, apiConfig, withTheater = false } = args;
   if (!characterBlocksUser(character.chatBlock)) throw new Error('角色尚未拉黑用户');
   const api = resolveDialogueApi(apiConfig, character);
   if (!api.baseUrl || !api.model) throw new Error('请先配置私聊 API');
@@ -221,7 +274,7 @@ export async function requestCharacterForgiveness(args: {
     },
     body: JSON.stringify({
       model: api.model,
-      messages: buildForgivenessMessages(character, userName, messages),
+      messages: buildForgivenessMessages(character, userName, messages, Date.now(), withTheater),
       temperature: 0.7,
     }),
   });
