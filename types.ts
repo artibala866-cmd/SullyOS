@@ -2722,6 +2722,8 @@ export interface ChatBlockState {
   /** 已裁剪的历史中，最后一次用户拉黑事件（仅用于延迟云端回复按发送时间判定）。 */
   userBlockHistoryAnchor?: { at: number; blocked: boolean };
   characterBlockedAt?: number;
+  /** 原版独立保存角色拉黑原因；历史事件裁剪后仍可用于心软判定和解除后首次联系。 */
+  lastCharacterBlockReason?: string;
   allowCharacterBlockUser?: boolean;
   /** 最后一次 AI 求原谅判定；仅成功调用才进入 30 分钟冷却。 */
   lastForgivenessCheckAt?: number;
