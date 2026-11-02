@@ -3234,17 +3234,21 @@ export const ActiveMsgClient = {
     const globalConfig = await ensureWorkerReady();
     const client = await initializeClient(globalConfig);
     assertWriteCurrent();
-    const response = await putCloudClientState(client, [{
+    const entry = {
       namespace: amsgStateNamespace(charId),
       key: AMSG_CHAT_PRESENCE_KEY,
       value: JSON.stringify(presence),
-      // 行的版本号走水位，而不是 presence.activeAt：worker 读的是 value 里那个
-      // activeAt（45s TTL 判活跃），版本号只管「这一行能不能盖上去」，两者不是一回事。
+      // 版本号和 activeAt 分开；activeAt=0 的单次用户发言水位不能假装活跃聊天。
       updatedAt: stampStateUpdatedAt(),
-    }]);
-    if (!response?.success) {
-      throw new Error(formatAmsgServerError(response, '上传活跃会话租约失败。'));
+    };
+    const response = await putCloudClientState(client, [entry]);
+    const [outcome] = classifyClientStateWrite([entry], response);
+    if (outcome?.status === 'applied') return;
+    if (outcome?.status === 'conflict') {
+      await alignStateClockWithRemote(client, [entry.namespace]);
+      throw new Error('云端最新发言水位被版本冲突拦截，本次未同步；下一次会使用校正后的版本号。');
     }
+    throw new Error(formatAmsgErrorObject(outcome?.error) || formatAmsgServerError(response, '同步最新发言水位失败。'));
   },
 
   // 满血同步：把一批角色的最新 fire_pack 合成一次 putClientState 上传（amsgStateSync
@@ -3319,6 +3323,11 @@ export const ActiveMsgClient = {
         ...(skipped ?? []).map(s => `${s.namespace}/${s.key}`),
       ]);
       ackStoppedReplyReceipts(batch.filter(e => !notApplied.has(`${e.namespace}/${e.key}`)));
+      // 部分成功不能等同于“最新上下文已同步”：只要 fire_pack 等任意条目未落地，
+      // 上层就必须保留待同步队列重试，不能清掉脏标记让角色一直读旧快照。
+      if (notApplied.size > 0) {
+        throw new Error(`云端上下文有 ${notApplied.size} 项尚未落地，保留待同步状态；本轮不得当作已更新`);
+      }
     }
     // 同步已经落定，顺路把这几个角色的存量空壳清一遍（每角色一次，失败只 warn）。
     await sweepSidechannelShells(client, items.filter(item => item.isCurrent?.() !== false).map(item => item.char.id));
