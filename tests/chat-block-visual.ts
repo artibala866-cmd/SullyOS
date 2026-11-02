@@ -2,6 +2,7 @@ import React from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
+import ChatForgivenessScene from '../components/chat/ChatForgivenessScene';
 import ChatBlockDeliveryStatus from '../components/chat/ChatBlockDeliveryStatus';
 import MessageItem from '../components/chat/MessageItem';
 import type { ChatTheme } from '../types';
@@ -49,6 +50,10 @@ const render = () => flushSync(() => root.render(React.createElement(React.Fragm
     React.createElement('div',{id: 'real-user-rejected',key:'rejected'},realItem('user',503,true)),
   ]),
   chatPreview,
+  React.createElement('div', { id: 'forgiveness-scene-preview', key: 'scene', className: 'mx-auto max-w-[390px]' },
+    React.createElement(ChatForgivenessScene, {
+      scene: { at: 200, blockedAt: 100, title: '草稿箱', body: '他看着空白对话框，写下了几句，却最终没有按下发送。' },
+    })),
   React.createElement(ChatBlockModal, {
     characterName:'陈苍琛', state, onClose:()=>{closed++},
     onSetUserBlock:(blocked:boolean)=>{state=changeChatBlock(state,'user',blocked,{at:42,source:'manual'});render()},
@@ -107,7 +112,15 @@ try {
   render();
   const closedDetails=document.querySelector<HTMLDetailsElement>('details');
   if(closedDetails) closedDetails.open=false;
-  const report={initial,deliveryDirection,integrated,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,closed,
+  const sceneElement = document.querySelector<HTMLElement>('#forgiveness-scene-preview');
+  const sceneDetails = sceneElement?.querySelector<HTMLDetailsElement>('details');
+  const sceneSavedAsNonMessage = !!sceneDetails && sceneDetails.textContent?.includes('草稿箱')
+    && !sceneElement?.querySelector('.sully-chat-block-failed')
+    && !!sceneElement?.textContent?.includes('不代表对方已发来消息');
+  if (sceneDetails) sceneDetails.open = true;
+  const sceneReadable = !!sceneDetails && sceneDetails.open && !!sceneDetails.textContent?.includes('他看着空白对话框')
+    && !!sceneDetails.querySelector('p');
+  const report={initial,deliveryDirection,integrated,confirmed,separate,shown,lightSurface,independent,hiddenCharacterBlock,sceneSavedAsNonMessage,sceneReadable,closed,
     debugColors:{
       redCss:indicator ? getComputedStyle(indicator).backgroundColor : '',
       sampleRed:[red,green,blue,redAlpha],
