@@ -2030,7 +2030,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const checkedAt = Date.now();
                 const lastBlock = [...(latest.chatBlock?.history || [])].reverse().find(event =>
                     event.actor === 'character' && event.action === 'block');
-                const blockReason = lastBlock?.reason || '';
+                const blockReason = latest.chatBlock?.lastCharacterBlockReason || lastBlock?.reason || '';
                 const blockElapsedMinutes = Math.max(0, Math.floor((checkedAt - (latest.chatBlock?.characterBlockedAt || checkedAt)) / 60_000));
                 await updateCharacter(target.id, previous => {
                     const next = applyCharacterForgivenessDecision(previous.chatBlock, latest.chatBlock!.characterBlockedAt!, judgement, checkedAt);
