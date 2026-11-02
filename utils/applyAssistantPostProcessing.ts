@@ -520,8 +520,6 @@ export interface PostProcessHooks {
 }
 
 export interface PostProcessCtx {
-    /** Existing cloud SAR display payload; accepted by the inbox adapter. */
-    sarModuleSurface?: unknown;
     replyRun?: ReplyRun;
     char: CharacterProfile;
     userProfile: UserProfile;
