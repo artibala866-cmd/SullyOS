@@ -2000,6 +2000,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (forgivenessInFlightRef.current) return;
         if (characterBlocksUser(char?.chatBlock)) {
             const target = char;
+            // 异步 DB 读取前先锁定按钮：快速双击不得并发运行两次求原谅 AI。
+            forgivenessInFlightRef.current = true;
+            setForgivenessBusy(true);
+            try {
             // 必须读取最新 DB 状态：跨窗口解除/重新拉黑后，旧 React 快照不能放行冷却。
             const current = await DB.getCharacter(target.id);
             if (!current || !characterBlocksUser(current.chatBlock)) {
@@ -2011,9 +2015,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 addToast('对方还没准备重新考虑，请约 ' + Math.ceil(remaining / 60_000) + ' 分钟后再试', 'info');
                 return;
             }
-            forgivenessInFlightRef.current = true;
-            setForgivenessBusy(true);
-            try {
                 // 与糯叽机原版一致：有草稿也只能留作用户本地拒收，不让角色偷读。
                 if (input.trim()) await sendText();
                 const latest = await DB.getCharacter(target.id);
