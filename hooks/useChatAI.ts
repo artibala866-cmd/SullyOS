@@ -1325,6 +1325,8 @@ export const useChatAI = ({
                 const instantChatResult = await replyStep(async () => sendInstantChatTurn({
                     signal: replyRun.signal,
                     char,
+                    ...(opts?.automaticUserReply && typeof opts.expectedAutoReplyUserId === 'number'
+                      ? { autoReplyUserMessageId: opts.expectedAutoReplyUserId } : {}),
                     // 云端要发给模型的就是本地这一份，一个字不改（见 fire_pack 的 chat 段）。
                     chatMessages: (amsg2NoticesBlock
                         ? [...fullMessages, { role: 'system', content: amsg2NoticesBlock }]
@@ -1356,6 +1358,11 @@ export const useChatAI = ({
                     // 是因为用户发完就能关页面——留在本地的话，页面一关情绪底色就停更了。
                     ...(cloudEmotionEval ? { emotionEval: cloudEmotionEval } : {}),
                 }));
+                if (instantChatResult.superseded && opts?.automaticUserReply) {
+                    // A newer turn arrived during the cloud POST. This is not a
+                    // network failure and must not inject an artificial error bubble.
+                    return 'busy' as const;
+                }
                 if (instantChatResult.ok) {
                     // 这次 POST 已经把权威的那份 fire_pack 传上去了，收尾不必再打脏重传一遍。
                     instantChatAccepted = true;
