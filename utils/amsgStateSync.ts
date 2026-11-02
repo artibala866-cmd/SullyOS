@@ -834,6 +834,22 @@ export const wipeAmsgCloudDataForReset = async (): Promise<AmsgResetCloudWipe> =
   return { status: 'failed', workerUrl, detail: reasons.join('、') };
 };
 
+/**
+ * 用户一按发送就上传轻量的最新发言水位（不建立心跳、不新增计时器）。
+ * 完整 fire_pack 可能要上传几十 KB；这份几十字节的水位先告诉云端，
+ * 新上下文还没到位前不许角色凭旧快照主动开口。
+ * activeAt=0 表示“仅更新最新发言”，不是“当前正在生成回复”。
+ */
+export const noteAmsgUserMessage = (charId: string, sentAt: number): void => {
+  if (!Number.isFinite(sentAt) || sentAt <= 0) return;
+  const marker: AmsgChatPresence = {
+    v: 1, charId, activeAt: 0, lastUserMessageAt: sentAt,
+  };
+  void ActiveMsgClient.syncChatPresence(charId, marker).catch((error) => {
+    console.warn(`${HEADER} 用户新发言水位同步失败（完整上下文仍会另行同步）`, error);
+  });
+};
+
 const writeChatPresence = (charId: string, lastUserMessageAt: number | null) => {
   const presence: AmsgChatPresence = {
     v: 1,
