@@ -61,6 +61,11 @@ describe('original two-way private chat blocking framework', () => {
     expect(didCharReplyFailDuringGeneration(false, true)).toBe(true);
     expect(didCharReplyFailDuringGeneration(true, true)).toBe(true);
     expect(didCharReplyFailDuringGeneration(false, false)).toBe(false);
+    const startedAt = 100;
+    const midFlightBlock = changeChatBlock(undefined, 'user', true, { at: 125 });
+    const unblockedBeforeReply = changeChatBlock(midFlightBlock, 'user', false, { at: 150 });
+    expect(didCharReplyFailDuringGeneration(false, false, unblockedBeforeReply, startedAt, 175)).toBe(true);
+    expect(didCharReplyFailDuringGeneration(false, false, unblockedBeforeReply, 160, 175)).toBe(false);
   });
   it('云端消息迟到时只按 Char 发出的时刻判定，不被当前拉黑状态误改', () => {
     const blocked = changeChatBlock(undefined, 'user', true, { at: 200 });
@@ -74,6 +79,21 @@ describe('original two-way private chat blocking framework', () => {
     const blockedAgain = changeChatBlock(unblocked, 'user', true, { at: 400 });
     expect(didCharReplyFailAtDelivery(blockedAgain, 350)).toBe(false);
     expect(didCharReplyFailAtDelivery(blockedAgain, 450)).toBe(true);
+  });
+  it('40-event trim retains pre-trim delivery state for late-arriving cloud replies', () => {
+    let state = changeChatBlock(undefined, 'user', true, { at: 100 });
+    // Mix character-side changes so the original user-side block is evicted,
+    // without overwriting the user's current block direction.
+    for (let i = 0; i < 45; i++) {
+      state = changeChatBlock(state, 'character', i % 2 === 0, { at: 110 + i });
+    }
+    expect(state.history).toHaveLength(40);
+    expect(state.userBlockHistoryAnchor).toEqual({ at: 100, blocked: true });
+    expect(didCharReplyFailAtDelivery(state, 135)).toBe(true);
+    expect(didCharReplyFailAtDelivery(state, 95)).toBe(false);
+    state = changeChatBlock(state, 'user', false, { at: 200 });
+    expect(didCharReplyFailAtDelivery(state, 135)).toBe(true);
+    expect(didCharReplyFailAtDelivery(state, 210)).toBe(false);
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
