@@ -359,7 +359,7 @@ export type PostProcessDirective =
 
 /**
  * 把结构化 directive 反向拼回原 tag 字符串. 拼回的目的是让下游 chatParser.parseAndExecuteActions
- * (POKE/TRANSFER/ADD_EVENT/schedule_message/MUSIC_ACTION) + 内联 XHS handler (LIKE/FAV/COMMENT/REPLY/POST/SHARE)
+ * (POKE/TRANSFER/ADD_EVENT/MUSIC_ACTION) + 内联 XHS handler (LIKE/FAV/COMMENT/REPLY/POST/SHARE)
  * 用跟本地 fetch 路径一致的代码执行 — 不在客户端为 push 路径再写一份副作用执行器.
  *
  * 已知边界 case: 字段含 `|` / `]` 时会破坏 tag 边界. worker 端 classifier 已经按 `[^|]+?`
@@ -393,7 +393,7 @@ function reconstructDirectiveTags(directives: PostProcessDirective[] | undefined
                 parts.push(`[[ACTION:CHANGE_SCHEDULE|${d.time}|${d.activity}]]`);
                 break;
             case 'schedule_message':
-                parts.push(`[schedule_message | ${d.time} | fixed | ${d.text}]`);
+                // Old Worker compatibility: 1.0 directives are accepted but never executed.
                 break;
             case 'music_action': {
                 const tail = d.args && d.args.length > 0 ? `|${d.args.join('|')}` : '';

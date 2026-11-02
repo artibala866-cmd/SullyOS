@@ -43,3 +43,9 @@ for (const [name, value] of Object.entries(BUILD_DEFINES)) {
     (globalThis as any)[name] = value;
   }
 }
+
+// Opt-in offline regression runs: tests can mock fetch, but an unmocked path
+// must fail locally instead of contacting any real Worker or API endpoint.
+if (process.env.SULLY_TEST_OFFLINE === '1') {
+  globalThis.fetch = async () => { throw new Error('External network disabled for offline regression tests'); };
+}

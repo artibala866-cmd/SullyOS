@@ -44,6 +44,19 @@ const pushMeta = (messageId: string) => ({
     activeMsg2: { messageId, taskId: 'task-1' },
 });
 
+it('old Worker schedule directives cannot recreate local tasks while regular actions still work', async () => {
+    const charId = `retired-directive-${Date.now()}`;
+    await applyAssistantPostProcessing('好', makeCtx({ id: charId, name: '阿一' }, {
+        skipSecondPassLLM: true,
+        directives: [
+            { type: 'schedule_message', time: '2099-01-01 08:00:00', text: '旧消息' },
+            { type: 'poke' },
+        ],
+    }));
+    expect(await DB.getLegacyScheduledMessages()).toEqual([]);
+    expect((await DB.getMessagesByCharId(charId, true)).some(m => m.type === 'interaction')).toBe(true);
+});
+
 describe('directive 重放出来的副作用产物带推送标记', () => {
     it('转账 directive 落库的卡片带 activeMsg2.messageId', async () => {
         const charId = `c-replay-transfer-${Date.now()}`;

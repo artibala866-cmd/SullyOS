@@ -164,7 +164,7 @@ const loadRealtimeConfigFromLocalStorage = (): RealtimeConfig | undefined => {
  * skipSecondPassLLM=true: 不回连 LLM (worker 现在还没续跑能力, Phase 2 才解决),
  * 二轮标签 (RECALL / SEARCH / READ_DIARY / FS_READ_DIARY / READ_NOTE / XHS_*) 留在
  * 原文里, 由 ChatParser.sanitize 等步骤兜底剥掉。
- * 副作用类标签 (POKE / TRANSFER / ADD_EVENT / schedule_message / 写日记) 仍会执行。
+ * 副作用类标签 (POKE / TRANSFER / ADD_EVENT / 写日记) 仍会执行。
  * 失败时抛出, 由调用方决定是否重新入队。
  */
 /**
@@ -736,7 +736,7 @@ const processInboxMessageWithPostProcessing = async (
     },
     skipSecondPassLLM: true,
     // 把 worker hook 塞进 metadata.directives 的副作用结构化重放出来 (POKE/TRANSFER/ADD_EVENT/
-    // schedule_message/MUSIC_ACTION/XHS_*). applyAssistantPostProcessing 会反向拼回 tag 喂给
+    // MUSIC_ACTION/XHS_*). applyAssistantPostProcessing 会反向拼回 tag 喂给
     // chatParser + 内联 XHS handler.
     // 一个 user turn 可能产 N 条 push, directives 只应该
     // replay 一次. worker 把 directives 挂在最后一条 push 上,

@@ -89,8 +89,7 @@ import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
 import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
 import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
-import { allowLegacyAiScheduledDelivery } from '../utils/unsolicitedDeliveryGate';
-import { cancelDisabledLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
+import { retireLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
 import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
@@ -135,17 +134,6 @@ import { exportDesktopSkinLocal } from '../utils/desktopSkinBackup';
 import { assertSupportedSullyBackup } from '../utils/backupImportPolicy';
 import { createBuiltinSullyLive2DConfig, isBuiltinSullyLive2D, upgradeBuiltinSullyLive2DDefaults } from '../utils/builtinSullyLive2D';
 import { normalizeCharacterRoomAssetsInPlace } from '../utils/roomTemplateAssets';
-
-
-const normalizeProactiveAiContent = (raw: string): string => {
-  let cleaned = raw;
-  cleaned = cleaned.replace(/\[(?:(?:你|User|用户|System)\s*)?发送了表情包[:：]\s*(.*?)\]/g, '[[SEND_EMOJI: $1]]');
-  cleaned = cleaned.replace(
-    /(^|\n)\s*(?:(?:你|User|用户|System)\s*)?发送了表情包[:：]\s*([^\n]+?)(?=\s*(?:\n|$))/g,
-    (_match, lineStart: string, emojiName: string) => `${lineStart}[[SEND_EMOJI: ${emojiName.trim()}]]`
-  );
-  return cleaned;
-};
 
 
 type JSZipFileLike = {
@@ -480,11 +468,6 @@ interface OSContextType {
   lastMsgTimestamp: number; // New: Signal for Chat to refresh
   unreadMessages: Record<string, number>; // New: Track unread counts per character
   clearUnread: (charId: string) => void; // New: Method to clear unread
-
-  // Set of charIds whose proactive AI generation is currently in flight.
-  // Chat UI subscribes to this to render a soft "正在送达消息…" indicator
-  // instead of having the message just pop in.
-  proactiveComposingChars: Record<string, true>;
 
   // Cloud Backup
   cloudBackupConfig: CloudBackupConfig;
@@ -1036,7 +1019,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   
   const [lastMsgTimestamp, setLastMsgTimestamp] = useState<number>(0);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
-  const [proactiveComposingChars, setProactiveComposingChars] = useState<Record<string, true>>({});
   
   // LOGS
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
@@ -1053,7 +1035,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       try { const s = localStorage.getItem('os_cloud_backup_config'); return s ? { ...defaultCloudBackupConfig, ...JSON.parse(s) } : defaultCloudBackupConfig; } catch { return defaultCloudBackupConfig; }
   });
 
-  const schedulerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const interceptorsInitialized = useRef(false);
   
   // Back Handler Ref
@@ -1914,8 +1895,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       root.dataset.skin = theme.skin || 'default';
   }, [theme]);
 
-  // --- Update: Handle Scheduled Messages with Unread Flags & Web Notifications ---
-  // Refs to avoid stale closures in the scheduled message interval
+  // Latest chat view for AMSG2 delivery notifications.
   const activeAppRef = useRef(activeApp);
   const activeCharIdScheduleRef = useRef(activeCharacterId);
   activeAppRef.current = activeApp;
@@ -1926,129 +1906,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       setChatViewSnapshot(activeApp === AppID.Chat, activeCharacterId ?? null);
   }, [activeApp, activeCharacterId]);
-  // 通话状态（含挂起到后台的通话）——主动消息流程读它来判断"是否正在通话"
-  const suspendedCallRef = useRef(suspendedCall);
-  suspendedCallRef.current = suspendedCall;
-
-  useEffect(() => {
-      if (!isDataLoaded || characters.length === 0) return;
-      let cancelled = false;
-      // The 5-second check used to allow two overlapping async IDB scans.
-      // Both could read the same due row before either deleted it and deliver
-      // two identical messages. Only one scan may claim due rows per mount.
-      let scanRunning = false;
-      const checkAllSchedules = async () => {
-          if (cancelled || scanRunning) return;
-          scanRunning = true;
-          try {
-          let hasNewMessage = false;
-          const unreadUpdates: Record<string, number> = {};
-
-          for (const char of characters) {
-              try {
-                  // 用户正在 DateApp 里和这个角色见面 —— 角色之前排好的定时消息
-                  // ([schedule_message] 指令) 这轮先压着不投递（不删不读），
-                  // 等用户离开见面界面后，下一轮 5s 检查会自然送达。
-                  if (activeAppRef.current === AppID.Date && activeCharIdScheduleRef.current === char.id) continue;
-                  // 通话中（含挂起）同理：定时消息这轮先压着，离开通话后下一轮再送达。
-                  if ((activeAppRef.current === AppID.Call && activeCharIdScheduleRef.current === char.id)
-                      || suspendedCallRef.current?.charId === char.id) continue;
-                  const dueMessages = await DB.getDueScheduledMessages(char.id);
-                  if (cancelled) return;
-                  if (dueMessages.length > 0) {
-                      let deliveredCount = 0;
-                      for (const msg of dueMessages) {
-                          // Old local [schedule_message] text is AI-authored and
-                          // survives AMSG cloud cancellation. A user switching ALL
-                          // initiative/life/schedule controls off must never see
-                          // such stale "I just ate cake" messages delivered anew.
-                          // Read the LIVE role, not this interval's render snapshot.
-                          const liveChar = charactersRef.current.find(c => c.id === char.id);
-                          const authorized = !!liveChar && allowLegacyAiScheduledDelivery({
-                              activeMsg2Enabled: liveChar.activeMsg2Config?.enabled === true,
-                              realPersonEnabled: isRealPersonModeEnabled(),
-                              scheduleEnabled: isScheduleFeatureOn(liveChar),
-                          });
-                          if (!authorized) {
-                              await DB.deleteScheduledMessage(msg.id);
-                              continue;
-                          }
-                          await DB.saveMessage({
-                               charId: msg.charId,
-                               role: 'assistant',
-                               type: 'text',
-                               content: msg.content
-                          });
-                          await DB.deleteScheduledMessage(msg.id);
-                          deliveredCount += 1;
-                      }
-                      if (cancelled) return;
-                      if (deliveredCount === 0) continue;
-                      hasNewMessage = true;
-                      // Use refs for latest state (avoids stale closure & unnecessary deps)
-                      const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id;
-
-                      // If not chatting specifically with this char right now, mark as unread
-                      if (!isChattingWithThisChar) {
-                          addToast(`${char.name} 发来了一条消息`, 'success');
-                          unreadUpdates[char.id] = deliveredCount;
-
-                          // Web Notification
-                          if (!Capacitor.isNativePlatform() && window.Notification && Notification.permission === 'granted') {
-                              try {
-                                  // 通知不是 DOM，icon 只认能直接加载的地址：头像字段可能是 blobref
-                                  // 令牌，原样塞进去就是没图标。先解析（非令牌原样返回），解析不出
-                                  // 来（图已丢）时退回应用默认图标。
-                                  const icon = (await resolveRefToDataUrl(char.avatar || '')) || './icons/icon-192.png';
-                                  const notif = new Notification(char.name, {
-                                      body: dueMessages[0].content,
-                                      icon,
-                                      silent: false
-                                  });
-                                  notif.onclick = () => {
-                                      window.focus();
-                                      setActiveApp(AppID.Chat);
-                                      setActiveCharacterId(char.id);
-                                  };
-                              } catch (e) { /* notification failed */ }
-                          }
-                      }
-                  }
-              } catch (e) { /* schedule check failed */ }
-          }
-          if (hasNewMessage && !cancelled) {
-              setLastMsgTimestamp(Date.now());
-              // Use functional updater to avoid depending on unreadMessages in the effect deps
-              setUnreadMessages(prev => {
-                  const next = { ...prev };
-                  for (const [charId, count] of Object.entries(unreadUpdates)) {
-                      next[charId] = (next[charId] || 0) + count;
-                  }
-                  return next;
-              });
-          }
-          } finally { scanRunning = false; }
-      };
-      // Web Locks are shared across tabs and across remounted OS providers.
-      // Without this, two open SullyOS windows can both read the same due
-      // legacy AI message before either window deletes it, doubling replies.
-      let scanQueued = false;
-      const requestScheduleCheck = () => {
-          if (cancelled || scanQueued) return;
-          scanQueued = true;
-          const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-          const work = locks?.request
-              ? locks.request('sully-legacy-scheduled-delivery', { mode: 'exclusive' },
-                  () => checkAllSchedules())
-              : checkAllSchedules();
-          void Promise.resolve(work).catch(error =>
-              console.warn('[Schedule] legacy message delivery scan failed', error))
-              .finally(() => { scanQueued = false; });
-      };
-      schedulerRef.current = setInterval(requestScheduleCheck, 5000);
-      requestScheduleCheck();
-      return () => { cancelled = true; if (schedulerRef.current) clearInterval(schedulerRef.current); };
-  }, [isDataLoaded, characters]);
 
   const clearUnread = useCallback((charId: string) => {
       setUnreadMessages(prev => {
@@ -2058,66 +1915,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           return next;
       });
   }, []);
-
-  // Listen for proactive messages to show unread red dot
-  useEffect(() => {
-      let awayProactiveCount = 0;
-
-      const handler = (e: Event) => {
-          const { charId, charName, body } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string };
-          // Only mark unread if user is NOT currently viewing this character's chat
-          // Always bump timestamp so Chat reloads messages if currently open
-          setLastMsgTimestamp(Date.now());
-
-          const isChattingWithThisChar = (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) || isEmbeddedChatVisible(charId);
-          if (!isChattingWithThisChar) {
-              const isVisible = document.visibilityState === 'visible';
-              if (isVisible) {
-                  addToast(`${charName} 主动发来了消息`, 'success');
-              } else {
-                  awayProactiveCount += 1;
-              }
-              setUnreadMessages(prev => ({ ...prev, [charId]: (prev[charId] || 0) + 1 }));
-              const preview = (body || `${charName} sent a proactive message`).replace(/\s+/g, ' ').trim() || `${charName} sent a proactive message`;
-              void sendProactiveNativeNotification(charId, charName, preview);
-
-              // Web Notification —— 走 Service Worker 的 showNotification（和"测试推送"
-              // 同一条链路）。页面级 `new Notification(...)` 在标签后台 / PWA / 移动端会
-              // 静默失败，必须走 SW registration 才稳定。
-              if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator && window.Notification && Notification.permission === 'granted') {
-                  const char = characters.find(c => c.id === charId);
-                  navigator.serviceWorker.ready.then(async reg => {
-                      // 同上：令牌是个非空字符串，`char?.avatar || 默认图标` 这种写法会让默认
-                      // 图标那条兜底永远轮不到，结果一个图标都没有还不报错。所以先解析成能
-                      // 加载的地址，拿到空串才用默认图标。
-                      const icon = (await resolveRefToDataUrl(char?.avatar || '')) || './icons/icon-192.png';
-                      reg.showNotification(charName, {
-                          body: preview,
-                          icon,
-                          badge: './icons/icon-192.png',
-                          tag: `proactive-${charId}`,
-                          data: { charId, kind: 'proactive-1.0' },
-                      }).catch(() => { /* notification failed */ });
-                  }).catch(() => { /* SW not ready */ });
-              }
-          }
-      };
-
-      const onVisible = () => {
-          if (document.visibilityState !== 'visible') return;
-          if (awayProactiveCount > 0) {
-              addToast(`你离开期间收到 ${awayProactiveCount} 条消息`, 'success');
-              awayProactiveCount = 0;
-          }
-      };
-
-      window.addEventListener('proactive-message-sent', handler);
-      document.addEventListener('visibilitychange', onVisible);
-      return () => {
-          window.removeEventListener('proactive-message-sent', handler);
-          document.removeEventListener('visibilitychange', onVisible);
-      };
-  }, [characters, sendProactiveNativeNotification]);
 
   // ─── Global Proactive Message Handler ───
   // Registered at OS level so it works even when Chat is not open.
@@ -2463,46 +2260,29 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
   }, [isDataLoaded, amsgMasterStates]);
 
-  // The old AI [schedule_message] path registers OS-level local notifications
-  // that persist even if both React and the AMSG Worker are fully disabled.
-  // Revoke ONLY alarms matching legacy AI messages, never unrelated app alarms.
+  // Compatibility cleanup only: no 1.0 sender, permission gate or polling engine remains.
   useEffect(() => {
       if (!isDataLoaded) return;
-      let disposed = false;
-      let sweeping = false;
-      const sweepDisabledLegacy = async () => {
-          if (disposed || sweeping) return;
-          sweeping = true;
-          try {
-              for (const char of charactersRef.current) {
-                  if (disposed) return;
-                  if (allowLegacyAiScheduledDelivery({
-                      activeMsg2Enabled: char.activeMsg2Config?.enabled === true,
-                      realPersonEnabled: isRealPersonModeEnabled(),
-                      scheduleEnabled: isScheduleFeatureOn(char),
-                  })) continue;
-                  try { await cancelDisabledLegacyAiMessages(char); }
-                  catch (error) {
-                      console.warn('[Schedule] retry legacy AI alarm opt-out on resume', char.id, error);
-                  }
+      let running = false;
+      let reported = false;
+      const sweep = async () => {
+          if (running) return;
+          running = true;
+          try { await retireLegacyAiMessages(); }
+          catch (error) {
+              console.warn('[LegacyMessages] cleanup pending; retry on resume', error);
+              if (!reported) {
+                  reported = true;
+                  addToast('旧版主动消息已停止，但部分旧任务或手机通知尚未清理成功，回到应用时会重试', 'error');
               }
-          } finally { sweeping = false; }
+          }
+          finally { running = false; }
       };
-      void sweepDisabledLegacy();
-      const onVisible = () => { if (!document.hidden) void sweepDisabledLegacy(); };
-      const onMode = () => { void sweepDisabledLegacy(); };
-      const retry = window.setInterval(onVisible, 30 * 60_000);
-      window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onMode);
-      window.addEventListener(SCHEDULE_CHANGE_EVENT, onMode);
+      void sweep();
+      const onVisible = () => { if (!document.hidden) void sweep(); };
       document.addEventListener('visibilitychange', onVisible);
-      return () => {
-          disposed = true;
-          clearInterval(retry);
-          window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onMode);
-          window.removeEventListener(SCHEDULE_CHANGE_EVENT, onMode);
-          document.removeEventListener('visibilitychange', onVisible);
-      };
-  }, [isDataLoaded, amsgMasterStates]);
+      return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [isDataLoaded]);
 
   // Restore TODAY'S plans for enabled characters from the global OS surface,
   // not just when a private-chat component happens to mount. This runs only
@@ -4166,7 +3946,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               'room_notes', 'groups', 'journal_stickers', 'social_posts', 'courses', 'games', 'worldbooks', 'story_theaters', 'story_theater_presets', 'story_theater_masks', 'novels', 'songs',
               'bank_transactions', 'bank_data',
               'xhs_activities', 'xhs_stock',
-              'quizzes', 'guidebook', 'scheduled_messages', 'life_sim',
+              'quizzes', 'guidebook', 'life_sim',
               'handbook', 'trackers', 'tracker_entries', 'hotnews_snapshots',
               'memory_nodes', 'memory_vectors', 'memory_links', 'topic_boxes', 'anticipations', 'event_boxes',
               'room_plates', 'digest_reports',
@@ -4706,7 +4486,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // Older builds stored their fully resolved origin in roomConfig; strip that origin
               // from the export clone so restoring on another host/base path keeps every item.
               if (storeName === 'characters' && Array.isArray(rawData)) {
-                  for (const character of rawData) normalizeCharacterRoomAssetsInPlace(character);
+                  for (const character of rawData) {
+                      delete character.proactiveConfig;
+                      normalizeCharacterRoomAssetsInPlace(character);
+                  }
               }
 
               // 向量旁路：归一化拼 bin + 索引，不进 backupData（writeV2Backup 收尾落 zip）。直接跳过
@@ -5772,7 +5555,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     lastMsgTimestamp,
     unreadMessages,
     clearUnread,
-    proactiveComposingChars,
     cloudBackupConfig,
     updateCloudBackupConfig,
     cloudBackupToWebDAV,

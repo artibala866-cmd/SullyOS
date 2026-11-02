@@ -3,14 +3,13 @@ import { readFileSync } from 'node:fs';
 const text=(name:string)=>readFileSync(new URL(name,import.meta.url),'utf8');
 
 describe('all-off deliver/remote repair wiring',()=>{
-  it('legacy scheduled-message interval checks live role state and never sends dropped rows to chat',()=>{
+  it('has no 1.0 sender and keeps one-way cleanup on startup/resume', () => {
     const os=text('../context/OSContext.tsx');
-    expect(os).toContain('allowLegacyAiScheduledDelivery({');
-    expect(os).toContain('const liveChar = charactersRef.current.find(c => c.id === char.id)');
-    expect(os).toContain('if (!authorized)');
-    expect(os).toContain('await DB.deleteScheduledMessage(msg.id)');
-    expect(os).toContain('if (deliveredCount === 0) continue');
-    expect(os).toContain('if (cancelled || scanRunning) return');
+    expect(os).not.toContain('getDueScheduledMessages');
+    expect(os).not.toContain('proactive-message-sent');
+    expect(os).not.toContain('sully-legacy-scheduled-delivery');
+    expect(os).toContain('await retireLegacyAiMessages()');
+    expect(os).toContain("document.addEventListener('visibilitychange', onVisible)");
   });
   it('cloud scheduled messages are rejected before post-processing, side effects, chat persistence and notifications',()=>{
     const runtime=text('./activeMsgRuntime.ts');

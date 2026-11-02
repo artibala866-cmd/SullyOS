@@ -622,7 +622,9 @@ export const DB = {
 
   saveCharacter: async (character: CharacterProfile): Promise<void> => {
     const db = await openDB();
-    return persistCharacterWithHomeMessages(db, character, clearStaleMemoryMirror);
+    const cleanCharacter = { ...character };
+    delete (cleanCharacter as any).proactiveConfig;
+    return persistCharacterWithHomeMessages(db, cleanCharacter, clearStaleMemoryMirror);
   },
 
   /** Atomic append: read and write current character inside the same
@@ -2374,45 +2376,35 @@ export const DB = {
       });
   },
 
-  saveScheduledMessage: async (msg: ScheduledMessage): Promise<void> => {
+  /** Read-only access to the retired 1.0 queue, including orphaned character IDs. */
+  getLegacyScheduledMessages: async (): Promise<ScheduledMessage[]> => {
       const db = await openDB();
       return new Promise((resolve, reject) => {
-          const transaction = db.transaction(STORE_SCHEDULED, 'readwrite');
-          transaction.objectStore(STORE_SCHEDULED).put(msg);
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error || new Error('定时消息未能保存'));
-          transaction.onabort = () => reject(transaction.error || new Error('定时消息未能保存'));
-      });
-  },
-
-  /** All legacy AI-authored deferred chat messages, including future ones.
-   * Used when all initiating features are OFF to revoke pending system alarms.
-   */
-  getScheduledMessagesByCharId: async (charId: string): Promise<ScheduledMessage[]> => {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-          const transaction = db.transaction(STORE_SCHEDULED, 'readonly');
-          const request = transaction.objectStore(STORE_SCHEDULED)
-              .index('charId').getAll(IDBKeyRange.only(charId));
-          request.onsuccess = () => resolve((request.result || []) as ScheduledMessage[]);
+          const tx = db.transaction(STORE_SCHEDULED, 'readonly');
+          const request = tx.objectStore(STORE_SCHEDULED).getAll();
+          request.onsuccess = () => resolve(request.result || []);
           request.onerror = () => reject(request.error);
       });
   },
 
-  getDueScheduledMessages: async (charId: string): Promise<ScheduledMessage[]> => {
+  /** Remove only retired role fields, using live cursors to preserve concurrent edits. */
+  retireLegacyProactiveConfig: async (): Promise<void> => {
       const db = await openDB();
       return new Promise((resolve, reject) => {
-          const transaction = db.transaction(STORE_SCHEDULED, 'readonly');
-          const store = transaction.objectStore(STORE_SCHEDULED);
-          const index = store.index('charId');
-          const request = index.getAll(IDBKeyRange.only(charId));
+          const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
+          const request = tx.objectStore(STORE_CHARACTERS).openCursor();
           request.onsuccess = () => {
-              const all = request.result as ScheduledMessage[];
-              const now = Date.now();
-              const due = all.filter(m => m.dueAt <= now);
-              resolve(due);
+              const cursor = request.result;
+              if (!cursor) return;
+              if (Object.prototype.hasOwnProperty.call(cursor.value, 'proactiveConfig')) {
+                  const value = { ...cursor.value };
+                  delete value.proactiveConfig;
+                  cursor.update(value);
+              }
+              cursor.continue();
           };
-          request.onerror = () => reject(request.error);
+          tx.oncomplete = () => resolve();
+          tx.onerror = tx.onabort = () => reject(tx.error || new Error('旧主动消息配置清理失败'));
       });
   },
 
@@ -4113,7 +4105,7 @@ export const DB = {
           getAllFromStore(STORE_SONGS),
           getAllFromStore(STORE_QUIZZES),
           getAllFromStore(STORE_GUIDEBOOK),
-          getAllFromStore(STORE_SCHEDULED),
+          Promise.resolve([]),
           getAllFromStore(STORE_LIFE_SIM),
           getAllFromStore(STORE_HANDBOOK),
           getAllFromStore(STORE_TRACKERS),
@@ -4141,6 +4133,7 @@ export const DB = {
       const userProfile = userProfiles.length > 0 ? { ...userProfiles[0] } : undefined;
       if (userProfile) delete userProfile.id;
 
+      for (const character of characters) delete character.proactiveConfig;
       const mainState = bankData.find((d: any) => d.id === 'main_state');
       const dollhouseRecord = bankData.find((d: any) => d.id === 'dollhouse_state');
 
@@ -4215,6 +4208,9 @@ export const DB = {
           ? undefined : validateGuestMusicLibraryBackup(data.guestMusicLibrary);
       const db = await openDB();
       invalidateStoryTimelineRepair(db);
+      // Revoke existing alarms while their original role names are still available.
+      const { retireLegacyAiMessages } = await import('./legacyAiScheduledCleanup');
+      await retireLegacyAiMessages();
       
       const availableStores = [
           STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
@@ -4475,6 +4471,7 @@ export const DB = {
                       return media ? applyMediaToChar(c, media) : c;
                   });
               }
+              for (const character of data.characters) delete (character as any).proactiveConfig;
               await clearAndAdd(STORE_CHARACTERS, data.characters, '角色资料', true);
           } else if (data.mediaAssets && hasStore(STORE_CHARACTERS)) {
               await beforeWrite(data.mediaAssets, '角色媒体', true);
@@ -4707,7 +4704,8 @@ export const DB = {
           data.guidebookSessions = undefined as any;
       }, data.guidebookSessions?.length || 0);
       await runSection('定时消息', data.scheduledMessages !== undefined, async () => {
-          await clearAndAdd(STORE_SCHEDULED, data.scheduledMessages || [], '定时消息', false);
+          // Retired 1.0 input is deliberately ignored. Existing native alarm cleanup
+          // owns the old table; never clear it before alarm cancellation succeeds.
           data.scheduledMessages = undefined as any;
       }, data.scheduledMessages?.length || 0);
       await runSection('人生模拟', data.lifeSimState !== undefined, async () => {

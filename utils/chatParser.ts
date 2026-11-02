@@ -2,15 +2,10 @@ import { withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
 import { verifiedCharMusicCardIntent } from './musicCharActions';
 
 import { DB } from './db';
-import { allowLegacyAiScheduledDelivery } from './unsolicitedDeliveryGate';
-import { isRealPersonModeEnabled } from './realPersonMode';
-import { isScheduleFeatureOn } from './scheduleGenerator';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { CharacterProfile, CharPlaylistSong } from '../types';
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
 import { executeLifeDirectives } from './lifeRecords';
-import { wallClockToTimestamp } from './timezone';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
     collaborationFileMessageMetadata,
@@ -514,55 +509,8 @@ export const ChatParser = {
             content = content.replace(eventMatch[0], '').trim();
         }
 
-        // SCHEDULE
-        const scheduleRegex = /\[schedule_message \| (.*?) \| fixed \| (.*?)\]/g;
-        let match;
-        while ((match = scheduleRegex.exec(content)) !== null) {
-            const timeStr = match[1].trim();
-            const msgContent = match[2].trim();
-            // 角色照着自己那边的钟写时间，按设备时区解释会整体偏一个时差：
-            // 纽约角色在自己上午说「今晚 21:00 找你」，设备在中国就会算成已经过期。
-            const dueTime = wallClockToTimestamp(timeStr, charTz);
-            // 时间写歪 / 已经过去的一律不排。这两种情况下角色在正文里往往已经把话说出去了
-            // （「我到点叫你」），排不上就是一句空头承诺，所以留一行日志说清是哪条、为什么，
-            // 别让它悄无声息地消失。离线补收时尤其常见：消息是凌晨发的，人第二天早上才打开。
-            if (isNaN(dueTime)) {
-                console.warn('[ScheduledMessage] 时间解析不了，这条不排:', timeStr, '内容:', msgContent);
-                continue;
-            }
-            if (dueTime <= Date.now()) {
-                console.warn(
-                    '[ScheduledMessage] 时间已经过去，这条不排:', timeStr,
-                    `(角色时区 ${charTz ?? '设备默认'}，晚了 ${Math.round((Date.now() - dueTime) / 60000)} 分钟)`,
-                    '内容:', msgContent,
-                );
-                continue;
-            }
-            // This legacy tag is an autonomous deferred CHAT message.
-            // Never create a new hidden system alarm after all three user
-            // initiative switches were explicitly disabled, even if a stale
-            // AI response included this tag.
-            const latestChar = await replyStep(() => DB.getCharacter(charId));
-            if (!latestChar || !allowLegacyAiScheduledDelivery({
-                activeMsg2Enabled: latestChar.activeMsg2Config?.enabled === true,
-                realPersonEnabled: isRealPersonModeEnabled(),
-                scheduleEnabled: isScheduleFeatureOn(latestChar),
-            })) continue;
-            const notificationId = Math.floor(Math.random() * 100000);
-            await replyStep(async () => DB.saveScheduledMessage({
-                id: `sched-${Date.now()}-${Math.random()}`, charId,
-                content: msgContent, dueAt: dueTime, createdAt: Date.now(), notificationId,
-            }));
-            try {
-                const hasPerm = await replyStep(async () => LocalNotifications.checkPermissions());
-                if (hasPerm.display === 'granted') {
-                    await replyStep(async () => LocalNotifications.schedule({ notifications: [{ title: charName, body: msgContent, id: notificationId, schedule: { at: new Date(dueTime) }, smallIcon: 'ic_stat_icon_config_sample' }] }));
-                }
-            } catch (e) { replyRun?.check(); console.log("Notification schedule skipped (web mode)"); }
-
-            addToast(`${charName} 似乎打算一会儿找你...`, 'info');
-        }
-        content = content.replace(scheduleRegex, '').trim();
+        // Retired 1.0 tags may survive in history or old Worker results. Strip only; never schedule.
+        content = content.replace(/\[schedule_message\b[^\]]*\]/gi, '').trim();
 
         // LIFE — 生活记录代记（生理期/药盒/记账/锻炼）。开关校验、去重、写库、落 life_card
         // 都在 lifeRecords.ts 里；这里只负责取角色档案。取不到就只剥 tag（静默丢弃）。

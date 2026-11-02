@@ -9,7 +9,6 @@ import { installTranslateCrashGuard } from './utils/translateCrashGuard';
 import { ActiveMsgRuntime } from './utils/activeMsgRuntime';
 import { KeepAlive } from './utils/keepAlive';
 import { installIOSStandaloneWorkaround } from './utils/iosStandalone';
-import { installWakeListener } from './utils/proactivePushConfig';
 import { initAnalytics } from './utils/analytics';
 import { Capacitor } from '@capacitor/core';
 
@@ -24,7 +23,8 @@ if (import.meta.env.VITE_AMSG_NATIVE_PUSH === 'true' && Capacitor.isNativePlatfo
 
 // Remove only obsolete local interval schedules; ActiveMsg 2.0 stores its tasks separately.
 try {
-  for (const key of ['proactive_schedules', 'proactive_schedule', 'proactive_last_fire_map', 'proactive_last_fire']) {
+  for (const key of ['proactive_schedules', 'proactive_schedule', 'proactive_last_fire_map', 'proactive_last_fire',
+    'proactive_push_enabled_v1', 'proactive_push_last_wake_at_v1', 'proactive_push_last_wake_char_v1']) {
     localStorage.removeItem(key);
   }
 } catch { /* storage unavailable */ }
@@ -38,8 +38,6 @@ const keepAliveReady = KeepAlive.init();
 Promise.all([databaseReady, keepAliveReady]).then(() => {
   recordDatabaseOpen('background-ready');
   void ActiveMsgRuntime.init();
-  // Record every wake the SW reports so the diagnostic panel can show "last received".
-  installWakeListener();
 }).catch(error => console.error('后台任务暂未启动：本地数据或保活服务未就绪', error));
 
 installIOSStandaloneWorkaround();

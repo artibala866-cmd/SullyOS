@@ -1,72 +1,73 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: vi.fn(() => true) } }));
 vi.mock('@capacitor/local-notifications', () => ({
-  LocalNotifications: { getPending: vi.fn(async () => ({ notifications: [] })),
-    cancel: vi.fn(async () => {}) },
+  LocalNotifications: { getPending: vi.fn(), cancel: vi.fn() },
 }));
-vi.mock('./db', () => ({ DB: { getScheduledMessagesByCharId: vi.fn(async () => []),
-  deleteScheduledMessage: vi.fn(async () => {}) } }));
-vi.mock('./realPersonMode', () => ({ isRealPersonModeEnabled: vi.fn(() => false) }));
-vi.mock('./scheduleGenerator', () => ({ isScheduleFeatureOn: vi.fn(() => false) }));
-
+vi.mock('./db', () => ({ DB: {
+  retireLegacyProactiveConfig: vi.fn(), getLegacyScheduledMessages: vi.fn(),
+  getCharacter: vi.fn(), deleteScheduledMessage: vi.fn(),
+} }));
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { DB } from './db';
-import { isRealPersonModeEnabled } from './realPersonMode';
-import { isScheduleFeatureOn } from './scheduleGenerator';
-import { cancelDisabledLegacyAiMessages } from './legacyAiScheduledCleanup';
-const character=(enabled=false)=>({id:'role',name:'阿一',activeMsg2Config:{enabled}} as any);
-const rows=[
-  {id:'legacy',charId:'role',content:'刚吃了生日蛋糕',createdAt:1,dueAt:999999},
-  {id:'new',charId:'role',content:'我刚醒',notificationId:72,createdAt:1,dueAt:999999},
+import { retireLegacyAiMessages } from './legacyAiScheduledCleanup';
+const rows = [
+  { id: 'old', charId: 'role', content: '蛋糕', dueAt: 1 },
+  { id: 'identified', charId: 'deleted-role', content: '起床', notificationId: 72, dueAt: 9999999999999 },
 ];
-beforeEach(()=>{
+beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
-  vi.mocked(isRealPersonModeEnabled).mockReturnValue(false);
-  vi.mocked(isScheduleFeatureOn).mockReturnValue(false);
-  vi.mocked(DB.getScheduledMessagesByCharId).mockResolvedValue(rows as any);
-  vi.mocked(LocalNotifications.getPending).mockResolvedValue({notifications:[]} as any);
+  vi.mocked(DB.retireLegacyProactiveConfig).mockResolvedValue(undefined);
+  vi.mocked(DB.getLegacyScheduledMessages).mockResolvedValue(rows as any);
+  vi.mocked(DB.getCharacter).mockImplementation(async id => id === 'role'
+    ? { id, name: '阿一', activeMsg2Config: { enabled: true } } as any : null);
+  vi.mocked(DB.deleteScheduledMessage).mockResolvedValue(undefined);
+  vi.mocked(LocalNotifications.getPending).mockResolvedValue({ notifications: [] });
   vi.mocked(LocalNotifications.cancel).mockResolvedValue(undefined as any);
-  vi.mocked(DB.deleteScheduledMessage).mockResolvedValue(undefined as any);
 });
-describe('legacy AI scheduled notifications are not immune to OFF',()=>{
-  it('withdraws stored rows and matching old/new native notifications, never unrelated reminders',async()=>{
-    vi.mocked(LocalNotifications.getPending).mockResolvedValue({notifications:[
-      {id:14,title:'阿一',body:'刚吃了生日蛋糕'},
-      {id:72,title:'阿一',body:'我刚醒'},
-      {id:82,title:'日程',body:'我刚醒'},
-      {id:93,title:'阿一',body:'医生预约'},
-    ]} as any);
-    expect(await cancelDisabledLegacyAiMessages(character())).toBe(2);
-    expect(LocalNotifications.cancel).toHaveBeenCalledWith({
-      notifications:[{id:14},{id:72}],
-    });
-    expect(vi.mocked(DB.deleteScheduledMessage).mock.calls.map(([id])=>id)).toEqual(['legacy','new']);
+describe('one-way retirement of 1.0', () => {
+  it('cleans past/future and orphan rows even while 2.0 is enabled; preserves unrelated alarms', async () => {
+    vi.mocked(LocalNotifications.getPending).mockResolvedValue({ notifications: [
+      { id: 14, title: '阿一', body: '蛋糕' },
+      { id: 72, title: '旧角色名', body: '起床' },
+      { id: 82, title: '日程', body: '起床' },
+      { id: 93, title: '阿一', body: '医生预约' },
+      { id: 94, extra: { source: 'proactive-chat' } },
+      { id: 95, extra: { source: 'amsg2' } },
+    ] } as any);
+    expect(await retireLegacyAiMessages()).toBe(2);
+    expect(LocalNotifications.cancel).toHaveBeenCalledWith({ notifications: [{ id: 14 }, { id: 72 }] });
+    expect(vi.mocked(DB.deleteScheduledMessage).mock.calls.flat()).toEqual(['old', 'identified']);
   });
-  it('does not touch pending AI messages if any of the three permissions remains on',async()=>{
-    vi.mocked(isRealPersonModeEnabled).mockReturnValue(true);
-    expect(await cancelDisabledLegacyAiMessages(character())).toBe(0);
-    vi.mocked(isRealPersonModeEnabled).mockReturnValue(false);
-    vi.mocked(isScheduleFeatureOn).mockReturnValue(true);
-    expect(await cancelDisabledLegacyAiMessages(character())).toBe(0);
-    vi.mocked(isScheduleFeatureOn).mockReturnValue(false);
-    expect(await cancelDisabledLegacyAiMessages(character(true))).toBe(0);
-    expect(DB.getScheduledMessagesByCharId).not.toHaveBeenCalled();
-  });
-  it('failed native OS alarm cancellation retains rows so another opt-out retry can recover',async()=>{
-    vi.mocked(LocalNotifications.getPending).mockResolvedValue({notifications:[
-      {id:72,title:'阿一',body:'我刚醒'},
-    ]} as any);
+  it('retains identities if native cancellation fails, then retries without declaring completion', async () => {
+    vi.mocked(LocalNotifications.getPending).mockResolvedValue({ notifications: [{ id: 72, body: '起床' }] } as any);
     vi.mocked(LocalNotifications.cancel).mockRejectedValueOnce(new Error('native offline'));
-    await expect(cancelDisabledLegacyAiMessages(character())).rejects.toThrow('native offline');
+    await expect(retireLegacyAiMessages()).rejects.toThrow('native offline');
     expect(DB.deleteScheduledMessage).not.toHaveBeenCalled();
-    await cancelDisabledLegacyAiMessages(character());
+    await retireLegacyAiMessages();
     expect(DB.deleteScheduledMessage).toHaveBeenCalledTimes(2);
   });
-  it('web environments have no native scheduled alarms and simply withdraw old AI rows',async()=>{
+  it('does not erase native identities when permission/plugin access fails', async () => {
+    vi.mocked(LocalNotifications.getPending).mockRejectedValueOnce(new Error('plugin unavailable'));
+    await expect(retireLegacyAiMessages()).rejects.toThrow('plugin unavailable');
+    expect(DB.deleteScheduledMessage).not.toHaveBeenCalled();
+  });
+  it('preserves ambiguous old alarms from renamed/deleted roles for a later explicit cleanup', async () => {
+    vi.mocked(LocalNotifications.getPending).mockResolvedValue({ notifications: [{ id: 19, title: '别的提醒', body: '蛋糕' }] } as any);
+    await expect(retireLegacyAiMessages()).rejects.toThrow('无法确认归属');
+    expect(LocalNotifications.cancel).not.toHaveBeenCalled();
+    expect(vi.mocked(DB.deleteScheduledMessage).mock.calls.flat()).toEqual(['identified']);
+  });
+  it('web cleanup has no notification permission or subscription side effects', async () => {
     vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
-    expect(await cancelDisabledLegacyAiMessages(character())).toBe(2);
+    expect(await retireLegacyAiMessages()).toBe(2);
     expect(LocalNotifications.getPending).not.toHaveBeenCalled();
+  });
+  it('coalesces concurrent startup/resume/import cleanup', async () => {
+    const first = retireLegacyAiMessages();
+    expect(retireLegacyAiMessages()).toBe(first);
+    await first;
+    expect(DB.getLegacyScheduledMessages).toHaveBeenCalledTimes(1);
   });
 });

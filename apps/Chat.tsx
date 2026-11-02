@@ -172,7 +172,7 @@ const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 export interface HomePhoneChatProps {characterId:string;getContext:()=>string;onBack:()=>void;hideHeader?:boolean}
 const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
-    const { activeApp, characters, activeCharacterId: osActiveCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
+    const { activeApp, characters, activeCharacterId: osActiveCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, openDateWithChar } = useOS();
     const activeCharacterId=homePhone?.characterId??osActiveCharacterId;
     const privateChatSpeech = usePrivateChatSpeech(activeCharacterId, apiConfig);
     const [typedVoiceEnabled, setTypedVoiceEnabled] = useState(false);
@@ -180,7 +180,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setTypedVoiceEnabled(false);
     }, [activeCharacterId]);
     const osTheme = useMemo(()=>homePhone?homePhoneAppearance(baseOsTheme):resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId,!!homePhone]);
-    const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
     const [lifePacing, setLifePacing] = useState(isRealPersonModeEnabled);
@@ -4104,8 +4103,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         blocked: characterBlocksUser(char?.chatBlock) || messages.length === 0 || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
-            || mcdAppOpen || luckinAppOpen || showForwardModal || isProactiveComposing,
-        // AMSG proactive composition delays this user turn; it does not answer it.
+            || mcdAppOpen || luckinAppOpen || showForwardModal,
+        // Pending instant replies delay this user turn; they do not answer it.
         generating: isTyping || instantChatPending,
         onGenerate: async (stillEligible) => {
             // The intent stays durable while this DB read is in flight. If the
@@ -4135,7 +4134,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 latestPersisted.metadata?.musicListenInvite ||
                 latestPersisted.metadata?.musicListenInviteResponseTo) return 'discard';
             const liveComposer = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
-            if (liveComposer?.value.trim() || isTyping || instantChatPending || isProactiveComposing) return 'retry';
+            if (liveComposer?.value.trim() || isTyping || instantChatPending) return 'retry';
             // At most one existing generation route; it decides local vs cloud.
             // Passing the original user-turn boundary lets the existing
             // chatContinuation logic recognize later scheduled proactive notes.
@@ -4959,7 +4958,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     </>
                 )}
                 {/* instantChatPending：这一轮在云端跑，本机可以关页面，指示灯靠落盘记录活着。 */}
-                {(isTyping || instantChatPending || recallStatus || searchStatus || diaryStatus || isProactiveComposing) && !selectionMode && (
+                {(isTyping || instantChatPending || recallStatus || searchStatus || diaryStatus) && !selectionMode && (
                     <div className="flex items-end gap-3 px-3 mb-6 animate-fade-in">
                         <TokenImg value={char.avatar} className={chatPendingAvatarClass} />
                         <div className="bg-white px-4 py-3 rounded-2xl shadow-sm">
@@ -4967,11 +4966,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                 <div role="status" className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                                     <span className="h-3 w-3 shrink-0 rounded-full border-2 border-slate-300 border-t-slate-500 animate-spin" aria-hidden="true" />
                                     {inboxStatus}
-                                </div>
-                            ) : isProactiveComposing && !isTyping && !recallStatus && !searchStatus && !diaryStatus ? (
-                                <div className="flex items-center gap-2 text-xs text-neutral-600 font-medium">
-                                    <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    {char.name} 在给你写消息…
                                 </div>
                             ) : searchStatus ? (
                                 <div className="flex items-center gap-2 text-xs text-neutral-500 font-medium">

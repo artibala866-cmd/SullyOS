@@ -3,7 +3,7 @@
  *
  * The 主动消息 2.0 one-click deploy reuses the key pair stored here (and
  * writes the generated pair back), so redeploying keeps browser push
- * subscriptions valid. Proactive Push (utils/proactivePushConfig.ts) reads
+ * subscriptions valid. The AMSG2 Worker reads
  * the public key from here as well.
  *
  * Private key is intentionally persisted too: the user has to paste it
