@@ -5,7 +5,7 @@ import {
   extractCharacterBlockDirective, extractCharacterBlockAction, buildInPersonCharBlockInstruction,
   buildFirstPostUnblockOpeningInstruction, buildCharacterBlockAutonomyInstruction,
   buildPrivateChatBlockHistoryContext, buildForgivenessMessages,
-  forgivenessCooldownRemaining, parseForgivenessDecision, applyCharacterForgivenessDecision,
+  forgivenessCooldownRemaining, parseForgivenessDecision, extractForgivenessJson, applyCharacterForgivenessDecision,
   CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS,
 } from './chatBlockAI';
 
@@ -129,6 +129,17 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(staying.characterBlockedAt).toBe(300);
     expect(staying.forgivenessSoftness).toBe(65);
     expect(staying.lastForgivenessCheckAt).toBe(500);
+    expect(staying.forgivenessScenes).toEqual([]);
+    const sceneDecision = { ...judgement, decision: 'stay' as const,
+      theater: { title: '停在草稿箱', body: '他把手机扣在桌上，几次打开未发送的草稿。' } };
+    const withScene = applyCharacterForgivenessDecision(newBlock, 300, sceneDecision, 501)!;
+    expect(withScene.forgivenessScenes).toEqual([{
+      at: 501, blockedAt: 300, title: '停在草稿箱',
+      body: '他把手机扣在桌上，几次打开未发送的草稿。',
+    }]);
+    const nextBlock = changeChatBlock(withScene, 'character', false, { at: 502 });
+    const anotherBlock = changeChatBlock(nextBlock, 'character', true, { at: 503, reason: '另一个原因' });
+    expect(anotherBlock.forgivenessScenes).toEqual([]);
   });
   it('即使 40 条事件已裁剪拉黑动作，AI 仍记得真实拉黑原因', () => {
     let state = changeChatBlock(undefined, 'character', true, { at: 100, reason: '故意欺骗我' });
@@ -142,11 +153,46 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
   });
   it('原版 stay/unblock 决策会解析心软度、内心状态与未发送草稿', () => {
     expect(parseForgivenessDecision('{"decision":"unblock","softness":87,"thought":"开始心软","status":"有些犹豫","sign":"把手机放在桌上","draft":"我想再聊聊"}'))
-      .toEqual({ decision: 'unblock', sign: '把手机放在桌上', softness: 87, thought: '开始心软', status: '有些犹豫', draft: '我想再聊聊', valid: true });
+      .toEqual({ decision: 'unblock', sign: '把手机放在桌上', softness: 87, thought: '开始心软', status: '有些犹豫', draft: '我想再聊聊', theater: null, valid: true });
     expect(parseForgivenessDecision('{"decision":"stay","softness":3,"sign":"不想说话"}').decision).toBe('stay');
     expect(parseForgivenessDecision('{"decision":"stay","softness":150}').softness).toBe(100);
     expect(parseForgivenessDecision('模型连接出错').valid).toBe(false);
     expect(parseForgivenessDecision('{"decision":"maybe"}').valid).toBe(false);
     expect(parseForgivenessDecision('{"decision":"keep"}').valid).toBe(false);
+    const prompt = buildForgivenessMessages(character(changeChatBlock(undefined, 'character', true,
+      { at: 100, reason: '欺骗' })), '用户', rows, 10_000_000, true);
+    expect(prompt[0].content).toContain('theater');
+    expect(prompt[0].content).toContain('第三人称独处片段');
+    expect(buildForgivenessMessages(character(changeChatBlock(undefined, 'character', true,
+      { at: 100, reason: '欺骗' })), '用户', rows, 10_000_000, false)[0].content).toContain('不要生成 theater 字段');
+  });
+  it('解析完整的嵌套剧场 JSON：引号/大括号/围栏不会中途截断', () => {
+    const response = [
+      '```json',
+      '{"decision":"stay","softness":17,"thought":"他想起了那段 \\"对不起\\"。",',
+      '"status":"今天不回","sign":"翻看{照片}","draft":"想说的话",',
+      '"theater":{"title":"没发出的字","body":"他写下 \\"你还好吗\\"，又删掉。{草稿}留在屏幕上。"}}',
+      '```',
+    ].join('\n');
+    expect(extractForgivenessJson(response)).toContain('"theater"');
+    const parsed = parseForgivenessDecision(response);
+    expect(parsed.valid).toBe(true);
+    expect(parsed.decision).toBe('stay');
+    expect(parsed.softness).toBe(17);
+    expect(parsed.theater?.title).toBe('没发出的字');
+    expect(parsed.theater?.body).toContain('{草稿}');
+    expect(parseForgivenessDecision('{"decision":"stay","theater":{"body":"未关闭"}').valid).toBe(false);
+    expect(parseForgivenessDecision('{"decision":"stay","softness":"NaN","theater":{}').valid).toBe(false);
+  });
+  it('任何独处片段都不能改写收到的私聊，空草稿不伪造一条送达消息', () => {
+    const state = changeChatBlock(undefined, 'character', true, { at: 10 });
+    const check = applyCharacterForgivenessDecision(state, 10, {
+      decision: 'stay', thought: '试探', status: '冷淡', sign: '盯着屏幕',
+      draft: '', theater: { title: '无声', body: '他只是看着屏幕。' }, softness: 20,
+    }, 2_000)!;
+    expect(check.forgivenessDrafts).toEqual([]);
+    expect(check.forgivenessScenes?.[0].body).toBe('他只是看着屏幕。');
+    expect(check.characterBlockedAt).toBe(10);
+    expect(check.forgivenessSoftness).toBe(20);
   });
 });
