@@ -66,6 +66,7 @@ describe('original two-way private chat blocking framework', () => {
     const unblockedBeforeReply = changeChatBlock(midFlightBlock, 'user', false, { at: 150 });
     expect(didCharReplyFailDuringGeneration(false, false, unblockedBeforeReply, startedAt, 175)).toBe(true);
     expect(didCharReplyFailDuringGeneration(false, false, unblockedBeforeReply, 160, 175)).toBe(false);
+    expect(unblockedBeforeReply.lastUserBlockAt).toBe(125);
   });
   it('云端消息迟到时只按 Char 发出的时刻判定，不被当前拉黑状态误改', () => {
     const blocked = changeChatBlock(undefined, 'user', true, { at: 200 });
@@ -94,6 +95,9 @@ describe('original two-way private chat blocking framework', () => {
     state = changeChatBlock(state, 'user', false, { at: 200 });
     expect(didCharReplyFailAtDelivery(state, 135)).toBe(true);
     expect(didCharReplyFailAtDelivery(state, 210)).toBe(false);
+    expect(state.lastUserBlockAt).toBe(100);
+    // 即使旧事件已从 40 条窗口中裁掉，长耗时生成仍能知道期间曾被用户拉黑。
+    expect(didCharReplyFailDuringGeneration(false, false, state, 90, 210)).toBe(true);
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
