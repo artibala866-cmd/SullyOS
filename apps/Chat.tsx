@@ -4010,6 +4010,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         !m.metadata?.musicListenInviteResponseTo &&
         !m.metadata?.musicListenInvite &&
         !m.metadata?.historyImported && !m.metadata?.importedFrom &&
+        !m.metadata?.busyFauxAutoReply && !m.metadata?.phoneAutoReply &&
+        !m.metadata?.offlineAutoReply && !m.metadata?.autoReply &&
+        m.metadata?.countsAsReply !== false &&
         Number(m.timestamp) > 0)?.timestamp ?? 0;
     // Use the canonical chat's last real answered exchange as attention evidence;
     // a hypothetical incoming user turn lets the pre-send callback decide before DB save.
