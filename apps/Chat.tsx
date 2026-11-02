@@ -288,6 +288,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const forgivenessInFlightRef = useRef(false);
     const [forgivenessBusy, setForgivenessBusy] = useState(false);
     const [pendingUnblockOpening, setPendingUnblockOpening] = useState<{ charId: string; unblockAt: number; reason: string; elapsedMinutes: number } | null>(null);
+    const [pendingForgivenessResolution, setPendingForgivenessResolution] = useState<{
+        charId: string; blockedAt: number; checkedAt: number;
+        decision: 'stay' | 'unblock'; sign: string; reason: string; elapsedMinutes: number;
+    } | null>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
@@ -627,6 +631,40 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         updateCharacter,
         updateUserProfile,
     });
+
+    // OSContext.updateCharacter 调用 setCharacters 后异步写 DB，await 它不代表数据库已更新。
+    // 以实际 React 角色状态确认，防止从旧 IndexedDB 快照误判「解封失败」或漏发第一次联系。
+    useEffect(() => {
+        const pending = pendingForgivenessResolution;
+        if (!pending) return;
+        if (!char || char.id !== pending.charId) {
+            setPendingForgivenessResolution(null);
+            return;
+        }
+        const state = char.chatBlock;
+        if (state?.lastForgivenessCheckAt === pending.checkedAt) {
+            const latestAction = [...(state.history || [])].reverse().find(event => event.actor === 'character');
+            const didUnblock = pending.decision === 'unblock'
+                && latestAction?.action === 'unblock'
+                && latestAction.at === pending.checkedAt
+                && !characterBlocksUser(state);
+            setPendingForgivenessResolution(null);
+            if (pending.decision === 'unblock' && !didUnblock) {
+                addToast('角色拉黑状态已变化，本次解除未生效', 'info');
+                return;
+            }
+            if (didUnblock && !userBlocksCharacter(state)) {
+                setPendingUnblockOpening({ charId: pending.charId, unblockAt: pending.checkedAt,
+                    reason: pending.reason, elapsedMinutes: pending.elapsedMinutes });
+            }
+            addToast(pending.sign || (didUnblock
+                ? (userBlocksCharacter(state) ? '对方已解除拉黑，但你仍拉黑着对方' : '对方已决定解除拉黑，正准备重新联系')
+                : '对方暂时仍不愿意解除拉黑'), 'info');
+        } else if (state?.characterBlockedAt !== pending.blockedAt) {
+            setPendingForgivenessResolution(null);
+            addToast('角色的拉黑状态已变化，本次判断未应用', 'info');
+        }
+    }, [pendingForgivenessResolution, char, addToast]);
 
     // 原版：角色主动解封后自己先发第一条。只在本轮 AI 判定确实解封后触发一次；
     // 不修改用户发送记录、不新建聊天功能、不把拒收消息当对方读到的内容。
@@ -2036,21 +2074,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     const next = applyCharacterForgivenessDecision(previous.chatBlock, latest.chatBlock!.characterBlockedAt!, judgement, checkedAt);
                     return next === previous.chatBlock ? {} : { chatBlock: next };
                 });
-                // 原版角色自主解封必须先真正落库，才允许发起第一条联系；
-                // 避免 API 判断后另一轮拉黑已发生，却错误提示解封并发送开场。
-                const committed = await DB.getCharacter(target.id);
-                const applied = committed?.chatBlock?.lastForgivenessCheckAt === checkedAt;
-                const unblocked = applied && !characterBlocksUser(committed?.chatBlock);
-                if (!applied) {
-                    addToast('对方的拉黑状态已变化，本次判定未应用', 'info');
-                    return;
-                }
-                if (unblocked && !userBlocksCharacter(committed?.chatBlock)) {
-                    setPendingUnblockOpening({ charId: target.id, unblockAt: checkedAt, reason: blockReason, elapsedMinutes: blockElapsedMinutes });
-                }
-                addToast(judgement.sign || (unblocked
-                    ? (userBlocksCharacter(committed?.chatBlock) ? '对方已解除拉黑，但你仍拉黑了对方' : '对方已决定解除拉黑，可以继续聊天')
-                    : '对方暂时仍不愿意解除拉黑'), 'info');
+                // 本次确认必须等 OSContext 的真实角色状态更新；updateCharacter 不等待内部 saveCharacter。
+                // 判定结果暂存于当前聊天 UI，不以立刻读回的旧 IndexedDB 判定成功/失败。
+                setPendingForgivenessResolution({
+                    charId: target.id, blockedAt: latest.chatBlock!.characterBlockedAt!,
+                    checkedAt, decision: judgement.decision, sign: judgement.sign,
+                    reason: blockReason, elapsedMinutes: blockElapsedMinutes,
+                });
             } catch (error: any) {
                 console.warn('[ChatBlock] forgiveness judgement failed', error);
                 addToast(error?.message || '拉黑判定失败，请重试', 'error');
