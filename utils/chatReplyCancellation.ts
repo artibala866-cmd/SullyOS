@@ -1,10 +1,20 @@
 import { DB } from './db';
+import { isRealPersonAutoReplyAuthorized, realPersonReplyRevision, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY, CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from './realPersonMode';
 
 const STOPPED_KEY = 'chat_stopped_reply_uuids_v1';
 const runs = new Set<ReplyRun>();
 type Display = { ids: Set<number>; previews: string[] };
 const displays = new Map<string, Display>();
 const stoppedInMemory = new Set<string>();
+
+// A run outlives Chat's React mount. Keep its authorization here as well.
+if (typeof window !== 'undefined') {
+    const recheck = () => { for (const run of runs) { try { run.check(); } catch { /* aborted */ } } };
+    window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, recheck);
+    window.addEventListener('storage', event => {
+        if (event.key === null || event.key === REAL_PERSON_MODE_KEY || event.key === CHAT_AUTO_REPLY_REVOKE_REVISION_KEY) recheck();
+    });
+}
 
 export const replyAbortError = () => new DOMException('Reply stopped', 'AbortError');
 export const isReplyAbort = (error: unknown): boolean => (error as any)?.name === 'AbortError';
@@ -45,9 +55,20 @@ export class ReplyRun {
     private resolveSecretSources!: (ids: number[]) => void;
     readonly secretSourceIds = new Promise<number[]>(resolve => {this.resolveSecretSources = resolve;});
     markCompleted(): void {this.completed = true;}
-    constructor(readonly charId: string, readonly uuid?: string) {}
+    private authorizationRevision = realPersonReplyRevision();
+    constructor(readonly charId: string, readonly uuid?: string, readonly automaticUserReply = false) {}
+
+    /** Post-reply work inherits this turn's grant, including across a close/reopen race. */
+    forkForBackground(): ReplyRun {
+        const child = createReplyRun(this.charId, undefined, this.automaticUserReply);
+        child.authorizationRevision = this.authorizationRevision;
+        try { child.check(); } catch { /* The caller receives an already aborted signal. */ }
+        return child;
+    }
 
     check = (): void => {
+        if (this.automaticUserReply && (!isRealPersonAutoReplyAuthorized() ||
+            this.authorizationRevision !== realPersonReplyRevision())) this.stop();
         if (isReplyStopped(this.uuid) && !this.signal.aborted) this.stop();
         if (this.signal.aborted) throw replyAbortError();
     };
@@ -107,10 +128,11 @@ export class ReplyRun {
     }
 }
 
-export function createReplyRun(charId: string, uuid?: string): ReplyRun {
-    const run = new ReplyRun(charId, uuid);
+export function createReplyRun(charId: string, uuid?: string, automaticUserReply = false): ReplyRun {
+    const run = new ReplyRun(charId, uuid, automaticUserReply);
     runs.add(run);
     if (isReplyStopped(uuid)) run.stop();
+    if (automaticUserReply) { try { run.check(); } catch { /* already revoked */ } }
     return run;
 }
 

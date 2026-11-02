@@ -1,6 +1,6 @@
 /** Single source of truth for real-person mode.
  * AMSG2 is the permission to contact User without a fresh user turn.
- * The private-chat "send then automatically reply" preference stays separate.
+ * Private-chat automatic replies require explicit real-person permission.
  */
 import type { CharacterProfile } from '../types';
 
@@ -8,6 +8,27 @@ export const REAL_PERSON_MODE_KEY = 'sully_life_pacing';
 export const REAL_PERSON_MODE_CHANGED_EVENT = 'sully:real-person-mode-changed';
 /** User-turn reply permission must not inherit the historical life-mode default. */
 export const REAL_PERSON_AUTO_REPLY_CONSENT_KEY = 'sully_real_person_reply_explicit_v1';
+export const CHAT_AUTO_REPLY_REVOKE_REVISION_KEY = 'sully_chat_auto_reply_revoke_revision_v1';
+
+let localRevokeRevision = 0;
+export function realPersonReplyRevision(): string {
+  try { return localStorage.getItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY) || '0'; }
+  catch { return String(localRevokeRevision); }
+}
+
+/** Revoke all saved user turns before notifying generators. Never touch group or AMSG data. */
+export function revokePendingChatAutoReplyIntents(): void {
+  localRevokeRevision++;
+  try {
+    localStorage.setItem(CHAT_AUTO_REPLY_REVOKE_REVISION_KEY, crypto.randomUUID());
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('sully_chat_auto_reply_intent_v1:')) keys.push(key);
+    }
+    keys.forEach(key => localStorage.removeItem(key));
+  } catch { /* Current-page cancellation also uses the mode-change event. */ }
+}
 
 export function isRealPersonAutoReplyAuthorized(): boolean {
   try {
@@ -29,10 +50,10 @@ export function isRealPersonModeEnabled(): boolean {
 
 /** An answer to a saved user turn is NOT unsolicited contact.
  * Private-chat real-person mode answers without requiring AMSG2 permission;
- * the old basic auto-reply preference still works when real-person mode is off.
+ * the legacy group-chat preference never authorizes private-chat requests.
  */
-export function shouldAutoReplyToUser(realPersonEnabled: boolean, basicAutoReplyEnabled: boolean): boolean {
-  return realPersonEnabled || basicAutoReplyEnabled;
+export function shouldAutoReplyToUser(realPersonEnabled: boolean, _basicAutoReplyEnabled?: boolean): boolean {
+  return realPersonEnabled;
 }
 
 export function canRealPersonContact(
@@ -43,6 +64,7 @@ export function canRealPersonContact(
 }
 
 export function setRealPersonModeEnabled(enabled: boolean): void {
+  if (!enabled) revokePendingChatAutoReplyIntents();
   try {
     localStorage.setItem(REAL_PERSON_MODE_KEY, enabled ? 'on' : 'off');
     localStorage.setItem(REAL_PERSON_AUTO_REPLY_CONSENT_KEY, enabled ? 'on' : 'off');

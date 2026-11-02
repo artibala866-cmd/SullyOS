@@ -1,3 +1,4 @@
+import { isRealPersonAutoReplyAuthorized, realPersonReplyRevision, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY, CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from './realPersonMode';
 import { stageStoppedReplyReceipt } from './amsgStoppedReplyClient';
 import { amsgStateNamespace } from './amsgFirePack';
 import { stoppedReplyKey } from './amsgStoppedReply';
@@ -51,6 +52,7 @@ export interface AmsgInstantChatPending {
   uuid: string;
   /** The exact saved user turn answered by this AUTOMATIC reply. Manual instant-chat turns omit it. */
   autoReplyUserMessageId?: number;
+  autoReplyAuthorizationRevision?: string;
   /** 受理时刻（epoch ms），排查时看「这一轮等了多久」用。 */
   acceptedAt: number;
   /** 角色名快照（全局横幅显示用）。必填：唯一写入方恒定带上（角色名为空就是空串）。 */
@@ -73,7 +75,8 @@ const readPendingMap = (): PendingMap => {
           charId,
           uuid: record.uuid,
           ...(typeof record.autoReplyUserMessageId === 'number' && Number.isSafeInteger(record.autoReplyUserMessageId)
-            ? { autoReplyUserMessageId: record.autoReplyUserMessageId } : {}),
+            ? { autoReplyUserMessageId: record.autoReplyUserMessageId,
+                ...(typeof record.autoReplyAuthorizationRevision === 'string' ? { autoReplyAuthorizationRevision: record.autoReplyAuthorizationRevision } : {}) } : {}),
           acceptedAt: record.acceptedAt,
           charName: typeof record.charName === 'string' ? record.charName : '',
         };
@@ -115,7 +118,7 @@ export const setInstantChatPending = (
 ): void => {
   const map = readPendingMap();
   map[charId] = { charId, uuid, acceptedAt, charName,
-    ...(typeof autoReplyUserMessageId === 'number' ? { autoReplyUserMessageId } : {}) };
+    ...(typeof autoReplyUserMessageId === 'number' ? { autoReplyUserMessageId, autoReplyAuthorizationRevision: realPersonReplyRevision() } : {}) };
   writePendingMap(map);
   announcePendingChanged(charId);
 };
@@ -628,6 +631,7 @@ export const sendInstantChatTurn = async (params: {
         return { ok: false, superseded: true };
       }
     }
+    params.signal?.throwIfAborted();
     // 先记待收再释放占位（finally），挡板的两个信号无缝交接，不留「都不认」的空窗。
     setInstantChatPending(params.char.id, uuid, Date.now(), params.char.name, params.autoReplyUserMessageId);
     recordCloudApiCall({
@@ -1147,3 +1151,24 @@ export const stopInstantChat = async (charId: string): Promise<void> => {
   const failed = results.find(result => result.status === 'rejected');
   if (failed?.status === 'rejected') throw failed.reason;
 };
+
+/** Only auto user replies belong to this switch. Explicit reminders and manual replies stay intact. */
+export function stopUnauthorizedAutoInstantReplies(): void {
+  for (const pending of listInstantChatPendings()) {
+    if (typeof pending.autoReplyUserMessageId !== 'number') continue;
+    if (isRealPersonAutoReplyAuthorized() && (!pending.autoReplyAuthorizationRevision ||
+        pending.autoReplyAuthorizationRevision === realPersonReplyRevision())) continue;
+    markReplyStopped(pending.uuid);
+    void stopInstantChat(pending.charId).catch(error =>
+      console.warn('[AmsgInstantChat] real-person remote cancellation failed', error));
+  }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, stopUnauthorizedAutoInstantReplies);
+  window.addEventListener('storage', event => {
+    if (event.key === null || event.key === REAL_PERSON_MODE_KEY || event.key === CHAT_AUTO_REPLY_REVOKE_REVISION_KEY)
+      stopUnauthorizedAutoInstantReplies();
+  });
+  // A previous page may have closed before it could revoke an accepted cloud reply.
+  void Promise.resolve().then(stopUnauthorizedAutoInstantReplies);
+}

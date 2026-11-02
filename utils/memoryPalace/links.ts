@@ -79,6 +79,7 @@ strength 范围 0.3-0.8。没有关联返回 []。只输出 JSON。`;
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,

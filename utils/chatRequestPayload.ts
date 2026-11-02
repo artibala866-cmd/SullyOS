@@ -358,7 +358,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         recentMsgsHint,
         input.recallQueryHint,
         userProfile?.name,
-        { entryPoint: input.recallEntryPoint ?? 'chat_payload' },
+        { entryPoint: input.recallEntryPoint ?? 'chat_payload', signal: input.signal },
     ));
 
     input.signal?.throwIfAborted();

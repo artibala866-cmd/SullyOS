@@ -136,6 +136,7 @@ import {
  * 而不是主聊天模型。
  */
 export interface LightLLMConfig {
+    signal?: AbortSignal;
     /** Manual wizard: compression must not start another plate request. */
     deferPlateMaintenance?: boolean;
     baseUrl: string;
@@ -717,7 +718,7 @@ export async function retrieveMemories(
                         const rerankWanted = rerankConfig!.topN;
                         const rerankAskForN = Math.min(pool.length, rerankWanted + 10);
                         const rrResults = await rerankDocuments(
-                            { baseUrl: rerankConfig!.baseUrl, apiKey: rerankConfig!.apiKey, model: rerankConfig!.model },
+                            { baseUrl: rerankConfig!.baseUrl, apiKey: rerankConfig!.apiKey, model: rerankConfig!.model, signal: embeddingConfig.signal },
                             joinedUserQuery,
                             pool.map(p => p.node.content),
                             rerankAskForN,
@@ -837,7 +838,7 @@ export async function retrieveMemories(
                         const rerankWanted = rerankConfig!.topN;
                         const rerankAskForN = Math.min(pool.length, rerankWanted + 10);
                         const rrResults = await rerankDocuments(
-                            { baseUrl: rerankConfig!.baseUrl, apiKey: rerankConfig!.apiKey, model: rerankConfig!.model },
+                            { baseUrl: rerankConfig!.baseUrl, apiKey: rerankConfig!.apiKey, model: rerankConfig!.model, signal: embeddingConfig.signal },
                             joinedUserQuery,
                             pool.map(p => p.node.content),
                             rerankAskForN,
@@ -1196,7 +1197,7 @@ export async function injectMemoryPalace(
     recentMessages?: Message[],
     queryHint?: string,
     userName?: string,
-    traceContext?: { entryPoint?: RecallEntryPoint; formatterMaxOutputItems?: number },
+    traceContext?: { entryPoint?: RecallEntryPoint; formatterMaxOutputItems?: number; signal?: AbortSignal },
 ): Promise<RecallTrace> {
     const hadPreviousMemory = Boolean(char.memoryPalaceInjection);
     const hadPreviousRoomPlates = Boolean(char.roomPlatesInjection);
@@ -1396,7 +1397,8 @@ export async function injectMemoryPalace(
         outcome: roomPlateOutcome,
     });
 
-    const embeddingConfig = getEmbeddingConfig(char.embeddingConfig);
+    const savedEmbeddingConfig = getEmbeddingConfig(char.embeddingConfig);
+    const embeddingConfig = savedEmbeddingConfig ? { ...savedEmbeddingConfig, signal: traceContext?.signal } : null;
     if (!embeddingConfig) {
         trace.stages.push({ name: 'finalize', durationMs: 0, outcome: 'skipped' });
         return finishRecallTrace(trace, 'skipped_embedding_unconfigured');

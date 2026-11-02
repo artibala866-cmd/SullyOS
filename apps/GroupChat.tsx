@@ -1765,6 +1765,7 @@ ${memberTimeline || '(暂无互动记录)'}
     // --- Renderers ---
 
     const autoReply = useChatAutoReply({
+        persistenceScope: 'group',
         enabled: inputPreferences.autoReply,
         conversationId: activeGroup?.id || null,
         active: view === 'chat' && !!activeGroup,

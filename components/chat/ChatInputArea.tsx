@@ -1,3 +1,4 @@
+import { setChatComposerActivity } from '../../utils/chatComposerActivity';
 import wyOriginalVoice from '../../assets/chat/weixin-baiyu/voice.png?url';
 import wyOriginalSticker from '../../assets/chat/weixin-baiyu/sticker.png?url';
 import wyOriginalAction from '../../assets/chat/weixin-baiyu/action.png?url';
@@ -198,6 +199,23 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [isComposing, setIsComposing] = useState(false);
+    const [replyKeyboardVisible, setReplyKeyboardVisible] = useState(false);
+    const replyInputActivityAt = useRef(0);
+    const endReplyInput = () => {
+        replyInputActivityAt.current = Date.now();
+        setReplyKeyboardVisible(false);
+        setIsComposing(false);
+        setIsInputFocused(false);
+    };
+    useEffect(() => {
+        if (!activeCharacterId) return;
+        setChatComposerActivity(activeCharacterId, {
+            hasDraft: !!input.trim(), composing: isComposing,
+            keyboardVisible: replyKeyboardVisible && isInputFocused,
+            activityAt: replyInputActivityAt.current,
+        });
+    }, [activeCharacterId, input, isComposing, replyKeyboardVisible, isInputFocused]);
+    useEffect(() => () => setChatComposerActivity(activeCharacterId, null), [activeCharacterId]);
     const [dismissedSuggestionInput, setDismissedSuggestionInput] = useState<string | null>(null);
     const suggestedEmojis = useMemo(() => emojiSuggestionsEnabled && !isComposing && !selectionMode
         && showPanel === 'none' && dismissedSuggestionInput !== input
@@ -238,12 +256,14 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         let disposed = false;
         let subscription: { remove: () => Promise<void> } | null = null;
         void import('@capacitor/keyboard').then(async ({ Keyboard }) => {
+            const showHandle = await Keyboard.addListener('keyboardDidShow', () => setReplyKeyboardVisible(true));
+            if (disposed) await showHandle.remove();
             const handle = await Keyboard.addListener('keyboardDidHide', () => {
                 if (document.activeElement === textareaRef.current) textareaRef.current?.blur();
-                setIsInputFocused(false);
+                endReplyInput();
             });
             if (disposed) await handle.remove();
-            else subscription = handle;
+            else subscription = { remove: async () => { await handle.remove(); await showHandle.remove(); } };
         }).catch(() => { /* 缺少原生插件时仍可用视口变化处理。 */ });
         return () => {
             disposed = true;
@@ -261,12 +281,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             viewport?.offsetTop ?? 0,
         );
         let keyboardSeen = covered();
+        setReplyKeyboardVisible(keyboardSeen);
         const onResize = () => {
-            if (covered()) keyboardSeen = true;
+            if (covered()) { keyboardSeen = true; setReplyKeyboardVisible(true); }
             else if (keyboardSeen && document.activeElement === textareaRef.current) {
                 keyboardSeen = false;
                 textareaRef.current?.blur();
-                setIsInputFocused(false);
+                endReplyInput();
             }
         };
         viewport?.addEventListener('resize', onResize);
@@ -854,12 +875,20 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             ref={textareaRef}
                             rows={1}
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onBeforeInput={() => {
+                                replyInputActivityAt.current = Date.now();
+                                setChatComposerActivity(activeCharacterId, {
+                                    hasDraft: !!input.trim(), composing: isComposing,
+                                    keyboardVisible: replyKeyboardVisible && isInputFocused,
+                                    activityAt: replyInputActivityAt.current,
+                                });
+                            }}
+                            onChange={(e) => { replyInputActivityAt.current = Date.now(); setInput(e.target.value); }}
                             onKeyDown={handleKeyDown}
                             onFocus={handleInputFocus}
-                            onBlur={() => setIsInputFocused(false)}
-                            onCompositionStart={() => setIsComposing(true)}
-                            onCompositionEnd={() => setIsComposing(false)}
+                            onBlur={endReplyInput}
+                            onCompositionStart={() => { replyInputActivityAt.current = Date.now(); setIsComposing(true); }}
+                            onCompositionEnd={() => { replyInputActivityAt.current = Date.now(); setIsComposing(false); }}
                             inputMode="text"
                             enterKeyHint={enterToSend ? 'send' : 'enter'}
                             autoCorrect="on"

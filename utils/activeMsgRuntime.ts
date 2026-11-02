@@ -1,4 +1,5 @@
 import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
+import { chatComposerWaitMs, COMPOSER_ACTIVITY_CHANGED } from './chatComposerActivity';
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -1242,6 +1243,26 @@ const scheduleInboxRetry = (attempts: number) => {
  * 每趟开头清空即可。
  */
 const retainedInboxMessageIds = new Set<string>();
+const composerDeferredCharacters = new Set<string>();
+const composerReleaseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const resumeComposerInbox = (charId: string) => {
+  const old = composerReleaseTimers.get(charId);
+  if (old) clearTimeout(old);
+  composerReleaseTimers.delete(charId);
+  if (!composerDeferredCharacters.has(charId)) return;
+  const delay = chatComposerWaitMs(charId);
+  if (!Number.isFinite(delay)) return;
+  composerReleaseTimers.set(charId, setTimeout(() => {
+    composerReleaseTimers.delete(charId);
+    if (chatComposerWaitMs(charId) > 0) return resumeComposerInbox(charId);
+    composerDeferredCharacters.delete(charId);
+    void flushInboxToChat('输入结束', charId);
+  }, delay));
+};
+if (typeof window !== 'undefined') window.addEventListener(COMPOSER_ACTIVITY_CHANGED, event => {
+  const charId = (event as CustomEvent).detail?.charId;
+  if (typeof charId === 'string') resumeComposerInbox(charId);
+});
 
 const requeueForRetry = async (message: ActiveMsg2InboxMessage, attempts: number): Promise<void> => {
   retainedInboxMessageIds.add(message.messageId);
@@ -1486,6 +1507,7 @@ const handleInboxStageFailure = async (
  * 「实时通道还活着吗」：一段时间里的冲刷全由兜底触发，就说明它断了。
  */
 export type FlushTrigger =
+  | '输入结束'        // Release an already-generated reply; never starts a model request.
   | 'SW通知'          // Service Worker 收到推送后喊页面（唯一的实时路径）
   | '点通知进入'      // 用户点系统通知把 App 唤到前台
   | '回到前台'        // 页面重新可见
@@ -1578,8 +1600,11 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
     const isInstantReply = message.source === 'instant'
       || (message.metadata as any)?.amsgInstantChat === true
       || getInstantChatPending(message.charId)?.uuid === message.taskUuid;
+    const pendingAutoReply = getInstantChatPending(message.charId);
+    const isAutomaticReply = pendingAutoReply?.uuid === message.taskUuid &&
+      typeof pendingAutoReply?.autoReplyUserMessageId === 'number';
     const replyRun = isInstantReply && message.taskUuid
-      ? createReplyRun(message.charId, message.taskUuid) : undefined;
+      ? createReplyRun(message.charId, message.taskUuid, isAutomaticReply) : undefined;
     const replyStep = <T>(operation: () => Promise<T>) => withReplyCancellation(replyRun, operation);
     const typingController = new AbortController();
     activeInboxTyping = typingController;
@@ -1589,6 +1614,16 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
     // 聊天记录、也没回到收件箱——用户那边只看到「正在输入…」一直亮到 60s 点名判失败，
     // 角色的回复彻底消失。所以整段都得包住，不能只包后处理那一小截。
     try {
+      replyRun?.check();
+      if (isAutomaticReply && chatComposerWaitMs(message.charId) > 0) {
+        // Requeue without error/retry counts. One user's draft must not block
+        // reminders or another character's inbox on the shared flush chain.
+        retainedInboxMessageIds.add(message.messageId);
+        await ActiveMsgStore.saveInboxMessage(message);
+        composerDeferredCharacters.add(message.charId);
+        resumeComposerInbox(message.charId);
+        continue;
+      }
       // 私聊拉黑必须在真正落库前二次校验：worker 可能已生成/投递，
       // 但原账号的聊天消息不能因后台收件、补收或应用重新启动绕过黑名单。
       // 只丢弃这条已被认领的消息，不回补到解除拉黑后的聊天历史。
@@ -2483,6 +2518,7 @@ export const runInstantChatStatusCheck = async (): Promise<void> => {
   // 上线补收撞上一次，那是「用户正等着回复」才有的场景，多一次往返换判断可靠，值。
   if (pendings.length > 0) await drainOutboxAndFlush('轮询补收');
   for (const pending of pendings) {
+    if (composerDeferredCharacters.has(pending.charId)) continue;
     // 补收那一步如果把回复放进来了，flush 里已经销账了——这一轮就此结束。
     if (getInstantChatPending(pending.charId)?.uuid !== pending.uuid) continue;
 

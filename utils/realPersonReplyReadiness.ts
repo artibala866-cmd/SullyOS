@@ -1,3 +1,4 @@
+import { COMPOSER_SETTLE_MS } from './chatComposerActivity';
 import type { RealPersonAttention } from './realPersonReplyRhythm';
 
 /**
@@ -21,16 +22,8 @@ export function resolveRealPersonReplyReadiness(args: {
     lastComposerActivityAt?: number;
     lastUserSendAt?: number;
 }): RealPersonReplyReadiness {
-    // Real, current schedule is evidence of absence. Do not assume a
-    // character is occupied merely because the clock says it is late.
-    if (args.activity === 'sleep') return { kind: 'wait-availability', settleMs: 0 };
-    // A genuine back-and-forth may continue briefly during a busy slot.
-    // Cold messages wait for the existing schedule to become available;
-    // a random 4-6 minute timer cannot override an occupied character.
-    if (args.activity === 'busy' &&
-        args.attention !== 'conversation' && args.attention !== 'waiting')
-        return { kind: 'wait-availability', settleMs: 0 };
-
+    // Reference input-ended mode: schedule is context, not a second reply timer.
+    // A saved user turn waits for live composer release, not an empty diary slot.
     const now = Number.isFinite(args.now) ? args.now : 0;
     const lastEdit = Number.isFinite(args.lastComposerActivityAt)
         ? args.lastComposerActivityAt! : 0;
@@ -41,7 +34,7 @@ export function resolveRealPersonReplyReadiness(args: {
     // recently edited/saved text needs this pause to let a user finish a burst.
     // No composer event means immediate eligibility, never a cold-chat timer.
     const settleMs = lastInteraction > 0
-        ? Math.max(0, 1_250 - Math.max(0, now - lastInteraction))
+        ? Math.max(0, COMPOSER_SETTLE_MS - Math.max(0, now - lastInteraction))
         : 0;
     return { kind: 'ready', settleMs };
 }

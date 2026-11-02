@@ -20,10 +20,10 @@ describe('真人感与主动消息的唯一触发权限', () => {
     }
   });
 
-  it('真人感自己接话无需主动消息 2.0，关闭后保留普通自动回复设置', () => {
+  it('真人感自己接话无需主动消息 2.0，关闭后旧普通自动回复不能绕过授权', () => {
     expect(shouldAutoReplyToUser(true, false)).toBe(true);
     expect(shouldAutoReplyToUser(true, true)).toBe(true);
-    expect(shouldAutoReplyToUser(false, true)).toBe(true);
+    expect(shouldAutoReplyToUser(false, true)).toBe(false);
     expect(shouldAutoReplyToUser(false, false)).toBe(false);
     expect(canRealPersonContact(role(false), true)).toBe(false);
   });

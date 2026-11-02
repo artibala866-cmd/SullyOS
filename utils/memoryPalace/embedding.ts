@@ -125,9 +125,12 @@ async function callEmbeddingAPI(
     }
 
     try {
-        await waitForPalaceRequest();
+        config.signal?.throwIfAborted();
+        await waitForPalaceRequest(config.signal);
+        config.signal?.throwIfAborted();
         const response = await fetch(url, {
             method: 'POST',
+            signal: config.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${config.apiKey}`,
@@ -160,6 +163,7 @@ async function callEmbeddingAPI(
         return sorted.map((item: any) => item.embedding as number[]);
 
     } catch (err: any) {
+        config.signal?.throwIfAborted();
         const status: number | undefined = err?.status;
         // 参数类 4xx 重试同样的请求不会变好；网络错误 / 5xx / 429 才值得重试一次
         const retryable = status === undefined || status >= 500 || status === 429;

@@ -23,6 +23,7 @@
 import { safeFetchJson } from '../safeApi';
 
 export interface RerankApiConfig {
+    signal?: AbortSignal;
     baseUrl: string;
     apiKey: string;
     model: string;
@@ -64,6 +65,7 @@ export async function rerankDocuments(
         url,
         {
             method: 'POST',
+            signal: config.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${config.apiKey}`,

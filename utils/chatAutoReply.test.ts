@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import { findPendingUserTurn, withVerifiedUserReplyContinuation } from './chatContinuation';
 import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from './chatInputPreferences';
+import { setChatComposerActivity } from './chatComposerActivity';
 import { setRealPersonModeEnabled } from './realPersonMode';
 
 let root: Root;
@@ -216,25 +217,13 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps the character attention decision for the same unanswered batch until the schedule changes', async () => {
+    it('attention remains batch evidence, never a second timer or authorization', () => {
         render({naturalPacing:true,lifeActivity:'busy',replyAttention:'normal'});
         send();
-        const original = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
-        expect(original.replyAttention).toBe('normal');
         render({replyAttention:'waiting'});
         send();
-        const after = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
-        expect(after.replyAttention).toBe('normal');
-        advance(20_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        act(() => root.unmount());
-        root=createRoot(container);
-        render({replyAttention:'waiting'});
         expect(JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}').replyAttention).toBe('normal');
-        advance(20_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        render({lifeActivity:'free'});
-        await act(async()=>{});
+        advance(2_501);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
@@ -315,7 +304,7 @@ describe('two-second automatic reply', () => {
     it('a real user send starts the reply on composer settle, not a random 4–6 minute countdown',()=>{
         render({naturalPacing:true,lifeActivity:'free',replyAttention:'normal'});
         send();
-        advance(1_249);
+        advance(2_499);
         expect(options.onGenerate).not.toHaveBeenCalled();
         advance(1);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
@@ -325,17 +314,17 @@ describe('two-second automatic reply', () => {
     it('genuine active conversation follows the same user-turn gate without forcing topics',()=>{
         render({naturalPacing:true,lifeActivity:'free',replyAttention:'waiting'});
         send();
-        advance(1_250);
+        advance(2_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('sleep does not wake because a countdown expired',async()=>{
-        render({ naturalPacing:true, lifeActivity:'sleep',lastCharacterReplyAt:Date.now()-60_000 });
-        send();
+    it('input-ended replies answer a saved user turn even with a sleeping schedule', () => {
+        render({naturalPacing:true,lifeActivity:'sleep'});
         advance(360_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
-        render({lifeActivity:'free'});
-        await act(async()=>{});
+        send();
+        advance(2_500);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        advance(360_000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
@@ -468,63 +457,67 @@ describe('scheduled proactive messages cannot swallow an unanswered user turn', 
 });
 
 describe('real-person event-driven replies', () => {
-    it('one send during a truly busy slot stays pending until the existing schedule changes', async () => {
+    it('input-ended mode responds without waiting for a busy schedule to end', () => {
         render({naturalPacing:true,lifeActivity:'busy',replyAttention:'occupied'});
+        send();
+        advance(2_500);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        advance(600_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('a visible keyboard blocks and closing it rechecks the same saved user batch', () => {
+        render({naturalPacing:true});
+        act(() => setChatComposerActivity('a', {hasDraft:false,composing:false,keyboardVisible:true,activityAt:Date.now()}));
         send();
         advance(600_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
-        render({lifeActivity:'free'});
-        await act(async()=>{});
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('more user messages cannot force an occupied character to respond before available',async()=>{
-        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'occupied'});
-        for(let i=0;i<7;i++)send();
-        advance(120_000);
+        act(() => setChatComposerActivity('a', {hasDraft:false,composing:false,keyboardVisible:false,activityAt:Date.now()}));
+        advance(2_499);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        render({lifeActivity:'free'});
-        await act(async()=>{});
+        advance(1);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        act(() => setChatComposerActivity('a', null));
     });
     it('successive saved messages reset only the composer settlement, not a multi-minute clock',()=>{
         render({naturalPacing:true,lifeActivity:'free'});
         send();
         advance(750);
         send();
-        advance(1_249);
+        advance(2_499);
         expect(options.onGenerate).not.toHaveBeenCalled();
         advance(1);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('real sleep waits for the schedule even after many nudges',async()=>{
-        render({naturalPacing:true,lifeActivity:'sleep'});
-        for(let i=0;i<12;i++)send();
+    it('IME composition blocks even with an empty draft and no visible keyboard', () => {
+        render({naturalPacing:true});
+        act(() => setChatComposerActivity('a', {hasDraft:false,composing:true,keyboardVisible:false,activityAt:Date.now()}));
+        send();
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        render({lifeActivity:'free'});
-        await act(async()=>{});
+        act(() => setChatComposerActivity('a', {hasDraft:false,composing:false,keyboardVisible:false,activityAt:Date.now()}));
+        advance(2_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        act(() => setChatComposerActivity('a', null));
     });
-    it('keeps sleeping intent overnight and expires one abandoned for 48 hours',async()=>{
-        render({naturalPacing:true,lifeActivity:'sleep'});
+    it('keeps a blocked intent overnight and expires one abandoned for 48 hours',async()=>{
+        render({naturalPacing:true,blocked:true});
         send();
         vi.setSystemTime(Date.now()+12*60*60_000);
-        render({lifeActivity:'free'});
+        render({blocked:false});
         await act(async()=>{});
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
-        render({lifeActivity:'sleep'});
+        render({blocked:true});
         send();
         vi.setSystemTime(Date.now()+49*60*60_000);
-        render({lifeActivity:'free'});
+        render({blocked:false});
         advance(1);
         await act(async()=>{});
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('live back-and-forth can respond despite a busy schedule without overriding sleep',()=>{
+    it('live back-and-forth shares the same input-ended trigger',()=>{
         render({naturalPacing:true,lifeActivity:'busy',replyAttention:'conversation'});
         send();
-        advance(1_250);
+        advance(2_500);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
     it('a persisted real assistant answer clears its own pending user turn',()=>{
@@ -553,4 +546,16 @@ describe('real-person event-driven replies', () => {
         advance(10_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
+});
+
+it('turning off private real-person mode preserves an in-flight group send and its intent', () => {
+    setRealPersonModeEnabled(true);
+    render({persistenceScope:'group',conversationId:'group-isolated',naturalPacing:false});
+    let finish!: (sent:boolean)=>void;
+    act(() => { finish = controls.beginSend('group-isolated'); });
+    setRealPersonModeEnabled(false);
+    act(() => finish(true));
+    expect(localStorage.getItem('sully_group_auto_reply_intent_v1:group-isolated')).toBeTruthy();
+    advance(2000);
+    expect(options.onGenerate).toHaveBeenCalledTimes(1);
 });

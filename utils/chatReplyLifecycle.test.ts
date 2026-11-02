@@ -68,3 +68,26 @@ it('停止正在等待的初始化会立即解除占位，不留下错误消息'
     expect(current.isTyping).toBe(false);
     expect(await DB.getRecentMessagesByCharId('stop-lifecycle', 20)).toEqual([]);
 });
+
+it('真人感关闭会中止已卸载聊天页的自动生成，手动生成仍可使用', async () => {
+    const { setRealPersonModeEnabled } = await import('./realPersonMode');
+    const { stopReplyRuns } = await import('./chatReplyCancellation');
+    root = createRoot(container);
+    vi.mocked(KeepAlive.start).mockImplementation(() => new Promise(() => {}));
+    setRealPersonModeEnabled(true);
+    await act(async () => { root.render(createElement(Probe, {charId:'auto-unmounted'})); });
+    let pending!: Promise<unknown>;
+    await act(async () => { pending = current.triggerAI([], undefined, {automaticUserReply:true,expectedAutoReplyUserId:1}); });
+    expect(current.isTyping).toBe(true);
+    act(() => root.unmount());
+    await act(async () => { setRealPersonModeEnabled(false); await pending; });
+    root = createRoot(container);
+    await act(async () => { root.render(createElement(Probe, {charId:'auto-unmounted'})); });
+    expect(current.isTyping).toBe(false);
+    await act(async () => { await current.triggerAI([],undefined,{automaticUserReply:true}); });
+    expect(current.isTyping).toBe(false);
+    let manual!: Promise<unknown>;
+    await act(async () => { manual = current.triggerAI([]); });
+    expect(current.isTyping).toBe(true);
+    await act(async () => { stopReplyRuns('auto-unmounted'); await manual; });
+});

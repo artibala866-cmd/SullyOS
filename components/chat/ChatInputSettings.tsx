@@ -12,7 +12,7 @@ const ChatInputSettings: React.FC<ChatInputSettingsProps> = ({ value, onChange, 
     const [openHelp, setOpenHelp] = useState<keyof ChatInputPreferences | null>(null);
     return (
         <div className="space-y-1">
-            <p className="mb-2 text-[10px] text-slate-400">以下输入习惯对当前设备的私聊和群聊生效</p>
+            <p className="mb-2 text-[10px] text-slate-400">以下输入习惯在当前设备生效；私聊自动接话统一由真人感开关控制</p>
             {([
                 {
                     key: 'sendButtonGenerates',
@@ -29,7 +29,7 @@ const ChatInputSettings: React.FC<ChatInputSettingsProps> = ({ value, onChange, 
                     label: '发完后自动生成回复',
                     help: scope === 'group'
                         ? '发送成功后按群聊现有规则等待回复；正在编辑、有草稿或打开面板时暂停。退出群聊取消等待。'
-                        : '真人感开启时，私聊发送成功后自动接话，无需另开此开关或主动消息 2.0。本开关控制真人感关闭时的普通自动回复；两者共用现有私聊回复通道。正在输入草稿、选图或打开面板会暂停，停止输入后接上原本未回复的话题，不会因键盘仍打开而卡住。',
+                        : '私聊自动接话统一由真人感开关控制。',
                 },
                 {
                     key: 'emojiSuggestions',
@@ -44,7 +44,7 @@ const ChatInputSettings: React.FC<ChatInputSettingsProps> = ({ value, onChange, 
                     key: 'xhsCards', label: '小红书链接自动转卡片（私聊）',
                     help: '独立识别小红书官网和 xhslink.com / xhslink.cn 分享链接。关闭后直接发送原文；不影响角色主动浏览小红书的配置。',
                 },
-            ] as const).filter(item => scope === 'private' || !['linkCards', 'xhsCards'].includes(item.key)).map(({ key, label, help }) => (
+            ] as const).filter(item => scope === 'private' ? item.key !== 'autoReply' : !['linkCards', 'xhsCards'].includes(item.key)).map(({ key, label, help }) => (
                 <div key={key}>
                     <div className="flex items-center gap-1">
                         <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 text-xs font-bold text-slate-600">

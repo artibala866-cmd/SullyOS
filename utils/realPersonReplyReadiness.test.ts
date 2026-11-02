@@ -11,19 +11,19 @@ describe('real-person user-turn availability (never a random reply countdown)',(
   });
   it('the only short delay is settling recent input, not generating a topic',()=>{
     expect(decide({activity:'free',now,lastUserSendAt:now}))
-      .toEqual({kind:'ready',settleMs:1250});
+      .toEqual({kind:'ready',settleMs:2500});
     expect(decide({activity:'free',now,lastUserSendAt:now-100_000,lastComposerActivityAt:now-600}))
-      .toEqual({kind:'ready',settleMs:650});
+      .toEqual({kind:'ready',settleMs:1900});
   });
-  it('being busy or asleep waits for real schedule availability, not the clock',()=>{
-    expect(decide({activity:'busy',now,attention:'normal'}).kind).toBe('wait-availability');
-    expect(decide({activity:'busy',now,attention:'occupied'}).kind).toBe('wait-availability');
-    expect(decide({activity:'sleep',now,attention:'waiting'}).kind).toBe('wait-availability');
+  it('input-ended mode does not wait on a schedule timer',()=>{
+    expect(decide({activity:'busy',now,attention:'normal'}).kind).toBe('ready');
+    expect(decide({activity:'busy',now,attention:'occupied'}).kind).toBe('ready');
+    expect(decide({activity:'sleep',now,attention:'waiting'}).kind).toBe('ready');
   });
-  it('real active conversation may continue while busy but cannot override sleep',()=>{
+  it('active conversation uses the same input-ended decision',()=>{
     expect(decide({activity:'busy',now,attention:'waiting',lastUserSendAt:now-10_000}))
       .toEqual({kind:'ready',settleMs:0});
     expect(decide({activity:'busy',now,attention:'conversation',lastUserSendAt:now}))
-      .toEqual({kind:'ready',settleMs:1250});
+      .toEqual({kind:'ready',settleMs:2500});
   });
 });

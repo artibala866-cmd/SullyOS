@@ -223,6 +223,7 @@ ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,
@@ -315,6 +316,7 @@ async function recompressSummary(
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,

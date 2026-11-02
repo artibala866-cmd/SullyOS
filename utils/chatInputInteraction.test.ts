@@ -3,11 +3,16 @@ import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Capacitor } from '@capacitor/core';
+import { chatComposerWaitMs } from './chatComposerActivity';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import ChatInputSettings from '../components/chat/ChatInputSettings';
 import ChatSettingsSection from '../components/chat/ChatSettingsSection';
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import { CHAT_INPUT_PREFERENCES_KEY, loadChatInputPreferences, saveChatInputPreferences } from './chatInputPreferences';
+
+const nativeKeyboardListeners = vi.hoisted(() => new Map<string, () => void>());
+vi.mock('@capacitor/keyboard', () => ({ Keyboard: { addListener: vi.fn(async (name: string, callback: () => void) => { nativeKeyboardListeners.set(name, callback); return { remove: async () => { nativeKeyboardListeners.delete(name); } }; }) } }));
 
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
 
@@ -34,6 +39,7 @@ const pointerdown = (target: Element) => {
 beforeEach(() => {
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
     localStorage.clear();
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -49,6 +55,7 @@ afterEach(() => {
     act(() => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
 });
 
 describe('private chat input controls', () => {
@@ -149,7 +156,7 @@ describe('private chat input controls', () => {
         const onChange = vi.fn();
         act(() => root.render(React.createElement(ChatInputSettings, { value: loadChatInputPreferences(), onChange })));
         const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-        expect(Array.from(boxes, box => box.checked)).toEqual([false, true, false, false, true, true]);
+        expect(Array.from(boxes, box => box.checked)).toEqual([false, true, false, true, true]);
         const help = container.querySelector<HTMLButtonElement>('button[aria-label="发送按钮代替生成按钮说明"]')!;
         act(() => help.click());
         expect(help.getAttribute('aria-expanded')).toBe('true');
@@ -296,4 +303,36 @@ describe('private chat input controls', () => {
         expect(props.onImageSelect).not.toHaveBeenCalled();
     });
 
+});
+
+
+describe('real-person live composer integration', () => {
+    it('IME occupancy blocks an empty draft until composition ends', () => {
+        renderInput({input:'',activeCharacterId:'ime',autoReplyEnabled:true});
+        act(() => textarea().dispatchEvent(new CompositionEvent('compositionstart', {bubbles:true})));
+        expect(chatComposerWaitMs('ime')).toBe(Infinity);
+        act(() => textarea().dispatchEvent(new CompositionEvent('compositionend', {bubbles:true})));
+        expect(chatComposerWaitMs('ime')).toBeGreaterThan(0);
+        expect(chatComposerWaitMs('ime')).toBeLessThanOrEqual(2500);
+    });
+    it('native keyboard hide releases stale focus without sending an unsent draft', async () => {
+        vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true);
+        renderInput({input:'',activeCharacterId:'native',autoReplyEnabled:true});
+        await act(async () => { textarea().focus(); });
+        await act(async () => { nativeKeyboardListeners.get('keyboardDidShow')?.(); });
+        expect(chatComposerWaitMs('native')).toBe(Infinity);
+        await act(async () => { nativeKeyboardListeners.get('keyboardDidHide')?.(); });
+        expect(document.activeElement).not.toBe(textarea());
+        expect(chatComposerWaitMs('native')).toBeLessThanOrEqual(2500);
+        expect(props.onSend).not.toHaveBeenCalled();
+        renderInput({input:'未发送的草稿'});
+        expect(chatComposerWaitMs('native')).toBe(Infinity);
+    });
+    it('group settings keep their own auto-reply control while private settings have one master', () => {
+        const onChange = vi.fn();
+        act(() => root.render(React.createElement(ChatInputSettings, {value:loadChatInputPreferences(),onChange,scope:'private'})));
+        expect(container.textContent).not.toContain('发完后自动生成回复');
+        act(() => root.render(React.createElement(ChatInputSettings, {value:loadChatInputPreferences(),onChange,scope:'group'})));
+        expect(container.textContent).toContain('发完后自动生成回复');
+    });
 });

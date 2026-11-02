@@ -4,7 +4,7 @@ import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
-import { isRealPersonModeEnabled, isRealPersonAutoReplyAuthorized, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
+import { isRealPersonAutoReplyAuthorized, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -79,7 +79,7 @@ import ChatBlockModal from '../components/chat/ChatBlockModal';
 import ChatForgivenessScene from '../components/chat/ChatForgivenessScene';
 import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
 import { forgivenessCooldownRemaining, requestCharacterForgiveness, applyCharacterForgivenessDecision } from '../utils/chatBlockAI';
-import { loadChatInputPreferences, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from '../utils/chatInputPreferences';
+import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
@@ -182,14 +182,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const osTheme = useMemo(()=>homePhone?homePhoneAppearance(baseOsTheme):resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId,!!homePhone]);
     const localDateKey = useLocalDateKey();
     const [lifeMode, setLifeMode] = useState(() => readLifeClock().mode);
-    const [lifePacing, setLifePacing] = useState(isRealPersonModeEnabled);
+    const [lifePacing, setLifePacing] = useState(isRealPersonAutoReplyAuthorized);
     // OSContext and autonomous scheduling already hear this global switch.
     // A mounted Chat must also hear same-tab and cross-tab changes, otherwise
     // it can keep answering after the user turned real-person mode off elsewhere.
     useEffect(() => {
-        const sync = () => setLifePacing(isRealPersonModeEnabled());
+        const sync = () => setLifePacing(isRealPersonAutoReplyAuthorized());
         const fromOtherTab = (event: StorageEvent) => {
-            if (event.key === REAL_PERSON_MODE_KEY) sync();
+            if (event.key === null || event.key === REAL_PERSON_MODE_KEY) sync();
         };
         window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, sync);
         window.addEventListener('storage', fromOtherTab);
@@ -1871,7 +1871,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
         await reloadMessages(visibleCountRef.current);
         // 自动回复模式下允许连续挑表情，用户主动收起加号等面板后才计时。
-        if (!inputPreferences.autoReply) setShowPanel('none');
+        if (!lifePacing) setShowPanel('none');
 
         return convertedToCard ? 'converted-card' as const : true;
     };
@@ -2116,7 +2116,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         try {
             const blob = await processImageToBlob(file, { maxWidth: 600, quality: 0.6, forceJpeg: true });
             const { token } = await putImageBlobDeduped(blob);
-            if (!inputPreferences.autoReply) setShowPanel('none');
+            if (!lifePacing) setShowPanel('none');
             await handleSendText(token, 'image');
         } catch (err: any) {
             addToast(err.message || '图片处理失败', 'error');
@@ -2222,12 +2222,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const next = !lifePacing;
                 setLifePacing(next);
                 setRealPersonModeEnabled(next);
-                // Revoking real-person mode must clear pending replies only when
-                // the ordinary auto-reply channel is also switched off.
-                if (!next && !inputPreferences.autoReply) revokePendingChatAutoReplyIntents();
+                if (!next) autoReply.cancel();
                 addToast(next
-                    ? '真人感已开启：发送后会按对话和日程自然接话，无需手动按闪电；主动找你仍由主动消息 2.0 单独授权。'
-                    : '真人感已关闭；原有普通自动回复仍按输入设置运行，主动联系也已暂停。', 'info');
+                    ? '真人感已开启：发送后会在输入结束时结合对话自然接话，无需手动按闪电；主动找你仍由主动消息 2.0 单独授权。'
+                    : '真人感已关闭：自动接话和待回复已停止，需手动按 AI 回复。', 'info');
                 break;
             }
             case 'mcd-not-configured':
@@ -4050,9 +4048,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const autoReply = useChatAutoReply({
         // Replying to a user message is the real-person mode's own job; AMSG2
         // only authorizes a brand-new unsolicited message, never an answer.
-        enabled: shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized(), inputPreferences.autoReply),
+        enabled: shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized()),
         // Only explicitly authorized real-person replies use the event-driven
-        // availability gate. Legacy plain auto-reply retains its own behavior.
+        // composer gate. Group-chat preferences remain independent.
         naturalPacing: lifePacing && isRealPersonAutoReplyAuthorized(),
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
@@ -4708,7 +4706,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 );
             })()}
 
-            <div ref={scrollRef} onScroll={handleChatScroll} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }} className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" style={{ backgroundImage: activeTheme.type === 'custom' && activeTheme.user.backgroundImage ? 'none' : undefined }}>
+            <div ref={scrollRef} onScroll={handleChatScroll} onClick={() => { if (lifePacing) setShowPanel('none'); }} className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" style={{ backgroundImage: activeTheme.type === 'custom' && activeTheme.user.backgroundImage ? 'none' : undefined }}>
                 {windowedFocusMsgId !== null && (
                     <div className="sticky top-0 z-20 flex justify-center pb-2 pointer-events-none">
                         <button onClick={handleBackToCurrent} className="pointer-events-auto px-4 py-2 bg-primary text-white rounded-full text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-1.5">
@@ -5025,7 +5023,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
-                    autoReplyEnabled={shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized(), inputPreferences.autoReply)}
+                    autoReplyEnabled={shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized())}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}

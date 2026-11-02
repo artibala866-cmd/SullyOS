@@ -1,3 +1,5 @@
+import { isRealPersonAutoReplyAuthorized } from '../utils/realPersonMode';
+import { waitForChatComposer, chatComposerWaitMs } from '../utils/chatComposerActivity';
 import { resolveDialogueApi } from '../utils/characterApi';
 import { readCharacterAvatarLibrary, saveCharacterAvatarLibrary, activateCharacterAvatar, notifyCharacterAvatarChanged } from '../utils/characterAvatarLibrary';
 import { createReplyRun, withReplyCancellation } from '../utils/chatReplyCancellation';
@@ -638,6 +640,8 @@ export const useChatAI = ({
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
         opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; automaticUserReply?: boolean; expectedAutoReplyUserId?: number; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
     ) => {
+        if (opts?.automaticUserReply && !isRealPersonAutoReplyAuthorized()) return 'discard' as const;
+        if (opts?.automaticUserReply && char && chatComposerWaitMs(char.id) > 0) return 'busy' as const;
         // 用户拉黑角色时仍可继续私聊：对方读得到用户消息，但对方的回复显示发送失败。
         // 仅角色拉黑用户时正常生成被禁止，该方向由独立求原谅流程接管。
         if (characterBlocksUser(charRef.current?.chatBlock))
@@ -669,7 +673,7 @@ export const useChatAI = ({
         });
         const releaseReply = acquireChatReply(char.id);
         if (!releaseReply) return (opts?.immediateMusicInvite || opts?.automaticUserReply) ? 'busy' as const : undefined;
-        const replyRun = createReplyRun(char.id);
+        const replyRun = createReplyRun(char.id, undefined, opts?.automaticUserReply === true);
         amsg2Session.signal = replyRun.signal;
         const replyStep = <T>(operation: () => Promise<T>) => withReplyCancellation(replyRun, operation);
         setLocalTyping(true);
@@ -907,6 +911,7 @@ export const useChatAI = ({
             });
 
             const payload = await replyStep(async () => stageT('payload', buildChatRequestPayload({
+                signal: replyRun.signal,
                 char: charForGen, userProfile, groups, emojis, categories,
                 homePhoneContext:homePhoneContext?.(),
                 historyMsgs: contextMsgs,
@@ -945,7 +950,8 @@ export const useChatAI = ({
                 // memory/vision context was loading. A blank composer is
                 // required at dispatch, not only at the first timer tick.
                 const currentDraft = document.querySelector<HTMLTextAreaElement>('.sully-chat-textarea');
-                if (currentDraft?.value.trim()) return 'busy' as const;
+                if (currentDraft?.value.trim() || chatComposerWaitMs(char.id) > 0) return 'busy' as const;
+                replyRun.check();
             }
             const avatarLibrary = readCharacterAvatarLibrary(char.id);
             const avatarCandidates = avatarLibrary.autonomousEnabled ? avatarLibrary.entries.filter(e => !!e.visionDescription).slice(0, 24) : [];
@@ -1418,7 +1424,7 @@ export const useChatAI = ({
             };
             const streamHooks = (streamPreviewEligible || streamThinkingEligible) ? {
                 onDelta: (_delta: string, fullText: string) => {
-                    if (replyRun.signal.aborted) return;
+                    if (replyRun.signal.aborted || (opts?.automaticUserReply && chatComposerWaitMs(char.id) > 0)) return;
                     if (streamPreviewEligible) {
                         const bubbles = computeStreamPreviewBubbles(fullText);
                         latestStreamPreviewBubbles = bubbles;
@@ -2122,6 +2128,7 @@ export const useChatAI = ({
             // reply to the OLD topic must not be delivered as though it
             // answered the newer message. Keep the fresh user-turn intent;
             // this local response is stale and has not been written yet.
+            if (opts?.automaticUserReply) await replyStep(() => waitForChatComposer(char.id, replyRun.signal));
             if (opts?.automaticUserReply && opts.expectedAutoReplyUserId !== undefined) {
                 let recent: Message[];
                 try { recent = await DB.getRecentMessagesByCharId(char.id, 30); }
@@ -2273,7 +2280,7 @@ export const useChatAI = ({
             // fire_pack 会停在排程那一刻、少掉角色排完之后说的这段。
             // 即时对话受理成功那一轮跳过：那次 POST 已经把这一轮的 fire_pack（还多带了
             // chat 段）传上去了，这里再打脏就是同样的内容再走一趟网络。
-            if (!instantChatAccepted) {
+            if (!instantChatAccepted && !replyRun.signal.aborted) {
                 markAmsgStateDirty({
                     char: { ...char, activeMsg2Config: amsg2Session.getConfig() },
                     userProfile, groups, realtimeConfig,
@@ -2292,6 +2299,9 @@ export const useChatAI = ({
             const liveChar = !replyRun.signal.aborted && charRef.current?.id === char.id ? charRef.current : null;
             if (liveChar?.memoryPalaceEnabled && mpEmb?.baseUrl && mpEmb?.apiKey && mpLLM.baseUrl) {
                 const charName = char.name;
+                const memoryRun = opts?.automaticUserReply ? replyRun.forkForBackground() : undefined;
+                const memoryEmbedding = { ...mpEmb, signal: memoryRun?.signal };
+                const memoryLLM = { ...mpLLM, signal: memoryRun?.signal };
                 // 不再预置"正在回味"状态：pipeline 会在水位线未到时立刻 skip，
                 // 预置状态会让"沉思"指示器一闪让用户误以为在干活。
                 // onProgress 在 pipeline 真正进入处理路径后（过完 hot_zone/threshold 检查）
@@ -2299,14 +2309,14 @@ export const useChatAI = ({
 
                 // 缓冲区处理（LLM提取 + Embedding向量化）
                 const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
-                processNewMessagesWithAutoArchive(recentMsgs, char.id, charName, mpEmb, mpLLM, userProfile?.name || '', false, (stage) => {
+                processNewMessagesWithAutoArchive(recentMsgs, char.id, charName, memoryEmbedding, memoryLLM, userProfile?.name || '', false, (stage) => {
                         setMemoryPalaceStatus(stage);
                     })
                     .then(async (pipelineResult) => {
                         // pipeline 跑的过程中用户可能又关掉了宫殿，跑完后所有"额外动作"
                         // （autoArchive 写 char.memories / 50 轮认知消化的 LLM 调用）都要再 check 一次。
                         const liveAfter = charRef.current?.id === char.id ? charRef.current : null;
-                        if (!liveAfter?.memoryPalaceEnabled) return;
+                        if (!liveAfter?.memoryPalaceEnabled || memoryRun?.signal.aborted || replyRun.signal.aborted || (opts?.automaticUserReply && !isRealPersonAutoReplyAuthorized())) return;
 
                         // 显示结果让用户看到
                         if (pipelineResult && pipelineResult.stored > 0) {
@@ -2321,7 +2331,7 @@ export const useChatAI = ({
                             setMemoryPalaceStatus(`${charName}闭上眼睛，开始整理内心…`);
                             const persona = [char.systemPrompt || '', char.worldview || ''].filter(Boolean).join('\n');
                             const result = await runCognitiveDigestion(
-                                char.id, charName, persona, mpLLM, false, userProfile?.name, mpEmb,
+                                char.id, charName, persona, memoryLLM, false, userProfile?.name, memoryEmbedding,
                                 // 消化链路可能含多次 LLM 调用（审视→历史回填续传→门牌整理），
                                 // 实时刷状态条让用户知道后台在干活、别急着关页面
                                 (stage) => setMemoryPalaceStatus(`${charName}${stage}`),
@@ -2339,8 +2349,9 @@ export const useChatAI = ({
                             }
                         }
                     })
-                    .catch(e => { console.error('❌ [MemoryPalace] 后台处理异常:', e.message); addToast('记忆整理失败', 'error'); })
+                    .catch(e => { if (memoryRun?.signal.aborted) return; console.error('❌ [MemoryPalace] 后台处理异常:', e.message); addToast('记忆整理失败', 'error'); })
                     .finally(() => {
+                        void memoryRun?.settle();
                         // 如果状态文本包含"完成"，先让用户看到再清除
                         const current = memoryPalaceStatusRef.current;
                         if (current && current.includes('完成')) {

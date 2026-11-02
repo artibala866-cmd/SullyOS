@@ -469,6 +469,7 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,

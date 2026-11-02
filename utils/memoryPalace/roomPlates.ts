@@ -77,6 +77,7 @@ async function callPlateLLM(
         `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
         {
             method: 'POST',
+                signal: llmConfig.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${llmConfig.apiKey}`,
@@ -189,7 +190,7 @@ async function consolidatePlates(
         if (profile && up) identityContext = (await ContextBuilder.buildCoreContext(profile, up, false));
     } catch { /* 拿不到就裸跑，prompt 里仍有名字与身份确认段 */ }
 
-    if (preferCloud && !readMaintenanceSettings().enabled) {
+    if (preferCloud && !llmConfig.signal && !readMaintenanceSettings().enabled) {
         const cloud = await tryCloudConsolidation({
             charId, charName, userName, identityContext, plates, materials, llmConfig, prioritySubmissions, snapshotAt,
         });

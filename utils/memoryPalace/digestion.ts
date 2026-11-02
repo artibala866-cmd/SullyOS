@@ -363,6 +363,7 @@ ${material.recentEpisodes.length > 0 ? `
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,
@@ -1029,6 +1030,7 @@ ${memoryContext}
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
             {
                 method: 'POST',
+                signal: llmConfig.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${llmConfig.apiKey}`,

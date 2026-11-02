@@ -198,3 +198,11 @@ describe('getEmbeddings 批量 400 自动降级为逐条', () => {
         expect(calls).toBe(2);
     });
 });
+
+it('a revoked automatic turn cannot start embedding requests or retry them', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(getEmbeddings(['revoked'], {...config, signal:controller.signal}))
+        .rejects.toMatchObject({name:'AbortError'});
+    expect(fetch).not.toHaveBeenCalled();
+});
