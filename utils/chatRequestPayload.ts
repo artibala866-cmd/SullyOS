@@ -1,5 +1,6 @@
 import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
 import { isRejectedPrivateMessage } from './chatBlock';
+import { buildRealPersonTurnFocusHint } from './realPersonReplyTurn';
 import { expandHomeContextHistory } from './homeContextSegments';
 /**
  * 聊天请求载荷统一构造器
@@ -123,6 +124,9 @@ export interface BuildChatPayloadInput {
      * 出现两个钟、两份热搜、两套工具名。
      */
     timelyByWorker?: boolean;
+    /** Only a reply to a newly saved user turn, never autonomous outreach or manual continuation. */
+    automaticUserReply?: boolean;
+    expectedAutoReplyUserId?: number;
 }
 
 export type ChatPreparationStage='vision'|'memory'|'prompt'|'collaboration'|'tasks';
@@ -381,6 +385,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         {
             history: cleanedApiMessages,
             timelyByWorker: input.timelyByWorker === true,
+            automaticUserReply: input.automaticUserReply === true,
             returningFromMode: returningFromMode || undefined,
             appRules: input.appPrompt?.rules,
         },
@@ -506,6 +511,14 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // 思考链/点单块拼在钢印之后、模型开口前最后读到的是格式说明书的问题。
     if (input.appPrompt) volatileTail += input.appPrompt.scene;
     volatileTail += parts.recencyTail;
+    // Same actual DB history and context; no separate generation path.
+    // Only a verified unanswered turn gets a focus boundary, so life/phone
+    // context cannot outweigh the user's CURRENT topic in an auto-reply.
+    if (input.automaticUserReply === true && !input.appPrompt) {
+        volatileTail += '\n' + buildRealPersonTurnFocusHint(
+            historyMsgsForPrompt, input.expectedAutoReplyUserId,
+        );
+    }
 
     // 结构：[稳定 system] + [历史消息] + [易变状态 system] (+ 末尾 reminder)。
     // 稳定前缀不再包含分钟级时间戳等易变内容 → 支持前缀缓存的中转能跨轮命中；
