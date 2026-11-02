@@ -1,5 +1,9 @@
 import { findPendingUserTurn } from './chatContinuation';
-import type { ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
+import type { Message } from '../types';
+import {
+  advanceConversationEngagement, loadConversationEngagementState,
+  type ConversationEngagementAnalysis,
+} from './memoryPalace/conversationEngagement';
 
 /** Filter ONLY the private-chat auto-response candidate. Music actions have
  * their own immediate bridge; app cards and rejected sends are not dialogue.
@@ -130,4 +134,41 @@ export function renderRealPersonConversationPlan(a?: ConversationEngagementAnaly
     'A character may have opinions and a life, but personal reports and topic changes are not mandatory.',
     'No output length, bubble count, self-disclosure or follow-up quota is implied by this plan.',
   ];
+}
+
+/**
+ * Stateless replay through the EXISTING M3 state machine. The optional Memory
+ * Palace M3 flag might be off; this still follows the conversation's known
+ * user turns without enabling M3 storage or introducing another topic store.
+ * Replays the last 8 user bursts; all transitions are deterministic and local.
+ */
+export function analyzeRealPersonConversation(
+  charId: string,
+  messages: readonly Message[],
+  charName?: string,
+  userName?: string,
+): ConversationEngagementAnalysis | undefined {
+  const dialogue = messages.filter(m =>
+    isRealPersonUserStatement(m) ||
+    (isActualCharacterAnswer(m) && m.metadata?.activeMsg2?.taskId == null),
+  );
+  const userBursts: number[] = [];
+  for (let i = 0; i < dialogue.length; i++) {
+    if (dialogue[i].role === 'user' &&
+        (i === dialogue.length - 1 || dialogue[i + 1].role !== 'user')) userBursts.push(i);
+  }
+  if (!userBursts.length) return undefined;
+  const stored = loadConversationEngagementState(charId);
+  // An up-to-date saved M3 subject already encodes the previous user turns.
+  if (stored?.lastProcessedMessageId != null &&
+      dialogue.some(m => m.id === stored.lastProcessedMessageId)) {
+    return advanceConversationEngagement(charId, dialogue, stored, charName, userName).analysis;
+  }
+  let previous: ReturnType<typeof advanceConversationEngagement>['state'] | undefined;
+  for (const index of userBursts.slice(-8)) {
+    previous = advanceConversationEngagement(
+      charId, dialogue.slice(0, index + 1), previous, charName, userName,
+    ).state;
+  }
+  return previous?.lastAnalysis;
 }
