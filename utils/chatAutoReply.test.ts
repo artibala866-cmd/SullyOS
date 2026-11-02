@@ -313,33 +313,30 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
 
-    it('an unanswered cold message waits on the character-rhythm clock rather than firing after a few seconds',()=>{
+    it('a real user send starts the reply on composer settle, not a random 4–6 minute countdown',()=>{
         render({naturalPacing:true,lifeActivity:'free',replyAttention:'normal'});
         send();
-        advance(30_000);
+        advance(1_249);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(210_000 - 1);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(120_001);
+        advance(1);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+        advance(360_000);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('real back-and-forth receives a quicker reply without creating a new autonomous topic',()=>{
+    it('genuine active conversation follows the same user-turn gate without forcing topics',()=>{
         render({naturalPacing:true,lifeActivity:'free',replyAttention:'waiting'});
         send();
-        advance(2_999);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(7_001);
+        advance(1_250);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('a real sleep slot remains silent despite a reply one minute ago', () => {
-        const lastReply = Date.now() - 60_000;
-        render({ naturalPacing: true, lifeActivity: 'sleep', lastCharacterReplyAt: lastReply });
+    it('sleep does not wake because a countdown expired',async()=>{
+        render({ naturalPacing:true, lifeActivity:'sleep',lastCharacterReplyAt:Date.now()-60_000 });
         send();
-        advance(70_000);
+        advance(360_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
         expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
-        render({ lifeActivity: 'free', lastCharacterReplyAt: lastReply });
-        advance(11_000);
+        render({lifeActivity:'free'});
+        await act(async()=>{});
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
@@ -471,98 +468,90 @@ describe('scheduled proactive messages cannot swallow an unanswered user turn', 
     });
 });
 
-describe('real-person pacing without mechanical nudges', () => {
-    const delayFor = (activity: 'free' | 'busy' | 'sleep' | null, at = Date.now()) =>
-        resolveRealPersonReplyPlan({ activity, firstUnansweredAt: at, now: at, fallbackDelayMs: 5_000 }).delayMs;
-
-    it('one successful send is enough for a delayed busy reply', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        const delay = delayFor('busy')!;
+describe('real-person event-driven replies', () => {
+    it('one send during a truly busy slot stays pending until the existing schedule changes', async () => {
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'occupied'});
         send();
-        advance(delay - 1);
+        advance(600_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        render({lifeActivity:'free'});
+        await act(async()=>{});
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('more user messages cannot force an occupied character to respond before available',async()=>{
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'occupied'});
+        for(let i=0;i<7;i++)send();
+        advance(120_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        render({lifeActivity:'free'});
+        await act(async()=>{});
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('successive saved messages reset only the composer settlement, not a multi-minute clock',()=>{
+        render({naturalPacing:true,lifeActivity:'free'});
+        send();
+        advance(750);
+        send();
+        advance(1_249);
         expect(options.onGenerate).not.toHaveBeenCalled();
         advance(1);
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
-        advance(100_000);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('many messages do not unlock an immediate fixed reply', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        const delay = delayFor('busy')!;
-        send();
-        for (let i = 0; i < 6; i++) send();
-        advance(4_500);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(delay - 4_500);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('natural reply waits for the last successfully sent follow-up, not just the first message', () => {
-        render({ naturalPacing:true, lifeActivity:'free' });
-        const at = Date.now();
-        const first = resolveRealPersonReplyPlan({activity:'free',firstUnansweredAt:at,now:at,fallbackDelayMs:5000}).delayMs!;
-        send();
-        advance(first - 500);
-        send();
-        advance(1_500);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-        advance(1_500);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('sleep stays quiet regardless of nudges until the actual schedule changes', () => {
-        render({ naturalPacing: true, lifeActivity: 'sleep' });
-        const originalSendAt = Date.now();
-        for (let i = 0; i < 12; i++) send();
+    it('real sleep waits for the schedule even after many nudges',async()=>{
+        render({naturalPacing:true,lifeActivity:'sleep'});
+        for(let i=0;i<12;i++)send();
         advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
-        render({ lifeActivity: 'free' });
-        advance(delayFor('free', originalSendAt)!);
+        render({lifeActivity:'free'});
+        await act(async()=>{});
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
-    it('retains a sleeping user turn overnight, but expires an abandoned 48-hour intent', () => {
-        render({ naturalPacing: true, lifeActivity: 'sleep' });
-        const originalSendAt = Date.now();
+    it('keeps sleeping intent overnight and expires one abandoned for 48 hours',async()=>{
+        render({naturalPacing:true,lifeActivity:'sleep'});
         send();
-        vi.setSystemTime(Date.now() + 12 * 60 * 60_000);
-        render({ lifeActivity: 'free' });
-        advance(delayFor('free', originalSendAt)!);
+        vi.setSystemTime(Date.now()+12*60*60_000);
+        render({lifeActivity:'free'});
+        await act(async()=>{});
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
-        render({ lifeActivity: 'sleep' });
+        render({lifeActivity:'sleep'});
         send();
-        vi.setSystemTime(Date.now() + 49 * 60 * 60_000);
-        render({ lifeActivity: 'free' });
+        vi.setSystemTime(Date.now()+49*60*60_000);
+        render({lifeActivity:'free'});
+        advance(1);
+        await act(async()=>{});
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('live back-and-forth can respond despite a busy schedule without overriding sleep',()=>{
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'conversation'});
+        send();
+        advance(1_250);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('a persisted real assistant answer clears its own pending user turn',()=>{
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'occupied'});
+        send();
+        render({lastCharacterReplyAt:Date.now()+1});
+        advance(600_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+    });
+    it('legacy basic auto reply still uses its original two-second setting',()=>{
+        render({naturalPacing:false,lifeActivity:'busy'});
+        send();
+        advance(2_000);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('real-person pacing cannot override a disabled reply permission',()=>{
+        render({enabled:false,naturalPacing:true,lifeActivity:'free'});
+        send();
         advance(10_000);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('recent genuine conversation outranks a busy schedule', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy', lastCharacterReplyAt: Date.now() - 60_000 });
-        send();
-        advance(delayFor('free')!);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('a persisted assistant or AMSG reply consumes the old pending candidate', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
-        send();
-        render({ lastCharacterReplyAt: Date.now() + 1 });
-        advance(180_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
-    it('existing two-second plain auto reply still works when真人感 is off', () => {
-        render({ naturalPacing: false, lifeActivity: 'busy' });
-        send();
-        advance(2000);
-        expect(options.onGenerate).toHaveBeenCalledTimes(1);
-    });
-    it('natural pacing cannot turn on a disabled auto reply', () => {
-        render({ enabled: false, naturalPacing: true, lifeActivity: 'free' });
-        send();
-        advance(180_000);
-        expect(options.onGenerate).not.toHaveBeenCalled();
-    });
-    it('failed sends and a different character never arm this conversation', () => {
-        render({ naturalPacing: true, lifeActivity: 'busy' });
+    it('failed sends and another character do not arm this conversation',()=>{
+        render({naturalPacing:true,lifeActivity:'free'});
         send(false);
-        act(() => controls.beginSend('other')(true));
-        advance(180_000);
+        act(()=>controls.beginSend('other')(true));
+        advance(10_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
 });
