@@ -343,6 +343,26 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('new user text during an old AI generation survives old completion and gets its own reply',async()=>{
+        let finishOld!: (value:'discard')=>void;
+        const old=vi.fn(()=>new Promise<'discard'>(resolve=>{finishOld=resolve;}));
+        render({onGenerate:old});
+        send();
+        advance(2_000);
+        expect(old).toHaveBeenCalledTimes(1);
+        const before=JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        send();
+        const after=JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        expect(after.firstUnansweredAt).toBe(before.firstUnansweredAt);
+        expect(after.lastUserSendAt).toBeGreaterThan(before.lastUserSendAt);
+        await act(async()=>finishOld('discard'));
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        const newTurn=vi.fn();
+        render({onGenerate:newTurn});
+        advance(2_000);
+        expect(newTurn).toHaveBeenCalledTimes(1);
+    });
+
     it('own automatic AI typing indicator does NOT cancel a pending reply before the API outcome', async () => {
         let resolveAttempt!: (value: 'retry') => void;
         const first = vi.fn(() => new Promise<'retry'>(resolve => { resolveAttempt = resolve; }));
