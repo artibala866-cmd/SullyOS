@@ -104,7 +104,7 @@ export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number 
 
 /** Use SullyOS' own M3 conversation tracking instead of a second topic engine. */
 export function renderRealPersonConversationPlan(a?: ConversationEngagementAnalysis): string[] {
-  if (!a?.analyzable || !a.shouldGuide) return [];
+  if (!a?.analyzable) return [];
   const acts: Record<string,string> = {
     acknowledge:'acknowledge the newest detail',
     invite:'leave space without requiring a question',
