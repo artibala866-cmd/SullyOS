@@ -175,6 +175,18 @@ describe('markAmsgStateDirty 同步门', () => {
     expect(ActiveMsgClient.syncCharFirePacks).not.toHaveBeenCalled();
   });
 
+  it('用户真实发言即使本地还没有 AI 任务，也刷新云端上下文（云端可能有未认领的自排任务）', async () => {
+    const id = nextCharId();
+    const char = {
+      id, name: id,
+      activeMsg2Config: { enabled: true, tasks: [] },
+    } as unknown as CharacterProfile;
+    markAmsgStateDirty(snapshotOf(char), 'user-message');
+    await vi.advanceTimersByTimeAsync(IDLE_WINDOW_MS);
+    expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(1);
+    expect((ActiveMsgClient.syncCharFirePacks as any).mock.calls[0][0][0].char.id).toBe(id);
+  });
+
   it('enabled=false 忽略', async () => {
     const char = charWithAiTask(nextCharId());
     (char.activeMsg2Config as any).enabled = false;
