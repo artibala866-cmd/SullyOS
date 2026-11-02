@@ -7,7 +7,7 @@ export default function ChatBlockDeliveryStatus({ message, inlineSide }: { messa
   const status = privateChatDeliveryFailure(message);
   if (!status) return null;
   const userRejected = status === 'user-rejected';
-  const label = userRejected ? '消息已被对方拒收' : '对方未收到你的回复';
+  const label = userRejected ? '消息已被对方拒收' : '角色的回复显示发送失败';
   // 普通消息外壳走旁侧小图标；历史独立卡片继续沿用默认渲染位置。
   if (inlineSide) return <span role="status" aria-label={label} title={label}
     data-chat-block-delivery={status}
