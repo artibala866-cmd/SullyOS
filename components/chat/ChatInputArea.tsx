@@ -688,7 +688,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>}
             <span className="text-xs font-bold">日程</span>
         </button>,
-        <button key="life-pacing" title="真人感负责角色生活与自然联系判断，只有同时开启主动消息 2.0 才能自主联系；发送后自动回复仍有独立设置" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
+        <button key="life-pacing" title="开启后，已发送的私聊消息会在输入结束后自动接话；关闭会取消自动回复。无需另开普通自动回复或主动消息 2.0。" onClick={() => onPanelAction('life-pacing')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${lifePacingEnabled ? 'bg-slate-100 text-[#737373] border-slate-300' : 'bg-white text-[#737373] border-slate-200'}`}>
                 <svg width="26" height="26" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="9"/><path d="M10 11c1-1.5 2.4-1.5 3.5 0M18 11c-1-1.5-2.4-1.5-3.5 0M10 17c2.5 3 5.5 3 8 0"/></svg>
             </div>
