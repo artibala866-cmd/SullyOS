@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection, privateChatDeliveryFailure, userBlockedCharacterAt, didCharReplyFailDuringGeneration } from './chatBlock';
+import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, isRejectedPrivateMessage, privateChatBlockDirection, privateChatDeliveryFailure, userBlockedCharacterAt, didCharReplyFailDuringGeneration, didCharReplyFailAtDelivery } from './chatBlock';
 describe('original two-way private chat blocking framework', () => {
   it('legacy character starts open', () => {
     expect(isPrivateChatBlocked()).toBe(false);
@@ -61,6 +61,19 @@ describe('original two-way private chat blocking framework', () => {
     expect(didCharReplyFailDuringGeneration(false, true)).toBe(true);
     expect(didCharReplyFailDuringGeneration(true, true)).toBe(true);
     expect(didCharReplyFailDuringGeneration(false, false)).toBe(false);
+  });
+  it('云端消息迟到时只按 Char 发出的时刻判定，不被当前拉黑状态误改', () => {
+    const blocked = changeChatBlock(undefined, 'user', true, { at: 200 });
+    expect(didCharReplyFailAtDelivery(blocked, 150)).toBe(false);
+    expect(didCharReplyFailAtDelivery(blocked, 250)).toBe(true);
+    expect(didCharReplyFailAtDelivery(blocked)).toBe(true);
+    const unblocked = changeChatBlock(blocked, 'user', false, { at: 300 });
+    expect(didCharReplyFailAtDelivery(unblocked, 250)).toBe(true);
+    expect(didCharReplyFailAtDelivery(unblocked, 320)).toBe(false);
+    expect(didCharReplyFailAtDelivery(unblocked)).toBe(false);
+    const blockedAgain = changeChatBlock(unblocked, 'user', true, { at: 400 });
+    expect(didCharReplyFailAtDelivery(blockedAgain, 350)).toBe(false);
+    expect(didCharReplyFailAtDelivery(blockedAgain, 450)).toBe(true);
   });
   it('events bounded; relationship history persists through unlocks', () => {
     let state = undefined as ReturnType<typeof changeChatBlock> | undefined;
