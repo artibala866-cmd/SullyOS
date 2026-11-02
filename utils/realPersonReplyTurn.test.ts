@@ -80,6 +80,26 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(hint.includes('Optional:') || hint.includes('No mandatory second act')).toBe(true);
     expect(hint).toContain('No output length, bubble count');
   });
+  it('AMSG between two user turns is a boundary, not an assistant answer or a topic itself',()=>{
+    const base=1_800_000_000_000;
+    const user1={id:501,charId:'char-boundary',role:'user',type:'text',timestamp:base-50_000,
+      content:'跟你说我朋友和前任又吵起来了，真的离谱'};
+    const push={id:502,charId:'char-boundary',role:'assistant',type:'text',timestamp:base-25_000,
+      metadata:{activeMsg2:{taskId:'autowake:day'}},content:'我刚去吃了火锅，你吃了吗'};
+    const user2={id:503,charId:'char-boundary',role:'user',type:'text',timestamp:base,
+      content:'然后她又跑去找他复合，简直离谱'};
+    const a=analyzeRealPersonConversation('char-boundary',[user1,push,user2] as any,'角色','用户');
+    const b=analyzeRealPersonConversation('char-boundary',[
+      user1,{...push,content:'突然播报了一条天气消息'},user2,
+    ] as any,'角色','用户');
+    expect(a?.analyzable).toBe(true);
+    expect(a?.reasons).toContain('prior_subject_continuation');
+    expect(a?.responsePlan).toEqual(b?.responsePlan);
+    const focus=buildRealPersonTurnFocusHint([user1,push,user2] as any,503,a);
+    expect(focus).toContain('刚发了一条新消息');
+    expect(focus).not.toContain('连续发送了 2 条消息');
+  });
+
   it('honors the user ending a topic without auto-inventing a new subject',()=>{
     const now=1_800_000_000_000;
     const history=[
