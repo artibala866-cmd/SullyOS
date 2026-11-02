@@ -1499,6 +1499,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
 
         const savedUserMsgId = await DB.saveMessage(msgPayload);
+        // 用户发言一旦成功落库，就立刻把 2.0 fire_pack 标脏并重建最新聊天历史。
+        // 过去主要等 AI 回复结束才同步：用户新发了话、但自动回复没运行时，
+        // 角色到点仍只看到上一轮旧快照，甚至围着已结束的话题继续说。
+        // 不等待模型回复；没开 2.0/没排任务的角色在 markDirty 内直接跳过。
+        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
 
         if (type === 'image') {
             // 相册是消息的附带记录：保留来源消息引用供收藏/去重使用，但相册写入失败
