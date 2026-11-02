@@ -44,7 +44,7 @@ export function extractCharacterBlockDirective(raw: string): { text: string; rea
 
 export function buildInPersonCharBlockInstruction(state?: ChatBlockState, userName = '用户'): string {
   if (!characterBlocksUser(state) && !userBlocksCharacter(state)) return '';
-  const reason = [...(state?.history || [])].reverse().find(event =>
+  const reason = state?.lastCharacterBlockReason || [...(state?.history || [])].reverse().find(event =>
     event.actor === 'character' && event.action === 'block')?.reason || '未记录';
   return [
     '【见面剧情·原版拉黑关系的现实会面状态】',
@@ -97,7 +97,7 @@ export function buildPrivateChatBlockHistoryContext(state?: ChatBlockState, now:
   if (userBlocksCharacter(state) && characterBlocksUser(state)) parts.push('你和用户互相拉黑。对方试图发送的用户消息已被你拒收，你无法读取；你自己的原账号回复同样无法正常送达。不得假装任一方向成功收到了消息。');
   if (characterBlocksUser(state)) {
     const event = [...history].reverse().find(e => e.actor === 'character' && e.action === 'block');
-    parts.push(`你已拉黑用户 ${elapsed(state!.characterBlockedAt!)} 分钟；原因：${event?.reason || '未记录'}。`);
+    parts.push(`你已拉黑用户 ${elapsed(state!.characterBlockedAt!)} 分钟；原因：${state?.lastCharacterBlockReason || event?.reason || '未记录'}。`);
     parts.push('你不会读到被拒收的用户消息。只有你自行决定解除后，原账号才恢复私聊。');
   }
   if (latest?.action === 'unblock') {
@@ -142,7 +142,7 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
       `你正在判断角色「${character.name}」是否愿意解除对「${userName}」的私聊拉黑。你必须保持角色本人的人设与自尊，不受用户强迫。`,
       `角色设定：${String(character.systemPrompt || '')}`,
       `世界观：${String(character.worldview || '')}`,
-      `拉黑已持续 ${elapsed} 分钟，角色当时的真实原因：${lastBlock?.reason || '没有记录具体原因'}。`,
+      `拉黑已持续 ${elapsed} 分钟，角色当时的真实原因：${state?.lastCharacterBlockReason || lastBlock?.reason || '没有记录具体原因'}。`,
       '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见；不知道用户是否尝试联系，绝不能猜测或假装已读。',
       '当前关系阶段：' + stage,
       '上一次心软度：' + softness + '/100。只能根据自己的回忆、时间、底线、自尊和性格独立调整，可升可降。',
