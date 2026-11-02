@@ -19,6 +19,8 @@ on:
       - 'utils/chatInputPreferences.ts'
       - 'utils/realPersonMode.ts'
       - 'utils/realPersonMode.test.ts'
+      - 'utils/realPersonReplyReadiness.ts'
+      - 'utils/realPersonReplyReadiness.test.ts'
       - 'utils/realPersonReplyTiming.ts'
       - 'utils/realPersonReplyTiming.test.ts'
       - 'utils/realPersonReplyRhythm.ts'
@@ -58,14 +60,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test durable reply, schedule pacing, and cloud instant-chat compatibility
-        run: pnpm exec vitest run utils/realPersonReplyPayload.test.ts utils/chatAutoReply.test.ts utils/realPersonMode.test.ts utils/realPersonReplyTiming.test.ts utils/realPersonReplyRhythm.test.ts utils/realPersonReplyTurn.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts worker/amsg/src/selfUpdate.test.ts worker/amsg/src/autoUpdate.test.ts utils/amsgAutoUpdateTrigger.test.ts
+        run: pnpm exec vitest run utils/realPersonReplyPayload.test.ts utils/chatAutoReply.test.ts utils/realPersonMode.test.ts utils/realPersonReplyTiming.test.ts utils/realPersonReplyReadiness.test.ts utils/realPersonReplyRhythm.test.ts utils/realPersonReplyTurn.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts worker/amsg/src/selfUpdate.test.ts worker/amsg/src/autoUpdate.test.ts utils/amsgAutoUpdateTrigger.test.ts
       - name: Compile SullyOS app with real-person reply rhythm integration
         run: pnpm run build
       - name: Check changed code TypeScript diagnostics
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/chat-reply-tsc.log 2>&1 || true
-          grep -E '^(hooks/useChatAutoReply.ts|hooks/useChatAI.ts|utils/amsgInstantChat.ts|utils/amsgInstantChat.test.ts|utils/chatContinuation.ts|utils/realPersonReplyTurn.ts|utils/realPersonReplyTurn.test.ts|utils/chatPrompts.ts|utils/chatRequestPayload.ts|utils/realPersonReplyPayload.test.ts|apps/Chat.tsx|utils/chatAutoReply.test.ts|utils/chatInputPreferences.ts|utils/realPersonMode.ts|utils/realPersonMode.test.ts|utils/realPersonReplyTiming.ts|utils/realPersonReplyTiming.test.ts|utils/realPersonReplyRhythm.ts|utils/realPersonReplyRhythm.test.ts|components/chat/RealPersonRhythmSettings.tsx|components/chat/ChatModals.tsx|types.ts|components/chat/ChatInputSettings.tsx|utils/amsgAutoUpdateTrigger.ts|utils/amsgBundleVersion.ts|utils/activeMsgClient.ts|worker/amsg/src/selfUpdate.ts|worker/amsg/src/index.ts|components/settings/ActiveMsgGlobalSettingsModal.tsx)[(]' /tmp/chat-reply-tsc.log > /tmp/chat-reply-target-errors.log || true
+          grep -E '^(hooks/useChatAutoReply.ts|hooks/useChatAI.ts|utils/amsgInstantChat.ts|utils/amsgInstantChat.test.ts|utils/chatContinuation.ts|utils/realPersonReplyTurn.ts|utils/realPersonReplyTurn.test.ts|utils/chatPrompts.ts|utils/chatRequestPayload.ts|utils/realPersonReplyPayload.test.ts|apps/Chat.tsx|utils/chatAutoReply.test.ts|utils/chatInputPreferences.ts|utils/realPersonMode.ts|utils/realPersonMode.test.ts|utils/realPersonReplyReadiness.ts|utils/realPersonReplyReadiness.test.ts|utils/realPersonReplyTiming.ts|utils/realPersonReplyTiming.test.ts|utils/realPersonReplyRhythm.ts|utils/realPersonReplyRhythm.test.ts|components/chat/RealPersonRhythmSettings.tsx|components/chat/ChatModals.tsx|types.ts|components/chat/ChatInputSettings.tsx|utils/amsgAutoUpdateTrigger.ts|utils/amsgBundleVersion.ts|utils/activeMsgClient.ts|worker/amsg/src/selfUpdate.ts|worker/amsg/src/index.ts|components/settings/ActiveMsgGlobalSettingsModal.tsx)[(]' /tmp/chat-reply-tsc.log > /tmp/chat-reply-target-errors.log || true
           if [ -s /tmp/chat-reply-target-errors.log ]; then
             cat /tmp/chat-reply-target-errors.log
             exit 1
