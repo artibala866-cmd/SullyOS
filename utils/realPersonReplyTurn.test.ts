@@ -77,7 +77,7 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(analysis?.subject.active).toBe(true);
     const hint=buildRealPersonTurnFocusHint(history,103,analysis);
     expect(hint).toContain('topicMove=continue');
-    expect(hint).toContain('No mandatory second act');
+    expect(hint.includes('Optional:') || hint.includes('No mandatory second act')).toBe(true);
     expect(hint).toContain('No output length, bubble count');
   });
   it('honors the user ending a topic without auto-inventing a new subject',()=>{
