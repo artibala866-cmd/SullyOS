@@ -1783,7 +1783,8 @@ const MessageItem = React.memo(({
                     <div className={`${selectionMode ? 'pointer-events-none' : ''} ${blackWhiteFacebook && m.type === 'text' ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${wechatTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''} ${qqTextMessage ? (isUser ? 'flex flex-col items-end min-w-0' : 'flex flex-col items-start min-w-0') : ''}`}>
                         {<ChatCardSurface message={m}>{content}</ChatCardSurface>}
                     </div>
-                    <ChatBlockDeliveryStatus message={m} inlineSide={isUser ? 'left' : 'right'} />                    {isLastInGroup && showTimestamp !== 'never' && (
+                    <ChatBlockDeliveryStatus message={m} inlineSide={isUser ? 'left' : 'right'} />
+                    {isLastInGroup && showTimestamp !== 'never' && (
                         <div className={`sully-chat-message-timestamp absolute top-full ${isUser ? 'right-0' : 'left-0'} mt-0.5 px-1 text-[9px] text-slate-400/80 font-medium whitespace-nowrap pointer-events-none ${showTimestamp === 'hover' ? 'opacity-0 group-hover:opacity-100 transition-opacity' : ''}`}>{formatTime(m.timestamp)}</div>
                     )}
                     </div>
@@ -3355,9 +3356,6 @@ const MessageItem = React.memo(({
             ? `relative ${suppressEntranceAnimation ? '' : 'animate-fade-in'}`
             : `relative ${bubbleVariant === 'flat' || bubbleVariant === 'outline' || bubbleVariant === 'wechat' ? '' : 'shadow-sm '}px-5 py-3 ${suppressEntranceAnimation ? '' : 'animate-fade-in'} ${bubbleVariant === 'outline' ? '' : 'border border-black/5 '}active:scale-[0.98] transition-transform overflow-visible ${isUser ? 'sully-bubble-user' : 'sully-bubble-ai'} ${bubbleGroupClasses}`}
             style={isVoiceOnlyMsg ? undefined : containerStyle}>
-
-            {/* 拉黑发送失败是消息当时的持久化回执，贴在原气泡外缘而不改变任何主题尺寸。 */}
-            <ChatBlockDeliveryStatus message={m} inlineSide={isUser ? 'left' : 'right'} />
 
             {/* Layer 1: Background Image with Independent Opacity */}
             {bubbleBgUrl && (
