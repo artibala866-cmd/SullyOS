@@ -16,7 +16,7 @@ import {isScheduleFeatureOn} from './scheduleFeature';
 import { isRealPersonModeEnabled } from './realPersonMode';
 
 export const AMSG_AUTONOMY_SCHEDULE_EVENT='amsg2-schedule-saved';
-export const isAutonomyWakeTask=(task:Pick<ActiveMsg2TaskRecord,'clientTaskId'>)=>
+export const isAutonomyWakeTask=(task:{clientTaskId?:string|null})=>
   typeof task.clientTaskId==='string'&&task.clientTaskId.startsWith('autowake:');
 type Slot='day'|'evening';
 export type WakeSlot={slot:Slot;firstSendTime:string};

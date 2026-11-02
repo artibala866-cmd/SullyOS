@@ -2,7 +2,7 @@ import {describe,it,expect,beforeEach,afterEach,vi} from 'vitest';
 beforeEach(async()=>{
   const {ActiveMsgClient}=await import('./activeMsgClient');
   vi.spyOn(ActiveMsgClient,'probeWorkerVersion').mockResolvedValue({
-    state:'current',deployed:'test',expected:'test',autoUpdate:null,
+    state:'current',deployed:'test',deployedChannel:'preview',expected:'test',autoUpdate:null,
   });
 });
 afterEach(()=>vi.restoreAllMocks());
