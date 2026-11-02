@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findPendingRealPersonUserTurn, buildRealPersonTurnFocusHint } from './realPersonReplyTurn';
+import { findPendingRealPersonUserTurn, buildRealPersonTurnFocusHint, analyzeRealPersonConversation } from './realPersonReplyTurn';
 import { findPendingUserTurn } from './chatContinuation';
 const say=(id:number)=>({id,role:'user',type:'text'});
 const proactive=(id:number)=>({id,role:'assistant',type:'text',metadata:{activeMsg2:{taskId:'scheduled'}}});
@@ -64,6 +64,34 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(findPendingRealPersonUserTurn([{...say(1),recalled:true}])).toBeNull();
     expect(findPendingRealPersonUserTurn([say(1),{id:2,role:'assistant',type:'text',metadata:{busyFauxAutoReply:true}}])?.id).toBe(1);
     expect(findPendingRealPersonUserTurn([say(1),{id:2,role:'assistant',type:'text',metadata:{countsAsReply:false}}])?.id).toBe(1);
+  });
+  it('reuses the existing M3 states to stay with the ongoing gossip instead of fabricating a topic',()=>{
+    const now=1_800_000_000_000;
+    const history=[
+      {id:101,charId:'char-gossip',role:'user',type:'text',timestamp:now-80_000,content:'跟你说，我同学又和前任纠缠上了'},
+      {id:102,charId:'char-gossip',role:'assistant',type:'text',timestamp:now-60_000,content:'不是之前都分手了吗？'},
+      {id:103,charId:'char-gossip',role:'user',type:'text',timestamp:now,content:'结果她居然又去找那个前任了'},
+    ] as any;
+    const analysis=analyzeRealPersonConversation('char-gossip',history,'角色','用户');
+    expect(analysis?.analyzable).toBe(true);
+    expect(analysis?.subject.active).toBe(true);
+    const hint=buildRealPersonTurnFocusHint(history,103,analysis);
+    expect(hint).toContain('topicMove=continue');
+    expect(hint).toContain('No mandatory second act');
+    expect(hint).toContain('No output length, bubble count');
+  });
+  it('honors the user ending a topic without auto-inventing a new subject',()=>{
+    const now=1_800_000_000_000;
+    const history=[
+      {id:201,charId:'char-close',role:'user',type:'text',timestamp:now-80_000,content:'我今天和朋友吵架了'},
+      {id:202,charId:'char-close',role:'assistant',type:'text',timestamp:now-50_000,content:'到底是为什么争执？'},
+      {id:203,charId:'char-close',role:'user',type:'text',timestamp:now,content:'算了先不说这个了'},
+    ] as any;
+    const analysis=analyzeRealPersonConversation('char-close',history,'角色','用户');
+    expect(analysis?.conversationAct).toBe('close');
+    const hint=buildRealPersonTurnFocusHint(history,203,analysis);
+    expect(hint).toContain('topicMove=close');
+    expect(hint).toContain('Do not append a question');
   });
   it('resolves once the character actually replies; proactive pushes do not count',()=>{
     expect(findPendingRealPersonUserTurn([say(1),proactive(2)])?.id).toBe(1);
