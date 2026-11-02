@@ -133,6 +133,11 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     const sceneDecision = { ...judgement, decision: 'stay' as const,
       theater: { title: '停在草稿箱', body: '他把手机扣在桌上，几次打开未发送的草稿。' } };
     const withScene = applyCharacterForgivenessDecision(newBlock, 300, sceneDecision, 501)!;
+    const savedPrivateHistory = JSON.stringify(buildForgivenessMessages(character(withScene), '用户', rows, 1_800_100));
+    expect(savedPrivateHistory).toContain('我想试一试');
+    expect(savedPrivateHistory).toContain('你还在吗');
+    expect(savedPrivateHistory).toContain('从未发出的草稿');
+    expect(savedPrivateHistory).not.toContain('拒收内容是秘密');
     expect(withScene.forgivenessScenes).toEqual([{
       at: 501, blockedAt: 300, title: '停在草稿箱',
       body: '他把手机扣在桌上，几次打开未发送的草稿。',
@@ -199,5 +204,9 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(check.forgivenessScenes?.[0].body).toBe('他只是看着屏幕。');
     expect(check.characterBlockedAt).toBe(10);
     expect(check.forgivenessSoftness).toBe(20);
+    const nextPrompt = JSON.stringify(buildForgivenessMessages(character(check), '用户', rows, 1_800_100));
+    expect(nextPrompt).toContain('试探');
+    expect(nextPrompt).toContain('冷淡');
+    expect(nextPrompt).not.toContain('拒收内容是秘密');
   });
 });
