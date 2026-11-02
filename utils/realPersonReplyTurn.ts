@@ -165,10 +165,17 @@ export function analyzeRealPersonConversation(
     return advanceConversationEngagement(charId, dialogue, stored, charName, userName).analysis;
   }
   let previous: ReturnType<typeof advanceConversationEngagement>['state'] | undefined;
+  let lastTurnAt: number | undefined;
   for (const index of userBursts.slice(-8)) {
+    const currentAt = dialogue[index].timestamp;
+    // The M3 store expires a subject after 12 h. Rebuilding the same history
+    // at one Date.now() must not accidentally make days-old gossip "active".
+    if (typeof currentAt === 'number' && typeof lastTurnAt === 'number' &&
+        currentAt - lastTurnAt > 12 * 60 * 60_000) previous = undefined;
     previous = advanceConversationEngagement(
       charId, dialogue.slice(0, index + 1), previous, charName, userName,
     ).state;
+    lastTurnAt = currentAt;
   }
   return previous?.lastAnalysis;
 }
