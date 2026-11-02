@@ -10,6 +10,7 @@
 import type { CharacterProfile } from '../types';
 import { ActiveMsgClient } from './activeMsgClient';
 import { AMSG_INSTANT_CHAT_SUBTYPE } from './amsgFirePack';
+import { AMSG_BACKGROUND_JOB_SUBTYPE } from './amsgTaskKinds';
 
 type Scope = {
   getCharacters: () => CharacterProfile[];
@@ -68,7 +69,8 @@ export async function reconcileDisabledAmsgTasks(scope: Scope, requestedCharId?:
         const localUuids = scope.getCharacters().find(c => c.id === id)
           ?.activeMsg2Config?.tasks?.map(t => t.taskUuid) ?? [];
         const targets = new Set([
-          ...remote.filter(t => t.messageSubtype !== AMSG_INSTANT_CHAT_SUBTYPE).map(t => t.uuid),
+          ...remote.filter(t => t.messageSubtype !== AMSG_INSTANT_CHAT_SUBTYPE &&
+            t.messageSubtype !== AMSG_BACKGROUND_JOB_SUBTYPE).map(t => t.uuid),
           ...localUuids,
         ]);
         for (const uuid of targets) {
