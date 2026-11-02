@@ -520,16 +520,6 @@ export const ChatParser = {
         while ((match = scheduleRegex.exec(content)) !== null) {
             const timeStr = match[1].trim();
             const msgContent = match[2].trim();
-            // This legacy tag is an autonomous deferred CHAT message.
-            // Never create a new hidden system alarm after all three user
-            // initiative switches were explicitly disabled, even if a stale
-            // AI response included this tag.
-            const latestChar = await replyStep(() => DB.getCharacter(charId));
-            if (!latestChar || !allowLegacyAiScheduledDelivery({
-                activeMsg2Enabled: latestChar.activeMsg2Config?.enabled === true,
-                realPersonEnabled: isRealPersonModeEnabled(),
-                scheduleEnabled: isScheduleFeatureOn(latestChar),
-            })) continue;
             // 角色照着自己那边的钟写时间，按设备时区解释会整体偏一个时差：
             // 纽约角色在自己上午说「今晚 21:00 找你」，设备在中国就会算成已经过期。
             const dueTime = wallClockToTimestamp(timeStr, charTz);
@@ -548,6 +538,16 @@ export const ChatParser = {
                 );
                 continue;
             }
+            // This legacy tag is an autonomous deferred CHAT message.
+            // Never create a new hidden system alarm after all three user
+            // initiative switches were explicitly disabled, even if a stale
+            // AI response included this tag.
+            const latestChar = await replyStep(() => DB.getCharacter(charId));
+            if (!latestChar || !allowLegacyAiScheduledDelivery({
+                activeMsg2Enabled: latestChar.activeMsg2Config?.enabled === true,
+                realPersonEnabled: isRealPersonModeEnabled(),
+                scheduleEnabled: isScheduleFeatureOn(latestChar),
+            })) continue;
             const notificationId = Math.floor(Math.random() * 100000);
             await replyStep(async () => DB.saveScheduledMessage({
                 id: `sched-${Date.now()}-${Math.random()}`, charId,
