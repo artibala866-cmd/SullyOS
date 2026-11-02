@@ -590,6 +590,31 @@ describe('flushInboxToChat 落库时间戳（走真库）', () => {
     ).toContain('amsgself-adopt-1');
   }, 20000);
 
+  it('角色关闭 2.0 后，已在云端生成但迟到的定时推送也不得再入聊天', async () => {
+    localStorage.removeItem('instant_push_trace_log_v1');
+    const charId = 'char-disabled-scheduled-delivery';
+    await DB.saveCharacter({
+      id: charId, name: '已关闭角色',
+      activeMsg2Config: { enabled: false, tasks: [] },
+    } as any);
+
+    await ActiveMsgStore.saveInboxMessage(inboxMsg({
+      messageId: 'msg-disabled-scheduled-delivery',
+      charId, charName: '已关闭角色',
+      messageType: 'text', source: 'scheduled',
+      sentAt: Date.now(),
+      metadata: { charId },
+    }));
+    await flushInboxToChat('SW通知');
+
+    expect(await assistantMsgs(charId)).toHaveLength(0);
+    expect(readAllInstantTraces().some((e) =>
+      e.event === 'runtime-scheduled-disabled-dropped'
+      && e.charId === charId
+      && e.messageId === 'msg-disabled-scheduled-delivery',
+    )).toBe(true);
+  }, 20000);
+
   it('已发出消息不再二次作废，保留接收 trace', async () => {
     localStorage.removeItem('instant_push_trace_log_v1');
     const charId = 'char-scheduled-accepted';
