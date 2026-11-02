@@ -40,7 +40,8 @@ export default function RealPersonRhythmSettings({ value, onChange }: Props) {
               <div className="text-[10px] text-neutral-400">{detail}</div>
             </div>
             <input type="number" aria-label={title+'最短秒数'} value={ranges[state].minSeconds}
-              disabled title="旧版倒计时参数已停用，保留原有保存数据"\n              min={1} max={MAX_REAL_PERSON_REPLY_SECONDS} step={1}
+              disabled title="旧版倒计时参数已停用，保留原有保存数据"
+              min={1} max={MAX_REAL_PERSON_REPLY_SECONDS} step={1}
               className="w-14 rounded-lg border border-neutral-200 bg-white px-1.5 py-1.5 text-xs text-neutral-700"
               onChange={e=>change(state,'minSeconds',e.target.value)} />
             <span className="text-neutral-400 text-xs">–</span>
