@@ -93,6 +93,22 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(hint).toContain('topicMove=close');
     expect(hint).toContain('Do not append a question');
   });
+  it('does not revive a subject across a 12-hour gap while replaying M3 history',()=>{
+    const old=1_700_000_000_000;
+    const recent=[{
+      id:31,charId:'cold-topic',role:'user',type:'text',timestamp:old,
+      content:'我跟朋友因为工作吵架了',
+    },{
+      id:32,charId:'cold-topic',role:'assistant',type:'text',timestamp:old+20_000,
+      content:'那具体是因为什么？',
+    },{
+      id:33,charId:'cold-topic',role:'user',type:'text',timestamp:old+13*60*60_000,
+      content:'今天在研究另一件事情',
+    }] as any;
+    const result=analyzeRealPersonConversation('cold-topic',recent,'角色','用户');
+    expect(result?.subject.created).toBe(true);
+    expect(result?.subject.resumed).toBe(false);
+  });
   it('resolves once the character actually replies; proactive pushes do not count',()=>{
     expect(findPendingRealPersonUserTurn([say(1),proactive(2)])?.id).toBe(1);
     expect(findPendingRealPersonUserTurn([say(1),proactive(2),{id:3,role:'assistant',type:'text'}])).toBeNull();
