@@ -123,6 +123,7 @@ import {
 } from '../../../utils/amsgFireSchedule';
 import {
   AMSG_CHAT_PRESENCE_KEY,
+  hasUnseenUserTurn,
   isFreshChatPresence,
   parseAmsgChatPresence,
 } from '../../../utils/amsgChatPresence';
@@ -2106,6 +2107,17 @@ export const amsgHooks = {
     // 「开口之前」），这个时刻只是给它的事实之一。
     const presenceLastUserMessageAt = presence?.charId === charId ? presence.lastUserMessageAt : null;
     const lastUserMessageAt = laterOf(pack.lastUserMessageAt ?? null, presenceLastUserMessageAt);
+    // 新的真实用户发言已经抵达云端，但上传完整对话比上传发言水位慢。
+    // 旧模板完全不知道那句新话的内容：只把最新发言时间塞进提示词也无济于事，
+    // 生成出来仍会追着旧话题说。可重试失败，不使用旧模板、不消耗模型额度。
+    // 不检查“距离上次聊天几分钟”这类计时条件，唯一依据是上下文版本是否落后。
+    if (!instant && hasUnseenUserTurn(presence, charId, pack.lastUserMessageAt ?? null)) {
+      console.warn('[amsg:stale-conversation-skip]', {
+        taskId: ctx.task.id, charId, packLastUserMessageAt: pack.lastUserMessageAt ?? null,
+        latestUserMessageAt: presenceLastUserMessageAt,
+      });
+      throw new Error('AMSG2_FIRE_PACK_STALE: 对话有新发言但完整上下文尚未同步，待同步后再执行，不能复述旧话题');
+    }
     // 两个来源分别留一行，便于排查 fire_pack / presence 是否落后于真实对话。
     // 字段全是时间戳与枚举，不含正文、不含角色名。
     if (!instant) {
