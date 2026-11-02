@@ -62,6 +62,8 @@ interface Options {
     lastCharacterReplyAt?: number;
     replyAttention?: RealPersonAttention;
     replyRhythm?: Partial<RealPersonReplyRhythm>;
+    /** Latest user text-edit event; clearing a draft needs its own quiet window. */
+    lastComposerActivityAt?: number;
 }
 
 const newWork = () => ({
@@ -242,6 +244,12 @@ export function useChatAutoReply(options: Options) {
         }
         // Never consume a durable intent until the existing Chat route has
         // checked the canonical DB tail. Visibility can change during that read.
+        // A cleared composer is not the same as finished input. An old saved
+        // user turn might already be minutes overdue; wait until real editing
+        // has stopped before dispatching it (APK-style compose-settle gate).
+        const lastEditAt = Number(latest.lastComposerActivityAt) || 0;
+        const quietAfterEdit = lastEditAt > 0 && now >= lastEditAt
+            ? Math.max(0, 2_800 - (now - lastEditAt)) : 0;
         const timer = window.setTimeout(() => {
             if (!ready()) return;
             const currentId = current.current.conversationId;
@@ -289,11 +297,11 @@ export function useChatAutoReply(options: Options) {
                 void locks.request('sully-chat-auto-reply:' + currentId,
                     { mode: 'exclusive' }, () => run()).catch(() => { if (workRef.current === work && work.checking) cancel(); });
             } else void run();
-        }, Math.max(plan.delayMs, work.retryAt - now));
+        }, Math.max(plan.delayMs, work.retryAt - now, quietAfterEdit));
         return () => window.clearTimeout(timer);
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
         options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing,
-        options.replyAttention, options.replyRhythm, cancel]);
+        options.replyAttention, options.replyRhythm, options.lastComposerActivityAt, cancel]);
 
     return { beginSend, cancel, cancelIfPending };
 }
