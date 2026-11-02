@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { DB } from './db';
+import { changeChatBlock } from './chatBlock';
+import { applyCharacterForgivenessDecision } from './chatBlockAI';
+import type { CharacterProfile } from '../types';
 
 describe('原版独立心软判定：历史读取是真正的拉黑前最后十二条', () => {
   it('超过 100 条拒收内容与已归档水位都不能挤掉拉黑前对话', async () => {
@@ -35,5 +38,28 @@ describe('原版独立心软判定：历史读取是真正的拉黑前最后十�
     expect(joined).not.toContain('线下见面');
     expect(joined).not.toContain('其他角色的秘密');
     localStorage.removeItem('mp_lastMsgId_' + charId);
+  });
+});
+
+describe('角色自主心软的持久化和视角隔离', () => {
+  it('草稿、心软度和独处小剧场跨 DB 重读仍在，但从未伪装成聊天消息', async () => {
+    const id = 'forgiveness-persisted-' + Date.now();
+    const blocked = changeChatBlock(undefined, 'character', true, { at: 10, reason: '严重伤害' });
+    const updated = applyCharacterForgivenessDecision(blocked, 10, {
+      decision: 'stay', softness: 37, thought: '我可能想得太多了', status: '很安静',
+      sign: '把屏幕扣下', draft: '我想和你谈谈',
+      theater: { title: '深夜的草稿箱', body: '他看着草稿，久久没有发送。' },
+    }, 1_800_100)!;
+    await DB.saveCharacter({ id, name: '测试角色', avatar: '', chatBlock: updated } as CharacterProfile);
+    const fromDB = await DB.getCharacter(id);
+    expect(fromDB?.chatBlock?.forgivenessSoftness).toBe(37);
+    expect(fromDB?.chatBlock?.lastForgivenessThought).toBe('我可能想得太多了');
+    expect(fromDB?.chatBlock?.forgivenessDrafts?.[0].text).toBe('我想和你谈谈');
+    expect(fromDB?.chatBlock?.forgivenessScenes?.[0].title).toBe('深夜的草稿箱');
+    expect(await DB.getMessagesByCharId(id, true)).toEqual([]);
+    const repeated = changeChatBlock(changeChatBlock(updated, 'character', false, { at: 2_000_000 }),
+      'character', true, { at: 2_000_100, reason: '第二次冲突' });
+    expect(repeated.forgivenessDrafts?.[0].text).toBe('我想和你谈谈');
+    expect(repeated.forgivenessScenes?.[0].title).toBe('深夜的草稿箱');
   });
 });
