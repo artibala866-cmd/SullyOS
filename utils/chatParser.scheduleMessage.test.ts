@@ -47,6 +47,7 @@ describe('[schedule_message] 排不上时留痕', () => {
     it('时间还没到 → 照常落库, 不 warn', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(noop);
         const save = vi.spyOn(DB, 'saveScheduledMessage').mockResolvedValue(undefined as any);
+        vi.spyOn(DB, 'getCharacter').mockResolvedValue({id:'authorized',activeMsg2Config:{enabled:true}} as any);
 
         const future = new Date(Date.now() + 3600_000);
         const stamp = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${
@@ -58,6 +59,7 @@ describe('[schedule_message] 排不上时留痕', () => {
         expect(out).toBe('好');
         expect(save).toHaveBeenCalledTimes(1);
         expect(save.mock.calls[0][0]).toMatchObject({ content: '该出门了' });
+        expect(save.mock.calls[0][0].notificationId).toEqual(expect.any(Number));
         expect(warn).not.toHaveBeenCalled();
     });
 });
