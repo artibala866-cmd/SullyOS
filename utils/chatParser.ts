@@ -535,11 +535,15 @@ export const ChatParser = {
                 );
                 continue;
             }
-            await replyStep(async () => DB.saveScheduledMessage({ id: `sched-${Date.now()}-${Math.random()}`, charId, content: msgContent, dueAt: dueTime, createdAt: Date.now() }));
+            const notificationId = Math.floor(Math.random() * 100000);
+            await replyStep(async () => DB.saveScheduledMessage({
+                id: `sched-${Date.now()}-${Math.random()}`, charId,
+                content: msgContent, dueAt: dueTime, createdAt: Date.now(), notificationId,
+            }));
             try {
                 const hasPerm = await replyStep(async () => LocalNotifications.checkPermissions());
                 if (hasPerm.display === 'granted') {
-                    await replyStep(async () => LocalNotifications.schedule({ notifications: [{ title: charName, body: msgContent, id: Math.floor(Math.random() * 100000), schedule: { at: new Date(dueTime) }, smallIcon: 'ic_stat_icon_config_sample' }] }));
+                    await replyStep(async () => LocalNotifications.schedule({ notifications: [{ title: charName, body: msgContent, id: notificationId, schedule: { at: new Date(dueTime) }, smallIcon: 'ic_stat_icon_config_sample' }] }));
                 }
             } catch (e) { replyRun?.check(); console.log("Notification schedule skipped (web mode)"); }
 
