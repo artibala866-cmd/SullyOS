@@ -294,8 +294,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
    * 面板看不见却照样到点触发的幽灵任务。
    */
   const handleToggleEnabled = () => {
+    if (isSubmitting) return;
     const turningOn = !enabled;
-    setEnabled(!enabled);
+    setEnabled(turningOn);
+    if (!turningOn) {
+      // 关闭不是未保存的表单草稿：立即写本地开关，并同步清理云端任务。
+      // 不允许用户仅拨到“关”再退出却继续在云端发消息。
+      void handleSubmit('disable');
+      return;
+    }
     // 顺手把面板上其它角色级设置（maxTokens）一起带上，与
     // buildConfig 的口径一致：这几项本来就只有面板会写。
     if (turningOn) {
@@ -435,10 +442,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     trackEvent('取消定时消息', { result: alreadyGone ? '远端已不存在' : 'ok' });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (action: 'save' | 'disable' = 'save') => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      if (!enabled) {
+      if (!enabled || action === 'disable') {
+        // 本地开关先落盘：即使远端断网、取消失败或用户关闭弹窗，
+        // 新到的定时主动消息也不能绕过用户已经按下的关闭指令。
+        onSave((prev) => ({ ...(prev ?? { enabled: false }), enabled: false }));
         // 第一件事：告诉云端这个角色关了。下面逐条取消要花几秒，这期间正在跑的那一轮
         // （尤其是即时对话——它不在取消范围里）还可能顺手给自己排一条；云端先知道「关了」，
         // 这种漏网的到点就会被直接跳过。传不上去也照样往下关：取消本身才是主线。
@@ -578,7 +589,12 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       }
     } catch (error: any) {
       const message = error?.message || '主动消息 2.0 保存失败。';
-      onSave((prev) => buildConfig(prev, (list) => list, { lastError: message }));
+      // buildConfig 默认会把 enabled 写回 true，关闭失败时绝不能因此暗中重启。
+      if (action === 'disable' || !enabled) {
+        onSave((prev) => ({ ...(prev ?? { enabled: false }), enabled: false, lastError: message }));
+      } else {
+        onSave((prev) => buildConfig(prev, (list) => list, { lastError: message }));
+      }
       addToast(message, 'error');
     } finally {
       setIsSubmitting(false);
@@ -605,10 +621,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       onClose={onClose}
       footer={(
         <>
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
+          <button onClick={onClose} disabled={isSubmitting} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
             取消
           </button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
+          <button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
             {isSubmitting ? '保存中...' : !enabled ? '关闭 2.0' : (editingTaskUuid ? '保存修改' : '新建任务')}
           </button>
         </>
@@ -626,6 +642,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </div>
           <button
             onClick={handleToggleEnabled}
+            disabled={isSubmitting}
             className={`w-12 h-7 rounded-full transition-colors relative ${enabled ? 'bg-fuchsia-500' : 'bg-slate-200'}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
