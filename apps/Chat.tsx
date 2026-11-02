@@ -89,7 +89,7 @@ import { resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../u
 import { normalizeTranslationLangLabel, isTranslationLangPreset } from '../utils/translationLang';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent, noteMessageSent, presetOrCustom } from '../utils/analytics';
-import { markAmsgStateDirty, markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
+import { markAmsgStateDirty, markAmsgStateDirtyForAll, noteAmsgUserMessage } from '../utils/amsgStateSync';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, AMSG_INSTANT_CHAT_PENDING_LS_KEY, getInstantChatPending } from '../utils/amsgInstantChat';
 import { formatAmsgToolTrace } from '../utils/amsgToolTrace';
 import { formatHours } from '../utils/format';
@@ -1485,7 +1485,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             })
             : null;
 
-        const msgPayload: any = { charId: char.id, role: 'user', type, content: storedContent, metadata };
+        const userSentAt = Date.now();
+        const msgPayload: any = { charId: char.id, role: 'user', type, content: storedContent, metadata, timestamp: userSentAt };
         
         if (replyTarget) {
             msgPayload.replyTo = {
@@ -1499,6 +1500,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
 
         const savedUserMsgId = await DB.saveMessage(msgPayload);
+        // 先发轻量的最新发言水位：云端在完整上下文上传前必须知道旧快照不可用。
+        // 只在角色开着主动消息 2.0 时执行；不启动后台定时器。
+        if (char.activeMsg2Config?.enabled === true) noteAmsgUserMessage(char.id, userSentAt);
         // 用户发言一旦成功落库，就立刻把 2.0 fire_pack 标脏并重建最新聊天历史。
         // 过去主要等 AI 回复结束才同步：用户新发了话、但自动回复没运行时，
         // 角色到点仍只看到上一轮旧快照，甚至围着已结束的话题继续说。
