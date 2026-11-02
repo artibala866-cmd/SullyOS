@@ -315,6 +315,23 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('own automatic AI typing indicator does NOT cancel a pending reply before the API outcome', async () => {
+        let resolveAttempt!: (value: 'retry') => void;
+        const first = vi.fn(() => new Promise<'retry'>(resolve => { resolveAttempt = resolve; }));
+        render({ onGenerate: first });
+        send();
+        advance(2_000);
+        expect(first).toHaveBeenCalledTimes(1);
+        render({ generating: true });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        await act(async () => { resolveAttempt('retry'); });
+        expect(localStorage.getItem('sully_chat_auto_reply_intent_v1:a')).toBeTruthy();
+        const followUp = vi.fn();
+        render({ generating: false, onGenerate: followUp });
+        advance(17_000);
+        expect(followUp).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps the durable intent when a prerequisite disappears during async DB verification', async () => {
         let resolveCheck!: (value: 'retry') => void;
         render({ onGenerate: vi.fn(() => new Promise<'retry'>(resolve => { resolveCheck = resolve; })) });
