@@ -2028,8 +2028,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           } finally { scanRunning = false; }
       };
-      schedulerRef.current = setInterval(checkAllSchedules, 5000);
-      checkAllSchedules();
+      // Web Locks are shared across tabs and across remounted OS providers.
+      // Without this, two open SullyOS windows can both read the same due
+      // legacy AI message before either window deletes it, doubling replies.
+      let scanQueued = false;
+      const requestScheduleCheck = () => {
+          if (cancelled || scanQueued) return;
+          scanQueued = true;
+          const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+          const work = locks?.request
+              ? locks.request('sully-legacy-scheduled-delivery', { mode: 'exclusive' },
+                  () => checkAllSchedules())
+              : checkAllSchedules();
+          void Promise.resolve(work).catch(error =>
+              console.warn('[Schedule] legacy message delivery scan failed', error))
+              .finally(() => { scanQueued = false; });
+      };
+      schedulerRef.current = setInterval(requestScheduleCheck, 5000);
+      requestScheduleCheck();
       return () => { cancelled = true; if (schedulerRef.current) clearInterval(schedulerRef.current); };
   }, [isDataLoaded, characters]);
 
