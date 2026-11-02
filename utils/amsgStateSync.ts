@@ -168,6 +168,8 @@ const bindLifecycleListener = () => {
 export type AmsgDirtyReason =
   /** 内容变了，云端那份该跟着刷新（默认）。 */
   | 'refresh'
+  /** 用户刚发新消息：远端可能有尚未被本机认领的自排任务，必须刷新上下文。 */
+  | 'user-message'
   /** 用户删掉了内容，云端那份必须作废：刷不上去就把它清掉。 */
   | 'invalidate';
 
@@ -177,7 +179,10 @@ export const markAmsgStateDirty = (
   reason: AmsgDirtyReason = 'refresh',
 ) => {
   const config = snapshot.char.activeMsg2Config;
-  if (!config?.enabled || !hasActiveAiTask(config)) {
+  // 普通资料更新沿用“有待发 AI 任务才上传”以省流量。
+  // 真实用户发言不能只按本地任务清单判断：云端可能有本机还没认领的自排任务。
+  // 新发言仍要刷新，不然最新水位已经上云，旧 fire_pack 却永远没机会补传。
+  if (!config?.enabled || (reason !== 'user-message' && !hasActiveAiTask(config))) {
     if (reason === 'invalidate') void invalidateCharCloudState(snapshot.char.id);
     return;
   }
@@ -380,7 +385,7 @@ export const resumePendingAmsgStateSync = (scope: {
       userProfile: scope.userProfile,
       groups: scope.groups,
       realtimeConfig: scope.realtimeConfig,
-    });
+    }, 'user-message');
   }
   // 当场冲刷，不等 markDirty 排的那个微任务——这份欠账已经拖了一次进程生死了。
   if (dirty.size > 0) void flushAmsgState('resume');
