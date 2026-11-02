@@ -52,7 +52,10 @@ const render = () => flushSync(() => root.render(React.createElement(React.Fragm
   chatPreview,
   React.createElement('div', { id: 'forgiveness-scene-preview', key: 'scene', className: 'mx-auto max-w-[390px]' },
     React.createElement(ChatForgivenessScene, {
-      scene: { at: 200, blockedAt: 100, title: '草稿箱', body: '他看着空白对话框，写下了几句，却最终没有按下发送。' },
+      scenes: [
+        { at: 200, blockedAt: 100, title: '草稿箱', body: '他看着空白对话框，写下了几句，却最终没有按下发送。' },
+        { at: 500, blockedAt: 400, title: '没发出去', body: '他又点开了空白窗口，盯着之前打的字。' },
+      ],
     })),
   React.createElement(ChatBlockModal, {
     characterName:'陈苍琛', state, onClose:()=>{closed++},
@@ -116,7 +119,8 @@ try {
   const sceneDetails = sceneElement?.querySelector<HTMLDetailsElement>('details');
   const sceneSavedAsNonMessage = !!sceneDetails && sceneDetails.textContent?.includes('草稿箱')
     && !sceneElement?.querySelector('.sully-chat-block-failed')
-    && !!sceneElement?.textContent?.includes('不代表对方已发来消息');
+    && !!sceneElement?.textContent?.includes('不代表对方已发来消息')
+    && !!sceneElement?.textContent?.includes('共2段');
   if (sceneDetails) sceneDetails.open = true;
   const sceneReadable = !!sceneDetails && sceneDetails.open && !!sceneDetails.textContent?.includes('他看着空白对话框')
     && !!sceneDetails.querySelector('p');
