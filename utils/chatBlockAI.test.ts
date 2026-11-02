@@ -5,7 +5,7 @@ import {
   extractCharacterBlockDirective, extractCharacterBlockAction, buildInPersonCharBlockInstruction,
   buildFirstPostUnblockOpeningInstruction, buildCharacterBlockAutonomyInstruction,
   buildPrivateChatBlockHistoryContext, buildForgivenessMessages,
-  forgivenessCooldownRemaining, parseForgivenessDecision,
+  forgivenessCooldownRemaining, parseForgivenessDecision, applyCharacterForgivenessDecision,
   CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS,
 } from './chatBlockAI';
 
@@ -107,6 +107,28 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(next.lastForgivenessCheckAt).toBeUndefined();
     const reblocked = changeChatBlock(next, 'character', true, { at: 400, reason: '新一轮冲突' });
     expect(forgivenessCooldownRemaining(reblocked, 401)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 1);
+    // 从旧存档导入、没有 lastCheck，也不能刚拉黑就立即启动求原谅。
+    expect(forgivenessCooldownRemaining({ characterBlockedAt: 400 }, 401)).toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 1);
+    // 旧一轮留下的 lastCheck 不得穿透新一轮冷却。
+    expect(forgivenessCooldownRemaining({ characterBlockedAt: 400, lastForgivenessCheckAt: 200 }, 401))
+      .toBe(CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS - 1);
+  });
+  it('Char 自己可以解除自己的拉黑，即使用户也拉黑了他；旧判定不能解除新一轮拉黑', () => {
+    const first = changeChatBlock(undefined, 'character', true, { at: 100, reason: '信任破裂' });
+    const both = changeChatBlock(first, 'user', true, { at: 110 });
+    const judgement = { decision: 'unblock' as const, softness: 65, sign: '犹豫着放下手机',
+      thought: '我想试一试', status: '迟疑', draft: '你还在吗' };
+    const released = applyCharacterForgivenessDecision(both, 100, judgement, 200)!;
+    expect(released.characterBlockedAt).toBeUndefined();
+    expect(released.userBlockedAt).toBe(110);
+    expect(released.lastForgivenessThought).toBe('我想试一试');
+    expect(released.forgivenessDrafts?.[0].text).toBe('你还在吗');
+    const newBlock = changeChatBlock(released, 'character', true, { at: 300, reason: '再次越界' });
+    expect(applyCharacterForgivenessDecision(newBlock, 100, judgement, 400)).toBe(newBlock);
+    const staying = applyCharacterForgivenessDecision(newBlock, 300, { ...judgement, decision: 'stay' }, 500)!;
+    expect(staying.characterBlockedAt).toBe(300);
+    expect(staying.forgivenessSoftness).toBe(65);
+    expect(staying.lastForgivenessCheckAt).toBe(500);
   });
   it('原版 stay/unblock 决策会解析心软度、内心状态与未发送草稿', () => {
     expect(parseForgivenessDecision('{"decision":"unblock","softness":87,"thought":"开始心软","status":"有些犹豫","sign":"把手机放在桌上","draft":"我想再聊聊"}'))
