@@ -73,6 +73,16 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('clearing a draft after an overdue user turn still requires real quiet editing time', () => {
+        send();
+        render({ blocked: true });
+        advance(12_000);
+        render({ blocked: false, lastComposerActivityAt: Date.now() });
+        advance(2_799);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(1);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
     it('waits for every overlapping text, image or emoji save and resets on the latest completion', () => {
         send();
         advance(1500);
