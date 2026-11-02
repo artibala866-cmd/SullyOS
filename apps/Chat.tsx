@@ -4,7 +4,7 @@ import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
-import { isRealPersonModeEnabled, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
+import { isRealPersonModeEnabled, isRealPersonAutoReplyAuthorized, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
 import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
@@ -4081,7 +4081,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const autoReply = useChatAutoReply({
         // Replying to a user message is the real-person mode's own job; AMSG2
         // only authorizes a brand-new unsolicited message, never an answer.
-        enabled: shouldAutoReplyToUser(lifePacing, inputPreferences.autoReply),
+        enabled: shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized(), inputPreferences.autoReply),
         naturalPacing: lifePacing,
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
@@ -5061,7 +5061,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onGenerate={handleManualTrigger}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
-                    autoReplyEnabled={shouldAutoReplyToUser(lifePacing, inputPreferences.autoReply)}
+                    autoReplyEnabled={shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized(), inputPreferences.autoReply)}
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}
