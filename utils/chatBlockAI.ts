@@ -202,6 +202,7 @@ export function applyCharacterForgivenessDecision(
 export function extractForgivenessJson(raw: string): string | null {
   const source = String(raw || '');
   let open = -1, depth = 0, inString = false, escaped = false;
+  let firstCandidate: string | null = null;
   for (let i = 0; i < source.length; i++) {
     const c = source[i];
     if (inString) {
@@ -212,11 +213,18 @@ export function extractForgivenessJson(raw: string): string | null {
     }
     if (c === '"') { inString = true; continue; }
     if (c === '{') { if (depth === 0) open = i; depth++; }
-    if (c === '}' && depth > 0 && --depth === 0 && open >= 0) return source.slice(open, i + 1);
+    if (c === '}' && depth > 0 && --depth === 0 && open >= 0) {
+      const candidate = source.slice(open, i + 1);
+      if (firstCandidate === null) firstCandidate = candidate;
+      try {
+        const value = JSON.parse(candidate);
+        if (value?.decision === 'stay' || value?.decision === 'unblock') return candidate;
+      } catch { /* Skip a broken or illustrative JSON object; continue to the actual model decision. */ }
+      open = -1;
+    }
   }
-  return null;
+  return firstCandidate;
 }
-
 export function parseForgivenessDecision(raw: string): ForgivenessDecision {
   const empty: ForgivenessDecision = {
     decision: 'stay', sign: '', softness: null, thought: '', status: '', draft: '', theater: null, valid: false,
