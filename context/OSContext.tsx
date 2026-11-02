@@ -78,6 +78,7 @@ import {
   migrateCharacterContextRange,
 } from '../utils/chatContextRange';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { shouldSuppressLocalScheduledDelivery } from '../utils/localScheduledDelivery';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
@@ -1961,6 +1962,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       || suspendedCallRef.current?.charId === char.id) continue;
                   const dueMessages = await DB.getDueScheduledMessages(char.id);
                   if (cancelled) return;
+                  // 旧 [schedule_message] 存在独立本地任务表，不受 1.0 / 2.0 关闭操作影响。
+                  // 用户已明确把日程和两套主动消息全关时，清掉到期的遗留项，不再凭旧指令主动开口。
+                  if (dueMessages.length > 0 && shouldSuppressLocalScheduledDelivery(char)) {
+                      for (const msg of dueMessages) await DB.deleteScheduledMessage(msg.id);
+                      console.info('[Schedule] 所有主动入口已关闭，取消遗留本地定时消息', { charId: char.id, count: dueMessages.length });
+                      continue;
+                  }
                   if (dueMessages.length > 0) {
                       for (const msg of dueMessages) {
                           await DB.saveMessage({
