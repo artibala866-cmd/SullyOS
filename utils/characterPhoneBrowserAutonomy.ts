@@ -89,7 +89,7 @@ export async function runCharacterPhoneBrowserAutonomy(
     const existing=readCharacterPhoneBrowserHistory(char.id);
     const recent = existing.filter(e=>e.actor==='char').slice(0,10)
       .map(e=>({query:e.query,reason:e.aiJudgement,time:e.visitedAt}));
-    const confirmed=readCharacterLifeEvents(char.id).filter(e=>e.occurredAt<=now)
+    const confirmed=life.confirmedEvents
       .slice(0,12).map(e=>({id:e.id,summary:e.summary.slice(0,165)}));
     const innerState=getLastInnerState(char.id).slice(0,1100);
     const context=await buildCharacterPhoneContext(char,user,groups,realtimeConfig);

@@ -30,18 +30,21 @@ describe('Char autonomous Baidu search history',()=>{
   it('writes only Char-owned motivated search records and life events',async()=>{
     recordCharacterLifeEvent({id:'e1',characterId:'char',source:'phone',
       kind:'npc-chat',summary:'朋友在微信推荐一本新书',occurredAt:Date.now()-5000});
+    recordCharacterLifeEvent({id:'old-event',characterId:'char',source:'phone',kind:'npc-chat',summary:'过期旧书推荐不再作为当下动机',occurredAt:Date.now()-80*3600_000});
+    vi.mocked(getCharacterLifeScheduleContext).mockResolvedValueOnce({characterId:'char',observedAt:Date.now(),plannedActivity:'休息',plannedDescription:'空闲',confirmedEvents:readCharacterLifeEvents('char').filter(e=>e.id==='e1')});
     const fetchMock=vi.fn().mockResolvedValue({
       ok:true,status:200,headers:{get:()=> 'application/json'},
       text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
         search:true,records:[{
           title:'书店新书',query:'2026文学出版社新书目录',reason:'我想知道朋友说的新书是哪本',
-          note:'想查作者和书名，尚未看网页',mood:'好奇',sourceEventIds:['e1','made-up'],
+          note:'想查作者和书名，尚未看网页',mood:'好奇',sourceEventIds:['e1','old-event','made-up'],
         }],
       })}}]}),
     });
     vi.stubGlobal('fetch',fetchMock);
     expect((await runCharacterPhoneBrowserAutonomy(input,'manual')).status).toBe('generated');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][1].body)).not.toContain('过期旧书推荐');
     const items=readCharacterPhoneBrowserHistory('char');
     expect(items).toHaveLength(1);
     expect(items[0].actor).toBe('char');
