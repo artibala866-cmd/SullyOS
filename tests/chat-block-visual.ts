@@ -140,4 +140,12 @@ try {
   };
   const out=document.createElement('output');out.style.display='none';out.textContent=JSON.stringify(report);host.append(out);
   host.dataset.blockVisualReady=Object.entries(report).filter(([k])=>k!=='closed' && k!=='debugColors').every(([,v])=>v===true)?'true':'false';
+  if (new URLSearchParams(window.location.search).has('scene')) {
+    // 仅用于手机截图：实测完拉黑弹窗后隐藏测试遮罩，检查独处卡片的实际字体/溢出。
+    document.querySelector('#real-message-render')?.remove();
+    document.querySelector('#delivery-visual')?.remove();
+    document.querySelector('section[role="dialog"]')?.parentElement?.remove();
+    const scene = document.querySelector<HTMLElement>('#forgiveness-scene-preview');
+    if (scene) scene.style.marginTop = '44px';
+  }
 }catch(error){host.dataset.blockVisualReady='false';host.dataset.error=String(error);}
