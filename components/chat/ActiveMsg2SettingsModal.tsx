@@ -543,7 +543,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         }
         // 关闭 2.0 = 取消该角色全部远端任务（远端清单优先的口径见 cancelAllTasksForChar，
         // 与删角色共用一份）。取消失败的保留在本地清单里，下次重开面板可重试。
-        const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(
+        const { targets, failed } = await ActiveMsgClient.cancelScheduledChatTasksForChar(
           char.id,
           tasks.map((t) => t.taskUuid),
         );
