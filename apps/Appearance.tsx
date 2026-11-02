@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useOS, DEFAULT_WALLPAPER, DEFAULT_PAPER_APPEARANCE, NOSTALGIA_APPEARANCE } from '../context/OSContext';
+import { resolveLauncherBackground } from '../utils/launcherWallpaper';
 import { AppID, OSTheme, DesktopDecoration, AppearancePreset, Toast } from '../types';
 import { INSTALLED_APPS, Icons } from '../constants';
 import { processImage, processImageToBlob } from '../utils/file';
@@ -607,6 +608,15 @@ const Appearance: React.FC = () => {
       { name: 'Sunset', config: { hue: 20, saturation: 90, lightness: 60, contentColor: '#ffffff' }, color: 'hsl(20, 90%, 60%)' },
   ];
 
+  const restoreDefaultWallpaper = async () => {
+      if (theme.wallpaper === DEFAULT_WALLPAPER) {
+          addToast('当前已是默认灰色壁纸', 'info');
+          return;
+      }
+      await updateTheme({ wallpaper: DEFAULT_WALLPAPER });
+      addToast('已恢复默认灰色壁纸', 'success');
+  };
+
   const handleWallpaperUpload = async (file: File) => {
       try {
           addToast('正在处理壁纸 (原画质)...', 'info');
@@ -1174,31 +1184,32 @@ const Appearance: React.FC = () => {
                     <LongPressArea
                         className="aspect-[9/16] w-1/2 mx-auto bg-slate-100 rounded-2xl overflow-hidden relative shadow-inner mb-4 group cursor-pointer"
                         onClick={() => wallpaperInputRef.current?.click()}
-                        onLongPress={async () => {
-                            if (theme.wallpaper === DEFAULT_WALLPAPER) {
-                                addToast('当前已是默认壁纸', 'info');
-                                return;
-                            }
-                            await updateTheme({ wallpaper: DEFAULT_WALLPAPER });
-                            addToast('已恢复默认壁纸', 'success');
-                        }}
+                        onLongPress={restoreDefaultWallpaper}
                     >
                          <div
                             className="w-full h-full"
                             style={{
-                                background: !theme.wallpaper
-                                    ? '#e7e7e7'
-                                    : (theme.wallpaper.startsWith('linear-gradient') || theme.wallpaper.startsWith('radial-gradient') || theme.wallpaper.startsWith('conic-gradient'))
-                                        ? theme.wallpaper
-                                        : `url("${theme.wallpaper}") center/cover`,
+                                background: resolveLauncherBackground(theme.wallpaper, DEFAULT_WALLPAPER),
                             }}
                          />
                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                              <span className="text-white text-xs font-bold bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">更换壁纸</span>
                          </div>
                     </LongPressArea>
-                    <input type="file" ref={wallpaperInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWallpaperUpload(e.target.files[0])} />
-                    <p className="text-center text-[10px] text-slate-400 mb-4">点击上传 / 长按恢复默认壁纸 (支持原画质)</p>
+                    <input type="file" ref={wallpaperInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = ''; // 再次选择同一张图也必须触发上传
+                        if (file) void handleWallpaperUpload(file);
+                    }} />
+                    <p className="text-center text-[10px] text-slate-400 mb-2">点击上传 / 长按恢复默认壁纸 (支持原画质)</p>
+                    <button
+                        type="button"
+                        onClick={restoreDefaultWallpaper}
+                        disabled={theme.wallpaper === DEFAULT_WALLPAPER}
+                        className="block mx-auto mb-4 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        取消自定义壁纸 · 恢复默认灰色
+                    </button>
 
                     <div className="border-t border-slate-100 pt-4 space-y-2">
                         <p className="text-[11px] font-bold text-slate-500">从 URL 导入</p>
