@@ -90,7 +90,7 @@ export function buildCharacterBlockAutonomyInstruction(state?: ChatBlockState): 
 export function buildPrivateChatBlockHistoryContext(state?: ChatBlockState, now: number = Date.now()): string {
   const history = state?.history || [];
   const latest = [...history].reverse().find(event => event.actor === 'user' || event.actor === 'character');
-  if (!latest && !userBlocksCharacter(state) && !characterBlocksUser(state)) return '';
+  if (!latest && !userBlocksCharacter(state) && !characterBlocksUser(state) && !state?.characterUnblockedAt) return '';
   const elapsed = (at: number) => Math.max(0, Math.floor((now - at) / 60_000));
   const parts = ['【你与用户的私聊拉黑关系事实（仅当前私聊）】'];
   if (userBlocksCharacter(state) && !characterBlocksUser(state)) parts.push(`用户已拉黑你 ${elapsed(state!.userBlockedAt!)} 分钟。你依然可以读到用户新发来的话，甚至嘲讽；但你自己的回复在你看来显示红色发送失败，对方收不到。你确信对方无法看到自己的失败回复，不要猜测消息实际上已经送达。须按真实人设展现震惊、愤怒、委屈、试探或克制，不可装作普通聊天。`);
