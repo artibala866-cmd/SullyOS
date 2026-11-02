@@ -103,6 +103,17 @@ export function buildPrivateChatBlockHistoryContext(state?: ChatBlockState, now:
   if (latest?.action === 'unblock') {
     parts.push(`最近解除拉黑的是${latest.actor === 'user' ? '用户' : '你'}，这段冲突已经发生过；根据人设自然延续关系，不得假装从未发生。`);
   }
+  // 原版解封方式不能依赖 40 条事件历史，否则长时间聊天后会把和解当作没发生。
+  if (!characterBlocksUser(state) && state?.characterUnblockedAt) {
+    const method = state.characterUnblockedVia === 'offline'
+      ? '你们曾当面谈过，随后你自行决定解除拉黑'
+      : state.characterUnblockedVia === 'forgave'
+        ? '你独处后重新考虑，自行决定解除拉黑'
+        : '拉黑权限设置发生过改变';
+    parts.push('关系经历：' + method + '。当时的冲突原因：'
+      + (state.characterBlockLastReason || state.lastCharacterBlockReason || '未记录')
+      + '。不得假装关系立即回到冲突之前，也不得假装读过拉黑期间的拒收消息。');
+  }
   return parts.join('\n');
 }
 
@@ -184,7 +195,7 @@ export function applyCharacterForgivenessDecision(
 ): ChatBlockState | undefined {
   if (!characterBlocksUser(state) || state?.characterBlockedAt !== expectedBlockedAt) return state;
   const next = decision.decision === 'unblock'
-    ? changeChatBlock(state, 'character', false, { at: checkedAt, source: 'ai' }) : state;
+    ? changeChatBlock(state, 'character', false, { at: checkedAt, source: 'ai', via: 'forgave' }) : state;
   return {
     ...next,
     lastForgivenessCheckAt: checkedAt,
