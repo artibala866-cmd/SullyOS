@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AmsgChatPresence,
   CHAT_PRESENCE_TTL_MS,
+  hasUnseenUserTurn,
   isFreshChatPresence,
   parseAmsgChatPresence,
 } from './amsgChatPresence';
@@ -40,6 +41,23 @@ describe('parseAmsgChatPresence', () => {
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), charId: 123 }))).toBeNull();
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), activeAt: 'x' }))).toBeNull();
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), lastUserMessageAt: 'x' }))).toBeNull();
+  });
+});
+
+describe('新发言水位与旧上下文守卫', () => {
+  it('水位更新、整份聊天还停在旧轮次时必须等待新上下文', () => {
+    expect(hasUnseenUserTurn(presence({ activeAt: 0, lastUserMessageAt: 1500 }), 'char-1', 1000)).toBe(true);
+  });
+  it('上下文已经包含当前发言时可以继续，不拿时间间隔猜测', () => {
+    expect(hasUnseenUserTurn(presence({ activeAt: 0, lastUserMessageAt: 1500 }), 'char-1', 1500)).toBe(false);
+    expect(hasUnseenUserTurn(presence({ lastUserMessageAt: 1499 }), 'char-1', 1500)).toBe(false);
+  });
+  it('不同角色或没有新发言不能误阻塞', () => {
+    expect(hasUnseenUserTurn(presence({ lastUserMessageAt: 1500 }), 'char-2', 1000)).toBe(false);
+    expect(hasUnseenUserTurn(presence({ lastUserMessageAt: null }), 'char-1', 1000)).toBe(false);
+  });
+  it('没有对话历史但用户刚发送过消息，旧空上下文同样必须等待', () => {
+    expect(hasUnseenUserTurn(presence({ lastUserMessageAt: 1500 }), 'char-1', null)).toBe(true);
   });
 });
 
