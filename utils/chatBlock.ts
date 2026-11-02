@@ -50,6 +50,8 @@ export function didCharReplyFailDuringGeneration(
 ): boolean {
   if (blockedAtStart || blockedAtEnd) return true;
   if (typeof startedAt !== 'number' || !Number.isFinite(startedAt)) return false;
+  const lastBlockAt = currentState?.lastUserBlockAt;
+  if (typeof lastBlockAt === 'number' && lastBlockAt >= startedAt && lastBlockAt <= finishedAt) return true;
   // 生成时用户短暂拉黑又解除，首尾两次 boolean 均为 false。
   // 仍应记住这段回复在生成中曾被拒绝送达，不能在重载后变成成功。
   return (currentState?.history || []).some(event =>
@@ -91,6 +93,7 @@ export function changeChatBlock(
     ? { at: removedUserEvent.at, blocked: removedUserEvent.action === 'block' }
     : old.userBlockHistoryAnchor;
   return { ...old, [key]: blocked ? at : undefined,
+    ...(actor === 'user' && blocked ? { lastUserBlockAt: at } : {}),
     ...(userBlockHistoryAnchor ? { userBlockHistoryAnchor } : {}),
     // 新一次角色拉黑必须重新计算心软冷却，不继承旧一轮求原谅状态。
     ...(actor === 'character' ? {
