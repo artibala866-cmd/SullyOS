@@ -35,6 +35,46 @@ describe('real-person auto response focus uses the existing payload, not a separ
             expect(content).not.toContain('2. **行为模式**: 不要总是围绕用户转');
         }
     });
+    it('keeps real gossip as the final subject after home-phone life context, without re-opening greetings',async()=>{
+        const data=input();
+        data.historyMsgs=[
+            {id:11,charId:'focus-char',role:'user',type:'text',content:'我同学又跟前任复合了',timestamp:Date.now()-75_000},
+            {id:12,charId:'focus-char',role:'assistant',type:'text',content:'她上次不是说彻底分了吗',timestamp:Date.now()-45_000},
+            {id:13,charId:'focus-char',role:'user',type:'text',content:'对啊，她居然又去找他了',timestamp:Date.now()-1000},
+            {id:14,charId:'focus-char',role:'assistant',type:'text',content:'刚才在看手机',timestamp:Date.now(),
+                metadata:{activeMsg2:{taskId:'autowake:day'}}},
+        ] as any;
+        const phone='【家园手机聊天】角色现在在家里刷手机。';
+        for(const timelyByWorker of [false,true]){
+            const result=await buildChatRequestPayload({...data,homePhoneContext:phone,
+                automaticUserReply:true,expectedAutoReplyUserId:13,timelyByWorker});
+            const tail=String(result.fullMessages[result.volatileTailIndex].content);
+            expect(tail).toContain(phone);
+            expect(tail).toContain('topicMove=continue');
+            expect(tail).toContain('刚发了一条新消息');
+            expect(tail.lastIndexOf('【本轮是真实用户消息触发的接话'))
+                .toBeGreaterThan(tail.lastIndexOf(phone));
+            expect(tail).toContain('不能拿它们当作另起话题的任务');
+        }
+    });
+
+    it('user topic closure stays closed even if optional phone context is present',async()=>{
+        const data=input();
+        data.historyMsgs=[
+            {id:21,charId:'focus-char',role:'user',type:'text',content:'她又跟前任吵架了',timestamp:Date.now()-75_000},
+            {id:22,charId:'focus-char',role:'assistant',type:'text',content:'她怎么说的',timestamp:Date.now()-50_000},
+            {id:23,charId:'focus-char',role:'user',type:'text',content:'算了先不聊这个了',timestamp:Date.now()},
+        ] as any;
+        const payload=await buildChatRequestPayload({...data,
+            automaticUserReply:true,expectedAutoReplyUserId:23,
+            homePhoneContext:'【查手机】今天有新动态，但与当前话题无关。'});
+        const tail=String(payload.fullMessages[payload.volatileTailIndex].content);
+        expect(tail).toContain('topicMove=close');
+        expect(tail).toContain('Do not append a question');
+        expect(tail.lastIndexOf('topicMove=close'))
+            .toBeGreaterThan(tail.lastIndexOf('【查手机】'));
+    });
+
     it('does not change manual chat or provide a fake focus for an unverified turn',async()=>{
         const base=input();
         const manual=textOf(await buildChatRequestPayload(base));
