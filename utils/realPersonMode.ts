@@ -6,6 +6,19 @@ import type { CharacterProfile } from '../types';
 
 export const REAL_PERSON_MODE_KEY = 'sully_life_pacing';
 export const REAL_PERSON_MODE_CHANGED_EVENT = 'sully:real-person-mode-changed';
+/** User-turn reply permission must not inherit the historical life-mode default. */
+export const REAL_PERSON_AUTO_REPLY_CONSENT_KEY = 'sully_real_person_reply_explicit_v1';
+
+export function isRealPersonAutoReplyAuthorized(): boolean {
+  try {
+    if (!isRealPersonModeEnabled()) return false;
+    // A saved 'on' from the previous UI is explicit permission; the absent
+    // old key meant only default life mode, never automatic paid replies.
+    return localStorage.getItem(REAL_PERSON_MODE_KEY) === 'on'
+      || localStorage.getItem(REAL_PERSON_AUTO_REPLY_CONSENT_KEY) === 'on';
+  } catch { return false; }
+}
+
 
 export function isRealPersonModeEnabled(): boolean {
   // Historical default is ON; keep existing autonomous-contact scheduling
@@ -30,7 +43,10 @@ export function canRealPersonContact(
 }
 
 export function setRealPersonModeEnabled(enabled: boolean): void {
-  try { localStorage.setItem(REAL_PERSON_MODE_KEY, enabled ? 'on' : 'off'); }
+  try {
+    localStorage.setItem(REAL_PERSON_MODE_KEY, enabled ? 'on' : 'off');
+    localStorage.setItem(REAL_PERSON_AUTO_REPLY_CONSENT_KEY, enabled ? 'on' : 'off');
+  }
   catch { /* Keep the current React state in non-persistent WebViews. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(REAL_PERSON_MODE_CHANGED_EVENT));
 }
