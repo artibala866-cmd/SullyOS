@@ -7,10 +7,14 @@ export type RealPersonReplyRange = { minSeconds: number; maxSeconds: number };
 export type RealPersonReplyRhythm = Record<RealPersonAttention, RealPersonReplyRange>;
 
 export const DEFAULT_REAL_PERSON_REPLY_RHYTHM: Readonly<RealPersonReplyRhythm> = {
-  normal: { minSeconds: 4, maxSeconds: 9 },
-  conversation: { minSeconds: 2, maxSeconds: 5 },
-  occupied: { minSeconds: 35, maxSeconds: 110 },
-  waiting: { minSeconds: 2, maxSeconds: 4 },
+  // Reference rhythm (scheduled mode): an unattended cold chat is NOT
+  // evidence the character is watching their phone. A genuine exchange
+  // naturally unlocks a faster reply range; saved character customizations
+  // always override these defaults.
+  normal: { minSeconds: 240, maxSeconds: 360 },
+  conversation: { minSeconds: 8, maxSeconds: 25 },
+  occupied: { minSeconds: 240, maxSeconds: 360 },
+  waiting: { minSeconds: 3, maxSeconds: 10 },
 };
 export const REAL_PERSON_RHYTHM_STATES: readonly RealPersonAttention[] =
   ['normal', 'conversation', 'occupied', 'waiting'];
