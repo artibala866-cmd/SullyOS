@@ -50,7 +50,9 @@ export function buildInPersonCharBlockInstruction(state?: ChatBlockState, userNa
     '【见面剧情·原版拉黑关系的现实会面状态】',
     characterBlocksUser(state) ? '你已经在私聊拉黑了' + userName + '。你仍记得原因：' + reason + '。' : '你知道' + userName + '已经在私聊拉黑了你，你的原账号信息不能正常送达。',
     '眼前是现实见面，并不是原账号聊天：你能够听到当面说出的内容。',
-    '你没有看到拉黑期间私聊里被拒收的任何消息，也不知道用户是否尝试发送；不能把它们当成已读。',
+    characterBlocksUser(state)
+      ? '你没看到被你拒收的用户消息，也不知道对方是否曾尝试发送；不得假装已读。'
+      : '你仍能读到用户主动发来的话，但你的原账号回复在你看来发送失败；不能以为用户看过发不出去的内容。',
     '你可以冷漠、回避、听对方说或离开；是否原谅由角色原本性格、实际见面剧情和关系推进决定。',
     characterBlocksUser(state) ? '只有剧情里出现真正的和解或值得相信的变化、且你自己决定恢复联系，才另起一行输出 [UNBLOCK_USER]。' : '用户拉黑你的权力属于用户；即使你想和解也不能替用户解除拉黑。',
     '不许为了结束拉黑而自动解锁，不许把内部标签当对白。',
@@ -91,7 +93,8 @@ export function buildPrivateChatBlockHistoryContext(state?: ChatBlockState, now:
   if (!latest && !userBlocksCharacter(state) && !characterBlocksUser(state)) return '';
   const elapsed = (at: number) => Math.max(0, Math.floor((now - at) / 60_000));
   const parts = ['【你与用户的私聊拉黑关系事实（仅当前私聊）】'];
-  if (userBlocksCharacter(state)) parts.push(`用户已拉黑你 ${elapsed(state!.userBlockedAt!)} 分钟。你依然可以读到用户新发来的话，甚至嘲讽；但你自己的回复在你看来显示红色发送失败，对方收不到。你确信对方无法看到自己的失败回复，不要猜测消息实际上已经送达。须按真实人设展现震惊、愤怒、委屈、试探或克制，不可装作普通聊天。`);
+  if (userBlocksCharacter(state) && !characterBlocksUser(state)) parts.push(`用户已拉黑你 ${elapsed(state!.userBlockedAt!)} 分钟。你依然可以读到用户新发来的话，甚至嘲讽；但你自己的回复在你看来显示红色发送失败，对方收不到。你确信对方无法看到自己的失败回复，不要猜测消息实际上已经送达。须按真实人设展现震惊、愤怒、委屈、试探或克制，不可装作普通聊天。`);
+  if (userBlocksCharacter(state) && characterBlocksUser(state)) parts.push('你和用户互相拉黑。对方试图发送的用户消息已被你拒收，你无法读取；你自己的原账号回复同样无法正常送达。不得假装任一方向成功收到了消息。');
   if (characterBlocksUser(state)) {
     const event = [...history].reverse().find(e => e.actor === 'character' && e.action === 'block');
     parts.push(`你已拉黑用户 ${elapsed(state!.characterBlockedAt!)} 分钟；原因：${event?.reason || '未记录'}。`);
