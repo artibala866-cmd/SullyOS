@@ -9,7 +9,7 @@ import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlot
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
-import { stopInstantChat } from '../utils/amsgInstantChat';
+import { stopInstantChat, supersedeStaleAutoInstantReply } from '../utils/amsgInstantChat';
 import {resolvePsycheAppearance} from '../utils/psycheAppearance';
 import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
@@ -1900,6 +1900,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             }
         }
 
+        // A NEW saved message supersedes only a cloud auto-reply for an OLDER
+        // user turn. Manual cloud replies and autonomous AMSG tasks are intact.
+        if (!convertedToCard && Number.isSafeInteger(savedUserMsgId) &&
+            ['text', 'image', 'emoji', 'voice', 'interaction'].includes(type)) {
+            supersedeStaleAutoInstantReply(char.id, savedUserMsgId);
+        }
         await reloadMessages(visibleCountRef.current);
         // 自动回复模式下允许连续挑表情，用户主动收起加号等面板后才计时。
         if (!inputPreferences.autoReply) setShowPanel('none');
