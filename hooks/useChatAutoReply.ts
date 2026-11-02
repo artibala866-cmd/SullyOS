@@ -119,9 +119,13 @@ export function useChatAutoReply(options: Options) {
         return () => { workRef.current = newWork(); };
     }, [options.conversationId, options.enabled, options.active]);
 
-    // Manual lightning or a remote/local generation already owns this turn.
+    // A manually-started reply supersedes the pending auto candidate. However,
+    // the auto callback itself starts the same useChatAI typing indicator:
+    // cancelling its own in-flight candidate here would erase the durable
+    // reply intent BEFORE the API result is known. Only external generations
+    // (with no auto verification already in flight) revoke it.
     useLayoutEffect(() => {
-        if (options.generating) cancel();
+        if (options.generating && !workRef.current.checking) cancel();
     }, [options.generating, cancel]);
 
     // A truly persisted Char/AMSG reply after this send also consumes the pending candidate.
