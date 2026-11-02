@@ -343,6 +343,15 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
+    it('two saved user turns in the same millisecond have different durable ownership boundaries',()=>{
+        send();
+        const first=JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        send(); // fake timers keep Date.now constant
+        const second=JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
+        expect(second.firstUnansweredAt).toBe(first.firstUnansweredAt);
+        expect(second.lastUserSendAt).toBeGreaterThan(first.lastUserSendAt);
+    });
+
     it('new user text during an old AI generation survives old completion and gets its own reply',async()=>{
         let finishOld!: (value:'discard')=>void;
         const old=vi.fn(()=>new Promise<'discard'>(resolve=>{finishOld=resolve;}));
