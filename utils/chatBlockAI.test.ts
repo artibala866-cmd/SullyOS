@@ -129,7 +129,7 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(staying.characterBlockedAt).toBe(300);
     expect(staying.forgivenessSoftness).toBe(65);
     expect(staying.lastForgivenessCheckAt).toBe(500);
-    expect(staying.forgivenessScenes).toEqual([]);
+    expect(staying.forgivenessScenes || []).toEqual([]);
     const sceneDecision = { ...judgement, decision: 'stay' as const,
       theater: { title: '停在草稿箱', body: '他把手机扣在桌上，几次打开未发送的草稿。' } };
     const withScene = applyCharacterForgivenessDecision(newBlock, 300, sceneDecision, 501)!;
@@ -139,7 +139,9 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     }]);
     const nextBlock = changeChatBlock(withScene, 'character', false, { at: 502 });
     const anotherBlock = changeChatBlock(nextBlock, 'character', true, { at: 503, reason: '另一个原因' });
-    expect(anotherBlock.forgivenessScenes).toEqual([]);
+    expect(anotherBlock.forgivenessScenes).toEqual(withScene.forgivenessScenes);
+    expect(anotherBlock.forgivenessDrafts).toEqual(withScene.forgivenessDrafts);
+    expect(anotherBlock.forgivenessSoftness).toBe(65);
   });
   it('即使 40 条事件已裁剪拉黑动作，AI 仍记得真实拉黑原因', () => {
     let state = changeChatBlock(undefined, 'character', true, { at: 100, reason: '故意欺骗我' });
