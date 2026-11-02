@@ -148,10 +148,18 @@ export function analyzeRealPersonConversation(
   charName?: string,
   userName?: string,
 ): ConversationEngagementAnalysis | undefined {
-  const dialogue = messages.filter(m =>
-    isRealPersonUserStatement(m) ||
-    (isActualCharacterAnswer(m) && m.metadata?.activeMsg2?.taskId == null),
-  );
+  // Preserve the boundary of an intervening AMSG without treating its
+  // content as an answer, a user prompt, or a new topic. Dropping that bubble
+  // entirely would accidentally merge two separate user bursts into one,
+  // causing M3 to analyze the older topic as if it were said just now.
+  // This is a request-local, neutral M3 input only: no DB/message/UI changes.
+  const dialogue: Message[] = messages.flatMap(m => {
+    if (isRealPersonUserStatement(m)) return [m];
+    if (!isActualCharacterAnswer(m)) return [];
+    if (m.metadata?.activeMsg2?.taskId != null)
+      return [{ ...m, type: 'text' as const, content: '[自主消息到达，不代表已回复用户]' }];
+    return [m];
+  });
   const userBursts: number[] = [];
   for (let i = 0; i < dialogue.length; i++) {
     if (dialogue[i].role === 'user' &&
