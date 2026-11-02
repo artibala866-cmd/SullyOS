@@ -2724,6 +2724,12 @@ export interface ChatBlockState {
   characterBlockedAt?: number;
   /** 原版独立保存角色拉黑原因；历史事件裁剪后仍可用于心软判定和解除后首次联系。 */
   lastCharacterBlockReason?: string;
+  /** 糯叽机原版 charBlockUnblockedAt：角色上次解除自己发起的拉黑的时间。 */
+  characterUnblockedAt?: number;
+  /** 精准保留解除原因；不将不存在的小号/破解手机玩法带入糯米机。 */
+  characterUnblockedVia?: 'forgave' | 'offline' | 'settings';
+  /** 原版 charBlockLastReason：解封后仍保留当时的冲突原因。 */
+  characterBlockLastReason?: string;
   allowCharacterBlockUser?: boolean;
   /** 最后一次 AI 求原谅判定；仅成功调用才进入 30 分钟冷却。 */
   lastForgivenessCheckAt?: number;
