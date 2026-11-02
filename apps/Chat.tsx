@@ -4075,7 +4075,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             if (lastUserIndex < 0) return 'discard';
             // Busy locks must not consume an otherwise valid user reply intent.
             const outcome = await triggerAI(messages.slice(0, lastUserIndex + 1), undefined,
-                { automaticUserReply: true });
+                { automaticUserReply: true, expectedAutoReplyUserId: latestPersisted.id });
             return outcome === 'busy' || outcome === 'unavailable' ? 'retry' : 'discard';
         },
     });
