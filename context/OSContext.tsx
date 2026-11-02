@@ -1954,6 +1954,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const dueMessages = await DB.getDueScheduledMessages(char.id);
                   if (cancelled) return;
                   if (dueMessages.length > 0) {
+                      let deliveredCount = 0;
                       for (const msg of dueMessages) {
                           // Old local [schedule_message] text is AI-authored and
                           // survives AMSG cloud cancellation. A user switching ALL
@@ -1977,8 +1978,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                content: msg.content
                           });
                           await DB.deleteScheduledMessage(msg.id);
+                          deliveredCount += 1;
                       }
                       if (cancelled) return;
+                      if (deliveredCount === 0) continue;
                       hasNewMessage = true;
                       // Use refs for latest state (avoids stale closure & unnecessary deps)
                       const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id;
@@ -1986,7 +1989,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       // If not chatting specifically with this char right now, mark as unread
                       if (!isChattingWithThisChar) {
                           addToast(`${char.name} 发来了一条消息`, 'success');
-                          unreadUpdates[char.id] = dueMessages.length;
+                          unreadUpdates[char.id] = deliveredCount;
 
                           // Web Notification
                           if (!Capacitor.isNativePlatform() && window.Notification && Notification.permission === 'granted') {
