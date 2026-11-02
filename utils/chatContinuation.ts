@@ -52,3 +52,20 @@ export function withChatContinuation<T extends { role: string; content: any }>(
             : `[${name}还想听你接着说。顺着刚才的话自然继续，只写你自己的话，说完就等${name}回应。]`,
     }];
 }
+
+
+/** A freshly verified user reply must never invent a second user utterance.
+ * Scheduled AMSG bubbles may have arrived after the real user statement.
+ * The exact real turn and M3 topic plan are already carried in the payload.
+ * Manual "continue speaking" remains on the existing helper above.
+ */
+export function withVerifiedUserReplyContinuation<T extends { role: string; content: any }>(
+    messages: T[],
+    userName?: string,
+    options: { automaticUserReply?: boolean; unansweredUserTurn?: boolean } = {},
+): Array<T | { role: string; content: string }> {
+    if (options.automaticUserReply) return messages;
+    return withChatContinuation(messages, userName, {
+        unansweredUserTurn: options.unansweredUserTurn,
+    });
+}
