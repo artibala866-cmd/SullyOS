@@ -8,6 +8,9 @@ type ChatTurn = {
   role: string;
   timestamp?: number;
   type?: string;
+  deleted?: boolean;
+  recalled?: boolean;
+  capsuleOriginIds?: unknown;
   metadata?: {
     musicListenInvite?: unknown;
     musicListenInviteResponseTo?: unknown;
@@ -18,13 +21,38 @@ type ChatTurn = {
     [key: string]: any;
   };
 };
+/** A real saved user statement, not an imported, app-generated, failed or
+ * merely staged message. Mirrors the provenance gates from the reference APK,
+ * using SullyOS message metadata rather than importing its chat data model.
+ */
+export function isRealPersonUserStatement(m: ChatTurn): boolean {
+  if (m.role !== 'user' || m.type === 'system' || m.deleted || m.recalled ||
+      m.capsuleOriginIds || m.metadata?.homeSceneRecord ||
+      m.metadata?.musicListenInvite || m.metadata?.musicListenInviteResponseTo ||
+      m.metadata?.chatBlockRejected || m.metadata?.historyImported ||
+      m.metadata?.importedFrom || m.metadata?.importedAt ||
+      m.metadata?.chatRecordImportedAt || m.metadata?.originalTimestamp ||
+      m.metadata?.userComposedAsCharacter || m.metadata?.aiGenerated ||
+      m.metadata?.offlineAutoReply || m.metadata?.phoneAutoReply ||
+      m.metadata?.aiPlaceholder || m.metadata?.conversationMutating === false)
+    return false;
+  const status = String(m.metadata?.deliveryStatus || '');
+  return status !== 'pending' && status !== 'rejected' && status !== 'failed';
+}
+
+function isActualCharacterAnswer(m: ChatTurn): boolean {
+  return m.role === 'assistant' && m.type !== 'system' &&
+    !m.deleted && !m.recalled && !m.metadata?.homeSceneRecord &&
+    !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo &&
+    !m.metadata?.historyImported && !m.metadata?.importedFrom &&
+    !m.metadata?.busyFauxAutoReply && !m.metadata?.phoneAutoReply &&
+    !m.metadata?.offlineAutoReply && !m.metadata?.autoReply &&
+    m.metadata?.countsAsReply !== false;
+}
+
 export function findPendingRealPersonUserTurn<T extends ChatTurn>(history: readonly T[]): T | null {
   const conversation = history.filter(m =>
-    (m.role === 'user' || m.role === 'assistant') &&
-    m.type !== 'system' && !m.metadata?.homeSceneRecord &&
-    !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo &&
-    !m.metadata?.chatBlockRejected &&
-    !m.metadata?.historyImported && !m.metadata?.importedFrom);
+    isRealPersonUserStatement(m) || isActualCharacterAnswer(m));
   return findPendingUserTurn(conversation);
 }
 
@@ -43,10 +71,7 @@ export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number 
   if (!pending || typeof pending.id !== 'number' ||
       (expectedUserId !== undefined && pending.id !== expectedUserId)) return '';
   const visible = messages.filter(m =>
-    (m.role === 'user' || m.role === 'assistant') &&
-    m.type !== 'system' && !m.metadata?.homeSceneRecord &&
-    !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo &&
-    !m.metadata?.historyImported && !m.metadata?.importedFrom && !m.metadata?.chatBlockRejected);
+    isRealPersonUserStatement(m) || isActualCharacterAnswer(m));
   // The scheduled proactive bubble AFTER the pending turn is ignored when
   // deciding if it has been answered, but one BETWEEN two user sends is still
   // a genuine conversation boundary. Don't combine messages separated by a
