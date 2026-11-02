@@ -1331,7 +1331,7 @@ const Appearance: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Current grayscale launcher: independently editable filmstrip and page-three photographs. */}
+                {/* Home page 1 filmstrip positions; existing source-photo slots below remain unchanged. */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-neutral-200">
                     <h2 className="text-sm font-bold text-neutral-800 mb-2">当前桌面 · 独立照片位置</h2>
                     <p className="text-[11px] text-neutral-500 mb-4">每个位置都可以单独上传图片。未设置新图片时继续显示原有照片，不会丢失旧素材；长按已设置的预览可移除。</p>
@@ -1341,9 +1341,6 @@ const Appearance: React.FC = () => {
                             ['film2', '主页 1 · 胶片 ②', 'tr'],
                             ['film3', '主页 1 · 胶片 ③', 'wide'],
                             ['film4', '主页 1 · 胶片 ④', 'dsq'],
-                            ['page3tl', '主页 3 · 左照片', 'tl'],
-                            ['page3tr', '主页 3 · 右照片', 'tr'],
-                            ['page3wide', '主页 3 · 横幅', 'wide'],
                         ] as const).map(([slot, label, fallback]) => {
                             const custom = theme.launcherWidgets?.[slot];
                             const img = custom || theme.launcherWidgets?.[fallback];
@@ -1365,7 +1362,7 @@ const Appearance: React.FC = () => {
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">原有照片素材 · 基础图槽</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">这些是原有照片数据，继续保留以兼容旧布局。上方已新增 7 个独立照片位置；原有素材不会被自动删除。</p>
+                    <p className="text-[10px] text-slate-400 mb-4">这些是原有照片数据，继续保留以兼容旧布局。上方的主页 1 胶片可以独立设置；原有素材不会被自动删除。</p>
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
