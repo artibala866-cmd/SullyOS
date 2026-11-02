@@ -268,6 +268,15 @@ export function useChatAutoReply(options: Options) {
                 const settle = (outcome: void | 'retry' | 'discard') => {
                     if (workRef.current !== work || version !== work.cancelVersion) return;
                     work.checking = false;
+                    // A newer, actually saved user message may arrive WHILE the
+                    // old request is generating. Its saved intent belongs to
+                    // another user-turn boundary; the old completion may not
+                    // acknowledge or delete it, regardless of old outcome.
+                    if (work.lastUserSendAt !== latestSendBoundary) {
+                        work.retryAt = Date.now() + 1_500;
+                        refresh();
+                        return;
+                    }
                     if (outcome === 'retry') {
                         // Back off a temporarily unavailable local DB / hidden page;
                         // do not launch a second paid request to make up for it.
