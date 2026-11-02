@@ -6,6 +6,7 @@ import { findPendingUserTurn } from './chatContinuation';
  */
 type ChatTurn = {
   role: string;
+  timestamp?: number;
   type?: string;
   metadata?: {
     musicListenInvite?: unknown;
@@ -45,11 +46,22 @@ export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number 
     (m.role === 'user' || m.role === 'assistant') &&
     m.type !== 'system' && !m.metadata?.homeSceneRecord &&
     !m.metadata?.musicListenInvite && !m.metadata?.musicListenInviteResponseTo &&
-    !m.metadata?.historyImported && !m.metadata?.importedFrom && !m.metadata?.chatBlockRejected &&
-    !(m.role === 'assistant' && m.metadata?.activeMsg2?.taskId != null));
+    !m.metadata?.historyImported && !m.metadata?.importedFrom && !m.metadata?.chatBlockRejected);
+  // The scheduled proactive bubble AFTER the pending turn is ignored when
+  // deciding if it has been answered, but one BETWEEN two user sends is still
+  // a genuine conversation boundary. Don't combine messages separated by a
+  // proactive note or by hours into an invented "just sent together" batch.
+  const pendingIndex = visible.findIndex(m => m.id === pending.id);
   let consecutiveUserMessages = 0;
-  for (let i = visible.length - 1; i >= 0 && visible[i].role === 'user'; i--)
+  let nextAt = pending.timestamp;
+  for (let i = pendingIndex; i >= 0 && visible[i].role === 'user'; i--) {
+    const previousAt = visible[i].timestamp;
+    if (consecutiveUserMessages > 0 &&
+        typeof nextAt === 'number' && typeof previousAt === 'number' &&
+        nextAt - previousAt > 90_000) break;
     consecutiveUserMessages++;
+    nextAt = previousAt;
+  }
   return [
     '【本轮是真实用户消息触发的接话，不是自主联系】',
     consecutiveUserMessages > 1
