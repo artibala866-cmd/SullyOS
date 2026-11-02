@@ -28,7 +28,7 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(focus).toContain('连续发送了 2 条消息');
     expect(focus).toContain('不要突然改成问候');
     expect(focus).toContain('不能拿它们当作另起话题的任务');
-    expect(focus).toContain('\\n');
+    expect(focus).toContain('\n');
     expect(focus).not.toContain('\\\\n');
     expect(buildRealPersonTurnFocusHint([say(1),say(2)],1)).toBe('');
   });
