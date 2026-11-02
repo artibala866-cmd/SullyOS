@@ -23,6 +23,7 @@ describe('original two-way private chat blocking framework', () => {
     expect(characterBlocksUser(released)).toBe(true);
     expect(released.history?.[1].reason).toBe('严重冲突');
     expect(released.lastForgivenessCheckAt).toBe(2);
+    expect(released.lastCharacterBlockReason).toBe('严重冲突');
   });
   it('disabling autonomy clears character block only and prevents new character blocks', () => {
     const both = changeChatBlock(changeChatBlock(undefined, 'user', true, { at: 1 }), 'character', true, { at: 2 });
