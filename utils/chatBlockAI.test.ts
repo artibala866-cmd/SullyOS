@@ -183,6 +183,9 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(parsed.softness).toBe(17);
     expect(parsed.theater?.title).toBe('没发出的字');
     expect(parsed.theater?.body).toContain('{草稿}');
+    const withExtraExample = '模型前言示例 {"foo":"bar"}\\n' + response;
+    expect(parseForgivenessDecision(withExtraExample).decision).toBe('stay');
+    expect(parseForgivenessDecision(withExtraExample).theater?.title).toBe('没发出的字');
     expect(parseForgivenessDecision('{"decision":"stay","theater":{"body":"未关闭"}').valid).toBe(false);
     expect(parseForgivenessDecision('{"decision":"stay","softness":"NaN","theater":{}').valid).toBe(false);
   });
