@@ -60,6 +60,20 @@ describe('SullyOS character-specific natural response habits', () => {
     expect(resolveRealPersonAttention([user(at-30_000,{historyImported:true}),char(at-10_000),user(at)],at,'free'))
       .toBe('normal');
   });
+  it('rejected or generated user entries and synthetic busy notices cannot create a live exchange', () => {
+    expect(resolveRealPersonAttention([
+      user(at-40_000,{deliveryStatus:'failed'}),char(at-10_000),user(at),
+    ],at,'free')).toBe('normal');
+    expect(resolveRealPersonAttention([
+      user(at-40_000,{aiGenerated:true}),char(at-10_000),user(at),
+    ],at,'free')).toBe('normal');
+    expect(resolveRealPersonAttention([
+      user(at-40_000),char(at-10_000,{busyFauxAutoReply:true}),user(at),
+    ],at,'free')).toBe('normal');
+    expect(resolveRealPersonAttention([
+      user(at-40_000),char(at-10_000,{countsAsReply:false}),user(at),
+    ],at,'free')).toBe('normal');
+  });
   it('expires attention from actual time gaps; an old conversation cannot unlock busy time', () => {
     expect(resolveRealPersonAttention([user(at-900_000),char(at-800_000),user(at)],at,'busy'))
       .toBe('occupied');
