@@ -37,6 +37,22 @@ export const parseAmsgChatPresence = (raw: string | undefined): AmsgChatPresence
   }
 };
 
+/**
+ * 最近一次真实用户发言已经比云端 fire_pack 更新时，不许继续基于旧对话生成
+ * 定时主动消息。与 activeAt 是否仍在 45s 租约内无关：用户已经说过的新话
+ * 即使在几小时前，也必须先写进完整上下文，再考虑主动开口。
+ */
+export const hasUnseenUserTurn = (
+  presence: AmsgChatPresence | null | undefined,
+  charId: string,
+  packLastUserMessageAt: number | null,
+): boolean => Boolean(
+  presence?.charId === charId
+  && typeof presence.lastUserMessageAt === 'number'
+  && Number.isFinite(presence.lastUserMessageAt)
+  && (packLastUserMessageAt == null || presence.lastUserMessageAt > packLastUserMessageAt)
+);
+
 export const isFreshChatPresence = (
   value: AmsgChatPresence | null | undefined,
   charId: string,
