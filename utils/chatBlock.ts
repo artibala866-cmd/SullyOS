@@ -73,7 +73,7 @@ export function changeChatBlock(
   previous: ChatBlockState | undefined,
   actor: ChatBlockActor,
   blocked: boolean,
-  opts: { at?: number; reason?: string; source?: ChatBlockEvent['source'] } = {},
+  opts: { at?: number; reason?: string; source?: ChatBlockEvent['source']; via?: 'forgave' | 'offline' | 'settings' } = {},
 ): ChatBlockState {
   const old = previous ?? {};
   if (actor === 'character' && blocked && !allowsCharacterToBlock(old)) return old;
@@ -94,6 +94,12 @@ export function changeChatBlock(
     : old.userBlockHistoryAnchor;
   return { ...old, [key]: blocked ? at : undefined,
     ...(actor === 'character' && blocked ? { lastCharacterBlockReason: opts.reason?.trim().slice(0, 600) || '' } : {}),
+    ...(actor === 'character' && !blocked ? {
+      characterUnblockedAt: at,
+      characterUnblockedVia: opts.via || (opts.source === 'settings' ? 'settings' : 'forgave'),
+      characterBlockLastReason: old.lastCharacterBlockReason || [...(old.history || [])].reverse()
+        .find(e => e.actor === 'character' && e.action === 'block')?.reason || '',
+    } : {}),
     ...(actor === 'user' && blocked ? { lastUserBlockAt: at } : {}),
     ...(userBlockHistoryAnchor ? { userBlockHistoryAnchor } : {}),
     // 新一次角色拉黑必须重新计算心软冷却，不继承旧一轮求原谅状态。
