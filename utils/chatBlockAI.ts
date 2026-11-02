@@ -1,7 +1,7 @@
 import type { ChatBlockState, CharacterProfile, Message, APIConfig } from '../types';
 import { resolveDialogueApi } from './characterApi';
 import { safeFetchJson } from './safeApi';
-import { allowsCharacterToBlock, characterBlocksUser, isRejectedPrivateMessage, userBlocksCharacter } from './chatBlock';
+import { allowsCharacterToBlock, changeChatBlock, characterBlocksUser, isRejectedPrivateMessage, userBlocksCharacter } from './chatBlock';
 
 /** 糯叽机原版：自主拉黑与解除拉黑分别判定；不修改角色卡或其它系统。 */
 export const CHAR_BLOCK_FORGIVENESS_COOLDOWN_MS = 30 * 60_000;
