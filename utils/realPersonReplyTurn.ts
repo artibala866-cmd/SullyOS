@@ -159,17 +159,23 @@ export function analyzeRealPersonConversation(
   }
   if (!userBursts.length) return undefined;
   const stored = loadConversationEngagementState(charId);
-  // An up-to-date saved M3 subject already encodes the previous user turns.
-  if (stored?.lastProcessedMessageId != null &&
-      dialogue.some(m => m.id === stored.lastProcessedMessageId)) {
-    return advanceConversationEngagement(charId, dialogue, stored, charName, userName).analysis;
+  const storedIndex = stored?.lastProcessedMessageId != null
+    ? dialogue.findIndex(m => m.id === stored.lastProcessedMessageId) : -1;
+  // Use a saved M3 subject only when its last processed source still exists.
+  // Replay intermediate user turns one by one; jumping straight to the final
+  // turn would lose the topic evolution while M3 was disabled.
+  let previous: ReturnType<typeof advanceConversationEngagement>['state'] | undefined =
+    storedIndex >= 0 ? stored : undefined;
+  let lastTurnAt: number | undefined = storedIndex >= 0
+    ? dialogue[storedIndex].timestamp : undefined;
+  const missingTurns = userBursts.filter(index => index > storedIndex).slice(-8);
+  if (missingTurns.length === 0 && storedIndex >= 0) {
+    return advanceConversationEngagement(charId, dialogue, previous, charName, userName).analysis;
   }
-  let previous: ReturnType<typeof advanceConversationEngagement>['state'] | undefined;
-  let lastTurnAt: number | undefined;
-  for (const index of userBursts.slice(-8)) {
+  for (const index of missingTurns) {
     const currentAt = dialogue[index].timestamp;
-    // The M3 store expires a subject after 12 h. Rebuilding the same history
-    // at one Date.now() must not accidentally make days-old gossip "active".
+    // M3 expires a subject after 12 h. Replaying old messages at one Date.now
+    // must not make their stale topic appear live again.
     if (typeof currentAt === 'number' && typeof lastTurnAt === 'number' &&
         currentAt - lastTurnAt > 12 * 60 * 60_000) previous = undefined;
     previous = advanceConversationEngagement(
