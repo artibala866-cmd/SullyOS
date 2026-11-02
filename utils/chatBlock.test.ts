@@ -25,6 +25,21 @@ describe('original two-way private chat blocking framework', () => {
     expect(released.lastForgivenessCheckAt).toBe(2);
     expect(released.lastCharacterBlockReason).toBe('严重冲突');
   });
+  it('原版持久保存角色解封时间/来源/冲突原因，两个方向不会互相解封', () => {
+    const blocked = changeChatBlock(undefined, 'character', true, { at: 100, reason: '破坏信任' });
+    const both = changeChatBlock(blocked, 'user', true, { at: 105 });
+    const released = changeChatBlock(both, 'character', false, { at: 300, source: 'ai', via: 'offline' });
+    expect(released.characterBlockedAt).toBeUndefined();
+    expect(released.userBlockedAt).toBe(105);
+    expect(released.characterUnblockedAt).toBe(300);
+    expect(released.characterUnblockedVia).toBe('offline');
+    expect(released.characterBlockLastReason).toBe('破坏信任');
+    const reblocked = changeChatBlock(released, 'character', true, { at: 400, reason: '又一次越界' });
+    const forgiven = changeChatBlock(reblocked, 'character', false, { at: 500, source: 'ai', via: 'forgave' });
+    expect(forgiven.characterUnblockedVia).toBe('forgave');
+    expect(forgiven.characterBlockLastReason).toBe('又一次越界');
+    expect(forgiven.userBlockedAt).toBe(105);
+  });
   it('disabling autonomy clears character block only and prevents new character blocks', () => {
     const both = changeChatBlock(changeChatBlock(undefined, 'user', true, { at: 1 }), 'character', true, { at: 2 });
     const restricted = configureCharacterBlocking(both, false, 3);
