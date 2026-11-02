@@ -1,3 +1,4 @@
+import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
 import type { CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
@@ -104,7 +105,7 @@ export async function runCharacterPhoneBrowserAutonomy(
       body:JSON.stringify({model:api.model,stream:false,temperature:0.75,messages:[
         {role:'system',content:`这是虚构角色 ${char.name} 自己的手机浏览器，你只决定 TA 会查什么，不是 User 在搜索。
 一切行为以 Char 自身的人设、生活任务、偏好与心境为理由；不围绕 User 机械转动。
-原设、世界书、真实私聊上下文：${context.systemPrompt.slice(0,9500)}
+原设、世界书、真实私聊上下文：${context.systemPrompt}
 当前日程（只是计划，不代表已发生）：${life.plannedActivity||'无'}；${life.plannedDescription||''}
 最近一次角色内心状态（可能不是最新）：${innerState||'无'}
 已保存生活经历：${JSON.stringify(confirmed).slice(0,2000)}
@@ -161,6 +162,7 @@ export async function runCharacterPhoneBrowserAutonomy(
     }
     return {status:saved.length?'generated':'skipped',count:saved.length};
   } catch(error) {
+    if (isPhoneRequestCancelled(error)) return {status:'skipped',count:0};
     console.warn('[CharacterPhoneBrowser] AI autonomous browsing skipped',error);
     return {status:'failed',count:0,reason:error instanceof Error?error.message:'浏览器生成失败'};
   } finally {locks.delete(char.id);}

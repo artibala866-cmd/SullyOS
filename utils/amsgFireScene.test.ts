@@ -31,11 +31,11 @@ const shanghaiAt = (hour: number, minute = 0) =>
 describe('renderFireSceneBlock — 到点现挑时段', () => {
     it('同一份作息表，不同触发时刻挑出不同时段', () => {
         const noon = renderFireSceneBlock(scene, shanghaiAt(14, 30), { tzId: 'Asia/Shanghai' });
-        expect(noon).toContain('当前时段：14:00 你正在跑步（健身房）');
+        expect(noon).toContain('当前时段：14:00 原计划跑步（健身房）');
         expect(noon).toContain('之后安排：22:00 戴着耳机瘫在沙发上');
 
         const lateNight = renderFireSceneBlock(scene, shanghaiAt(23, 10), { tzId: 'Asia/Shanghai' });
-        expect(lateNight).toContain('当前时段：22:00 你正在戴着耳机瘫在沙发上');
+        expect(lateNight).toContain('当前时段：22:00 原计划戴着耳机瘫在沙发上');
         expect(lateNight).not.toContain('跑步');
         expect(lateNight).not.toContain('健身房');
     });
@@ -44,7 +44,7 @@ describe('renderFireSceneBlock — 到点现挑时段', () => {
         // 同一个绝对时刻：上海是下午 14:30，纽约是凌晨 02:30（当天第一条 08:00 还没到）。
         // 时区吃错的话，纽约角色会在凌晨两点半说自己正在健身房跑步。
         const at = shanghaiAt(14, 30);
-        expect(renderFireSceneBlock(scene, at, { tzId: 'Asia/Shanghai' })).toContain('14:00 你正在跑步');
+        expect(renderFireSceneBlock(scene, at, { tzId: 'Asia/Shanghai' })).toContain('14:00 原计划跑步');
         const ny = renderFireSceneBlock(scene, at, { tzId: 'America/New_York' });
         // 这条钉的是「挑中哪一条」，不是那句引子怎么写（凌晨那档的措辞由 scheduleInjection 定）。
         expect(ny).toContain('起床做早饭（08:00）');
@@ -75,7 +75,7 @@ describe('renderFireSceneBlock — 到点现挑时段', () => {
 
     it('歌单是空的 → 只有日程，不硬编一首歌', () => {
         const out = renderFireSceneBlock({ ...scene, songPool: [] }, shanghaiAt(22, 30), { tzId: 'Asia/Shanghai' });
-        expect(out).toContain('22:00 你正在戴着耳机');
+        expect(out).toContain('22:00 原计划戴着耳机');
         expect(out).not.toContain('你此刻在听');
     });
 
@@ -93,7 +93,7 @@ describe('renderFireSceneBlock — 到点现挑时段', () => {
     // 到点先比日期，跨天了整段不用（宁缺勿错，跟「实时世界拉不到就整段消失」同一条线）。
     it('同一天触发 → 照常渲染', () => {
         const out = renderFireSceneBlock(scene, shanghaiAt(14, 30), { tzId: 'Asia/Shanghai' });
-        expect(out).toContain('当前时段：14:00 你正在跑步（健身房）');
+        expect(out).toContain('当前时段：14:00 原计划跑步（健身房）');
     });
 
     it('跨天触发 → 整段消失（日程和「此刻在听」一起走）', () => {
@@ -166,19 +166,19 @@ describe('renderFireSceneBlock — 到点现挑时段', () => {
 });
 
 // 角色关掉「时间感知」后，前台连「现在几点」都读不到，这一段却照旧写着
-// 「当前时段：22:00 你正在…」——钟从日程这条缝漏了出去。取值与今日节日同源
+// 「当前时段：22:00 原计划…」——钟从日程这条缝漏了出去。取值与今日节日同源
 // （worker 从 tool_pack.timeAwarenessEnabled 读），日程内容本身不受影响。
 describe('renderFireSceneBlock — 钟点跟着「时间感知」开关', () => {
     const tz = { tzId: 'Asia/Shanghai' };
 
     it('默认（不传）照常报时段，老行为不变', () => {
         const out = renderFireSceneBlock(scene, shanghaiAt(14, 30), tz);
-        expect(out).toContain('当前时段：14:00 你正在跑步（健身房）');
+        expect(out).toContain('当前时段：14:00 原计划跑步（健身房）');
     });
 
     it('includeClock=false 时活动还在、钟点消失', () => {
         const out = renderFireSceneBlock(scene, shanghaiAt(14, 30), tz, { includeClock: false });
-        expect(out).toContain('你正在跑步（健身房）');
+        expect(out).toContain('原计划跑步（健身房）');
         expect(out).toContain('之后安排：戴着耳机瘫在沙发上');
         expect(out).not.toContain('14:00');
         expect(out).not.toContain('22:00');

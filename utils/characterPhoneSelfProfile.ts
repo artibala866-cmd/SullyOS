@@ -1,4 +1,6 @@
-import type { CharacterProfile } from '../types';
+import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
+import { buildCharacterPhoneContext } from './characterPhoneContext';
+import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import {
   activateCharacterAvatar, readCharacterAvatarLibrary,
@@ -51,6 +53,7 @@ export async function runCharacterPhoneSelfAutonomy(
   char:CharacterProfile, inputApi:Api,
   applyAvatar?: (image:string)=>Promise<void>,
   force=false,
+  contextInput?: {user:UserProfile;groups:GroupProfile[];realtimeConfig?:RealtimeConfig},
 ):Promise<'changed'|'skipped'|'failed'> {
   const api=resolveCharacterPhoneApi(char.id,inputApi);
   if(!char.id || !api.baseUrl || !api.apiKey || !api.model || typeof localStorage==='undefined')
@@ -80,6 +83,7 @@ export async function runCharacterPhoneSelfAutonomy(
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
     if(!force && /睡觉|入睡|就寝|休息/.test(life.plannedActivity||''))
       return 'skipped';
+    const context=await buildCharacterPhoneContext(char,contextInput?.user ?? {name:'User',bio:''} as UserProfile,contextInput?.groups ?? [],contextInput?.realtimeConfig);
     // Update a single social profile + image together without extra API calls.
     if(!stillAllowed())return 'skipped';
     if(!force && !reservePhoneApiBudget(char.id))return 'skipped';
@@ -88,7 +92,7 @@ export async function runCharacterPhoneSelfAutonomy(
       method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
       body:JSON.stringify({model:api.model,stream:false,temperature:0.7,messages:[
         {role:'system',content:`你为角色 ${char.name} 自己的微信“我”的个人资料作自然调整。
-你不能改变角色设定或扮演 User。当前角色人设：${[char.systemPrompt,char.description,char.worldview].filter(Boolean).join('\n').slice(0,4500)}
+你不能改变角色设定或扮演 User。当前角色人设：${context.systemPrompt}
 当前角色日程（只是计划）：${life.plannedActivity||'无'}；${life.plannedDescription||''}。
 当前戳一戳后缀：${old.pokeSuffix||'未设置'}。
 头像库识图结果（只有这些 ID 可以用，其他图片一律不存在）：${JSON.stringify(candidates.map(e=>({id:e.id,description:e.visionDescription?.slice(0,300)}))).slice(0,4500)}
@@ -124,6 +128,7 @@ export async function runCharacterPhoneSelfAutonomy(
     }
     return changed?'changed':'skipped';
   }catch(error){
+    if (isPhoneRequestCancelled(error)) return 'skipped';
     console.warn('[CharacterPhone] self profile autonomy failed',error);
     return 'failed';
   }finally{lock.delete(char.id);}

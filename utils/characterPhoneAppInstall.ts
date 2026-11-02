@@ -104,7 +104,7 @@ export async function generateCharacterPhoneInstallPlan(
 本次仅能从九个候选软件里选择符合角色真实长期喜好、文化习惯、职业兴趣的软件：
 x（X/Twitter：文字观点、国际讨论）；bilibili（B站：视频、兴趣圈、二创）；weibo（微博：中文话题、动态、热搜）；instagram（Instagram：照片、创作、视觉社交）；douban（豆瓣：书影音评论、小组）；douyin（抖音：短视频）；email（邮箱：邮件往来）；jinjiang（晋江：小说阅读、书架）；netease（网易云：听歌品味、音乐角落）。
 依据角色的稳定人设、世界书、已有私聊及生活习惯，选择1-6个合理 App；不用机械全选，也不要因为User喜欢就替角色安装。
-原设与真实私聊上下文：${context.systemPrompt.slice(0,8000)}
+原设与真实私聊上下文：${context.systemPrompt}
 近期聊天摘要片段：${context.privateMessages.slice(-8).map(m=>String(m.content||'').slice(0,180)).join(' / ').slice(0,1500)}
 返回严格 JSON：{"installedAppIds":["bilibili","netease"],"reason":"一句话解释安装倾向"}。
 数组只允许 x、bilibili、weibo、instagram、douban、douyin、email、jinjiang、netease，无重复；不生成帖子、账号或任何平台内容。`},

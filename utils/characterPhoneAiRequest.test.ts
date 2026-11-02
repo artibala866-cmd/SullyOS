@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { writePhoneAutonomyPreferences } from './characterPhoneApiBudget';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeepAlive } from './keepAlive';
 import {
@@ -16,6 +17,8 @@ const meta = { charId: 'char-one', purpose: '微信生成', automatic: true };
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
+  vi.mocked(KeepAlive.start).mockResolvedValue(undefined);
   vi.clearAllMocks();
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -118,4 +121,46 @@ describe('character phone AI request lifecycle', () => {
     expect(canRunAutomaticPhoneAi(meta.charId, URL)).toBe(false);
     expect(canRunAutomaticPhoneAi('another-char', URL)).toBe(true);
   });
+});
+
+
+it('phone background permission revocation aborts its own request without cancelling explicit manual work', async () => {
+ const permissionMeta={...meta,charId:'permission-revocation'};
+ const requests:AbortSignal[]=[];
+ vi.stubGlobal('fetch',vi.fn((_url,init:RequestInit)=>new Promise((_resolve,reject)=>{
+  requests.push(init.signal!);init.signal!.addEventListener('abort',()=>reject(init.signal!.reason),{once:true});
+ })));
+ const auto=fetchCharacterPhoneJson(URL,options,permissionMeta).catch(error=>error);
+ const manualController=new AbortController();
+ const manual=fetchCharacterPhoneJson(URL,{...options,signal:manualController.signal},{...permissionMeta,automatic:false}).catch(error=>error);
+ await vi.waitFor(()=>expect(requests).toHaveLength(2));
+ writePhoneAutonomyPreferences(permissionMeta.charId,{backgroundApiEnabled:false});
+ expect((await auto).kind).toBe('cancelled');
+ expect(requests[0].aborted).toBe(true);expect(requests[1].aborted).toBe(false);
+ manualController.abort();expect((await manual).kind).toBe('cancelled');
+});
+
+it('cancelling during KeepAlive preparation cannot start another paid phone request',async()=>{
+ let release!:()=>void;
+ vi.mocked(KeepAlive.start).mockImplementation(()=>new Promise<void>(resolve=>{release=resolve;}));
+ const network=vi.fn();vi.stubGlobal('fetch',network);
+ const controller=new AbortController();
+ const pending=fetchCharacterPhoneJson(URL,{...options,signal:controller.signal},{...meta,automatic:false}).catch(e=>e);
+ await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
+ controller.abort();release();
+ expect((await pending).kind).toBe('cancelled');expect(network).not.toHaveBeenCalled();
+});
+
+it('caller cancellation works on Android WebViews without AbortSignal.any',async()=>{
+ const any=AbortSignal.any;
+ Object.defineProperty(AbortSignal,'any',{configurable:true,value:undefined});
+ try{
+  const controller=new AbortController();
+  vi.stubGlobal('fetch',vi.fn((_url,init:RequestInit)=>new Promise((_resolve,reject)=>{
+   init.signal!.addEventListener('abort',()=>reject(init.signal!.reason),{once:true});
+  })));
+  const pending=fetchCharacterPhoneJson(URL,{...options,signal:controller.signal},{...meta,automatic:false}).catch(e=>e);
+  await vi.waitFor(()=>expect(fetch).toHaveBeenCalledOnce());controller.abort();
+  expect((await pending).kind).toBe('cancelled');
+ }finally{Object.defineProperty(AbortSignal,'any',{configurable:true,value:any});}
 });

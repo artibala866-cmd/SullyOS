@@ -1,9 +1,10 @@
+import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
 import { classifyLifeActivity } from './sullyLifeClock';
 import {isLocalChatLeaseActive} from './amsgChatGenerationLease';
-import { readCharacterLifeEvents, recordCharacterLifeEvent } from './characterLifeEvents';
+import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
 import { readPendingContacts } from './characterPhoneRequests';
 import { registerDiscoveredNpc, noteNpcInteraction, type NpcDiscovery } from './characterNpcNetwork';
@@ -99,7 +100,7 @@ async function bootstrapSocialCircle(input: CharacterPhoneAutonomyInput, expecte
   const response = await queryJson(api, [
     { role: 'system', content: `你为虚构角色${char.name}整理其手机通讯录中的真实生活圈。
 必须遵守以下原设/世界书/私聊上下文，禁止改写已有角色身份、家庭、职业、恋爱关系。
-${context.systemPrompt.slice(0, 11000)}
+${context.systemPrompt}
 已有联系人：${JSON.stringify(knownContactSnapshot(existing)).slice(0, 3000)}
 待确认联系人：${JSON.stringify(pending.map(p => p.nickname)).slice(0, 500)}
 从原设提取最多三位有姓名/可辨称呼的亲友、同事、同学或邻居。
@@ -270,6 +271,8 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
       return 'skipped';
     }
     if (!decision || (input.replyOnly && decision.why !== 'unanswered')) return 'skipped';
+    const sharedContext = await buildCharacterPhoneContext(char, input.user, input.groups, input.realtimeConfig);
+    if (!stillAuthorized() || isCharacterPhoneRefreshing(char.id) || isLocalChatLeaseActive(char.id)) return 'skipped';
     const { contact, thread, actor, why } = decision;
     const charTimeZone = resolveCharTimeZone(char);
     const timeAwarenessOn = char.timeAwarenessEnabled !== false;
@@ -298,8 +301,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     const lastMessageContext = timeAwarenessOn && typeof lastMessageAt === 'number' && Number.isFinite(lastMessageAt)
       ? `${ChatPrompts.formatDate(lastMessageAt, charTimeZone)}，距今约${formatPhoneElapsed(now - lastMessageAt)}`
       : '没有可用时间戳；不要猜测距离上次联系多久。';
-    const events = readCharacterLifeEvents(char.id)
-      .filter(e => e.occurredAt <= now)
+    const events = life.confirmedEvents
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .slice(0, 9)
       .map(e => ({
@@ -318,8 +320,7 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     const result = await queryJson(api, [
       { role: 'system', content: `你模拟一台虚构角色自己的微信手机，不能扮演User。
 本轮只能由${speakerName}说话，发给${actor === 'owner' ? contact.name : char.name}，禁止替另一方同时回复。
-Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).join('\\n').slice(0, 4200)}
-角色相关世界书：${(char.mountedWorldbooks || []).filter(w => (w as typeof w & { enabled?: boolean }).enabled !== false).map(w => w.title + '：' + w.content).join('\\n').slice(0, 2200)}
+与私聊共享的人物、世界书和已授权背景：${sharedContext.systemPrompt}
 角色当前时间与时间感知：${timeContextText}
 联系人固定档案：${JSON.stringify(contact).slice(0, 1800)}
 当前日程计划（仅是计划，不是已发生事件）：${life.plannedActivity || '无'}，${life.plannedDescription || ''}。
@@ -381,6 +382,7 @@ Char原设：${[char.name, char.systemPrompt, char.worldview].filter(Boolean).jo
     });
     return 'messaged';
   } catch (error) {
+    if (isPhoneRequestCancelled(error)) return 'skipped';
     console.warn('[PhoneAutonomy] background NPC turn failed', error);
     return 'failed';
   } finally { locks.delete(char.id); }

@@ -1,7 +1,6 @@
 /** Per-character / per-platform AI-generated fictional social snapshots. No real-platform activity. */
 import type { CharacterProfile,UserProfile,GroupProfile,RealtimeConfig } from '../types';
 import {buildCharacterPhoneContext} from './characterPhoneContext';
-import {loadCharacterContextMessages} from './chatContextRange';
 import {getCharacterLifeScheduleContext} from './characterLifeScheduleContext';
 import {readNpcProfiles} from './characterPhoneNpcs';
 import {readCharacterPhoneInstallPlan} from './characterPhoneAppInstall';
@@ -70,15 +69,14 @@ export async function generateSocialSnapshot(input:SocialGenerationInput):Promis
   const api=resolveCharacterPhoneApi(char.id,input.api);
   if(!api.baseUrl||!api.apiKey||!api.model)throw new Error('请先配置查手机或聊天 API');
   const task=(async()=>{
-    const [context,visible,life]=await Promise.all([
+    const [context,life]=await Promise.all([
       buildCharacterPhoneContext(char,input.user,input.groups,input.realtimeConfig),
-      loadCharacterContextMessages(char),getCharacterLifeScheduleContext(char),
+      getCharacterLifeScheduleContext(char),
     ]);
     const npc=readNpcProfiles(char.id).slice(0,20);
     const previous=readSocialSnapshot(char.id,appId);
     const previousSummary=previous?JSON.stringify({profile:previous.profile,
       posts:previous.posts.slice(-3).map(p=>p.text),viewed:previous.viewed.slice(-3).map(p=>p.text)}).slice(0,1700):'无';
-    const recent=visible.slice(-18).map(m=>(m.role==='user'?'User':'Char')+': '+String(m.content||'').slice(0,270)).join('\n').slice(0,4500);
     const prompt=[
       '你在构造一个虚构角色专属手机的'+(appId==='weibo'?'微博':'Instagram')+'内容快照，绝不连接真实平台。',
       'Char：'+char.name+'。这完全是 Char 的账号。User 不得代替 Char 发帖。人设、世界书、私聊中的身份和习惯优先，禁止 OOC。',
@@ -87,8 +85,7 @@ export async function generateSocialSnapshot(input:SocialGenerationInput):Promis
       '平台差异：'+(appId==='weibo'?'微博以动态、话题、短文和转评为主。':'Instagram 以照片、个人审美、简短 caption 和故事感为主；visual 仅是画面文字描述，不是图片URL。'),
       '已存在的 NPC（保持人物性格、身份与关系）：'+JSON.stringify(npc.map(n=>({name:n.name,identity:n.identity,personality:n.personality,relationship:n.relationship,speechStyle:n.speechStyle}))).slice(0,3000),
       '优先让上述已有 NPC 互动。允许不认识的普通网友路过发言，但绝对不能擅自说他们是亲友、恋人或老同学。',
-      '角色固定核心上下文：'+context.systemPrompt.slice(0,8500),
-      '可见私聊：'+recent,
+      '角色固定核心上下文：'+context.systemPrompt,
       '当前日程（未发生）：'+(life.plannedActivity||'未知')+' '+(life.plannedDescription||''),
       '确实发生的生活事件：'+JSON.stringify(life.confirmedEvents.slice(0,9).map(e=>e.summary)).slice(0,1600),
       '该平台之前内容（连贯且避免重复）：'+previousSummary,

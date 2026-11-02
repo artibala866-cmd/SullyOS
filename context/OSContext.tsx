@@ -2576,7 +2576,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       });
                   } else if (feature === 'profile') {
                       await runCharacterPhoneSelfAutonomy(char, api,
-                          async image => { updateCharacter(char.id, {avatar:image}); });
+                          async image => { updateCharacter(char.id, {avatar:image}); }, false, {
+                              user:userProfileRef.current!, groups:groupsRef.current,
+                              realtimeConfig:realtimeConfigRef.current,
+                          });
                   } else {
                       await considerAutonomousNpcMoments(char.id, api);
                   }

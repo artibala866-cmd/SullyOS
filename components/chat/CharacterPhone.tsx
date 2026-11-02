@@ -1,3 +1,5 @@
+import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
+import { getCharacterLifeScheduleContext } from '../../utils/characterLifeScheduleContext';
 import {useOS} from '../../context/OSContext';
 import PhoneMemo from './PhoneMemo';
 import CharacterAvatarLibraryModal from './CharacterAvatarLibraryModal';
@@ -180,7 +182,7 @@ export default function CharacterPhone({
     if(selfAutoBusy)return;
     setSelfAutoBusy(true);setSelfAutoNotice('');
     try {
-      const status=await runCharacterPhoneSelfAutonomy(char,phoneApi,onApplyAvatar,true);
+      const status=await runCharacterPhoneSelfAutonomy(char,phoneApi,onApplyAvatar,true,{user:userProfile,groups,realtimeConfig});
       setSelfAutoNotice(status==='changed'?'Char 已根据自己的状态更新个人资料':
         status==='skipped'?'Char 觉得现在不用改变资料':'本次调整失败，请检查聊天 API');
     } catch(e) {setSelfAutoNotice(e instanceof Error?e.message:'本次调整失败');}
@@ -360,11 +362,11 @@ export default function CharacterPhone({
   const [schedule, setSchedule] = useState<DailySchedule | null>(null);
   useEffect(() => {
     let live = true;
-    const refresh = () => { getDailyScheduleForChar(char).then(v=>{if(live)setSchedule(v);}).catch(()=>{if(live)setSchedule(null);}); };
+    const refresh = () => { if(!isScheduleFeatureOn(char)){setSchedule(null);return;} getDailyScheduleForChar(char).then(v=>{if(live)setSchedule(v);}).catch(()=>{if(live)setSchedule(null);}); };
     refresh();
     const timer = window.setInterval(refresh, 60_000);
     return () => { live = false; window.clearInterval(timer); };
-  }, [char.id, char.customTimezone, char.customTimezoneEnabled]);
+  }, [char.id, char.customTimezone, char.customTimezoneEnabled, char.scheduleFeatureEnabled, char.scheduleStyle]);
   const [busy, setBusy] = useState(false);
   const [sharedWechatRefreshing, setSharedWechatRefreshing] = useState(() => isCharacterPhoneRefreshing(characterId));
   useEffect(() => {
@@ -399,9 +401,8 @@ export default function CharacterPhone({
     catch { setError('存储空间不足，记录未能保存'); return false; }
   };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser' || screen === 'beautify') setScreen('home'); else if(screen==='profile'){setScreen(profileOrigin.current==='home'?'home':'wechat');setTab('me');} else if(screen==='settings'){setScreen(settingsOrigin.current==='home'?'home':'wechat');} else if (screen === 'thread' || screen === 'moments' || screen === 'wallet') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
-  const fullPersona = [persona, char.worldview || '', ...(char.mountedWorldbooks || []).filter(w => (w as typeof w & { enabled?: boolean }).enabled !== false).map(w => w.title + '：' + w.content)].filter(Boolean).join('\n\n').slice(0, 24000);
   const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
-  const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前生活状态，不等于必然在玩手机；不可凭空断言已发生社交行为。` : '目前没有可用的角色当日日程，不得编造当前行程。';
+  const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前时段的计划，不证明实际行动已发生或正在玩手机；已保存对话与实际经历优先。` : '目前没有可用的角色当日日程，不得编造当前行程。';
   const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!phoneApi.apiKey||!phoneApi.baseUrl||!phoneApi.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api:phoneApi,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
@@ -413,8 +414,8 @@ export default function CharacterPhone({
       const { response, json } = await fetchCharacterPhoneJson(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + phoneApi.apiKey },
         body: JSON.stringify({ model: phoneApi.model, stream: false, messages: [
-          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成手机联系人资料，不要直接回复User。手机主人Char的唯一ID是${characterId}，显示名${name}。角色人设：${fullPersona}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人（不要重复身份）：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。一次生成${batchCount}个不同生活领域的联系人，允许亲友、同事、同学、普通熟人、事务性联系人，不能全是亲密朋友。只返回JSON对象：{"contacts":[{"name":"","identity":"","personality":"","relationship":"","background":""}]}。` },
-          { role: 'user', content: '综合角色设定和世界书批量生成${batchCount}份不同且具体的联系人档案。优先已有设定人物；无明确人物时可以创建符合生活圈的普通NPC。不要生成聊天消息。' }
+          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt}。现在生成手机联系人资料，不要直接回复User。手机主人Char的唯一ID是${characterId}，显示名${name}。${scheduleContext}优先从角色设定与世界书里提到的人物创建联系人；如果没有明确姓名，可以根据世界观、身份、地点和生活圈生成合理的新NPC，但绝不编造与原设定冲突的亲密关系。不得把User或手机主人当成NPC。已有联系人（不要重复身份）：${profiles.map(p => p.name+'('+p.relationship+')').join('、')}。User与Char与NPC身份不同；同名或水仙不能视为同一人。一次生成${batchCount}个不同生活领域的联系人，允许亲友、同事、同学、普通熟人、事务性联系人，不能全是亲密朋友。只返回JSON对象：{"contacts":[{"name":"","identity":"","personality":"","relationship":"","background":""}]}。` },
+          { role: 'user', content: `综合角色设定和世界书批量生成${batchCount}份不同且具体的联系人档案。优先已有设定人物；无明确人物时可以创建符合生活圈的普通NPC。不要生成聊天消息。` }
         ] })
       }, { charId: characterId, purpose: '手动生成微信联系人', automatic: false });
       if (!response.ok) throw new Error(json?.error?.message || 'HTTP ' + response.status);
@@ -464,8 +465,7 @@ export default function CharacterPhone({
       const context = await loadRealContext();
       const phoneTimeAwarenessOn = char.timeAwarenessEnabled !== false;
       const phoneTimeZone = resolveCharTimeZone(char);
-      // The shared prompt places its volatile clock after the stable persona/worldbook prefix.
-      // Preserve that clock explicitly when the long prompt is shortened for the phone API.
+      // Put the shared clock next to this phone task, preserving the complete selected context.
       const timeBlockMatch = context.systemPrompt.match(/### 当前时间 \(Now\)\n[\s\S]*?(?=\n\n|$)/);
       const phoneTimeBlock = phoneTimeAwarenessOn
         ? ContextBuilder.buildTimeAwarenessBlock(char).trim()
@@ -473,9 +473,7 @@ export default function CharacterPhone({
       const contextWithoutTime = timeBlockMatch
         ? context.systemPrompt.replace(timeBlockMatch[0], '')
         : context.systemPrompt;
-      const systemContext = contextWithoutTime.length > 36000
-        ? `${contextWithoutTime.slice(0, 30000)}\n[中间上下文因长度限制省略]\n${contextWithoutTime.slice(-6000)}`
-        : contextWithoutTime;
+      const systemContext = contextWithoutTime;
       const formatPhoneTimestamp = (value: unknown) =>
         phoneTimeAwarenessOn && typeof value === 'number' && Number.isFinite(value)
           ? ChatPrompts.formatDate(value, phoneTimeZone)
@@ -727,7 +725,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const { response, json } = await fetchCharacterPhoneJson(phoneApi.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + phoneApi.apiKey },
         body: JSON.stringify({ model: phoneApi.model, stream: false, temperature: 0.85, messages: [
-          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt.slice(0, 14000)}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
+          { role: 'system', content: `私聊原版上下文：${realContext.systemPrompt}。现在生成角色「${name}」手机里的微信消息，不要直接回复User。手机主人Char的ID是${characterId}。${scheduleContext}固定NPC档案：姓名${profile.name}，身份${profile.identity}，性格${profile.personality}，与角色关系${profile.relationship}，背景${profile.background}。必须严格遵守该档案，不得更名、改身份或改关系。请保持和私聊一致的自然、鲜活、口语化表达，有停顿、个性和真实关系边界，不要模板化、说教或夸张表演。角色和NPC都是虚构人物。${target ? `必须继续与现有联系人「${target.name}」聊天，不要换人或改名。之前的对话：${target.messages.slice(-16).map(m => (m.speaker?.role === 'owner' ? '[手机主人]' : m.speaker?.role === 'contact' ? '[联系人]' : '[旧消息身份未验证]') + '：' + m.text).join(' / ')}` : '根据角色背景创造一位合理的朋友、家人或同事，与角色进行一段生活化的微信对话。优先选择已有联系人，避免无意义地不断创建新朋友。'}对话不一定围绕用户。只输出合法JSON对象：{"name":"${profile.name}","messages":[{"speaker":"contact","text":"短消息"},{"speaker":"owner","text":"短消息"}]}。speaker只能为owner或contact，owner是手机主人Char，contact是当前联系人；即使双方同名或是水仙，也绝对不能根据名字推断发言者。User不是NPC，不能混入。必须生成8到14条独立的微信消息，双方都要有发言，每条一条气泡，禁止把整段对话塞入单条text。至少8条，否则视为失败。不要markdown。已有记录：${context}` },
           { role: 'user', content: '生成一段符合角色设定、像真实朋友微信聊天一样的日常对话。'+(guidance.trim()?'参考方向（不是User发送的消息）：'+guidance.trim().slice(0,300):'') }
         ] })
       }, { charId: characterId, purpose: '指定联系人微信对话', automatic: false });
@@ -759,12 +757,12 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     setMomentBusy(true);setError('');
     try {
       const context=await loadRealContext();
-      const events=readCharacterLifeEvents(characterId).filter(e=>e.kind!=='moment-post' && e.kind!=='moment-comment').slice(0,18);
+      const events=(await getCharacterLifeScheduleContext(char)).confirmedEvents.filter(e=>e.kind!=='moment-post' && e.kind!=='moment-comment').slice(0,18);
       const recent=readCharacterMoments(characterId).slice(0,8).map(p=>({text:p.text,time:p.createdAt,deleted:!!p.deletedAt}));
       const { response, json } = await fetchCharacterPhoneJson(phoneApi.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
         method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+phoneApi.apiKey},
         body:JSON.stringify({model:phoneApi.model,stream:false,temperature:0.85,messages:[
-          {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt.slice(0,30000)}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。首阶段只发纯文字，图片由后续独立生图系统提供。`},
+          {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。首阶段只发纯文字，图片由后续独立生图系统提供。`},
           {role:'user',content:'由Char自己决定此刻要不要发布一条朋友圈。'}
         ]})
       }, { charId: characterId, purpose: '角色朋友圈发布决策', automatic: false });

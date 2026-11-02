@@ -9,7 +9,7 @@ import { getCurrentScheduleSlotIndex } from './scheduleTime';
 import { readCharacterLifeEvents } from './characterLifeEvents';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 
-const char = { id: 'char-a', customTimezoneEnabled: false, customTimezone: '' };
+const char = { id: 'char-a', scheduleFeatureEnabled: true, customTimezoneEnabled: false, customTimezone: '' };
 const now = new Date('2026-10-23T12:00:00.000Z');
 
 beforeEach(() => { vi.resetAllMocks(); });
@@ -62,4 +62,14 @@ describe('character schedule context', () => {
     expect(result.confirmedEvents.map(e => e.id)).toEqual(['recent']);
     expect(readCharacterLifeEvents).toHaveBeenCalledWith('char-a');
   });
+});
+
+
+it('a disabled schedule contributes no old plan but keeps confirmed events', async () => {
+  vi.mocked(getDailyScheduleForChar).mockResolvedValue({slots:[{startTime:'12:00',activity:'旧计划'}]} as any);
+  vi.mocked(readCharacterLifeEvents).mockReturnValue([{id:'done',characterId:char.id,kind:'activity',source:'phone',occurredAt:now.getTime()-100,summary:'已保存事实'}]);
+  const result=await getCharacterLifeScheduleContext({...char,scheduleFeatureEnabled:false},now);
+  expect(getDailyScheduleForChar).not.toHaveBeenCalled();
+  expect(result.plannedActivity).toBeNull();
+  expect(result.confirmedEvents.map(e=>e.id)).toEqual(['done']);
 });

@@ -80,7 +80,7 @@ export const resolveScheduleSlots = (
  * 构建日程注入文本
  *
  * 两段式，独立叠加：
- * 1) 当前时段硬事实——每轮都注入，不受 evolvedNarrative 影响
+ * 1) 当前时段计划——每轮都注入，不受 evolvedNarrative 影响
  * 2) 意识流独白——evolvedNarrative > flowNarrative > 当前 slot innerThought
  */
 export const buildScheduleInjection = (
@@ -99,12 +99,12 @@ export const buildScheduleInjection = (
     // 按「今天刚要开始」写，半夜一点的角色就会顶着清晨的心境说话。
     const isPreDawnCarryOver = !currentSlot && now.getHours() < PRE_DAWN_END_HOUR;
 
-    // 1. 当前时段硬事实（每轮独立注入）
+    // 1. 当前时段计划（每轮独立注入）
     let slotHeader = '';
     if (currentSlot) {
         slotHeader = withClock
-            ? `当前时段：${currentSlot.startTime} 你正在${currentSlot.activity}`
-            : `当前时段：你正在${currentSlot.activity}`;
+            ? `当前时段：${currentSlot.startTime} 原计划${currentSlot.activity}`
+            : `当前时段：原计划${currentSlot.activity}`;
         if (currentSlot.location) slotHeader += `（${currentSlot.location}）`;
         if (nextSlot) {
             slotHeader += withClock
@@ -134,10 +134,10 @@ export const buildScheduleInjection = (
         narrative = currentSlot.innerThought;
     }
 
-    // 3. 拼接：硬事实 → 意识流（可选）
+    // 3. 拼接：时段计划 → 意识流（可选）
     const preamble = `此刻你的心中盘旋着这些想法……\n`;
     const footnote = `\n（不是台词，不用说出口——让它影响你的语气和情绪就好。）`;
-    // footnote 只跟着意识流独白走，管不到上面的日程行——那两段是「你正在做什么」的硬事实，
+    // footnote 只跟着意识流独白走，管不到上面的日程行——那两段是当前时段的计划背景，
     // 每轮全量注入且贴着生成点。日程是照着聊天记录生成的（生成侧明写「对话里提到的事
     // 必须严格遵循」，意识系那档还把「惦记对方」列为推荐动作），对方随口说的计划因此
     // 会渗进 slot 的 description；再加上角色能用 CHANGE_SCHEDULE 往里写任意文本，
@@ -155,9 +155,10 @@ export const buildScheduleInjection = (
             if (slot.description) line += `：${slot.description}`;
             return line;
         });
-        out += `你今天的完整日程：\n${rows.join('\n')}\n`;
+        out += `你今天的完整日程计划：\n${rows.join('\n')}\n`;
     }
     out += slotHeader;
+    out += '（日程是计划背景，不能证明活动已经发生。已保存的对话与实际经历优先；对方正在发来的话要正常接住，不因表上写着忙碌或睡觉而反复报备、道晚安或强行结束聊天。）\n';
     if (narrative) {
         out += preamble + narrative + footnote;
     }

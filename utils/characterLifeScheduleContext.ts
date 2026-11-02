@@ -1,3 +1,4 @@
+import { isScheduleFeatureOn } from './scheduleFeature';
 import type { CharacterProfile } from '../types';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { getCurrentScheduleSlotIndex } from './scheduleTime';
@@ -5,11 +6,11 @@ import { readCharacterLifeEvents } from './characterLifeEvents';
 
 /** Read-only snapshot: a schedule is a plan, not proof that an activity occurred. */
 export async function getCharacterLifeScheduleContext(
-  char: Pick<CharacterProfile, 'id' | 'customTimezoneEnabled' | 'customTimezone'>,
+  char: Pick<CharacterProfile, 'id' | 'customTimezoneEnabled' | 'customTimezone' | 'scheduleFeatureEnabled' | 'scheduleStyle'>,
   at: Date = new Date(),
   confirmedEvents?: ReturnType<typeof readCharacterLifeEvents>,
 ) {
-  const schedule = await getDailyScheduleForChar(char, at);
+  const schedule = isScheduleFeatureOn(char) ? await getDailyScheduleForChar(char, at) : null;
   const index = schedule ? getCurrentScheduleSlotIndex(schedule.slots, char, at) : -1;
   const slot = index >= 0 ? schedule?.slots[index] : undefined;
   const now = at.getTime();

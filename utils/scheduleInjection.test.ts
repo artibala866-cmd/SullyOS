@@ -33,7 +33,7 @@ describe('旧日程／云端快照的时段容错', () => {
         expect(resolved.current?.activity).toBe('散步');
         expect(resolved.next?.activity).toBe('睡觉');
         expect(unsorted.slots[0].activity).toBe('睡觉');
-        expect(buildScheduleInjection(unsorted, undefined, at(16))).toContain('当前时段：15:00 你正在散步');
+        expect(buildScheduleInjection(unsorted, undefined, at(16))).toContain('当前时段：15:00 原计划散步');
     });
     it('损坏的时间条目不参与云端此刻事实或下一项选择', () => {
         const malformed: RenderableSchedule = { slots: [
@@ -71,7 +71,7 @@ describe('凌晨 0-5 点算前一夜的延续', () => {
 
     it('白天正落在某条日程上时一切照旧', () => {
         const out = buildScheduleInjection(schedule, undefined, at(14));
-        expect(out).toContain('当前时段：13:00 你正在写稿');
+        expect(out).toContain('当前时段：13:00 原计划写稿');
         expect(out).toContain('之后安排：22:00 看剧');
         expect(out).toContain('稿子卡在第三段');
     });
@@ -81,7 +81,7 @@ describe('凌晨 0-5 点算前一夜的延续', () => {
             includeFullDay: true,
             includeChangeInstruction: true,
         });
-        expect(out).toContain('你今天的完整日程：');
+        expect(out).toContain('你今天的完整日程计划：');
         expect(out).toContain('- 07:00 晨跑');
         expect(out).toContain('- 13:00 写稿');
         expect(out).toContain('- 22:00 看剧');
@@ -98,7 +98,7 @@ describe('夜里最后一条日程之后仍然教改日程', () => {
             includeFullDay: true,
             includeChangeInstruction: true,
         });
-        expect(out).toContain('当前时段：22:00 你正在看剧');
+        expect(out).toContain('当前时段：22:00 原计划看剧');
         expect(out).toContain('[[ACTION:CHANGE_SCHEDULE | 22:00 | 去超市]]');
     });
 
@@ -118,7 +118,7 @@ describe('includeClock=false 时日程不报钟点', () => {
 
     it('当前时段与之后安排都只剩活动本身', () => {
         const out = buildScheduleInjection(schedule, undefined, at(14), noClock);
-        expect(out).toContain('当前时段：你正在写稿');
+        expect(out).toContain('当前时段：原计划写稿');
         expect(out).toContain('之后安排：看剧');
         expect(out).not.toContain('13:00');
         expect(out).not.toContain('22:00');
@@ -195,4 +195,13 @@ describe('日程不是给对方列的待办', () => {
         });
         expect(out.indexOf(SCOPE)).toBeGreaterThan(out.indexOf('CHANGE_SCHEDULE'));
     });
+});
+
+
+it('does not turn a sleeping plan into a fact or force the current conversation to end',()=>{
+ const out=buildScheduleInjection({slots:[{startTime:'00:00',activity:'睡觉'}]},undefined,at(23),{includeChangeInstruction:true});
+ expect(out).toContain('原计划睡觉');
+ expect(out).toContain('不能证明活动已经发生');
+ expect(out).not.toContain('你正在睡觉');
+ expect(out).toContain('CHANGE_SCHEDULE');
 });

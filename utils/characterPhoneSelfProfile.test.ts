@@ -65,11 +65,12 @@ describe('Shared Char avatar vision and profile',()=>{
     });
     vi.stubGlobal('fetch',fetchMock);
     const apply=vi.fn(async (_image:string)=>{});
-    expect(await runCharacterPhoneSelfAutonomy(char,api,apply)).toBe('changed');
+    expect(await runCharacterPhoneSelfAutonomy({...char,mountedWorldbooks:[{id:'profile-wb',title:'常驻审美',content:'偏爱水彩纸纹理',constant:true}]},api,apply)).toBe('changed');
     expect(apply).toHaveBeenCalledWith('https://example.invalid/quiet.jpg');
     expect(readCharacterAvatarLibrary('c').activeId).toBe(described.id);
     expect(readCharacterPhoneSelfProfile('c').pokeSuffix).toBe('的书包');
     expect((fetchMock.mock.calls[0][1].body as string)).toContain('低头看书');
+    expect((fetchMock.mock.calls[0][1].body as string)).toContain('偏爱水彩纸纹理');
     expect((fetchMock.mock.calls[0][1].body as string)).not.toContain('unseen.jpg');
     expect(await runCharacterPhoneSelfAutonomy(char,api,apply)).toBe('skipped');
   });

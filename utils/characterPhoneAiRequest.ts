@@ -1,5 +1,6 @@
 import { KeepAlive } from './keepAlive';
 import { safeResponseJson } from './safeApi';
+import { readPhoneAutonomyRevision, readPhoneAutonomyPreferences, CHARACTER_PHONE_API_SETTINGS_CHANGED } from './characterPhoneApiBudget';
 
 /**
  * Shared transport for the character-owned phone. Keep prompts, models, JSON
@@ -23,6 +24,9 @@ export class PhoneRequestFailure extends Error {
     this.name = 'PhoneRequestFailure';
   }
 }
+
+export const isPhoneRequestCancelled = (error: unknown): boolean =>
+  error instanceof PhoneRequestFailure && error.kind === 'cancelled';
 
 type PhoneRequestOptions = {
   charId: string;
@@ -88,21 +92,46 @@ export async function fetchCharacterPhoneJson(
   }
   const deadline = AbortSignal.timeout(options.automatic
     ? CHARACTER_PHONE_AI_TIMEOUT_MS : CHARACTER_PHONE_MANUAL_AI_TIMEOUT_MS);
-  const signal = init.signal
-    ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([init.signal, deadline]) : deadline)
-    : deadline;
+  const controller = new AbortController();
+  const revision = readPhoneAutonomyRevision(options.charId);
+  const cancel = () => controller.abort();
+  // Older Android WebViews lack AbortSignal.any; never discard the caller's stop signal.
+  for (const source of [init.signal, deadline]) {
+    if (source?.aborted) cancel();
+    else source?.addEventListener('abort', cancel, {once:true});
+  }
+  const recheck = () => {
+    if (!options.automatic) return;
+    if (readPhoneAutonomyRevision(options.charId) !== revision ||
+        !readPhoneAutonomyPreferences(options.charId).backgroundApiEnabled ||
+        localStorage.getItem('sully_phone_autonomy_disabled_v1:' + options.charId) === '1') cancel();
+  };
+  if (options.automatic && typeof window !== 'undefined') {
+    window.addEventListener(CHARACTER_PHONE_API_SETTINGS_CHANGED, recheck);
+    window.addEventListener('sully:character-phone-autonomy-changed', recheck);
+    window.addEventListener('storage', recheck);
+  }
+  const signal = controller.signal;
   const requestOptions: RequestWithMeta = {
     ...init,
     signal,
     __sullyMeta: { appName: '查手机', charId: options.charId, purpose: options.purpose },
   };
-  await KeepAlive.start();
+  let keepAliveStarted = false;
   try {
+    recheck();
+    signal.throwIfAborted();
+    keepAliveStarted = true;
+    await KeepAlive.start();
+    recheck();
+    signal.throwIfAborted();
     const response = await fetch(url, requestOptions);
     if (options.automatic && shouldPauseForStatus(response.status)) {
       setCooldown(key, Date.now() + PHONE_AUTO_FAILURE_COOLDOWN_MS);
     }
     const json = await safeResponseJson(response);
+    recheck();
+    signal.throwIfAborted();
     if (response.ok) setCooldown(key, 0);
     return { response, json };
   } catch (error) {
@@ -115,7 +144,7 @@ export async function fetchCharacterPhoneJson(
       throw new PhoneRequestFailure('wait-expired',
         '查手机已达到本次请求的客户端等待上限，但无法确认 AI 服务端是否仍在生成。本次没有自动重试，以免重复计费；请先检查手机中是否有新记录，再决定是否手动重试。');
     }
-    if (init.signal?.aborted) {
+    if (init.signal?.aborted || (signal.aborted && !deadline.aborted)) {
       throw new PhoneRequestFailure('cancelled',
         '本次查手机请求已取消，服务端是否继续处理仍不确定；不会自动重新发送。');
     }
@@ -125,6 +154,12 @@ export async function fetchCharacterPhoneJson(
     }
     throw error;
   } finally {
-    KeepAlive.stop();
+    for (const source of [init.signal, deadline]) source?.removeEventListener('abort', cancel);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(CHARACTER_PHONE_API_SETTINGS_CHANGED, recheck);
+      window.removeEventListener('sully:character-phone-autonomy-changed', recheck);
+      window.removeEventListener('storage', recheck);
+    }
+    if (keepAliveStarted) KeepAlive.stop();
   }
 }

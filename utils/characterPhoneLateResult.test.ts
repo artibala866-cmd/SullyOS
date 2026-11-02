@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CharacterProfile, UserProfile } from '../types';
+import { buildCharacterPhoneContext } from './characterPhoneContext';
 import { considerAutonomousMoment } from './characterMomentAutonomy';
 import { considerCharacterMemo } from './characterMemoAutonomy';
 import { readCharacterMoments, publishCharacterMoment } from './characterPhoneMoments';
@@ -48,6 +49,22 @@ beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.clearAllMock
 afterEach(() => vi.unstubAllGlobals());
 
 describe('late autonomous phone completion safety', () => {
+  it('does not spend a new quota if phone permission changed off/on while preparing context', async () => {
+    const id = 'moments-context-revoked';
+    activity(id);
+    let release!: (value: any) => void;
+    vi.mocked(buildCharacterPhoneContext).mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const network = vi.fn(); vi.stubGlobal('fetch', network);
+    const pending = considerAutonomousMoment({char:char(id), user, groups:[], api, budgeted:true});
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    writePhoneAutonomyPreferences(id,{backgroundApiEnabled:false});
+    writePhoneAutonomyPreferences(id,{backgroundApiEnabled:true});
+    release({systemPrompt:'已撤权的旧上下文',privateMessages:[]});
+    expect(await pending).toBe('unavailable');
+    expect(network).not.toHaveBeenCalled();
+    expect(readPhoneApiBudget(id).requests).toBe(0);
+  });
+
   it('does not publish a late Moment after the user switches autonomous phone generation off', async () => {
     const id = 'moments-off', event = activity(id);
     const network = delayedReply();

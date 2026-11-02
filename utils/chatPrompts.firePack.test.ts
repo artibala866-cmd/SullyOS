@@ -186,7 +186,7 @@ describe('ContextBuilder.buildScheduleInjection 仍是同一份实现', () => {
     it('转发到 scheduleInjection 那个纯叶子（worker 到点渲染共用它）', () => {
         const at = new Date(2026, 7, 2, 12, 0);
         expect(ContextBuilder.buildScheduleInjection(schedule, undefined, at))
-            .toContain('当前时段：00:00 你正在跑步（健身房）');
+            .toContain('当前时段：00:00 原计划跑步（健身房）');
     });
 });
 

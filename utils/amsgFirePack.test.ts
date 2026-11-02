@@ -900,12 +900,12 @@ describe('renderFirePack — 把 includeClock 透传给场景块', () => {
   const at = Date.UTC(2026, 7, 2, 23 - 8, 10);
 
   it('不传时照常报钟点（老行为）', () => {
-    expect(renderFirePack(scenePack, at, '指令')).toContain('当前时段：22:00 你正在睡觉');
+    expect(renderFirePack(scenePack, at, '指令')).toContain('当前时段：22:00 原计划睡觉');
   });
 
   it('includeClock=false 时钟点消失，活动还在', () => {
     const out = renderFirePack(scenePack, at, '指令', { includeClock: false });
-    expect(out).toContain('你正在睡觉');
+    expect(out).toContain('原计划睡觉');
     expect(out).not.toContain('22:00');
   });
 });

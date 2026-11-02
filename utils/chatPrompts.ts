@@ -1,3 +1,4 @@
+import { buildCharacterLifeFacts } from './characterLifeContext';
 import {secretNoteContext} from './secretNote';
 import { buildCharacterResponsePrinciples } from './characterResponsePrinciples';
 import { expandHomeContextHistory } from './homeContextSegments';
@@ -26,7 +27,6 @@ import { isWorkerReachableUrl } from './amsgToolPack';
 import { getCharNameById } from './charNameRegistry';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
-import { readCharacterLifeEvents } from './characterLifeEvents';
 import { readNpcProfiles } from './characterPhoneNpcs';
 import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
@@ -365,14 +365,7 @@ export const ChatPrompts = {
         // 手机实际经历属于私聊背景；不把计划当事实，也不强制角色汇报。
         // fire_pack 的快照可能过期，暂不将这些易变事件写进定时主动消息模板。
         if (!forFirePack && typeof localStorage !== 'undefined') {
-            const phoneEvents = readCharacterLifeEvents(char.id)
-                .filter(event => event.source === 'phone' && event.occurredAt <= Date.now())
-                .slice(0, 12);
-            if (phoneEvents.length) {
-                volatileState += '\n【手机里已发生的经历（仅供自然衔接）】\n'
-                    + phoneEvents.map(event => '- ' + new Date(event.occurredAt).toLocaleString() + ' ' + event.summary.slice(0, 200)).join('\n')
-                    + '\n这些不是待执行的日程；不必主动汇报，不得补造未记录的细节。\n';
-            }
+            volatileState += buildCharacterLifeFacts(char, {sources:['phone']});
             // The phone contact directory is a persistent social identity
             // source, not a second AI personality and not proof of new events.
             const knownPhoneContacts = readNpcProfiles(char.id)

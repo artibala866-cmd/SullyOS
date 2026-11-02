@@ -187,7 +187,7 @@ export async function initializeCharacterPhoneWallet(input: {
         { role:'system', content:`你负责建立虚构角色 ${char.name} 自己手机中【微信-我-钱包-资产】的首次资产快照。
 这是角色扮演中的虚构账本，不是真实银行数据，不得用 User 的财产/银行账户代替 Char。
 根据其工作、年龄、生活习惯、经济状况合理生成，不默认富有，不制造夸张巨款。
-严格参考角色设定与实际私聊：${context.systemPrompt.slice(0,19000)}
+严格参考角色设定与实际私聊：${context.systemPrompt}
 产出1~4个账户，kind为cash/savings/investment/credit之一，现金/零钱账户优先有一个。
 每个账户的id为cash/savings/investment/credit开头的唯一简短英文标识；balance为非负人民币数值（最多一亿元）；信用账户balance表示欠款；maskedNumber只能是4位随机虚构尾号，不能输出真实银行卡号。
 可以产出0~6条以过去7天为背景的【初始化虚构快照】流水；账户id必须存在，amount为有正负号的人民币数值，createdAt为真实合法时间戳毫秒，不可晚于现在；同类活动不重复。注意与余额和经济状况相容，余额已经包括这些旧交易，不应再次加减。
