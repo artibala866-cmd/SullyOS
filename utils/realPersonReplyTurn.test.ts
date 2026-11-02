@@ -32,6 +32,16 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(focus).not.toContain('\\\\n');
     expect(buildRealPersonTurnFocusHint([say(1),say(2)],1)).toBe('');
   });
+  it('separates a later user topic from an earlier message across AMSG or a long gap',()=>{
+    expect(buildRealPersonTurnFocusHint([say(1),proactive(2),say(3)],3))
+      .toContain('刚发了一条新消息');
+    expect(buildRealPersonTurnFocusHint([
+      {...say(1),timestamp:1000},{...say(2),timestamp:1000+120_000},
+    ],2)).toContain('刚发了一条新消息');
+    expect(buildRealPersonTurnFocusHint([
+      {...say(1),timestamp:1000},{...say(2),timestamp:1000+20_000},
+    ],2)).toContain('连续发送了 2 条消息');
+  });
   it('refuses to focus on already answered, imported, music or app-origin turns',()=>{
     expect(buildRealPersonTurnFocusHint([say(1),{id:2,role:'assistant',type:'text'}],1)).toBe('');
     expect(buildRealPersonTurnFocusHint([{...say(1),metadata:{historyImported:true}}],1)).toBe('');
