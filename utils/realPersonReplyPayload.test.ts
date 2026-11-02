@@ -28,6 +28,9 @@ describe('real-person auto response focus uses the existing payload, not a separ
             const content=textOf(result);
             expect(content).toContain('连续发送了 2 条消息');
             expect(content).toContain('先回应对方正在讨论');
+            expect(content).toContain('Existing M3 conversation state');
+            expect(content).toContain('topicMove=continue');
+            expect(content).toContain('No output length, bubble count');
             expect(content).toContain('自己的生活与观察可以有，但必须自然关联');
             expect(content).not.toContain('2. **行为模式**: 不要总是围绕用户转');
         }
@@ -36,10 +39,12 @@ describe('real-person auto response focus uses the existing payload, not a separ
         const base=input();
         const manual=textOf(await buildChatRequestPayload(base));
         expect(manual).not.toContain('【本轮是真实用户消息触发的接话');
+        expect(manual).not.toContain('Existing M3 conversation state');
         expect(manual).toContain('2. **行为模式**: 不要总是围绕用户转');
         const mismatched=textOf(await buildChatRequestPayload({
             ...base,automaticUserReply:true,expectedAutoReplyUserId:999,
         }));
         expect(mismatched).not.toContain('【本轮是真实用户消息触发的接话');
+        expect(mismatched).not.toContain('Existing M3 conversation state');
     });
 });
