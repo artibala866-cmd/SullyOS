@@ -45,7 +45,8 @@ describe('角色级开关只有一处判定', () => {
     expect(modal).toMatch(/disableFromToggle \|\| !enabled/);
     expect(modal).toMatch(/onSave\(\(prev\) => buildConfig\(prev, \(list\) => list, \{ enabled: false \}\)\)/);
     expect(modal).toContain('ActiveMsgClient.putCharLimits');
-    expect(modal).toContain('ActiveMsgClient.cancelAllTasksForChar');
+    expect(modal).toContain('ActiveMsgClient.cancelScheduledChatTasksForChar');
+    expect(modal).not.toContain('ActiveMsgClient.cancelAllTasksForChar');
   });
 
   it('工具注入门走同一个判定', () => {
