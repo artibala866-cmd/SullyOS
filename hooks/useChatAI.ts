@@ -635,7 +635,7 @@ export const useChatAI = ({
     const triggerAI = async (
         currentMsgs: Message[],
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
-        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; automaticUserReply?: boolean; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
+        opts?: { skipEmotionInjection?: boolean; immediateMusicInvite?: boolean; automaticUserReply?: boolean; expectedAutoReplyUserId?: number; postUnblockOpening?: { reason: string; elapsedMinutes: number } },
     ) => {
         // 用户拉黑角色时仍可继续私聊：对方读得到用户消息，但对方的回复显示发送失败。
         // 仅角色拉黑用户时正常生成被禁止，该方向由独立求原谅流程接管。
@@ -908,6 +908,8 @@ export const useChatAI = ({
                 char: charForGen, userProfile, groups, emojis, categories,
                 homePhoneContext:homePhoneContext?.(),
                 historyMsgs: contextMsgs,
+                automaticUserReply: opts?.automaticUserReply === true,
+                expectedAutoReplyUserId: opts?.expectedAutoReplyUserId,
                 currentUserMessageId: [...currentMsgs].reverse().find(m => m.role === 'user')?.id,
                 recentMsgsHint: currentMsgs,
                 contextLimit: limit,
