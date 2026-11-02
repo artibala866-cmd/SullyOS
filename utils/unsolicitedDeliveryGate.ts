@@ -22,10 +22,15 @@ export function allowLegacyAiScheduledDelivery(options: {
  * A task may already have fired or push/backfill may outlive remote cancellation.
  */
 export function allowCloudAmsgDelivery(
-    message: { source?: string; messageSubtype?: string },
+    message: { source?: string; messageSubtype?: string; messageType?: string; taskUuid?: string | null },
     activeMsg2Enabled: boolean,
 ): boolean {
-    // Only the AMSG scheduled channel is master-gated. Background tools,
-    // instant chat, emotion returns and non-AMSG app interactions are separate.
-    return message.source !== 'scheduled' || activeMsg2Enabled;
+    if (activeMsg2Enabled) return true;
+    // The current worker stamps source='scheduled'. Older workers may omit
+    // source but still carry taskUuid and the AI-schedule message type.
+    const legacyScheduled = !message.source && !!message.taskUuid &&
+        message.messageSubtype !== 'instant-chat' &&
+        message.messageSubtype !== 'job' &&
+        ['fixed', 'prompted', 'auto'].includes(message.messageType || '');
+    return message.source !== 'scheduled' && !legacyScheduled;
 }
