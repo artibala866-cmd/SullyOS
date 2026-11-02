@@ -1455,7 +1455,7 @@ const Appearance: React.FC = () => {
 
                     {/* Live Preview */}
                     <div className="relative w-full aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200 shadow-inner"
-                         style={{ background: theme.wallpaper ? `url(${theme.wallpaper}) center/cover` : `linear-gradient(135deg, hsl(0, 0%, ${theme.lightness}%), hsl(0, 0%, ${Math.max(theme.lightness - 15, 10)}%))` }}>
+                         style={{ background: resolveLauncherBackground(theme.wallpaper, DEFAULT_WALLPAPER) }}>
                         <div className="absolute inset-0 bg-black/10"></div>
                         {/* Render widget previews */}
                         <div className="absolute top-[12%] left-4 right-4 space-y-1.5 pointer-events-none">
