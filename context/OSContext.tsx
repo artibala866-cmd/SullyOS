@@ -2552,6 +2552,25 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }, 2, 0, { appName: '消息', charId, charName: char.name, purpose: '主动消息' });
 
               // 5. Process & save response
+              // 生成期间用户可能关掉主动消息，或已经发了新的聊天内容。
+              // 这份回复用的是触发时的历史，继续写入就会无视当前聊天、追着旧话题说。
+              // 两者任一变化都作废本轮，不将过时结果落进对话。
+              const latestProactiveChar = charactersRef.current.find(c => c.id === charId);
+              const latestVisibleMessage = (await DB.getRecentMessagesByCharId(charId, 10, true))
+                  .filter(m => !m.metadata?.proactiveHint)
+                  .pop();
+              const conversationChanged = (latestVisibleMessage?.id ?? null) !== (lastRealMsgRaw?.id ?? null);
+              if (!latestProactiveChar?.proactiveConfig?.enabled || conversationChanged) {
+                  console.log('[Proactive/Global] Discarded stale generation', {
+                      charId,
+                      reason: !latestProactiveChar?.proactiveConfig?.enabled ? 'disabled' : 'new-chat-content',
+                  });
+                  if (hintMsgId != null) {
+                      await DB.deleteMessage(hintMsgId).catch(() => {});
+                      hintMsgId = null;
+                  }
+                  return;
+              }
               let aiContent = data.choices?.[0]?.message?.content || '';
               aiContent = await consumeFriendFeedMainReply(charId, aiContent, [], friendFeedTask?.id);
               // 思考链抽取 — 与 useChatAI 保持一致:reasoning_content 字段 + 主 content 里的 <think>/<thinking>/<thought> 块,
