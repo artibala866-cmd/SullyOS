@@ -1,4 +1,5 @@
 import { findPendingUserTurn } from './chatContinuation';
+import type { ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 
 /** Filter ONLY the private-chat auto-response candidate. Music actions have
  * their own immediate bridge; app cards and rejected sends are not dialogue.
@@ -66,6 +67,7 @@ export function findPendingRealPersonUserTurn<T extends ChatTurn>(history: reado
  */
 export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number }>(
   messages: readonly T[], expectedUserId?: number,
+  engagement?: ConversationEngagementAnalysis,
 ): string {
   const pending = findPendingRealPersonUserTurn(messages);
   if (!pending || typeof pending.id !== 'number' ||
@@ -96,5 +98,6 @@ export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number 
     '角色自己的生活、日程、情绪和工具结果只在确实与眼前内容相关时自然带出；不能拿它们当作另起话题的任务。',
     '没有依据就不要声称“我刚刚做了什么”或突然问“吃了吗”“在干嘛”；不必为了显得有生活而额外问一句。',
     '允许按人设反问、争论、调侃、简短回应或者延续原话；不要固定套用相同模板。',
+    ...renderRealPersonConversationPlan(engagement),
   ].join('\n');
 }
