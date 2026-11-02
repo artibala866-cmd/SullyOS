@@ -4088,7 +4088,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // Replying to a user message is the real-person mode's own job; AMSG2
         // only authorizes a brand-new unsolicited message, never an answer.
         enabled: shouldAutoReplyToUser(lifePacing && isRealPersonAutoReplyAuthorized(), inputPreferences.autoReply),
-        naturalPacing: lifePacing,
+        // Only explicitly authorized real-person replies use the event-driven
+        // availability gate. Legacy plain auto-reply retains its own behavior.
+        naturalPacing: lifePacing && isRealPersonAutoReplyAuthorized(),
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
         replyAttention,
