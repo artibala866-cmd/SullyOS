@@ -602,7 +602,7 @@ export interface PostProcessCtx {
      */
     messageTimestamp?: number;
     /** 用户已拉黑角色时，Char 每条回复对自己而言发送失败，但用户仍可看见。 */
-    messageSendFailedByUserBlock?: boolean;
+    messageSendFailedByUserBlock?: boolean | (() => boolean);
 }
 
 // ─── 主入口 ─────────────────────────────────────────────────────────────────
@@ -657,7 +657,10 @@ export async function applyAssistantPostProcessing(
     // 全函数落库一律走这里，别直接调 DB.saveMessage——漏一处就会出现气泡时间戳互相打架。
     const persistMessage: typeof DB.saveMessage = (msg) => {
         const stamped = messageTimestamp != null ? { ...msg, timestamp: messageTimestamp } : msg;
-        const finalMessage = ctx.messageSendFailedByUserBlock && stamped.role === 'assistant'
+        // 本地分条发送可能横跨拉黑操作；云端仍使用原始发送时刻算出的固定结果。
+        const sendFailed = typeof ctx.messageSendFailedByUserBlock === 'function'
+            ? ctx.messageSendFailedByUserBlock() : ctx.messageSendFailedByUserBlock;
+        const finalMessage = sendFailed && stamped.role === 'assistant'
             ? { ...stamped, metadata: { ...(stamped.metadata || {}), chatBlockSendFailed: true } }
             : stamped;
         return (ctx.replyRun?.saveMessage ?? DB.saveMessage)(finalMessage);

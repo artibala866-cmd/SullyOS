@@ -2175,7 +2175,7 @@ export const useChatAI = ({
                 skipSecondPassLLM: false,
                 directives: [],
                 // 逐气泡持久化：不会随解封丢失历史感叹号；不影响用户发出的消息。
-                messageSendFailedByUserBlock: didCharReplyFailDuringGeneration(
+                messageSendFailedByUserBlock: () => didCharReplyFailDuringGeneration(
                     userBlockedAtReplyStart, userBlocksCharacter(charRef.current?.chatBlock),
                     charRef.current?.chatBlock, replyBlockTrackingStartedAt,
                 ),
