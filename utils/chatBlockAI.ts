@@ -187,14 +187,14 @@ export function applyCharacterForgivenessDecision(
     lastForgivenessThought: decision.thought,
     lastForgivenessStatus: decision.status,
     forgivenessDrafts: decision.draft
-      ? [...(next?.forgivenessDrafts || []), { text: decision.draft, at: checkedAt }].slice(-10)
+      ? [...(next?.forgivenessDrafts || []), { text: decision.draft, at: checkedAt }]
       : (next?.forgivenessDrafts || []),
     // 和原版 theater 消息一样可回看，但留在角色资料而非伪造一条被成功送达的私聊回复。
     forgivenessScenes: decision.theater?.body
       ? [...(next?.forgivenessScenes || []), {
           at: checkedAt, blockedAt: expectedBlockedAt,
           title: decision.theater.title, body: decision.theater.body,
-        }].slice(-8)
+        }]
       : (next?.forgivenessScenes || []),
   };
 }
