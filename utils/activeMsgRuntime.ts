@@ -9,6 +9,7 @@ import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
 import { ActiveMsgStore } from './activeMsgStore';
 import { ActiveMsgClient, type AmsgOutboxEntry, type RemoteTaskStatus } from './activeMsgClient';
+import { allowCloudAmsgDelivery } from './unsolicitedDeliveryGate';
 import { AMSG_CHAT_FAIL_KEY, amsgStateNamespace, parseChatFailRecord } from './amsgFirePack';
 import {
   applyAssistantPostProcessing,
@@ -1591,6 +1592,24 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       // 但原账号的聊天消息不能因后台收件、补收或应用重新启动绕过黑名单。
       // 只丢弃这条已被认领的消息，不回补到解除拉黑后的聊天历史。
       const recipient = await replyStep(() => DB.getCharacter(message.charId));
+      // Cloud cancellation is not instantaneous: in-flight Worker fires,
+      // delayed Push, and the outbox backfill can still reach this inbox after
+      // the AMSG2 master switch was turned OFF. The local role is authoritative
+      // for scheduled delivery. This must happen BEFORE all chat persistence,
+      // directive execution, self-schedule adoption and user notifications.
+      // Instant replies to the user's own sent text remain independent.
+      if (!allowCloudAmsgDelivery(message, recipient?.activeMsg2Config?.enabled === true)) {
+        activeMsgTrace('runtime-scheduled-after-disable-dropped', {
+          messageId: message.messageId, charId: message.charId, taskUuid: message.taskUuid,
+        });
+        if (message.taskUuid) {
+          void ActiveMsgClient.cancelTask(message.taskUuid).catch(error =>
+            log.warn('Disabled role has a surviving cloud scheduled task; cancellation will be retried', {
+              charId: message.charId, taskUuid: message.taskUuid, error,
+            }));
+        }
+        continue;
+      }
       if (characterBlocksUser(recipient?.chatBlock)) {
         activeMsgTrace('runtime-inbox-blocked-dropped', {
           messageId: message.messageId, charId: message.charId,
