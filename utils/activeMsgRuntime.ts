@@ -2,7 +2,7 @@ import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } 
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { loadCharacterContextMessages } from './chatContextRange';
-import { characterBlocksUser, userBlocksCharacter, userBlockedCharacterAt, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
+import { characterBlocksUser, userBlocksCharacter, didCharReplyFailAtDelivery, allowsCharacterToBlock, changeChatBlock } from './chatBlock';
 import { extractCharacterBlockAction } from './chatBlockAI';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
@@ -749,7 +749,7 @@ const processInboxMessageWithPostProcessing = async (
     messageTimestamp: persistTimestamp,
     // Char 被用户拉黑仍可在用户屏幕显示回复，只是角色视角发送失败。
     // 用 push 的实际发送时刻判断，解除拉黑后再补收也不会抹掉红色感叹号。
-    messageSendFailedByUserBlock: userBlocksCharacter(char.chatBlock) || userBlockedCharacterAt(char.chatBlock, message.sentAt || persistTimestamp),
+    messageSendFailedByUserBlock: didCharReplyFailAtDelivery(char.chatBlock, message.sentAt),
     // 三种情况跳过拟人打字延迟、一次性回填，共同点是「用户已经读过这句话了，再演一遍
     // 打字过程只剩干等」：
     //   1. 补收：内容几小时前就在云端生成完了，慢放期间用户插的话还会把时间戳倒挂的
@@ -1789,7 +1789,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
               },
               // 同主路径：SAR 回程载具键不进气泡；这一段的角色外显原稿整段挂上。
               ...stripAmsgSarTransportKeys(message.metadata),
-              ...((userBlocksCharacter(recipient?.chatBlock) || userBlockedCharacterAt(recipient?.chatBlock, message.sentAt || persistTimestamp)) ? { chatBlockSendFailed: true } : {}),
+              ...((didCharReplyFailAtDelivery(recipient?.chatBlock, message.sentAt)) ? { chatBlockSendFailed: true } : {}),
               ...(() => {
                 const sarSurface = readAmsgSarSurface(message.metadata);
                 return sarSurface ? { sarModuleSurface: sarSurface } : {};
