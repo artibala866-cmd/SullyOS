@@ -519,6 +519,8 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // 思考链/点单块拼在钢印之后、模型开口前最后读到的是格式说明书的问题。
     if (input.appPrompt) volatileTail += input.appPrompt.scene;
     volatileTail += parts.recencyTail;
+    // The focus is request-local and bound to the currently unanswered ID.
+    let realPersonReplyFocus = '';
     // Same actual DB history and context; no separate generation path.
     // Only a verified unanswered turn gets a focus boundary, so life/phone
     // context cannot outweigh the user's CURRENT topic in an auto-reply.
@@ -528,17 +530,19 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         // pure transition WITHOUT persisting or enabling a disabled feature.
         // It never makes another API request, changes character preferences,
         // or creates a proactive message.
-        const currentM3 = recallTrace.deepEngagement?.engine === 'conversation_v2'
-            ? recallTrace.deepEngagement.analysis as ConversationEngagementAnalysis | undefined
-            : undefined;
+        // The memory-recall M3 analysis can refer to an older turn when the
+        // user sends again during an async recall. Replay the EXISTING local
+        // M3 reducer on this verified, exact user-turn boundary instead.
+        // It does not persist state or call the model a second time.
         const targetIndex = historyMsgsForPrompt.findIndex(m => m.id === pendingAutoTurn!.id);
         const focusedHistory = historyMsgsForPrompt.slice(0, targetIndex + 1);
-        const engagement = currentM3?.analyzable
-            ? currentM3
-            : analyzeRealPersonConversation(char.id, focusedHistory, char.name, userProfile.name);
-        volatileTail += '\n' + buildRealPersonTurnFocusHint(
-            historyMsgsForPrompt, input.expectedAutoReplyUserId, engagement,
+        const engagement = analyzeRealPersonConversation(char.id, focusedHistory, char.name, userProfile.name);
+        const replyFocus = buildRealPersonTurnFocusHint(
+            focusedHistory, input.expectedAutoReplyUserId, engagement,
         );
+        // Keep the actual topic focus for the END of the volatile state;
+        // home-phone/life facts may inform a reply but never override its topic.
+        if (replyFocus) realPersonReplyFocus = replyFocus;
     }
 
     // 结构：[稳定 system] + [历史消息] + [易变状态 system] (+ 末尾 reminder)。
@@ -547,6 +551,9 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // 注意：即时对话的 worker 端情绪评估把 messages[0] 当 system、messages[1..]
     // 展平为对话历史 —— 易变尾段会以「[系统]: …」行出现在历史末尾，信息不丢。
     if(input.homePhoneContext) volatileTail += `\n\n${input.homePhoneContext}`;
+    // This is the final subject decision after ALL optional live-context
+    // blocks; it never creates a user message or an unsolicited new topic.
+    if (realPersonReplyFocus) volatileTail += '\n' + realPersonReplyFocus;
     let fullMessages: Array<{ role: string; content: any }> = [
         { role: 'system', content: systemPrompt },
         ...messagesWithWorldbookDepth,
