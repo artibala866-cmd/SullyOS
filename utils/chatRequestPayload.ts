@@ -1,6 +1,6 @@
 import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
 import { isRejectedPrivateMessage } from './chatBlock';
-import { buildRealPersonTurnFocusHint } from './realPersonReplyTurn';
+import { buildRealPersonTurnFocusHint, findPendingRealPersonUserTurn } from './realPersonReplyTurn';
 import { expandHomeContextHistory } from './homeContextSegments';
 /**
  * 聊天请求载荷统一构造器
@@ -23,7 +23,7 @@ import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { renderLocalContextGuidance } from './memoryPalace/recallRouter';
 import { renderInteractionAdaptationGuidance } from './memoryPalace/interactionAdaptation';
 import { renderDeepEngagementGuidance } from './memoryPalace/deepEngagement';
-import { renderConversationEngagementGuidance } from './memoryPalace/conversationEngagement';
+import { renderConversationEngagementGuidance, advanceConversationEngagement, loadConversationEngagementState, type ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 import type { ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 import type { DeepEngagementAnalysis } from './memoryPalace/deepEngagement';
 import { buildHtmlPrompt } from './htmlPrompt';
@@ -289,6 +289,15 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         recentMsgsHint = rawRecentMsgsHint.map(message => preparedById.get(message.id) || message);
     }
 
+    // Reply focus may only be enabled for the actual saved user turn.
+    // Mismatched, already-answered and imported records cannot become an AI
+    // content instruction just because a stale callback says 'automatic'.
+    const pendingAutoTurn = input.automaticUserReply && !input.appPrompt
+        ? findPendingRealPersonUserTurn(historyMsgsForPrompt) : null;
+    const verifiedAutoReply = !!pendingAutoTurn &&
+        typeof input.expectedAutoReplyUserId === 'number' &&
+        pendingAutoTurn.id === input.expectedAutoReplyUserId;
+
     // Range/vision processing must retain database IDs. Only after those steps may
     // legacy home rows expand into their actual speakers and chronological events.
     // Recall and live context must see the same timeline as buildMessageHistory.
@@ -385,7 +394,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         {
             history: cleanedApiMessages,
             timelyByWorker: input.timelyByWorker === true,
-            automaticUserReply: input.automaticUserReply === true,
+            automaticUserReply: verifiedAutoReply,
             returningFromMode: returningFromMode || undefined,
             appRules: input.appPrompt?.rules,
         },
@@ -514,9 +523,25 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // Same actual DB history and context; no separate generation path.
     // Only a verified unanswered turn gets a focus boundary, so life/phone
     // context cannot outweigh the user's CURRENT topic in an auto-reply.
-    if (input.automaticUserReply === true && !input.appPrompt) {
+    if (verifiedAutoReply) {
+        // M3 v2 is already the app's local subject/unfinished-hook engine.
+        // Use its current analysis when available. Otherwise run the same
+        // pure transition WITHOUT persisting or enabling a disabled feature.
+        // It never makes another API request, changes character preferences,
+        // or creates a proactive message.
+        const currentM3 = recallTrace.deepEngagement?.engine === 'conversation_v2'
+            ? recallTrace.deepEngagement.analysis as ConversationEngagementAnalysis | undefined
+            : undefined;
+        const targetIndex = historyMsgsForPrompt.findIndex(m => m.id === pendingAutoTurn!.id);
+        const focusedHistory = historyMsgsForPrompt.slice(0, targetIndex + 1);
+        const engagement = currentM3?.analyzable
+            ? currentM3
+            : advanceConversationEngagement(
+                char.id, focusedHistory, loadConversationEngagementState(char.id),
+                char.name, userProfile.name,
+            ).analysis;
         volatileTail += '\n' + buildRealPersonTurnFocusHint(
-            historyMsgsForPrompt, input.expectedAutoReplyUserId,
+            historyMsgsForPrompt, input.expectedAutoReplyUserId, engagement,
         );
     }
 
