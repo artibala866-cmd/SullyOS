@@ -58,6 +58,45 @@ describe('real-person auto response focus uses the existing payload, not a separ
         }
     });
 
+    it('only a verified unanswered turn removes intervening autonomous bubbles from the model context',async()=>{
+        const data=input();
+        data.historyMsgs=[
+            {id:60,charId:'focus-char',role:'user',type:'text',content:'咱们继续聊那件八卦',timestamp:Date.now()-30_000},
+            {id:61,charId:'focus-char',role:'assistant',type:'text',content:'怎么回事',timestamp:Date.now()-18_000},
+            {id:62,charId:'focus-char',role:'user',type:'text',content:'她竟然跟前任复合了',timestamp:Date.now()-4_000},
+            {id:63,charId:'focus-char',role:'assistant',type:'text',content:'我刚吃了面',timestamp:Date.now()-2_000,
+                metadata:{activeMsg2:{taskId:'autowake:a'}}},
+            {id:64,charId:'focus-char',role:'assistant',type:'text',content:'要不要听歌',timestamp:Date.now()-1_000,
+                metadata:{activeMsg2:{taskId:'autowake:b'}}},
+        ] as any;
+        for(const timelyByWorker of [false,true]){
+            const auto=await buildChatRequestPayload({...data,timelyByWorker,
+                automaticUserReply:true,expectedAutoReplyUserId:62});
+            const history=auto.cleanedApiMessages.map(m=>String(m.content)).join('\n');
+            expect(history).toContain('她竟然跟前任复合了');
+            expect(history).toContain('怎么回事');
+            expect(history).not.toContain('我刚吃了面');
+            expect(history).not.toContain('要不要听歌');
+            const manual=await buildChatRequestPayload({...data,timelyByWorker});
+            expect(manual.cleanedApiMessages.map(m=>String(m.content)).join('\n')).toContain('我刚吃了面');
+            const unverified=await buildChatRequestPayload({...data,timelyByWorker,
+                automaticUserReply:true,expectedAutoReplyUserId:999});
+            expect(unverified.cleanedApiMessages.map(m=>String(m.content)).join('\n')).toContain('我刚吃了面');
+        }
+    });
+
+    it('a real answer after the user never gets removed like a scheduled push',async()=>{
+        const data=input();
+        data.historyMsgs=[
+            {id:71,charId:'focus-char',role:'user',type:'text',content:'你听我说',timestamp:Date.now()-20_000},
+            {id:72,charId:'focus-char',role:'assistant',type:'text',content:'我听着呢',timestamp:Date.now()},
+        ] as any;
+        const auto=await buildChatRequestPayload({...data,
+            automaticUserReply:true,expectedAutoReplyUserId:71});
+        expect(auto.cleanedApiMessages.map(m=>String(m.content)).join('\n')).toContain('我听着呢');
+        expect(textOf(auto)).not.toContain('【本轮是真实用户消息触发的接话');
+    });
+
     it('user topic closure stays closed even if optional phone context is present',async()=>{
         const data=input();
         data.historyMsgs=[
