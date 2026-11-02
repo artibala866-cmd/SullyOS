@@ -158,6 +158,18 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(buildPrivateChatBlockHistoryContext(state)).toContain('故意欺骗我');
     expect(buildInPersonCharBlockInstruction(state)).toContain('故意欺骗我');
   });
+  it('主动原谅与当面和解的来由进入下一轮关系记忆，不泄漏被拒收文字', () => {
+    const blocked = changeChatBlock(undefined, 'character', true, { at: 100, reason: '当初的不信任' });
+    const forgiveness = applyCharacterForgivenessDecision(blocked, 100,
+      { decision: 'unblock', softness: 30, thought: '算了', status: '平静', sign: '停顿', draft: '' }, 200)!;
+    expect(forgiveness.characterUnblockedAt).toBe(200);
+    expect(forgiveness.characterUnblockedVia).toBe('forgave');
+    expect(buildPrivateChatBlockHistoryContext(forgiveness)).toContain('独处后重新考虑');
+    const faceToFace = changeChatBlock(blocked, 'character', false, { at: 300, source: 'ai', via: 'offline' });
+    expect(buildPrivateChatBlockHistoryContext(faceToFace)).toContain('曾当面谈过');
+    expect(buildPrivateChatBlockHistoryContext(faceToFace)).toContain('当初的不信任');
+    expect(buildPrivateChatBlockHistoryContext(faceToFace)).not.toContain('拒收内容是秘密');
+  });
   it('原版 stay/unblock 决策会解析心软度、内心状态与未发送草稿', () => {
     expect(parseForgivenessDecision('{"decision":"unblock","softness":87,"thought":"开始心软","status":"有些犹豫","sign":"把手机放在桌上","draft":"我想再聊聊"}'))
       .toEqual({ decision: 'unblock', sign: '把手机放在桌上', softness: 87, thought: '开始心软', status: '有些犹豫', draft: '我想再聊聊', theater: null, valid: true });
