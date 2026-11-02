@@ -1883,7 +1883,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
       const phoneEvent = eventForDeliveredAmsg({
         charId: message.charId,
         messageId: message.messageId,
-        source: message.source,
+        source: message.source ?? '',
         messageType: message.messageType,
         instant: isInstantReply,
         timestamp: eventSentAt,
@@ -1897,7 +1897,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
         // message, social post or speculative browsing is invented.
         for(const event of eventsForVerifiedXhsActions({
           charId:message.charId,messageId:message.messageId,
-          source:message.source,messageType:message.messageType,
+          source:message.source ?? '',messageType:message.messageType,
           instant:isInstantReply,timestamp:eventSentAt,
           verifiedActions:(message.metadata as any)?.amsgVerifiedXhsActions,
         })) recordCharacterLifeEvent(event);
