@@ -28,9 +28,9 @@ export default function RealPersonRhythmSettings({ value, onChange }: Props) {
   };
   return (
     <section className="space-y-2">
-      <div className="text-xs text-neutral-700 font-medium">当前角色的接话习惯（秒）</div>
+      <div className="text-xs text-neutral-700 font-medium">角色接话状态（按真实对话和日程判断）</div>
       <p className="text-[11px] text-neutral-500 leading-relaxed">
-        只影响这个角色回复你已发送消息的节奏，不控制主动消息、音乐或日程任务。区间内每轮选一次，连续补充消息不会重新摇时间。调整后立即保存到角色资料。
+        真人感现在由你真正发出的消息、连续对话的注意力、输入是否结束和角色日程决定是否接话；不再等下面的随机秒数倒计时。旧版自定义秒数保留在角色资料中，不再参与触发，也不影响主动消息、音乐或日程。
       </p>
       <div className="space-y-2">
         {FIELDS.map(({state,title,detail})=>(
@@ -40,7 +40,7 @@ export default function RealPersonRhythmSettings({ value, onChange }: Props) {
               <div className="text-[10px] text-neutral-400">{detail}</div>
             </div>
             <input type="number" aria-label={title+'最短秒数'} value={ranges[state].minSeconds}
-              min={1} max={MAX_REAL_PERSON_REPLY_SECONDS} step={1}
+              disabled title="旧版倒计时参数已停用，保留原有保存数据"\n              min={1} max={MAX_REAL_PERSON_REPLY_SECONDS} step={1}
               className="w-14 rounded-lg border border-neutral-200 bg-white px-1.5 py-1.5 text-xs text-neutral-700"
               onChange={e=>change(state,'minSeconds',e.target.value)} />
             <span className="text-neutral-400 text-xs">–</span>
@@ -51,9 +51,9 @@ export default function RealPersonRhythmSettings({ value, onChange }: Props) {
           </div>
         ))}
       </div>
-      <button type="button" onClick={()=>onChange(normalizeRealPersonReplyRhythm(DEFAULT_REAL_PERSON_REPLY_RHYTHM))}
-        className="text-xs text-neutral-500 underline underline-offset-2">恢复当前角色的默认节奏</button>
-      <p className="text-[10px] text-neutral-500">实际日程为睡眠时仍不自动打扰；你继续输入时会延后回复。不存在已确认日程时不会凭时间推断角色正在忙碌。</p>
+      <button type="button" disabled title="旧版计时参数保留，不再控制真人感自动接话" onClick={()=>onChange(normalizeRealPersonReplyRhythm(DEFAULT_REAL_PERSON_REPLY_RHYTHM))}
+        className="text-xs text-neutral-500 underline underline-offset-2">旧版倒计时设置已停用</button>
+      <p className="text-[10px] text-neutral-500">实际日程显示睡眠或忙碌时，会等待角色恢复可回应状态；你还在编辑时不会抢话。没有日程时不会凭时钟猜测角色在忙。</p>
     </section>
   );
 }
