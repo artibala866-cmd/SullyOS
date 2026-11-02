@@ -217,11 +217,11 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it('does not change the character attention decision halfway through the unanswered batch', () => {
+    it('keeps the character attention decision for the same unanswered batch until the schedule changes', async () => {
         const profile = {normal:{minSeconds:240,maxSeconds:250},
             conversation:{minSeconds:3,maxSeconds:4},waiting:{minSeconds:2,maxSeconds:3},
             occupied:{minSeconds:35,maxSeconds:60}};
-        render({naturalPacing:true,lifeActivity:'free',replyAttention:'normal',replyRhythm:profile});
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'normal',replyRhythm:profile});
         send();
         const original = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
         expect(original.replyAttention).toBe('normal');
@@ -237,12 +237,15 @@ describe('two-second automatic reply', () => {
         expect(JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}').replyAttention).toBe('normal');
         advance(20_000);
         expect(options.onGenerate).not.toHaveBeenCalled();
+        render({lifeActivity:'free'});
+        await act(async()=>{});
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the LAST saved user send time after unmount instead of treating an old batch as idle', () => {
         render({ naturalPacing: true, lifeActivity: 'free' });
         send();
-        advance(1_500);
+        advance(500);
         send();
         const persisted = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
         expect(persisted.lastUserSendAt).toBe(Date.now());
