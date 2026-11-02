@@ -2735,6 +2735,8 @@ export interface ChatBlockState {
   lastForgivenessStatus?: string;
   /** 原版未发送草稿仅属于角色内心，不作为聊天消息送达。 */
   forgivenessDrafts?: Array<{ text: string; at: number }>;
+  /** 原版 withTheater 可选独处小剧场：只存角色自身判定产生的第三人称片段，不是已送达的聊天消息。 */
+  forgivenessScenes?: Array<{ at: number; blockedAt: number; title: string; body: string }>;
   history?: ChatBlockEvent[];
 }
 
