@@ -2110,6 +2110,18 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
+            // Generation may take much longer than payload preparation. If
+            // the user added a new turn while the model was composing, its
+            // reply to the OLD topic must not be delivered as though it
+            // answered the newer message. Keep the fresh user-turn intent;
+            // this local response is stale and has not been written yet.
+            if (opts?.automaticUserReply && opts.expectedAutoReplyUserId !== undefined) {
+                let recent: Message[];
+                try { recent = await DB.getRecentMessagesByCharId(char.id, 30); }
+                catch { return 'busy' as const; }
+                if (findPendingRealPersonUserTurn(recent)?.id !== opts.expectedAutoReplyUserId)
+                    return 'busy' as const;
+            }
             // 角色拉黑用户后禁止迟到回复；用户拉黑角色则仍须展示对方的「发送失败」回复。
             if (characterBlocksUser(charRef.current?.chatBlock)) return;
             if (avatarCleanContent) await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
