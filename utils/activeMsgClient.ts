@@ -2437,10 +2437,12 @@ export const ActiveMsgClient = {
   async cancelScheduledChatTasksForChar(
     charId: string,
     localTaskUuids: string[],
-  ): Promise<{ targets: string[]; failed: Set<string> }> {
+  ): Promise<{ targets: string[]; failed: Set<string>; inventoryConfirmed: boolean }> {
     let targets: string[];
+    let inventoryConfirmed = false;
     try {
       const remote = await this.listRemoteTasksForChar(charId);
+      inventoryConfirmed = true;
       targets = [...new Set([
         ...remote.filter(task =>
           task.messageSubtype !== AMSG_INSTANT_CHAT_SUBTYPE &&
@@ -2455,7 +2457,7 @@ export const ActiveMsgClient = {
     for (const uuid of targets) {
       try { await this.cancelTask(uuid); } catch { failed.add(uuid); }
     }
-    return { targets, failed };
+    return { targets, failed, inventoryConfirmed };
   },
 
   async cancelAllTasksForChar(
