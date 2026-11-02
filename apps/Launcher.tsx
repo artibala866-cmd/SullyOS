@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
-import { isPaperWallpaper, useOS } from '../context/OSContext';
+import { DEFAULT_WALLPAPER, isPaperWallpaper, useOS } from '../context/OSContext';
 import { INSTALLED_APPS, DOCK_APPS } from '../constants';
 import { isDevDebugAvailable, subscribeDevDebugAvailability } from '../utils/devDebug';
 import AppIcon from '../components/os/AppIcon';
@@ -14,6 +14,7 @@ import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { trackEvent } from '../utils/analytics';
+import { resolveLauncherBackground } from '../utils/launcherWallpaper';
 
 const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'));
 const HomelyHome = React.lazy(() => import('../components/os/HomelyHome'));
@@ -900,7 +901,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
   return (
     <div
       className={`launcher-desktop h-full w-full flex flex-col relative z-10 overflow-hidden font-sans select-none ${layoutEditing ? 'launcher-editing' : ''}`}
-      style={{ background: 'radial-gradient(ellipse at 12% 0%, #ffffff 0%, transparent 52%), radial-gradient(ellipse at 95% 80%, #c9c9c9 0%, transparent 58%), linear-gradient(150deg, #f7f7f7 0%, #e8e8e8 48%, #dadada 100%)', color: '#252525' }}
+      style={{ background: resolveLauncherBackground(theme.wallpaper, DEFAULT_WALLPAPER), color: '#252525' }}
       onPointerDown={handleLayoutPointerDown}
       onPointerMove={handleLayoutPointerMove}
       onPointerUp={finishLayoutPointer}
