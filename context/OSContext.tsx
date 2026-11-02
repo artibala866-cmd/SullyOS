@@ -87,6 +87,7 @@ import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
+import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
 import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
 import { allowLegacyAiScheduledDelivery } from '../utils/unsolicitedDeliveryGate';
 import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
@@ -2391,6 +2392,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   if (pendingAll) { pendingAll = false; pendingChars.clear(); }
                   else pendingChars.delete(id!);
                   await reconcileGlobalAutonomyWakes(scope, id);
+                  // A closed switch must heal missed Worker revocations too;
+                  // otherwise an old recurring task keeps calling the API.
+                  await reconcileDisabledAmsgTasks(scope, id);
               }
           } finally { running = false; }
       };
@@ -2430,11 +2434,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [isDataLoaded]);
   // Opt-in changes trigger one prompt cloud reconciliation without re-mounting
   // the long-lived runner; updates to task lists must not trigger request loops.
-  const optedInAutonomyIds = characters
-      .filter(c => c.id && c.activeMsg2Config?.enabled === true)
-      .map(c => c.id).sort().join('|');
+  const amsgMasterStates = characters
+      .filter(c => c.id && c.activeMsg2Config !== undefined)
+      .map(c => c.id + ':' + (c.activeMsg2Config?.enabled === true ? 'on' : 'off'))
+      .sort().join('|');
   useEffect(() => {
-      if (isDataLoaded && optedInAutonomyIds)
+      // Both ON and OFF transitions require a reconciliation pass. OFF used to
+      // disappear from optedInAutonomyIds, so no refresh ran when the last
+      // enabled role was switched off.
+      if (isDataLoaded && amsgMasterStates)
           window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
   }, [isDataLoaded, optedInAutonomyIds]);
 
