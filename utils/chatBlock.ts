@@ -100,7 +100,7 @@ export function changeChatBlock(
     ...(actor === 'character' ? {
       lastForgivenessCheckAt: blocked ? at : undefined,
       lastForgivenessSign: undefined,
-      ...(blocked ? { forgivenessSoftness: 10, lastForgivenessThought: undefined, lastForgivenessStatus: undefined, forgivenessDrafts: [] } : {}),
+      ...(blocked ? { forgivenessSoftness: 10, lastForgivenessThought: undefined, lastForgivenessStatus: undefined, forgivenessDrafts: [], forgivenessScenes: [] } : {}),
     } : {}),
     history: allEvents.slice(-40) };
 }
