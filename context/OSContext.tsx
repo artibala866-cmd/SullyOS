@@ -90,6 +90,7 @@ import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
 import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
 import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
 import { allowLegacyAiScheduledDelivery } from '../utils/unsolicitedDeliveryGate';
+import { cancelDisabledLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
 import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
@@ -2460,6 +2461,47 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // enabled role was switched off.
       if (isDataLoaded && amsgMasterStates)
           window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
+  }, [isDataLoaded, amsgMasterStates]);
+
+  // The old AI [schedule_message] path registers OS-level local notifications
+  // that persist even if both React and the AMSG Worker are fully disabled.
+  // Revoke ONLY alarms matching legacy AI messages, never unrelated app alarms.
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      let disposed = false;
+      let sweeping = false;
+      const sweepDisabledLegacy = async () => {
+          if (disposed || sweeping) return;
+          sweeping = true;
+          try {
+              for (const char of charactersRef.current) {
+                  if (disposed) return;
+                  if (allowLegacyAiScheduledDelivery({
+                      activeMsg2Enabled: char.activeMsg2Config?.enabled === true,
+                      realPersonEnabled: isRealPersonModeEnabled(),
+                      scheduleEnabled: isScheduleFeatureOn(char),
+                  })) continue;
+                  try { await cancelDisabledLegacyAiMessages(char); }
+                  catch (error) {
+                      console.warn('[Schedule] retry legacy AI alarm opt-out on resume', char.id, error);
+                  }
+              }
+          } finally { sweeping = false; }
+      };
+      void sweepDisabledLegacy();
+      const onVisible = () => { if (!document.hidden) void sweepDisabledLegacy(); };
+      const onMode = () => { void sweepDisabledLegacy(); };
+      const retry = window.setInterval(onVisible, 30 * 60_000);
+      window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onMode);
+      window.addEventListener(SCHEDULE_CHANGE_EVENT, onMode);
+      document.addEventListener('visibilitychange', onVisible);
+      return () => {
+          disposed = true;
+          clearInterval(retry);
+          window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onMode);
+          window.removeEventListener(SCHEDULE_CHANGE_EVENT, onMode);
+          document.removeEventListener('visibilitychange', onVisible);
+      };
   }, [isDataLoaded, amsgMasterStates]);
 
   // Restore TODAY'S plans for enabled characters from the global OS surface,
