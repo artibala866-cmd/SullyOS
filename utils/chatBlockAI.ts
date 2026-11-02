@@ -163,7 +163,7 @@ export type ForgivenessTheater = { title: string; body: string };
 export type ForgivenessDecision = {
   decision: 'unblock' | 'stay'; sign: string; softness: number | null;
   thought: string; status: string; draft: string;
-  theater: ForgivenessTheater | null; valid: boolean;
+  theater?: ForgivenessTheater | null; valid: boolean;
 };
 
 /** AI 判定返回后，先确认仍是发起判定时的那轮拉黑。
