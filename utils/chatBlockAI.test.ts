@@ -167,6 +167,7 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(buildPrivateChatBlockHistoryContext(forgiveness)).toContain('独处后重新考虑');
     const faceToFace = changeChatBlock(blocked, 'character', false, { at: 300, source: 'ai', via: 'offline' });
     expect(buildPrivateChatBlockHistoryContext(faceToFace)).toContain('曾当面谈过');
+    expect(buildPrivateChatBlockHistoryContext({ ...faceToFace, history: [] })).toContain('曾当面谈过');
     expect(buildPrivateChatBlockHistoryContext(faceToFace)).toContain('当初的不信任');
     expect(buildPrivateChatBlockHistoryContext(faceToFace)).not.toContain('拒收内容是秘密');
   });
