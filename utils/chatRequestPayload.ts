@@ -244,7 +244,8 @@ export function deriveRecentTrackSwitchForChar(
 export async function buildChatRequestPayload(input: BuildChatPayloadInput): Promise<BuildChatPayloadResult> {
     const prepare=async<T>(stage:ChatPreparationStage,work:()=>Promise<T>)=>{
         const started=performance.now();input.onPreparationStage?.({stage,status:'start'});
-        try{return await work();}finally{input.onPreparationStage?.({stage,status:'end',ms:Math.round(performance.now()-started)});}
+        input.signal?.throwIfAborted();
+        try{const result=await work();input.signal?.throwIfAborted();return result;}finally{input.onPreparationStage?.({stage,status:'end',ms:Math.round(performance.now()-started)});}
     };
     const char = { ...input.char, memoryPalaceInjection: '', roomPlatesInjection: '' };
     const {
@@ -299,6 +300,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         const prepared = await prepare('vision',()=>materializeVisionDescriptions(
             [...uniqueMessages.values()],
             input.visionApiConfig,
+            input.signal,
         ));
         const preparedById = new Map(prepared.map(message => [message.id, message]));
         historyMsgsForPrompt = selectedHistory.map(message => preparedById.get(message.id) || message);

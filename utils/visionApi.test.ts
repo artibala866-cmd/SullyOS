@@ -101,3 +101,17 @@ describe('independent vision API', () => {
     expect(JSON.stringify(apiMessages)).toContain(image);
   });
 });
+
+it('closing an automatic turn aborts vision and cannot continue with the next history image', async () => {
+  const controller = new AbortController();
+  const fetchMock = vi.fn(async (_url: unknown, init: RequestInit) => {
+    expect(init.signal).toBeTruthy();
+    controller.abort();
+    return new Response(JSON.stringify({choices:[{message:{content:'迟到的图片描述'}}]}), {status:200});
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const update = vi.spyOn(DB, 'updateMessageMetadata').mockResolvedValue(undefined);
+  await expect(materializeVisionDescriptions([message(801), {...message(802),content:image+'B'}], config, controller.signal)).rejects.toBeTruthy();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(update).not.toHaveBeenCalled();
+});

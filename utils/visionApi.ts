@@ -25,6 +25,7 @@ const canDescribeImage = (value: unknown): value is string =>
   typeof value === 'string' && (/^(data:image\/|https?:\/\/)/i.test(value) || isBlobRef(value));
 
 const inFlightDescriptions = new Map<string, Promise<string>>();
+const cancellableDescriptions = new WeakMap<AbortSignal, Map<string, Promise<string>>>();
 
 /** 把一份通用模型预设填入独立识图配置，不改变主 API 当前选择。 */
 export const visionApiConfigFromPreset = (preset: ApiPreset, enabled = true): VisionApiConfig => ({
@@ -56,6 +57,7 @@ const cleanDescription = (value: string): string => value
 export async function describeImageWithVisionApi(
   imageUrl: string,
   config: VisionApiConfig,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!isVisionApiReady(config)) {
     throw new Error('识图 API 已开启，但 URL、Key 或 Model 尚未填写完整');
@@ -64,13 +66,17 @@ export async function describeImageWithVisionApi(
     throw new Error('图片数据不可用，无法调用识图 API');
   }
 
-  const existing = inFlightDescriptions.get(imageUrl);
+  signal?.throwIfAborted();
+  let requests = signal ? cancellableDescriptions.get(signal) : inFlightDescriptions;
+  if (!requests) { requests = new Map(); cancellableDescriptions.set(signal!, requests); }
+  const existing = requests.get(imageUrl);
   if (existing) return existing;
 
   const request = (async () => {
     const baseUrl = config.baseUrl.trim().replace(/\/+$/, '');
     const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
       method: 'POST',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.apiKey.trim()}`,
@@ -90,16 +96,17 @@ export async function describeImageWithVisionApi(
       }),
     }, 1, 60_000, { appName: '消息', purpose: '识图' });
 
+    signal?.throwIfAborted();
     const description = cleanDescription(extractContent(data));
     if (!description) throw new Error('识图 API 没有返回图片描述');
     return description;
   })();
 
-  inFlightDescriptions.set(imageUrl, request);
+  requests.set(imageUrl, request);
   try {
     return await request;
   } finally {
-    inFlightDescriptions.delete(imageUrl);
+    if (requests.get(imageUrl) === request) requests.delete(imageUrl);
   }
 }
 
@@ -112,7 +119,9 @@ export async function describeImageWithVisionApi(
 export async function materializeVisionDescriptions(
   messages: Message[],
   config?: VisionApiConfig | null,
+  signal?: AbortSignal,
 ): Promise<Message[]> {
+  signal?.throwIfAborted();
   if (config?.enabled !== true) return messages;
   if (!isVisionApiReady(config)) {
     throw new Error('识图 API 已开启，但 URL、Key 或 Model 尚未填写完整');
@@ -122,6 +131,7 @@ export async function materializeVisionDescriptions(
   const prepared: Message[] = [];
 
   for (const message of messages) {
+    signal?.throwIfAborted();
     if (message.type !== 'image') {
       prepared.push(message);
       continue;
@@ -142,7 +152,8 @@ export async function materializeVisionDescriptions(
       continue;
     }
     const description = descriptionByImage.get(imageUrl)
-      || await describeImageWithVisionApi(imageUrl, config);
+      || await describeImageWithVisionApi(imageUrl, config, signal);
+    signal?.throwIfAborted();
     descriptionByImage.set(imageUrl, description);
 
     const metadata = {
