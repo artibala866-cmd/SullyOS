@@ -2444,7 +2444,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // enabled role was switched off.
       if (isDataLoaded && amsgMasterStates)
           window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
-  }, [isDataLoaded, optedInAutonomyIds]);
+  }, [isDataLoaded, amsgMasterStates]);
 
   // Restore TODAY'S plans for enabled characters from the global OS surface,
   // not just when a private-chat component happens to mount. This runs only
