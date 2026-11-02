@@ -113,6 +113,12 @@ try {
       sampleRed:[red,green,blue,redAlpha],
       surfaceCss:surface?.backgroundColor,
       sampleSurface:[sr,sg,sb,lightAlpha],
+      integratedElements: {
+        charFailed: !!document.querySelector('#real-char-failed .sully-chat-block-failed[data-chat-block-delivery="char-send-failed"]'),
+        userRejected: !!document.querySelector('#real-user-rejected .sully-chat-block-failed[data-chat-block-delivery="user-rejected"]'),
+        normalHasMarker: !!document.querySelector('#real-user-normal .sully-chat-block-failed'),
+        charMarkerCount: document.querySelectorAll('#real-char-failed .sully-chat-block-failed').length,
+      },
     },
   };
   const out=document.createElement('output');out.style.display='none';out.textContent=JSON.stringify(report);host.append(out);
