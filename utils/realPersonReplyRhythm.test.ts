@@ -12,6 +12,9 @@ const char = (timestamp:number, meta?:any) => ({role:'assistant',type:'text',tim
 describe('SullyOS character-specific natural response habits', () => {
   it('uses the old character profile defaults for missing ranges, without writing new storage', () => {
     expect(normalizeRealPersonReplyRhythm(null)).toEqual(DEFAULT_REAL_PERSON_REPLY_RHYTHM);
+    expect(DEFAULT_REAL_PERSON_REPLY_RHYTHM.normal).toEqual({minSeconds:240,maxSeconds:360});
+    expect(DEFAULT_REAL_PERSON_REPLY_RHYTHM.conversation).toEqual({minSeconds:8,maxSeconds:25});
+    expect(DEFAULT_REAL_PERSON_REPLY_RHYTHM.waiting).toEqual({minSeconds:3,maxSeconds:10});
     const saved = normalizeRealPersonReplyRhythm({normal:{minSeconds:240,maxSeconds:360}});
     expect(saved.normal).toEqual({minSeconds:240,maxSeconds:360});
     expect(saved.waiting).toEqual(DEFAULT_REAL_PERSON_REPLY_RHYTHM.waiting);
@@ -23,10 +26,10 @@ describe('SullyOS character-specific natural response habits', () => {
   it('samples once for a saved batch instead of sampling anew per sent message', () => {
     const sample = sampleRealPersonRhythmMs('conversation','char-1',at);
     expect(sampleRealPersonRhythmMs('conversation','char-1',at)).toBe(sample);
-    expect(sample).toBeGreaterThanOrEqual(2000);
-    expect(sample).toBeLessThanOrEqual(5000);
-    expect(sampleRealPersonRhythmMs('normal','char-1',at)).toBeGreaterThanOrEqual(4000);
-    expect(sampleRealPersonRhythmMs('occupied','char-1',at)).toBeGreaterThanOrEqual(35000);
+    expect(sample).toBeGreaterThanOrEqual(8_000);
+    expect(sample).toBeLessThanOrEqual(25_000);
+    expect(sampleRealPersonRhythmMs('normal','char-1',at)).toBeGreaterThanOrEqual(240_000);
+    expect(sampleRealPersonRhythmMs('occupied','char-1',at)).toBeGreaterThanOrEqual(240_000);
   });
   it('requires an actual user-answer-user exchange before claiming live attention', () => {
     expect(resolveRealPersonAttention([user(at-1000)],at,'free')).toBe('normal');
