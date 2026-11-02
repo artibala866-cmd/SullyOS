@@ -1,6 +1,6 @@
 import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
 import { isRejectedPrivateMessage } from './chatBlock';
-import { buildRealPersonTurnFocusHint, findPendingRealPersonUserTurn } from './realPersonReplyTurn';
+import { buildRealPersonTurnFocusHint, findPendingRealPersonUserTurn, analyzeRealPersonConversation } from './realPersonReplyTurn';
 import { expandHomeContextHistory } from './homeContextSegments';
 /**
  * 聊天请求载荷统一构造器
@@ -23,7 +23,7 @@ import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { renderLocalContextGuidance } from './memoryPalace/recallRouter';
 import { renderInteractionAdaptationGuidance } from './memoryPalace/interactionAdaptation';
 import { renderDeepEngagementGuidance } from './memoryPalace/deepEngagement';
-import { renderConversationEngagementGuidance, advanceConversationEngagement, loadConversationEngagementState, type ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
+import { renderConversationEngagementGuidance, type ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 import type { ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 import type { DeepEngagementAnalysis } from './memoryPalace/deepEngagement';
 import { buildHtmlPrompt } from './htmlPrompt';
@@ -536,10 +536,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         const focusedHistory = historyMsgsForPrompt.slice(0, targetIndex + 1);
         const engagement = currentM3?.analyzable
             ? currentM3
-            : advanceConversationEngagement(
-                char.id, focusedHistory, loadConversationEngagementState(char.id),
-                char.name, userProfile.name,
-            ).analysis;
+            : analyzeRealPersonConversation(char.id, focusedHistory, char.name, userProfile.name);
         volatileTail += '\n' + buildRealPersonTurnFocusHint(
             historyMsgsForPrompt, input.expectedAutoReplyUserId, engagement,
         );
