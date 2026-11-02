@@ -31,6 +31,14 @@ export function userBlockedCharacterAt(state: ChatBlockState | null | undefined,
 /** 请求期间用户可以拉黑或解除拉黑：任何一段生成时间内被用户拉黑的回复，
  * 一旦作为发送失败保存，不得在解除后变成正常送达。历史消息仍按落库 metadata 显示。
  */
+/** 云端延迟收件按 Char 真正发送的时刻判定，而不是用户打开聊天的时刻。
+ * 发送时间缺失时才退回当前状态；否则解除/重新拉黑会把旧回复的感叹号画错。
+ */
+export function didCharReplyFailAtDelivery(state: ChatBlockState | null | undefined, sentAt?: number | null): boolean {
+  return typeof sentAt === 'number' && Number.isFinite(sentAt) && sentAt > 0
+    ? userBlockedCharacterAt(state, sentAt)
+    : userBlocksCharacter(state);
+}
 export function didCharReplyFailDuringGeneration(blockedAtStart: boolean, blockedAtEnd: boolean): boolean {
   return blockedAtStart || blockedAtEnd;
 }
