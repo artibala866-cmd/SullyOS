@@ -10,6 +10,7 @@ on:
       - 'utils/unsolicitedDeliveryGate.wiring.test.ts'
       - 'utils/amsgDisabledRepair.ts'
       - 'utils/amsgDisabledRepair.test.ts'
+      - 'utils/amsg2CharToggle.wiring.test.ts'
       - 'utils/activeMsgRuntime.ts'
       - 'context/OSContext.tsx'
       - 'components/chat/ActiveMsg2SettingsModal.tsx'
@@ -68,7 +69,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Test durable reply, schedule pacing, and cloud instant-chat compatibility
-        run: pnpm exec vitest run utils/unsolicitedDeliveryGate.test.ts utils/unsolicitedDeliveryGate.wiring.test.ts utils/amsgDisabledRepair.test.ts utils/realPersonReplyPayload.test.ts utils/chatAutoReply.test.ts utils/realPersonMode.test.ts utils/realPersonReplyTiming.test.ts utils/realPersonReplyReadiness.test.ts utils/realPersonReplyRhythm.test.ts utils/realPersonReplyTurn.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts worker/amsg/src/selfUpdate.test.ts worker/amsg/src/autoUpdate.test.ts utils/amsgAutoUpdateTrigger.test.ts
+        run: pnpm exec vitest run utils/amsg2CharToggle.wiring.test.ts utils/unsolicitedDeliveryGate.test.ts utils/unsolicitedDeliveryGate.wiring.test.ts utils/amsgDisabledRepair.test.ts utils/realPersonReplyPayload.test.ts utils/chatAutoReply.test.ts utils/realPersonMode.test.ts utils/realPersonReplyTiming.test.ts utils/realPersonReplyReadiness.test.ts utils/realPersonReplyRhythm.test.ts utils/realPersonReplyTurn.test.ts utils/chatSchedulePresence.test.ts utils/amsgInstantChat.test.ts worker/amsg/src/selfUpdate.test.ts worker/amsg/src/autoUpdate.test.ts utils/amsgAutoUpdateTrigger.test.ts
       - name: Compile SullyOS app with real-person reply rhythm integration
         run: pnpm run build
       - name: Check changed code TypeScript diagnostics
