@@ -93,6 +93,7 @@ export function changeChatBlock(
     ? { at: removedUserEvent.at, blocked: removedUserEvent.action === 'block' }
     : old.userBlockHistoryAnchor;
   return { ...old, [key]: blocked ? at : undefined,
+    ...(actor === 'character' && blocked ? { lastCharacterBlockReason: opts.reason?.trim().slice(0, 600) || '' } : {}),
     ...(actor === 'user' && blocked ? { lastUserBlockAt: at } : {}),
     ...(userBlockHistoryAnchor ? { userBlockHistoryAnchor } : {}),
     // 新一次角色拉黑必须重新计算心软冷却，不继承旧一轮求原谅状态。
