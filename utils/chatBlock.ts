@@ -100,7 +100,7 @@ export function changeChatBlock(
     ...(actor === 'character' ? {
       lastForgivenessCheckAt: blocked ? at : undefined,
       lastForgivenessSign: undefined,
-      ...(blocked ? { forgivenessSoftness: 10, lastForgivenessThought: undefined, lastForgivenessStatus: undefined, forgivenessDrafts: [], forgivenessScenes: [] } : {}),
+      // 原版新一次拉黑只刷新原因/起始冷却，不会擦除此前的心软度、草稿与独处片段。
     } : {}),
     history: allEvents.slice(-40) };
 }
