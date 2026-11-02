@@ -4033,7 +4033,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // Hydrated intent must not fire before the persisted chat tail finishes loading.
         // A focused but EMPTY input is not evidence the user is still typing.
         // Keeping focus after Send is normal on phones; do not wait for an extra tap.
-        blocked: messages.length === 0 || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+        blocked: characterBlocksUser(char?.chatBlock) || messages.length === 0 || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal || isProactiveComposing,
@@ -4044,7 +4044,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // page hides before verification, retry on the next visible turn.
             const target = char?.id;
             const latestLocal = findPendingRealPersonUserTurn(messages);
-            if (!target || activeCharIdRef.current !== target || !latestLocal) return 'discard';
+            if (!target || activeCharIdRef.current !== target || !latestLocal || characterBlocksUser(char?.chatBlock)) return 'discard';
             const manualRevision = manualChatGenerationRevisionRef.current;
             let fresh: Message[];
             try { fresh = await DB.getRecentMessagesByCharId(target, 24); }
@@ -4804,7 +4804,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />
-                        <ChatBlockDeliveryStatus message={m}/>
+                        {m.type !== 'text' && <ChatBlockDeliveryStatus message={m}/>}
                         {showToolTrace && <ChatToolTrace text={toolTraceText} />}
                         </div>
                     );
