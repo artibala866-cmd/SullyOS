@@ -130,6 +130,16 @@ describe('糯叽机双向拉黑 AI 适配，不扩展其他系统', () => {
     expect(staying.forgivenessSoftness).toBe(65);
     expect(staying.lastForgivenessCheckAt).toBe(500);
   });
+  it('即使 40 条事件已裁剪拉黑动作，AI 仍记得真实拉黑原因', () => {
+    let state = changeChatBlock(undefined, 'character', true, { at: 100, reason: '故意欺骗我' });
+    for (let i = 0; i < 44; i++) state = changeChatBlock(state, 'user', i % 2 === 0, { at: 101 + i });
+    expect(state.history?.some(e => e.actor === 'character' && e.action === 'block')).toBe(false);
+    expect(state.lastCharacterBlockReason).toBe('故意欺骗我');
+    const request = JSON.stringify(buildForgivenessMessages(character(state), '用户', rows, 10_000_000));
+    expect(request).toContain('故意欺骗我');
+    expect(buildPrivateChatBlockHistoryContext(state)).toContain('故意欺骗我');
+    expect(buildInPersonCharBlockInstruction(state)).toContain('故意欺骗我');
+  });
   it('原版 stay/unblock 决策会解析心软度、内心状态与未发送草稿', () => {
     expect(parseForgivenessDecision('{"decision":"unblock","softness":87,"thought":"开始心软","status":"有些犹豫","sign":"把手机放在桌上","draft":"我想再聊聊"}'))
       .toEqual({ decision: 'unblock', sign: '把手机放在桌上', softness: 87, thought: '开始心软', status: '有些犹豫', draft: '我想再聊聊', valid: true });
