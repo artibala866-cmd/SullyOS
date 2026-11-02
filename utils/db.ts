@@ -803,6 +803,42 @@ export const DB = {
     });
   },
 
+  /**
+   * 原版拉黑心软判定：只看角色拉黑前最后 12 条真正收到的私聊。
+   * cursor 倒序找，不取当前最近 100 条（拉黑后的拒收消息会把旧历史挤出窗口），
+   * 也不应用记忆宫殿 hwm（已归档的拉黑前记录仍是这段关系真实发生的事）。
+   */
+  getLastPrivateTextsBefore: async (charId: string, blockedAt: number, limit: number = 12): Promise<Message[]> => {
+    const db = await openDB();
+    await ensureStoryTimelineRepair(db);
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MESSAGES, 'readonly');
+      const index = transaction.objectStore(STORE_MESSAGES).index('charId');
+      const collected: Message[] = [];
+      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (!cursor || collected.length >= Math.max(0, Math.min(30, limit))) {
+          resolve(collected.reverse());
+          return;
+        }
+        const message = cursor.value as Message;
+        if (Number.isFinite(message.timestamp) && message.timestamp < blockedAt
+          && !message.groupId && message.type === 'text'
+          && (message.role === 'user' || message.role === 'assistant')
+          && message.metadata?.chatBlockRejected !== true
+          && message.metadata?.source !== 'date'
+          && message.metadata?.source !== 'home') {
+          collected.push(message);
+        }
+        cursor.continue();
+      };
+      cursorReq.onerror = () => reject(cursorReq.error);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('拉黑前聊天读取未完成'));
+    });
+  },
+
   // DateApp 等按来源展示的轻量历史读取：用 charId 索引倒序扫，只收集目标 source 的最近 N 条。
   // 这样不会为了渲染见面阅读模式，把该角色全量聊天（含图片/base64消息）一次性 getAll 进内存。
   getRecentMessagesByCharIdAndSource: async (charId: string, source: string, limit: number, beforeId?: number): Promise<Message[]> => {
