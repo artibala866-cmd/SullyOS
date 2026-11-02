@@ -761,8 +761,9 @@ const processInboxMessageWithPostProcessing = async (
     // App 在前台时收到的实时消息照旧慢放——那才是「角色正在你眼前打字」的场景。
     instantRender: shouldRenderInstantly(message.metadata, message.receivedAt, Date.now()),
     skipTypingSignal,
-    // 交给后处理逐气泡对齐写进 metadata.sarModuleSurface——和本地路径同一处消费。
-    sarModuleSurface,
+    // Keep the existing transport-only field without changing unrelated
+    // PostProcessCtx public typing or music hooks.
+    ...(sarModuleSurface ? { sarModuleSurface } : {}),
   }));
 
   // ─── 即时对话（amsg2）的情绪评估结果 ───
