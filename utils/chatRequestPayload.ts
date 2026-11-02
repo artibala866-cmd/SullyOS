@@ -263,8 +263,25 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     );
     // 正文、召回、世界书扫描和识图共用可见范围；UI 近窗可能仍缓存着范围外旧消息。
     const contextHighWaterMark = input.contextHighWaterMark ?? getMemoryPalaceHighWaterMarkForContext(char.id);
-    const selectedHistory = selectCharacterContextMessages(historyMsgs, char, contextHighWaterMark)
+    const selectedHistoryAll = selectCharacterContextMessages(historyMsgs, char, contextHighWaterMark)
         .filter(message => !isRejectedPrivateMessage(message));
+    // An autonomous AMSG can arrive AFTER the user's still unanswered line.
+    // Its bubble remains in DB/UI and proactive accounting, but it is NOT
+    // the end of the user-initiated conversation currently being answered.
+    // Trim only a verified trailing RUN of scheduled bubbles, never a normal
+    // assistant reply, a user turn, an imported event, or a manual request.
+    const expected = input.expectedAutoReplyUserId;
+    const pendingForReply = input.automaticUserReply && typeof expected === 'number'
+        ? findPendingRealPersonUserTurn(selectedHistoryAll) : null;
+    const pendingIndexForReply = pendingForReply?.id === expected
+        ? selectedHistoryAll.findIndex(message => message.id === expected) : -1;
+    const afterPending = pendingIndexForReply >= 0
+        ? selectedHistoryAll.slice(pendingIndexForReply + 1) : [];
+    const trailingProactiveOnly = afterPending.length > 0 && afterPending.every(message =>
+        message.role === 'assistant' && message.metadata?.activeMsg2?.taskId != null);
+    const selectedHistory = trailingProactiveOnly
+        ? selectedHistoryAll.slice(0, pendingIndexForReply + 1)
+        : selectedHistoryAll;
     const visibleIds = new Set(selectedHistory.map(message => message.id));
     const rawRecentMsgsHint = input.recentMsgsHint && !isChatConversationEntry(input.recallEntryPoint)
         ? input.recentMsgsHint.filter(message => visibleIds.has(message.id) && !isRejectedPrivateMessage(message))
