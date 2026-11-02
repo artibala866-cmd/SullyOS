@@ -1763,6 +1763,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 小红书链接 → xhs_card。主路径不依赖任何后端：小红书分享文案自带标题（【标题】）
         // 和笔记 id/token，直接解析就能建卡，让「没部署小红书 MCP」的用户也能让角色看到分享了哪篇笔记。
         // 配了 MCP 的话再抓详情补正文/封面/作者（锦上添花，抓失败也不影响基础卡）。
+        let convertedToCard = false;
         if (type === 'text') {
             let xhsCardCreated = false;
             let webpageCardCreated = false;
@@ -1892,6 +1893,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // 原文和链接已完整保存在卡片 metadata；仅建卡成功后移除重复的文字消息。
             if ((xhsCardCreated || webpageCardCreated) && savedUserMsgId) {
                 await DB.deleteMessage(savedUserMsgId);
+                // Link preview replaces the original user message. Its app
+                // card is not a new conversational statement and must not
+                // arm a delayed billable real-person reply.
+                convertedToCard = true;
             }
         }
 
@@ -1899,7 +1904,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 自动回复模式下允许连续挑表情，用户主动收起加号等面板后才计时。
         if (!inputPreferences.autoReply) setShowPanel('none');
 
-        return true;
+        return convertedToCard ? 'converted-card' as const : true;
     };
 
     const handleSendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
@@ -1909,7 +1914,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const sent = await sendText(customContent, customType, metadata);
             finish(sent === true && !characterBlocksUser(charRef.current?.chatBlock)
                 && (!customType || ['text', 'image', 'emoji', 'voice'].includes(customType) || isPoke));
-            return sent === true;
+            // The user successfully shared the card, but that is not a
+            // request for a new autonomous Chat reply.
+            return sent === true || sent === 'converted-card';
         } catch (error) {
             finish(false);
             throw error;
