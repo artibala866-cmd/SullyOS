@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { allowImmediateAutonomyWakeRetry } from '../../utils/amsgAutonomyWake';
+import { requestImmediateDisabledAmsgRepair } from '../../utils/amsgDisabledRepair';
 import Modal from '../os/Modal';
 import {
   ActiveMsg2CharacterConfig,
@@ -523,6 +524,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // Revoke the local master permission immediately, before cloud calls.
         // Late auto-wake creation and chat tool injection must see "off".
         onSave((prev) => buildConfig(prev, (list) => list, { enabled: false }));
+        // Do not rely on a one-time cancellation during a network outage.
+        // The OS-global reconciler will audit remote tasks on resume/reconnect.
+        requestImmediateDisabledAmsgRepair(char.id);
+        window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
         // 第一件事：告诉云端这个角色关了。下面逐条取消要花几秒，这期间正在跑的那一轮
         // （尤其是即时对话——它不在取消范围里）还可能顺手给自己排一条；云端先知道「关了」，
         // 这种漏网的到点就会被直接跳过。传不上去也照样往下关：取消本身才是主线。
