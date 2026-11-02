@@ -4758,8 +4758,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 )}
                 {!!char.chatBlock?.forgivenessScenes?.length && (
                     <ChatForgivenessScene
-                        key={char.id + ':' + char.chatBlock.forgivenessScenes[char.chatBlock.forgivenessScenes.length - 1].at}
-                        scene={char.chatBlock.forgivenessScenes[char.chatBlock.forgivenessScenes.length - 1]}
+                        key={char.id}
+                        scenes={char.chatBlock.forgivenessScenes}
                     />
                 )}
                 {collapsedCount > 0 && windowedFocusMsgId === null && (
