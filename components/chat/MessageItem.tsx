@@ -3356,6 +3356,9 @@ const MessageItem = React.memo(({
             : `relative ${bubbleVariant === 'flat' || bubbleVariant === 'outline' || bubbleVariant === 'wechat' ? '' : 'shadow-sm '}px-5 py-3 ${suppressEntranceAnimation ? '' : 'animate-fade-in'} ${bubbleVariant === 'outline' ? '' : 'border border-black/5 '}active:scale-[0.98] transition-transform overflow-visible ${isUser ? 'sully-bubble-user' : 'sully-bubble-ai'} ${bubbleGroupClasses}`}
             style={isVoiceOnlyMsg ? undefined : containerStyle}>
 
+            {/* 拉黑发送失败是消息当时的持久化回执，贴在原气泡外缘而不改变任何主题尺寸。 */}
+            <ChatBlockDeliveryStatus message={m} inlineSide={isUser ? 'left' : 'right'} />
+
             {/* Layer 1: Background Image with Independent Opacity */}
             {bubbleBgUrl && (
                 <div
@@ -3653,6 +3656,8 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.reviewStatus === next.msg.metadata?.reviewStatus &&
            prev.msg.metadata?.status === next.msg.metadata?.status &&
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&
+           prev.msg.metadata?.chatBlockSendFailed === next.msg.metadata?.chatBlockSendFailed &&
+           prev.msg.metadata?.chatBlockRejected === next.msg.metadata?.chatBlockRejected &&
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&
            prev.activeTheme === next.activeTheme &&
