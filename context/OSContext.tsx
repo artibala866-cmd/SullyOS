@@ -86,7 +86,7 @@ import {
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
 import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
-import { reconcileGlobalAutonomyWakes } from '../utils/amsgAutonomyBootstrap';
+import { reconcileGlobalAutonomyWakes, autonomyReconciliationKey } from '../utils/amsgAutonomyBootstrap';
 import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
 import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
 import { retireLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
@@ -2246,19 +2246,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onChange);
       };
   }, [isDataLoaded]);
-  // Opt-in changes trigger one prompt cloud reconciliation without re-mounting
-  // the long-lived runner; updates to task lists must not trigger request loops.
-  const amsgMasterStates = characters
-      .filter(c => c.id && c.activeMsg2Config !== undefined)
-      .map(c => c.id + ':' + (c.activeMsg2Config?.enabled === true ? 'on' : 'off'))
-      .sort().join('|');
+  // The global runner owns opt-in, freed manual capacity and timezone updates.
+  // Its own autonomous task writes are excluded to prevent reconciliation loops.
+  const amsgMasterStates = autonomyReconciliationKey(characters);
   useEffect(() => {
       // Both ON and OFF transitions require a reconciliation pass. OFF used to
       // disappear from optedInAutonomyIds, so no refresh ran when the last
       // enabled role was switched off.
       if (isDataLoaded && amsgMasterStates)
           window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
-  }, [isDataLoaded, amsgMasterStates]);
+  }, [isDataLoaded, amsgMasterStates, apiConfig, userProfile]);
 
   // Compatibility cleanup only: no 1.0 sender, permission gate or polling engine remains.
   useEffect(() => {

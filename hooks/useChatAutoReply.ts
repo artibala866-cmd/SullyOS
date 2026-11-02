@@ -1,5 +1,5 @@
 import { resolveRealPersonReplyReadiness } from '../utils/realPersonReplyReadiness';
-import { REAL_PERSON_RHYTHM_STATES, type RealPersonAttention, type RealPersonReplyRhythm } from '../utils/realPersonReplyRhythm';
+import { REAL_PERSON_RHYTHM_STATES, type RealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from '../utils/chatInputPreferences';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
@@ -60,7 +60,6 @@ interface Options {
     lifeActivity?: 'sleep' | 'busy' | 'free' | null;
     lastCharacterReplyAt?: number;
     replyAttention?: RealPersonAttention;
-    replyRhythm?: Partial<RealPersonReplyRhythm>;
     /** Latest user text-edit event; clearing a draft needs its own quiet window. */
     lastComposerActivityAt?: number;
 }
@@ -315,7 +314,7 @@ export function useChatAutoReply(options: Options) {
         return () => { disposed = true; };
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
         options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing,
-        options.replyAttention, options.replyRhythm, options.lastComposerActivityAt, cancel]);
+        options.replyAttention, options.lastComposerActivityAt, cancel]);
 
     return { beginSend, cancel, cancelIfPending };
 }

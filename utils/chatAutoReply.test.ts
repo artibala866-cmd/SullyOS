@@ -3,7 +3,6 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
-import { resolveRealPersonReplyPlan } from './realPersonReplyTiming';
 import { findPendingUserTurn, withVerifiedUserReplyContinuation } from './chatContinuation';
 import { DEFAULT_CHAT_INPUT_PREFERENCES, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from './chatInputPreferences';
 import { setRealPersonModeEnabled } from './realPersonMode';
@@ -218,10 +217,7 @@ describe('two-second automatic reply', () => {
     });
 
     it('keeps the character attention decision for the same unanswered batch until the schedule changes', async () => {
-        const profile = {normal:{minSeconds:240,maxSeconds:250},
-            conversation:{minSeconds:3,maxSeconds:4},waiting:{minSeconds:2,maxSeconds:3},
-            occupied:{minSeconds:35,maxSeconds:60}};
-        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'normal',replyRhythm:profile});
+        render({naturalPacing:true,lifeActivity:'busy',replyAttention:'normal'});
         send();
         const original = JSON.parse(localStorage.getItem('sully_chat_auto_reply_intent_v1:a') || '{}');
         expect(original.replyAttention).toBe('normal');

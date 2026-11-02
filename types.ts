@@ -2747,7 +2747,7 @@ export interface ChatBlockState {
 }
 
 export interface CharacterProfile {
-  /** 真人感的角色专属接话习惯。复用现有角色资料、备份与角色切换，不属于主动消息配置。 */
+  /** 旧版接话秒数，仅为备份兼容保留，不参与当前自动回复；后续迁移不得将旧存档当作新授权。 */
   realPersonReplyRhythm?: Partial<Record<
     'normal' | 'conversation' | 'occupied' | 'waiting',
     { minSeconds: number; maxSeconds: number }

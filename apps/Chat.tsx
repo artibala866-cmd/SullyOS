@@ -90,7 +90,7 @@ import { pruneDeletedPrivateChatLifeEvents } from '../utils/characterLifeEvents'
 import Modal from '../components/os/Modal';
 import MemoryContextSelfCheck from '../components/chat/MemoryContextSelfCheck';
 import ActiveMsg2SettingsModal from '../components/chat/ActiveMsg2SettingsModal';
-import { ensureAutonomyWakes, AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
+import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import ThinkingChainSettingsModal from '../components/chat/ThinkingChainSettingsModal';
 import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
@@ -454,42 +454,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
     const liveCharactersRef=useRef(characters);
     liveCharactersRef.current=characters;
-    // Enabled AMSG2 MUST lead to actual autonomous opportunities even if
-    // user never created a task. Existing enabled characters are healed on
-    // chat open; a single per-character guard prevents duplicate cloud jobs.
-    useEffect(()=>{
-        if(!char||char.id!==activeCharacterId||char.activeMsg2Config?.enabled!==true)return;
-        const targetId=char.id;
-        const refresh=()=>{
-            if(document.hidden)return;
-            void ensureAutonomyWakes({char,apiConfig,userProfile,groups,realtimeConfig,
-                isEnabledNow:()=>liveCharactersRef.current.some(c=>
-                    c.id===targetId&&c.activeMsg2Config?.enabled===true),
-                onSave:updater=>updateCharacter(targetId,prev=>({
-                    activeMsg2Config:updater(prev.activeMsg2Config),
-                })),
-            });
-        };
-        refresh();
-        // Recovery and day-to-day schedule drift must work without closing
-        // and reopening this chat. No LLM call: this only reads cloud job
-        // health and (if appropriate) adjusts the existing scheduled times.
-        const interval=window.setInterval(refresh,30*60_000);
-        const visible=()=>{if(!document.hidden)refresh();};
-        const scheduleChanged=(event:Event)=>{
-            if((event as CustomEvent<{charId:string}>).detail?.charId===targetId)refresh();
-        };
-        document.addEventListener('visibilitychange',visible);
-        window.addEventListener(SCHEDULE_CHANGE_EVENT,scheduleChanged);
-        window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT,scheduleChanged);
-        return()=>{
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange',visible);
-            window.removeEventListener(SCHEDULE_CHANGE_EVENT,scheduleChanged);
-            window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT,scheduleChanged);
-        };
-    },[char?.id,char?.activeMsg2Config?.enabled,char?.activeMsg2Config?.tasks?.length,
-        apiConfig,userProfile,groups,realtimeConfig,updateCharacter,activeCharacterId,lifePacing]);
     const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
     const memoryRepairRound = useMemo(() => {
         let assistantIndex = -1;
@@ -4093,7 +4057,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         lifeActivity,
         lastCharacterReplyAt: latestAnsweredAt,
         replyAttention,
-        replyRhythm: char?.realPersonReplyRhythm,
         lastComposerActivityAt: composerLastEditAtRef.current,
         conversationId: activeCharacterId || null,
         active: (activeApp === AppID.Chat || !!homePhone) && !!char,
@@ -4465,7 +4428,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 settingsContextRangeMode={settingsContextRangeMode} setSettingsContextRangeMode={setSettingsContextRangeMode}
                 settingsHideSysLogs={settingsHideSysLogs} setSettingsHideSysLogs={setSettingsHideSysLogs}
                 settingsInputPreferences={settingsInputPreferences} setSettingsInputPreferences={setSettingsInputPreferences}
-                onUpdateRealPersonReplyRhythm={rhythm => updateCharacter(char.id, {realPersonReplyRhythm: rhythm})}
                 contextSuiteAnyEnabled={contextSuiteAnyEnabled}
                 contextSuiteAllEnabled={contextSuiteAllEnabled}
                 onToggleContextSuite={handleToggleContextSuite}

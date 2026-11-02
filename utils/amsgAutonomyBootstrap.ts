@@ -5,6 +5,7 @@
  */
 import type { ActiveMsg2CharacterConfig, APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
 import { ensureAutonomyWakes } from './amsgAutonomyWake';
+import { isPendingTask } from './amsg2Tasks';
 
 export type GlobalAutonomyWakeScope = {
   getCharacters: () => CharacterProfile[];
@@ -61,4 +62,22 @@ export async function reconcileGlobalAutonomyWakes(
       console.warn('[AMSG2] global autonomous wake reconciliation failed', id, error);
     }
   }
+}
+
+/** Inputs that require an OS reconciliation. No IO and no state mutation.
+ * Autonomous task saves are outputs, so they MUST NOT retrigger their runner.
+ * Manual task capacity, opt-in and timezone changes are real input changes. */
+export function autonomyReconciliationKey(
+  characters: readonly CharacterProfile[], nowMs = Date.now(),
+): string {
+  return characters.filter(c => !!c?.id && c.activeMsg2Config != null && typeof c.activeMsg2Config === 'object').map(c => {
+    const config = c.activeMsg2Config!;
+    const tasks = Array.isArray(config.tasks) ? config.tasks : [];
+    const manualPending = tasks.filter(t => t && typeof t === 'object'
+      && !(typeof t.clientTaskId === 'string' && t.clientTaskId.startsWith('autowake:'))
+      && isPendingTask(t, nowMs)).length;
+    return JSON.stringify([c.id, config.enabled === true, manualPending,
+      typeof config.maxActiveTasks === 'number' ? config.maxActiveTasks : null,
+      c.customTimezoneEnabled === true, typeof c.customTimezone === 'string' ? c.customTimezone : null]);
+  }).sort().join('|');
 }

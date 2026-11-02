@@ -6,8 +6,6 @@ import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, 
 import ScheduleCard from '../schedule/ScheduleCard';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
-import RealPersonRhythmSettings from './RealPersonRhythmSettings';
-import type { RealPersonReplyRhythm } from '../../utils/realPersonReplyRhythm';
 import EmotionSettingsPanel from './EmotionSettingsPanel';
 import SecretNote from './SecretNote';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
@@ -36,7 +34,6 @@ interface ChatModalsProps {
     setSettingsHideSysLogs: (v: boolean) => void;
     settingsInputPreferences: ChatInputPreferences;
     setSettingsInputPreferences: (value: ChatInputPreferences) => void;
-    onUpdateRealPersonReplyRhythm: (next: RealPersonReplyRhythm) => void;
     contextSuiteAnyEnabled: boolean;
     contextSuiteAllEnabled: boolean;
     onToggleContextSuite: () => void;
@@ -253,7 +250,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     settingsContextLimit, setSettingsContextLimit,
     settingsContextRangeMode, setSettingsContextRangeMode,
     settingsHideSysLogs, setSettingsHideSysLogs,
-    settingsInputPreferences, setSettingsInputPreferences, onUpdateRealPersonReplyRhythm,
+    settingsInputPreferences, setSettingsInputPreferences,
     contextSuiteAnyEnabled, contextSuiteAllEnabled, onToggleContextSuite,
     editContent, setEditContent,
     newCategoryName, setNewCategoryName, onAddCategory,
@@ -400,9 +397,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 <div className="space-y-3">
                     <ChatSettingsSection title="输入与发送" summary="表情联想、回车与自动回复">
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} />
-                    </ChatSettingsSection>
-                    <ChatSettingsSection title="真人感接话习惯" summary="当前角色的注意力与回复节奏">
-                        <RealPersonRhythmSettings value={activeCharacter.realPersonReplyRhythm} onChange={onUpdateRealPersonReplyRhythm} />
                     </ChatSettingsSection>
                     <ChatSettingsSection title="消息显示" summary="系统日志显示设置">
                         <div className="pt-2 border-t border-slate-100">

@@ -3,42 +3,9 @@
  * No AI requests, extra clocks, prompt injection, or AMSG task creation here.
  */
 export type RealPersonAttention = 'normal' | 'conversation' | 'occupied' | 'waiting';
-export type RealPersonReplyRange = { minSeconds: number; maxSeconds: number };
-export type RealPersonReplyRhythm = Record<RealPersonAttention, RealPersonReplyRange>;
-
-export const DEFAULT_REAL_PERSON_REPLY_RHYTHM: Readonly<RealPersonReplyRhythm> = {
-  // Reference rhythm (scheduled mode): an unattended cold chat is NOT
-  // evidence the character is watching their phone. A genuine exchange
-  // naturally unlocks a faster reply range; saved character customizations
-  // always override these defaults.
-  normal: { minSeconds: 240, maxSeconds: 360 },
-  conversation: { minSeconds: 8, maxSeconds: 25 },
-  occupied: { minSeconds: 240, maxSeconds: 360 },
-  waiting: { minSeconds: 3, maxSeconds: 10 },
-};
 export const REAL_PERSON_RHYTHM_STATES: readonly RealPersonAttention[] =
   ['normal', 'conversation', 'occupied', 'waiting'];
-/** Longer waits are opt-in per character, not inferred from time of day. */
-export const MAX_REAL_PERSON_REPLY_SECONDS = 7_200;
 export const REAL_PERSON_CONVERSATION_WINDOW_MS = 12 * 60_000;
-
-const validSeconds = (value: unknown): number | null =>
-  typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= MAX_REAL_PERSON_REPLY_SECONDS
-    ? Math.round(value) : null;
-
-export function normalizeRealPersonReplyRhythm(
-  value: Partial<Record<RealPersonAttention, Partial<RealPersonReplyRange>>> | null | undefined,
-): RealPersonReplyRhythm {
-  const result = {} as RealPersonReplyRhythm;
-  for (const state of REAL_PERSON_RHYTHM_STATES) {
-    const fallback = DEFAULT_REAL_PERSON_REPLY_RHYTHM[state];
-    const saved = value?.[state];
-    const min = validSeconds(saved?.minSeconds) ?? fallback.minSeconds;
-    const max = validSeconds(saved?.maxSeconds) ?? fallback.maxSeconds;
-    result[state] = { minSeconds: Math.min(min, max), maxSeconds: Math.max(min, max) };
-  }
-  return result;
-}
 
 type ConversationMessage = {
   role: string;
@@ -126,21 +93,4 @@ export function resolveRealPersonAttention(
   // Sleep is still handled by a separate hard availability gate, not by this state.
   if (activity === 'sleep') return 'occupied';
   return last.timestamp! - repliedAt <= 25_000 ? 'waiting' : 'conversation';
-}
-
-/** Stable within a saved user batch; character profile + first-send timestamp
- * form the seed, never message count. Returns elapsed wait before first reply. */
-export function sampleRealPersonRhythmMs(
-  state: RealPersonAttention,
-  characterId: string,
-  firstUnansweredAt: number,
-  profile?: Partial<Record<RealPersonAttention, Partial<RealPersonReplyRange>>> | null,
-): number {
-  const range = normalizeRealPersonReplyRhythm(profile)[state];
-  let hash = 2166136261;
-  const seed = characterId + ':' + firstUnansweredAt + ':' + state;
-  for (let i = 0; i < seed.length; i++) hash = Math.imul(hash ^ seed.charCodeAt(i), 16777619) >>> 0;
-  const minMs = range.minSeconds * 1000;
-  const maxMs = range.maxSeconds * 1000;
-  return minMs + hash % (maxMs - minMs + 1);
 }

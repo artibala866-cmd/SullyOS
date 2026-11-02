@@ -3,7 +3,7 @@ import type { CharacterProfile } from '../types';
 
 vi.mock('./amsgAutonomyWake', () => ({ ensureAutonomyWakes: vi.fn() }));
 import { ensureAutonomyWakes } from './amsgAutonomyWake';
-import { reconcileGlobalAutonomyWakes } from './amsgAutonomyBootstrap';
+import { reconcileGlobalAutonomyWakes, autonomyReconciliationKey } from './amsgAutonomyBootstrap';
 
 const character = (id: string, enabled = true) =>
   ({ id, activeMsg2Config: { enabled, tasks: [] } }) as unknown as CharacterProfile;
@@ -95,5 +95,52 @@ describe('OS-global AMSG2 opt-in bootstrap', () => {
     await reconcileGlobalAutonomyWakes(h.scope);
     expect(vi.mocked(ensureAutonomyWakes).mock.calls.map(([a]) => a.char.id))
       .toEqual(['alice','bob']);
+  });
+});
+
+describe('single OS reconciliation owner', () => {
+  const now = Date.UTC(2026, 10, 2, 12);
+  const task = (clientTaskId: string, status = 'scheduled') => ({
+    clientTaskId, taskUuid: clientTaskId, status, recurrenceType: 'none',
+    firstSendTime: new Date(now + 3_600_000).toISOString(),
+  } as any);
+  it('autonomous task saves do not rearm their own runner', () => {
+    const c = character('a');
+    const before = autonomyReconciliationKey([c], now);
+    c.activeMsg2Config!.tasks = [task('autowake:a:day'), task('autowake:a:evening')];
+    expect(autonomyReconciliationKey([c], now)).toBe(before);
+    c.activeMsg2Config!.lastError = 'temporary network error';
+    expect(autonomyReconciliationKey([c], now)).toBe(before);
+  });
+  it('freeing a manual task slot still prompts reconciliation with Chat closed', () => {
+    const c = character('a');
+    c.activeMsg2Config!.tasks = [task('manual'), task('autowake:a:day')];
+    const full = autonomyReconciliationKey([c], now);
+    c.activeMsg2Config!.tasks = [task('manual', 'cancelled'), task('autowake:a:day')];
+    expect(autonomyReconciliationKey([c], now)).not.toBe(full);
+  });
+  it('limits, explicit opt-out and character timezone remain live inputs', () => {
+    const original = character('a');
+    const before = autonomyReconciliationKey([original], now);
+    for (const next of [
+      {...original, activeMsg2Config: {...original.activeMsg2Config!, maxActiveTasks: 7}},
+      {...original, activeMsg2Config: {...original.activeMsg2Config!, enabled: false}},
+      {...original, customTimezoneEnabled: true, customTimezone: 'Asia/Shanghai'},
+    ]) expect(autonomyReconciliationKey([next], now)).not.toBe(before);
+  });
+  it('legacy malformed task metadata cannot crash the OS render', () => {
+    const c = character('a');
+    const empty = autonomyReconciliationKey([c], now);
+    c.activeMsg2Config!.tasks = { length: 99 } as any;
+    expect(autonomyReconciliationKey([c], now)).toBe(empty);
+    c.activeMsg2Config!.tasks = [null, {...task('manual'), clientTaskId: 123}] as any;
+    expect(() => autonomyReconciliationKey([c], now)).not.toThrow();
+    expect(autonomyReconciliationKey([{...c, activeMsg2Config: null} as any], now)).toBe('');
+  });
+  it('render order and an unconfigured character do not create a reconciliation loop', () => {
+    const a = character('a'), b = character('b');
+    expect(autonomyReconciliationKey([a,b], now)).toBe(autonomyReconciliationKey([b,a], now));
+    expect(autonomyReconciliationKey([a,{id:'unconfigured'} as any], now))
+      .toBe(autonomyReconciliationKey([a], now));
   });
 });

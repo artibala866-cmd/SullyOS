@@ -24,7 +24,7 @@ describe('all-off deliver/remote repair wiring',()=>{
     const os=text('../context/OSContext.tsx');
     const ui=text('../components/chat/ActiveMsg2SettingsModal.tsx');
     expect(os).toContain('await reconcileDisabledAmsgTasks(scope, id)');
-    expect(os).toContain("[isDataLoaded, amsgMasterStates]");
+    expect(os).toContain("[isDataLoaded, amsgMasterStates, apiConfig, userProfile]");
     expect(ui).toContain('requestImmediateDisabledAmsgRepair(char.id)');
     expect(ui).toContain("window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'))");
   });
