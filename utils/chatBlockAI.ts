@@ -146,6 +146,12 @@ export function buildForgivenessMessages(character: CharacterProfile, userName: 
       '下方只有拉黑前角色实际收到的消息。拉黑期间被拒收的用户文字不可见；不知道用户是否尝试联系，绝不能猜测或假装已读。',
       '当前关系阶段：' + stage,
       '上一次心软度：' + softness + '/100。只能根据自己的回忆、时间、底线、自尊和性格独立调整，可升可降。',
+      // 糯米机缺少原版独立「心声」消费模块：将已存储的角色私有经历回接下一轮判断。
+      // 这些只属于角色内心，绝不是用户新发送/角色已送达的消息。
+      ...(state?.lastForgivenessThought ? ['你上一轮独处时真实想过：' + state.lastForgivenessThought.slice(0, 700)] : []),
+      ...(state?.lastForgivenessStatus ? ['你上一轮的内心状态：' + state.lastForgivenessStatus.slice(0, 150)] : []),
+      ...(state?.forgivenessDrafts?.length ? ['你曾写过却从未发出的草稿（仅供自己回忆，用户没有收到）：'
+        + state.forgivenessDrafts.slice(-3).map(item => item.text.slice(0, 300)).join('；')] : []),
       '综合拉黑原因、已经过去的时间、关系经历和角色性格独立决定；时间到了不等于必须原谅。',
       '不要因为用户按了一次 AI 按钮就自动同意；也不要无理由永久拒绝。',
       '只返回单个 JSON 对象，decision 必须取 stay 或 unblock；softness 为 0-100 整数，不能因为达到固定分数就自动解封。没有充分理由默认 stay。',
