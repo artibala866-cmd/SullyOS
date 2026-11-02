@@ -76,6 +76,7 @@ import { generateCharacterImage } from '../utils/imageGeneration';
 import { describesUserInPhoto } from '../utils/userImageIdentity';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import ChatBlockModal from '../components/chat/ChatBlockModal';
+import ChatForgivenessScene from '../components/chat/ChatForgivenessScene';
 import { changeChatBlock, configureCharacterBlocking, isPrivateChatBlocked, userBlocksCharacter, characterBlocksUser, isRejectedPrivateMessage } from '../utils/chatBlock';
 import { forgivenessCooldownRemaining, requestCharacterForgiveness, applyCharacterForgivenessDecision } from '../utils/chatBlockAI';
 import { loadChatInputPreferences, saveChatInputPreferences, revokePendingChatAutoReplyIntents } from '../utils/chatInputPreferences';
@@ -2064,6 +2065,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const recent = await DB.getRecentMessagesByCharId(target.id, 100);
                 const judgement = await requestCharacterForgiveness({
                     character: latest, userName: userProfile.name || '用户', messages: recent, apiConfig,
+                    withTheater: true, // 原版 withTheater：仅在独立心软检查时生成，非普通消息回复。
                 });
                 const checkedAt = Date.now();
                 const lastBlock = [...(latest.chatBlock?.history || [])].reverse().find(event =>
@@ -4739,7 +4741,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 {characterBlocksUser(char.chatBlock) && (
                     <div role="status" className="mx-4 mb-4 rounded-xl border border-neutral-200 bg-white/80 px-3 py-2.5 text-center text-xs leading-5 text-neutral-600">
                         {forgivenessBusy ? '正在等待对方决定是否解除拉黑…' : '当前消息可能被对方拒收；AI 键可请求对方重新考虑。'}
+                        {/* 原版 sign 是用户可观察的唯一外在迹象，不能公开角色的私密 thought / draft。 */}
+                        {!forgivenessBusy && char.chatBlock?.lastForgivenessSign && (
+                            <p className="mt-1 text-neutral-500">{char.chatBlock.lastForgivenessSign}</p>
+                        )}
                     </div>
+                )}
+                {!!char.chatBlock?.forgivenessScenes?.length && (
+                    <ChatForgivenessScene
+                        key={char.id + ':' + char.chatBlock.forgivenessScenes[char.chatBlock.forgivenessScenes.length - 1].at}
+                        scene={char.chatBlock.forgivenessScenes[char.chatBlock.forgivenessScenes.length - 1]}
+                    />
                 )}
                 {collapsedCount > 0 && windowedFocusMsgId === null && (
                     <div className="flex justify-center mb-6">
