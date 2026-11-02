@@ -24,7 +24,6 @@ import { renderLocalContextGuidance } from './memoryPalace/recallRouter';
 import { renderInteractionAdaptationGuidance } from './memoryPalace/interactionAdaptation';
 import { renderDeepEngagementGuidance } from './memoryPalace/deepEngagement';
 import { renderConversationEngagementGuidance, type ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
-import type { ConversationEngagementAnalysis } from './memoryPalace/conversationEngagement';
 import type { DeepEngagementAnalysis } from './memoryPalace/deepEngagement';
 import { buildHtmlPrompt } from './htmlPrompt';
 import { buildThinkingChainPrompt } from './thinkingChainPrompt';
