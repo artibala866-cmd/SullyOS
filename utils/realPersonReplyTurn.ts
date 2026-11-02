@@ -101,3 +101,33 @@ export function buildRealPersonTurnFocusHint<T extends ChatTurn & { id?: number 
     ...renderRealPersonConversationPlan(engagement),
   ].join('\n');
 }
+
+/** Use SullyOS' own M3 conversation tracking instead of a second topic engine. */
+export function renderRealPersonConversationPlan(a?: ConversationEngagementAnalysis): string[] {
+  if (!a?.analyzable || !a.shouldGuide) return [];
+  const acts: Record<string,string> = {
+    acknowledge:'acknowledge the newest detail',
+    invite:'leave space without requiring a question',
+    follow:'follow this topic and its latest change',
+    clarify:'clarify only an essential unknown',
+    reflect:'connect previously stated facts',
+    evaluate:'form a grounded opinion',
+    close:'respect the ending',
+    shift:'follow the topic change initiated by the user',
+  };
+  const move = a.conversationAct === 'close' ? 'close'
+    : a.conversationAct === 'shift' ? 'user_shift' : 'continue';
+  return [
+    '[Existing M3 conversation state for this actual user reply]',
+    'topicMove='+move+'; primary='+ (acts[a.responsePlan.primary] || 'acknowledge'),
+    a.responsePlan.secondary ? 'Optional: '+acts[a.responsePlan.secondary]+' (not required)' : 'No mandatory second act',
+    a.subject.active && a.subject.unresolvedHookKinds.length && move !== 'close'
+      ? 'There are unfinished details; keep track without interrogating the user.'
+      : 'Do not invent unfinished details to keep a conversation going.',
+    a.responsePlan.explicitQuestionBudget === 0
+      ? 'Do not append a question just to extend this conversation.'
+      : 'At most one truly relevant question, and none if not necessary.',
+    'A character may have opinions and a life, but personal reports and topic changes are not mandatory.',
+    'No output length, bubble count, self-disclosure or follow-up quota is implied by this plan.',
+  ];
+}
