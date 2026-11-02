@@ -386,7 +386,7 @@ const DateApp: React.FC = () => {
             const state = previous.chatBlock;
             if (action.kind === 'unblock') {
                 if (!characterBlocksUser(state)) return {};
-                return { chatBlock: changeChatBlock(state, 'character', false, { source: 'ai' }) };
+                return { chatBlock: changeChatBlock(state, 'character', false, { source: 'ai', via: 'offline' }) };
             }
             if (!allowsCharacterToBlock(state) || characterBlocksUser(state)) return {};
             return { chatBlock: changeChatBlock(state, 'character', true, { reason: action.reason, source: 'ai' }) };
