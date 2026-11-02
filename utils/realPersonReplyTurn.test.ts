@@ -48,6 +48,23 @@ describe('only an actual user statement triggers real-person replies',()=>{
     expect(buildRealPersonTurnFocusHint([{id:1,role:'user',type:'system',metadata:{musicListenInvite:true}}],1)).toBe('');
     expect(buildRealPersonTurnFocusHint([say(1)],1)).toContain('刚发了一条新消息');
   });
+  it('does not force an AI reply for provisional, rejected, AI-authored or restored user records',()=>{
+    const ineligible=[
+      { deliveryStatus:'pending' },{ deliveryStatus:'failed' },
+      { deliveryStatus:'rejected' },{ aiGenerated:true },
+      { userComposedAsCharacter:true },{ offlineAutoReply:true },
+      { phoneAutoReply:true },{ chatRecordImportedAt:123 },
+      { originalTimestamp:123 },{ aiPlaceholder:true },
+      { conversationMutating:false },
+    ];
+    for(const meta of ineligible){
+      expect(findPendingRealPersonUserTurn([{...say(1),metadata:meta}])).toBeNull();
+    }
+    expect(findPendingRealPersonUserTurn([{...say(1),deleted:true}])).toBeNull();
+    expect(findPendingRealPersonUserTurn([{...say(1),recalled:true}])).toBeNull();
+    expect(findPendingRealPersonUserTurn([say(1),{id:2,role:'assistant',type:'text',metadata:{busyFauxAutoReply:true}}])?.id).toBe(1);
+    expect(findPendingRealPersonUserTurn([say(1),{id:2,role:'assistant',type:'text',metadata:{countsAsReply:false}}])?.id).toBe(1);
+  });
   it('resolves once the character actually replies; proactive pushes do not count',()=>{
     expect(findPendingRealPersonUserTurn([say(1),proactive(2)])?.id).toBe(1);
     expect(findPendingRealPersonUserTurn([say(1),proactive(2),{id:3,role:'assistant',type:'text'}])).toBeNull();
