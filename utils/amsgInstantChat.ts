@@ -49,6 +49,8 @@ export interface AmsgInstantChatPending {
   charId: string;
   /** 这一轮在云端那条任务的 uuid；连发下一条时用它顶掉未认领的这条。 */
   uuid: string;
+  /** The exact saved user turn answered by this AUTOMATIC reply. Manual instant-chat turns omit it. */
+  autoReplyUserMessageId?: number;
   /** 受理时刻（epoch ms），排查时看「这一轮等了多久」用。 */
   acceptedAt: number;
   /** 角色名快照（全局横幅显示用）。必填：唯一写入方恒定带上（角色名为空就是空串）。 */
@@ -70,6 +72,8 @@ const readPendingMap = (): PendingMap => {
         result[charId] = {
           charId,
           uuid: record.uuid,
+          ...(typeof record.autoReplyUserMessageId === 'number' && Number.isSafeInteger(record.autoReplyUserMessageId)
+            ? { autoReplyUserMessageId: record.autoReplyUserMessageId } : {}),
           acceptedAt: record.acceptedAt,
           charName: typeof record.charName === 'string' ? record.charName : '',
         };
@@ -107,11 +111,33 @@ export const setInstantChatPending = (
   uuid: string,
   acceptedAt = Date.now(),
   charName = '',
+  autoReplyUserMessageId?: number,
 ): void => {
   const map = readPendingMap();
-  map[charId] = { charId, uuid, acceptedAt, charName };
+  map[charId] = { charId, uuid, acceptedAt, charName,
+    ...(typeof autoReplyUserMessageId === 'number' ? { autoReplyUserMessageId } : {}) };
   writePendingMap(map);
   announcePendingChanged(charId);
+};
+
+/** Once the user sends a NEW message, an older automatic cloud answer is no
+ * longer an answer to the live conversation. Do NOT cancel manually triggered
+ * cloud replies or unrelated AMSG scheduled messages. Use the existing stop
+ * pipeline (UUID tombstone, outbox cancellation and partial-result handling).
+ */
+export const supersedeStaleAutoInstantReply = (
+  charId: string, newerSavedUserMessageId: number,
+): boolean => {
+  const current = getInstantChatPending(charId);
+  if (!current || !Number.isSafeInteger(newerSavedUserMessageId) ||
+      typeof current.autoReplyUserMessageId !== 'number' ||
+      newerSavedUserMessageId <= current.autoReplyUserMessageId) return false;
+  // Mark the UUID synchronously, before any network/IDB await, so a late push
+  // cannot be accepted while the stop RPC is in flight.
+  markReplyStopped(current.uuid);
+  void stopInstantChat(charId).catch(error =>
+    console.warn('[AmsgInstantChat] stale automatic reply cancellation failed', error));
+  return true;
 };
 
 /** 回复到了（或这一轮判定失败）→ 销账。没有记录时是幂等 no-op。 */
@@ -501,6 +527,8 @@ export interface InstantChatSendResult {
   uuid?: string;
   /** 失败时给用户看的整句（已经是能照着做的话）。 */
   error?: string;
+  /** A newer user turn superseded the accepted cloud reply. Not an API failure. */
+  superseded?: boolean;
 }
 
 /**
@@ -534,6 +562,8 @@ export const sendInstantChatTurn = async (params: {
    * 不传就是这一轮不评估（角色没开情绪评估 / 本轮跳过）。
    */
   emotionEval?: AmsgEmotionEvalSpec;
+  /** Optional user-turn anchor; NEVER attach to proactive or manual requests. */
+  autoReplyUserMessageId?: number;
 }): Promise<InstantChatSendResult> => {
   const supersedes = getInstantChatPending(params.char.id);
   const requestedUuid = crypto.randomUUID();
@@ -582,8 +612,24 @@ export const sendInstantChatTurn = async (params: {
       await ActiveMsgClient.cancelTask(uuid);
       throw replyAbortError();
     }
+    // A newer user message may land while the POST is awaiting 202. Never
+    // arm a cloud reply for an obsolete topic after that race. Cancellation
+    // tombstones the UUID even if the remote request has already started.
+    if (typeof params.autoReplyUserMessageId === 'number') {
+      let stillLatest = false;
+      try {
+        const { findPendingRealPersonUserTurn } = await import('./realPersonReplyTurn');
+        const recent = await DB.getRecentMessagesByCharId(params.char.id, 30);
+        stillLatest = findPendingRealPersonUserTurn(recent)?.id === params.autoReplyUserMessageId;
+      } catch { /* Cannot verify ownership => do not send a stale answer. */ }
+      if (!stillLatest) {
+        markReplyStopped(uuid);
+        void ActiveMsgClient.cancelTask(uuid).catch(() => {});
+        return { ok: false, superseded: true };
+      }
+    }
     // 先记待收再释放占位（finally），挡板的两个信号无缝交接，不留「都不认」的空窗。
-    setInstantChatPending(params.char.id, uuid, Date.now(), params.char.name);
+    setInstantChatPending(params.char.id, uuid, Date.now(), params.char.name, params.autoReplyUserMessageId);
     recordCloudApiCall({
       id: cloudApiCallLogId(uuid),
       route: 'cloud-instant-chat',
