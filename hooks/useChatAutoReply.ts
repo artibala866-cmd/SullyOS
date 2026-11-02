@@ -1,6 +1,5 @@
-import { resolveRealPersonReplyPlan } from '../utils/realPersonReplyTiming';
+import { resolveRealPersonReplyReadiness } from '../utils/realPersonReplyReadiness';
 import { REAL_PERSON_RHYTHM_STATES, type RealPersonAttention, type RealPersonReplyRhythm } from '../utils/realPersonReplyRhythm';
-import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { CHAT_AUTO_REPLY_REVOKE_REVISION_KEY } from '../utils/chatInputPreferences';
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 
@@ -224,37 +223,26 @@ export function useChatAutoReply(options: Options) {
         if (!visible || !ready()) return;
         const latest = current.current;
         const now = Date.now();
-        const activity = latest.lifeActivity ?? null;
-        const presence = resolveSchedulePresence(activity, latest.lastCharacterReplyAt, now);
-        const plan = latest.naturalPacing
-            ? resolveRealPersonReplyPlan({
-                activity: activity === 'sleep' ? 'sleep' : presence === 'online' && activity !== null ? 'free' : activity,
-                firstUnansweredAt: work.firstUnansweredAt,
-                now,
-                // Unknown schedule is NOT evidence of sleep or office hours.
-                fallbackDelayMs: 3_500,
-                lastUserSendAt: work.lastUserSendAt,
-                lastCharacterReplyAt: latest.lastCharacterReplyAt,
-                replyAttention: work.replyAttention === 'occupied' && activity === 'free'
+        // A real-person reply is driven by the successful USER SEND and
+        // actual availability, NOT a sampled 4-6 minute character timer.
+        // Busy/sleep wake through the existing schedule change signals.
+        const readiness = latest.naturalPacing
+            ? resolveRealPersonReplyReadiness({
+                activity: latest.lifeActivity ?? null,
+                attention: work.replyAttention === 'occupied' && latest.lifeActivity === 'free'
                     ? (latest.replyAttention || 'normal') : work.replyAttention || latest.replyAttention,
-                replyRhythm: latest.replyRhythm,
-                characterId: latest.conversationId || '',
+                now,
+                lastComposerActivityAt: latest.lastComposerActivityAt,
+                lastUserSendAt: work.lastUserSendAt,
             })
-            : { delayMs: CHAT_AUTO_REPLY_DELAY_MS };
-        if (plan.delayMs === null) {
-            // Sleep is not unlocked by repeated nudges; reconsider when the real schedule changes.
-            const recheck = window.setTimeout(() => refresh(), 60_000);
-            return () => window.clearTimeout(recheck);
-        }
-        // Never consume a durable intent until the existing Chat route has
-        // checked the canonical DB tail. Visibility can change during that read.
-        // A cleared composer is not the same as finished input. An old saved
-        // user turn might already be minutes overdue; wait until real editing
-        // has stopped before dispatching it (APK-style compose-settle gate).
-        const lastEditAt = Number(latest.lastComposerActivityAt) || 0;
-        const quietAfterEdit = lastEditAt > 0 && now >= lastEditAt
-            ? Math.max(0, 2_800 - (now - lastEditAt)) : 0;
-        const timer = window.setTimeout(() => {
+            : { kind: 'ready' as const, settleMs: CHAT_AUTO_REPLY_DELAY_MS };
+        if (readiness.kind === 'wait-availability') return;
+        // Technical retries have their own backoff; their wake does not count
+        // as a conversational reason to generate. The pending USER TURN does.
+        const delay = Math.max(readiness.settleMs, work.retryAt - now);
+        let disposed = false;
+        const dispatch = () => {
+            if (disposed) return;
             if (!ready()) return;
             const currentId = current.current.conversationId;
             if (!currentId) return;
@@ -310,8 +298,16 @@ export function useChatAutoReply(options: Options) {
                 void locks.request('sully-chat-auto-reply:' + currentId,
                     { mode: 'exclusive' }, () => run()).catch(() => { if (workRef.current === work && work.checking) cancel(); });
             } else void run();
-        }, Math.max(plan.delayMs, work.retryAt - now, quietAfterEdit));
-        return () => window.clearTimeout(timer);
+        };
+        // No artificial countdown for real-person chats. Yield one microtask
+        // for React's post-send UI reconciliation and then verify the DB tail.
+        // A timeout is used ONLY if typing just ended or a DB retry backs off.
+        if (delay > 0) {
+            const timer = window.setTimeout(dispatch, delay);
+            return () => { disposed = true; window.clearTimeout(timer); };
+        }
+        void Promise.resolve().then(dispatch);
+        return () => { disposed = true; };
     }, [revision, visible, options.enabled, options.active, options.blocked, options.generating,
         options.conversationId, options.lifeActivity, options.lastCharacterReplyAt, options.naturalPacing,
         options.replyAttention, options.replyRhythm, options.lastComposerActivityAt, cancel]);
