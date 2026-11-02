@@ -10,6 +10,7 @@ vi.mock('./activeMsgClient', () => ({
 }));
 import { ActiveMsgClient } from './activeMsgClient';
 import { AMSG_INSTANT_CHAT_SUBTYPE } from './amsgFirePack';
+import { AMSG_BACKGROUND_JOB_SUBTYPE } from './amsgTaskKinds';
 import { reconcileDisabledAmsgTasks, requestImmediateDisabledAmsgRepair } from './amsgDisabledRepair';
 
 let chars: CharacterProfile[] = [];
@@ -37,6 +38,7 @@ describe('disabled AMSG cloud repair prevents old recurring API calls',()=>{
     vi.mocked(ActiveMsgClient.listRemoteTasksForChar).mockResolvedValue([
       {uuid:'cloud-old',messageSubtype:'prompted'},
       {uuid:'instant-running',messageSubtype:AMSG_INSTANT_CHAT_SUBTYPE},
+      {uuid:'phone-job-running',messageSubtype:AMSG_BACKGROUND_JOB_SUBTYPE},
     ] as any);
     await reconcileDisabledAmsgTasks(scope);
     expect(ActiveMsgClient.putCharLimits).toHaveBeenCalledWith(expect.objectContaining({
@@ -46,6 +48,7 @@ describe('disabled AMSG cloud repair prevents old recurring API calls',()=>{
     expect(calls).toContain('cloud-old');
     expect(calls).toContain('old-local');
     expect(calls).not.toContain('instant-running');
+    expect(calls).not.toContain('phone-job-running');
     expect(chars[0].activeMsg2Config?.tasks).toHaveLength(0);
   });
   it('does not call cloud or delete tasks for enabled roles or unconfigured characters',async()=>{
