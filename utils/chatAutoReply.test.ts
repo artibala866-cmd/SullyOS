@@ -313,6 +313,24 @@ describe('two-second automatic reply', () => {
         expect(options.onGenerate).not.toHaveBeenCalled();
     });
 
+    it('an unanswered cold message waits on the character-rhythm clock rather than firing after a few seconds',()=>{
+        render({naturalPacing:true,lifeActivity:'free',replyAttention:'normal'});
+        send();
+        advance(30_000);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(210_000 - 1);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(120_001);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
+    it('real back-and-forth receives a quicker reply without creating a new autonomous topic',()=>{
+        render({naturalPacing:true,lifeActivity:'free',replyAttention:'waiting'});
+        send();
+        advance(2_999);
+        expect(options.onGenerate).not.toHaveBeenCalled();
+        advance(7_001);
+        expect(options.onGenerate).toHaveBeenCalledTimes(1);
+    });
     it('a real sleep slot remains silent despite a reply one minute ago', () => {
         const lastReply = Date.now() - 60_000;
         render({ naturalPacing: true, lifeActivity: 'sleep', lastCharacterReplyAt: lastReply });
