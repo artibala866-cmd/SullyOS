@@ -772,7 +772,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             也不知道打开它能换来什么。 */}
         {!enabled ? (
           <p className="text-xs leading-relaxed text-slate-400 pl-1">
-            开启后会自动向已配置的新版 Worker 建立持续的云端自主联系机会，无需手动新建任务；没配置 Worker 或版本不匹配时会显示失败原因，不会假装已经启动。
+            真人感和此开关同时开启时，新保存的生活事件可在网页前台触发联系判断。云端定时提醒需连接 Worker 后在任务列表中安排。
           </p>
         ) : null}
 
@@ -855,7 +855,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         <div className="text-slate-400 mt-0.5 truncate">
                           {describeTaskProgress(t, knownRemoteUuids, now, remoteInfo?.status)} · {describeTaskMode(t)}
                           · {describeExpirePolicy(t.expirePolicy)}
-                          · {t.clientTaskId?.startsWith('autowake:') ? '自动自主联系' : t.source === 'character' ? '角色创建' : '手动创建'}
+                          · {t.clientTaskId?.startsWith('autowake:') ? '旧每日联系' : t.source === 'character' ? '角色创建' : '手动创建'}
                         </div>
                         {missingRemote ? (
                           <div className="text-slate-400 mt-1 text-[11px]">⚠ 远端不存在（可能已发送或在别处取消）</div>
