@@ -350,7 +350,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       await ActiveMsgClient.registerPushSubscription();
       setPushSubscribed(true);
       setCloudPushState('present');
-      setPushSummary('通知已允许、本机推送已登记；正在恢复云端主动联系机会');
+      setPushSummary('通知已允许，本机推送已登记');
       allowImmediateAutonomyWakeRetry(char.id);
       window.dispatchEvent(new Event('sully:amsg-autonomy-refresh'));
     }).catch(error => {
