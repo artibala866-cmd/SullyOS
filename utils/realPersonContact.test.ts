@@ -5,7 +5,7 @@ import { DB } from './db';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { recordCharacterLifeEvent, type CharacterLifeEvent } from './characterLifeEvents';
 import { setRealPersonModeEnabled } from './realPersonMode';
-import { considerRealPersonContact, recheckRealPersonContacts, pickRealPersonContact } from './realPersonContact';
+import { considerRealPersonContact, recheckRealPersonContacts, pickRealPersonContact, resumeRealPersonContact, clearDeferredRealPersonContact } from './realPersonContact';
 
 vi.mock('./db', () => ({
   DB: { getRecentMessagesByCharId: vi.fn(), getCharacter: vi.fn(), saveMessage: vi.fn(), deleteMessages: vi.fn() },
@@ -127,4 +127,56 @@ it('permits one continuation of an unfinished topic and respects the user ending
   expect(DB.saveMessage).toHaveBeenCalledWith(expect.objectContaining({
     metadata: { countsAsReply: false, realPersonContact: 'follow-up' },
   }));
+});
+
+it('resumes an authorized saved event once after reconnecting without generating while offline', async () => {
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  const network = vi.fn().mockResolvedValue(answer('刚才聊到纸的纹理，想到你那张画了。'));
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  await resumeRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+  online.mockReturnValue(true);
+  await resumeRealPersonContact(input());
+  await resumeRealPersonContact(input());
+  expect(network).toHaveBeenCalledOnce();
+});
+
+it.each(['真人感', '主动消息'])('discards deferred contact after %s is revoked and re-enabled', async which => {
+  const visible = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  const network = vi.fn();
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  if (which === '真人感') {
+    setRealPersonModeEnabled(false);
+    setRealPersonModeEnabled(true);
+  } else {
+    clearDeferredRealPersonContact(char.id);
+  }
+  visible.mockReturnValue('visible');
+  await resumeRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+});
+
+it.each(['none', 'new speech', 'revocation'])('delivers bubbles from one response and stops on interruption (%s)', async interruption => {
+  const network = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({ action: 'send', parts: [
+      '刚才聊到纸的纹理，想到你那张画了。',
+      '我才发现同样的颜料在粗纹纸上晕开的样子很不同。',
+    ] }) } }],
+  }), { headers: { 'Content-Type': 'application/json' } }));
+  vi.stubGlobal('fetch', network);
+  vi.mocked(DB.saveMessage).mockImplementation(async message => {
+    const id = history.at(-1)!.id + 1;
+    history = [...history, { ...message, id, timestamp: Date.now() }];
+    if (interruption === 'new speech') history.push({ ...history[0], id: id + 1, content: '先聊别的', timestamp: Date.now() });
+    return id;
+  });
+  if (interruption === 'revocation') {
+    window.addEventListener('active-msg-received', () => setRealPersonModeEnabled(false), { once: true });
+  }
+  await considerRealPersonContact(input());
+  expect(network).toHaveBeenCalledOnce();
+  expect(DB.saveMessage).toHaveBeenCalledTimes(interruption === 'none' ? 2 : 1);
+  expect(DB.deleteMessages).not.toHaveBeenCalled();
 });

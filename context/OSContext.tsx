@@ -1,5 +1,5 @@
 import { DAILY_SCHEDULE_SAVED_EVENT } from '../utils/scheduleChange';
-import { considerRealPersonContact, recheckRealPersonContacts } from '../utils/realPersonContact';
+import { clearDeferredRealPersonContact, considerRealPersonContact, recheckRealPersonContacts, resumeRealPersonContact } from '../utils/realPersonContact';
 import { handleLocalBack } from '../utils/localBackHandlers';
 import {isHomeAssetDisposal} from '../utils/homeAssetCancellation';
 import { processHomeMemoryAfterSave } from '../utils/homeMemoryPostHook';
@@ -2457,15 +2457,36 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               budgeted: true,
           }).catch(error=>console.warn('[CharacterMemo] generation skipped',error));
       };
-      const onVisible = () => { if (document.visibilityState === 'visible') recoverPhoneMemories(); };
+      const recoverContacts = () => {
+          const user = userProfileRef.current;
+          if (!user || document.visibilityState !== 'visible') return;
+          void (async () => {
+              for (const { id } of charactersRef.current) {
+                  if (disposed) return;
+                  await resumeRealPersonContact({
+                      currentChar: () => disposed ? undefined : charactersRef.current.find(c => c.id === id),
+                      user, apiConfig: apiConfigRef.current,
+                  });
+              }
+          })().catch(error => console.warn('[RealPerson] deferred contact unavailable', error));
+      };
+      const onVisible = () => {
+          if (document.visibilityState !== 'visible') return;
+          recoverPhoneMemories();
+          recoverContacts();
+      };
       window.addEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
       document.addEventListener('visibilitychange', onVisible);
-      recoverPhoneMemories();
+      window.addEventListener('online', recoverContacts);
+      window.addEventListener('pageshow', recoverContacts);
+      onVisible();
       return () => {
           disposed = true;
           recheckRealPersonContacts();
           queue.clear();
           window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
+          window.removeEventListener('online', recoverContacts);
+          window.removeEventListener('pageshow', recoverContacts);
           document.removeEventListener('visibilitychange', onVisible);
       };
   }, [isDataLoaded]);
@@ -3162,6 +3183,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const target = updated.find(c => c.id === id);
       if (target) {
         const before = prev.find(c => c.id === id);
+        if (before?.activeMsg2Config?.enabled && !target.activeMsg2Config?.enabled) clearDeferredRealPersonContact(id);
         // 落库成功后给 amsg2 云端快照打脏：改人设 / 改记忆 / 面板取消任务等所有落库路径都
         // 汇到这里，不打的话云端 fire_pack 停在上一轮聊天，角色到点拿旧世界说话。
         // markDirty 内部自带「没开 2.0 / 没挂 AI 任务就 return」的门，普通角色零成本。

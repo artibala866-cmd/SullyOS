@@ -49,6 +49,10 @@ export class ReplyRun {
     private controller = new AbortController();
     readonly signal = this.controller.signal;
     private savedIds = new Set<number>();
+    private deliveredIds = new Set<number>();
+    markDelivered(id: number): void {
+        if (this.savedIds.has(id)) this.deliveredIds.add(id);
+    }
     private stoppedDisplay?: Display;
     private settling?: Promise<void>;
     private completed = false;
@@ -79,6 +83,7 @@ export class ReplyRun {
         this.stoppedDisplay = display
             ? { ids: new Set(display.ids), previews: this.uuid ? [] : [...display.previews] }
             : { ids: new Set(this.savedIds), previews: [] };
+        for (const id of this.deliveredIds) this.stoppedDisplay.ids.add(id);
         this.controller.abort(replyAbortError());
     }
 
