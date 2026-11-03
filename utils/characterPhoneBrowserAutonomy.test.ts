@@ -97,3 +97,20 @@ describe('Char autonomous Baidu search history',()=>{
     expect(readCharacterPhoneBrowserHistory('char')).toHaveLength(0);
   });
 });
+
+it('caps the generated background batch at the remaining daily record allowance', async () => {
+  const now = Date.now();
+  localStorage.setItem('sully_char_browser_autonomy_v1:char', JSON.stringify({
+    day: new Date(now).toLocaleDateString('en-CA'), attempts: 1, generated: 1, lastAttemptAt: now - 13 * 3600_000,
+  }));
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      search: true,
+      records: ['画册', '书店'].map(title => ({
+        title, query: '附近独立' + title + '推荐', reason: '想找朋友推荐的那本书',
+      })),
+    }) } }],
+  }), { headers: { 'Content-Type': 'application/json' } })));
+  expect(await runCharacterPhoneBrowserAutonomy(input, 'background')).toMatchObject({ status: 'generated', count: 1 });
+  expect(readCharacterPhoneBrowserHistory('char')).toHaveLength(1);
+});

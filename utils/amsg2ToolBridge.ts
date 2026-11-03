@@ -53,8 +53,8 @@ export const buildAmsg2Tools = (limits: AmsgLimits): OpenAITool[] => [
         '创建定时主动消息：到指定时间后，你（角色）会根据最新聊天上下文自动生成并推送一条消息给用户。',
         '重要：send_at 是 worker 开始生成消息的请求时间，不是最终送达时间（中间有推理延迟，通常 10-30 秒）。',
         '如果要"卡点"送达（比如整点），建议提前 1 分钟。',
-        '推荐使用 mode=auto：角色根据最新聊天内容自动决定说什么，后续聊天会自动同步至上下文。',
-        'mode=prompted：给角色一个提示方向（如"问问对方吃了没"），角色围绕这个方向生成。',
+        'mode=auto：长时间未联系后，有具体缘由时才考虑重新开口。',
+        'mode=prompted：有明确时间和事项的提醒或承诺，角色按该事项生成。',
         `每个角色最多同时挂 ${limits.maxActiveTasks} 个任务`
           + (limits.allowSelfForce ? '；到点怎么处理由 expire_policy 决定。' : '；到点时你会先看最新的对话，再决定这条说不说。'),
       ].join('\n'),
@@ -63,8 +63,8 @@ export const buildAmsg2Tools = (limits: AmsgLimits): OpenAITool[] => [
         // （跟 worker 到点解析 send_at 同一份规则）。教它写 +08:00 这种偏移的话，
         // 纽约角色会照抄示例里的东八区，说出来的「明早九点」实际差一个时差。
         sendAtDescription: '开始生成消息的时间，写你本地的墙钟时间，格式 YYYY-MM-DDTHH:mm:ss（如 2026-07-20T20:00:00），不要带时区后缀。必须晚于当前时间。',
-        modeDescription: '生成模式。auto=根据最新聊天自动生成（推荐）；prompted=围绕 prompt_hint 方向生成。默认 auto。',
-        promptHintDescription: '仅 mode=prompted 时有效。给角色的提示方向，如"问问对方晚饭吃了没"。',
+        modeDescription: '生成模式。auto=长时间未联系后的重新开口；prompted=有具体事项的提醒或承诺。默认 auto。',
+        promptHintDescription: '仅 mode=prompted 时有效。写明具体事项，如“提醒对方交画稿”。',
         recurrenceDescription: '重复类型。none=一次性（默认）；daily=每天同一时间；weekly=每周同一天同一时间。',
         abilities: { allowRecurring: limits.allowSelfRecurring, allowForce: limits.allowSelfForce },
       }),

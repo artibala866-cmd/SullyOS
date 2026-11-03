@@ -312,6 +312,24 @@ describe('Worker 入口的具名导出', () => {
 });
 
 describe('onBeforeFire 四道门', () => {
+  it.each([
+    ['auto', 30, true],
+    ['auto', 7 * 60, false],
+    ['prompted', 30, false],
+  ] as const)('separates %s from replies after %s minutes of silence', async (mode, minutes, skip) => {
+    const { ctx } = makeCtx({
+      metadata: { amsgSelfScheduled: true, amsgMode: mode, amsgExpirePolicy: 'expire' },
+      charRows: [
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(NOW.getTime() - minutes * 60_000) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+        limitsRow({ autonomyEnabled: true }),
+      ],
+    });
+    const result = await amsgHooks.onBeforeFire(ctx);
+    if (skip) expect(result).toEqual({ skip: true });
+    else expect(fired(result).messages).toHaveLength(1);
+  });
+
   it('自发联系：最近五分钟正在聊天就跳过，不把日常开场插进私聊',async()=>{
     const at=NOW.getTime()-5*60_000;
     const {ctx}=makeCtx({metadata:{amsgAutonomyWake:true},
@@ -4327,20 +4345,17 @@ describe('onBeforeFire — 即时对话分支', () => {
     const result = fired(await amsgHooks.onBeforeFire(ctx));
     const text = result.messages.map((m) => m.content).join('\n');
 
-    expect(text).toContain('你和小明的联系不只发生在正在聊天的时候');
-    expect(text).toContain('惦记、想分享、兑现承诺');
-    expect(text).toContain('睡觉、上课、上班、打游戏');
-    expect(text).toContain('自己的日程');
-    expect(text).toContain('就当场排成真任务，不要只在正文里答应');
-    expect(text).toContain('明确说别打扰');
+    expect(text).toContain('和小明聊过的话题由当前对话接续');
+    expect(text).toContain('有具体提醒或承诺时使用 prompted');
+    expect(text).toContain('距对方最后一次发言至少六小时');
     expect(text).toContain('用户给你定的规矩');
-    expect(text.match(/你和小明的联系/g)).toHaveLength(1);
+    expect(text.match(/和小明聊过的话题/g)).toHaveLength(1);
     expect(text).not.toContain('这条消息发完，如果还有话');
     expect(scheduleTask).not.toHaveBeenCalled();
 
     const tool = result.tools?.find((t) => t.function.name === AMSG_FIRE_SCHEDULE_TOOL);
     if (native) {
-      expect(tool?.function.description).toContain('惦记');
+      expect(tool?.function.description).toContain('长时间未联系');
       expect(tool?.function.description).not.toContain('你现在正在发一条主动消息');
       expect(text).not.toContain('({"send_at"');
     } else {
@@ -4358,7 +4373,7 @@ describe('onBeforeFire — 即时对话分支', () => {
     });
     if (reason === 'disabled') (ctx as any).scheduleTask = vi.fn();
     const result = fired(await amsgHooks.onBeforeFire(ctx));
-    expect(result.messages.map((m) => m.content).join('\n')).not.toContain('你和小明的联系');
+    expect(result.messages.map((m) => m.content).join('\n')).not.toContain('和小明聊过的话题');
     expect(result.tools?.map((t) => t.function.name) ?? []).not.toContain(AMSG_FIRE_SCHEDULE_TOOL);
   });
 
@@ -4456,7 +4471,7 @@ describe('onBeforeFire — 即时对话分支', () => {
     const appended = result.messages[result.messages.length - 1].content;
     expect(appended).toContain('【外部工具');         // MCP 说明块
     expect(appended).toContain('search_memory');
-    expect(appended).toContain('给自己排下一条');      // 排程说明块
+    expect(appended).toContain('定时提醒和久未联系');      // 排程说明块
     expect(result.tools?.map((t) => t.function.name)).toContain('mcp__search_memory');
   });
 

@@ -1,3 +1,5 @@
+import { AMSG_RECONNECT_QUIET_MS } from './amsgFireSchedule';
+import { isRealPersonUserStatement } from './realPersonReplyTurn';
 import { isRetiredAutonomyDelivery } from './amsgRetiredAutonomy';
 import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
 import { chatComposerWaitMs, COMPOSER_ACTIVITY_CHANGED } from './chatComposerActivity';
@@ -11,7 +13,7 @@ import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
 import { ActiveMsgStore } from './activeMsgStore';
 import { ActiveMsgClient, type AmsgOutboxEntry, type RemoteTaskStatus } from './activeMsgClient';
-import { allowCloudAmsgDelivery } from './unsolicitedDeliveryGate';
+import { allowCloudAmsgDelivery, isDiscretionaryCloudReconnect } from './unsolicitedDeliveryGate';
 import { AMSG_CHAT_FAIL_KEY, amsgStateNamespace, parseChatFailRecord } from './amsgFirePack';
 import {
   applyAssistantPostProcessing,
@@ -1655,6 +1657,19 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
           settleInstantChatApiLog(message.taskUuid, message.metadata);
         }
         continue;
+      }
+
+      if (message.source === 'scheduled' && isDiscretionaryCloudReconnect(message.metadata, message.messageType)) {
+        const recent = await DB.getRecentMessagesByCharId(message.charId, 40, true);
+        const userTurn = [...recent].reverse().find(isRealPersonUserStatement);
+        const sentAt = message.sentAt || message.receivedAt || Date.now();
+        // Also protect devices whose personal Worker still runs the older
+        // scheduler. A reconnect never interrupts a fresh user turn.
+        if (!userTurn || sentAt - userTurn.timestamp < AMSG_RECONNECT_QUIET_MS ||
+            recent.some(entry => entry.metadata?.realPersonContact === 'reconnect' &&
+              entry.timestamp > userTurn.timestamp && Math.abs(sentAt - entry.timestamp) < AMSG_RECONNECT_QUIET_MS)) {
+          continue;
+        }
       }
 
       // 'active-msg-received' 事件里的 sentAt 维持原口径（发送时刻优先）：

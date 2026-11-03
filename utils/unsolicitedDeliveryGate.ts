@@ -21,3 +21,11 @@ export function allowCloudAmsgDelivery(
         ['fixed', 'prompted', 'auto'].includes(message.messageType || '');
     return message.source !== 'scheduled' && !legacyScheduled;
 }
+
+/** Only tagged character-created generic contacts are subject to the reconnect window. */
+export function isDiscretionaryCloudReconnect(
+    metadata?: Record<string, unknown> | null,
+    mode = metadata?.amsgMode,
+): boolean {
+    return metadata?.amsgSelfScheduled === true && mode === 'auto';
+}

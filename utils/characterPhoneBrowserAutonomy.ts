@@ -70,7 +70,9 @@ export async function runCharacterPhoneBrowserAutonomy(
   if (locks.has(char.id)) return {status:'skipped',count:0,reason:'正在生成'};
   locks.add(char.id);
   const startRevision=readPhoneAutonomyRevision(char.id);
+  const dailyLimit = mode === 'background' ? 2 : 4;
   const stillAllowed=()=>mode!=='background'||(
+    document.visibilityState === 'visible' &&
     isCharacterPhoneAutonomyEnabled(char.id) &&
     readPhoneAutonomyPreferences(char.id).backgroundApiEnabled &&
     readPhoneAutonomyPreferences(char.id).browserAutoEnabled &&
@@ -79,7 +81,7 @@ export async function runCharacterPhoneBrowserAutonomy(
   const now=Date.now();
   try {
     const state=readState(char.id,now);
-    if (state.generated >= (mode==='background'?2:4) || state.attempts >= (mode==='background'?3:6) ||
+    if (state.generated >= dailyLimit || state.attempts >= (mode==='background'?3:6) ||
         now-state.lastAttemptAt < (mode==='background'?12*3600_000:90_000))
       return {status:'skipped',count:0,reason:'搜索冷却中或达到今日上限'};
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
@@ -126,10 +128,11 @@ export async function runCharacterPhoneBrowserAutonomy(
     // The user may have disabled background phone AI while this LLM was
     // in flight. Do not persist fabricated "already browsed" records.
     if (!stillAllowed())return {status:'skipped',count:0,reason:'后台浏览权限已变化'};
-    const allowId=new Set(confirmed.map(e=>e.id));
+    const retainedIds = new Set(readCharacterLifeEvents(char.id).map(event => event.id));
+    const allowId = new Set(confirmed.map(event => event.id).filter(id => retainedIds.has(id)));
     const saved:PhoneBrowserVisit[]=[];
     for(const item of data.records.slice(0,2)) {
-      if(state.generated + saved.length>=4) break;
+      if(state.generated + saved.length >= dailyLimit) break;
       const query=text(item?.query,100);
       const reason=text(item?.reason,300);
       const title=text(item?.title,100);

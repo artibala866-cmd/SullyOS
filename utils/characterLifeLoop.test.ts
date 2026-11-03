@@ -43,5 +43,7 @@ describe('character life loop invariants', () => {
     expect(classifyLifeActivity(currentLifeActivity(slots, at)?.activity || '')).toBe('busy');
     expect(currentLifeActivity(slots, new Date(2026, 9, 25, 1, 0).getTime())?.activity).toBe('睡觉');
     expect(getCurrentScheduleSlotIndex(slots, undefined, new Date(at))).toBe(1);
+    expect(classifyLifeActivity('午后休息一下')).toBe('free');
+    expect(classifyLifeActivity('夜间休息')).toBe('sleep');
   });
 });

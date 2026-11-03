@@ -27,7 +27,7 @@ export function getNaturalReplyDelay(characterId: string, now = getLifeTime()) {
 
 /** Derive availability from an existing schedule slot, without inventing activities. */
 export function classifyLifeActivity(activity: string): 'sleep' | 'busy' | 'free' {
-    if (/睡|休息|午睡|梦乡|就寝|入眠|sleep|nap|bedtime/i.test(activity)) return 'sleep';
+    if (/睡觉|睡眠|夜间休息|午睡|小睡|补觉|梦乡|就寝|入眠|^(?:睡|睡了)$|\b(?:sleep(?:ing)?|nap(?:ping)?|bedtime)\b/i.test(activity)) return 'sleep';
     if (/工作|上班|开会|学习|上课|考试|赶稿|忙|训练|排练|驾驶|手术|work|meeting|class|study/i.test(activity)) return 'busy';
     return 'free';
 }

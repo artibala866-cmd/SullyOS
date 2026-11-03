@@ -180,3 +180,25 @@ it.each(['none', 'new speech', 'revocation'])('delivers bubbles from one respons
   expect(DB.saveMessage).toHaveBeenCalledTimes(interruption === 'none' ? 2 : 1);
   expect(DB.deleteMessages).not.toHaveBeenCalled();
 });
+
+it('does not buy a reply for life material already discussed in this conversation', async () => {
+  history[1].content = '朋友在画室聊到了水彩纸。这个我们已经说过了。';
+  event = { ...event, id: 'already-discussed', summary: '朋友在画室聊到了水彩纸' };
+  recordCharacterLifeEvent(event);
+  const network = vi.fn();
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+});
+
+it('yields before API spend when the same character has an imminent cloud message', async () => {
+  char.activeMsg2Config!.tasks = [{
+    taskUuid: 'upcoming', clientTaskId: 'upcoming', source: 'user', expirePolicy: 'expire', createdAt: Date.now(),
+    firstSendTime: new Date(Date.now() + 30_000).toISOString(),
+    recurrenceType: 'none', status: 'scheduled', mode: 'prompted',
+  }];
+  const network = vi.fn();
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+});

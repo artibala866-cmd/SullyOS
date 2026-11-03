@@ -13,6 +13,8 @@ import { createReplyRun } from './chatReplyCancellation';
 import { acquireChatReply } from './chatReplyLock';
 import { chatComposerWaitMs, COMPOSER_ACTIVITY_CHANGED } from './chatComposerActivity';
 import { isPrivateChatBlocked, isRejectedPrivateMessage } from './chatBlock';
+import { currentOccurrenceMs, isPendingTask } from './amsg2Tasks';
+import { AMSG_RECONNECT_QUIET_MS } from './amsgFireSchedule';
 import { getInstantChatPending } from './amsgInstantChat';
 import { beginLocalChatGenerationLease, isLocalChatLeaseActive } from './amsgChatGenerationLease';
 import type { ApiCallMeta } from './apiCallLog';
@@ -20,7 +22,18 @@ import { extractContent, safeResponseJson } from './safeApi';
 
 const FRESH_EVENT_MS = 15 * 60_000;
 const MIN_QUIET_MS = 12 * 60_000;
-const LONG_QUIET_MS = 6 * 60 * 60_000;
+const CLOUD_COLLISION_WINDOW_MS = 2 * 60_000;
+
+function hasImminentCloudMessage(char: CharacterProfile | undefined, now: number, reconnect = false): boolean {
+  return char?.activeMsg2Config?.tasks?.some(task => {
+    if (!isPendingTask(task, now)) return false;
+    if (!reconnect && task.mode === 'auto' && task.source === 'character') return false;
+    const occurrence = currentOccurrenceMs(task, now);
+    return occurrence !== null && occurrence <= now + CLOUD_COLLISION_WINDOW_MS;
+  }) ?? false;
+}
+
+const normalizeContactText = (text: string) => text.normalize('NFKC').toLowerCase().replace(/[\p{P}\p{Z}\s]/gu, '');
 const running = new Map<string, () => void>();
 
 export function recheckRealPersonContacts(): void {
@@ -50,7 +63,10 @@ export function pickRealPersonContact(
       tail.metadata?.historyImported || tail.metadata?.importedFrom || tail.metadata?.aiPlaceholder ||
       tail.metadata?.chatBlockSendFailed ||
       !Number.isFinite(tail.timestamp) || now - tail.timestamp < MIN_QUIET_MS || event.occurredAt <= tail.timestamp) return null;
-  if (now - tail.timestamp >= LONG_QUIET_MS) return { kind: 'reconnect' as const, user, tail };
+  const material = normalizeContactText(event.summary);
+  if (material.length >= 8 && dialogue.slice(-12).some(message =>
+    normalizeContactText(message.content).includes(material))) return null;
+  if (now - tail.timestamp >= AMSG_RECONNECT_QUIET_MS) return { kind: 'reconnect' as const, user, tail };
   const analysis = analyzeRealPersonConversation(char.id, dialogue);
   if (analysis?.conversationAct === 'close' || /^(?:晚安|改天再聊|先休息吧)[。！!\s]*$/.test(tail.content.trim())) return null;
   const unresolvedTopic = analysis?.analyzable && analysis.subject.active &&
@@ -66,14 +82,13 @@ function decodeContact(raw: string, history: readonly Message[]): string[] {
   if (parsed?.action !== 'send') return [];
   const parts: unknown[] = Array.isArray(parsed.parts) ? parsed.parts : [parsed.text];
   if (parts.length < 1 || parts.length > 3) return [];
-  const normalized = (value: string) => value.normalize('NFKC').toLowerCase().replace(/[\p{P}\p{Z}\s]/gu, '');
-  const seen = new Set(history.filter(m => m.role === 'assistant').map(m => normalized(m.content)));
+  const seen = new Set(history.filter(m => m.role === 'assistant').map(m => normalizeContactText(m.content)));
   const bubbles: string[] = [];
   for (const part of parts) {
     if (typeof part !== 'string') return [];
     const text = part.trim();
     if (!text || text.length > 300 || /[<>\[\]{}\n]/.test(text)) return [];
-    const candidate = normalized(text);
+    const candidate = normalizeContactText(text);
     if (!candidate || /^(在吗|在干嘛|吃了吗|睡了吗|早安|晚安|我刚醒|我刚睡醒)$/.test(candidate) ||
         seen.has(candidate)) return [];
     seen.add(candidate);
@@ -128,9 +143,11 @@ export async function resumeRealPersonContact(input: Omit<Input, 'event'>): Prom
  * consumes the opportunity, so no delayed retry can turn silence into spam. */
 export async function considerRealPersonContact({ currentChar, user, apiConfig, event }: Input): Promise<void> {
   const id = event.characterId;
+  const revision = realPersonReplyRevision();
   const authorized = () => {
     const char = currentChar();
-    return canRealPersonContact(char) &&
+    return revision === realPersonReplyRevision() && canRealPersonContact(char) &&
+      isFreshContactEvidence(event, Date.now()) && !hasImminentCloudMessage(char, Date.now()) &&
       !isPrivateChatBlocked(char?.chatBlock) && !chatComposerWaitMs(id) && !getInstantChatPending(id) &&
       readCharacterLifeEvents(id).some(entry => entry.id === event.id && entry.summary === event.summary);
   };
@@ -179,7 +196,8 @@ export async function considerRealPersonContact({ currentChar, user, apiConfig, 
           DB.getRecentMessagesByCharId(id, 40, true),
           DB.getCharacter(id),
         ]));
-        if (!canRealPersonContact(persistedChar) || isPrivateChatBlocked(persistedChar?.chatBlock)) run.stop();
+        if (!canRealPersonContact(persistedChar) || hasImminentCloudMessage(persistedChar, Date.now(), chosen.kind === 'reconnect') ||
+            isPrivateChatBlocked(persistedChar?.chatBlock)) run.stop();
         check();
         run.check();
         if (lastDelivered !== undefined) {
@@ -200,7 +218,7 @@ export async function considerRealPersonContact({ currentChar, user, apiConfig, 
         signal: run.signal,
         __sullyMeta: {
           appName: '消息', charId: id, charName: char.name,
-          purpose: chosen.kind === 'follow-up' ? '真人感追话' : '真人感主动联系',
+          purpose: chosen.kind === 'follow-up' ? '真人感追话' : '主动消息·久未联系',
         },
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
         body: JSON.stringify({

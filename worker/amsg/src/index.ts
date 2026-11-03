@@ -100,6 +100,7 @@ import { buildFireTaskListBlock, currentOccurrenceMs, isPendingTask, shortTaskId
 import {
   AMSG_FIRE_CANCEL_TOOL,
   AMSG_FIRE_RENEW_TOOL,
+  AMSG_RECONNECT_QUIET_MS,
   AMSG_FIRE_SCHEDULE_TOOL,
   buildFireCancelTool,
   buildFireRenewTool,
@@ -157,6 +158,7 @@ import {
 } from '../../../utils/agenticToolFeedback';
 import { setProxyWorkerUrlOverride } from '../../../utils/proxyWorker';
 import { XhsMcpClient } from '../../../utils/xhsMcpClient';
+import { isDiscretionaryCloudReconnect } from '../../../utils/unsolicitedDeliveryGate';
 import { isRetiredAutonomyDelivery } from '../../../utils/amsgRetiredAutonomy';
 import { extractCloudPhoneReply } from '../../../utils/amsgCloudPhone';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
@@ -1802,6 +1804,7 @@ export const amsgHooks = {
     const taskPolicy = typeof taskMeta.amsgExpirePolicy === 'string'
       ? taskMeta.amsgExpirePolicy : undefined;
     const selfScheduled = taskMeta.amsgSelfScheduled === true;
+    const discretionaryReconnect = !instant && isDiscretionaryCloudReconnect(taskMeta);
     const recurring = ctx.task.recurrenceType === 'daily' || ctx.task.recurrenceType === 'weekly';
 
     // 副 API 凭据落地即取走：这一份 metadata 对象上游还要按引用往下传（onLLMOutput 的
@@ -1917,6 +1920,15 @@ export const amsgHooks = {
           latestUserAt,
         });
         throw new Error('AMSG2_CHAT_CONTEXT_STALE: 云端聊天正文尚未同步到用户最新发言；暂缓主动消息，等待重试，避免重复追问已聊过的话题');
+      }
+    }
+
+    // Auto is discretionary reconnection. Concrete reminders use prompted
+    // or fixed. Skip rather than queue a retry against a future conversation.
+    if (discretionaryReconnect) {
+      const userAt = pack.lastUserMessageAt;
+      if (userAt == null || !Number.isFinite(userAt) || nowMs - userAt < AMSG_RECONNECT_QUIET_MS) {
+        return { skip: true } as const;
       }
     }
 
@@ -2365,7 +2377,10 @@ export const amsgHooks = {
 
     // fire_pack v3：「本次任务」指令随任务 metadata 走，这里填槽。
     // MCP 块拼在渲染好的 prompt 之后（同一条 user 消息）。
-    const prompt = insertUserHolidayInProfile(renderFirePack(pack, ctx.now.getTime(), taskMeta.amsgTaskInstruction as string, {
+    const taskInstruction = discretionaryReconnect
+      ? '这次是久未联系后的重新开口。只有近期事实给了你具体理由才联系。尊重对方已经收尾的话题；没有理由就输出 [[SILENT]]。'
+      : taskMeta.amsgTaskInstruction as string;
+    const prompt = insertUserHolidayInProfile(renderFirePack(pack, ctx.now.getTime(), taskInstruction, {
       maxUnansweredSends,
       selfLog,
       taskListBlock,

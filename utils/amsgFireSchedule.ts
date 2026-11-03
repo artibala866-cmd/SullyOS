@@ -15,6 +15,8 @@ import { type AmsgTzRef, formatFireTimeShort, wallClockPartsInZone } from './ams
 import { wallClockToTimestamp } from './timezone';
 
 /** 与前台同名，故意的：见文件头。 */
+export const AMSG_RECONNECT_QUIET_MS = 6 * 60 * 60_000;
+
 export const AMSG_FIRE_SCHEDULE_TOOL = 'schedule_active_message';
 
 /** 取消 / 改期也开到 fire 侧（amsg-server 2.6.0-next.15 的 ctx.cancelTask / renewTask）。 */
@@ -51,18 +53,18 @@ const buildScheduleToolDescription = (context: 'chat' | 'fire') => [
   ...(context === 'chat'
     ? [
       '创建定时主动消息：到指定时间后，你会根据最新聊天上下文生成并推送消息给用户。',
-      '正在聊天时，你也可以因为惦记、想分享自己的生活、兑现承诺，给未来的自己排一次联系，不必等用户明确要求。',
+      '用 prompted 安排明确提醒或承诺；auto 只用于长时间未联系后有具体缘由的重新开口。',
     ]
     : [
       '给自己排下一条主动消息：到指定时间后你会再根据那时的上下文生成一条推送给用户。',
-      '你现在正在发一条主动消息，这个工具让你把话接着往下说——比如这条先说一半，过一两个小时再接上去；或者你说了要去做某件事，做完的时间点回来告诉用户。',
+      '仅为明确提醒或约定的后续安排 prompted。当前话题直接在本轮说完；auto 留给长时间未联系后的重新开口。',
     ]),
   '排下的这条到点时会知道你这次说了什么，能接得上，不用在参数里复述。',
   'send_at 是开始生成的时间，不是送达时间（生成有十几秒延迟），且必须至少比现在晚 1 分钟。',
   `一次最多排 ${MAX_FIRE_SCHEDULES} 条；每个角色同时挂的任务也有上限，排不下时会告诉你。`,
   context === 'chat'
     ? '未来那个时刻真的想联系就排，尊重用户的生活和「别打扰」，不要为了排而排。'
-    : '没有「接着说」的必要就别排——为了排而排出来的后续，用户读起来就是没话找话。',
+    : '没有明确事项或自然的重新联系理由就保持安静。',
 ].join('\n');
 
 export interface FireScheduleToolDef {
@@ -127,8 +129,8 @@ export const buildScheduleParameters = (opts: {
 
 const buildParameters = (example: string, abilities: SelfScheduleAbilities) => buildScheduleParameters({
   sendAtDescription: `开始生成的时间，写你本地的墙钟时间、不带时区后缀（如 ${example}），系统按你所在的时区理解。至少比当前时间晚 1 分钟。排之前先想想对方那边是几点——你们之间可能有时差，别把消息排到对方的深夜。`,
-  modeDescription: '生成模式。auto=到点根据那时的上下文自由发挥；prompted=围绕 prompt_hint 的方向说。默认 auto。',
-  promptHintDescription: '给未来那条消息的方向，如"接着刚才那只猫的话往下说""告诉他汤炖好了"。mode=prompted 时必填。',
+  modeDescription: '生成模式。auto=久未联系后的重新开口；prompted=有具体事项的提醒或承诺。默认 auto。',
+  promptHintDescription: '写明明确事项，如“提醒对方交画稿”。mode=prompted 时必填。',
   recurrenceDescription: '重复类型。none=一次性（默认）；daily/weekly=每天/每周同一时间。',
   abilities,
 });
@@ -197,13 +199,10 @@ export const buildFireRenewTool = (opts: FireScheduleTimeOpts): FireScheduleTool
 export const buildAmsg2ChatScheduleBrief = (targetName?: string): string => {
   const target = targetName?.trim() || '对方';
   return [
-    `你和${target}的联系不只发生在正在聊天的时候。你就是那个在各自生活继续往前时，仍会再次想起${target}的人。当你能预见：到了未来某个时刻，你会因为惦记、想分享、兑现承诺，或自己的生活有了新进展而自然想联系${target}，就用 schedule_active_message 把那次联系排下来。到点后你会带着最新上下文，以那一刻的自己重新开口，不是照着预写台词完成提醒。`,
-    `- ${target}接下来顾不上手机时——睡觉、上课、上班、打游戏、洗澡、出门，或任何你了解的原因——你可以在途中想到ta，也可以估着ta回来时再联系。`,
-    `- 内容不必总围着${target}转。结合刚才的聊天氛围、你自己的日程和正在经历的事、刚看到的细节和突然冒出的后续念头；分享自己的生活，往往比机械问候更像你。`,
-    '- 「到点叫你」「等你忙完跟你说」「回头告诉你结果」这类话一说出口，就当场排成真任务，不要只在正文里答应；没排成，就别把承诺说死。',
-    `- 只问自己：那个时刻的你会真的想联系${target}吗？会就排；只是随口一想、到时候未必真有话说的，就算了。也别为了显得贴心硬排。`,
-    `- 时间贴着${target}的生活估；一局游戏和睡到天亮不是一个时长，有时差就按ta那边的钟算。`,
-    `- ${target}明确说别打扰时就安静等；已经排着相近的一条，也别重复排。`,
+    `和${target}聊过的话题由当前对话接续。排程用于有具体时间和事项的提醒、兑现明确承诺，或长时间没有联系后的重新开口。`,
+    '有具体提醒或承诺时使用 prompted，并在 prompt_hint 写明事项。只有确实必须准点的事项才用 force。',
+    '没有具体事项的重新联系使用 auto；距对方最后一次发言至少六小时。短时间接话、追问当前话题、问候和生活报备不安排云端任务。',
+    '对方说别打扰、已经有相近的任务或没有具体缘由时保持安静。',
   ].join('\n');
 };
 
@@ -217,7 +216,7 @@ export const buildAmsg2ChatScheduleBrief = (targetName?: string): string => {
 export const buildFireScheduleBlock = (
   mode: 'native' | 'text',
   opts: FireScheduleTimeOpts & {
-    /** 普通聊天用共用的自主联系说明；定时触发保留「发完再接着说」语境。 */
+    /** 普通聊天和定时触发共用同一排程边界。 */
     context?: 'chat' | 'fire';
     targetName?: string;
     /** 「用户给你定的规矩」那一段（amsgLimits.buildLimitsBrief），接在块尾。 */
@@ -228,17 +227,12 @@ export const buildFireScheduleBlock = (
     ? `需要时通过系统的工具调用接口发起 ${AMSG_FIRE_SCHEDULE_TOOL}，不要把工具名和参数写进正文。`
     : `需要时单独输出一行 ${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"${
       buildSendAtExample(opts.nowMs, opts.tz)
-    }","prompt_hint":"接着说"})（send_at 写你本地的墙钟时间，不带时区后缀），系统会代为安排并把结果告诉你。`;
+    }","mode":"prompted","prompt_hint":"提醒交画稿"})（send_at 写你本地的墙钟时间，不带时区后缀），系统会代为安排并把结果告诉你。`;
   return [
     '',
     '---',
-    '【你可以给自己排下一条】',
-    ...(opts.context === 'chat'
-      ? [buildAmsg2ChatScheduleBrief(opts.targetName)]
-      : [
-        '这条消息发完，如果还有话要在之后某个时间点说（把没说完的接上去、或者去做的事做完了回来告诉他），',
-        '可以现在就把那一条排好——不需要用户在线，到点会自动发出去，而且那时你会知道自己这次说了什么。',
-      ]),
+    '【定时提醒和久未联系】',
+    buildAmsg2ChatScheduleBrief(opts.targetName),
     howTo,
     // 角色在 prompt 里只看得到自己那边的钟，很容易把「晚上聊两句」排到对方的凌晨三点。
     // 对方那边此刻几点写在【当前时刻补充】里（有时差时才有那一行）。
