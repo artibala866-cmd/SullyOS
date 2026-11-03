@@ -1,9 +1,9 @@
 import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
 import type { CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
 import { buildCharacterPhoneContext } from './characterPhoneContext';
+import { getPlannedAvailability } from './scheduleTime';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { getLastInnerState } from './emotionState';
-import { classifyLifeActivity } from './sullyLifeClock';
 import { readCharacterLifeEvents, recordCharacterLifeEvent } from './characterLifeEvents';
 import {
   getBaiduSearchUrl, readCharacterPhoneBrowserHistory,
@@ -85,8 +85,8 @@ export async function runCharacterPhoneBrowserAutonomy(
         now-state.lastAttemptAt < (mode==='background'?12*3600_000:90_000))
       return {status:'skipped',count:0,reason:'搜索冷却中或达到今日上限'};
     const life=await getCharacterLifeScheduleContext(char,new Date(now));
-    const lifeStatus=classifyLifeActivity(char.scheduleFeatureEnabled===false?'':(life.plannedActivity||''));
-    if (mode==='background' && (lifeStatus==='sleep' || lifeStatus==='busy'))
+    const lifeStatus = getPlannedAvailability(life);
+    if (mode==='background' && lifeStatus !== 'available')
       return {status:'skipped',count:0,reason:'角色现在不方便浏览'};
     const existing=readCharacterPhoneBrowserHistory(char.id);
     const recent = existing.filter(e=>e.actor==='char').slice(0,10)

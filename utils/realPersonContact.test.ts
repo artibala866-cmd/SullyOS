@@ -113,7 +113,7 @@ it('rejects empty greetings even when the model opts to send', async () => {
 });
 
 it('permits one continuation of an unfinished topic and respects the user ending the conversation', async () => {
-  history[0] = { ...history[0], content: '我还没想好该用什么纸，你觉得呢？', timestamp: Date.now() - 30 * 60_000 - 1000 };
+  history[0] = { ...history[0], content: '我还没想好该用什么水彩纸，你觉得呢？', timestamp: Date.now() - 30 * 60_000 - 1000 };
   history[1] = { ...history[1], content: '我想一想。', timestamp: Date.now() - 30 * 60_000 };
   const network = vi.fn().mockResolvedValue(answer('刚想到可以先拿同一种颜料试试两张纸。'));
   vi.stubGlobal('fetch', network);
@@ -197,6 +197,17 @@ it('yields before API spend when the same character has an imminent cloud messag
     firstSendTime: new Date(Date.now() + 30_000).toISOString(),
     recurrenceType: 'none', status: 'scheduled', mode: 'prompted',
   }];
+  const network = vi.fn();
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+});
+
+it('keeps an unfinished topic quiet when a new life event is unrelated', async () => {
+  history[0] = { ...history[0], content: '水彩纸要用哪种纹理？', timestamp: Date.now() - 30 * 60_000 - 1000 };
+  history[1] = { ...history[1], content: '我想一想。', timestamp: Date.now() - 30 * 60_000 };
+  event = { ...event, id: 'unrelated', kind: 'activity', summary: '整理了橱柜里的咖啡杯' };
+  recordCharacterLifeEvent(event);
   const network = vi.fn();
   vi.stubGlobal('fetch', network);
   await considerRealPersonContact(input());

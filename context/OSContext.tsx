@@ -53,8 +53,8 @@ import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
 import { collectLegacyPhoneBackup, restoreLegacyPhoneBackup } from '../utils/phoneLegacyBackup';
 import { findPhoneAutonomyOpportunity, isPhoneAutonomyLifeEvidence, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
 import { CHARACTER_PHONE_CHATS_CHANGED } from '../utils/characterPhoneChats';
+import { getPlannedAvailability } from '../utils/scheduleTime';
 import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleContext';
-import { classifyLifeActivity } from '../utils/sullyLifeClock';
 import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences } from '../utils/characterPhoneApiBudget';
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, isMomentReactionOpportunity, type CharacterMomentChangeDetail } from '../utils/characterPhoneMoments';
@@ -2529,7 +2529,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // A scheduled activity is not evidence of a completed event.
               if (char.scheduleFeatureEnabled !== false) {
                   const life = await getCharacterLifeScheduleContext(char, new Date());
-                  if (classifyLifeActivity(life.plannedActivity || '') === 'sleep') return;
+                  if (['asleep', 'offline'].includes(getPlannedAvailability(life))) return;
               }
               const autoSuite = readPhoneInboxPreferences(char.id).autoFullWeChat;
               // Pending speech needs only the existing NPC reply controller.

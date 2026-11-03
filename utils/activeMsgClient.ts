@@ -801,6 +801,8 @@ export const buildFirePack = async (
             ...(s.emoji ? { emoji: s.emoji } : {}),
             ...(s.location ? { location: s.location } : {}),
             ...(s.innerThought ? { innerThought: s.innerThought } : {}),
+            ...(s.availability ? { availability: s.availability } : {}),
+            ...(s.steps?.length ? { steps: s.steps } : {}),
           })),
           ...(schedule.flowNarrative ? { flowNarrative: schedule.flowNarrative } : {}),
         },

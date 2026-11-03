@@ -1,11 +1,11 @@
 import '../components/chat/WeixinOriginalAssets.css';
-import { readLifeClock, writeLifeClock, getLifeTime, classifyLifeActivity } from '../utils/sullyLifeClock';
+import { readLifeClock, writeLifeClock, getLifeTime } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
 import { resolveRealPersonAttention } from '../utils/realPersonReplyRhythm';
 import { findPendingUserTurn } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { isRealPersonAutoReplyAuthorized, setRealPersonModeEnabled, shouldAutoReplyToUser, REAL_PERSON_MODE_CHANGED_EVENT, REAL_PERSON_MODE_KEY } from '../utils/realPersonMode';
-import { getCurrentScheduleActivity, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
+import { getScheduleWallClock, resolveSchedulePhase, parseScheduleStartMinutes, sortScheduleSlots } from '../utils/scheduleTime';
 import {homePhoneAppearance,HOME_PHONE_BUBBLES} from './room3d/homePhoneAppearance';
 
 import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellation';
@@ -223,10 +223,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 const schedule = await getDailyScheduleForChar(target, at);
                 if (!cancelled && request === latestRequest) {
                     // One instant for the role-local day and slot. No current slot means unknown.
-                    const activity = schedule ? getCurrentScheduleActivity(schedule.slots, target, at) : null;
+                    const status = schedule ? resolveSchedulePhase(schedule.slots, getScheduleWallClock(target, at)).availability : null;
                     setLifeActivityState({
                         characterId: target.id,
-                        activity: activity ? classifyLifeActivity(activity) : null,
+                        activity: status === 'asleep' ? 'sleep' : status === 'available' ? 'free' : status ? 'busy' : null,
                     });
                 }
             } catch {

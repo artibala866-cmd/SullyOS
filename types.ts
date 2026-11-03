@@ -746,7 +746,17 @@ export interface SlotTheater {
     generatedAt: number;
 }
 
+export type ScheduleAvailability = 'available' | 'focused' | 'away' | 'offline' | 'asleep';
+
+export interface ScheduleStep {
+    startTime: string;
+    activity: string;
+    availability?: ScheduleAvailability;
+}
+
 export interface ScheduleSlot {
+    availability?: ScheduleAvailability;
+    steps?: ScheduleStep[];
     startTime: string;    // "08:00"
     activity: string;     // "晨跑"
     description?: string; // "在河边慢跑"

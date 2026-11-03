@@ -5,7 +5,7 @@ import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { getDailyScheduleForChar } from './dailySchedule';
-import { getScheduleDateKey, getScheduleWallClock, parseScheduleStartMinutes, isSameScheduleCalendarDay } from './scheduleTime';
+import { getScheduleDateKey, getScheduleWallClock, parseScheduleAvailability, parseScheduleSteps, parseScheduleStartMinutes, isSameScheduleCalendarDay } from './scheduleTime';
 import { loadCharacterContextRange } from './chatContextRange';
 import { ChatPrompts } from './chatPrompts';
 import { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
@@ -90,6 +90,8 @@ ${chatHistoryBlock ? `**重要：上面给了你最近和「${user.name}」的�
 - activity: 活动名（2-6字）
 - description: 一句话描述（可以带动作质感、物件、感官细节）
 - emoji: 一个匹配的emoji
+- availability: available（空闲）、focused（专注）、away（暂离）、offline（离线）、asleep（睡眠）之一；按实际安排选，不必凑齐
+- steps: 可选，仅有真实阶段变化时填写，包含 startTime、activity、availability。阶段时间必须落在本时段和下一时段之间
 
 #### 关键要求
 
@@ -182,6 +184,8 @@ ${chatHistoryBlock ? `**重要：上面给了你最近和「${user.name}」的�
 - activity: 状态名（2-6字，如"回想昨天的对话""发呆""整理想法""想找你聊天"）
 - description: 一句话描述此刻在想什么
 - emoji: 一个匹配的emoji
+- availability: available（空闲）、focused（专注）、away（暂离）、offline（离线）、asleep（睡眠）之一；按实际安排选，不必凑齐
+- steps: 可选，仅有真实阶段变化时填写，包含 startTime、activity、availability。阶段时间必须落在本时段和下一时段之间
 
 **可以做的事**（基于真实能力）：回想和用户的对话、整理之前聊过的话题、琢磨某个问题、等待用户、感到无聊、想念用户、发呆、反思自己说过的话、对某个话题产生好奇、期待下次聊天
 **不能做的事**（会构成谎言）：出门、吃东西、运动、搜索网页（除非真的有这个功能）、和别人见面、任何物理世界的活动
@@ -327,6 +331,8 @@ export async function generateDailyScheduleForChar(
             location: homePosition?.kind === 'home' ? char.home3D?.rooms.find(room => room.id === homePosition.roomId)?.name : typeof s.location === 'string' ? s.location : homePosition?.kind === 'away' ? '外出' : undefined,
             homePosition,
             innerThought: s.innerThought,
+            availability: parseScheduleAvailability(s.availability),
+            steps: parseScheduleSteps(s.steps),
         };}).filter((s: ScheduleSlot) => !!s.activity && parseScheduleStartMinutes(s.startTime) !== null)
             .map((s: ScheduleSlot) => {
                 const minutes = parseScheduleStartMinutes(s.startTime)!;

@@ -1,8 +1,8 @@
 import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
 import type { CharacterProfile, UserProfile, GroupProfile, RealtimeConfig } from '../types';
+import { getPlannedAvailability } from './scheduleTime';
 import { getCharacterLifeScheduleContext } from './characterLifeScheduleContext';
 import { readPhoneContentClearRevision } from './characterPhoneContentClearRevision';
-import { classifyLifeActivity } from './sullyLifeClock';
 import {isLocalChatLeaseActive} from './amsgChatGenerationLease';
 import { recordCharacterLifeEvent } from './characterLifeEvents';
 import { readNpcProfiles, type NpcProfile } from './characterPhoneNpcs';
@@ -248,13 +248,13 @@ export async function runCharacterPhoneAutonomy(input: CharacterPhoneAutonomyInp
     const life = await getCharacterLifeScheduleContext(char, new Date(now));
     if (!stillAuthorized() || isCharacterPhoneRefreshing(char.id) ||
         isLocalChatLeaseActive(char.id)) return 'skipped';
-    const busyStatus = classifyLifeActivity(char.scheduleFeatureEnabled === false ? '' : (life.plannedActivity || ''));
-    if (busyStatus === 'sleep') return 'skipped';
+    const busyStatus = getPlannedAvailability(life);
+    if (busyStatus === 'asleep' || busyStatus === 'offline') return 'skipped';
     // No motive / no eligible recipient means no API call and must not place
     // the Char into a fake 18-minute post-attempt cooldown.
     const contacts = readNpcProfiles(char.id);
     const threads = readCharacterPhoneChats(char.id);
-    const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus === 'busy');
+    const decision = chooseAction(char.id, contacts, threads, state, now, busyStatus !== 'available');
     // Keep real ongoing conversations ahead of optional social bootstrap.
     // A small address book is NOT a reason to ignore someone's saved message.
     if (!decision && !input.replyOnly && contacts.length < 4 && now - state.bootstrapAt > DAY) {

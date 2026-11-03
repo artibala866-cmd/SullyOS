@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { DailySchedule, ScheduleSlot, CharacterProfile, OSTheme } from '../../types';
-import { getCurrentScheduleSlotIndex, getScheduleWallClock } from '../../utils/scheduleTime';
+import { getCurrentScheduleSlotIndex, getScheduleWallClock, parseScheduleAvailability, parseScheduleSteps, parseScheduleStartMinutes, resolveSchedulePhase, SCHEDULE_AVAILABILITY_LABELS } from '../../utils/scheduleTime';
 import { resolveCharTimeZone, tzShortLabel } from '../../utils/timezone';
 import { useOS } from '../../context/OSContext';
 import { resolveScheduleCardPalette } from '../../utils/scheduleAppearance';
@@ -64,6 +64,9 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
     const [editTime, setEditTime] = useState('');
     const [editActivity, setEditActivity] = useState('');
     const [editDesc, setEditDesc] = useState('');
+    const [editAvailability, setEditAvailability] = useState('');
+    const [editSteps, setEditSteps] = useState('');
+    const [stepError, setStepError] = useState(false);
     const [editEmoji, setEditEmoji] = useState('');
     const [editHomePosition, setEditHomePosition] = useState('');
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +105,7 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
 
     const tickingNow = useTickingNow(previewNow);
     const wallClock = getScheduleWallClock(character, tickingNow);
+    const phase = schedule ? resolveSchedulePhase(schedule.slots, wallClock) : null;
     const currentIdx = schedule ? getCurrentScheduleSlotIndex(schedule.slots, character, tickingNow) : -1;
     // 角色设了自己的时区时，上面那个钟走的是 ta 那边的时间——标出地名，
     // 免得用户拿它当自己的手机时间读。
@@ -118,13 +122,41 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
         setEditTime(slot.startTime);
         setEditActivity(slot.activity);
         setEditDesc(slot.description || '');
+        setEditAvailability(parseScheduleAvailability(slot.availability) ?? '');
+        setEditSteps((parseScheduleSteps(slot.steps) ?? []).map(step =>
+            [step.startTime, step.activity, step.availability ? SCHEDULE_AVAILABILITY_LABELS[step.availability] : ''].join(' | ')).join('\n'));
+        setStepError(false);
         setEditHomePosition(slot.homePosition?.kind === 'away' ? '__away' : slot.homePosition?.kind === 'home' ? slot.homePosition.roomId : '');
         setEditEmoji(slot.emoji || '');
     };
 
     const saveEdit = () => {
         if (editingIdx !== null && onEdit) {
+            const lines = editSteps.split('\n').filter(line => line.trim());
+            const steps = lines.map(line => {
+                const [startTime, activity, label = ''] = line.split('|').map(part => part.trim());
+                return { startTime, activity, label, availability: Object.keys(SCHEDULE_AVAILABILITY_LABELS).find(
+                    key => SCHEDULE_AVAILABILITY_LABELS[parseScheduleAvailability(key)!] === label) };
+            });
+            const start = parseScheduleStartMinutes(editTime);
+            const next = Math.min(1440, ...(schedule?.slots.flatMap((slot, index) => {
+                const minute = parseScheduleStartMinutes(slot.startTime);
+                return index !== editingIdx && start !== null && minute !== null && minute > start ? [minute] : [];
+            }) ?? []));
+            if (lines.length > 6 || steps.some(step => {
+                const minute = parseScheduleStartMinutes(step.startTime);
+                return start === null || minute === null || minute < start || minute >= next ||
+                    !step.activity || (!!step.label && !step.availability);
+            })) {
+                setStepError(true);
+                return;
+            }
+            const original = schedule?.slots[editingIdx];
             onEdit(editingIdx, {
+                ...original,
+                theater: original?.activity === editActivity && original.description === (editDesc || undefined) ? original.theater : undefined,
+                availability: parseScheduleAvailability(editAvailability),
+                steps: parseScheduleSteps(steps),
                 startTime: editTime,
                 activity: editActivity,
                 description: editDesc || undefined,
@@ -272,6 +304,7 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
                     ) : schedule && schedule.slots.length > 0 ? (
                         schedule.slots.map((slot, idx) => {
                             const isCurrent = idx === currentIdx;
+                            const availability = isCurrent ? phase?.availability : parseScheduleAvailability(slot.availability);
                             const isPast = currentIdx >= 0 && idx < currentIdx;
                             const isFuture = !isPast && !isCurrent; // 还没到的时段：按钮灰着，点了给提示
                             const isEditing = editingIdx === idx;
@@ -305,6 +338,14 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
                                             placeholder="描述 (可选)"
                                             className="w-full bg-white/10 rounded-lg px-2 py-1 text-xs border border-white/10 focus:outline-none opacity-70"
                                         />
+                                        <select aria-label="时段状态" value={editAvailability} onChange={e => setEditAvailability(e.target.value)} className="w-full text-slate-800 bg-white rounded-lg px-2 py-2 text-xs mt-2">
+                                            <option value="">随活动判断</option>
+                                            {Object.entries(SCHEDULE_AVAILABILITY_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                                        </select>
+                                        <textarea aria-label="时段内阶段" value={editSteps} onChange={e => { setEditSteps(e.target.value); setStepError(false); }}
+                                            placeholder="可选阶段，每行：14:30 | 改线稿 | 专注" rows={2}
+                                            className="w-full bg-white/10 rounded-lg px-2 py-1 text-xs border border-white/10 mt-2" />
+                                        {stepError && <p role="alert" className="text-xs text-rose-400">阶段须在本时段内，每行填写时间、活动和可选状态，最多六条。</p>}
                                         {!!character?.home3D?.rooms.length && <select aria-label="日程所在房间" value={editHomePosition} onChange={event => setEditHomePosition(event.target.value)} className="w-full text-slate-800 bg-white rounded-lg px-2 py-2 text-xs mt-2"><option value="">位置待补全</option><option value="__away">外出</option>{character.home3D.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select>}
                                         <div className="flex gap-2 mt-2">
                                             <button onClick={saveEdit} className="text-[10px] font-bold px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">保存</button>
@@ -375,6 +416,10 @@ export const ScheduleCardView: React.FC<ScheduleCardProps & {theme:OSTheme;previ
                                         <div className="flex items-center gap-1.5">
                                             {slot.emoji && <span className="text-sm flex-shrink-0">{slot.emoji}</span>}
                                             <span className="sully-schedule-activity text-sm font-bold">{slot.activity}</span>
+                                            {idx === currentIdx && phase?.step && <span className="text-[10px] opacity-70">{phase.step.activity}</span>}
+                                            {availability && (
+                                                <span className="text-[10px] opacity-60">计划 · {SCHEDULE_AVAILABILITY_LABELS[availability]}</span>
+                                            )}
                                         </div>
                                         {slot.homePosition && <p className="text-[11px] opacity-60 mt-1">{homePositionLabel(slot, character)}</p>}
                                         {slot.description && (

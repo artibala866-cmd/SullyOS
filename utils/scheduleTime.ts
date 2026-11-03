@@ -1,4 +1,5 @@
-import type { CharacterProfile, ScheduleSlot } from '../types';
+import type { CharacterProfile, ScheduleAvailability, ScheduleSlot, ScheduleStep } from '../types';
+import { classifyLifeActivity } from './sullyLifeClock';
 import { getLocalDateKey } from './localDate';
 import { nowInTimeZone, resolveCharTimeZone } from './timezone';
 
@@ -73,3 +74,52 @@ export const getCurrentScheduleActivity = (
     const activity = index >= 0 ? slots[index]?.activity?.trim() : '';
     return activity || null;
 };
+
+export const SCHEDULE_AVAILABILITY_LABELS: Record<ScheduleAvailability, string> = {
+    available: '空闲', focused: '专注', away: '暂离', offline: '离线', asleep: '睡眠',
+};
+
+export function parseScheduleAvailability(value: unknown): ScheduleAvailability | undefined {
+    return typeof value === 'string' && Object.hasOwn(SCHEDULE_AVAILABILITY_LABELS, value)
+        ? value as ScheduleAvailability : undefined;
+}
+
+export function parseScheduleSteps(value: unknown): ScheduleStep[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const steps: ScheduleStep[] = [];
+    for (const row of value.slice(0, 6)) {
+        if (!row || parseScheduleStartMinutes(row.startTime) === null ||
+            typeof row.activity !== 'string' || !row.activity.trim()) continue;
+        steps.push({ startTime: row.startTime.trim(), activity: row.activity.trim().slice(0, 80),
+            availability: parseScheduleAvailability(row.availability) });
+    }
+    return steps.length ? steps : undefined;
+}
+
+/** Resolve one block and its live step using the same role-local wall clock. */
+export function resolveSchedulePhase(slots: ScheduleSlot[], wallClock: Date) {
+    const minute = wallClock.getHours() * 60 + wallClock.getMinutes();
+    const timeline = sortScheduleSlots(slots).filter(slot => parseScheduleStartMinutes(slot.startTime) !== null);
+    const next = timeline.find(slot => parseScheduleStartMinutes(slot.startTime)! > minute);
+    const block = [...timeline].reverse().find(slot => parseScheduleStartMinutes(slot.startTime)! <= minute);
+    if (!block) return { block, step: undefined, next, availability: null };
+    const start = parseScheduleStartMinutes(block.startTime)!;
+    const end = next ? parseScheduleStartMinutes(next.startTime)! : 1440;
+    const step = parseScheduleSteps(block.steps)?.filter(row => {
+        const at = parseScheduleStartMinutes(row.startTime)!;
+        return at >= start && at < end && at <= minute;
+    }).sort((a, b) => parseScheduleStartMinutes(a.startTime)! - parseScheduleStartMinutes(b.startTime)!).at(-1);
+    const inferred = classifyLifeActivity(step?.activity ?? block.activity);
+    const availability = step?.availability ?? parseScheduleAvailability(block.availability)
+        ?? (inferred === 'sleep' ? 'asleep' : inferred === 'busy' ? 'focused' : 'available');
+    return { block, step, next, availability };
+}
+
+export function getPlannedAvailability(life: {
+    plannedAvailability?: ScheduleAvailability | null;
+    plannedActivity: string | null;
+}): ScheduleAvailability {
+    if (life.plannedAvailability) return life.plannedAvailability;
+    const legacy = classifyLifeActivity(life.plannedActivity ?? '');
+    return legacy === 'sleep' ? 'asleep' : legacy === 'busy' ? 'focused' : 'available';
+}
