@@ -51,7 +51,7 @@ import { runCharacterPhoneSelfAutonomy } from '../utils/characterPhoneSelfProfil
 import { resolveCharacterPhoneApi } from '../utils/characterPhoneApiConfig';
 import { readPhoneInboxPreferences } from '../utils/characterPhoneInboxPrefs';
 import { collectLegacyPhoneBackup, restoreLegacyPhoneBackup } from '../utils/phoneLegacyBackup';
-import { findPhoneAutonomyOpportunity, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
+import { findPhoneAutonomyOpportunity, isPhoneAutonomyLifeEvidence, markPhoneAutonomyOpportunityAttempt } from '../utils/characterPhoneOpportunity';
 import { CHARACTER_PHONE_CHATS_CHANGED } from '../utils/characterPhoneChats';
 import { getCharacterLifeScheduleContext } from '../utils/characterLifeScheduleContext';
 import { classifyLifeActivity } from '../utils/sullyLifeClock';
@@ -59,7 +59,7 @@ import { canUsePhoneApiBudget, readPhoneApiBudget, readPhoneAutonomyPreferences 
 import { runCharacterMomentInteractionAutonomy } from '../utils/characterMomentInteractionAutonomy';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, isMomentReactionOpportunity, type CharacterMomentChangeDetail } from '../utils/characterPhoneMoments';
 import { considerAutonomousNpcMoments } from '../utils/refreshNpcMoments';
-import { CHARACTER_LIFE_EVENTS_CHANGED, recordCharacterLifeEvent } from '../utils/characterLifeEvents';
+import { CHARACTER_LIFE_EVENTS_CHANGED } from '../utils/characterLifeEvents';
 import { getLifeEventConsumers, shouldDispatchLifeEvent } from '../utils/characterLifeEventRouting';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
 import { runWorldEpisode, rerollWorldCharBeat } from '../utils/worldHome/engine';
@@ -1922,22 +1922,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let awayActiveMsgCount = 0;
 
       const handler = (e: Event) => {
-          const { charId, charName, body, messageId, source, sentAt } = (e as CustomEvent).detail as {
-              charId: string; charName: string; body?: string; messageId?: string;
-              source?: string; sentAt?: number;
-          };
+          const { charId, charName } = (e as CustomEvent<{ charId: string; charName: string }>).detail;
           setLastMsgTimestamp(Date.now());
-          // This event is fired only after a scheduled AMSG message has landed
-          // in private-chat storage. Instant replies are not proactive life events.
-          if (source === 'scheduled' && charId && messageId && typeof body === 'string' && body.trim()) {
-              recordCharacterLifeEvent({
-                  id: 'amsg2:' + messageId, characterId: charId, kind: 'proactive-message',
-                  occurredAt: Number.isFinite(sentAt) && (sentAt as number) <= Date.now() ? sentAt as number : Date.now(),
-                  source: 'amsg2', relatedMessageId: messageId,
-                  summary: (charName || '角色') + ' 已主动给 User 发消息：' + body.slice(0, 400),
-              });
-          }
-
           const isChattingWithThisChar = (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) || isEmbeddedChatVisible(charId);
           if (!isChattingWithThisChar) {
               const isVisible = document.visibilityState === 'visible';
@@ -2532,7 +2518,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!char) return;
           if (!isCharacterPhoneAutonomyEnabled(char.id) || !canUsePhoneApiBudget(char.id)) return;
           // The polling clock is never a social motive. Require a saved life
-          // event (including AMSG) or an actual unanswered NPC message.
+          // event or an actual unanswered NPC message.
           const opportunity = findPhoneAutonomyOpportunity(char.id);
           if (!opportunity) return;
           const api = resolveCharacterPhoneApi(char.id, resolveDialogueApi(apiConfigRef.current, char));
@@ -2614,7 +2600,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               void runCharacterMomentInteractionAutonomy({char, api});
           }, 15_000));
       };
-      // A confirmed AMSG/real-life event is a reason to CHECK for a phone
+      // A confirmed life activity is a reason to check for a phone
       // opportunity, not permission to fabricate NPC activity. Keep it inside
       // the existing budgeted foreground runner, with one coalesced wake/Char.
       const wakeForEvidence = (charId: string) => {
@@ -2633,7 +2619,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const detail = (event as CustomEvent<{characterId?:string;eventId?:string;pruned?:boolean}>).detail;
           if (!detail?.characterId || !detail.eventId || detail.pruned) return;
           const evidence = readCharacterLifeEvents(detail.characterId).find(e => e.id === detail.eventId);
-          if (!evidence || evidence.source === 'phone') return;
+          if (!evidence || !isPhoneAutonomyLifeEvidence(evidence)) return;
           wakeForEvidence(detail.characterId);
       };
       const onPhoneChatsChanged = (event: Event) => {

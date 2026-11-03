@@ -18,7 +18,7 @@ const MIN_DECISION_GAP = 6 * 60 * 60 * 1000;
 const MIN_POST_GAP = 12 * 60 * 60 * 1000;
 const EVENT_MAX_AGE = 72 * 60 * 60 * 1000;
 const locks = new Set<string>();
-const validKinds = new Set<CharacterLifeEvent['kind']>(['npc-chat', 'market-purchase', 'proactive-message', 'activity']);
+const validKinds = new Set<CharacterLifeEvent['kind']>(['npc-chat', 'market-purchase', 'activity']);
 
 export interface MomentAutonomyState { lastDecisionAt: number; lastPostAt: number; seenEventIds: string[] }
 function readState(id: string): MomentAutonomyState {

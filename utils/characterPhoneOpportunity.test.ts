@@ -13,15 +13,11 @@ describe('foreground phone opportunities (budget is not a scheduler)', () => {
     expect(findPhoneAutonomyOpportunity('char', now)).toBeNull();
   });
 
-  it('accepts a confirmed AMSG life event once, without changing its destination', () => {
+  it('keeps a confirmed AMSG delivery out of phone generation', () => {
     expect(recordCharacterLifeEvent({
       id: 'amsg-1', characterId: 'char', kind: 'proactive-message',
       source: 'amsg2', occurredAt: now - 1000, summary: 'Char sent User a message',
     })).toBe(true);
-    expect(findPhoneAutonomyOpportunity('char', now)).toEqual({
-      key:'event:amsg-1', kind:'life-event', eventKind:'proactive-message',
-    });
-    expect(markPhoneAutonomyOpportunityAttempt('char','event:amsg-1')).toBe(true);
     expect(findPhoneAutonomyOpportunity('char',now)).toBeNull();
   });
 
@@ -60,7 +56,7 @@ describe('foreground phone opportunities (budget is not a scheduler)', () => {
     expect(pending?.kind).toBe('unanswered-npc');
     expect(pending?.key.startsWith('reply:')).toBe(true);
     expect(markPhoneAutonomyOpportunityAttempt('char',pending!.key)).toBe(true);
-    expect(findPhoneAutonomyOpportunity('char',now)?.key).toBe('event:amsg-2');
+    expect(findPhoneAutonomyOpportunity('char',now)).toBeNull();
   });
 
   it('never mistakes unknown/service contacts or an already answered thread for new motivation', () => {

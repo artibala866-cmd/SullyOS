@@ -3,14 +3,14 @@
  * A budget tier is a ceiling, never the reason a character starts acting.
  * Actual phone actions still use their original controllers and data stores.
  */
-import { readCharacterLifeEvents } from './characterLifeEvents';
+import { readCharacterLifeEvents, type CharacterLifeEvent } from './characterLifeEvents';
 import { readCharacterPhoneChats } from './characterPhoneChats';
 import { readNpcProfiles } from './characterPhoneNpcs';
 
 export type PhoneAutonomyOpportunity = {
   key: string;
   kind: 'unanswered-npc' | 'life-event';
-  eventKind?: 'proactive-message' | 'activity' | 'market-purchase';
+  eventKind?: 'activity' | 'market-purchase';
 };
 const SEEN_PREFIX = 'sully_phone_opportunity_seen_v1:';
 const MAX_EVENT_AGE_MS = 12 * 60 * 60_000;
@@ -25,11 +25,12 @@ function readSeen(charId: string): string[] {
   } catch { return []; }
 }
 
-/** Only saved, grounded reasons are eligible; a periodic timer is not a reason. */
-/** Optionally restrict the NPC set for cloud piggyback. A linked real Char or
- * service conversation must not mask a later eligible fictional NPC reply.
- * Foreground callers without a filter keep their established behavior.
- */
+export function isPhoneAutonomyLifeEvidence(event: CharacterLifeEvent): event is CharacterLifeEvent & { kind: 'activity' | 'market-purchase' } {
+  return event.source !== 'phone' && event.source !== 'amsg2' &&
+    (event.kind === 'activity' || event.kind === 'market-purchase');
+}
+
+/** Use saved evidence and optionally limit NPC replies to eligible contacts. */
 export function findPhoneAutonomyOpportunity(
   charId: string, now = Date.now(), eligibleContactIds?: ReadonlySet<string>,
 ): PhoneAutonomyOpportunity | null {
@@ -58,8 +59,7 @@ export function findPhoneAutonomyOpportunity(
 
   const events = readCharacterLifeEvents(charId);
   for (const event of events) {
-    if (event.source === 'phone' ||
-        (event.kind !== 'proactive-message' && event.kind !== 'activity' && event.kind !== 'market-purchase')) continue;
+    if (!isPhoneAutonomyLifeEvidence(event)) continue;
     const age = now - event.occurredAt;
     const key = 'event:' + event.id;
     if (age >= 0 && age <= MAX_EVENT_AGE_MS && !seen.has(key))

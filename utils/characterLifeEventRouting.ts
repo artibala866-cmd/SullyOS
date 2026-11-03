@@ -7,7 +7,7 @@ export type LifeEventConsumer = 'moments' | 'memo';
 const ROUTES: Partial<Record<CharacterLifeEventKind, readonly LifeEventConsumer[]>> = {
   'npc-chat': ['moments', 'memo'],
   'market-purchase': ['moments', 'memo'],
-  'proactive-message': ['moments', 'memo'],
+  // Delivery receipts are history. They do not authorize more phone work.
   'activity': ['moments', 'memo'],
   'contact-added': ['memo'],
   'moment-comment': [],

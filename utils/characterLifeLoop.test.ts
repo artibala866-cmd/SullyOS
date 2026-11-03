@@ -23,9 +23,10 @@ describe('character life loop invariants', () => {
 
   it('does not route future events, other characters, or published posts into reactive loops', () => {
     const now = Date.now();
-    const message = { characterId: 'char-a', kind: 'proactive-message' as const,
-      occurredAt: now, summary: '已给User发了一条主动消息' };
+    const message = { characterId: 'char-a', kind: 'activity' as const,
+      occurredAt: now, summary: '已记录活动' };
     expect(shouldDispatchLifeEvent(message, 'char-a', now)).toBe(true);
+    expect(shouldDispatchLifeEvent({ ...message, kind: 'proactive-message' }, 'char-a', now)).toBe(false);
     expect(shouldDispatchLifeEvent(message, 'char-b', now)).toBe(false);
     expect(shouldDispatchLifeEvent({ ...message, occurredAt: now + 1000 }, 'char-a', now)).toBe(false);
     expect(shouldDispatchLifeEvent({ ...message, kind: 'moment-post' }, 'char-a', now)).toBe(false);
