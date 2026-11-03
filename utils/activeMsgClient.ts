@@ -1,6 +1,5 @@
 import { readCharacterLifeEvents } from './characterLifeEvents';
 import { readNpcProfiles } from './characterPhoneNpcs';
-import { safelySelectCloudPhoneOpportunity } from './amsgCloudPhoneSelection';
 import { resolveDialogueApi } from './characterApi';
 import { stoppedReplyStateEntries } from './amsgStoppedReplyClient';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -9,8 +8,6 @@ import { userBlocksCharacter } from './chatBlock';
 import { buildPrivateChatBlockHistoryContext } from './chatBlockAI';
 import { ReiClient } from '@rei-standard/amsg-client';
 import { createCloudDataSession } from './amsgCloudData';
-import {autonomyWakeUuid} from './amsgAutonomyIdentity';
-import { isRealPersonModeEnabled, REAL_PERSON_AUTONOMY_INSTRUCTION } from './realPersonMode';
 import { captureCloudOwnerGenerations, rememberCloudOwnerGeneration, stampCloudWrite, captureCloudWriteCheck, invalidateCloudOwnerWrites } from './amsgCloudOwnerGeneration';
 import {
   ActiveMsg2CharacterConfig,
@@ -955,7 +952,7 @@ export const buildFirePack = async (
     phoneSocialContacts,
     // Explicit phone piggyback opt-in only. Never upload the NPC private
     // inbox to the Worker just because ordinary AMSG 2.0 was enabled.
-    cloudPhoneOpportunity: templateStub ? null : safelySelectCloudPhoneOpportunity(char),
+    cloudPhoneOpportunity: null,
   };
 };
 
@@ -1442,7 +1439,7 @@ const buildLimitsEntry = (char: CharacterProfile, updatedAt: number) => ({
   namespace: amsgStateNamespace(char.id),
   owner: { type: 'character', id: char.id, label: char.name },
   key: AMSG_LIMITS_KEY,
-  value: JSON.stringify(buildAmsgLimitsRecord(char.activeMsg2Config, isAmsg2EnabledForChar(char), isRealPersonModeEnabled() && isAmsg2EnabledForChar(char))),
+  value: JSON.stringify(buildAmsgLimitsRecord(char.activeMsg2Config, isAmsg2EnabledForChar(char), false)),
   updatedAt,
 });
 
@@ -2493,8 +2490,6 @@ export const ActiveMsgClient = {
       expirePolicy?: ActiveMsg2ExpirePolicy;
       /** 角色自己排的（工具桥传 true）。带上 metadata 标记，连发上限的到点兜底闸只拦它。 */
       selfScheduled?: boolean;
-      /** Auto-registered contact opportunity, not a user's reminder. */
-      autonomyWakeSlot?: 'day' | 'evening';
     };
     /** 编辑/续期时传旧任务 uuid：先取消它再新建（不传 = 纯新建）。 */
     replaceTaskUuid?: string;
@@ -2534,15 +2529,8 @@ export const ActiveMsgClient = {
     const firePack = task.mode === 'fixed'
       ? null
       : await buildFirePack(char, userProfile, groups, realtimeConfig);
-    // 任务身份：客户端自造 clientTaskId——远端 uuid 要创建成功后才有，而 metadata
-    // 必须在创建时就带上归属键；push 原样透传，送达归属全靠它。
-    // Stable per user/character/slot across devices, backed by server D1
-    // UNIQUE(uuid) rather than browser-local locks alone.
-    const wakeUuid=task.autonomyWakeSlot
-      ? autonomyWakeUuid(globalConfig.userId,char.id,task.autonomyWakeSlot) : null;
-    const clientTaskId = task.autonomyWakeSlot
-      ? `autowake:${task.autonomyWakeSlot}:${wakeUuid}`
-      : crypto.randomUUID();
+    // 客户端任务 ID 在云端创建前确定，随任务元数据回传。
+    const clientTaskId = crypto.randomUUID();
 
     const remoteAvatarUrl = toRemoteAvatarUrl(char.avatar);
     const payload: Record<string, any> = {
@@ -2556,10 +2544,6 @@ export const ActiveMsgClient = {
       // 角色的时间参照系（与 fire_pack 同一份）。daily / weekly 由 worker 按这个时区的
       // 墙钟推进——固定加 24 小时的话，跨夏令时切换之后每天的触发时刻会永久偏一小时。
       tzId,
-      ...(wakeUuid?{uuid:wakeUuid}:{}),
-      // amsg-server 2.6 supports an atomic D1 supersede for legacy IDs.
-      ...(wakeUuid&&replaceTaskUuid&&replaceTaskUuid!==wakeUuid
-        ? {supersedesUuid:replaceTaskUuid}:{}),
       metadata: {
         charId: char.id,
         charName: char.name,
@@ -2576,7 +2560,6 @@ export const ActiveMsgClient = {
         amsgExpirePolicy: resolveExpirePolicy(task.mode, task.expirePolicy),
         // 自排标记：到点兜底闸只拦带它的任务（用户面板排的不带、不受连发上限管）。
         ...(task.selfScheduled ? { amsgSelfScheduled: true } : {}),
-        ...(task.autonomyWakeSlot ? { amsgAutonomyWake: true } : {}),
       },
     };
 
@@ -2592,9 +2575,7 @@ export const ActiveMsgClient = {
     } else {
       const activeApi = resolveApiConfig(char, config, apiConfig);
       // 「本次任务」指令随任务 metadata 走，worker 到点拿它填 fire_pack 的指令槽。
-      payload.metadata.amsgTaskInstruction = task.autonomyWakeSlot
-         ? REAL_PERSON_AUTONOMY_INSTRUCTION
-         : buildTaskInstruction(task.mode, task.promptHint);
+      payload.metadata.amsgTaskInstruction = buildTaskInstruction(task.mode, task.promptHint);
       // 服务端要求「completePrompt 或 messages」二选一，且 messages 必须非空、
       // content 必须非空字符串，所以这里给一条占位。到点真正发给 LLM 的 messages 由
       // worker 的 onBeforeFire 返回值覆盖（库用 { ...payload, messages } 调 LLM），
@@ -2675,34 +2656,6 @@ export const ActiveMsgClient = {
       response = await postSchedule();
     }
 
-    if (!response?.success && wakeUuid && response?.error?.code==='TASK_UUID_CONFLICT'){
-      // Two devices raced the SAME recurring task: D1 accepted one and
-      // rejected the other. Verify that the surviving row is ours before
-      // treating the conflict as an idempotent success.
-      const rows=await this.listRemoteTasksForChar(char.id);
-      const winner=rows.find(t=>t.uuid===wakeUuid
-        && t.clientTaskId===clientTaskId
-        && t.recurrenceType==='daily'
-        && !['failed','cancelled','completed'].includes(t.status||''));
-      if(winner){
-        // If another device already created the unique replacement while we
-        // were migrating an old random-ID wake, the loser still owns that
-        // old cloud row. Cancel it rather than quietly dropping its local
-        // record and leaving two independent daily sends behind.
-        let failedLegacyCancel=false;
-        if(replaceTaskUuid && replaceTaskUuid!==wakeUuid){
-          try{await this.cancelTask(replaceTaskUuid);}
-          catch(error){
-            failedLegacyCancel=true;
-            console.warn(`${ACTIVE_MSG_RUNTIME_HEADER} 跨设备抢占自主任务后旧任务取消失败`,error);
-          }
-        }
-        return {uuid:wakeUuid,clientTaskId,
-          status:winner.status||'scheduled',nextSendAt:winner.nextSendAt,
-          firstSendAt:winner.nextSendAt||firstSendTime,
-          replacedCancelFailed:failedLegacyCancel,alreadyExisting:true};
-      }
-    }
     if (!response?.success) {
       throw new Error(response?.error?.message || '主动消息 2.0 任务创建失败。');
     }
@@ -2711,7 +2664,7 @@ export const ActiveMsgClient = {
     // 旧任务已删、新任务没建，两头空。取消失败时新旧短暂并存于远端，把状态交还
     // 调用方（保留旧记录 + 标错 + 可重试），绝不静默。
     let replacedCancelFailed = false;
-    if (replaceTaskUuid && !wakeUuid) {
+    if (replaceTaskUuid) {
       try {
         await this.cancelTask(replaceTaskUuid);
       } catch (error) {

@@ -1,3 +1,5 @@
+import { DAILY_SCHEDULE_SAVED_EVENT } from '../utils/scheduleChange';
+import { considerRealPersonContact, recheckRealPersonContacts } from '../utils/realPersonContact';
 import { handleLocalBack } from '../utils/localBackHandlers';
 import {isHomeAssetDisposal} from '../utils/homeAssetCancellation';
 import { processHomeMemoryAfterSave } from '../utils/homeMemoryPostHook';
@@ -85,12 +87,10 @@ import {
 } from '../utils/chatContextRange';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForegroundRecovery';
-import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import { reconcileGlobalAutonomyWakes, autonomyReconciliationKey } from '../utils/amsgAutonomyBootstrap';
 import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
-import { REAL_PERSON_MODE_CHANGED_EVENT, isRealPersonModeEnabled } from '../utils/realPersonMode';
+import { REAL_PERSON_MODE_CHANGED_EVENT } from '../utils/realPersonMode';
 import { retireLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
-import { SCHEDULE_CHANGE_EVENT } from '../utils/scheduleChange';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
 import { CHAT_GEN_EVENTS, setChatViewSnapshot, isEmbeddedChatVisible } from '../utils/chatGenEvents';
@@ -2174,9 +2174,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
-  // Keep existing AMSG2 cloud autonomy alive for *every opted-in role*, even
-  // if the user only visited Settings and never opens that Char's Chat again.
-  // The Worker performs the actual fires. No new scheduler or paid idle LLM.
+  useEffect(() => { recheckRealPersonContacts(); }, [characters]);
+
+  // Reconcile retired cloud jobs even when their private chat is closed.
   useEffect(() => {
       if (!isDataLoaded) return;
       let disposed = false;
@@ -2185,10 +2185,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const pendingChars = new Set<string>();
       const scope = {
           getCharacters: () => charactersRef.current,
-          getUserProfile: () => userProfileRef.current,
-          getApiConfig: () => apiConfigRef.current,
-          getGroups: () => groupsRef.current,
-          getRealtimeConfig: () => realtimeConfigRef.current,
           isActive: () => !disposed,
           saveCharacterConfig: (charId: string, updater: (prev: CharacterProfile['activeMsg2Config']) => NonNullable<CharacterProfile['activeMsg2Config']>) => {
               void updateCharacter(charId, previous => ({
@@ -2221,16 +2217,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const initial = window.setTimeout(() => request(), 2_000);
       const interval = window.setInterval(() => request(), 30 * 60_000);
       const onVisible = () => { if (document.visibilityState === 'visible') request(); };
-      const onSchedule = (event: Event) => {
-          const detail = (event as CustomEvent<{ charId?: string }>).detail;
-          if (detail?.charId) request(detail.charId);
-      };
       const onChange = () => request();
       document.addEventListener('visibilitychange', onVisible);
       window.addEventListener('pageshow', onVisible);
       window.addEventListener('focus', onVisible);
-      window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
-      window.addEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
       window.addEventListener('sully:amsg-autonomy-refresh', onChange);
       window.addEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onChange);
       return () => {
@@ -2240,8 +2230,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           document.removeEventListener('visibilitychange', onVisible);
           window.removeEventListener('pageshow', onVisible);
           window.removeEventListener('focus', onVisible);
-          window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onSchedule);
-          window.removeEventListener(SCHEDULE_CHANGE_EVENT, onSchedule);
           window.removeEventListener('sully:amsg-autonomy-refresh', onChange);
           window.removeEventListener(REAL_PERSON_MODE_CHANGED_EVENT, onChange);
       };
@@ -2308,8 +2296,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           if (!live || !isScheduleFeatureOn(live)) return;
                           markAmsgStateDirty({ char: live, userProfile: userProfileRef.current,
                               groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
-                          window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT,
-                              { detail: { charId: live.id } }));
+                          window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT, { detail: { charId: live.id } }));
                       },
                   });
               }
@@ -2427,6 +2414,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const char = charactersRef.current.find(c => c.id === charId);
           if (!char) return;
           if (detail.pruned) {
+              recheckRealPersonContacts();
               const retained = new Set(readCharacterLifeEvents(charId).map(e => e.id));
               for (const [queueId, entry] of queue) {
                   if (entry.characterId === charId && !retained.has(entry.id)) queue.delete(queueId);
@@ -2439,6 +2427,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!detail.eventId) return;
           const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
           if (!recordedEvent) return;
+          void considerRealPersonContact({
+              currentChar: () => disposed ? undefined : charactersRef.current.find(c => c.id === charId),
+              user: userProfileRef.current,
+              apiConfig: apiConfigRef.current,
+              event: recordedEvent,
+          }).catch(error => console.warn('[RealPerson] contact opportunity unavailable', error));
           if (recordedEvent.source === 'phone') {
               markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
               enqueuePhoneMemory(recordedEvent);
@@ -2469,32 +2463,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       recoverPhoneMemories();
       return () => {
           disposed = true;
+          recheckRealPersonContacts();
           queue.clear();
           window.removeEventListener(CHARACTER_LIFE_EVENTS_CHANGED, onLifeEvent);
           document.removeEventListener('visibilitychange', onVisible);
       };
-  }, [isDataLoaded]);
-
-  // Stage 4: only a phone owner who explicitly enabled piggyback uploads an
-  // eligible NPC inbox snapshot. Permission/contact/chat edits revoke or
-  // refresh that cloud snapshot without a private Chat view or new LLM call.
-  useEffect(() => {
-      if (!isDataLoaded) return;
-      const refresh = (event: Event) => {
-          const charId = (event as CustomEvent<{characterId?:string}>).detail?.characterId;
-          const char = charId && charactersRef.current.find(c => c.id === charId);
-          if (char && userProfileRef.current && char.activeMsg2Config?.enabled === true)
-              markAmsgStateDirty({char, userProfile: userProfileRef.current,
-                  groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current});
-      };
-      const channels = [
-          'sully:character-phone-api-settings-changed',
-          'sully:character-phone-autonomy-changed',
-          'sully:character-phone-contact-changed',
-          CHARACTER_PHONE_CHATS_CHANGED,
-      ];
-      channels.forEach(name => window.addEventListener(name, refresh));
-      return () => channels.forEach(name => window.removeEventListener(name, refresh));
   }, [isDataLoaded]);
 
   // Character-owned NPC phone actions, NOT a second User-facing AMSG system.

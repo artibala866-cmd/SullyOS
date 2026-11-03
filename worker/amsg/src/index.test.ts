@@ -711,25 +711,6 @@ describe('连发上限（到点兜底闸）', () => {
     expect(lastSkipReason(writeState)).toBe('unanswered-limit');
   });
 
-  it('自主联系自动机会也遵守真人感连发上限，连续没回 3 次后不再硬凑消息', async () => {
-    const {ctx,writeState}=makeCtx({
-      metadata:{amsgAutonomyWake:true},
-      recurrenceType:'daily',
-      charRows:rowsWith(selfLogValue(3)),
-    });
-    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({skip:true});
-    expect(lastSkipReason(writeState)).toBe('unanswered-limit');
-  });
-
-  it('自主联系频率选不限时不被连发闸挡住，但不会绕开其他日程和主动消息护栏',async()=>{
-    const {ctx}=makeCtx({
-      metadata:{amsgAutonomyWake:true},
-      recurrenceType:'daily',
-      charRows:rowsWith(selfLogValue(9),{maxUnansweredSends:0,recurringStopAfter:0}),
-    });
-    expect(fired(await amsgHooks.onBeforeFire(ctx)).messages).toHaveLength(1);
-  });
-
   it('用户面板排的任务不受上限管：同样 3 条连发，照常生成', async () => {
     const { ctx } = makeCtx({ charRows: rowsWith(selfLogValue(3)) });
     fired(await amsgHooks.onBeforeFire(ctx));
@@ -895,7 +876,7 @@ describe('频率与额度（到点兜底闸）', () => {
       charRows: rows({ settings: { autonomyEnabled: undefined } }),
     });
     await expect(amsgHooks.onBeforeFire(noConsent.ctx)).resolves.toEqual({ skip: true });
-    expect(skipReason(noConsent.writeState)).toBe('schedule-off');
+    expect(noConsent.writeState).not.toHaveBeenCalled();
     expect(noConsent.ctx.scratch.fire).toBeUndefined();
 
     const noLimits = makeCtx({
@@ -906,7 +887,7 @@ describe('频率与额度（到点兜底闸）', () => {
       ],
     });
     await expect(amsgHooks.onBeforeFire(noLimits.ctx)).resolves.toEqual({ skip: true });
-    expect(skipReason(noLimits.writeState)).toBe('schedule-off');
+    expect(noLimits.writeState).not.toHaveBeenCalled();
 
     const manual = makeCtx({ charRows: rows({ settings: { autonomyEnabled: undefined } }) });
     fired(await amsgHooks.onBeforeFire(manual.ctx));
@@ -918,7 +899,7 @@ describe('频率与额度（到点兜底闸）', () => {
       charRows: rows({ settings: { autonomyEnabled: false } }),
     });
     await expect(amsgHooks.onBeforeFire(auto.ctx)).resolves.toEqual({ skip: true });
-    expect(skipReason(auto.writeState)).toBe('schedule-off');
+    expect(auto.writeState).not.toHaveBeenCalled();
     expect(auto.ctx.scratch.fire).toBeUndefined();
 
     const userTask = makeCtx({ charRows: rows({ settings: { autonomyEnabled: false } }) });
@@ -1610,100 +1591,28 @@ describe('轮次上限与上游共用同一个数', () => {
 });
 
 
-// Stage 4: actual Worker fire hooks, not merely the pure model-marker parser.
-describe('Stage 4 AMSG autonomy wake -> opt-in NPC phone result outbox', () => {
-  const at = NOW.getTime() - 20 * 60_000;
-  const candidate = {
-    contactId: 'npc-circle-1', contactName: '小园',
-    // Stage 4 .3 protocol: bind the result to this saved contact's identity
-    // and contact-clear epoch; legacy candidate shapes are intentionally refused.
-    contactCreatedAt: at - 86400_000, contactsClearRevision: 0,
-    threadId: 'npc-thread-1',
-    sourceKey: 'reply:npc-thread-1:' + at + ':1', replyToAt: at,
-    replyToCount: 1, replyToText: '昨晚的事怎么样了',
-    revision: 2, clearRevision: 0,
-    history: [{ speaker: 'contact', text: '昨晚的事怎么样了' }],
-  };
-  const newContext = (options: { offer?: boolean; authorized?: boolean; store?: ReturnType<typeof makeFireStore> } = {}) => {
-    const used = options.store ?? makeFireStore();
-    used.rows.set(AMSG_FIRE_PACK_KEY, firePackValue(null, {
-      cloudPhoneOpportunity: options.offer === false ? null : candidate,
-      selfScheduleEnabled: options.authorized !== false,
-    }));
-    used.rows.set(AMSG_LIMITS_KEY, limitsRow({ autonomyEnabled: true }).value);
-    const scratch: Record<string, unknown> = {};
-    const metadata = {
-      charId: CHAR_ID, amsgAutonomyWake: true,
-      amsgMode: 'auto', amsgClientTaskId: 'autowake:day:stage4',
-      amsgExpirePolicy: 'force', amsgTaskInstruction: '自主判断是否联系对方',
-    };
-    const emitResult = vi.fn(async (_payload: unknown) => ({messageId:'outbox-1',pushed:false}));
-    const ctx = {
-      task: {id:42,uuid:TASK_UUID,contactName:'Nyah',recurrenceType:'daily',
-        nextSendAt:NOW.toISOString(),metadata},
-      userId:'u1',readState:used.readState,writeState:used.writeState,
-      emitResult,now:NOW,scratch,
-    } as any;
-    return {ctx,used,metadata,scratch,emitResult};
-  };
-  const output = async (o: ReturnType<typeof newContext>, raw: string, iteration=0) =>
-    amsgHooks.onLLMOutput({
-      sessionId:'sess_stage4_42@1',taskId:42,taskUuid:TASK_UUID,
-      llmResponse:{},llmOutputText:raw,contactName:'Nyah',
-      metadata:o.metadata,scratch:o.scratch,writeState:o.used.writeState,
-      emitResult:o.emitResult,iteration,
-    } as any) as Promise<any>;
-  // SILENT also emits a separate, legitimate fire-skip diagnostic via the
-  // same result outbox; count only cloud NPC replies for these assertions.
-  const phoneResults = (o: ReturnType<typeof newContext>) =>
-    o.emitResult.mock.calls.map(([payload]) => payload).filter(
-      (payload): payload is Record<string,unknown> =>
-        !!payload && typeof payload === 'object' &&
-        (payload as Record<string,unknown>).resultKind === 'cloud-phone-reply-v1',
-    );
-
-  it('puts a saved NPC reply in the real outbox even when User contact is SILENT, never in a push', async () => {
-    const o=newContext();
-    const prepared=fired(await amsgHooks.onBeforeFire(o.ctx));
-    expect(prepared.messages[0].content).toContain('昨晚的事怎么样了');
-    const decision=await output(o,'[[SILENT]]\n[[CLOUD_PHONE_REPLY:{"messages":["我刚看到，晚点聊"]}]]');
-    expect(decision.decision).toBe('skip-push');
-    expect(phoneResults(o)).toHaveLength(1);
-    expect(phoneResults(o)[0]).toMatchObject({
-      resultKind:'cloud-phone-reply-v1',charId:CHAR_ID,contactId:'npc-circle-1',
-      messages:['我刚看到，晚点聊'],notification:{show:false},
+describe('retired daily wake and NPC ride-along', () => {
+  it('stops a legacy job even when an old client granted cloud autonomy', async () => {
+    const { ctx, writeState } = makeCtx({
+      metadata: { amsgClientTaskId: 'autowake:day:older-client' },
+      charRows: [limitsRow({ autonomyEnabled: true })],
     });
-    expect(JSON.stringify(decision)).not.toContain('CLOUD_PHONE_REPLY');
+    const readState = vi.spyOn(ctx, 'readState');
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
+    expect(readState).not.toHaveBeenCalled();
+    expect(writeState).not.toHaveBeenCalled();
+    expect(ctx.scratch.fire).toBeUndefined();
   });
 
-  it('an earlier tool round does not eat the NPC phone result; terminal round emits exactly once',async()=>{
-    const o=newContext();
-    await amsgHooks.onBeforeFire(o.ctx);
-    const first=await output(o,'[[CLOUD_PHONE_REPLY:{"messages":["下班啦"]}]]\n[[RECALL: 2026-06]]',0);
-    expect(first.decision).toBe('tool-request');
-    expect(o.emitResult).not.toHaveBeenCalled();
-    const last=await output(o,'[[SILENT]]',1);
-    expect(last.decision).toBe('skip-push');
-    expect(phoneResults(o)).toHaveLength(1);
-    expect(phoneResults(o)[0].messages).toEqual(['下班啦']);
-  });
-
-  it('only the first repeated wake reserves the same phone message, and no phone-transport means no reservation',async()=>{
-    const store=makeFireStore();
-    const first=newContext({store});
-    await amsgHooks.onBeforeFire(first.ctx);
-    expect(store.rows.has('cloud_phone_last_reply_attempt')).toBe(true);
-    const second=newContext({store});
-    const prepared=fired(await amsgHooks.onBeforeFire(second.ctx));
-    expect(prepared.messages[0].content).not.toContain('【仅本轮允许的角色手机');
-    const noReceiver=newContext();
-    delete noReceiver.ctx.emitResult;
-    const skip=fired(await amsgHooks.onBeforeFire(noReceiver.ctx));
-    expect(skip.messages[0].content).not.toContain('【仅本轮允许的角色手机');
-    expect(noReceiver.used.rows.has('cloud_phone_last_reply_attempt')).toBe(false);
+  it('drops a retired in-flight response before any phone result or private push', async () => {
+    const emitResult = vi.fn();
+    await expect(amsgHooks.onLLMOutput({
+      metadata: { amsgAutonomyWake: true }, scratch: {}, emitResult,
+      llmOutputText: '旧主动消息\n[[CLOUD_PHONE_REPLY:{"messages":["旧微信"]}]]',
+    } as any)).resolves.toEqual({ decision: 'skip-push', reason: 'declined' });
+    expect(emitResult).not.toHaveBeenCalled();
   });
 });
-
 
 // 云端生成的思考链要跟着回复一起回到客户端，否则聊天走即时对话这条路时思考链卡片整个缺席
 // （用户开着「显示思考链」，本地路径有、云端路径没有，看上去就是角色这次没想）。

@@ -59,7 +59,6 @@ import { CHARACTER_LIFE_EVENTS_CHANGED, readCharacterLifeEvents, pruneOrphanedPh
 import { generateIndependentLifeGlimpse, isManualLifeGlimpseEnabled, setManualLifeGlimpseEnabled } from '../../utils/characterLifeGlimpseGeneration';
 import { selectConfirmedLifeGlimpses } from '../../utils/characterLifeGlimpses';
 import { readPhoneContentClearRevision } from '../../utils/characterPhoneContentClearRevision';
-import { safelySelectCloudPhoneOpportunity } from '../../utils/amsgCloudPhoneSelection';
 import { CHARACTER_PHONE_CONTACT_CHANGED, readNpcProfiles, saveNpcProfiles, type NpcProfile } from '../../utils/characterPhoneNpcs';
 import {readPhoneInboxPreferences,writePhoneInboxPreferences} from '../../utils/characterPhoneInboxPrefs';
 import {allowMomentComment} from '../../utils/momentInteractionPreferences';
@@ -984,7 +983,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               ? '允许 Char 在网页前台、遇到已有生活事件或需要回复的 NPC 时自主处理手机'
               : '独立自主生成已暂停；查看已有内容、手动生成仍可使用'}</p>
             <p>{phonePrefs.chatPiggybackEnabled
-              ? '私聊同轮附带手机内容：已开启（若主动消息 2.0 同时开启，也可随云端自主联系回复旧 NPC 微信）'
+              ? '私聊同轮附带手机内容：已开启'
               : '私聊同轮附带手机内容：未开启'}</p>
             <p>每个应用仍遵守原来的手动／自动选择；无需为普通浏览调整下面的高级参数。</p>
           </section>}
@@ -1140,20 +1139,11 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           <section className="space-y-4 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">私聊同轮生成 NPC 微信／朋友圈</strong>
-                <span className="block mt-1 leading-5 text-[#888]">角色私聊回复可以在同次生成中附带虚构 NPC 手机互动。若还开启了这个角色的主动消息 2.0，并使用兼容的云端 Worker，原有每日自主联系也可顺带回复一条已保存的 NPC 待回微信，关网页后结果可在下次上线时补收。这里不会另启一轮 API，但会增加输出 token；关掉独立后台 AI 请求或前台手机自主生活不会关闭此项。关闭本项或主动消息 2.0 就不再云端顺带回复。</span></span>
+                <span className="block mt-1 leading-5 text-[#888]">角色私聊回复可以在同次生成中附带虚构 NPC 手机互动。此项会增加同一次回复的输出 token，由此处独立授权。</span></span>
               <input type="checkbox" checked={phonePrefs.chatPiggybackEnabled}
                 onChange={e=>changePhonePrefs({chatPiggybackEnabled:e.target.checked})}
                 className="h-5 w-5 shrink-0 accent-[#444]"/>
             </label>
-            {phonePrefs.chatPiggybackEnabled && (
-              <p className="rounded-xl bg-[#f6f6f6] px-3 py-2 text-[11px] leading-5 text-[#777]">
-                {char.activeMsg2Config?.enabled !== true
-                  ? '离线 NPC 微信续聊尚不能运行：还需为这个角色开启主动消息 2.0，且部署兼容的 Worker。无需手动创建第一条每日任务。'
-                  : safelySelectCloudPhoneOpportunity(char)
-                    ? '本地有符合条件的已保存 NPC 待回消息。下次成功同步到新版 Worker、每日自主联系到点时，角色可选择在同次生成里回复；不保证每次都会回复。'
-                    : '同轮权限已允许，目前没有符合条件的虚构 NPC 待回微信。云端不会凭空编造联系人或生活经历；仍需兼容的 Worker 才能离线运行。'}
-              </p>
-            )}
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
                 <span className="block mt-1 leading-5 text-[#888]">关闭后，手机的独立自主 AI 任务不会再调用接口；原有手动生成、User 私聊，以及另行开启的“私聊同轮生成”不受影响。开启后仍遵守下方共享预算。</span></span>

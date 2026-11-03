@@ -6,6 +6,7 @@ import { getLocalDateKey } from './localDate';
 import { extractScheduleChangeDirectives } from './scheduleChangeParse';
 import type { ExtractedScheduleChanges, ScheduleChangeDirective } from './scheduleChangeParse';
 
+export const DAILY_SCHEDULE_SAVED_EVENT = 'sully:daily-schedule-saved';
 export const SCHEDULE_CHANGE_EVENT = 'schedule-change-applied';
 
 // 解析层住在 utils/scheduleChangeParse.ts —— 那是零依赖叶子，worker 侧的业务标签

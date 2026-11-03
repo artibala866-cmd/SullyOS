@@ -159,11 +159,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     status?: string;
     lastError: RemoteTaskLastError | null;
   }> | null>(null);
-  // Never call local task rows "cloud confirmed". A lost/failed Worker task
-  // can remain in IndexedDB until the next reconciliation.
-  const verifiedAutonomyCount = knownRemoteUuids === null ? null : tasks.filter(t =>
-    t.clientTaskId?.startsWith('autowake:') && knownRemoteUuids.has(t.taskUuid) &&
-    !['failed','cancelled','completed'].includes(remoteTaskInfo?.get(t.taskUuid)?.status || '')).length;
   // 最近一次到点没发的记录（worker 写的）。null = 没有记录 / 没读到。
   const [lastSkip, setLastSkip] = useState<AmsgLastSkip | null>(null);
   // 今天主动找了几次（worker 每次发完累加的那份）。null = 没有记录 / 没读到。
@@ -735,7 +730,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          真人感管理角色的生活节奏与自然联系判断；主动消息 2.0 是自主联系的总开关。两者都开启时，才会建立每日联系机会；没有具体话题可以保持沉默，不会为凑次数强行聊天。关掉真人感会清理自动联系机会，但不影响明确设置的定时提醒；普通私聊自动接话另由输入设置控制。云端自动生成会使用主 API，手机内 NPC 社交仍由独立开关管理。
+          主动消息 2.0 管理云端提醒，也为真人感在前台发起自然联系提供许可。真人感根据新发生的生活事件判断是否接续对话，手机内 NPC 社交由手机自己的设置管理。
         </p>
 
         <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
@@ -755,17 +750,13 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               <button type="button" disabled={pushRegistering}
                 onClick={requestAndRegisterPushFromGesture}
                 className="mt-2 text-[11px] font-bold text-neutral-700 underline disabled:opacity-60">
-                {pushRegistering ? '正在登记推送…' : pushPermission === 'default' ? '允许通知并启动主动联系' : '重新登记云端推送'}
+                {pushRegistering ? '正在登记推送…' : pushPermission === 'default' ? '允许通知并登记推送' : '重新登记云端推送'}
               </button>
             )}
             {enabled && <div className="text-[11px] text-slate-500 mt-1">
-              {saved?.lastError?.startsWith('自主联系建立失败') ? saved.lastError
-                : verifiedAutonomyCount !== null && verifiedAutonomyCount > 0
-                  ? `最近一次核对：云端有 ${verifiedAutonomyCount} 次每日自主联系机会（到点仍可能选择不发）`
-                : autonomousCount > 0
-                  ? `本地记录 ${autonomousCount} 次自主联系机会，尚未确认云端可用；重新打开面板会对账`
-                : tasks.length >= resolveAmsgLimits(saved).maxActiveTasks ? '任务名额已满，无法安排自主联系；删除过时的手动任务后会恢复'
-                : '正在建立自主联系机会；需先正确连接云端 Worker 和推送订阅'}
+              {saved?.lastError?.startsWith('旧每日联系') ? saved.lastError
+                : autonomousCount > 0 ? '旧每日联系任务正在清理，明确设置的提醒继续保留。'
+                : '云端任务列表只显示已安排的任务。'}
             </div>}
           </div>
           <button

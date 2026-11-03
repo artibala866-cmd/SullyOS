@@ -157,14 +157,8 @@ import {
 } from '../../../utils/agenticToolFeedback';
 import { setProxyWorkerUrlOverride } from '../../../utils/proxyWorker';
 import { XhsMcpClient } from '../../../utils/xhsMcpClient';
-import { autonomyWakeSkipReason } from '../../../utils/amsgAutonomyPolicy';
-import {
-  CLOUD_PHONE_RESULT_KIND, CLOUD_PHONE_STATE_KEY,
-  cloudPhoneReplyId, cloudPhoneInstruction, extractCloudPhoneReply,
-  isCloudPhoneOpportunityFresh, readCloudPhoneAttemptIds, rememberCloudPhoneAttempt,
-  retainCloudPhoneMessages,
-  type CloudPhoneOpportunity,
-} from '../../../utils/amsgCloudPhone';
+import { isRetiredAutonomyDelivery } from '../../../utils/amsgRetiredAutonomy';
+import { extractCloudPhoneReply } from '../../../utils/amsgCloudPhone';
 // type-only：编译期擦除，classifier 的实现不会因为这行被拉进 bundle。
 import type { ToolCall } from './classifier';
 import {
@@ -377,12 +371,6 @@ interface SessionCtx {
 /** 一次 fire 的跨轮状态：工具执行上下文 + 旁白累积。挂在 ctx.scratch.fire 上。 */
 interface FireStash {
   session: FireSessionState;
-  /** A real, opted-in, previously saved inbound NPC message. Only automatic
-   * contact fires can piggyback; no extra LLM job or fabricated chat state. */
-  cloudPhoneOpportunity: CloudPhoneOpportunity | null;
-  /** Buffered across agentic tool rounds; flushed once at terminal output. */
-  cloudPhoneMessages: string[];
-  cloudPhoneEmitted: boolean;
   toolCtx: AgenticToolCtx;
   proxyWorkerUrl: string | null;
   xhsCookie: string;
@@ -1808,17 +1796,12 @@ export const amsgHooks = {
     };
 
     const taskMeta = (ctx.task.metadata ?? {}) as Record<string, unknown>;
+    if (isRetiredAutonomyDelivery(taskMeta)) return { skip: true } as const;
     // 任务上写的防穿帮策略。角色自排的「到点必发」在用户没放开时会降成普通的
     // （见下面读到 limits 之后的 policy），这里先留原值。
     const taskPolicy = typeof taskMeta.amsgExpirePolicy === 'string'
       ? taskMeta.amsgExpirePolicy : undefined;
     const selfScheduled = taskMeta.amsgSelfScheduled === true;
-    // Automatically provided contact opportunities aren't user-authored
-    // reminders. They share the unanswered + cooling budget of character
-    // initiatives, but NOT the permission restricting AI-created recurring
-    // jobs: the user already explicitly enabled this recurring service.
-    const autonomyWake = taskMeta.amsgAutonomyWake === true;
-    const autonomousOrSelf = selfScheduled || autonomyWake;
     const recurring = ctx.task.recurrenceType === 'daily' || ctx.task.recurrenceType === 'weekly';
 
     // 副 API 凭据落地即取走：这一份 metadata 对象上游还要按引用往下传（onLLMOutput 的
@@ -2050,23 +2033,6 @@ export const amsgHooks = {
     // 这条任务的概要：到点被拦下时随「这次没发」一起送回客户端。
     const taskBrief = findTaskBrief([...pack.pendingTasks, ...selfLog.tasks], ctx.task.uuid);
 
-    // Marshmallow's real-person/phone coordination: an automatic idle
-    // opportunity may not interrupt a live private chat or claim to be
-    // available during a confirmed busy/sleep schedule. Ordinary reminders
-    // and manual recurring tasks are intentionally NOT subjected to this gate.
-    if (!instant && autonomyWake) {
-      const missed = autonomyWakeSkipReason({
-        nowMs,
-        lastUserMessageAt,
-        scene: pack.scene,
-        tzId: pack.tzId,
-      });
-      if (missed) {
-        await recordSkip(ctx, charId, missed, occurrenceMs, taskBrief);
-        return { skip: true } as const;
-      }
-    }
-
     // 连发上限·到点兜底闸（用户主权）：用户未回复期间，角色自己排的任务最多响这么多次。
     // 只拦自排（amsgSelfScheduled）——用户面板排的是明确意愿，不受自己的防骚扰上限误伤；
     // 即时对话在答用户刚说的话，更不归它管。排程工具那半边只能拦「再排新的」，
@@ -2080,15 +2046,6 @@ export const amsgHooks = {
     // 关 2.0 时客户端会先把 limits 写成关、再去取消任务——取消扫完之后才冒出来的
     // （正在跑的那一轮顺手排的）、以及取消失败留下的，都在这里拦住，一个 token 都不花。
     const scheduleOff = !pack.selfScheduleEnabled || limitsRecord?.selfScheduleEnabled === false;
-    // Real-person mode is a separate opt-in layered UNDER the AMSG2 master switch.
-    // The small limits state is synced before cancelling remote auto-wakes, so an
-    // already-running/stale daily job cannot initiate a new paid conversation.
-    // Missing or stale cloud consent must never start a billable autonomous conversation.
-    // Explicit reminders and normal instant user replies are still independent.
-    if (!instant && autonomyWake && limitsRecord?.autonomyEnabled !== true) {
-      await recordSkip(ctx, charId, 'schedule-off', occurrenceMs, taskBrief);
-      return { skip: true } as const;
-    }
     if (!instant && (scheduleOff || (selfScheduled && recurring && !limits.allowSelfRecurring))) {
       console.log('[amsg:schedule-off-skip]', {
         taskId: ctx.task.id, charId, selfScheduled, recurring, scheduleOff,
@@ -2098,7 +2055,7 @@ export const amsgHooks = {
     }
 
     const maxUnansweredSends = limits.maxUnansweredSends;
-    if (!instant && autonomousOrSelf
+    if (!instant && selfScheduled
       && countUnansweredSends(selfLog) >= maxUnansweredSends) {
       console.log('[amsg:unanswered-limit-skip]', {
         taskId: ctx.task.id,
@@ -2120,7 +2077,7 @@ export const amsgHooks = {
       .filter((e) => !e.reply && e.id !== occurrenceEntryId)
       .map((e) => e.startedAt ?? e.at)
       .reduce<number | null>((latest, at) => (latest == null || at > latest ? at : latest), null);
-    if (!instant && autonomousOrSelf && limits.minSendGapMs > 0 && lastSelfSendAt != null
+    if (!instant && selfScheduled && limits.minSendGapMs > 0 && lastSelfSendAt != null
       && nowMs < lastSelfSendAt + limits.minSendGapMs - FIRE_GAP_TOLERANCE_MS) {
       console.log('[amsg:min-gap-skip]', {
         taskId: ctx.task.id, charId, lastSelfSendAt, gapMs: limits.minSendGapMs,
@@ -2186,35 +2143,8 @@ export const amsgHooks = {
         && t.taskUuid !== ctx.task.uuid);
     // 显式标注而不是 satisfies：下面即时对话那一支要往 emotionEvalPromise 上写 promise，
     // 用 satisfies 的话这个字段会被推成字面量 null 类型，写不进去。
-    // Stage 4 offline NPC continuity: reserve one eligible reply BEFORE LLM
-    // generation, or a retry/crash can bill for the same phone turn twice.
-    // A missing/broken writeState only disables this optional side activity,
-    // never the ordinary autonomous contact to the user.
-    let cloudPhoneOpportunity: CloudPhoneOpportunity | null = null;
-    // On a Worker without the durable result outbox, do not consume a phone
-    // opportunity or ask the model for a reply that cannot reach its owner.
-    const offered = !instant && autonomyWake && typeof ctx.emitResult === 'function'
-      ? pack.cloudPhoneOpportunity : null;
-    if (isCloudPhoneOpportunityFresh(offered, nowMs) && ctx.writeState) {
-      const eventId = cloudPhoneReplyId(charId, offered);
-      const already = charRows.find(r => r.key === CLOUD_PHONE_STATE_KEY)?.value;
-      if (!readCloudPhoneAttemptIds(already).includes(eventId)) {
-        try {
-          const result = await ctx.writeState(amsgStateNamespace(charId), [{
-            key: CLOUD_PHONE_STATE_KEY, value: rememberCloudPhoneAttempt(already, eventId),
-            updatedAt: Date.now(),
-          }]);
-          if (result.upserted > 0) cloudPhoneOpportunity = offered;
-        } catch (error) {
-          console.warn('[amsg:cloud-phone] optional reply reservation failed', error);
-        }
-      }
-    }
     const stash: FireStash = {
       session: createFireSessionState(),
-      cloudPhoneOpportunity,
-      cloudPhoneMessages: [],
-      cloudPhoneEmitted: false,
       toolCtx,
       proxyWorkerUrl,
       xhsCookie,
@@ -2444,9 +2374,7 @@ export const amsgHooks = {
       // 「此刻在做什么」里的钟点跟今日节日同一个开关：关掉时间感知的角色不该从日程块
       // 读到「23:00」——那正是这个开关要挡的东西。日程内容本身照给。
       includeClock: toolPack.timeAwarenessEnabled,
-      autonomyWake,
-    }), userHoliday) + mcpBlock + scheduleBlock
-      + (stash.cloudPhoneOpportunity ? cloudPhoneInstruction(stash.cloudPhoneOpportunity) : '');
+    }), userHoliday) + mcpBlock + scheduleBlock;
     return {
       messages: [{ role: 'user' as const, content: prompt }],
       ...common,
@@ -2470,11 +2398,9 @@ export const amsgHooks = {
     // Remove internal phone directives BEFORE chat segmentation / push. This
     // strip runs even on an old/unauthorized model response: never leak raw
     // phone JSON to the user or mistake a NPC reply for their chat message.
-    const cloudPhoneRaw = extractCloudPhoneReply(
-      stripReasoningTags(ctx.llmOutputText || ''),
-      !!getFireStash(ctx.scratch)?.cloudPhoneOpportunity,
-    );
-    const content = cloudPhoneRaw.content;
+    if (isRetiredAutonomyDelivery(ctx.metadata)) return { decision: 'skip-push', reason: 'declined' } as const;
+    const raw = stripReasoningTags(ctx.llmOutputText || '');
+    const content = raw.includes('[[CLOUD_PHONE_REPLY:') ? extractCloudPhoneReply(raw, false).content : raw;
 
     // 任务身份直接从 ctx 上读（sessionId 是给日志和去重用的不透明串，不拿它切）。
     const taskId = ctx.taskId != null ? String(ctx.taskId) : null;
@@ -2493,12 +2419,6 @@ export const amsgHooks = {
     if (!stash) {
       throw new Error('AMSG2_FIRE_STASH_MISSING: onLLMOutput 读不到 ctx.scratch.fire，检查 amsg-server 是否仍共享 scratch');
     }
-    // An earlier tool round can contain the side reply even when the final
-    // natural-language response contains no phone tag. Do not drop that reply.
-    stash.cloudPhoneMessages = retainCloudPhoneMessages(
-      stash.cloudPhoneMessages, cloudPhoneRaw.messages,
-      !!stash.cloudPhoneOpportunity && !stash.instant,
-    );
     const session = stash.session;
 
     // 思考链两个来源：响应字段 + 正文内联 <think>。抄的是没 strip 过的原文
@@ -2591,34 +2511,6 @@ export const amsgHooks = {
         sessionId: ctx.sessionId,
         pushes: decision.decision === 'finish' ? decision.pushPayloads.length : 0,
       });
-    }
-
-    // A generated NPC reply isn't a user-facing message. Only final LLM
-    // rounds may emit it, through the existing durable cloud outbox.
-    // Failure doesn't initiate a new billable request or affect normal chat.
-    if (decision.decision !== 'tool-request' && stash.cloudPhoneMessages.length &&
-        !stash.cloudPhoneEmitted && stash.cloudPhoneOpportunity && !stash.instant &&
-        typeof ctx.emitResult === 'function') {
-      const offered = stash.cloudPhoneOpportunity;
-      try {
-        await ctx.emitResult({
-          resultKind: CLOUD_PHONE_RESULT_KIND,
-          charId: stash.charId, id: cloudPhoneReplyId(stash.charId, offered),
-          contactId: offered.contactId,
-          contactCreatedAt: offered.contactCreatedAt,
-          contactsClearRevision: offered.contactsClearRevision,
-          threadId: offered.threadId,
-          sourceKey: offered.sourceKey,
-          replyToAt: offered.replyToAt, replyToCount: offered.replyToCount,
-          replyToText: offered.replyToText,
-          revision: offered.revision, clearRevision: offered.clearRevision,
-          occurredAt: Date.now(), messages: stash.cloudPhoneMessages,
-          notification: { show: false },
-        });
-        stash.cloudPhoneEmitted = true;
-      } catch (error) {
-        console.warn('[amsg:cloud-phone] result outbox unavailable; no duplicate paid retry', error);
-      }
     }
 
     if (decision.decision === 'skip-push') {

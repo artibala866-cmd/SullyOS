@@ -90,7 +90,6 @@ import { pruneDeletedPrivateChatLifeEvents } from '../utils/characterLifeEvents'
 import Modal from '../components/os/Modal';
 import MemoryContextSelfCheck from '../components/chat/MemoryContextSelfCheck';
 import ActiveMsg2SettingsModal from '../components/chat/ActiveMsg2SettingsModal';
-import { AMSG_AUTONOMY_SCHEDULE_EVENT } from '../utils/amsgAutonomyWake';
 import ThinkingChainSettingsModal from '../components/chat/ThinkingChainSettingsModal';
 import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 import { useChatAI } from '../hooks/useChatAI';
@@ -136,7 +135,7 @@ import {
     saveMessageContentFavorite,
     saveConversationContentFavorite,
 } from '../utils/contentFavorites';
-import { SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
+import { DAILY_SCHEDULE_SAVED_EVENT, SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
 import {
     CONTEXT_RANGE_POLICY_VERSION,
     computeContextRangeSnapshot,
@@ -245,13 +244,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // Manual edits and AI-confirmed changes should update presence immediately,
         // not leave the old activity in the reply gate for another full minute.
         window.addEventListener(SCHEDULE_CHANGE_EVENT, onScheduleChanged);
-        window.addEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onScheduleChanged);
+        window.addEventListener(DAILY_SCHEDULE_SAVED_EVENT, onScheduleChanged);
         return () => {
             cancelled = true;
             clearInterval(timer);
             window.removeEventListener('sully-life-clock-change', refresh);
             window.removeEventListener(SCHEDULE_CHANGE_EVENT, onScheduleChanged);
-            window.removeEventListener(AMSG_AUTONOMY_SCHEDULE_EVENT, onScheduleChanged);
+            window.removeEventListener(DAILY_SCHEDULE_SAVED_EVENT, onScheduleChanged);
         };
     }, [activeCharacterId, characters, lifeMode]);
 
@@ -1385,7 +1384,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onSaved: schedule => {
                         if (activeCharIdRef.current === char.id) setScheduleData(schedule);
                         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
-                        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT,
+                        window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT,
                             { detail: { charId: char.id } }));
                     },
                 });
@@ -2530,7 +2529,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
-        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+        window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT, {
             detail: {charId: char?.id},
         }));
     };
@@ -2542,7 +2541,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
-        window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+        window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT, {
             detail: {charId: char?.id},
         }));
     };
@@ -2625,7 +2624,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 setScheduleData(result);
                 // 跨天后台重新生成也要刷云端：不刷的话角色到点照着昨天的作息表说话
                 markAmsgStateDirty({ char: targetChar, userProfile, groups, realtimeConfig });
-                window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+                window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT, {
                     detail: {charId: targetChar.id},
                 }));
             }
@@ -2650,7 +2649,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 // Style changes regenerate the actual day plan after the profile
                 // update; re-sync now so Worker does not retain the old schedule.
                 markAmsgStateDirty({ char: updatedChar, userProfile, groups, realtimeConfig });
-                window.dispatchEvent(new CustomEvent(AMSG_AUTONOMY_SCHEDULE_EVENT, {
+                window.dispatchEvent(new CustomEvent(DAILY_SCHEDULE_SAVED_EVENT, {
                     detail: {charId: updatedChar.id},
                 }));
             }

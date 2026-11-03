@@ -1,3 +1,4 @@
+import { isRetiredAutonomyDelivery } from './amsgRetiredAutonomy';
 import { createReplyRun, isReplyStopped, withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
 import { chatComposerWaitMs, COMPOSER_ACTIVITY_CHANGED } from './chatComposerActivity';
 import { eventForDeliveredAmsg, eventsForVerifiedXhsActions } from './amsgPhoneEvent';
@@ -1591,7 +1592,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger, charId?: string): Pro
   // 降级回原来的 "原文一次性 saveMessage" 防止消息丢失。dispatchEvent 始终 fire 一次,
   // 保证 toast / 未读 / 通知语义不变。
   for (const message of pendingMessages) {
-    if (isReplyStopped(message.taskUuid)) {
+    if (isRetiredAutonomyDelivery(message.metadata) || isReplyStopped(message.taskUuid)) {
       if (message.taskUuid && (message.metadata as any)?.amsgUsage) {
         settleInstantChatApiLog(message.taskUuid, message.metadata);
       }
