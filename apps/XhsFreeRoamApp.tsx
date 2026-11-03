@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { XhsActivityRecord, XhsOwnedPost } from '../types';
+import { AppID, XhsActivityRecord, XhsOwnedPost } from '../types';
 import { XhsFreeRoamEngine, FreeRoamCallbacks } from '../utils/xhsFreeRoam';
 import { XhsMcpClient, extractNotesFromMcpData, normalizeNote } from '../utils/xhsMcpClient';
 import { collectOwnedPostsFromActivities } from '../utils/xhsFreeRoamOwnership';
@@ -286,7 +286,7 @@ const XhsFreeRoamApp: React.FC = () => {
         return (
             <div className="h-full flex flex-col bg-gradient-to-b from-neutral-50 to-white">
                 <div className="flex items-center px-4 py-3 border-b border-slate-100" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
-                    <button onClick={closeApp} className="w-8 h-8 flex items-center justify-center text-slate-400 active:scale-90">
+                    <button type="button" onClick={closeApp} aria-label="返回 Spark 首页" className="w-8 h-8 flex items-center justify-center text-slate-400 active:scale-90">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                     </button>
                     <h1 className="text-base font-bold text-slate-800 ml-1">自由活动</h1>
@@ -712,7 +712,7 @@ const XhsFreeRoamApp: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
                 <div className="flex items-center gap-2">
-                    <button onClick={closeApp} className="w-8 h-8 flex items-center justify-center text-slate-400 active:scale-90">
+                    <button type="button" onClick={closeApp} aria-label="返回 Spark 首页" className="w-8 h-8 flex items-center justify-center text-slate-400 active:scale-90">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                     </button>
                     {/* Character selector */}
@@ -782,14 +782,6 @@ const XhsFreeRoamApp: React.FC = () => {
 
             {/* Main content */}
             {isRunning ? renderLivePanel() : viewMode === 'profile' ? renderProfile() : renderHistory()}
-
-            {/* Explicit navigation back to the actual Xiaohongshu app. */}
-            <div className="shrink-0 bg-white px-4 pt-2">
-                <button type="button" onClick={() => openApp(AppID.Social)}
-                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm font-medium text-neutral-600 active:bg-neutral-100">
-                    ← 返回小红书
-                </button>
-            </div>
 
             {/* Bottom action area */}
             <div className="shrink-0 px-4 pb-5 pt-3 border-t border-slate-100 bg-white/80 backdrop-blur-sm">
