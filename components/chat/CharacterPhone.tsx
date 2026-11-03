@@ -50,7 +50,7 @@ import {
   canUsePhoneApiBudget, reservePhoneApiBudget,
 } from '../../utils/characterPhoneApiBudget';
 import { beginCharacterPhoneRefresh, finishCharacterPhoneRefresh, isCharacterPhoneRefreshing, CHARACTER_PHONE_REFRESH_CHANGED } from '../../utils/characterPhoneRefreshTracker';
-import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
+import { getScheduleWallClock, resolveSchedulePhase, SCHEDULE_AVAILABILITY_LABELS } from '../../utils/scheduleTime';
 import type { CharacterProfile, DailySchedule } from '../../types';
 import { parseGeneratedPhoneMessages, type PhoneMessage } from '../../utils/characterPhoneIdentity';
 import { extractContent } from '../../utils/safeApi';
@@ -400,8 +400,11 @@ export default function CharacterPhone({
     catch { setError('存储空间不足，记录未能保存'); return false; }
   };
   const back = () => { if (screen === 'contact-detail') { setScreen('wechat'); setTab('contacts'); setEditing(false); return; } if (screen === 'memo' || screen === 'gallery' || screen === 'calls' || screen === 'sms' || screen === 'browser' || screen === 'beautify') setScreen('home'); else if(screen==='profile'){setScreen(profileOrigin.current==='home'?'home':'wechat');setTab('me');} else if(screen==='settings'){setScreen(settingsOrigin.current==='home'?'home':'wechat');} else if (screen === 'thread' || screen === 'moments' || screen === 'wallet') setScreen('wechat'); else if (screen === 'wechat') setScreen('home'); else onClose(); };
-  const currentSlot = schedule?.slots[getCurrentScheduleSlotIndex(schedule.slots, char)] || null;
-  const scheduleContext = currentSlot ? `角色此刻的既有日程：${currentSlot.startTime} ${currentSlot.activity}；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前时段的计划，不证明实际行动已发生或正在玩手机；已保存对话与实际经历优先。` : '目前没有可用的角色当日日程，不得编造当前行程。';
+  const phase = schedule ? resolveSchedulePhase(schedule.slots, getScheduleWallClock(char)) : null;
+  const currentSlot = phase?.block;
+  const currentActivity = phase?.step?.activity ?? currentSlot?.activity;
+  const availability = phase?.availability ? SCHEDULE_AVAILABILITY_LABELS[phase.availability] : '';
+  const scheduleContext = currentSlot ? `角色此刻的既有日程：${phase?.step?.startTime ?? currentSlot.startTime} ${currentActivity}（${availability}）；${currentSlot.description || ''}；地点：${currentSlot.location || '未设定'}。这只是当前时段的计划，不证明实际行动已发生或正在玩手机；已保存对话与实际经历优先。` : '目前没有可用的角色当日日程，不得编造当前行程。';
   const generateMemo=async()=>{if(memoBusy)return;setMemoBusy(true);setError('');try{if(!phoneApi.apiKey||!phoneApi.baseUrl||!phoneApi.model)throw new Error('请先配置聊天 API');const context=await loadRealContext();await considerCharacterMemo({characterId,name,chatContext:context.systemPrompt,persona:[char.description,char.systemPrompt].filter(Boolean).join('\n'),userName:userProfile.name,api:phoneApi,events:readCharacterLifeEvents(characterId),manual:true});}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setMemoBusy(false);}};
   const loadRealContext = () => buildCharacterPhoneContext(char, userProfile, groups, realtimeConfig);
   const createProfile = async () => {
@@ -872,7 +875,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           {pendingContacts.length>0 && <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">新的朋友 · {pendingContacts.length} 个待确认</div>}
           {pendingContacts.map(request=><div key={request.id} className="flex items-center gap-2 border-b border-[#eee] bg-white px-4 py-3"><span className="flex h-10 w-10 items-center justify-center rounded bg-[#b4d4c3]">{request.nickname.slice(0,1)}</span><div className="min-w-0 flex-1"><div className="truncate text-sm">{request.nickname}</div><div className="truncate text-xs text-[#999]">{request.identity}</div></div><button type="button" className="rounded bg-[#07b75b] px-3 py-2 text-xs text-white" onClick={()=>acceptRequest(request)}>添加</button><button type="button" className="rounded bg-[#eee] px-3 py-2 text-xs" onClick={()=>dismissRequest(request.id)}>忽略</button></div>)}
           {hiddenPrivate && <button type="button" className="w-full border-b border-[#eee] px-5 py-3 text-left text-sm text-[#1b9c5a]" onClick={()=>{setHiddenPrivate(false);try{localStorage.removeItem('sully_phone_hide_private:'+characterId);}catch{}}}>恢复显示 User 真实私聊</button>}
-          {currentSlot && <div className="bg-[#ededed] px-5 py-2 text-xs text-[#777]">当前生活状态 · {currentSlot.activity}{currentSlot.location ? ' · '+currentSlot.location : ''}</div>}
+          {currentSlot && <div className="bg-[#ededed] px-5 py-2 text-xs text-[#777]">当前生活状态 · {currentActivity}{availability ? ' · ' + availability : ''}{currentSlot.location ? ' · '+currentSlot.location : ''}</div>}
 
           {addingContact && <div className="space-y-2 bg-white px-5 py-3"><label className="flex items-center gap-2 text-sm"><span className="w-20 shrink-0">真实姓名</span><input value={realNameDraft} onChange={e=>setRealNameDraft(e.target.value)} className="min-w-0 flex-1 rounded border border-[#ddd] p-2" placeholder="可选，与网名独立"/></label>{([{key:'name',label:'微信昵称'},{key:'identity',label:'身份'},{key:'personality',label:'性格'},{key:'relationship',label:'与Char关系'},{key:'background',label:'背景'}] as const).map(({key,label})=><label key={key} className="flex items-start gap-2 text-sm"><span className="w-20 shrink-0 pt-2">{label}</span><textarea rows={key==='background'?3:1} value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))} className="min-w-0 flex-1 rounded border border-[#ddd] p-2"/></label>)}<button type="button" onClick={addManualContact} className="w-full rounded bg-[#07b75b] py-2 text-white">保存联系人</button></div>}
           <div className="bg-[#ededed] px-5 py-2 text-xs text-[#888]">联系人 · {profiles.length}</div>

@@ -43,7 +43,7 @@ import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/
 import { createBackupArchive } from '../utils/backupArchive';
 import { streamBackupArrayStore } from '../utils/backupStoreStreaming';
 import { considerCharacterMemo } from '../utils/characterMemoAutonomy';
-import { readCharacterLifeEvents } from '../utils/characterLifeEvents';
+import { isChatPhonePiggybackLifeEvent, readCharacterLifeEvents } from '../utils/characterLifeEvents';
 import { considerAutonomousMoment } from '../utils/characterMomentAutonomy';
 import { runCharacterPhoneAutonomy, isCharacterPhoneAutonomyEnabled } from '../utils/characterPhoneAutonomy';
 import { runCharacterPhoneBrowserAutonomy } from '../utils/characterPhoneBrowserAutonomy';
@@ -2313,7 +2313,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const retryAfter = new Map<string, number>();
       const processedKey = (charId: string) => 'sully_phone_palace_ingested_v1:' + charId;
       const isPalaceCandidate = (event: ReturnType<typeof readCharacterLifeEvents>[number]) => {
-          if (event.source !== 'phone' || event.occurredAt <= 0 ||
+          if (event.source !== 'phone' || isChatPhonePiggybackLifeEvent(event) || event.occurredAt <= 0 ||
               event.occurredAt > Date.now()) return false;
           if (event.kind === 'npc-chat') return event.summary.trim().length >= 55;
           if (event.kind === 'moment-post') return event.summary.trim().length >= 20;
@@ -2412,7 +2412,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           if (!detail.eventId) return;
           const recordedEvent = readCharacterLifeEvents(charId).find(e => e.id === detail.eventId);
-          if (!recordedEvent) return;
+          if (!recordedEvent || isChatPhonePiggybackLifeEvent(recordedEvent)) return;
           void considerRealPersonContact({
               currentChar: () => disposed ? undefined : charactersRef.current.find(c => c.id === charId),
               user: userProfileRef.current,

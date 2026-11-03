@@ -114,12 +114,13 @@ describe('real-person auto response focus uses the existing payload, not a separ
             .toBeGreaterThan(tail.lastIndexOf('【查手机】'));
     });
 
-    it('does not change manual chat or provide a fake focus for an unverified turn',async()=>{
+    it('prioritizes unanswered manual chat without granting automatic reply authority',async()=>{
         const base=input();
         const manual=textOf(await buildChatRequestPayload(base));
         expect(manual).not.toContain('【本轮是真实用户消息触发的接话');
         expect(manual).not.toContain('Existing M3 conversation state');
-        expect(manual).toContain('2. **行为模式**: 不要总是围绕用户转');
+        expect(manual).toContain('自己的生活与观察可以有，但必须自然关联');
+        expect(manual).not.toContain('2. **行为模式**: 不要总是围绕用户转');
         const mismatched=textOf(await buildChatRequestPayload({
             ...base,automaticUserReply:true,expectedAutoReplyUserId:999,
         }));

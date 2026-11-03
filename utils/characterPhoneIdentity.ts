@@ -4,7 +4,7 @@
 export type PhoneSpeaker = { role: 'owner' } | { role: 'user' } | { role: 'contact'; contactId: string };
 export type PhoneMessage = { speaker: PhoneSpeaker; text: string; from?: string; createdAt?: number;
   /** A delivered cloud-side NPC turn; stable identity prevents outbox replay duplicates. */
-  cloudSourceId?: string; };
+  cloudSourceId?: string; fromChatPiggyback?: boolean; };
 export type PhoneThread = { contactId: string; messages: PhoneMessage[] };
 export const speakerKey = (speaker: PhoneSpeaker): string =>
   speaker.role === 'contact' ? 'contact:' + speaker.contactId : speaker.role;

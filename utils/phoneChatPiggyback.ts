@@ -29,7 +29,7 @@ export function chatPhonePiggybackPrompt(charId:string):string{
  const npcs=readNpcProfiles(charId).slice(0,14),conversations=readCharacterPhoneChats(charId).slice(0,8);
  return `
 【可选：查手机与本次私聊同轮生成，不单独发 API】
-正常直接回复 User；只有在这轮真实聊天激起 Char 很自然的社交冲动时，才在最终回复末尾额外输出一个内部 <sully_phone_events>JSON</sully_phone_events> 块。没合理动机就完全不输出该块。
+正常直接回复 User，私聊格式只约束用户看得到的正文；只有在这轮真实聊天激起 Char 很自然的社交冲动时，才在最终回复末尾额外输出一个内部 <sully_phone_events>JSON</sully_phone_events> 块。没合理动机就完全不输出该块。
 严禁把标签或 JSON 解释给 User，也不要影响日常聊天语气与行动自由。这些是虚构角色的手机内容，不是 User 主动操作。
 必须使用下面已确立的稳定联系人 ID，不可编造新 NPC，不可对 User 伪造私聊，不可从计划日程断言已发生事件。
 已知 NPC：${JSON.stringify(npcs.map(n=>({id:n.id,name:n.name,relationship:n.relationship,personality:n.personality,speechStyle:n.speechStyle}))).slice(0,3400)}
@@ -59,14 +59,14 @@ export function applyChatPhoneEvents(charId:string,raw:unknown,now=Date.now()):n
    const r=entry as {speaker?:unknown;text?:unknown};
    const text=compact(r.text,350);
    if(!text||!['owner','contact'].includes(String(r.speaker)))return [];
-   return [{speaker:r.speaker==='owner'?{role:'owner' as const}:{role:'contact' as const,contactId:contact.id},text,createdAt:now}];
+   return [{speaker:r.speaker==='owner'?{role:'owner' as const}:{role:'contact' as const,contactId:contact.id},text,createdAt:now,fromChatPiggyback:true}];
   });
   if(!messages.length)continue;
   const added=appendCharacterPhoneMessages({characterId:charId,contactId:contact.id,contactName:contact.remark||contact.nickname||contact.name,messages,at:now});
   if(added?.added.length){
    changed+=added.added.length;
    try{recordCharacterLifeEvent({id:'npc-chat:piggyback:'+added.thread.id+':'+now,characterId:charId,
-      kind:'npc-chat',occurredAt:now,source:'phone',contactId:contact.id,
+      kind:'npc-chat',occurredAt:now,source:'phone',contactId:contact.id,phoneThreadId:added.thread.id,
       summary:'本次私聊之后的微信互动：'+added.added.map(x=>x.text).join('；').slice(0,650)});}catch{}
   }
  }
@@ -74,10 +74,10 @@ export function applyChatPhoneEvents(charId:string,raw:unknown,now=Date.now()):n
  if(moment?.publish===true){
   const text=compact(moment.text,900),old=readCharacterMoments(charId);
   if(text&&!old.some(p=>p.authorId===charId&&!p.deletedAt&&(p.text.trim()===text||now-p.createdAt<12*3600_000))){
-   const post=publishCharacterMoment({characterId:charId,origin:'char',text,imageUrls:[],visibility:'all'});
+   const post=publishCharacterMoment({characterId:charId,origin:'char',text,imageUrls:[],visibility:'all'},{fromChatPiggyback:true});
    if(post){
     changed++;
-    try{recordCharacterLifeEvent({id:'moment:'+post.id,characterId:charId,kind:'moment-post',
+    try{recordCharacterLifeEvent({id:'moment:'+post.id,characterId:charId,kind:'moment-post',fromChatPiggyback:true,
       occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});}catch{}
     for(const c of (Array.isArray(moment.comments)?moment.comments:[]).slice(0,2)){
      if(!known.has(c?.authorId))continue;

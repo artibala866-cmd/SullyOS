@@ -310,11 +310,11 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // Reply focus may only be enabled for the actual saved user turn.
     // Mismatched, already-answered and imported records cannot become an AI
     // content instruction just because a stale callback says 'automatic'.
-    const pendingAutoTurn = input.automaticUserReply && !input.appPrompt
+    const pendingUserTurn = !input.appPrompt
         ? findPendingRealPersonUserTurn(historyMsgsForPrompt) : null;
-    const verifiedAutoReply = !!pendingAutoTurn &&
+    const verifiedAutoReply = !!input.automaticUserReply && !!pendingUserTurn &&
         typeof input.expectedAutoReplyUserId === 'number' &&
-        pendingAutoTurn.id === input.expectedAutoReplyUserId;
+        pendingUserTurn.id === input.expectedAutoReplyUserId;
 
     // Range/vision processing must retain database IDs. Only after those steps may
     // legacy home rows expand into their actual speakers and chronological events.
@@ -412,7 +412,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         {
             history: cleanedApiMessages,
             timelyByWorker: input.timelyByWorker === true,
-            automaticUserReply: verifiedAutoReply,
+            replyToPendingUser: verifiedAutoReply || (!input.automaticUserReply && !!pendingUserTurn),
             returningFromMode: returningFromMode || undefined,
             appRules: input.appPrompt?.rules,
         },
@@ -553,7 +553,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         // user sends again during an async recall. Replay the EXISTING local
         // M3 reducer on this verified, exact user-turn boundary instead.
         // It does not persist state or call the model a second time.
-        const targetIndex = historyMsgsForPrompt.findIndex(m => m.id === pendingAutoTurn!.id);
+        const targetIndex = historyMsgsForPrompt.findIndex(m => m.id === pendingUserTurn!.id);
         const focusedHistory = historyMsgsForPrompt.slice(0, targetIndex + 1);
         const engagement = analyzeRealPersonConversation(char.id, focusedHistory, char.name, userProfile.name);
         const replyFocus = buildRealPersonTurnFocusHint(

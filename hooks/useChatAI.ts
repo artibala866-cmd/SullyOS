@@ -1015,7 +1015,8 @@ export const useChatAI = ({
             }
             // Optional phone side effects share this exact User-facing completion.
             // No detached or second LLM request is made here.
-            const phoneEventsInstruction=chatPhonePiggybackPrompt(char.id);
+            const phoneEventsInstruction = opts?.immediateMusicInvite || opts?.postUnblockOpening || payload.flags.promptBuildSkipped
+                ? '' : chatPhonePiggybackPrompt(char.id);
             if(phoneEventsInstruction)fullMessages.unshift({role:'system',content:phoneEventsInstruction} as any);
             const promptBuildSkipped = payload.flags.promptBuildSkipped;
             if (payload.flags.mcdActive) {

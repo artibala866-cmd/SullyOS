@@ -39,8 +39,8 @@ beforeEach(() => {
   const now = Date.now();
   char = { id: 'test-contact', name: 'Char', activeMsg2Config: { enabled: true } } as CharacterProfile;
   history = [
-    { id: 1, charId: char.id, role: 'user', type: 'text', content: '水彩画明天再画', timestamp: now - 7 * 3600_000 - 1000 },
-    { id: 2, charId: char.id, role: 'assistant', type: 'text', content: '那就早点休息', timestamp: now - 7 * 3600_000 },
+    { id: 1, charId: char.id, role: 'user', type: 'text', content: '水彩纸该选哪种？', timestamp: now - 30 * 60_000 - 1000 },
+    { id: 2, charId: char.id, role: 'assistant', type: 'text', content: '我想一想。', timestamp: now - 30 * 60_000 },
   ];
   event = { characterId: char.id, id: 'activity', source: 'phone', kind: 'npc-chat', occurredAt: now - 100, summary: '朋友聊到了水彩纸' };
   recordCharacterLifeEvent(event);
@@ -66,7 +66,7 @@ it('requires both switches and a saved recent event, and never competes with an 
   expect(network).not.toHaveBeenCalled();
 });
 
-it('grounds a reconnection in one saved event and consumes the opportunity after one request', async () => {
+it('grounds a follow-up in one saved event and consumes the opportunity after one request', async () => {
   const network = vi.fn().mockResolvedValue(answer('你那张水彩画后来画了吗？刚聊到纸的纹理，想起你了。'));
   vi.stubGlobal('fetch', network);
   await considerRealPersonContact(input());
@@ -75,7 +75,7 @@ it('grounds a reconnection in one saved event and consumes the opportunity after
   expect(String(network.mock.calls[0][1].body)).toContain(event.summary);
   expect(DB.saveMessage).toHaveBeenCalledOnce();
   expect(DB.saveMessage).toHaveBeenCalledWith(expect.objectContaining({
-    role: 'assistant', metadata: { countsAsReply: false, realPersonContact: 'reconnect' },
+    role: 'assistant', metadata: { countsAsReply: false, realPersonContact: 'follow-up' },
   }));
 });
 
@@ -212,4 +212,17 @@ it('keeps an unfinished topic quiet when a new life event is unrelated', async (
   vi.stubGlobal('fetch', network);
   await considerRealPersonContact(input());
   expect(network).not.toHaveBeenCalled();
+});
+
+it('leaves a six-hour reconnection to the active-message scheduler', async () => {
+  history[0].timestamp = Date.now() - 6 * 3600_000 - 1000;
+  const network = vi.fn();
+  vi.stubGlobal('fetch', network);
+  await considerRealPersonContact(input());
+  expect(network).not.toHaveBeenCalled();
+});
+
+it('never uses a phone sidecar or a coincidental two-character match to start a follow-up', async () => {
+  expect(pickRealPersonContact(char, history, { ...event, id: 'npc-chat:piggyback:thread:123' })).toBeNull();
+  expect(pickRealPersonContact(char, history, { ...event, summary: '朋友聊到水彩颜料' })).toBeNull();
 });

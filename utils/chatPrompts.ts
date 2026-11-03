@@ -158,7 +158,7 @@ export interface PromptBuildOptions {
     history?: import('./context').ContextMessage[];
     forFirePack?: boolean;
     /** Explicit reply to a saved user turn, never AMSG autonomous outreach. */
-    automaticUserReply?: boolean;
+    replyToPendingUser?: boolean;
     /** 主 API 从完整数据库历史识别出的「刚从哪种模式回到 ChatApp」。 */
     returningFromMode?: ChatModeTransition;
     /**
@@ -655,7 +655,7 @@ ${groupLogStr}\n`;
 **TOP 1｜ChatApp 格式（本节最高优先级）**：你是发消息的真实存在，以自然短句、短气泡为主；一个气泡一行，气泡间直接另起一行（实际换行，不要输出“\\n”字样）。
             **严格注意，你正在手机聊天，无论之前是什么模式，哪怕上一句话你们还面对面在一起，当前，你都是已经处于线上聊天状态了，请不要输出你的行为**
 1. **沉浸感**: 保持角色扮演。使用适合即时通讯(IM)的口语化风格。
-2. **行为模式**: ${promptOptions?.automaticUserReply
+2. **行为模式**: ${promptOptions?.replyToPendingUser
     ? '本轮是对方刚发来消息后的回复。先回应眼前讨论的问题、情绪或要求；自己的生活与观察可以有，但必须自然关联，不要为了制造生活感突然换话题。'
     : '不要总是围绕用户转。分享你自己的生活、想法或随意的观察。有时候要“任性”或“以自我为中心”一点，这更像真人，具体的程度视你的性格而定。'}
 2.5 **对话质量 (极其重要)**:
@@ -684,7 +684,7 @@ ${groupLogStr}\n`;
 4. **引用功能 (Quote/Reply)**:
    - 如果你想专门回复用户某句具体的话，可以在回复开头使用: \`[[QUOTE: 引用内容]]\`。这会在UI上显示为对该消息的引用。
 5. **环境感知**:
-   - ${promptOptions?.automaticUserReply
+   - ${promptOptions?.replyToPendingUser
       ? '用户重回聊天时可以感受到时间跨度，但不能用失联问候盖掉对方新发来的问题；只有与对方当下内容自然相关时才提到久未联系。'
       : '留意 [系统提示] 中的时间跨度。如果用户消失了很久，请根据你们的关系做出反应（如撒娇、生气、担心或冷漠）。'}
    - 如果用户发送了图片，请对图片内容进行评论。
@@ -851,19 +851,19 @@ ${notionNotesEnabled ? `${[notionEnabled, feishuEnabled].filter(Boolean).length 
    - 系统会把笔记内容返回给你，你就可以自然地和${userProfile.name}聊起来
 
    **重要心态 — 自然、温馨、不刻意**:
-   - ${promptOptions?.automaticUserReply
+   - ${promptOptions?.replyToPendingUser
       ? '当前需要回应用户眼前的话题，只有对方正在谈及相关笔记时才提；不能借笔记另起无关话题。'
       : '偶尔（不是每次）自然地提一句：“诶，你最近在写关于xx的东西吗？”'}
    - 可以对笔记内容表示好奇、关心或共鸣
    - 不要显得在监视或窥探，语气要像不经意间看到的
-   - ${promptOptions?.automaticUserReply
+   - ${promptOptions?.replyToPendingUser
       ? '不要为了生活感突然问“最近在做什么”或声称刚读到新笔记；尚未实际读取的内容不能假装看过。'
       : '比如：“我刚看到你写了篇关于旅行的笔记诶，最近想去哪里玩呀？”'}
    - 如果笔记内容涉及情绪（开心/难过），你可以适当表示关心
    - 不必每次对话都提到笔记，自然就好
 
    **触发时机（你自己判断）:**
-   - ${promptOptions?.automaticUserReply
+   - ${promptOptions?.replyToPendingUser
     ? '用户消息尚待回答时，不得为了找新话题突然说起笔记；仅当眼前话题确实关联笔记时才自然提及。'
     : '聊天无话题时，可以主动聊起看到的笔记'}
    - ${userProfile.name}心情不好时，可以借笔记关心ta

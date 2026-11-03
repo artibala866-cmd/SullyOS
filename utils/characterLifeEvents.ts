@@ -14,8 +14,12 @@ export interface CharacterLifeEvent {
   relatedMessageId?: string;
   /** Id of persisted NPC WeChat thread; lets the user revoke its life-context snapshots. */
   phoneThreadId?: string;
+  fromChatPiggyback?: boolean;
   /** Optional narrative reflection about this *same* confirmed fact. Not a new fact. */
   glimpse?: { text: string; generatedAt: number; anchorSummary: string };
+}
+export function isChatPhonePiggybackLifeEvent(event: Pick<CharacterLifeEvent, 'id' | 'source' | 'fromChatPiggyback'>): boolean {
+  return event.source === 'phone' && (event.fromChatPiggyback === true || event.id.startsWith('npc-chat:piggyback:'));
 }
 export const CHARACTER_LIFE_EVENTS_CHANGED = 'sully:character-life-events-changed';
 export const lifeEventStorageKey = (characterId: string) => 'sully_character_life_events_v1:' + characterId;
@@ -54,7 +58,7 @@ export function pruneDeletedPhoneChatLifeEvents(characterId:string,thread:{
     if(event.source!=='phone'||event.kind!=='npc-chat')return true;
     if(event.phoneThreadId)return event.phoneThreadId!==thread.id;
     const ids=['npc-chat:'+thread.id+':','npc-chat:inbox:'+thread.id+':',
-      'npc-chat:auto:'+thread.id+':'];
+      'npc-chat:auto:'+thread.id+':','npc-chat:piggyback:'+thread.id+':'];
     return !ids.some(prefix=>event.id.startsWith(prefix))&&
       (!thread.contactId||event.contactId!==thread.contactId);
   });
@@ -66,7 +70,7 @@ export function pruneDeletedPhoneChatLifeEvents(characterId:string,thread:{
 }
 
 /** Heal previously-deleted WeChat conversations from older SullyOS builds.
- * Only explicit phone thread references (new metadata or the three stable
+ * Only explicit phone thread references (new metadata or the stable
  * legacy ID encodings) can be identified reliably. Do not guess from AI text.
  * Does not affect User private chat, independent XHS actions or Palace.
  */
@@ -79,7 +83,7 @@ export function pruneOrphanedPhoneChatLifeEvents(
  const eventThreadId=(event:CharacterLifeEvent):string|null=>{
    if(event.source!=='phone'||event.kind!=='npc-chat')return null;
    if(event.phoneThreadId)return event.phoneThreadId;
-   for(const prefix of ['npc-chat:inbox:','npc-chat:auto:','npc-chat:']){
+   for(const prefix of ['npc-chat:inbox:','npc-chat:auto:','npc-chat:piggyback:','npc-chat:']){
      if(!event.id.startsWith(prefix))continue;
      const end=event.id.lastIndexOf(':');
      if(end<=prefix.length)return null;

@@ -176,7 +176,7 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
   const unanswered = eligible.flatMap(contact => {
     const thread = threads.find(row => row.contactId === contact.id);
     const last = thread?.messages[thread.messages.length - 1];
-    if (last?.speaker.role !== 'contact') return [];
+    if (last?.speaker.role !== 'contact' || last.fromChatPiggyback) return [];
     const lastAt = last.createdAt || thread?.time || 0;
     const waitMs = now - lastAt;
     // An old abandoned NPC conversation is not a fresh reason to speak.
@@ -205,7 +205,7 @@ function chooseAction(charId: string, contacts: NpcProfile[], threads: Character
       return [{ contact, thread, recentAt, createdAt, actor: (busy ? 'contact' : 'owner') as 'owner' | 'contact', why: 'new-contact' as const }];
     }
     const lastAt = last?.createdAt || thread?.time || 0;
-    if (last?.speaker.role === 'owner' && lastAt > 0 && now - lastAt >= 4 * 60 * 60_000 &&
+    if (last?.speaker.role === 'owner' && !last.fromChatPiggyback && lastAt > 0 && now - lastAt >= 4 * 60 * 60_000 &&
         now - lastAt <= 72 * 60 * 60_000 && recentAt <= now) {
       return [{ contact, thread, recentAt, createdAt, actor: 'contact' as const, why: 'follow-up' as const }];
     }

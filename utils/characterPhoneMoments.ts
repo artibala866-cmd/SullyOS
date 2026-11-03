@@ -29,10 +29,11 @@ export type CharacterMomentChangeDetail = {
   characterId: string;
   changeKind?: CharacterMomentChange;
   actorId?: string;
+  fromChatPiggyback?: boolean;
 };
 /** A data refresh is not proof of a social occasion worth an AI call. */
 export function isMomentReactionOpportunity(detail?: CharacterMomentChangeDetail): boolean {
-  return detail?.changeKind === 'published' ||
+  return (detail?.changeKind === 'published' && !detail.fromChatPiggyback) ||
     (detail?.changeKind === 'commented' && detail.actorId === 'user');
 }
 const key = (characterId: string) => 'sully_character_moments_v1:' + characterId;
@@ -47,14 +48,14 @@ export function readCharacterMoments(characterId: string): CharacterMoment[] {
     ).sort((a,b)=>b.createdAt-a.createdAt) : [];
   } catch { return []; }
 }
-function save(characterId: string, posts: CharacterMoment[], changeKind: CharacterMomentChange, actorId?: string): boolean {
+function save(characterId: string, posts: CharacterMoment[], changeKind: CharacterMomentChange, actorId?: string, fromChatPiggyback?: boolean): boolean {
   try {
     localStorage.setItem(key(characterId), JSON.stringify(posts));
-    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_MOMENTS_CHANGED,{detail:{characterId,changeKind,actorId} satisfies CharacterMomentChangeDetail}));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CHARACTER_MOMENTS_CHANGED,{detail:{characterId,changeKind,actorId,fromChatPiggyback} satisfies CharacterMomentChangeDetail}));
     return true;
   } catch { return false; }
 }
-export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'|'authorId'> & { id?: string; createdAt?: number; authorId?: string }): CharacterMoment | null {
+export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'createdAt'|'authorId'> & { id?: string; createdAt?: number; authorId?: string }, options?: { fromChatPiggyback?: boolean }): CharacterMoment | null {
   if (!input.characterId || (!input.text.trim() && !input.imageUrls.length && !input.media?.length && !input.quote)) return null;
   if (input.visibility === 'selected' && !input.visibleTo?.length) return null;
   if (input.imageUrls.length > 9 || (input.media?.length || 0) > 9) return null;
@@ -65,7 +66,7 @@ export function publishCharacterMoment(input: Omit<CharacterMoment,'id'|'created
   // Enforce this at persistence level so concurrent decision paths cannot simply rely on UI guards.
   const eventIds = post.provenance?.eventIds || [];
   if (eventIds.length && old.some(p => p.provenance?.eventIds?.some(id => eventIds.includes(id)))) return null;
-  return save(input.characterId,[post,...old], 'published', post.authorId) ? post : null;
+  return save(input.characterId,[post,...old], 'published', post.authorId, options?.fromChatPiggyback) ? post : null;
 }
 export function deleteCharacterMoment(characterId: string, postId: string, actor: 'char'|'user'): boolean {
   const posts=readCharacterMoments(characterId);

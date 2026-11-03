@@ -44,7 +44,7 @@ export function findPhoneAutonomyOpportunity(
       const last = t.messages[t.messages.length - 1];
       // Older imported chats can contain blank/mismatched NPC rows. Such
       // records are not a grounded motive and must not starve other contacts.
-      if (last?.speaker?.role !== 'contact' ||
+      if (last?.speaker?.role !== 'contact' || last.fromChatPiggyback ||
           typeof last.text !== 'string' || !last.text.trim() ||
           (last.speaker.contactId && last.speaker.contactId !== t.contactId)) return [];
       const at = last.createdAt || t.time;
