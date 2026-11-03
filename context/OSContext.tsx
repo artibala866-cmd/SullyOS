@@ -1922,7 +1922,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let awayActiveMsgCount = 0;
 
       const handler = (e: Event) => {
-          const { charId, charName } = (e as CustomEvent<{ charId: string; charName: string }>).detail;
+          const { charId, charName, body } = (e as CustomEvent<{ charId: string; charName: string; body?: string }>).detail;
           setLastMsgTimestamp(Date.now());
           const isChattingWithThisChar = (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) || isEmbeddedChatVisible(charId);
           if (!isChattingWithThisChar) {
