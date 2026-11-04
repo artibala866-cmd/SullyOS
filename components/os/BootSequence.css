@@ -1,137 +1,108 @@
-/* 宝宝狗开屏：只使用用户提供的原版小狗图片，颜色与动效均由 CSS 实现。 */
+/* 宝宝狗：纯白开屏、CSS 手绘白色小狗；不生成图片、不用旧黄色贴图。 */
 .sully-boot {
-  --boot-text: #714e3c;
-  --boot-subtext: #a88671;
-  --boot-line: rgba(166,118,81,.23);
   position: fixed;
   inset: 0;
   z-index: 9999;
   overflow: hidden;
   isolation: isolate;
+  background: #fff;
+  color: #303030;
   cursor: pointer;
   user-select: none;
-  color: var(--boot-text);
-  background: radial-gradient(ellipse 82% 52% at 48% 38%, #fffdfa 0%, #fff9ee 70%, #ffead9 100%);
+  -webkit-tap-highlight-color: transparent;
 }
-.sully-boot:focus-visible { outline: 2px solid var(--boot-text); outline-offset: -5px; }
-.sully-boot-night {
-  --boot-text: #fff2e8;
-  --boot-subtext: #ded0e9;
-  --boot-line: rgba(255,245,230,.28);
-  background: radial-gradient(ellipse 88% 58% at 50% 40%, #61577e 0%, #403855 65%, #27233b 100%);
-}
-.sully-boot:not(.sully-boot-mid-autumn)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: .64;
-  background: radial-gradient(circle at 12% 18%, rgba(255,226,181,.34) 0 5%, transparent 34%),
-    radial-gradient(circle at 92% 78%, rgba(250,200,180,.35) 0 5%, transparent 35%);
-}
-.sully-boot.sully-boot-night::before {
-  background: radial-gradient(circle at 14% 20%, rgba(233,208,255,.16), transparent 36%),
-    radial-gradient(circle at 90% 80%, rgba(255,222,189,.12), transparent 35%);
-}
-.sully-boot-scene {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: calc(54px + var(--safe-top, 0px)) 20px calc(70px + var(--safe-bottom, 0px));
-  text-align: center;
-}
-.sully-boot-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 7px 17px;
-  border: 1px solid var(--boot-line);
-  border-radius: 999px;
-  background: rgba(255,255,255,.32);
-  color: var(--boot-subtext);
-  font: 600 10px/1.2 'Nunito', system-ui, sans-serif;
-  letter-spacing: .18em;
-  white-space: nowrap;
-}
-.sully-boot-night .sully-boot-eyebrow { background: rgba(255,255,255,.05); }
-.sully-boot-eyebrow::before, .sully-boot-eyebrow::after { content: '✦'; font-size: 9px; opacity: .75; }
+.sully-boot:focus-visible { outline: 2px solid #333; outline-offset: -5px; }
+.sully-boot-scene { position: absolute; inset: 0; display: grid; place-items: center; }
 .sully-boot-art {
-  position: relative;
-  width: min(92vw, 378px);
-  max-width: 100%;
-  aspect-ratio: 1;
-  margin: 0 auto 10px;
-  filter: drop-shadow(0 14px 20px rgba(169,108,76,.12));
-}
-.sully-boot-night .sully-boot-art { filter: drop-shadow(0 20px 32px rgba(22,13,36,.25)); }
-.sully-boot-dog { display: block; width: 100%; height: 100%; object-fit: contain; }
-.sully-boot-wordmark.sully-boot-dog-wordmark {
-  margin: 0;
-  padding-inline: .06em .1em;
-  color: var(--boot-text);
-  font-family: 'ZCOOL KuaiLe', 'YouYuan', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
-  font-size: clamp(45px, 12vw, 65px);
-  font-weight: 700;
-  letter-spacing: .055em;
-  line-height: 1.2;
-  text-shadow: 0 2px 0 rgba(255,255,255,.25);
-}
-.sully-boot-night .sully-boot-wordmark { text-shadow: 0 3px 12px rgba(19,12,30,.25); }
-.sully-boot-greeting {
-  margin: 13px 0 0;
-  padding-left: .18em;
-  color: var(--boot-subtext);
-  font: 500 clamp(12px,3.4vw,15px)/1.5 'Nunito', 'Noto Sans SC', sans-serif;
-  letter-spacing: .18em;
-}
-.sully-boot-ornament { display: flex; align-items: center; gap: 12px; margin-top: 28px; color: var(--boot-subtext); opacity: .7; font: 15px/1 sans-serif; }
-.sully-boot-ornament::before, .sully-boot-ornament::after { content: ''; width: 26px; height: 1px; background: var(--boot-line); }
-.sully-boot-hint {
   position: absolute;
-  z-index: 1;
-  left: 0;
-  right: 0;
-  bottom: max(38px, calc(20px + var(--safe-bottom, 0px)));
-  text-align: center;
-  font: 500 11px/1.4 'Nunito', 'Noto Sans SC', sans-serif;
-  letter-spacing: .14em;
-  color: var(--boot-subtext);
+  top: 46%;
+  left: 50%;
+  width: 216px;
+  height: 264px;
+  margin: 0;
+  transform: translate(-50%, -50%);
 }
-.sully-boot-sparkle { position: absolute; color: #e9bf83; opacity: .65; font: 18px/1 serif; pointer-events: none; }
-.sully-boot-night .sully-boot-sparkle { color: #fbe3c5; }
-.sully-boot-sparkle.one { left: 12%; top: 25%; }
-.sully-boot-sparkle.two { right: 13%; top: 31%; font-size: 12px; }
-.sully-boot-sparkle.three { left: 18%; bottom: 26%; font-size: 11px; }
-.sully-boot[data-cinematic='true']:not(.sully-boot-mid-autumn) .sully-boot-scene { animation: babyDogSceneIn .7s ease-out both; }
-.sully-boot[data-cinematic='true']:not(.sully-boot-mid-autumn) .sully-boot-art { animation: babyDogArtIn .85s cubic-bezier(.2,.7,.2,1) both; }
-.sully-boot[data-cinematic='true']:not(.sully-boot-mid-autumn) .sully-boot-sparkle { animation: babyDogTwinkle 3s ease-in-out infinite; }
-.sully-boot[data-cinematic='true'] .sully-boot-sparkle.two { animation-delay: -1.5s; }
-@keyframes babyDogSceneIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes babyDogArtIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes babyDogTwinkle { 0%, 100% { opacity: .32; } 50% { opacity: .8; } }
-@media (max-height: 620px) {
-  .sully-boot-scene { padding: calc(16px + var(--safe-top, 0px)) 18px calc(46px + var(--safe-bottom, 0px)); }
-  .sully-boot-eyebrow { margin-bottom: 7px; }
-  .sully-boot-art { width: min(74vw, 260px); margin-bottom: 3px; }
-  .sully-boot-ornament { margin-top: 13px; }
-  .sully-boot-greeting { margin-top: 7px; }
-  .sully-boot-hint { bottom: max(17px, var(--safe-bottom, 0px)); }
+.sully-boot-dog { position: absolute; inset: 0; transform-origin: 50% 82%; }
+.sully-boot-dog * { box-sizing: border-box; }
+.sully-dog-body {
+  position: absolute; left: 37px; top: 83px; width: 144px; height: 164px;
+  border: 4px solid #343434; border-radius: 45% 45% 40% 43% / 41% 41% 28% 30%;
+  background: #fff; transform-origin: 50% 75%;
 }
-@media (prefers-reduced-motion: reduce) {
-  .sully-boot, .sully-boot * { animation: none !important; transition: none !important; }
+.sully-dog-tail {
+  position: absolute; z-index: -1; right: 20px; top: 187px;
+  width: 30px; height: 19px; border: 4px solid #343434;
+  border-radius: 70% 75% 65% 50%; background: #fff;
+  transform: rotate(13deg);
 }
-
-/* 中秋节日封面独立保留，避免普通品牌封面样式遮挡节日插画。 */
-.sully-boot-mid-autumn { background: #111115; color: #f4f4f4; }
-.sully-boot-poster-scene { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--safe-top, 0px) 0 var(--safe-bottom, 0px); }
-.sully-boot-poster-frame { position: relative; width: min(100%, calc((100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px)) * 942 / 1672)); }
-.sully-boot-poster { display: block; width: 100%; height: auto; }
-.sully-boot-poster-greeting { position: absolute; top: 25%; left: 0; right: 0; margin: 0; text-align: center; color: #f4f4f4; font: 400 clamp(12px,min(4.5vw,2.5dvh),24px)/1.8 'Noto Serif SC',serif; letter-spacing: .4em; padding-left: .4em; text-shadow: 0 2px 12px #000; }
-.sully-boot-mid-autumn .sully-boot-hint { color: #f4f4f4; text-shadow: 0 1px 5px #000; }
+.sully-dog-ear {
+  position: absolute; z-index: 2; top: 31px; width: 54px; height: 66px;
+  border: 4px solid #343434; background: #fff;
+}
+.sully-dog-ear.left { left: 34px; border-radius: 53% 48% 35% 42%; transform: rotate(-22deg); transform-origin: 80% 90%; }
+.sully-dog-ear.right { right: 31px; border-radius: 48% 54% 44% 35%; transform: rotate(24deg); transform-origin: 20% 90%; }
+.sully-dog-head {
+  position: absolute; z-index: 3; left: 35px; top: 65px;
+  width: 146px; height: 119px; border: 4px solid #343434;
+  background: #fff; border-radius: 46% 46% 48% 49% / 45% 46% 54% 54%;
+  transform-origin: 50% 80%;
+}
+.sully-dog-eye { position: absolute; top: 48px; width: 7px; height: 9px; background: #333; border-radius: 50%; }
+.sully-dog-eye.left { left: 34px; }
+.sully-dog-eye.right { right: 34px; }
+.sully-dog-nose { position: absolute; left: 50%; top: 54px; width: 12px; height: 8px; background: #333; border-radius: 50%; transform: translateX(-50%); }
+.sully-dog-mouth {
+  position: absolute; left: 50%; top: 63px; width: 31px; height: 19px;
+  border-bottom: 3.5px solid #333; border-radius: 0 0 55% 55%;
+}
+.sully-dog-mouth.left { transform: translateX(-100%) rotate(-5deg); }
+.sully-dog-mouth.right { transform: rotate(5deg); }
+.sully-dog-paw {
+  position: absolute; z-index: 4; top: 126px; width: 53px; height: 76px;
+  border: 4px solid #343434; border-radius: 47% 49% 40% 46%;
+  background: #fff; transform-origin: 60% 92%;
+}
+.sully-dog-paw.left { left: 9px; transform: rotate(-28deg); }
+.sully-dog-paw.right { right: 9px; transform: rotate(28deg); transform-origin: 40% 92%; }
+.sully-dog-foot { position: absolute; z-index: 4; top: 227px; width: 48px; height: 23px; border: 4px solid #343434; border-radius: 45% 45% 52% 48%; background: #fff; }
+.sully-dog-foot.left { left: 48px; transform: rotate(-8deg); }
+.sully-dog-foot.right { right: 47px; transform: rotate(8deg); }
+.sully-boot-dog-wordmark {
+  position: absolute; bottom: max(68px, calc(54px + var(--safe-bottom, 0px)));
+  left: 0; right: 0; margin: 0;
+  text-align: center; font: 600 24px/1.3 'Nunito', 'YouYuan', 'Noto Sans SC', sans-serif;
+  letter-spacing: .14em; padding-left: .14em; color: #303030;
+}
+.sully-boot[data-cinematic='true'] .sully-boot-dog { animation: sullyPuppyDance 1.55s cubic-bezier(.5,.05,.35,1) infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-head { animation: sullyPuppyHead 1.55s ease-in-out infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-ear.left { animation: sullyPuppyEarLeft 1.55s ease-in-out infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-ear.right { animation: sullyPuppyEarRight 1.55s ease-in-out infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-paw.left { animation: sullyPuppyPawLeft 1.55s ease-in-out infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-paw.right { animation: sullyPuppyPawRight 1.55s ease-in-out infinite; }
+.sully-boot[data-cinematic='true'] .sully-dog-tail { animation: sullyPuppyTail 1.55s ease-in-out infinite; }
+@keyframes sullyPuppyDance {
+  0%,100% { transform: translateY(4px) rotate(-3deg) scale(1,.98); }
+  20% { transform: translateY(-9px) rotate(1deg) scale(.98,1.03); }
+  43% { transform: translateY(-14px) rotate(4deg) scale(1,1.02); }
+  65% { transform: translateY(3px) rotate(1deg) scale(1.035,.96); }
+  83% { transform: translateY(-5px) rotate(-2deg) scale(.99,1.015); }
+}
+@keyframes sullyPuppyHead { 0%,100%{transform:rotate(-3deg)} 42%{transform:rotate(5deg)} 70%{transform:rotate(-2deg)} }
+@keyframes sullyPuppyEarLeft { 0%,100%{transform:rotate(-22deg)} 43%{transform:rotate(-35deg)} 65%{transform:rotate(-12deg)} }
+@keyframes sullyPuppyEarRight { 0%,100%{transform:rotate(24deg)} 43%{transform:rotate(13deg)} 65%{transform:rotate(37deg)} }
+@keyframes sullyPuppyPawLeft { 0%,100%{transform:rotate(-28deg)} 43%{transform:rotate(-51deg)} 65%{transform:rotate(-13deg)} }
+@keyframes sullyPuppyPawRight { 0%,100%{transform:rotate(28deg)} 43%{transform:rotate(52deg)} 65%{transform:rotate(12deg)} }
+@keyframes sullyPuppyTail { 0%,100%{transform:rotate(13deg)} 40%{transform:rotate(37deg)} 68%{transform:rotate(-8deg)} }
+@media (max-width: 350px), (max-height: 620px) {
+ .sully-boot-art { transform: translate(-50%,-50%) scale(.84); top: 45%; }
+ .sully-boot-dog-wordmark { font-size: 21px; bottom: max(34px, calc(25px + var(--safe-bottom, 0px))); }
+}
+@media (prefers-reduced-motion:reduce) {
+ .sully-boot, .sully-boot * { animation:none!important; transition:none!important; }
+}
+/* 既有节日开屏不受普通白色封面影响。 */
+.sully-boot-mid-autumn { background:#111115; color:#f4f4f4; }
+.sully-boot-poster-scene { position:absolute; inset:0; display:grid; place-items:center; padding:var(--safe-top,0px) 0 var(--safe-bottom,0px); }
+.sully-boot-poster-frame { position:relative; width:min(100%,calc((100dvh - var(--safe-top,0px) - var(--safe-bottom,0px))*942/1672)); }
+.sully-boot-poster { display:block; width:100%; height:auto; }
+.sully-boot-poster-greeting { position:absolute; top:25%; left:0; right:0; margin:0; text-align:center; color:#f4f4f4; font:400 clamp(12px,min(4.5vw,2.5dvh),24px)/1.8 'Noto Serif SC',serif; letter-spacing:.4em; padding-left:.4em; text-shadow:0 2px 12px #000; }
