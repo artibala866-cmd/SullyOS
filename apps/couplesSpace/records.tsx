@@ -177,11 +177,16 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   }
   if(kind==='timeline'){
     return <div className="couple-scene couple-scene-timeline">
-      <div className="couple-timeline-cover"><span>THE STORY SO FAR</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div></div>
+      <div className="couple-timeline-cover"><span>THE STORY SO FAR</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div>
+        <button type="button" className="couple-timeline-ask" disabled={busy} onClick={onAI}>让 {names.them} 讲述 ↗</button>
+      </div>
       <div className="couple-timeline-flow"><span className="couple-timeline-flow-label">MOMENTS / {today.slice(0,4)}</span>
         {rows.length ? rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)}><span className="couple-timeline-flow-date">{item.date.slice(5).replace('-','/')}</span><span className="couple-timeline-flow-dot"/><span><strong>{item.title}</strong><small>{item.body || names[item.side]+' 记录'}</small></span>{item.image&&<TokenImg value={item.image} alt="" />}</button>)
-        : <div className="couple-timeline-first">故事开始于 {bond.start}。<br/>下一件值得收藏的事，等你们来写。</div>}
-      </div>{actions('＋ 珍藏这一刻','请 '+names.them+' 讲述')}
+        : <div className="couple-timeline-first"><time>{bond.start}</time><span>故事从这一天开始</span></div>}
+        <button type="button" className="couple-timeline-add" disabled={busy} onClick={onNew}>
+          <span className="couple-timeline-flow-dot" aria-hidden="true"/>＋ 写下下一段故事
+        </button>
+      </div>
     </div>;
   }
   if(kind==='wish'){
@@ -193,8 +198,14 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
           <span className="couple-wish-pin" /><span className="couple-wish-note-index">{String(index+1).padStart(2,'0')}</span>
           <strong>{item.title}</strong><small>{item.done?'✓ 已完成':'待一起实现'}</small>
           <span className="couple-wish-note-steps">{(item.steps??[]).filter(s=>s.text.trim()).length} 个小目标</span>
-        </button>):<div className="couple-wish-blank"><span>01 · 02 · 03</span><strong>这面愿望墙还空着。</strong><small>先贴上第一件想一起做的事吧。</small></div>}
-      </div>{actions('＋ 写一张愿望纸','问问 '+names.them+' 的愿望')}
+        </button>):null}
+        <button type="button" className="couple-wish-add-note" disabled={busy} onClick={onNew}>
+          <span>＋</span><strong>贴一张愿望纸</strong><small>写下第一件想做的事</small>
+        </button>
+        <button type="button" className="couple-wish-ai-note" disabled={busy} onClick={onAI}>
+          <span>✎</span><small>看看 {names.them} 的愿望</small>
+        </button>
+      </div>
     </div>;
   }
   if(kind==='gift'){
