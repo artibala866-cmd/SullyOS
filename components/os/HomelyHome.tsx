@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {CaretDown, House, Palette, X, LockSimple, LockSimpleOpen, Phone, DeviceMobile, Heart, Check} from '@phosphor-icons/react';
+import {CaretDown, House, Palette, X, LockSimple, LockSimpleOpen, Phone, Heart, Check} from '@phosphor-icons/react';
 import {HOMELY_PALETTES, homelyPalette, homelyPaletteStyle} from './homelyPalette';
 import {resolveHomelyResident} from '../../utils/homelyResident';
 import {useOS} from '../../context/OSContext';
@@ -39,7 +39,6 @@ export default function HomelyHome({onEditor}:{onEditor?:(editor:HomeEditor)=>vo
     <nav className="homely-launcher" aria-label="桌面导航">
       <div className="homely-quick-apps" aria-label="常用应用">
         <button onClick={()=>launchForResident(AppID.Call)} disabled={!character}><Phone size={21}/><span>电话</span></button>
-        <button onClick={()=>launchForResident(AppID.CheckPhone)} disabled={!character}><DeviceMobile size={21}/><span>查手机</span></button>
         <button onClick={()=>launchForResident(AppID.Date)} disabled={!character}><Heart size={21}/><span>见面</span></button>
       </div>
       <button className="homely-resident-launch" onClick={() => setDrawer('residents')} aria-label="切换居家角色"><span className="homely-avatar">{character?.avatar ? <TokenImg value={character.avatar}/> : <House size={22}/>}</span><span>{character?.name ?? '选择角色'}</span>{pinned?<LockSimple size={13} aria-label="已锁定"/>:<CaretDown size={12}/>}</button>

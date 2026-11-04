@@ -16,7 +16,7 @@ describe('retired 彼方 isolation', () => {
     expect(code).not.toContain('### 关于《彼方》');
     expect(code).not.toContain('kanataPublicContext');
     expect(code).not.toContain("else if ((m.type as string) === 'vr_card')");
-    expect(code).toContain(".filter(m => m.type !== 'vr_card')");
+    expect(code).toContain(".filter(m => m.type !== 'vr_card'");
   });
 
   it('does not require the retired module for chat, TTS, meeting or 3D resident rendering', () => {
@@ -37,6 +37,7 @@ describe('retired 彼方 isolation', () => {
       'apps/Launcher.tsx',
       'components/os/HomelyHome.tsx',
       'components/os/CompanionHome.tsx',
+      'components/os/OtomeCompanionChrome.tsx',
     ]) {
       expect(source(path), path).not.toMatch(/\b(?:Icons|AppID)\.VRWorld\b/);
     }

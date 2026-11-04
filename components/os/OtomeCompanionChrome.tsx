@@ -1,5 +1,6 @@
 import React from 'react';
 import { HandTap, TShirt } from '@phosphor-icons/react';
+import { appShortcutLaunch } from '../../utils/appShortcutLaunch';
 import { Icons } from '../../constants';
 import { AppID, type CharacterProfile, type ScheduleSlot } from '../../types';
 import './OtomeCompanionChrome.css';
@@ -31,7 +32,6 @@ const OtomeCompanionChrome: React.FC<OtomeCompanionChromeProps> = ({
     .format(new Date())
     .replace('/', '.');
   const rightBookmarks = [
-    { key: AppID.CheckPhone, label: '心声', eyebrow: 'NOTE', Icon: Icons.CheckPhone, action: () => openApp(AppID.CheckPhone) },
     { key: 'wardrobe', label: '衣橱', eyebrow: 'LOOK', Icon: TShirt, action: openWardrobe, testId: 'companion-otome-wardrobe-button' },
     { key: AppID.Date, label: '见面', eyebrow: 'MEET', Icon: Icons.Date, action: () => openApp(AppID.Date), testId: 'companion-otome-date-button' },
     { key: AppID.Call, label: '通话', eyebrow: 'CALL', Icon: Icons.Call, action: () => openApp(AppID.Call) },
@@ -39,8 +39,10 @@ const OtomeCompanionChrome: React.FC<OtomeCompanionChromeProps> = ({
   const bottomActions = [
     { key: 'home', label: '主页', Icon: Icons.Room, action: onHome, active: true },
     { key: AppID.Chat, label: '对话', Icon: Icons.Chat, action: () => openApp(AppID.Chat) },
-    { key: AppID.Date, label: '篇章', Icon: Icons.Date, action: () => openApp(AppID.Date) },
-    { key: AppID.SpecialMoments, label: '时光', Icon: Icons.SpecialMoments, action: () => openApp(AppID.SpecialMoments) },
+    { key: 'story', label: '篇章', Icon: Icons.Date, action: () => {
+      appShortcutLaunch.request({ appId: AppID.Date, entryId: 'story' });
+      openApp(AppID.Date);
+    } },
   ];
 
   return (
@@ -55,19 +57,7 @@ const OtomeCompanionChrome: React.FC<OtomeCompanionChromeProps> = ({
             <em>{dayProgress}%</em>
           </small>
         </button>
-        <button type="button" className="otome-keepsake-balance" onClick={() => openApp(AppID.Bank)} aria-label="打开账户">
-          <span>花笺</span><strong>12,860</strong><i aria-hidden />
-        </button>
       </header>
-
-      <button type="button" className="otome-season-letter pointer-events-auto" onClick={() => openApp(AppID.VRWorld)}>
-        <span className="otome-letter-seal" aria-hidden><Icons.SpecialMoments /></span>
-        <span className="otome-letter-copy">
-          <small>SEASON LETTER</small>
-          <strong>晴庭来信</strong>
-          <em>一段新的回忆已寄达</em>
-        </span>
-      </button>
 
       <div className="otome-stage-toolbar pointer-events-auto" aria-label="桌面工具">
         <button type="button" onClick={() => openApp(AppID.Appearance)}><Icons.Appearance /><span>外观</span></button>

@@ -48,7 +48,6 @@ const IdolCompanionChrome: React.FC<IdolCompanionChromeProps> = ({
     { id: AppID.Chat, label: '对话', Icon: ChatCircleDots, action: () => openApp(AppID.Chat) },
     { id: AppID.Call, label: '通话', Icon: VideoCamera, action: () => openApp(AppID.Call) },
     { id: 'live', label: '舞台', Icon: Broadcast, action: openAllApps, primary: true },
-    { id: AppID.SpecialMoments, label: '时光', Icon: Heart, action: () => openApp(AppID.SpecialMoments) },
     { id: AppID.Music, label: '音乐', Icon: Icons.Music, action: () => openApp(AppID.Music) },
   ];
 

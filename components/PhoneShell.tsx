@@ -97,7 +97,6 @@ import { isIOSStandaloneWebApp, resolveStatusBarMode } from '../utils/iosStandal
 import AppErrorBoundary from './os/AppErrorBoundary';
 import GlobalMiniPlayer from './os/GlobalMiniPlayer';
 import NavigationBall from './os/NavigationBall';
-import PersonaSimIndicator from './os/PersonaSimIndicator';
 import DreamSimIndicator from './os/DreamSimIndicator';
 import ErrorDialog from './os/ErrorDialog';
 import BootSequence from './os/BootSequence';
@@ -972,7 +971,6 @@ const PhoneShell: React.FC = () => {
           <NavigationBall />
 
           {/* Overlays: 人格模拟生成全局指示条 */}
-          <PersonaSimIndicator />
 
           {/* Overlays: 梦境生成全局指示条 */}
           <DreamSimIndicator />

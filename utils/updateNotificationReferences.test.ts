@@ -12,10 +12,9 @@ describe('Live2D update notification references', () => {
   });
 
   it('links the handbook collaboration entry to its detailed release note', () => {
-    const faqSource = readFileSync(path.resolve(__dirname, '../apps/FAQApp.tsx'), 'utf8');
+    const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
     const detailSource = readFileSync(path.resolve(__dirname, '../public/changelogs/2026-8-30.html'), 'utf8');
-    expect(faqSource).toContain('id: CHANGELOG_2026_08_30');
-    expect(faqSource).toContain("src: 'changelogs/2026-8-30.html'");
+    expect(source).toContain("openReleaseNotes('2026-8-30')");
     expect(detailSource).toContain('ChatApp');
     expect(detailSource).toContain('设置 → 导出');
     expect(detailSource).toContain('长按删除');
@@ -30,15 +29,14 @@ describe('Live2D update notification references', () => {
     expect(source).toContain("UPDATE_NOTIFICATION_KEY_2026_08_10 = 'sullyos_update_2026_08_10_live2d_seen'");
     expect(source).toContain("eyebrow: '视频通话'");
     expect(source).toContain("eyebrow: 'L2D 陪伴桌面'");
-    expect(source).toContain('sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, CHANGELOG_2026_08_10)');
+    expect(source).toContain('openReleaseNotes(\'2026-8-10\')');
   });
 
   it('keeps the handbook card and detail page linked to the same changelog id', () => {
-    const faqSource = readFileSync(path.resolve(__dirname, '../apps/FAQApp.tsx'), 'utf8');
+    const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
     const detailSource = readFileSync(path.resolve(__dirname, '../public/changelogs/2026-8-10.html'), 'utf8');
 
-    expect(faqSource).toContain('id: CHANGELOG_2026_08_10');
-    expect(faqSource).toContain("src: 'changelogs/2026-8-10.html'");
+    expect(source).toContain("openReleaseNotes('2026-8-10')");
     expect(detailSource).toContain('新增视频通话');
     expect(detailSource).toContain('新增面向 L2D 的桌面主题');
   });

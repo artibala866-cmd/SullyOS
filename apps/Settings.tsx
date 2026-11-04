@@ -1915,7 +1915,7 @@ const Settings: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar pb-20">
 
-        <NavigationBallSettings characters={characters} loadWorlds={() => DB.getWorlds()} />
+        <NavigationBallSettings characters={characters} />
         {/* 外观救急入口统一放在设置顶部，无需进入已被错误 CSS 遮住的聊天或日记。 */}
         <SettingsSection
             title="外观急救"

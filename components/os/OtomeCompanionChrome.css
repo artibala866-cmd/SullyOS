@@ -87,30 +87,6 @@
 .otome-day-progress > i { position:relative; height:clamp(3px,.58vw,5px); overflow:hidden; border-radius:999px; background:rgba(82,118,110,.16); }
 .otome-day-progress > i > b { position:absolute; inset:0 auto 0 0; border-radius:inherit; background:linear-gradient(90deg,var(--otome-sage),var(--otome-berry)); transition:width 500ms ease; }
 .otome-day-progress > em { color:var(--otome-berry); font-style:normal; font-variant-numeric:tabular-nums; }
-.otome-keepsake-balance {
-  position:relative; align-self:center; display:grid; grid-template-columns:auto auto; align-items:baseline; gap:0 9%;
-  min-width:30%; padding:2.2% 8% 2.2% 4%; text-align:right; color:#665d4c;
-  border-left:1px solid rgba(185,154,95,.42);
-}
-.otome-keepsake-balance span { font:700 clamp(8px,1.5vw,11px)/1 sans-serif; letter-spacing:.13em; }
-.otome-keepsake-balance strong { font:500 clamp(14px,2.8vw,21px)/1 Georgia,serif; }
-.otome-keepsake-balance i { position:absolute; right:0; top:50%; width:13%; aspect-ratio:1; translate:0 -50%; rotate:45deg; background:linear-gradient(135deg,#f7e5ad,#bd8f57); border:1px solid white; box-shadow:0 0 0 1px #b99a5f; }
-
-.otome-season-letter {
-  position:absolute; left:4.5%; top:16.2%; width:42%; height:9.4%;
-  display:flex; align-items:center; gap:7%; padding:2.1% 3.2%; text-align:left;
-  color:#4f6460; background:rgba(255,250,239,.88);
-  border:1px solid rgba(118,159,145,.5); border-radius:2px;
-  box-shadow:7px 7px 0 rgba(118,159,145,.16),0 8px 18px rgba(82,89,76,.09);
-  clip-path:polygon(0 0,93% 0,100% 28%,100% 100%,0 100%);
-}
-.otome-letter-seal { display:grid; place-items:center; width:27%; aspect-ratio:1; flex:none; border-radius:50%; color:#fff9ed; background:var(--otome-berry); box-shadow:0 0 0 4px rgba(185,94,120,.13); }
-.otome-letter-seal svg { width:46%; height:46%; animation:otome-seal-breathe 3.4s ease-in-out infinite; }
-.otome-letter-copy { min-width:0; display:flex; flex-direction:column; }
-.otome-letter-copy small { color:var(--otome-berry); font:700 clamp(6px,1.14vw,9px)/1 Arial,sans-serif; letter-spacing:.15em; }
-.otome-letter-copy strong { margin-top:6%; font-size:clamp(13px,2.65vw,20px); font-weight:600; letter-spacing:.09em; white-space:nowrap; }
-.otome-letter-copy em { margin-top:5%; overflow:hidden; color:#7a8782; font:normal 600 clamp(7px,1.28vw,10px)/1 sans-serif; white-space:nowrap; text-overflow:ellipsis; }
-
 .otome-stage-toolbar {
   position:absolute; left:4.5%; top:28%; display:flex; align-items:center; gap:2px;
   color:#5f756f; background:rgba(255,252,244,.78); border:1px solid rgba(118,159,145,.38);
@@ -162,7 +138,7 @@
   box-shadow:0 -8px 26px rgba(75,79,67,.12),inset 0 3px rgba(255,255,255,.66);
 }
 .otome-book-dock::before { content:""; position:absolute; left:4.5%; right:18%; top:0; height:3px; background:linear-gradient(90deg,var(--otome-sage),var(--otome-berry)); }
-.otome-book-dock-items { width:82%; display:grid; grid-template-columns:repeat(4,1fr); }
+.otome-book-dock-items { width:82%; display:grid; grid-template-columns:repeat(3,1fr); }
 .otome-book-dock-items button { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh; border-right:1px solid rgba(185,154,95,.19); }
 .otome-book-dock-items svg { width:clamp(17px,3.8vw,28px); height:clamp(17px,3.8vw,28px); }
 .otome-book-dock-items span,.otome-menu-pearl span { font:700 clamp(8px,1.5vw,12px)/1 sans-serif; letter-spacing:.08em; }
@@ -197,7 +173,6 @@
 
 @keyframes otome-header-in { from { opacity:0; transform:translateY(-8px) } to { opacity:1; transform:translateY(0) } }
 @keyframes otome-bookmarks-in { from { opacity:0; transform:translateX(14px) } to { opacity:1; transform:translateX(0) } }
-@keyframes otome-seal-breathe { 0%,100% { transform:scale(.92) } 50% { transform:scale(1.06) } }
 @keyframes otome-active-line { from { transform:scaleX(.2) } to { transform:scaleX(1) } }
 
 @media (prefers-reduced-motion: reduce) {

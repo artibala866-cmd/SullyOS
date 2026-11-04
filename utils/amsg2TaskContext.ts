@@ -93,8 +93,10 @@ const buildNoticeSections = (
   target: string,
 ): string[] => {
   const parts: string[] = [];
-  const skipped = expired.filter((r) => r.kind !== 'user-cancelled');
   const userCancelled = expired.filter((r) => r.kind === 'user-cancelled');
+  const cancelledTaskIds = new Set(userCancelled.map((r) => r.id.split(':', 1)[0]));
+  const skipped = expired.filter((r) =>
+    r.kind !== 'user-cancelled' && !cancelledTaskIds.has(r.id.split(':', 1)[0]));
 
   if (skipped.length) {
     parts.push('到点没发出去：');
@@ -114,7 +116,7 @@ const buildNoticeSections = (
     for (const r of userCancelled) {
       parts.push(describeNoticeLine(r, charTz, target));
     }
-    parts.push('这几条是用户直接取消的，相关约定不再生效，自然接受即可、不必向用户求证，也别再拿它们许诺。还想在别的时间说的话，用 schedule_active_message 重新排一条。');
+    parts.push('这几条是用户直接取消的，相关约定不再生效，自然接受即可、不必向用户求证，也别再拿它们许诺。这件事只有在用户明确重新委托时才能再排。');
   }
 
   return parts;

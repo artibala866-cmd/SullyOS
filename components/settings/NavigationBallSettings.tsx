@@ -1,22 +1,21 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { resetNavigationBallPosition, setNavigationBallEnabled, setNavigationBallSlot, useNavigationBallEnabled, useNavigationBallSlots } from '../../utils/navigationBall';
-import { describeNavigationShortcut, type ShortcutCharacter, type ShortcutWorld, type ShortcutResources } from '../../utils/navigationShortcuts';
+import { describeNavigationShortcut, type ShortcutCharacter, type ShortcutResources } from '../../utils/navigationShortcuts';
 import { useSettingsFocus } from '../../utils/settingsNavigation';
 import { useOS } from '../../context/OSContext';
 import { AppID } from '../../types';
 const NavigationSlotPicker = React.lazy(() => import('./NavigationSlotPicker'));
 // Only mounted when a slot is being edited. Project titles, never message/book bodies.
 function SlotPickerWithResources(props: React.ComponentProps<typeof NavigationSlotPicker>) {
-  const { groups = [], novels = [], songs = [], worldbooks = [] } = useOS();
+  const { groups = [], songs = [], worldbooks = [] } = useOS();
   const resources = React.useMemo(() => ({
     [AppID.GroupChat]: groups.map(item => ({ id: item.id, name: item.name })),
-    [AppID.Novel]: novels.map(item => ({ id: item.id, name: item.title })),
     [AppID.Songwriting]: songs.map(item => ({ id: item.id, name: item.title })),
     [AppID.Worldbook]: worldbooks.map(item => ({ id: item.id, name: item.title })),
-  }), [groups, novels, songs, worldbooks]);
+  }), [groups, songs, worldbooks]);
   return <NavigationSlotPicker {...props} resources={props.resources || resources} />;
 }
-export default function NavigationBallSettings({ characters = [], loadWorlds, resources }: { characters?: readonly ShortcutCharacter[]; loadWorlds?: () => Promise<ShortcutWorld[]>; resources?: ShortcutResources }) {
+export default function NavigationBallSettings({ characters = [], resources }: { characters?: readonly ShortcutCharacter[]; resources?: ShortcutResources }) {
   const enabled = useNavigationBallEnabled();
   const slots = useNavigationBallSlots();
   const section = useRef<HTMLElement>(null);
@@ -71,7 +70,7 @@ export default function NavigationBallSettings({ characters = [], loadWorlds, re
       })}
     </div>}
     {editingSlot !== null && <React.Suspense fallback={<p role="status" className="mt-3 text-xs text-slate-400">正在打开入口选择…</p>}>
-      <SlotPickerWithResources slot={editingSlot} characters={characters} loadWorlds={loadWorlds} resources={resources}
+      <SlotPickerWithResources slot={editingSlot} characters={characters} resources={resources}
         onSelect={shortcut => { setNavigationBallSlot(editingSlot, shortcut); setEditingSlot(null); }} onClose={() => setEditingSlot(null)} />
     </React.Suspense>}
     </div>}

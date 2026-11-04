@@ -62,8 +62,8 @@ describe('排程清单不该被当成本轮待办', () => {
   it('一条都没排时不提这句：没有可催的事，白说一遍反而勾着', () => {
     const text = buildAmsg2TaskContextText([], [], Date.now(), undefined);
     expect(text).not.toContain(AMSG2_SCHEDULE_NOT_YET_NOTE);
-    // 常驻简介照旧在（角色得随时知道自己能排），只是不该顺带提醒「催」这件事存在
-    expect(text).toContain('schedule_active_message');
+    // 保留排程适用场景，不额外在常驻简介里教模型输出工具名。
+    expect(text).toContain('兑现明确承诺');
   });
 
   it('到点那份清单同样带这句：正在发的是这条，别顺手把没到点的几条一起催了', () => {

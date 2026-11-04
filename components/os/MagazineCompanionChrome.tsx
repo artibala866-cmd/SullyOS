@@ -61,7 +61,6 @@ const MagazineCompanionChrome: React.FC<MagazineCompanionChromeProps> = ({
       <nav className="mag-cover-nav pointer-events-auto" aria-label="夜刊封面导航">
         <button type="button" onClick={() => openApp(AppID.Chat)}><Icons.Chat /><span>对话</span></button>
         <button type="button" onClick={() => openApp(AppID.Date)}><Icons.Date /><span>见面</span></button>
-        <button type="button" onClick={() => openApp(AppID.SpecialMoments)}><Icons.SpecialMoments /><span>时光</span></button>
         <button type="button" onClick={openAllApps}><Icons.Settings /><span>目录</span></button>
       </nav>
     </div>

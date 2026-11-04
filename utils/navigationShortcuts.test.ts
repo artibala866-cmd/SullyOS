@@ -7,26 +7,27 @@ import { characterLaunch } from './characterLaunch';
 import { appShortcutLaunch } from './appShortcutLaunch';
 afterEach(() => { roomLaunch.consume(); characterLaunch.consume(); });
 it('accepts legacy app IDs, allows Settings, constrains targets to their app and searches case/width/words', () => {
+  expect(normalizeNavigationShortcut({ appId: AppID.Room, roomTab: 'room', characterId: 'c' })).toEqual({ appId: AppID.Room, characterId: 'c' });
   expect(normalizeNavigationShortcut(AppID.Settings)).toEqual({ appId: AppID.Settings });
-  expect(normalizeNavigationShortcut({ appId: AppID.Room, roomTab: 'worldHome', worldId: 'w', characterId: 'c' })).toEqual({ appId: AppID.Room, roomTab: 'worldHome', worldId: 'w' });
+  expect(normalizeNavigationShortcut({ appId: AppID.Room, roomTab: 'worldHome', worldId: 'w', characterId: 'c' })).toBeNull();
   expect(normalizeNavigationShortcut({ appId: AppID.Settings, characterId: 'c' })).toEqual({ appId: AppID.Settings });
   expect(normalizeNavigationShortcut(AppID.CharCreatorDev)).toBeNull();
   expect(matchesShortcutSearch('Message CHAT 聊天', '  ＣＨＡＴ  聊天 ')).toBe(true);
   expect(matchesShortcutSearch('小小窝', '家园')).toBe(false);
 });
-it('routes room modes/character/world IDs without mixing 2D/3D or changing active character for worlds', () => {
+it('routes 3D home to the selected character or the picker', () => {
   const actions = { characters: [{ id: 'c', name: '角色' }], openApp: vi.fn(), setActiveCharacterId: vi.fn(), onMissingTarget: vi.fn() };
-  launchNavigationShortcut({ appId: AppID.Room, roomTab: 'home3D', characterId: 'c' }, actions);
-  expect(roomLaunch.consume()).toEqual({ tab: 'home3D', charId: 'c', worldId: undefined });
-  launchNavigationShortcut({ appId: AppID.Room, roomTab: 'worldHome', worldId: 'world' }, actions);
-  expect(roomLaunch.consume()).toEqual({ tab: 'worldHome', charId: undefined, worldId: 'world' });
+  launchNavigationShortcut({ appId: AppID.Room, characterId: 'c' }, actions);
+  expect(roomLaunch.consume()).toEqual({ tab: 'home3D', charId: 'c' });
+  launchNavigationShortcut({ appId: AppID.Room }, actions);
+  expect(roomLaunch.consume()).toEqual({ tab: 'home3D', charId: undefined });
   expect(actions.setActiveCharacterId).not.toHaveBeenCalled();
   launchNavigationShortcut({ appId: AppID.Chat, characterId: 'c' }, actions);
   expect(actions.setActiveCharacterId).toHaveBeenCalledWith('c'); expect(actions.openApp).toHaveBeenLastCalledWith(AppID.Chat);
   launchNavigationShortcut({ appId: AppID.Character, characterId: 'c' }, actions);
   expect(characterLaunch.consume()).toEqual({ charId: 'c' });
   actions.openApp.mockClear();
-  launchNavigationShortcut({ appId: AppID.Room, roomTab: 'room', characterId: 'deleted' }, actions);
+  launchNavigationShortcut({ appId: AppID.Room, characterId: 'deleted' }, actions);
   expect(actions.onMissingTarget).toHaveBeenCalledOnce(); expect(actions.openApp).not.toHaveBeenCalled(); expect(roomLaunch.peek()).toBeNull();
 });
 it('delivers intents to an already mounted app and removes subscriptions on exit', () => {
@@ -40,8 +41,12 @@ it('delivers intents to an already mounted app and removes subscriptions on exit
 });
 it('preserves valid nested entries and prevents mismatched or unsupported targets', () => {
   expect(normalizeNavigationShortcut({ appId: AppID.MemoryPalace, entryId: 'globalSettings', characterId: 'wrong' })).toEqual({ appId: AppID.MemoryPalace, entryId: 'globalSettings' });
-  expect(normalizeNavigationShortcut({ appId: AppID.Novel, entryId: 'shelf', resourceId: 'book', characterId: 'wrong' })).toEqual({ appId: AppID.Novel, entryId: 'shelf', resourceId: 'book' });
+  expect(normalizeNavigationShortcut({ appId: AppID.Novel, entryId: 'shelf', resourceId: 'book', characterId: 'wrong' })).toBeNull();
+  expect(normalizeNavigationShortcut({ appId: AppID.Schedule, entryId: 'quest' })).toEqual({ appId: AppID.Schedule });
   const actions = { characters: [{ id: 'c', name: '角色' }], openApp: vi.fn(), setActiveCharacterId: vi.fn(), onMissingTarget: vi.fn() };
+  const studyShortcut = normalizeNavigationShortcut({ appId: AppID.Schedule, entryId: 'study' });
+  launchNavigationShortcut(studyShortcut!, actions);
+  expect(appShortcutLaunch.consume(AppID.Schedule)).toEqual({ appId: AppID.Schedule, entryId: 'study' });
   launchNavigationShortcut({ appId: AppID.Character, entryId: 'stats', characterId: 'c' }, actions);
   expect(characterLaunch.consume()).toEqual({ charId: 'c', detailTab: 'stats' });
   expect(actions.setActiveCharacterId).not.toHaveBeenCalled();

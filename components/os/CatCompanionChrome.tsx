@@ -35,7 +35,6 @@ const CatCompanionChrome: React.FC<CatCompanionChromeProps> = ({
   const dockActions = [
     { key: 'home', label: '归巢', Icon: Icons.Room, action: onHome },
     { key: AppID.Chat, label: '对话', Icon: Icons.Chat, action: () => openApp(AppID.Chat) },
-    { key: AppID.SpecialMoments, label: '时光', Icon: Icons.SpecialMoments, action: () => openApp(AppID.SpecialMoments) },
     { key: AppID.Settings, label: '设置', Icon: Icons.Settings, action: () => openApp(AppID.Settings) },
   ];
 

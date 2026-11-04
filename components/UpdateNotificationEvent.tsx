@@ -4,7 +4,7 @@ import SmallUpdatesPopup, { SMALL_UPDATES_KEY } from './os/SmallUpdatesPopup';
 import { HOLIDAY_NOTICE_KEY, hasChosenHolidayIntro } from '../utils/userHolidays';
 import {DECORATION_UPDATE_KEY} from '../utils/decorationGuide';
 import HomeUpdatePopup from './os/HomeUpdatePopup';
-import { HOME_UPDATE_KEY, HOME_CHANGELOG } from '../utils/homeUpdate';
+import { HOME_UPDATE_KEY } from '../utils/homeUpdate';
 import { roomLaunch } from '../utils/roomLaunch';
 import NavigationBallNotice, { NAVIGATION_BALL_NOTICE_KEY } from './os/NavigationBallNotice';
 import { requestSettingsFocus } from '../utils/settingsNavigation';
@@ -44,7 +44,9 @@ export const UPDATE_NOTIFICATION_KEY_2026_08_30 = 'sullyos_update_2026_08_30_col
 // 例行维护补充：静态网页环境下部分联网功能的数据流说明。
 export const NETWORK_TRANSIT_NOTICE_KEY_2026_08 = 'sullyos_notice_2026_08_network_transit_seen';
 
-export const FAQ_TARGET_SECTION_KEY = 'sullyos_faq_target_section';
+const openReleaseNotes = (file: string) => {
+    window.open(`${import.meta.env.BASE_URL}changelogs/${file}.html`, '_blank', 'noopener,noreferrer');
+};
 export const CHANGELOG_2026_04 = 'changelog-2026-04';
 export const CHANGELOG_2026_05 = 'changelog-2026-05';
 export const CHANGELOG_2026_05_10 = 'changelog-2026-05-10';
@@ -107,8 +109,7 @@ const CollaborationUpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }
     };
     const handleGuide = () => {
         markSeen();
-        try { sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, CHANGELOG_2026_08_30); } catch { /* 打开手册首页 */ }
-        openApp(AppID.FAQ);
+        openReleaseNotes('2026-8-30');
         onExit();
         trackEvent('查看更新说明', { 版本: CHANGELOG_2026_08_30 });
     };
@@ -188,7 +189,6 @@ const LIVE2D_FEATURES = [
 ] as const;
 
 const Live2DUpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }) => {
-    const { openApp } = useOS();
 
     React.useEffect(() => {
         trackEvent('弹出版本更新提醒', { 版本: CHANGELOG_2026_08_10 });
@@ -196,10 +196,7 @@ const Live2DUpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }) => {
 
     const handleGuide = () => {
         markUpdateSeen(UPDATE_NOTIFICATION_KEY_2026_08_10);
-        try {
-            sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, CHANGELOG_2026_08_10);
-        } catch { /* storage 不可用时仍可打开使用手册首页 */ }
-        openApp(AppID.FAQ);
+        openReleaseNotes('2026-8-10');
         onExit();
         trackEvent('点立刻体验', { 版本: CHANGELOG_2026_08_10 });
     };
@@ -336,7 +333,6 @@ const AMSG2_FEATURES = [
 ] as const;
 
 const Amsg2UpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }) => {
-    const { openApp } = useOS();
 
     React.useEffect(() => {
         trackEvent('弹出版本更新提醒', { 版本: CHANGELOG_2026_08_03 });
@@ -345,10 +341,7 @@ const Amsg2UpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }) => {
     const handleGuide = () => {
         markUpdateSeen(UPDATE_NOTIFICATION_KEY_2026_08_03);
         // 直接展开这一版的更新说明：怎么部署、有哪些边界都写在那页里。
-        try {
-            sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, CHANGELOG_2026_08_03);
-        } catch { /* storage 不可用就退回 FAQ 首页，别拦着跳转 */ }
-        openApp(AppID.FAQ);
+        openReleaseNotes('2026-8-3');
         onExit();
         trackEvent('点立刻体验', { 版本: CHANGELOG_2026_08_03 });
     };
@@ -585,8 +578,7 @@ const HomeUpdateAnnouncement: React.FC<UpdatePopupProps> = ({ onDone, onExit }) 
     return <HomeUpdatePopup onDone={onDone} onVisit={() => {
         roomLaunch.request({ tab: 'home3D' }); openApp(AppID.Room); onExit();
     }} onGuide={() => {
-        try { sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, HOME_CHANGELOG); } catch { /* 手册首页仍可打开 */ }
-        openApp(AppID.FAQ); onExit();
+        openReleaseNotes('2026-10-home3d-beta'); onExit();
     }}/>;
 };
 

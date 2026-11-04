@@ -104,12 +104,13 @@ describe('CompanionHome touch request boundaries', () => {
     expect(source).toContain('data-ui-scale="medium"');
   });
 
-  it('routes the three context tiles to distinct character destinations', () => {
+  it('keeps thought visible and routes chat and schedule to working destinations', () => {
     const source = readFileSync(path.resolve(__dirname, '../components/os/CompanionHome.tsx'), 'utf8');
 
-    expect(source).toContain('onClick={() => openApp(AppID.CheckPhone)} className="min-w-0 border-r');
+    expect(source).toMatch(/<div [^>]+data-testid="companion-hud-thought"/);
+    expect(source).not.toContain('openApp(AppID.CheckPhone)');
     expect(source).toContain('onClick={() => openApp(AppID.Chat)} className="min-w-0 border-r');
-    expect(source).toContain('data-testid="companion-hud-schedule"');
+    expect(source).toContain('onClick={() => setScheduleViewerOpen(true)} className="min-w-0 px-3 py-2');
   });
 
   it('keeps one stage layout and offers six frame languages in the right composition inspector', () => {
@@ -185,15 +186,16 @@ describe('CompanionHome touch request boundaries', () => {
     expect(otomeSource).toContain('当前行程 ·');
     expect(otomeSource).not.toContain("id: AppID.Schedule, label: '日程'");
     expect(otomeSource).not.toContain("{ id: AppID.SpecialMoments, label: '日程'");
-    expect(otomeSource).toContain("{ key: AppID.SpecialMoments, label: '时光'");
+    expect(otomeSource).not.toContain('openApp(AppID.SpecialMoments)');
     expect(otomeSource).toContain("key: AppID.Call, label: '通话'");
-    expect(otomeSource).toContain('openApp(AppID.VRWorld)');
+    expect(otomeSource).not.toContain('openApp(AppID.VRWorld)');
     expect(otomeSource).not.toContain('openApp(AppID.WorldHome)');
-    expect(otomeSource).toContain("key: AppID.Date, label: '篇章'");
+    expect(otomeSource).toContain("key: 'story', label: '篇章'");
+    expect(otomeSource).toContain("appShortcutLaunch.request({ appId: AppID.Date, entryId: 'story' })");
     expect(otomeSource).not.toContain('otome-signal-dot');
     expect(otomeSource).not.toContain('ResourceBar');
     expect(otomeSource).not.toContain('otome-rank-badge');
-    expect(otomeCss).toContain('grid-template-columns:repeat(4,1fr)');
+    expect(otomeCss).toContain('grid-template-columns:repeat(3,1fr)');
     expect(otomeCss).toContain('.otome-scene-backdrop');
     expect(otomeCss).toContain('var(--chrome-top,var(--safe-top,0px))');
     expect(otomeCss).toContain('var(--safe-bottom,0px)');
@@ -376,15 +378,14 @@ describe('CompanionHome touch request boundaries', () => {
   it('keeps system settings on opaque neutral surfaces', () => {
     const source = readFileSync(path.resolve(__dirname, '../apps/Settings.tsx'), 'utf8');
 
-    expect(source).toContain('bg-[#f3f4f8]');
-    expect(source).toContain('bg-[#fffefe]');
+    expect(source).toContain('bg-[#f4f4f4]');
+    expect(source).toContain('bg-[#fefefe]');
     expect(source).not.toContain('bg-slate-50/50 flex flex-col');
   });
 
   it('runs only user-owned startup dialogue with a focused authored performance', () => {
     const source = readFileSync(path.resolve(__dirname, '../components/os/CompanionHome.tsx'), 'utf8');
     const startupSource = readFileSync(path.resolve(__dirname, './companionStartup.ts'), 'utf8');
-    const tamagotchiSource = readFileSync(path.resolve(__dirname, '../components/os/TamagotchiHome.tsx'), 'utf8');
     const live2dSource = readFileSync(path.resolve(__dirname, '../components/call/Live2DAvatarCanvas.tsx'), 'utf8');
     const stageSource = readFileSync(path.resolve(__dirname, '../components/call/VRMVideoCallStage.tsx'), 'utf8');
     const vrmSource = readFileSync(path.resolve(__dirname, '../components/call/VRMAvatarCanvas.tsx'), 'utf8');
@@ -483,6 +484,5 @@ describe('CompanionHome touch request boundaries', () => {
     expect(source).toContain('kind: action.kind');
     expect(source).toContain('tags: action.tags');
     expect(startupSource).toContain('不要替桌面主题说话');
-    expect(tamagotchiSource).not.toContain('POKE_FALLBACK');
   });
 });

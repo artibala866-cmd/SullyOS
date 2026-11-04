@@ -81,10 +81,10 @@ it('opens API directly, migrates and persists four slots including Settings and 
   await render(React.createElement(React.Fragment, null, React.createElement(NavigationBallSettings), React.createElement(FocusTargets), React.createElement(NavigationBall)));
   await click([...host.querySelectorAll('button')].find(button => button.textContent === '悬浮球设置')!);
   await act(async () => {
-    setNavigationBallSlot(0, { appId: AppID.Chat }); setNavigationBallSlot(1, { appId: AppID.Room, roomTab: 'room' });
+    setNavigationBallSlot(0, { appId: AppID.Chat }); setNavigationBallSlot(1, { appId: AppID.Room });
     setNavigationBallSlot(2, { appId: AppID.Appearance }); setNavigationBallSlot(3, { appId: AppID.Settings });
   });
-  expect(JSON.parse(localStorage.getItem('sully_navigation_ball_slots_v1')!)).toEqual([{ appId: AppID.Chat }, { appId: AppID.Room, roomTab: 'room' }, { appId: AppID.Appearance }, { appId: AppID.Settings }]);
+  expect(JSON.parse(localStorage.getItem('sully_navigation_ball_slots_v1')!)).toEqual([{ appId: AppID.Chat }, { appId: AppID.Room }, { appId: AppID.Appearance }, { appId: AppID.Settings }]);
   const action = async (label: string) => { await click(host.querySelector('.navigation-ball-toggle')!); await click(host.querySelector(`[aria-label="${label}"]`)!); };
   await action('打开Message'); expect(state.openApp).toHaveBeenLastCalledWith(AppID.Chat);
   await click(host.querySelector('.navigation-ball-toggle')!);
@@ -96,7 +96,7 @@ it('opens API directly, migrates and persists four slots including Settings and 
   expect(NAVIGATION_SLOT_APPS.some(app => app.id === AppID.CharCreatorDev || app.id === AppID.ThemeMaker || app.id === AppID.WorldHome)).toBe(false);
   localStorage.setItem('sully_navigation_ball_slots_v1', JSON.stringify([AppID.Room, 'invalid', AppID.CharCreatorDev]));
   await act(async () => window.dispatchEvent(new StorageEvent('storage', { key: 'sully_navigation_ball_slots_v1' })));
-  expect(host.querySelector('[aria-label="配置悬浮球槽位 1"]')?.textContent).toContain('小小窝');
+  expect(host.querySelector('[aria-label="配置悬浮球槽位 1"]')?.textContent).toContain('3D家园');
   expect(host.querySelector('[aria-label="配置悬浮球槽位 2"]')?.textContent).toContain('未设置');
   expect(host.querySelectorAll('[aria-label^="配置悬浮球槽位"]').length).toBe(4);
   const reads = vi.spyOn(Storage.prototype, 'getItem');

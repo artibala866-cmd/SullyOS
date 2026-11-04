@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AppID } from '../types';
+import { useAppShortcut } from '../utils/appShortcutLaunch';
 import { useOS } from '../context/OSContext';
 import { ContextBuilder } from '../utils/context';
 import WorkspacePanel from './WorkspacePanel';
@@ -438,6 +440,11 @@ const ScheduleApp: React.FC = () => {
     if(mainScrollRef.current)tabScrollOffsets.current[tab]=mainScrollRef.current.scrollTop;
     setTab(next);
   };
+  useAppShortcut(AppID.Schedule, ({ entryId }) => {
+    if (entryId === 'tasks' || entryId === 'commissions' || entryId === 'calendar' || entryId === 'study') {
+      switchTab(entryId);
+    }
+  });
   const openLinkedStudyCourse=(courseId:string)=>{
     if (!courseId) return;
     if (focusLock && session?.mode==='focus' && session.pauseRemainingMs==null) {

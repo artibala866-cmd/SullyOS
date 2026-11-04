@@ -37,7 +37,6 @@ const CardbookCompanionChrome: React.FC<CardbookCompanionChromeProps> = ({
     { id: AppID.Chat, label: '对话', Icon: Icons.Chat, action: () => openApp(AppID.Chat) },
     { id: AppID.Date, label: '见面', Icon: Icons.Date, action: () => openApp(AppID.Date) },
     { id: 'all', label: '星章', Icon: Sparkle, action: openAllApps, primary: true },
-    { id: AppID.SpecialMoments, label: '时光', Icon: Icons.SpecialMoments, action: () => openApp(AppID.SpecialMoments) },
     { id: AppID.Settings, label: '设置', Icon: Icons.Settings, action: () => openApp(AppID.Settings) },
   ];
 

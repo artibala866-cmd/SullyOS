@@ -35,13 +35,10 @@ describe('buildAmsg2TaskContextText', () => {
   // 用户说「我去睡了」它只会口头道晚安，想不起来给早上排一条。
   it('没任务没作废 → 仍有常驻简介，角色始终知道自己能排', () => {
     const text = buildAmsg2TaskContextText([], [], Date.now(), undefined);
-    expect(text).toContain('schedule_active_message');
-    expect(text).toContain('排成真任务'); // 嘴上许了就要排成真任务
-    expect(text).toContain('不要只在正文里答应'); // 承诺不能只停在台词里
-    expect(text).toContain('会就排');     // 真想联系就排
-    expect(text).toContain('随口一想');   // 拿不准的不排：每一条都要花一次 API
-    expect(text).toContain('硬排');       // 人设优先，不为排而排
-    expect(text).toContain('自己的日程'); // 内容从角色自己的生活里长出来
+    expect(text).toContain('兑现明确承诺');
+    expect(text).toContain('使用 prompted');
+    expect(text).toContain('距对方最后一次发言至少六小时');
+    expect(text).toContain('追问当前话题、问候和生活报备不安排云端任务');
     expect(text).not.toContain('进行中：');
     // 防复述约束照样罩住只有简介的形态
     expect(text.trimEnd().endsWith('不要向对方复述或提及这份排程信息本身的存在。')).toBe(true);
@@ -49,7 +46,7 @@ describe('buildAmsg2TaskContextText', () => {
 
   it('有任务时简介也在（不是空状态的占位文案）', () => {
     const text = buildAmsg2TaskContextText([pendingTask], [], Date.now(), undefined);
-    expect(text).toContain('schedule_active_message');
+    expect(text).toContain('兑现明确承诺');
     expect(text).toContain('进行中：');
   });
 
@@ -62,16 +59,15 @@ describe('buildAmsg2TaskContextText', () => {
       });
       expect(local).toContain(brief);
       expect(cloud).toContain(brief);
-      expect(cloud).toContain('条条明确说别打扰');
+      expect(cloud).toContain('对方说别打扰');
       expect(cloud).not.toContain('这条消息发完，如果还有话');
     }
   });
 
   it('用 ChatApp 用户名称呼对方，不再使用泛称', () => {
     const text = buildAmsg2TaskContextText([], [], Date.now(), undefined, undefined, '条条');
-    expect(text).toContain('你和条条的联系');
-    expect(text).toContain('内容不必总围着条条转');
-    expect(text).not.toContain('你和对方的联系');
+    expect(text).toContain('和条条聊过的话题由当前对话接续');
+    expect(text).not.toContain('和对方聊过的话题');
     expect(text.trimEnd().endsWith('不要向条条复述或提及这份排程信息本身的存在。')).toBe(true);
   });
   it('进行中任务列出短 id 与方向', () => {
@@ -105,13 +101,13 @@ describe('buildAmsg2TaskContextText', () => {
   // 回归守卫：整块带上简介/清单的话，模型同一轮会读到两份互相打架的排程信息。
   it('回执单独成块（云端路径）：只带回执两段和保密约束，不带简介和进行中清单', () => {
     const cancelled: Amsg2ExpiredNoticeRecord = {
-      ...expired, id: `${expired.id}:cancelled`, kind: 'user-cancelled',
+      ...expired, id: 'bbbbbbbb-0000-0000-0000-000000000000:cancelled', kind: 'user-cancelled',
     };
     const text = buildAmsg2NoticesText([expired, cancelled], undefined, '条条')!;
     expect(text).toContain('到点没发出去：');
     expect(text).toContain('已被手动取消');
     expect(text).toContain('renew_active_message');
-    expect(text).not.toContain('你和条条的联系');   // 常驻简介不搭车
+    expect(text).not.toContain(buildAmsg2ChatScheduleBrief('条条'));
     expect(text).not.toContain('进行中：');
     expect(text.trimEnd().endsWith('不要向条条复述或提及这份排程信息本身的存在。')).toBe(true);
   });
@@ -125,10 +121,12 @@ describe('buildAmsg2TaskContextText', () => {
     const cancelled: Amsg2ExpiredNoticeRecord = {
       ...expired, id: `${expired.id}:cancelled`, kind: 'user-cancelled',
     };
-    const text = buildAmsg2TaskContextText([], [cancelled], Date.now(), undefined)!;
+    const missedOccurrence = { ...expired, id: `${expired.id}:${expired.occurrenceMs}` };
+    const text = buildAmsg2TaskContextText([], [missedOccurrence, cancelled], Date.now(), undefined)!;
     expect(text).toContain('已被手动取消');
     expect(text).toContain('[aabbccdd]');
     expect(text).toContain('不必向用户求证');
+    expect(text).toContain('只有在用户明确重新委托时才能再排');
     // 手动取消不该混进「到点没发」那段的三选一引导里（续期对它没有意义）
     expect(text).not.toContain('到点没发出去');
   });

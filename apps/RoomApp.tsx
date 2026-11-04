@@ -96,7 +96,8 @@ const RoomApp:React.FC=()=>{
   const apply=()=>{
    const next=roomLaunch.consume();
    if(!next)return;
-   if(next.charId){setSelected(next.charId);setActiveCharacterId(next.charId);}
+   setSelected(next.charId ?? null);
+   if(next.charId)setActiveCharacterId(next.charId);
    if(next.openDream){setDreamOwner(next.charId??null);setDreamOpen(true);}else{setDreamOpen(false);setDreamOwner(null);}
   };
   apply();
@@ -112,7 +113,7 @@ const RoomApp:React.FC=()=>{
  const residents=char?[...(userProfile.chibiStudio?.home3D?.state?[{id:'user',label:userProfile.name||'你',state:userProfile.chibiStudio.home3D.state,hair:userProfile.chibiStudio.home3D.hair}]:[]),...characters.filter(c=>c.id!==char.id&&c.chibiStudio?.home3D?.state).map(c=>({id:c.id,label:c.name,avatar:c.avatar,state:c.chibiStudio!.home3D!.state,hair:c.chibiStudio!.home3D!.hair}))]:[];
  return <div ref={shellRef} className="room-dream-shell relative h-full w-full overflow-hidden bg-gradient-to-b from-neutral-100 to-neutral-300 text-neutral-900">
   {char?<Suspense fallback={<div className="grid h-full place-items-center text-sm">正在打开 3D 家园…</div>}>
-   <Home3DView key={char.id} suspended={activeApp!==AppID.Room||dreamOpen} onReadyChange={handleHomeReady} character={char}
+   <Home3DView key={char.id} suspended={(activeApp!==AppID.Room&&activeApp!==AppID.WorldHome)||dreamOpen} onReadyChange={handleHomeReady} character={char}
     onDefinitionChange={value=>updateCharacter(char.id,{homeDefinition:value})}
     residents={residents} value={char.home3D} onChange={value=>updateCharacter(char.id,{home3D:value})}
     onBack={()=>{setDreamOpen(false);setSelected(null);}}/>
