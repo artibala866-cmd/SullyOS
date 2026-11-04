@@ -40,7 +40,11 @@ it('shows an actual saved query as a visual card, with insights and verification
     userProfile={{name:'User'} as UserProfile} groups={[]}
     api={{baseUrl:'',apiKey:'',model:''}}
   />);});
-  expect(container.textContent).toContain('记录缩略预览');
+  expect(container.querySelector('[aria-label="搜索记录图文封面"]')).not.toBeNull();
+  expect(container.textContent).toContain('搜索记录预览');
+  expect(container.textContent).toContain('想了解');
+  expect(container.textContent).toContain('心声');
+  expect(container.textContent).not.toContain('记录缩略预览');
   expect(container.textContent).toContain('冷藏曲奇面团烘烤温度');
   expect(container.textContent).not.toContain('搜完后的心声');
   const card=container.querySelector<HTMLButtonElement>('[aria-label="查看浏览记录详情：曲奇面团烘烤处理"]');
