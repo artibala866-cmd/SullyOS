@@ -94,6 +94,7 @@ const inspectExpression = `(() => {
     labelLocation: document.querySelector('.sully-boot-artwork').dataset.label,
     welcome: caption.textContent,
     welcomeShown: caption.dataset.visible === 'true',
+    welcomeOpacity: Number(getComputedStyle(caption).opacity),
     zoomRunning: getComputedStyle(dog).animationName.includes('sullyLineGrow'),
     noOverflow: document.documentElement.scrollWidth <= innerWidth,
   };
@@ -165,7 +166,7 @@ try {
       await page.shot('baby-dog-' + variant + '-restored.png');
 
       const final = await waitForState(page,
-        s => s.welcomeShown && s.expression === 'normal' && !s.mirrored,
+        s => s.welcomeShown && s.welcomeOpacity >= .98 && s.expression === 'normal' && !s.mirrored,
         'final Welcome home caption');
       assert.equal(final.label, 'dog');
       assert.equal(final.welcome, 'Welcome home.');
