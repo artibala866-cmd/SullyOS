@@ -3,8 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildChatRequestPayload } from './chatRequestPayload';
 import type { BuildChatPayloadInput } from './chatRequestPayload';
 import { RealtimeContextManager } from './realtimeContext';
-import { installSARModuleOnCharacter, installSARModuleOnUser } from './vrWorld/sarModuleRuntime';
-import { SAR_MODULE_CATALOG } from './vrWorld/sarModuleShop';
 import { ChatPrompts } from './chatPrompts';
 
 // 即时对话（这一轮交给用户自己的 amsg worker 生成）那份 prompt 里，凡是 worker 到点
@@ -12,7 +10,7 @@ import { ChatPrompts } from './chatPrompts';
 // 天气 / 热搜）、MCP 工具说明。两边都写的话，模型在同一份 prompt 里看到两个钟、两份
 // 互不重叠的热搜（前端快照版 + worker 现拉版）、两套工具名。
 //
-// 本地私有的易变段（记忆宫殿召回、情绪 buff、音乐、群聊背景、日程、彼方、小程序）照常
+// 本地私有的易变段（记忆宫殿召回、情绪 buff、音乐、群聊背景、日程、小程序）照常
 // 保留——它们在发送那一刻是新鲜的，而 worker 拿不到。
 
 const MCP_SERVERS_KEY = 'aetheros.mcp.servers';
@@ -50,7 +48,7 @@ it.each([false,true])('adds home phone background only to this request (worker=%
 });
 
 it('本地仅节假日感知可独立注入一句，云端生成不烤进本地提醒', async () => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 8, 27, 12));
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 8, 27, 12));
     const input = baseInput();
     input.realtimeConfig = { ...realtimeConfig, weatherEnabled: false, newsEnabled: false, userHolidays: { enabled: true, countryCode: 'CN' } };
     const reminder = '小明所在地中国 2026-09-27 为中秋节公共假期，实际休息与否以小明自己的日程和说明为准。';
@@ -103,6 +101,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
     localStorage.removeItem(MCP_SERVERS_KEY);
 });
 
@@ -289,28 +288,8 @@ describe('timelyByWorker —— 时效段交给 worker，前端这份不重复�
         expect(joined).not.toContain('### 此刻的交流深度');
     });
 
-    it('角色和 User 都没有模块时，Chat prompt 不增加 SAR 文本或输出容器', async () => {
-        const payload = await buildChatRequestPayload({
-            ...baseInput(),
-            char: {
-                id: 'char-sar-empty',
-                name: '测试角色',
-                memoryPalaceEnabled: false,
-                vrState: { enabled: true, intervalMinutes: 120 },
-            } as any,
-            userProfile: { ...userProfile, vrState: { enabled: true } } as any,
-            recallEntryPoint: 'chat_app',
-        });
-        const joined = joinMessages(payload.fullMessages);
-
-        expect(payload.flags.sarModuleActive).toBe(false);
-        expect(joined).not.toContain('### SAR 临时模块');
-        expect(joined).not.toContain('<SAR_MODULE_OUTPUT>');
-        expect(joined).not.toContain('[SAR MODULE REMINDER:');
-    });
-
-    it('SAR 与内置翻译同时开启时，以 SAR 为外层、翻译标签留在两个内容字段内', async () => {
-        const runtime = installSARModuleOnCharacter(SAR_MODULE_CATALOG[0], 1);
+    it('忽略旧 SAR 存档，保留内置翻译', async () => {
+        const runtime = { runId: 'legacy', moduleId: 'court', moduleTitle: 'legacy-sar-prompt-marker' };
         const payload = await buildChatRequestPayload({
             ...baseInput(),
             char: {
@@ -333,11 +312,11 @@ describe('timelyByWorker —— 时效段交给 worker，前端这份不重复�
         });
         const joined = joinMessages(payload.fullMessages);
 
-        expect(payload.flags.sarModuleActive).toBe(true);
+        expect(payload.flags.sarModuleActive).toBe(false);
         expect(payload.flags.bilingualActive).toBe(true);
-        expect(joined).toContain('最外层必须是 <SAR_MODULE_OUTPUT>');
-        expect(joined).toContain('CHAR_TRUE 和 CHAR_SURFACE 内的每个气泡');
-        expect(joined).toContain('原文/译文语义一致');
+        expect(joined).not.toContain('<SAR_MODULE_OUTPUT>');
+        expect(joined).not.toContain('legacy-sar-prompt-marker');
+        expect(joined).toContain('<译文>');
     });
 });
 
@@ -353,16 +332,6 @@ describe('volatileTailIndex —— 想插在钢印之前的块按它定位', () 
         // 它前面一条是本轮用户消息（前缀缓存的断点在那儿，插入不影响命中）
         expect(payload.fullMessages[payload.volatileTailIndex - 1]?.role).toBe('user');
     });
-});
-
-it('ChatApp user modules explicitly identify the pending messages without changing other callers', async () => {
-    const input = baseInput();
-    input.userProfile = { ...input.userProfile, vrState: { enabled: true, sarModule: installSARModuleOnUser(SAR_MODULE_CATALOG[0], input.char, 1) } } as any;
-    const chat = await buildChatRequestPayload({ ...input, recallEntryPoint: 'chat_app' });
-    const request = chat.fullMessages.find(m => typeof m.content === 'string' && m.content.startsWith('USER_SURFACE 的聊天专用格式'));
-    expect(request?.content).toContain(JSON.stringify(input.historyMsgs.map(({ id, content }) => ({ id, content }))));
-    const other = await buildChatRequestPayload(input);
-    expect(joinMessages(other.fullMessages)).not.toContain('USER_SURFACE 的聊天专用格式');
 });
 
 it('聊天深度世界书由消息层插入，公共上下文兜底不会再重复一份', async () => {
