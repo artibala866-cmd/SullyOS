@@ -39,6 +39,8 @@ import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
 import { hasUnansweredUserTurn, withVerifiedUserReplyContinuation } from '../utils/chatContinuation';
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
+import { readBond } from '../utils/couplesSpace';
+import { couplesChatContext, settleCouplesChat } from '../utils/couplesChat';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
 import { userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
 import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
@@ -982,6 +984,14 @@ export const useChatAI = ({
                     ? payload.volatileTailIndex : payload.fullMessages.length;
                 payload.fullMessages.splice(insertAt, 0, {role:'system',content:workspaceChatBlock});
             }
+            const couplesBond = homePhoneContext || opts?.postUnblockOpening
+                ? undefined : await replyStep(() => readBond([char.id]).catch(() => undefined));
+            const couplesContext = couplesBond?.status === 'open' && !payload.flags.promptBuildSkipped && !userBlockedAtReplyStart
+                ? couplesChatContext(couplesBond) : '';
+            if (couplesContext) payload.fullMessages.splice(
+                payload.volatileTailIndex >= 0 ? payload.volatileTailIndex : payload.fullMessages.length,
+                0, { role: 'system', content: couplesContext },
+            );
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
             // 原版拉黑自主动作仅在当前私聊请求中启用，不修改角色卡、世界书及群聊。
             const privateBlockInstruction = [
@@ -2221,6 +2231,13 @@ export const useChatAI = ({
                         }
                     }
                 } catch (avatarError) { console.warn('[Avatar] autonomous selection failed', avatarError); }
+            }
+            const couplesUserTurn = [...currentMsgs].reverse().find(message => message.role === 'user' && !message.metadata?.couplesSpace);
+            if (couplesBond?.status === 'open' && couplesUserTurn && avatarCleanContent && !userBlockedAtReplyStart &&
+                !userBlocksCharacter(charRef.current?.chatBlock)) {
+                await replyStep(() => settleCouplesChat(
+                    char, userProfile, apiConfig, couplesBond, couplesUserTurn, avatarCleanContent, replyRun.signal, !!couplesContext,
+                ).catch(error => console.warn('[Couples Space] post-reply sync failed', error)));
             }
             replyRun.markCompleted();
             // 最后一批正式消息已交给 setMessages；同一轮更新撤掉预览，不再逐条补弹。

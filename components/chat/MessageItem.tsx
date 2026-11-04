@@ -2811,6 +2811,15 @@ const MessageItem = React.memo(({
         );
     }
 
+    if (m.type === 'text' && typeof m.metadata?.couplesSpace?.label === 'string') {
+        return commonLayout(
+            <article className="max-w-full w-64 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-950" {...interactionProps}>
+                <div className="mb-1 text-xs font-semibold text-rose-700">♡ 情侣空间 · {m.metadata.couplesSpace.label}</div>
+                <div className="whitespace-pre-wrap break-words text-sm">{m.content}</div>
+            </article>
+        );
+    }
+
     // --- Score Card Rendering (Songwriting & Quiz) ---
     if (m.type === 'score_card') {
         let scoreData: any = null;

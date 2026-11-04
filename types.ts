@@ -13,6 +13,7 @@ export enum AppID {
   Date = 'date',
   User = 'user',
   Journal = 'journal',
+  CouplesSpace = 'couples_space',
   Schedule = 'schedule',
   Room = 'room',
   CheckPhone = 'check_phone',
