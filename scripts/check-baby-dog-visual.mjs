@@ -186,6 +186,65 @@ try {
       page.socket.close();
     }
   }
+
+  // 数据就绪以后必须等待完整参考开屏，再自动进桌面；轻触跳过则不受此等待限制。
+  const automatic = await openPage();
+  try {
+    await automatic.call('Page.enable');
+    await automatic.call('Runtime.enable');
+    await automatic.call('Page.navigate', {
+      url:'http://127.0.0.1:5173/test/fixtures/boot-jellyfish.html?ready',
+    });
+    let ended = false;
+    for (let i = 0; i < 120; i++) {
+      const text = await automatic.evaluate("document.body?.innerText ?? ''");
+      if (text.includes('已进入桌面')) { ended = true; break; }
+      await pause(100);
+    }
+    assert(ended, 'Data-ready boot must auto-exit after full 8s reference sequence');
+    console.log('PASS boot data-ready auto exit');
+  } finally { automatic.socket.close(); }
+
+  const skipped = await openPage();
+  try {
+    await skipped.call('Page.enable');
+    await skipped.call('Runtime.enable');
+    await skipped.call('Page.navigate', {
+      url:'http://127.0.0.1:5173/test/fixtures/boot-jellyfish.html',
+    });
+    for (let n = 0; n < 100; n++) {
+      if (await skipped.evaluate("!!document.querySelector('.sully-boot')")) break;
+      await pause(100);
+    }
+    await skipped.evaluate("document.querySelector('.sully-boot')?.click()");
+    let done = false;
+    for (let n = 0; n < 18; n++) {
+      if ((await skipped.evaluate("document.body?.innerText ?? ''")).includes('已进入桌面')) {
+        done = true; break;
+      }
+      await pause(100);
+    }
+    assert(done, 'Touch skip must still work without waiting for data or the reference video');
+    console.log('PASS touch skip');
+  } finally { skipped.socket.close(); }
+
+  const reduced = await openPage();
+  try {
+    await reduced.call('Page.enable');
+    await reduced.call('Runtime.enable');
+    await reduced.call('Emulation.setEmulatedMedia', {
+      features:[{name:'prefers-reduced-motion',value:'reduce'}],
+    });
+    await reduced.call('Page.navigate', {
+      url:'http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html',
+    });
+    const scene = await waitForState(reduced, state => state.ready, 'reduced-motion puppy');
+    assert(!scene.zoomRunning && !scene.replacementVisible && scene.welcomeShown,
+      'Reduced motion must show only static original dog, no zoom or duplicated face');
+    await reduced.shot('baby-dog-reduced-motion.png');
+    console.log('PASS reduced motion', scene.width);
+  } finally { reduced.socket.close(); }
+
 } finally {
   chrome.kill('SIGTERM');
   // CI temporary profile is deleted by the runner after Chrome actually exits.
