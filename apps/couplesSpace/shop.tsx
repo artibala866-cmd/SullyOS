@@ -93,12 +93,12 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
       {!bond.noCooldown && <small>角色出牌间隔 90 分钟，同一张卡间隔 6 小时。</small>}
     </details>
     <nav className="couple-segments" aria-label="商店页面">{Object.entries(tabs).map(([key, label]) =>
-      <button key={key} aria-pressed={tab === key} onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); }}>{label}</button>)}</nav>
+      <button key={key} disabled={working || busy} aria-pressed={tab === key} onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); }}>{label}</button>)}</nav>
     {error && <p role="alert" className="couple-error">{error}</p>}
     {tab === 'shop' && <>
       <div className="couple-actions">
-        <button aria-pressed={manage} onClick={() => setManage(!manage)}>管理卡片</button>
-        <button onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>自订卡</button>
+        <button disabled={working || busy} aria-pressed={manage} onClick={() => setManage(!manage)}>管理卡片</button>
+        <button disabled={working || busy} onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>自订卡</button>
         {manage && <button disabled={working || !bond.hidden.length} onClick={() => apply(current => ({ ...current, hidden: [] }))}>全部放回</button>}
       </div>
       {draft && <form className="couple-card couple-shop-editor" onSubmit={event => {
@@ -106,7 +106,16 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
         const card = { ...draft, name: draft.name.trim(), effect: draft.effect.trim() };
         if (!card.name || !card.effect || !Number.isSafeInteger(card.price) || card.price < 1) return;
         void run(async () => {
-          await change(current => ({ ...current, cards: [...current.cards.filter(item => item.id !== card.id), card] }));
+          await change(current => {
+            const oldCard = current.cards.find(item => item.id === card.id);
+            const inventory = (current.bags.me[card.id] ?? 0) + (current.bags.them[card.id] ?? 0);
+            // A price change with held stock would allow profit on deletion refunds.
+            if (oldCard && oldCard.price !== card.price && inventory > 0)
+              throw new Error('双方卡包仍有这张卡，使用或删除库存后才能修改价格');
+            if (!Number.isSafeInteger(card.price) || card.price < 1 || card.price > 10_000)
+              throw new Error('卡片价格需要在 1～10000 积分之间');
+            return { ...current, cards: [...current.cards.filter(item => item.id !== card.id), card] };
+          });
           setDraft(undefined);
         });
       }}>
@@ -123,7 +132,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
       </form>}
       <nav className="couple-segments" aria-label="卡片分类">
         {([['general', '通用'], ['relation', relationNames[bond.relation]], ['custom', '自订']] as const).map(([id, title]) =>
-          <button key={id} aria-pressed={shelf === id} onClick={() => setShelf(id)}>{title}</button>)}
+          <button key={id} disabled={working || busy} aria-pressed={shelf === id} onClick={() => setShelf(id)}>{title}</button>)}
       </nav>
       {!visibleCards.length && <p className="couple-muted">这个分类暂时没有可展示的卡片。</p>}
       {visibleCards.map((card, index) => <article key={card.id} className={'couple-card couple-shop-card couple-shop-pass-' + (index % 3)}>
@@ -139,9 +148,9 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
             ...current, hidden: current.hidden.includes(card.id) ? current.hidden.filter(id => id !== card.id) : [...current.hidden, card.id],
           }))}>{bond.hidden.includes(card.id) ? '放回' : '隐藏'}</button>
           {bond.cards.some(custom => custom.id === card.id) && <>
-            <button onClick={() => setDraft(card)}>编辑</button><button disabled={working} onClick={() => removeCard(card)}>删除</button>
+            <button disabled={working || busy} onClick={() => setDraft(card)}>编辑</button><button disabled={working} onClick={() => removeCard(card)}>删除</button>
           </>}
-        </> : <button disabled={working || bond.disabledCards || bond.points.me < card.price} onClick={() => apply(current => {
+        </> : <button disabled={working || busy || bond.disabledCards || bond.points.me < card.price} onClick={() => apply(current => {
           const currentCard = [...shopCards, ...current.cards].find(item => item.id === card.id);
           if (!currentCard || !cardMatchesRelation(currentCard, current.relation)) throw new Error('这张卡在当前关系中不可兑换');
           return exchangeCard(current, currentCard, 'me');
@@ -154,7 +163,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
         {!Object.values(bond.bags[side]).some(Boolean) && <p className="couple-muted">卡包是空的。</p>}
         {cards.filter(card => bond.bags[side][card.id]).map(card => <div key={card.id} className="couple-split">
           <span>{card.icon} {card.name} × {bond.bags[side][card.id]}</span>
-          {side === 'me' && <button disabled={working || bond.disabledCards || bond.hidden.includes(card.id)} onClick={() => {
+          {side === 'me' && <button disabled={working || busy || bond.disabledCards || bond.hidden.includes(card.id)} onClick={() => {
             const note = window.prompt('出牌留言（可留空）', '');
             if (note === null) return;
             void run(async () => {
@@ -182,7 +191,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
       { id: 'first-letter', text: '交换第一封时光信', ready: bond.entries.some(item => item.kind === 'mail' && item.reply), amount: 60 },
     ].map(task => <div className="couple-card couple-split" key={task.id}>
       <span>{task.text} · {task.amount} 积分</span>
-      <button disabled={working || !task.ready || bond.claims.includes(task.id)} onClick={() => apply(current => reward(current, task.id, task.amount))}>
+      <button disabled={working || busy || !task.ready || bond.claims.includes(task.id)} onClick={() => apply(current => reward(current, task.id, task.amount))}>
         {bond.claims.includes(task.id) ? '已领取' : '领取'}
       </button>
     </div>)}
@@ -195,7 +204,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
           ...current, pact: { ...current.pact, status: 'done' },
         } : current)}>标记已兑现</button> : <>
           <label>愿望<textarea value={wish} maxLength={500} onChange={event => setWish(event.target.value)} /></label>
-          <button disabled={working || bond.points.shared < 3000 || !wish.trim()} onClick={() => {
+          <button disabled={working || busy || bond.points.shared < 3000 || !wish.trim()} onClick={() => {
             if (window.confirm('用全部共同积分兑换这个愿望？')) apply(current => {
               if (current.points.shared < 3000 || current.pact?.status === 'pending' || current.pact?.status === 'accepted') throw new Error('当前不可兑换');
               return { ...current, points: { ...current.points, shared: 0 }, pact: { wish: wish.trim(), spent: current.points.shared, status: 'pending' } };
