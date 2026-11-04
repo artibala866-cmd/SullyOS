@@ -310,7 +310,11 @@ export default function CouplesSpaceApp() {
     loading.current = true;
     setBusy(true);
     setError('');
-    try { await task(); } catch (e) { setError(e instanceof Error ? e.message : '操作失败，请重试'); }
+    try { await task(); } catch (e) {
+      const message = e instanceof Error ? e.message : '操作失败，请重试';
+      setError(message);
+      addToast(message);
+    }
     finally { loading.current = false; setBusy(false); }
   };
   const generate = async (instruction: string, current = bond) => {
@@ -607,11 +611,11 @@ export default function CouplesSpaceApp() {
           </section>
         </>}
         {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
-          names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy}
+          names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} notify={addToast}
           avatarMe={isPair ? char?.avatar : userProfile.avatar} avatarThem={(other ?? char)?.avatar}
           charId={!isPair ? char?.id : undefined}
           onNativeJournal={!isPair && char ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
-        {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} />}
+        {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} notify={addToast} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
           <div className="couple-achievement-cover">
             <span>THE LITTLE MILESTONES</span>
