@@ -6,6 +6,8 @@ on:
       - 'components/chat/MomentsCover.tsx'
       - 'components/chat/CharacterPhone.tsx'
       - 'components/chat/PullToRefresh.tsx'
+      - 'components/chat/MomentsTimeline.tsx'
+      - 'tests/moments-interactions-visual.*'
       - 'tests/moments-cover-visual.*'
       - '.github/workflows/moments-cover-visual.yml'
   workflow_dispatch:
@@ -28,7 +30,7 @@ jobs:
       - name: Check target TS diagnostics
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/moments-tsc.txt 2>&1 || true
-          grep -E '^(components/chat/(MomentsCover|CharacterPhone|PullToRefresh)\.tsx|tests/moments-cover-visual\.tsx)[(]' /tmp/moments-tsc.txt > /tmp/moments-target-errors.txt || true
+          grep -E '^(components/chat/(MomentsCover|CharacterPhone|PullToRefresh)\.tsx|tests/moments-cover-visual\.tsx|tests/moments-interactions-visual\.tsx|components/chat/MomentsTimeline\.tsx)[(]' /tmp/moments-tsc.txt > /tmp/moments-target-errors.txt || true
           if [ -s /tmp/moments-target-errors.txt ]; then cat /tmp/moments-target-errors.txt; exit 1; fi
       - run: pnpm run build
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
@@ -170,6 +172,67 @@ jobs:
               print('PASS refresh icon: visible 46px / 8 colored aperture blades / touch-pull screenshot',layer)
               browser.close()
           PY
+      - name: Screenshot and verify actual Moments likes/comment popover, reply, delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/moments-actions-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/moments-interactions-visual.html'
+          for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          chrome="$(command -v google-chrome || command -v chrome || command -v chromium)"
+          CHROME_BIN="$chrome" python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser=p.chromium.launch(executable_path=os.environ['CHROME_BIN'],headless=True,
+                  args=['--no-sandbox','--disable-dev-shm-usage'])
+              page=browser.new_page(viewport={'width':390,'height':840},device_scale_factor=1)
+              page.goto('http://127.0.0.1:5173/tests/moments-interactions-visual.html')
+              more=page.get_by_test_id('moment-more-my-post')
+              more.wait_for()
+              page.wait_for_timeout(300)
+              # No exposed text-only row of "赞 评论 删除" in the normal timeline.
+              assert page.get_by_test_id('moment-actions-my-post').count()==0
+              trash=page.get_by_test_id('moment-delete-my-post')
+              date=page.locator('[data-testid="moment-post-my-post"] time')
+              trashbox=trash.bounding_box()
+              datebox=date.bounding_box()
+              assert trashbox and datebox and abs(trashbox['y']-datebox['y'])<18
+              assert trashbox['x']>datebox['x']
+              assert page.get_by_test_id('moment-delete-friend-post').count()==0
+              assert page.get_by_test_id('moment-likes-my-post').locator('svg').count()==1
+              assert '荆棘鸟' in page.get_by_test_id('moment-reactions-my-post').inner_text()
+              page.screenshot(path='moments-timeline-390.png')
+              more.click()
+              popup=page.get_by_test_id('moment-actions-my-post')
+              assert popup.is_visible()
+              assert popup.inner_text().strip().replace('\n','')=='取消评论'
+              assert popup.evaluate('(el)=>getComputedStyle(el).backgroundColor')=='rgb(75, 75, 75)'
+              assert not popup.bounding_box()['x']<0
+              page.screenshot(path='moments-timeline-menu-open-390.png')
+              page.get_by_test_id('moment-like-action-my-post').click()
+              assert page.get_by_test_id('moment-actions-my-post').count()==0
+              more.click()
+              assert page.get_by_test_id('moment-like-action-my-post').inner_text()=='赞'
+              page.get_by_test_id('moment-like-action-my-post').click()
+              more.click()
+              assert page.get_by_test_id('moment-like-action-my-post').inner_text()=='取消'
+              page.get_by_test_id('moment-comment-action-my-post').click()
+              assert page.get_by_role('textbox',name='评论').is_visible()
+              page.get_by_role('textbox',name='评论').fill('测试新评论成功')
+              page.get_by_role('button',name='发送').click()
+              assert page.get_by_text('测试新评论成功').count()==1
+              page.get_by_role('button',name='回复荆棘鸟').click()
+              assert page.get_by_role('textbox',name='评论').get_attribute('placeholder')=='回复荆棘鸟'
+              page.get_by_role('button',name='取消评论').click()
+              page.on('dialog',lambda dialog: dialog.dismiss())
+              trash.click()
+              assert page.get_by_test_id('moment-post-my-post').count()==1
+              print('PASS Moments UI: dots menu, dark heart/comment actions, likes bar, inline trash, comment/reply, delete confirmation')
+              browser.close()
+          PY
       - name: Export compact visual snapshots into audit logs
         run: |
           python -m pip install --quiet Pillow==11.3.0
@@ -189,6 +252,8 @@ jobs:
         if: always()
         with:
           name: moments-cover-390px-real-react-screenshots
-          path: moments-cover-*.png
+          path: |
+            moments-cover-*.png
+            moments-timeline-*.png
           if-no-files-found: ignore
           retention-days: 7
