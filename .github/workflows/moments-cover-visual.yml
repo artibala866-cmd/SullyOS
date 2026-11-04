@@ -126,6 +126,50 @@ jobs:
           assert ImageChops.difference(a,b).getbbox() is not None
           print('PASS: real React screenshots before/after click differ and picker opens')
           PY
+      - name: Screenshot WeChat-style refresh aperture after actual pull gesture
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/moments-refresh-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/moments-refresh-visual.html'
+          for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          chrome="$(command -v google-chrome || command -v chrome || command -v chromium)"
+          CHROME_BIN="$chrome" python - <<'PY'
+          import os
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser=p.chromium.launch(executable_path=os.environ['CHROME_BIN'],headless=True,
+                  args=['--no-sandbox','--disable-dev-shm-usage'])
+              page=browser.new_page(viewport={'width':390,'height':850},device_scale_factor=1)
+              page.goto('http://127.0.0.1:5173/tests/moments-refresh-visual.html')
+              aperture=page.locator('[data-testid="moments-refresh-aperture"]')
+              aperture.wait_for()
+              wheel=aperture.bounding_box()
+              assert wheel and abs(wheel['width']-46)<1,(wheel)
+              assert aperture.locator('path').count()==8
+              colors=aperture.locator('path').evaluate_all('(els)=>els.map(el=>el.getAttribute("fill"))')
+              assert len(set(colors))==8,colors
+              # Dispatch the same touchstart/touchmove path used by the actual
+              # PullToRefresh React component, holding a long pull for screenshot.
+              page.locator('main .touch-pan-y').evaluate("""(el)=>{
+                 const fire=(type,y)=>{
+                    const e=new Event(type,{bubbles:true,cancelable:true});
+                    Object.defineProperty(e,'touches',{value:[{clientY:y}]});
+                    el.dispatchEvent(e);
+                 };
+                 fire('touchstart',100);
+                 fire('touchmove',375);
+              }""")
+              page.wait_for_timeout(280)
+              layer=aperture.bounding_box()
+              assert layer and layer['y']>80 and layer['y']<170,layer
+              assert aperture.is_visible()
+              page.screenshot(path='moments-cover-refresh-wheel-390.png')
+              print('PASS refresh icon: visible 46px / 8 colored aperture blades / touch-pull screenshot',layer)
+              browser.close()
+          PY
       - name: Export compact visual snapshots into audit logs
         run: |
           python -m pip install --quiet Pillow==11.3.0
