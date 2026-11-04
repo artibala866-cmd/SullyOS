@@ -1,5 +1,5 @@
 import React from 'react';
-import {CaretRight, Newspaper, X} from '@phosphor-icons/react';
+import {CaretRight, Newspaper} from '@phosphor-icons/react';
 import type {PhoneMessage} from '../../utils/characterPhoneIdentity';
 
 /** Only layout classification. Legacy threads without a subtype remain compatible. */
