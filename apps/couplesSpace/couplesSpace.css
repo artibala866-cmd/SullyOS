@@ -306,7 +306,7 @@
   background: linear-gradient(140deg, #fff 0%, #e8e3f0 46%, #fff 84%);
   box-shadow: 0 15px 27px rgba(89,78,120,.23), 0 0 0 7px rgba(255,255,255,.4);
   transition: transform .6s cubic-bezier(.18,.8,.2,1);
-  animation: couple-orbit-enter .54s cubic-bezier(.17,.78,.2,1) both;
+  animation: couple-orbit-enter .54s cubic-bezier(.17,.78,.2,1);
 }
 .couple-orbit-dragging .couple-orbit-core { transition: none; }
 .couple-orbit-core .couple-avatar {
