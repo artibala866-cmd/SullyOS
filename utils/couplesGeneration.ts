@@ -101,21 +101,28 @@ export async function generateBondText(
 }
 
 export async function detectBondPortraitAnchors(image: HTMLImageElement) {
-  const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
-  const root = import.meta.env.BASE_URL;
-  const fileset = await FilesetResolver.forVisionTasks(root + 'mediapipe/wasm');
-  const detector = await FaceLandmarker.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: root + 'mediapipe/models/face_landmarker.task' },
-    runningMode: 'IMAGE', numFaces: 1,
-  });
+  const unavailable = '当前浏览器无法自动校准，请改用手动标记';
+  const canvas = document.createElement('canvas');
+  if (!canvas.getContext('webgl2') && !canvas.getContext('webgl')) throw new Error(unavailable);
+  let landmarks;
   try {
-    const landmarks = detector.detect(image).faceLandmarks[0];
-    if (!landmarks?.[152]) throw new Error('没有识别到清晰面部，请手动校准');
-    const point = (index: number) => ({
-      x: Math.max(0, Math.min(100, landmarks[index].x * 100)),
-      y: Math.max(0, Math.min(100, landmarks[index].y * 100)),
+    const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+    const root = import.meta.env.BASE_URL;
+    const fileset = await FilesetResolver.forVisionTasks(root + 'mediapipe/wasm');
+    const detector = await FaceLandmarker.createFromOptions(fileset, {
+      canvas, runningMode: 'IMAGE', numFaces: 1,
+      baseOptions: { modelAssetPath: root + 'mediapipe/models/face_landmarker.task', delegate: 'CPU' },
     });
-    return { 头发: point(10), 脸颊: point(234), 左眼: point(33), 右眼: point(263),
-      鼻尖: point(1), 嘴唇: point(13), 下巴: point(152) };
-  } finally { detector.close(); }
+    try {
+      landmarks = detector.detect(image).faceLandmarks[0];
+    } finally { detector.close(); }
+  } catch { throw new Error(unavailable); }
+  const face = landmarks;
+  if (!face?.[152]) throw new Error('没有识别到清晰面部，请手动校准');
+  const point = (index: number) => ({
+    x: Math.max(0, Math.min(100, face[index].x * 100)),
+    y: Math.max(0, Math.min(100, face[index].y * 100)),
+  });
+  return { 头发: point(10), 脸颊: point(234), 左眼: point(33), 右眼: point(263),
+    鼻尖: point(1), 嘴唇: point(13), 下巴: point(152) };
 }
