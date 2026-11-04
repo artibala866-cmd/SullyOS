@@ -36,7 +36,11 @@ describe('user voice must use the actual private-chat pipeline', () => {
     expect(composer).toContain('flex w-full items-center gap-2.5 rounded-xl'); // stacked items, not two large squares
     expect(composer).toContain('语音转文字');
     expect(composer).toContain('输入法语音');
-    expect(composer).toContain('仅发原声（不识别）');
+    const voiceMenu = composer.slice(composer.indexOf('sully-chat-voice-menu absolute bottom-full'));
+    expect(voiceMenu.match(/<button type="button"/g)).toHaveLength(2);
+    expect(voiceMenu).not.toContain('仅发原声（不识别）');
+    expect(voiceMenu).not.toContain('仅发送原声录音');
+    expect(voiceMenu).not.toContain('speechInput.start()');
     expect(composer).toContain('恢复普通文字');
     expect(composer).toContain('void speechInput.startTranscription()');
     expect(composer).toContain('textareaRef.current?.focus({ preventScroll: true })');
@@ -53,7 +57,8 @@ describe('user voice must use the actual private-chat pipeline', () => {
     const input = read('components/chat/ChatInputArea.tsx');
     const hook = read('hooks/usePrivateChatSpeech.ts');
     expect(hook).toContain("startPrivateChatStt('zh-CN', callbacks, apiConfig)");
-    expect(hook).toContain("start('transcribe')");
+    expect(hook).toContain('const startTranscription = useCallback(() => start(), [start])');
+    expect(hook).not.toContain('startPrivateChatRecording(');
     expect(read('utils/speechToText.ts')).toContain('export const startPrivateChatStt = async');
     expect(hook).toContain('getAudioDraft');
     expect(hook).toContain('isBrowserSttSupported()');
