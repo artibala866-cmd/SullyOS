@@ -80,13 +80,16 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
   });
   const patch = (updates: Partial<Entry>) => setDraft(current => current ? { ...current, ...updates } : current);
   return <>
-    <div className="couple-actions">
+    <div className="couple-record-actions">
+      <div className="couple-record-summary"><span>OUR ARCHIVE</span><strong>{rows.length} <small>条记录</small></strong></div>
+      <div className="couple-actions">
       <button disabled={working || busy} onClick={() => setDraft(newEntry())}>{kind === 'capsule' ? '写信并封存' : '新增记录'}</button>
       <button disabled={working || busy} onClick={() => void run(generated)}>{working || busy ? '处理中…' : `请 ${names.them} 写`}</button>
       {kind === 'hollow' && <button disabled={!rows.length} onClick={() => {
         const row = rows[Math.floor(Math.random() * rows.length)];
         document.getElementById(`bond-entry-${row.id}`)?.scrollIntoView({ block: 'center' });
       }}>摇一摇</button>}
+      </div>
     </div>
     {kind === 'diary' && <div className="couple-card">
       <label><input type="checkbox" checked={!!bond.diaryAuto} onChange={event => {
@@ -121,7 +124,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       }} /> 允许角色在私聊后悄悄留下心事
     </label></div>}
     {error && <p role="alert" className="couple-error">{error}</p>}
-    {draft && <form className="couple-card" onSubmit={event => {
+    {draft && <form className="couple-card couple-compose" onSubmit={event => {
       event.preventDefault();
       void run(async () => {
         const title = draft.title.trim();
@@ -155,11 +158,15 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       }} /></label>}
       <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
     </form>}
-    {!rows.length && <p className="couple-muted">这里还没有记录。</p>}
+    {!rows.length && <section className="couple-record-empty">
+      <span>NO MEMORIES YET</span>
+      <strong>这里还没有记录</strong>
+      <p>可以从上方开始写下第一条，或邀请 TA 留下记录。</p>
+    </section>}
     {rows.map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
-      return <article className="couple-card" key={item.id} id={`bond-entry-${item.id}`}>
+      return <article className="couple-card couple-record-entry" key={item.id} id={`bond-entry-${item.id}`}>
         <small>{item.date} · {names[item.side]}{item.pinned ? ' · 置顶' : ''}</small>
         <h3>{item.title}</h3>
         {state && <span className="couple-status" data-state={state}>
