@@ -52,16 +52,16 @@ export default function MomentsCover({
       <div data-testid="moments-cover-top-fade" aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0"
         style={{
-          height:'clamp(110px, 23%, 205px)',
-          background:'linear-gradient(to bottom, rgba(137,138,140,.44) 0%, rgba(137,138,140,.19) 46%, rgba(137,138,140,0) 100%)',
+          height:'clamp(168px, 38%, 284px)',
+          background:'linear-gradient(to bottom, rgba(231,231,231,.92) 0%, rgba(231,231,231,.75) 29%, rgba(231,231,231,.37) 64%, rgba(231,231,231,0) 100%)',
           opacity:expanded?1:0,
           transition:'opacity 360ms ease-out',
         }}/>
       <div data-testid="moments-cover-bottom-fade" aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-0"
         style={{
-          height:'clamp(116px, 25%, 210px)',
-          background:'linear-gradient(to top, rgba(118,119,121,.48) 0%, rgba(118,119,121,.21) 47%, rgba(118,119,121,0) 100%)',
+          height:'clamp(190px, 42%, 300px)',
+          background:'linear-gradient(to top, rgba(176,176,176,.96) 0%, rgba(176,176,176,.77) 26%, rgba(176,176,176,.38) 63%, rgba(176,176,176,0) 100%)',
           opacity:expanded?1:0,
           transition:'opacity 360ms ease-out',
         }}/>

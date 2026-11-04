@@ -4,6 +4,16 @@ import MomentsCover from '../components/chat/MomentsCover';
 import {MomentsTimeline} from '../components/chat/MomentsTimeline';
 import type {CharacterMoment} from '../utils/characterPhoneMoments';
 const requested=new URLSearchParams(location.search).get('view')||'collapsed';
+const contrastCover='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(
+ '<svg xmlns="http://www.w3.org/2000/svg" width="390" height="650">'+
+ '<defs><pattern id="p" width="95" height="85" patternUnits="userSpaceOnUse">'+
+ '<rect width="95" height="85" fill="#fcfcfc"/>'+
+ '<rect x="8" y="22" width="78" height="26" rx="3" fill="#090909"/>'+
+ '<circle cx="23" cy="67" r="10" fill="#090909"/>'+
+ '<circle cx="72" cy="10" r="9" fill="#090909"/>'+
+ '</pattern></defs><rect width="390" height="650" fill="url(#p)"/></svg>'
+);
+
 const posts=[{id:'m1',authorId:'qa-char',text:'二十二岁 有长寿面有蛋糕 还有全世界最神的大王亲手改的专属立绘 爽飞了',createdAt:Date.UTC(2026,10,1,7,19,13),comments:[],likes:[],imageUrls:[]} as unknown as CharacterMoment];
 function Screen(){
  const [expanded,setExpanded]=useState(false);
@@ -27,7 +37,7 @@ function Screen(){
    <div style={{height:34,flexShrink:0,padding:'7px 18px',fontSize:13}}>13:50 <span style={{float:'right'}}>4G ▮▮▮ 35%</span></div>
    {!expanded&&<header style={{height:56,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 18px',background:'#ededed'}}><span style={{fontSize:26}}>‹</span><strong style={{fontSize:21}}>朋友圈</strong><span style={{width:22}}/></header>}
    <main style={{flex:1,minHeight:0,position:'relative',overflowY:'auto',background:'#fff'}}>
-     <MomentsCover name="宝宝狗" cover="" avatar="" expanded={expanded} onExpandedChange={setExpanded} onSelectCover={()=>{}} onRestoreDefault={()=>{}}/>
+     <MomentsCover name="宝宝狗" cover={contrastCover} avatar="" expanded={expanded} onExpandedChange={setExpanded} onSelectCover={()=>{}} onRestoreDefault={()=>{}}/>
      <div style={{height:44}}/><MomentsTimeline name="宝宝狗" characterId="qa-char" posts={posts} contacts={[]}/>
    </main>
    <footer style={{height:48,flexShrink:0,background:'#f7f7f7',borderTop:'1px solid #ddd',textAlign:'center',fontSize:24,paddingTop:8}}>⌂</footer>

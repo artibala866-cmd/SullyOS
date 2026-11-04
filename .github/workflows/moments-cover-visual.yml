@@ -91,6 +91,20 @@ jobs:
               browser.close()
           a=Image.open('moments-cover-collapsed.png').convert('RGB')
           b=Image.open('moments-cover-expanded.png').convert('RGB')
+          # The cover fixture intentionally repeats harsh black/white bars.
+          # Expanded top and bottom must visibly soften that contrast,
+          # while the center remains substantially clearer.
+          from PIL import ImageStat
+          gray=b.convert('L')
+          def contrast(y1,y2):
+              return ImageStat.Stat(gray.crop((115,y1,275,y2))).stddev[0]
+          top=contrast(39,120)
+          middle=contrast(285,365)
+          bottom=contrast(560,635)
+          assert top < middle*.73,(top,middle,bottom)
+          assert bottom < middle*.73,(top,middle,bottom)
+          print('FADE VISUAL CONTRAST: top=',round(top,2),'center=',round(middle,2),
+                'bottom=',round(bottom,2))
           assert ImageChops.difference(a,b).getbbox() is not None
           print('PASS: real React screenshots before/after click differ and picker opens')
           PY
