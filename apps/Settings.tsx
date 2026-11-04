@@ -2129,7 +2129,7 @@ const Settings: React.FC = () => {
                     </p>
                 )}
             </div>
-            {/* 备份提醒频率：糯米机数据只在本机，隔 N 天没导出会弹一次提醒 */}
+            {/* 备份提醒频率：宝宝狗数据只在本机，隔 N 天没导出会弹一次提醒 */}
             <div className="mb-4 p-3.5 bg-gradient-to-br from-neutral-50 to-neutral-50 border border-neutral-100 rounded-xl">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-600">备份提醒频率</span>
@@ -3214,7 +3214,7 @@ const Settings: React.FC = () => {
                     不碰你和角色的任何对话、记忆、设定，不碰你输入的任何文字，不碰 API 和 MCP 配置。
                 </p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                    SullyOS·糯米机 的功能已经多到我们自己也扫不完，但「哪些真的有人用、大家配置时卡在哪一步」
+                    宝宝狗 的功能已经多到我们自己也扫不完，但「哪些真的有人用、大家配置时卡在哪一步」
                     基本靠猜。留着这个开关开着能帮我们看清这些，好把精力放在有人用的地方。
                     不想参与就关掉，功能一点不受影响。
                 </p>
@@ -4183,7 +4183,7 @@ const Settings: React.FC = () => {
               <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-neutral-700">🏠 为什么服务器要自己准备？</p>
                   <p>
-                      SullyOS·糯米机 的核心前端可以静态部署，也没有强制所有 MCP 流量经过项目方的中央代理。
+                      宝宝狗 的核心前端可以静态部署，也没有强制所有 MCP 流量经过项目方的中央代理。
                       URL 和凭据默认留在本机，工具服务器需要你自己准备，三选一：
                   </p>
                   <p>
@@ -4212,7 +4212,7 @@ const Settings: React.FC = () => {
                   <button
                       type="button"
                       onClick={async () => {
-                          const text = `请阅读这份教程，然后一步一步教我把 MCP 工具服务器接入 SullyOS·糯米机。先问清楚我想接什么工具、准备部署在哪（云端/本地电脑/本地+内网穿透），再给对应路线的步骤：\n${MCP_USER_GUIDE_URL}`;
+                          const text = `请阅读这份教程，然后一步一步教我把 MCP 工具服务器接入 宝宝狗。先问清楚我想接什么工具、准备部署在哪（云端/本地电脑/本地+内网穿透），再给对应路线的步骤：\n${MCP_USER_GUIDE_URL}`;
                           try { await navigator.clipboard.writeText(text); trackEvent('复制 MCP 部署指引给 AI', { result: 'copied' }); addToast('已复制，去粘贴给你的 AI 吧', 'success'); }
                           catch { trackEvent('复制 MCP 部署指引给 AI', { result: 'clipboard-failed' }); addToast('复制失败，请手动复制教程链接', 'error'); }
                       }}

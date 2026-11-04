@@ -2,7 +2,7 @@
  * BackupReminderEvent.tsx
  * 「该备份啦」提醒弹窗。
  *
- * 糯米机是 local-first：所有数据只躺在你这台设备的浏览器里，没有云端副本。
+ * 宝宝狗是 local-first：所有数据只躺在你这台设备的浏览器里，没有云端副本。
  * 隔一段时间（默认 7 天，可在设置里改 1~30 天）没导出，就温柔弹一次提醒。
  *
  * 显隐判定在 utils/backupReminder.ts；这里只管长得好看 + 两个出口：
@@ -53,7 +53,7 @@ export const BackupReminderPopup: React.FC<BackupReminderPopupProps> = ({ onDism
                             <strong>您本周没有进行备份，请注意。</strong>
                         </p>
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
-                            糯米机的数据完全掌握在<strong className="text-rose-500">您自己手中</strong>——
+                            宝宝狗的数据完全掌握在<strong className="text-rose-500">您自己手中</strong>——
                             角色、聊天记录、记忆、设置全都只存在这台设备的浏览器里，我们看不到、也帮不了你找回。
                         </p>
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
