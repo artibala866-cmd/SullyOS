@@ -11,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantCareWait, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
@@ -172,6 +172,8 @@ export default function CouplesSpaceApp() {
   const [relation, setRelation] = useState<Relation>('love');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [plantNow, setPlantNow] = useState(() => Date.now());
+  const readRevision = useRef(0);
   const [digest, setDigest] = useState<string>();
   const [gallery, setGallery] = useState<GalleryImage[]>();
   const requestRef = useRef<AbortController>();
@@ -194,17 +196,56 @@ export default function CouplesSpaceApp() {
   const days = bond ? daysTogether(bond.start) : 0;
   const today = useLocalDateKey();
   const readyCapsules = bond?.entries.filter(item => item.kind === 'capsule' && capsuleStatus(item, today) === 'ready').length ?? 0;
+  const plantStageNow = bond ? plantStage(bond.plant, plantNow) : '种子';
+  const waterWait = bond ? plantCareWait(bond.plant, 'water', plantNow) : Infinity;
+  const feedWait = bond ? plantCareWait(bond.plant, 'fertilize', plantNow) : Infinity;
+  const careWaitLabel = (ms: number) => {
+    if (!Number.isFinite(ms)) return '需重新播种';
+    if (ms <= 0) return '现在可以';
+    const minutes = Math.ceil(ms / 60_000);
+    const hours = Math.floor(minutes / 60);
+    return hours ? `${hours}小时${minutes % 60 ? `${minutes % 60}分` : ''}后` : `${minutes}分钟后`;
+  };
+  const waterAge = bond ? Math.max(0, plantNow - bond.plant.watered) : Infinity;
+  const recentWater = !!bond?.plant.lastSide && plantNow >= bond.plant.watered && waterAge < 12_000;
 
   useEffect(() => {
     let active = true;
-    const load = () => void readSpaces().then(value => { if (active) setSpaces(value); }, () => {
-      if (active) setError('情侣空间读取失败，请重新打开');
-    });
+    const load = () => {
+      const revision = readRevision.current;
+      void readSpaces().then(value => {
+        if (active && revision === readRevision.current) setSpaces(value);
+      }, () => {
+        if (active && revision === readRevision.current) setError('情侣空间读取失败，请重新打开');
+      });
+    };
+    const refreshWhenVisible = () => { if (document.visibilityState === 'visible') load(); };
     load();
     window.addEventListener('focus', load);
-    return () => { active = false; window.removeEventListener('focus', load); requestRef.current?.abort(); };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', load);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      requestRef.current?.abort();
+    };
   }, []);
   useEffect(() => { setError(''); setDigest(undefined); }, [key]);
+  // Visual-only clock while the garden is open: never sends messages or calls APIs.
+  useEffect(() => {
+    if (panel !== 'plant') return;
+    const refresh = () => setPlantNow(Date.now());
+    refresh();
+    const interval = window.setInterval(refresh, 1_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [panel]);
   useEffect(() => {
     if (characters.length && !characters.some(item => item.id === partnerId)) {
       setPartnerId(characters[0].id);
@@ -241,6 +282,8 @@ export default function CouplesSpaceApp() {
   useLocalBackHandler(back, 25);
 
   const persist = async (ids: string[], update: (current: Bond | undefined) => Bond | undefined) => {
+    // Ignore a focus-refresh which began before this atomic write.
+    readRevision.current++;
     const entry = await writeBond(ids, update);
     setSpaces(current => {
       const next = { ...current };
@@ -579,9 +622,9 @@ export default function CouplesSpaceApp() {
         </section>}
         {panel === 'plant' && <section className="couple-plant-room">
           <div className="couple-plant-header"><span>OUR LITTLE GARDEN</span><strong>一起把春天养大</strong></div>
-          <div className={'couple-plant-scene couple-plant-stage-' + plantStage(bond.plant)}>
+          <div className={'couple-plant-scene couple-plant-stage-' + plantStageNow}>
             <span className="couple-plant-scene-sun" aria-hidden="true"/>
-            <div className="couple-plant-specimen" role="img" aria-label={'植物状态：' + plantStage(bond.plant)}>
+            <div className="couple-plant-specimen" role="img" aria-label={'植物状态：' + plantStageNow}>
               <span className="couple-plant-specimen-stem"/>
               <span className="couple-plant-specimen-leaf couple-leaf-left"/>
               <span className="couple-plant-specimen-leaf couple-leaf-right"/>
@@ -591,24 +634,36 @@ export default function CouplesSpaceApp() {
             <span className="couple-plant-scene-caption">GROW WITH YOU</span>
           </div>
           <div className="couple-plant-status">
-            <div><span>当前状态</span><strong>{plantStage(bond.plant)}</strong></div>
+            <div><span>当前状态</span><strong>{plantStageNow}</strong></div>
             <div><span>成长进度</span><strong>{bond.plant.xp} / 100</strong></div>
           </div>
           <progress max={100} value={bond.plant.xp} />
-          {bond.plant.lastSide && <p className="couple-plant-last">{names[bond.plant.lastSide]}在 {new Date(bond.plant.watered).toLocaleString()} 浇了水。</p>}
+          {recentWater && <p className="couple-plant-last couple-plant-notice" role="status"
+            style={{ animationDelay: `-${Math.min(waterAge, 11_999)}ms` }}>
+            <span aria-hidden="true">✓</span> {names[bond.plant.lastSide!]} 刚刚浇了水
+          </p>}
           <div className="couple-actions couple-plant-actions">
-            <button disabled={busy} onClick={() => void run(() => change(current => careForPlant(current, 'water', 'me')))}>浇水</button>
-            <button disabled={busy} onClick={() => void run(() => change(current => careForPlant(current, 'fertilize', 'me')))}>施肥</button>
-            {!isPair && <button disabled={busy} onClick={() => void run(async () => {
+            <button disabled={busy || waterWait > 0} onClick={() => void run(async () => {
+              await change(current => careForPlant(current, 'water', 'me'));
+              setPlantNow(Date.now());
+            })}><span>浇水</span>{waterWait > 0 && Number.isFinite(waterWait) && <small>{careWaitLabel(waterWait)}</small>}</button>
+            <button disabled={busy || feedWait > 0} onClick={() => void run(async () => {
+              await change(current => careForPlant(current, 'fertilize', 'me'));
+              setPlantNow(Date.now());
+            })}><span>施肥</span>{feedWait > 0 && Number.isFinite(feedWait) && <small>{careWaitLabel(feedWait)}</small>}</button>
+            {!isPair && <button disabled={busy || waterWait > 0} onClick={() => void run(async () => {
               const result = extractJson(await generate('对方邀请你照顾两人种的盆栽。按角色决定是否浇水。仅输出 JSON {"water":true或false,"reply":"你的回应"}。'));
               if (typeof result?.water !== 'boolean') throw new Error('没有收到明确答复');
-              if (result.water) await change(current => careForPlant(current, 'water', 'them'));
+              if (result.water) {
+                await change(current => careForPlant(current, 'water', 'them'));
+                setPlantNow(Date.now());
+              }
               addToast(typeof result.reply === 'string' ? result.reply : (result.water ? '角色帮你浇水了' : '角色暂时没有浇水'));
             })}>请 {names.them} 照料</button>}
-            {plantStage(bond.plant) === '枯萎' && <button disabled={busy} onClick={() => void run(() => change(current => ({
+            {plantStageNow === '枯萎' && <button disabled={busy} onClick={() => void run(() => change(current => ({
               ...current, plant: { ...current.plant, xp: 0, watered: Date.now(), cycleWaters: 0, lastSide: undefined, fertilized: undefined },
             })))}>重新播种</button>}
-            {plantStage(bond.plant) === '开花' && <button disabled={busy} onClick={() => void run(() => change(current => {
+            {plantStageNow === '开花' && <button disabled={busy} onClick={() => void run(() => change(current => {
               if (plantStage(current.plant) !== '开花') throw new Error('现在还没有可收下的花');
               const varieties = ['雏菊', '郁金香', '洋桔梗', '风信子'];
               const name = varieties[(current.flowers?.length ?? 0) % varieties.length];
@@ -618,7 +673,10 @@ export default function CouplesSpaceApp() {
                 entries: [...current.entries, createEntry('gift', name, `一起养开的花，送给 ${names.them}`)] };
             }))}>收花并送给 {names.them}</button>}
           </div>
-          <div className="couple-plant-footnote">浇水间隔 4 小时 · 施肥间隔 1 天 · 连续 3 天未照料会枯萎</div>
+          <div className="couple-plant-footnote">
+            {plantStageNow === '枯萎' ? '盆栽已枯萎，重新播种后才能继续照料。' :
+              `浇水：${careWaitLabel(waterWait)} · 施肥：${careWaitLabel(feedWait)} · 连续 3 天未浇水会枯萎`}
+          </div>
           {!isPair && <label className="couple-plant-auto"><input type="checkbox" checked={!!bond.plantAuto} disabled={busy} onChange={event => {
             const plantAuto = event.target.checked;
             void run(() => change(current => ({ ...current, plantAuto })));
