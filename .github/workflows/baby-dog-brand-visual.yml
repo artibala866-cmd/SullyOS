@@ -6,6 +6,7 @@ on:
       - 'test/fixtures/brand-baby-dog.*'
       - 'components/os/BootSequence.css'
       - 'components/os/JellyfishBootSequence.tsx'
+      - 'components/os/OriginalDogLineart.tsx'
       - 'components/os/ClassicBootSequence.tsx'
       - 'components/appearance/AppIconEditor.tsx'
       - 'utils/appIcon.ts'
@@ -55,7 +56,7 @@ jobs:
         id: chrome
         with:
           chrome-version: stable
-      - name: Render both real boot variants at phone sizes
+      - name: Render original dog line art and its animation at phone sizes
         shell: bash
         run: |
           set -euo pipefail
@@ -93,7 +94,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: baby-dog-original-artwork-phone-screenshots
+          name: baby-dog-lineart-zoom-phone-screenshots
           path: baby-dog-*.png
           if-no-files-found: ignore
           retention-days: 7
