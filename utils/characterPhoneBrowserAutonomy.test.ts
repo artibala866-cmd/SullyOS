@@ -37,7 +37,7 @@ describe('Char autonomous Baidu search history',()=>{
       text:async()=>JSON.stringify({choices:[{message:{content:JSON.stringify({
         search:true,records:[{
           title:'书店新书',query:'2026文学出版社新书目录',reason:'我想知道朋友说的新书是哪本',
-          note:'想查作者和书名，尚未看网页',mood:'好奇',sourceEventIds:['e1','old-event','made-up'],
+          note:'想查作者和书名，尚未看网页',afterSearchThought:'噢，可能要先按出版社缩小范围，点开结果再确定是哪本。',mood:'好奇',sourceEventIds:['e1','old-event','made-up'],
         }],
       })}}]}),
     });
@@ -50,6 +50,8 @@ describe('Char autonomous Baidu search history',()=>{
     expect(items[0].actor).toBe('char');
     expect(items[0].query).toBe('2026文学出版社新书目录');
     expect(items[0].aiJudgement).toContain('朋友');
+    expect(items[0].afterSearchThought).toContain('缩小范围');
+    expect(String(fetchMock.mock.calls[0][1].body)).toContain('afterSearchThought');
     expect(items[0].sourceEventIds).toEqual(['e1']);
     expect(new URL(items[0].url).hostname).toBe('www.baidu.com');
     expect(readCharacterLifeEvents('char').find(e=>e.kind==='browser-search')?.summary)
