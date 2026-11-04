@@ -1304,3 +1304,106 @@
   background:#f6f6f7;border-radius:0;
 }
 @media(max-width:350px){.couple-plant-scene {height:196px;}.couple-content-mode .couple-touch-frame {min-height:220px;padding:10px;}}
+
+/* The shop sells physical-style passes; milestones have a progress gallery, settings is a preview studio. */
+.couple-content-mode .couple-shop-card {
+  position:relative;overflow:hidden;min-height:192px;
+  border:1px solid #dcdde0;background:#fff;
+  padding:20px 20px 15px;
+  border-radius:17px;
+  box-shadow:0 7px 16px #00000008;
+}
+.couple-shop-card::before,.couple-shop-card::after {
+  content:"";position:absolute;top:56%;width:16px;height:16px;border-radius:50%;
+  background:#f6f6f7;border:1px solid #dedee1;z-index:3;
+}
+.couple-shop-card::before {left:-9px;}.couple-shop-card::after {right:-9px;}
+.couple-shop-card-stamp {
+  position:absolute;top:-31px;right:-20px;width:118px;height:118px;border-radius:50%;
+  border:1px solid #ececef;display:flex;align-items:center;justify-content:center;gap:7px;
+  transform:rotate(-18deg);font-family:Georgia,serif;font-size:19px;color:#d0d0d3;
+  pointer-events:none;
+}
+.couple-shop-pass-1 {background:#f6f6f6;}
+.couple-shop-pass-2 {background:#fff;border-style:dashed;}
+.couple-content-mode .couple-shop-head {position:relative;z-index:2;}
+.couple-content-mode .couple-shop-head h3 {font-size:19px;margin:7px 0 6px;line-height:1.35;color:#27282d;}
+.couple-content-mode .couple-shop-head > strong {font-size:27px;}
+.couple-content-mode .couple-shop-card > p {position:relative;z-index:2;min-height:33px;margin:8px 0 16px;max-width:80%;font-size:11px;line-height:1.7;color:#56575d;}
+.couple-shop-pass-foot {
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  border-top:1px dashed #d3d3d6;padding:13px 0 0;color:#77787e;
+}
+.couple-shop-pass-foot > span {font-size:9px;letter-spacing:.1em;}
+.couple-shop-pass-foot > small {font-size:10px;color:#64656c;}
+.couple-content-mode .couple-shop-card .couple-actions {
+  padding-top:13px;margin:14px 0 0;border-top:1px solid #eeeeef;
+}
+.couple-content-mode .couple-shop-card .couple-actions button {
+  border-radius:100px;min-height:38px;padding-inline:24px;
+  background:#292a2e;border-color:#292a2e;color:#fff;
+}
+.couple-content-mode .couple-shop-card .couple-actions button:disabled {background:#e8e8ea;border-color:#e8e8ea;color:#77787d;}
+.couple-content-mode .couple-shop-editor {background:#fff;border:1px solid #e0e0e3;padding:20px;}
+.couple-content-mode .couple-shop-editor label {margin-bottom:15px;}
+.couple-content-mode .couple-achievement-hall {padding:0 0 14px;}
+.couple-achievement-cover {
+  display:flex;flex-direction:column;justify-content:space-between;
+  min-height:167px;margin-bottom:18px;padding:20px 22px;
+  border-radius:20px;background:#303135;color:#fff;
+  overflow:hidden;position:relative;
+}
+.couple-achievement-cover::after {
+  content:"";position:absolute;right:-49px;top:-67px;width:205px;height:205px;
+  border:1px solid #77787c;border-radius:50%;box-shadow:0 0 0 24px #424347,0 0 0 25px #77787c;
+  pointer-events:none;opacity:.45;
+}
+.couple-achievement-cover > span {font-size:9px;letter-spacing:.15em;color:#d4d4d8;}
+.couple-achievement-cover > div {display:flex;align-items:flex-end;gap:18px;position:relative;z-index:1;}
+.couple-achievement-cover strong {font-size:56px;font-weight:350;line-height:1;color:#fff;font-variant-numeric:tabular-nums;}
+.couple-achievement-cover strong small {font-size:18px;color:#dedee2;}
+.couple-content-mode .couple-achievement-cover p {max-width:160px;margin:0 0 8px;color:#ededf0;font-size:11px;line-height:1.7;}
+.couple-content-mode .couple-achievement {margin:0 0 10px;padding:16px 18px 22px;border-radius:14px;}
+.couple-achievement-value {font-size:17px;color:#33343a;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.couple-achievement-value small {font-size:10px;color:#8b8c91;}
+.couple-content-mode .couple-achievement-copy > strong {font-size:14px;font-weight:600;}
+.couple-content-mode .couple-achievement-track {height:3px;border-radius:3px;overflow:hidden;}
+.couple-content-mode .couple-settings {display:flex;flex-direction:column;gap:10px;}
+.couple-settings-preview {
+  position:relative;min-height:130px;height:160px;overflow:hidden;margin:0 0 12px;
+  border:1px solid #e2e2e5;border-radius:18px;background:#ededf0;
+}
+.couple-settings-preview > img {display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1);}
+.couple-settings-cover-blank {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;
+  width:100%;height:100%;
+  background:radial-gradient(ellipse at 70% 30%,#fff,#e6e6e9);
+}
+.couple-settings-cover-blank span {font-size:10px;letter-spacing:.14em;color:#88898f;}
+.couple-settings-cover-blank strong {font-size:18px;font-weight:550;color:#34343a;}
+.couple-settings-preview > span {
+  position:absolute;bottom:14px;left:14px;font-size:9px;letter-spacing:.12em;
+  padding:6px 9px;border-radius:100px;background:#ffffffe8;color:#45464c;
+}
+.couple-settings-group-heading {
+  display:flex;align-items:center;gap:12px;margin:9px 0 3px;padding-bottom:8px;
+  border-bottom:1px solid #dadbde;
+}
+.couple-settings-group-heading span {font-size:9px;color:#87888f;}
+.couple-settings-group-heading strong {font-size:14px;font-weight:590;color:#34353a;}
+.couple-content-mode .couple-settings > label {display:block;padding:10px 12px;margin:0;background:#fff;border:1px solid #ebebed;border-radius:11px;font-size:11px;color:#6b6c73;}
+.couple-content-mode .couple-settings > label :is(select,input) {margin-top:9px;}
+.couple-content-mode .couple-settings > .couple-file {display:inline-flex;position:relative;align-self:flex-start;cursor:pointer;border-style:dashed;}
+.couple-settings > .couple-file input {position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;}
+.couple-content-mode .couple-settings > .couple-actions {display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px;}
+.couple-content-mode .couple-settings > .couple-actions button {padding:9px 13px;border-radius:100px;}
+.couple-content-mode .couple-settings .couple-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.couple-content-mode .couple-settings .couple-grid button {padding:2px;border-radius:10px;overflow:hidden;}
+.couple-content-mode .couple-settings .couple-grid img {aspect-ratio:1;object-fit:cover;}
+.couple-content-mode .couple-settings .couple-binding-controls {padding-top:13px;margin-top:10px;border-top:1px solid #dbdbde;}
+.couple-content-mode .couple-settings .couple-binding-danger {color:#942e31;border:1px solid #e6caca;background:#fff;padding:10px 13px;border-radius:10px;}
+@media(max-width:350px) {
+  .couple-content-mode .couple-shop-card {padding:17px 15px 12px;}
+  .couple-content-mode .couple-shop-card > p {max-width:90%;}
+  .couple-achievement-cover {padding:16px;min-height:146px;}
+}
