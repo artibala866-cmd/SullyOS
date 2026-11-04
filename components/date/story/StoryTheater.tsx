@@ -62,7 +62,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             const imported = parseStoryTheaterPreset(await source.text(), source.name);
             await DB.saveStoryTheaterPreset(imported);
             setCustomPresets(current => [imported, ...current.filter(item => item.id !== imported.id)]);
-            addToast(`已导入糯米机剧情预设「${imported.name}」`, 'success');
+            addToast(`已导入宝宝狗剧情预设「${imported.name}」`, 'success');
             return imported;
         } catch (error: any) {
             addToast(error?.message || '预设导入失败', 'error');
@@ -97,7 +97,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         await DB.saveStoryTheaterPreset(copy);
         setCustomPresets(current => [copy, ...current.filter(item => item.id !== copy.id)]);
         setEditingPreset(copy);
-        addToast('已复制为可编辑的糯米机预设', 'success');
+        addToast('已复制为可编辑的宝宝狗预设', 'success');
     }, [addToast]);
 
     const deletePreset = useCallback(async (preset: StoryTheaterPreset) => {
@@ -268,7 +268,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 </section>
 
                 <section className='pt-6 border-t border-slate-200'>
-                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>糯米机预设制作器</h2></div><div className='flex gap-2'><button onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><UploadSimple size={17} /></button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
+                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><UploadSimple size={17} /></button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
                     <p className='mt-2 text-[10px] leading-5 text-slate-500'>仅导入与导出 <code>sullyos.story-preset</code>。不接受其它应用的 completion JSON，也不保留其字段或运行逻辑。</p>
                     <input ref={importInput} type='file' accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (file) await importPreset(file); }} />
                     <div className='mt-4 divide-y divide-slate-200'>{presets.map(preset => <div key={preset.id} className='flex items-center gap-2'><button onClick={() => { setEditingPreset(preset); setView('preset'); }} className='min-w-0 flex-1 py-3 flex items-center gap-3 text-left'><span className={`w-2 h-2 rounded-full ${preset.builtIn ? 'bg-amber-400' : 'bg-violet-500'}`} /><span className='min-w-0 flex-1 text-xs font-semibold truncate'>{preset.name}</span><span className='text-[9px] text-slate-400'>{preset.builtIn ? '内置只读' : `${preset.document.prompts.length} 条`}</span></button><button onClick={() => { void downloadStoryPreset(preset); }} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' title={`导出 ${preset.name}`}><DownloadSimple size={15} /></button></div>)}</div>
