@@ -92,7 +92,8 @@ const inspectExpression = `(() => {
     tongueShapes: document.querySelectorAll('.sully-lineart-tongue path').length,
     originalLipIntact: !!canvas && rgba[(330 * 512 + 263) * 4 + 3] >= 0,
     stickerOutline: document.querySelectorAll('.sully-lineart-sticker ellipse').length,
-    stickerTransform: getComputedStyle(document.querySelector('.sully-lineart-sticker')).transform,
+    stickerTransform: document.querySelector('.sully-lineart-sticker') ?
+      getComputedStyle(document.querySelector('.sully-lineart-sticker')).transform : 'none',
     label: label.textContent,
     labelLocation: document.querySelector('.sully-boot-artwork').dataset.label,
     welcome: caption.textContent,
