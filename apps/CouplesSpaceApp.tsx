@@ -276,7 +276,7 @@ export default function CouplesSpaceApp() {
     setPair(ids);
   });
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
-  const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : '情侣空间';
+  const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
 
   return <div className={'couple-app' + (!pairs && !panel && pickerStep !== 'space' ? ' couple-picker-mode' : '')}>
     <header className="couple-header">
