@@ -28,7 +28,7 @@ const props=(mode:'idle'|'review',typed=false)=>({
  selectedCount:0,emojis:[],onPanelAction:()=>{},onImageSelect:()=>{},
  onReroll:()=>{},canReroll:false,typedVoiceEnabled:typed,
  onSelectTypedVoice:()=>{},onExitTypedVoice:()=>{},onSendTypedVoice:()=>{},
- speechInput:{...voices[mode],start:async()=>{},startTranscription:async()=>{},stop:()=>{},cancel:()=>{},editTranscript:()=>{},confirm:()=>{}},
+ speechInput:{...voices[mode],startTranscription:async()=>{},stop:()=>{},cancel:()=>{},editTranscript:()=>{},confirm:()=>{}},
 });
 void (async()=>{try{
  const normal=scene('正常输入栏：麦克风在输入框内','normal');
@@ -73,7 +73,8 @@ void (async()=>{try{
   micInsideField:!!fb&&!!mb&&mb.left>=fb.left&&mb.right<=fb.right+1,
   senderVisible:!!sb&&sb.width>=25,
   inlineDraft:!!input&&input.clientWidth>=85,
-  popoverStacked:!!chooser&&chooser.querySelectorAll('button').length>=2,
+  popoverExactlyTwo:!!chooser&&chooser.querySelectorAll('button').length===2,
+  noRawAudioOption:!!chooser&&!chooser.querySelector('[aria-label="仅发送原声录音"]')&&!chooser.textContent?.includes('仅发原声'),
   realStt:!!chooser?.querySelector('[aria-label="自动语音转文字"]'),
   keyboardDictation:!!chooser?.querySelector('[aria-label="输入法语音"]'),
   voiceBarMatchesOriginal:!!bubble.querySelector('.sully-voice-bar-shell .sully-voice-bar'),
