@@ -50,8 +50,7 @@ jobs:
         run: pnpm exec vitest run utils/appIcon.test.ts
       - name: Verify production bundle
         run: pnpm build
-      - name: Install Chinese font for screenshot comparison
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      # Chrome picks up system fonts; avoid blocking visual checks on package mirrors.
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
