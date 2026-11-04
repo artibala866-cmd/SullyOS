@@ -1713,3 +1713,130 @@
  .couple-gift-pedestal {height:200px;}
 }
 @media(prefers-reduced-motion:reduce){.couple-content-mode .couple-scene * {animation:none!important;transition:none!important;}}
+
+
+/* Independent creation studios: the DOM itself is different, not just a reskinned template. */
+.couple-content-mode .couple-records .couple-compose {
+  padding:0!important; margin:0 0 17px!important; overflow:hidden;
+  border:0!important; box-shadow:0 7px 23px #0000000b!important; border-radius:19px!important;
+  background:#fff!important;
+}
+.couple-content-mode .couple-records .couple-compose :is(label,input,textarea,select) {font-family:inherit;}
+.couple-content-mode .couple-records .couple-compose label {display:grid;gap:6px;margin:0 0 13px;font-size:10px;color:#64656b;}
+.couple-content-mode .couple-records .couple-compose :is(input:not([type=checkbox]),textarea,select) {
+ width:100%;min-width:0;margin:0;padding:10px 11px;border-radius:9px;
+ background:#fff;border:1px solid #dcdde0;color:#292a2e;font-size:13px;line-height:1.55;
+}
+.couple-content-mode .couple-records .couple-compose .couple-edit-title input {font-size:17px;font-weight:570;}
+.couple-content-mode .couple-records .couple-compose .couple-edit-note textarea {min-height:153px;padding:12px;resize:vertical;line-height:1.85;}
+.couple-content-mode .couple-records .couple-compose-buttons {
+ position:sticky;bottom:0;z-index:6;display:grid;grid-template-columns:1fr auto;gap:10px;
+ padding:12px 14px 14px;border-top:1px solid #ececed;background:#ffffffed;
+ backdrop-filter:blur(11px);
+}
+.couple-content-mode .couple-records .couple-compose-buttons button {
+ border-radius:99px;height:42px;padding:10px 16px;
+}
+.couple-content-mode .couple-records .couple-compose-buttons button:first-child {background:#303136;border-color:#303136;color:#fff;}
+.couple-content-mode .couple-records .couple-compose-buttons button:last-child {background:#f2f2f3;border:1px solid #ececed;color:#4c4d53;}
+.couple-edit-photo {display:grid;gap:7px;cursor:pointer;}
+.couple-edit-photo-box {display:grid;place-items:center;width:100%;min-height:95px;background:#f4f4f5;border:1px dashed #c6c7cc;border-radius:11px;overflow:hidden;color:#88898f;font-size:11px;}
+.couple-edit-photo-box img {display:block;width:100%;max-height:220px;object-fit:contain;}
+.couple-content-mode .couple-edit-photo input[type=file] {font-size:10px;padding:7px;background:#fafafa;}
+/* Anniversary editor looks like a dated keepsake invitation with the actual two avatars. */
+.couple-edit-anniversary-banner {position:relative;min-height:185px;display:grid;justify-items:center;align-content:center;gap:5px;padding:20px 13px;background:radial-gradient(ellipse at 50% 35%,#fff,#eeeff0);border-bottom:1px dashed #cccdd1;}
+.couple-edit-anniversary-banner>span {font-size:9px;letter-spacing:.14em;color:#74757b;}
+.couple-edit-anniversary-date {display:flex;align-items:baseline;gap:9px;}
+.couple-edit-anniversary-date strong {color:#33343a;font-size:51px;font-weight:350;line-height:1;font-variant-numeric:tabular-nums;}
+.couple-edit-anniversary-date span {color:#73757b;font-size:10px;}
+.couple-edit-anniversary-pair {display:flex;align-items:center;gap:0;margin-top:6px;}
+.couple-edit-anniversary-pair .couple-scene-avatar {width:39px;height:39px;flex-basis:39px;}
+.couple-edit-anniversary-pair>span:nth-child(2) {margin:0 -5px;background:#fff;border:1px solid #ccc;z-index:3;border-radius:50%;width:18px;height:18px;display:grid;place-items:center;font-size:10px;}
+.couple-edit-anniversary-fields {padding:18px 18px 8px;background:#fff;display:flex;flex-direction:column;}
+.couple-edit-anniversary-fields>.couple-edit-date {order:0;}
+.couple-edit-anniversary-fields>.couple-edit-title {order:1;}
+.couple-edit-anniversary-fields>.couple-edit-note {order:2;}
+.couple-edit-anniversary-fields>.couple-edit-photo {order:3;}
+.couple-edit-anniversary-fields>.couple-edit-person {order:4;}
+/* Split diary: real notebook writing page, companion page deliberately separate. */
+.couple-edit-diary-top {display:flex;flex-direction:column;gap:8px;padding:18px 20px;background:#2c2d31;color:#fff;}
+.couple-edit-diary-top>span {color:#c2c3c7;letter-spacing:.1em;font-size:9px;}
+.couple-edit-diary-top>strong {color:#fff;font-family:Georgia,"Songti SC",serif;font-size:20px;font-weight:460;}
+.couple-edit-diary-contents {display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr);padding:5px;background:#e2e2e4;gap:3px;}
+.couple-edit-diary-left {min-width:0;padding:17px 12px 15px;background:repeating-linear-gradient(to bottom,#fff 0,#fff 29px,#e8e8ed 30px,#fff 31px);box-shadow:inset -5px 0 10px #0000000a;}
+.couple-edit-diary-right {min-width:0;display:flex;flex-direction:column;gap:12px;padding:20px 10px;background:#f3f3f4;}
+.couple-edit-diary-right>span {color:#82838a;font-size:9px;letter-spacing:.1em;}
+.couple-edit-diary-right>small {color:#6e6f75;font-size:10px;line-height:1.7;}
+.couple-content-mode .couple-edit-diary-right button {font-size:10px;min-height:38px;border:1px solid #d0d1d5;background:#fff;color:#35363c;border-radius:8px;padding:8px 5px;line-height:1.35;}
+.couple-content-mode .couple-edit-diary .couple-edit-note textarea {min-height:260px;background:#ffffff80;border:0;border-radius:0;padding:4px 3px;line-height:2.2;}
+.couple-content-mode .couple-edit-diary-left .couple-edit-title input {border:0;border-bottom:1px solid #ddd;border-radius:0;background:#ffffffc2;padding:7px 3px;}
+.couple-edit-diary .couple-diary-sticker-tray {padding:12px 17px 14px;}
+.couple-edit-diary>.couple-edit-photo {margin:13px 16px 17px;}
+/* Mail editor uses an addressed envelope and separate letter paper. */
+.couple-edit-mail-envelope {position:relative;display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:19px 20px 18px;background:#e8e9eb;border-bottom:1px dashed #bdbfc3;}
+.couple-edit-mail-envelope>span:first-child {grid-column:1/-1;font-size:9px;color:#72737a;letter-spacing:.19em;}
+.couple-edit-mail-envelope>div {display:grid;gap:5px;min-width:0;padding:10px 11px;background:#fff;border-radius:4px;}
+.couple-edit-mail-envelope div small {font-size:9px;color:#9b9ca2;}
+.couple-edit-mail-envelope div strong {font-size:13px;color:#44454b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.couple-edit-mail-stamp {position:absolute;right:11px;top:9px;color:#8a8b90;font-size:19px;}
+.couple-edit-mail-letter {padding:24px 18px 17px;background:repeating-linear-gradient(0deg,#fff 0,#fff 29px,#ececf0 30px);}
+.couple-content-mode .couple-edit-mail-letter .couple-edit-title input {border:0;border-bottom:1px solid #d9dade;border-radius:0;background:#fff;padding:9px 0;}
+.couple-content-mode .couple-edit-mail-letter .couple-edit-note textarea {min-height:235px;background:#ffffffd5;border:0;line-height:2.05;font-family:Georgia,"Songti SC",serif;}
+.couple-edit-mail-signature {display:flex;justify-content:space-between;gap:10px;padding:11px 0 4px;}
+.couple-edit-mail-signature label {flex:1;min-width:0;}
+/* Timeline writer is an event marker on a rail, with photograph in-line. */
+.couple-edit-timeline {display:flex;gap:12px;padding:22px 13px 13px;background:#fff;}
+.couple-edit-timeline-date {position:relative;display:flex;flex-direction:column;gap:5px;align-items:center;flex:0 0 73px;padding:7px 0 15px;border-right:1px solid #cccdd1;}
+.couple-edit-timeline-date>span:first-child {font-size:8px;color:#9b9da3;letter-spacing:.07em;text-align:center;}
+.couple-edit-timeline-date>strong {font-size:37px;color:#303137;font-weight:350;line-height:1;font-variant-numeric:tabular-nums;}
+.couple-edit-timeline-date>span:last-child {font-size:9px;color:#7f8087;text-align:center;}
+.couple-edit-timeline-date::after {content:"";position:absolute;top:90px;right:-5px;width:9px;height:9px;border-radius:50%;border:2px solid #5d5e64;background:#fff;}
+.couple-edit-timeline-page {display:grid;gap:10px;flex:1;min-width:0;}
+.couple-content-mode .couple-edit-timeline-page .couple-edit-note textarea {min-height:175px;}
+.couple-edit-timeline-by {display:flex;flex-wrap:wrap;gap:12px;}
+.couple-edit-timeline-by label {flex:1;min-width:110px;}
+/* Wish composer is a single pinned note with a functional checklist, not an input form card. */
+.couple-edit-wish {padding:23px 15px 11px;background:#eaeaed;}
+.couple-edit-wish-paper {position:relative;margin:0 4px 15px;padding:25px 16px 16px;background:#fff;border:1px solid #d7d7dc;transform:rotate(-.35deg);box-shadow:4px 5px 0 #d4d5d8;}
+.couple-edit-wish-paper::before {content:"";position:absolute;width:10px;height:10px;top:8px;left:calc(50% - 5px);background:#66676e;border-radius:50%;box-shadow:0 2px 3px #0002;}
+.couple-edit-wish-paper>span {display:block;margin:0 0 19px;color:#8f9096;font-size:9px;letter-spacing:.1em;}
+.couple-edit-wish-paper .couple-compose-checklist {background:transparent;padding:6px 0 17px;}
+.couple-edit-wish-paper .couple-compose-checklist>strong {display:block;font-weight:520;font-size:12px;margin:0 0 11px;}
+.couple-edit-wish-paper .couple-compose-step {padding:3px 5px;border:0;border-bottom:1px solid #dedee1;border-radius:0;}
+.couple-edit-wish-paper .couple-edit-note textarea {min-height:90px!important;}
+.couple-edit-wish-meta {display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 5px;}
+/* Gift creation starts with the photo, THEN a dedication label, not the other way around. */
+.couple-edit-gift-display {min-height:185px;display:flex;flex-direction:column;gap:15px;align-items:center;justify-content:center;padding:22px 25px;background:radial-gradient(ellipse at 50% 20%,#fff,#e9e9eb);}
+.couple-edit-gift-display>span {font-size:9px;letter-spacing:.2em;color:#75767c;}
+.couple-edit-gift-display .couple-edit-photo {width:100%;max-width:260px;}
+.couple-edit-gift-display .couple-edit-photo-box {min-height:122px;background:#fff;box-shadow:0 6px 13px #0000000e;}
+.couple-edit-gift-label {padding:20px 18px 11px;}
+.couple-edit-gift-label>div {display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+/* Time capsule design: set the unlock contract before writing any words. */
+.couple-edit-capsule-header {position:relative;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;min-height:174px;padding:16px;background:#303136;color:#fff;}
+.couple-edit-capsule-header>span {color:#d0d0d6;font-size:9px;letter-spacing:.18em;}
+.couple-edit-capsule-header>strong {color:#fff;font-size:20px;font-weight:520;}
+.couple-edit-capsule-seal {display:grid;place-items:center;width:55px;height:55px;border:1px solid #99999f;border-radius:50%;font-size:33px;color:#dedee1;}
+.couple-edit-capsule-when {padding:20px 18px 13px;background:#ebebed;border-bottom:1px dashed #b7b7bc;}
+.couple-edit-capsule-when label {font-size:11px;color:#575960;}
+.couple-content-mode .couple-edit-capsule-when .couple-segments {margin:3px 0 0;}
+.couple-edit-capsule-message {padding:21px 18px 13px;background:#fff;}
+.couple-content-mode .couple-edit-capsule-message .couple-edit-note textarea {min-height:194px;}
+.couple-edit-capsule-message>div {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+/* Private note: text first, alias later; night-ink shell, legible paper. */
+.couple-edit-hollow-header {display:flex;flex-direction:column;gap:10px;align-items:center;padding:25px 16px 24px;background:#34353a;text-align:center;}
+.couple-edit-hollow-header>span {font-size:9px;letter-spacing:.14em;color:#c4c5c9;}
+.couple-edit-hollow-header>strong {font-size:17px;color:#fff;font-weight:490;}
+.couple-edit-hollow-header>small {font-size:10px;color:#d2d3d7;}
+.couple-edit-hollow-note {padding:21px 18px 12px;background:#f5f5f6;}
+.couple-edit-hollow-note .couple-edit-note textarea {min-height:220px!important;border:0!important;background:#fff!important;}
+.couple-edit-hollow-note>div {display:grid;grid-template-columns:1fr 1fr;gap:11px;padding-top:6px;}
+@media(max-width:350px) {
+ .couple-edit-diary-contents {grid-template-columns:minmax(0,1.25fr) minmax(0,.7fr);}
+ .couple-edit-diary-left {padding-inline:8px;}
+ .couple-edit-diary-right {padding-inline:6px;}
+ .couple-content-mode .couple-edit-diary-right button {font-size:9px;padding-inline:2px;}
+ .couple-edit-timeline {gap:7px;}
+ .couple-edit-timeline-date {flex-basis:61px;}
+ .couple-content-mode .couple-records .couple-compose label {font-size:10px;}
+}
