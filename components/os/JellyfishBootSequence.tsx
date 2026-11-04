@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
 import OriginalDogLineart from './OriginalDogLineart';
+import { getBabyDogFrame } from '../../utils/babyDogBootTimeline';
 
 // 纯白开屏：提取用户上传的宝宝狗原稿线条，参考视频做轻柔放大和五官动画。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
@@ -27,10 +28,12 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
   }, []);
   const reduced = useMemo(() => prefersReducedMotion(), []);
   const cinematic = firstThisSession && !reduced;
-  // 完整展现参考视频的由小至大演出；减少动态效果时快速进入。
-  const HOLD = reduced ? 360 : 2900;
+  // 参考视频约 8.18 秒：先缩放、表情，再左右翻转、复原。轻触仍可跳过。
+  const HOLD = reduced ? 360 : 8200;
   const EXIT = cinematic ? 380 : 220;
   const [phase, setPhase] = useState<'enter' | 'exit'>('enter');
+  const [videoFrame, setVideoFrame] = useState(() => getBabyDogFrame(0));
+  const previousFrameRef = useRef(videoFrame);
   const startRef = useRef(0);
   if (startRef.current === 0) {
     startRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -45,7 +48,17 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
     let raf = 0;
     const tick = () => {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (dataReady && (!showPoster || posterLoaded) && now - startRef.current >= HOLD) {
+      const elapsed = now - startRef.current;
+      if (!showPoster && !reduced) {
+        const next = getBabyDogFrame(elapsed);
+        const prev = previousFrameRef.current;
+        if (next.expression !== prev.expression || next.mirrored !== prev.mirrored ||
+            next.label !== prev.label || next.welcome !== prev.welcome) {
+          previousFrameRef.current = next;
+          setVideoFrame(next);
+        }
+      }
+      if (dataReady && (!showPoster || posterLoaded) && elapsed >= HOLD) {
         setPhase('exit');
         const waited = now - startRef.current;
         trackEvent('冷启动等待数据就绪', {
@@ -58,7 +71,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [dataReady, phase, HOLD, showPoster, posterLoaded]);
+  }, [dataReady, phase, HOLD, showPoster, posterLoaded, reduced]);
 
   useEffect(() => {
     if (phase !== 'exit') return;
@@ -104,11 +117,13 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
       ) : (
         <div className="sully-boot-scene">
           <div className="sully-boot-center">
-            <div className="sully-boot-artwork">
-              <OriginalDogLineart animate={!reduced} />
+            <div className="sully-boot-artwork" data-label={reduced ? "bottom" : videoFrame.label}>
+              <OriginalDogLineart expression={reduced ? "normal" : videoFrame.expression}
+                mirrored={!reduced && videoFrame.mirrored} />
               <span className="sully-boot-side-label">dog</span>
             </div>
-            <p className="sully-boot-welcome">Welcome home.</p>
+            <p className="sully-boot-welcome"
+              data-visible={reduced || videoFrame.welcome}>Welcome home.</p>
           </div>
         </div>
       )}
