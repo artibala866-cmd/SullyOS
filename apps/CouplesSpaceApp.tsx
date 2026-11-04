@@ -11,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantCareWait, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
@@ -207,7 +207,7 @@ export default function CouplesSpaceApp() {
     return hours ? `${hours}小时${minutes % 60 ? `${minutes % 60}分` : ''}后` : `${minutes}分钟后`;
   };
   const waterAge = bond ? Math.max(0, plantNow - bond.plant.watered) : Infinity;
-  const recentWater = !!bond?.plant.lastSide && plantNow >= bond.plant.watered && waterAge < 12_000;
+  const recentWater = !!bond && isRecentPlantWatering(bond.plant, plantNow);
 
   useEffect(() => {
     let active = true;
@@ -239,7 +239,7 @@ export default function CouplesSpaceApp() {
     refresh();
     const interval = window.setInterval(refresh, 30_000);
     const age = Date.now() - (bond?.plant.watered ?? 0);
-    const remaining = bond?.plant.lastSide && age >= 0 && age < 12_000 ? 12_000 - age : 0;
+    const remaining = bond && isRecentPlantWatering(bond.plant) ? PLANT_WATER_NOTICE_MS - age : 0;
     const expiry = remaining > 0 ? window.setTimeout(refresh, remaining + 15) : undefined;
     const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
     window.addEventListener('focus', refresh);
@@ -647,7 +647,7 @@ export default function CouplesSpaceApp() {
           </div>
           <progress max={100} value={bond.plant.xp} />
           {recentWater && <p className="couple-plant-last couple-plant-notice" role="status"
-            style={{ animationDelay: `-${Math.min(waterAge, 11_999)}ms` }}>
+            style={{ animationDelay: `-${Math.min(waterAge, PLANT_WATER_NOTICE_MS - 1)}ms` }}>
             <span aria-hidden="true">✓</span> {names[bond.plant.lastSide!]} 刚刚浇了水
           </p>}
           <div className="couple-actions couple-plant-actions">
