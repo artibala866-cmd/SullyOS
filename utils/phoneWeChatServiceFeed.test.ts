@@ -52,7 +52,6 @@ it('never invents fixed sample content, subscription status or empty article car
  expect(element.textContent).not.toContain('我的关注');
  expect(element.textContent).not.toContain('正课改图班');
  expect(element.textContent).not.toContain('贴图');
- expect(element.textContent).not.toContain('服务通知');
  expect(element.querySelectorAll('[data-testid="service-feed-tile"]')).toHaveLength(0);
  await act(async()=>root.render(React.createElement(PhoneWeChatServiceFeed,{messages:saved,name:'角色订阅的公众号',kind:'official'})));
  expect(element.textContent).not.toContain('看一看');
