@@ -83,6 +83,10 @@ export const bondLevel = (bond: Bond) => 1 + Math.floor(bondXp(bond) / 100);
 export const panelLevels: Partial<Record<EntryKind | 'shop' | 'achievements' | 'plant' | 'touch' | 'settings', number>> = {
   timeline: 1, anniversary: 1, diary: 1, wish: 2, gift: 2, mail: 2, plant: 2, touch: 3, shop: 3, capsule: 3, hollow: 4,
 };
+export const PLANT_WATER_NOTICE_MS = 12_000;
+export function isRecentPlantWatering(plant: Bond['plant'], now = Date.now()): boolean {
+  return !!plant.lastSide && now >= plant.watered && now - plant.watered < PLANT_WATER_NOTICE_MS;
+}
 export type PlantCareAction = 'water' | 'fertilize';
 /** Remaining cooldown (ms); Infinity when replanting is required. */
 export function plantCareWait(plant: Bond['plant'], action: PlantCareAction, now = Date.now()): number {
