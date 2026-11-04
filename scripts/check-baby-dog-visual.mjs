@@ -115,12 +115,14 @@ try {
       assert(prepared, 'Original dog ink never loaded');
       await pause(450);
       await page.shot('baby-dog-' + variant + '-entry.png');
-      await pause(2600);
+      await pause(950);
+      await page.shot('baby-dog-' + variant + '-mouth-motion.png');
+      await pause(1650);
       const final = await page.evaluate(inspectExpression);
       assert(final, 'Missing real boot');
       assert(final.ready && final.white);
       assert(final.strokes > 250, 'Extracted handwritten ink missing');
-      assert(final.width <= 250, 'Dog unexpectedly oversized');
+      assert(final.width <= 190, 'Dog unexpectedly oversized');
       assert.equal(final.label, 'dog');
       assert.equal(final.welcome, 'Welcome home.');
       assert(final.labelOpacity >= .95 && final.welcomeOpacity >= .95,
@@ -133,7 +135,7 @@ try {
       });
       await pause(220);
       const small = await page.evaluate(inspectExpression);
-      assert(small?.noHorizontalOverflow && small?.width < 230, '320px overflow');
+      assert(small?.noHorizontalOverflow && small?.width <= 180, '320px overflow');
       await page.shot('baby-dog-' + variant + '-small.png');
       console.log('PASS ' + variant + ' real ink and timing', final);
     } finally {
