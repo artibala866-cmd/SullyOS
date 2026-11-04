@@ -290,9 +290,10 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
-export function BondRecords({ kind, bond, names, change, generate, share, busy, avatarMe, avatarThem, charId, onNativeJournal }: {
+export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
   generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
+  notify?: (message: string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
 }) {
   const [draft, setDraft] = useState<Entry>();
@@ -310,7 +311,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     operationRef.current = true;
     setWorking(true);
     setError('');
-    try { await task(); } catch (e) { setError(e instanceof Error ? e.message : '操作失败'); }
+    try { await task(); } catch (e) {
+      const message = e instanceof Error ? e.message : '操作失败';
+      setError(message);
+      notify?.(message);
+    }
     finally { operationRef.current = false; setWorking(false); }
   };
   const save = async (entry: Entry) => {
