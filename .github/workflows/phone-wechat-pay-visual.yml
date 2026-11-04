@@ -1,0 +1,65 @@
+name: Phone WeChat Pay card visual regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/CharacterPhone.tsx'
+      - 'components/chat/PhoneWeChatPayCards.tsx'
+      - 'components/chat/PhoneWeChatPayCards.test.tsx'
+      - 'tests/phone-wechat-pay-visual.*'
+      - '.github/workflows/phone-wechat-pay-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: phone-wechat-pay-visual
+  cancel-in-progress: true
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run receipt parsing and visual card tests
+        run: pnpm exec vitest run components/chat/PhoneWeChatPayCards.test.tsx utils/characterPhonePayments.test.ts
+      - name: Build full app
+        run: pnpm run build
+      - name: Install Chinese glyphs
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Screenshot actual React payment cards at mobile width
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/pay-visual-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/phone-wechat-pay-visual.html'
+          for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,980 --force-device-scale-factor=1 --virtual-time-budget=12000 --dump-dom "$url" > /tmp/pay-visual-dom.txt 2>/tmp/pay-visual-chrome.log || true
+          if ! grep -q 'data-ready="true"' /tmp/pay-visual-dom.txt; then
+            grep -o '<output[^>]*>[^<]*</output>' /tmp/pay-visual-dom.txt || true
+            tail -40 /tmp/pay-visual-vite.log || true
+            exit 1
+          fi
+          "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=390,980 --force-device-scale-factor=1 --virtual-time-budget=12000 --screenshot="$GITHUB_WORKSPACE/phone-wechat-pay-390px.png" "$url"
+          test -s phone-wechat-pay-390px.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phone-wechat-pay-visual-390px
+          path: phone-wechat-pay-390px.png
+          if-no-files-found: ignore
+          retention-days: 7
