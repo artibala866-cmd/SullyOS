@@ -1609,3 +1609,53 @@
 @media (prefers-reduced-motion: reduce) {
   .couple-content-mode .couple-portal { transition: none; }
 }
+
+/* Visual screenshot pass: keep labels clear and let some tools sit outside cards. */
+.couple-content-mode .couple-portal-diary .couple-portal-image {
+  width: 39px;
+  height: 37px;
+  top: 38px;
+}
+.couple-content-mode .couple-portal-hollow {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #cbcbcd;
+  border-radius: 0;
+  box-shadow: none;
+  padding-inline: 10px;
+}
+.couple-content-mode .couple-portal-hollow .couple-portal-top { width: 37px; flex-basis: 37px; }
+.couple-content-mode .couple-portal-plant {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #d3d3d5;
+  border-bottom: 1px solid #d3d3d5;
+  border-radius: 0;
+  box-shadow: none;
+}
+.couple-content-mode .couple-portal-plant .couple-portal-top svg { opacity: .6; }
+.couple-content-mode .couple-portal-diary .couple-portal-bottom,
+.couple-content-mode .couple-portal-mail .couple-portal-bottom,
+.couple-content-mode .couple-portal-capsule .couple-portal-bottom {
+  background: linear-gradient(transparent,rgba(255,255,255,.98) 22%);
+  padding-top: 6px;
+}
+.couple-content-mode .couple-portal-image > .couple-avatar > span {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: #333;
+  font-size: 28px;
+  font-weight: 500;
+}
+.couple-content-mode .couple-portal-gift .couple-portal-image > .couple-avatar,
+.couple-content-mode .couple-portal-touch .couple-portal-image > .couple-avatar { background: #e8e8e8; }
+.couple-content-mode .couple-portal-second-photo .couple-avatar > span { color: #333; }
+.couple-content-mode .couple-scrapbook-topline,
+.couple-content-mode .couple-portal-top > span,
+.couple-content-mode .couple-portal-bottom small,
+.couple-content-mode .couple-scrapbook-heading > span {
+  -webkit-font-smoothing: antialiased;
+  text-shadow: none;
+}
