@@ -129,7 +129,9 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       }}>摇一摇</button>}
       </div>
     </div>
-    {kind === 'diary' && <div className="couple-card">
+    {kind === 'diary' && <details className="couple-record-preferences">
+      <summary>日记偏好 <span>自动写作与回顾设置</span></summary>
+      <div className="couple-record-preferences-body">
       <label><input type="checkbox" checked={!!bond.diaryAuto} onChange={event => {
         const diaryAuto = event.target.checked;
         void run(() => change(current => ({ ...current, diaryAuto })));
@@ -142,7 +144,8 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         const diaryStyle = event.target.value.trim();
         if (diaryStyle !== (bond.diaryStyle ?? '')) void run(() => change(current => ({ ...current, diaryStyle })));
       }} /></label>
-    </div>}
+      </div>
+    </details>}
     {kind === 'capsule' && <nav className="couple-segments" aria-label="胶囊状态">
       {([['all', '全部'], ['sealed', '封存中'], ['ready', '可拆封'], ['opened', '已拆封']] as const).map(([id, label]) =>
         <button key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>
@@ -155,14 +158,14 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         {kind === 'mail' && <option value="pending">待回信</option>}
       </select>
     </div>}
-    {kind === 'hollow' && <div className="couple-card"><label>
+    {kind === 'hollow' && <div className="couple-record-preferences couple-hollow-preference"><label>
       <input type="checkbox" checked={!!bond.hollowAuto} disabled={working} onChange={event => {
         const hollowAuto = event.target.checked;
         void run(() => change(current => ({ ...current, hollowAuto })));
       }} /> 允许角色在私聊后悄悄留下心事
     </label></div>}
     {error && <p role="alert" className="couple-error">{error}</p>}
-    {draft && <form className="couple-card couple-compose" onSubmit={event => {
+    {draft && <form className={'couple-card couple-compose couple-compose-' + kind} onSubmit={event => {
       event.preventDefault();
       void run(async () => {
         const title = draft.title.trim();
@@ -172,12 +175,29 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         setDraft(undefined);
       });
     }}>
-      <label>{kind === 'mail' ? '问题' : '标题'}<input required value={draft.title} onChange={event => patch({ title: event.target.value })} maxLength={140} /></label>
-      <label>日期<input type="date" required value={draft.date} onChange={event => patch({ date: event.target.value })} /></label>
-      <label>来自<select value={draft.side} onChange={event => patch({ side: event.target.value as Side })}>
-        <option value="me">{names.me}</option><option value="them">{names.them}</option>
-      </select></label>
-      <label>{kind === 'mail' ? '写信人的回答' : '内容'}<textarea value={draft.body} onChange={event => patch({ body: event.target.value })} maxLength={10000} /></label>
+      <div className="couple-compose-intro">
+        <span>{look.english} / {rows.some(row => row.id === draft.id) ? 'EDIT' : 'NEW'}</span>
+        <strong>{look.create}</strong>
+        <p>{look.intro}</p>
+      </div>
+      <div className="couple-compose-paper">
+        <div className="couple-compose-metadata">
+          <label>{kind === 'anniversary' ? '值得记住的日期' : '日期'}
+            <input type="date" required value={draft.date} onChange={event => patch({ date: event.target.value })} />
+          </label>
+          <label>署名
+            <select value={draft.side} onChange={event => patch({ side: event.target.value as Side })}>
+              <option value="me">{names.me}</option><option value="them">{names.them}</option>
+            </select>
+          </label>
+        </div>
+        <label className="couple-compose-heading">{kind === 'mail' ? '信件主题' : kind === 'hollow' ? '一个代号' : '标题'}
+          <input required value={draft.title} placeholder={look.title} onChange={event => patch({ title: event.target.value })} maxLength={140} />
+        </label>
+        <label className="couple-compose-textarea">{kind === 'mail' ? '信件正文' : kind === 'diary' ? '日记内页' : '内容'}
+          <textarea value={draft.body} placeholder={look.body} onChange={event => patch({ body: event.target.value })} maxLength={10000} />
+        </label>
+      </div>
       {kind === 'wish' && <label>小目标（每行一个）<textarea value={draft.steps?.map(step => step.text).join('\n') ?? ''} onChange={event => {
         const steps = event.target.value.split('\n').map(text => ({ text, done: draft.steps?.find(step => step.text === text)?.done ?? false }));
         patch({ steps });
@@ -190,11 +210,16 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         </div>
       </>}
       {kind === 'diary' && <label>贴纸<input placeholder="例如 ♡ ✦ ☘" value={draft.stickers?.join(' ') ?? ''} onChange={event => patch({ stickers: event.target.value.split(' ').slice(0, 16) })} /></label>}
-      {kind === 'gift' && <label>礼物照片<input type="file" accept="image/*" disabled={working} onChange={event => {
+      {kind === 'gift' && <label className="couple-compose-gift-photo"><span>礼物照片</span>
+        <div className="couple-compose-photo-preview">{draft.image ? <TokenImg value={draft.image} alt="礼物照片预览" /> : <span>添加一张照片，装进礼物卡</span>}</div>
+        <input type="file" accept="image/*" disabled={working} onChange={event => {
         const file = event.target.files?.[0];
         if (file) void run(async () => patch({ image: await processImage(file, { maxWidth: 720 }) }));
       }} /></label>}
-      <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
+      <div className="couple-compose-buttons">
+        <button className="couple-primary" disabled={working}>{kind === 'capsule' ? '保存并封存' : '保存这张卡片'}</button>
+        <button type="button" onClick={() => setDraft(undefined)}>取消</button>
+      </div>
     </form>}
     {!rows.length && <section className="couple-record-empty">
       <RecordArt kind={kind} date={today} count={0} />
