@@ -19,17 +19,17 @@ import './couplesSpace/couplesSpace.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
-const mainPanels: Panel[] = ['timeline', 'anniversary', 'diary', 'wish', 'gift', 'touch', 'plant', 'mail', 'capsule', 'shop', 'achievements', 'hollow'];
-const pairPanels: Panel[] = ['timeline', 'anniversary', 'diary', 'mail', 'wish', 'gift', 'plant'];
+const mainPanels: Panel[] = ['timeline', 'anniversary', 'wish', 'gift', 'touch', 'plant', 'mail', 'capsule', 'shop', 'achievements', 'hollow'];
+const pairPanels: Panel[] = ['timeline', 'anniversary', 'mail', 'wish', 'gift', 'plant'];
 type SpaceShelf = 'memory' | 'care' | 'collection';
 const spaceShelves: { id: SpaceShelf; title: string; english: string; panels: Panel[] }[] = [
-  { id: 'memory', title: '日常', english: 'MEMORIES', panels: ['timeline','anniversary','diary','mail','capsule','hollow'] },
+  { id: 'memory', title: '日常', english: 'MEMORIES', panels: ['timeline','anniversary','mail','capsule','hollow'] },
   { id: 'care', title: '心意', english: 'BETWEEN US', panels: ['wish','gift','touch','plant'] },
   { id: 'collection', title: '收藏', english: 'COLLECTION', panels: ['shop','achievements'] },
 ];
 const featureNotes: Partial<Record<Panel, string>> = {
   timeline: '写下每一个值得记住的瞬间', anniversary: '在特别的日子里相见',
-  diary: '今天，想和你交换些什么', mail: '等一封写给你的信',
+  mail: '等一封写给你的信',
   capsule: '留一句话，给未来的我们', hollow: '藏起不便说出口的心事',
   wish: '一件件完成心里的期待', gift: '把温柔装进一份礼物',
   touch: '只属于彼此的小互动', plant: '一起养成一片小小的绿意',
