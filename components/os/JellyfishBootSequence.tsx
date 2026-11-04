@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
 
-// 单一原图开屏：两种配色共享同一套排版与小狗图片，不生成任何新图。
+// 纯白开屏：CSS 绘制白色小狗，各部位独立扭动；不依赖图片和 AI 生图。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
 
 interface Props {
@@ -20,7 +20,6 @@ const prefersReducedMotion = () =>
 const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, variant = 'warm' }) => {
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
-  const [dogLoaded, setDogLoaded] = useState(false);
   const showPoster = !!poster && !posterFailed;
   const firstThisSession = useMemo(() => {
     try { return !sessionStorage.getItem(BOOT_SEEN_KEY); } catch { return true; }
@@ -44,7 +43,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
     let raf = 0;
     const tick = () => {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (dataReady && (showPoster ? posterLoaded : dogLoaded) && now - startRef.current >= HOLD) {
+      if (dataReady && (!showPoster || posterLoaded) && now - startRef.current >= HOLD) {
         setPhase('exit');
         const waited = now - startRef.current;
         trackEvent('冷启动等待数据就绪', {
@@ -57,7 +56,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [dataReady, phase, HOLD, showPoster, posterLoaded, dogLoaded]);
+  }, [dataReady, phase, HOLD, showPoster, posterLoaded]);
 
   useEffect(() => {
     if (phase !== 'exit') return;
@@ -80,6 +79,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
       className={`sully-boot${showPoster ? ' sully-boot-mid-autumn' : variant === 'night' ? ' sully-boot-night' : ''}`}
       data-phase={phase}
       data-cinematic={cinematic}
+      data-dancing={!reduced}
       data-variant={showPoster ? 'poster' : variant}
       onClick={skip}
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); skip(); } }}
@@ -101,20 +101,28 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
         </div>
       ) : (
         <div className="sully-boot-scene">
-          <span className="sully-boot-eyebrow">A LITTLE PLACE FOR YOU</span>
-          <span className="sully-boot-sparkle one" aria-hidden="true">✦</span>
-          <span className="sully-boot-sparkle two" aria-hidden="true">✧</span>
-          <span className="sully-boot-sparkle three" aria-hidden="true">✧</span>
-          <div className="sully-boot-art">
-            <img className="sully-boot-dog" src={import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105'} alt="宝宝狗手绘小狗" draggable={false}
-              onLoad={() => setDogLoaded(true)} onError={() => setDogLoaded(true)} />
+          <div className="sully-boot-art" role="img" aria-label="一只白色小狗在开心地跳舞">
+            <div className="sully-boot-dog" aria-hidden="true">
+              <div className="sully-dog-tail" />
+              <div className="sully-dog-body" />
+              <div className="sully-dog-ear left" />
+              <div className="sully-dog-ear right" />
+              <div className="sully-dog-head">
+                <span className="sully-dog-eye left" />
+                <span className="sully-dog-eye right" />
+                <span className="sully-dog-nose" />
+                <span className="sully-dog-mouth left" />
+                <span className="sully-dog-mouth right" />
+              </div>
+              <div className="sully-dog-paw left" />
+              <div className="sully-dog-paw right" />
+              <div className="sully-dog-foot left" />
+              <div className="sully-dog-foot right" />
+            </div>
           </div>
-          <h1 className="sully-boot-wordmark sully-boot-dog-wordmark">宝宝狗</h1>
-          <p className="sully-boot-greeting">欢迎回家呀</p>
-          <span className="sully-boot-ornament" aria-hidden="true">♡</span>
+          <h1 className="sully-boot-dog-wordmark">宝宝狗</h1>
         </div>
       )}
-      {cinematic && phase !== 'exit' && <div className="sully-boot-hint">轻触进入小世界</div>}
     </div>
   );
 };
