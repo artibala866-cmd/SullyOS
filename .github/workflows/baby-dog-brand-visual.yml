@@ -1,0 +1,88 @@
+name: Baby Dog brand visual and install metadata
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'test/fixtures/brand-baby-dog.*'
+      - 'components/os/BootSequence.css'
+      - 'components/os/JellyfishBootSequence.tsx'
+      - 'components/os/ClassicBootSequence.tsx'
+      - 'components/appearance/AppIconEditor.tsx'
+      - 'public/icons/**'
+      - 'public/manifest*.webmanifest'
+      - 'index.html'
+      - 'metadata.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/baby-dog-brand-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: baby-dog-brand-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify-brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify 宝宝狗 install names
+        run: node scripts/test-app-display-name.mjs
+      - name: Verify production bundle
+        run: pnpm build
+      - name: Install Chinese font for screenshot comparison
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render both real boot variants at phone sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/baby-dog-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          for variant in warm classic; do
+            suffix=""
+            if [ "$variant" = classic ]; then suffix="?cover=classic"; fi
+            url="http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html${suffix}"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+              --window-size=390,844 --virtual-time-budget=7000 --dump-dom \
+              "$url" > "/tmp/baby-dog-${variant}.html" 2> "/tmp/baby-dog-${variant}.log"
+            grep -o 'id="baby-dog-qa-checks"[^<]*' "/tmp/baby-dog-${variant}.html" || true
+            if ! grep -q 'data-baby-dog-qa-ready="true"' "/tmp/baby-dog-${variant}.html"; then
+              grep -o 'id="baby-dog-qa-checks"[^<]*' "/tmp/baby-dog-${variant}.html" || true
+              tail -c 1800 "/tmp/baby-dog-${variant}.html" || true
+              tail -60 /tmp/baby-dog-vite.log || true
+              exit 1
+            fi
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=390,844 --virtual-time-budget=7000 \
+              --screenshot="$GITHUB_WORKSPACE/baby-dog-${variant}-mobile.png" "$url"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=320,568 --virtual-time-budget=7000 \
+              --screenshot="$GITHUB_WORKSPACE/baby-dog-${variant}-small.png" "$url"
+            test -s "baby-dog-${variant}-mobile.png"
+            test -s "baby-dog-${variant}-small.png"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baby-dog-original-artwork-phone-screenshots
+          path: baby-dog-*.png
+          if-no-files-found: ignore
+          retention-days: 7
