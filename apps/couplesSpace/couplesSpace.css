@@ -1471,3 +1471,245 @@
   border:1px solid #d6d7da;
 }
 .couple-content-mode .couple-records .couple-record-actions {justify-content:flex-end;}
+
+
+/* 2026-11: experience-specific architecture. These pages intentionally do NOT share a hero/card template. */
+.couple-content-mode .couple-scene { width:100%; min-width:0; margin:0 0 14px; color:#242528; overflow-wrap:anywhere; }
+.couple-scene button { font:inherit; cursor:pointer; }
+.couple-content-mode .couple-scene-controls { display:flex;gap:10px;align-items:center;justify-content:space-between;margin:16px 0 12px; }
+.couple-content-mode .couple-scene-controls button {
+ display:flex;align-items:center;justify-content:center;flex:1;min-width:0;min-height:42px;
+ padding:9px 11px;border-radius:12px;font-size:12px;font-weight:550;
+}
+.couple-content-mode .couple-scene-controls .couple-scene-main-action {background:#303135;color:#fff;border:1px solid #303135;}
+.couple-content-mode .couple-scene-controls .couple-scene-ai-action {background:#fff;color:#33343a;border:1px solid #e2e2e4;}
+.couple-content-mode .couple-record-detail-back {display:inline-flex;align-items:center;margin:2px 0 16px;padding:8px 13px;min-height:35px;background:#ececed;border:0;border-radius:100px;font-size:12px;color:#45464a;}
+.couple-content-mode .couple-records-detail .couple-record-entry {margin-top:1px;}
+/* Milestone: full photo pair, oversized live day count and date-driven compact calendar. */
+.couple-anniversary-hero {
+ position:relative;isolation:isolate;min-height:258px;display:flex;flex-direction:column;align-items:center;gap:7px;
+ padding:18px 16px 18px;border-radius:23px;background:#fdfdfd;border:1px solid #ececee;
+ box-shadow:0 11px 26px rgba(12,12,14,.04);overflow:hidden;
+}
+.couple-anniversary-hero::before {
+ content:'';position:absolute;width:240px;height:240px;left:50%;top:-147px;
+ transform:translateX(-50%);border:1px solid #e4e4e6;border-radius:50%;
+ box-shadow:0 0 0 24px #ffffff,0 0 0 25px #eeeeef;z-index:-1;
+}
+.couple-anniversary-kicker {display:flex;justify-content:space-between;width:100%;color:#777981;font-size:9px;letter-spacing:.1em;}
+.couple-anniversary-pair {display:flex;align-items:center;justify-content:center;gap:0;margin:1px 0 0;}
+.couple-scene-avatar {
+ display:inline-flex;align-items:center;justify-content:center;width:61px;height:61px;flex:0 0 61px;
+ background:#e7e7e9;border:3px solid #fff;border-radius:50%;overflow:hidden;
+ box-shadow:0 3px 9px rgba(0,0,0,.1);
+}
+.couple-scene-avatar img {width:100%;height:100%;object-fit:cover;filter:grayscale(1);}
+.couple-scene-avatar>span {font-size:22px;color:#66676a;}
+.couple-anniversary-thread {position:relative;z-index:2;margin:0 -7px;width:24px;height:24px;display:grid;place-items:center;border:1px solid #e3e3e5;border-radius:50%;background:#fff;font-size:14px;color:#66676b;}
+.couple-anniversary-time {display:flex;align-items:baseline;gap:6px;line-height:1.05;padding-top:7px;color:#424348;}
+.couple-anniversary-time>span {font-size:11px;letter-spacing:.07em;}
+.couple-anniversary-time strong {font-size:55px;letter-spacing:-.06em;font-variant-numeric:tabular-nums;color:#252529;font-weight:320;}
+.couple-anniversary-time em {font-size:12px;font-style:normal;}
+.couple-anniversary-names {font-size:12px;color:#5e5e65;letter-spacing:.07em;}
+.couple-anniversary-names span {color:#aaa;}
+.couple-anniversary-next {display:flex;align-items:center;justify-content:space-between;gap:15px;margin:13px 0 15px;padding:15px 17px;border-radius:16px;background:#303134;color:#fff;}
+.couple-anniversary-next>div:first-child {display:grid;gap:6px;}
+.couple-anniversary-next>div:first-child span {color:#d2d2d6;font-size:9px;letter-spacing:.12em;}
+.couple-anniversary-next>div:first-child strong {color:#fff;font-weight:530;font-size:15px;}
+.couple-anniversary-countdown {display:flex;align-items:baseline;gap:4px;flex-shrink:0;}
+.couple-anniversary-countdown strong {color:#fff;font-weight:350;font-size:35px;line-height:1;}
+.couple-anniversary-countdown small {color:#d6d6da;font-size:10px;}
+.couple-anniversary-calendar {padding:0 12px 3px;margin-bottom:14px;border:1px solid #e8e8ea;border-radius:17px;background:#fff;overflow:hidden;}
+.couple-anniversary-calendar-head {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 5px 11px;}
+.couple-anniversary-calendar-head strong {font-weight:610;font-size:13px;}
+.couple-anniversary-calendar-head small {color:#81828a;font-size:10px;}
+.couple-content-mode .couple-anniversary-calendar button {
+ display:flex;align-items:center;text-align:left;gap:13px;padding:10px 5px;width:100%;
+ background:transparent;border:0;border-top:1px solid #f0f0f1;border-radius:0;min-height:60px;
+}
+.couple-anniversary-calendar-date {display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 44px;color:#343539;}
+.couple-anniversary-calendar-date b {font-size:23px;font-weight:390;font-variant-numeric:tabular-nums;line-height:1;}
+.couple-anniversary-calendar-date small {color:#777980;font-size:9px;}
+.couple-anniversary-calendar button>span:nth-child(2) {display:flex;flex-direction:column;flex:1;gap:5px;min-width:0;font-size:12px;font-weight:530;}
+.couple-anniversary-calendar button>span:nth-child(2) small {font-size:10px;color:#999ba0;}
+.couple-anniversary-calendar-chevron {color:#85868b;font-size:15px;}
+/* Native diary: a folio with two real pages from the existing Journal DB, not duplicated form text. */
+.couple-diary-cover {position:relative;display:flex;flex-direction:column;gap:8px;padding:25px 22px 20px;
+ height:166px;margin-bottom:14px;background:#292a2e;color:#fff;border-radius:4px 19px 19px 4px;
+ border-left:9px solid #18191b;box-shadow:8px 10px 0 #e3e3e5,0 12px 20px #00000010;}
+.couple-diary-spine {position:absolute;left:1px;top:0;bottom:0;border-left:1px solid #797a7f;}
+.couple-diary-cover>span:nth-child(2) {font-size:9px;letter-spacing:.21em;color:#d6d6da;}
+.couple-diary-cover strong {font-family:Georgia,"Songti SC",serif;font-weight:450;font-size:26px;letter-spacing:.05em;color:#fff;}
+.couple-diary-cover small {font-size:11px;color:#dedee2;}
+.couple-diary-cover-people {margin-top:auto;display:flex;justify-content:flex-end;gap:9px;color:#ccccd0;font-size:10px;}
+.couple-diary-native {margin:11px 0 12px;}
+.couple-diary-native-head {display:flex;align-items:center;justify-content:space-between;padding:9px 3px 12px;}
+.couple-diary-native-head strong {font-size:13px;font-weight:600;color:#42434a;}
+.couple-diary-native-head span {font-size:11px;color:#91929a;}
+.couple-diary-paper-spread {display:grid;grid-template-columns:1fr 1fr;gap:2px;min-height:170px;
+ padding:6px;background:#d3d3d5;border-radius:11px;box-shadow:0 7px 18px #00000012;overflow:hidden;}
+.couple-diary-left-page,.couple-diary-right-page {padding:14px 11px;min-width:0;background:repeating-linear-gradient(0deg,#fcfcfc 0,#fcfcfc 24px,#e7e7ea 25px,#fcfcfc 26px);}
+.couple-diary-left-page {border-radius:7px 0 0 7px;box-shadow:inset -6px 0 10px #00000008;}
+.couple-diary-right-page {border-radius:0 7px 7px 0;box-shadow:inset 6px 0 10px #0000000a;}
+.couple-diary-paper-spread small {display:block;line-height:1.4;color:#77787e;font-size:9px;letter-spacing:.04em;margin-bottom:13px;min-height:24px;}
+.couple-content-mode .couple-diary-paper-spread p {color:#3b3c42;font-family:Georgia,"Songti SC",serif;white-space:pre-line;font-size:12px;line-height:2;max-height:170px;overflow:hidden;margin:0;overflow-wrap:anywhere;}
+.couple-diary-page-flip {display:flex;align-items:center;justify-content:space-between;gap:7px;padding:10px 4px;color:#8b8c94;font-size:11px;}
+.couple-content-mode .couple-diary-page-flip button {background:transparent;border:0;min-height:34px;padding:2px 7px;color:#52535a;font-size:11px;}
+.couple-diary-native-empty {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;height:128px;border:1px solid #e3e3e5;border-radius:12px;background:#fff;text-align:center;}
+.couple-diary-native-empty>span {color:#aaa;font-size:22px;}
+.couple-diary-native-empty strong {font-size:13px;font-weight:530;color:#48494d;}
+.couple-diary-native-empty p {margin:0;color:#888a90;font-size:11px;}
+.couple-content-mode .couple-diary-open-original {display:flex;justify-content:space-between;align-items:center;width:100%;
+ margin-top:11px;padding:12px 14px;min-height:44px;text-align:left;border:1px solid #dadbdf;background:#fff;border-radius:12px;font-size:12px;color:#2a2b2f;font-weight:600;}
+.couple-diary-open-original>span {color:#92939a;}
+.couple-diary-sidebook {padding:14px 0;border-top:1px solid #d9dadd;}
+.couple-diary-sidebook>div:first-child {display:grid;gap:4px;}
+.couple-diary-sidebook>div:first-child>span {color:#909198;font-size:9px;letter-spacing:.13em;}
+.couple-diary-sidebook>div:first-child>strong {color:#34353a;font-size:14px;font-weight:610;}
+.couple-diary-sidebook p {margin:0;color:#787980;font-size:11px;}
+/* Mail: street postbox, correspondence route, individual envelope slots. */
+.couple-mail-postbox {position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:212px;padding:20px 20px 15px;background:#f3f3f4;border:1px solid #dedee1;border-radius:21px;overflow:hidden;}
+.couple-mail-postbox::before {content:"";position:absolute;right:-51px;top:-65px;width:220px;height:220px;border:1px solid #e1e1e4;border-radius:50%;}
+.couple-mail-stamp {font-family:Georgia,serif;color:#62646a;font-size:10px;letter-spacing:.2em;}
+.couple-mail-slot {width:75%;height:12px;margin:32px auto 32px;background:#44454b;border-radius:3px;box-shadow:inset 0 2px 3px #141414aa;position:relative;}
+.couple-mail-paper {position:absolute;left:50%;top:-49px;transform:translateX(-50%) rotate(-5deg);width:66%;height:53px;padding:9px 13px 4px;display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid #dedee0;box-shadow:0 2px 8px #00000015;}
+.couple-mail-paper small {font-size:8px;color:#9899a0;}
+.couple-mail-paper strong {font-size:12px;color:#34353b;}
+.couple-mail-paper i {height:1px;background:#bbbcc3;width:65%;margin-top:2px;}
+.couple-mail-bottom {display:flex;align-items:flex-end;justify-content:space-between;gap:7px;}
+.couple-mail-bottom strong {font-size:19px;color:#34353a;font-weight:540;}
+.couple-mail-bottom small {font-size:10px;color:#73757b;}
+.couple-mail-routing {display:flex;align-items:center;justify-content:space-around;gap:12px;margin:15px 0;padding:14px 18px;background:#fff;border:1px solid #eeeeef;border-radius:13px;}
+.couple-mail-routing>div {display:grid;gap:5px;min-width:0;}
+.couple-mail-routing small {font-size:9px;color:#94959b;letter-spacing:.1em;}
+.couple-mail-routing strong {font-size:12px;color:#404148;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.couple-mail-routing>span {font-size:10px;color:#8e8f95;flex:0 0 auto;}
+.couple-mail-trays {margin:5px 0 0;padding:0 0 3px;}
+.couple-mail-trays>span {display:block;margin:0 4px 10px;color:#797b81;font-size:9px;letter-spacing:.14em;}
+.couple-content-mode .couple-mail-trays button {
+ width:100%;display:flex;align-items:center;gap:12px;padding:9px 10px;margin-bottom:8px;
+ background:#fff;border:1px solid #e8e8eb;border-radius:12px;text-align:left;min-height:65px;
+}
+.couple-mail-tray-envelope {display:grid;place-items:center;flex:0 0 54px;height:40px;border:1px solid #d5d6d8;border-radius:3px;background:linear-gradient(160deg,#eaeaec 50%,#fff 51%);}
+.couple-mail-tray-envelope>span {font-size:19px;color:#78797d;}
+.couple-mail-trays button>span:nth-child(2) {display:grid;gap:6px;flex:1;min-width:0;}
+.couple-mail-trays button>span:nth-child(2) strong {font-size:12px;color:#393a41;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.couple-mail-trays button>span:nth-child(2) small {font-size:10px;color:#909098;}
+.couple-mail-trays button>b {font-size:10px;font-weight:400;color:#9899a0;}
+.couple-mail-no-letters {display:grid;place-items:center;min-height:79px;background:#fff;border:1px dashed #d7d7dc;border-radius:11px;color:#777981;font-size:11px;text-align:center;padding:13px;}
+/* Timeline: event spine, not another card collection. */
+.couple-timeline-cover {position:relative;display:flex;flex-direction:column;gap:10px;padding:25px 21px 19px;min-height:186px;border-radius:22px;background:#303136;color:#fff;overflow:hidden;}
+.couple-timeline-cover::after {content:"";position:absolute;width:200px;height:200px;right:-110px;top:-75px;border:1px solid #999aa050;border-radius:50%;box-shadow:0 0 0 36px #535458;}
+.couple-timeline-cover>span {font-size:9px;color:#d2d2d5;letter-spacing:.13em;}
+.couple-timeline-cover>strong {font-family:Georgia,"Songti SC",serif;font-size:21px;font-weight:460;color:#fff;}
+.couple-timeline-cover>strong em {font-style:normal;color:#9a9ba0;}
+.couple-content-mode .couple-timeline-cover p {color:#dedee0;font-size:11px;max-width:230px;line-height:1.6;margin:0;}
+.couple-timeline-cover>div {display:flex;align-items:baseline;gap:8px;margin-top:auto;}
+.couple-timeline-cover>div b {font-size:34px;color:#fff;font-weight:350;}
+.couple-timeline-cover>div span {font-size:10px;color:#d1d1d5;}
+.couple-timeline-flow {position:relative;margin-top:23px;padding-left:70px;}
+.couple-timeline-flow::before {content:"";position:absolute;top:22px;bottom:0;left:54px;width:1px;background:#c6c6cc;}
+.couple-timeline-flow-label {display:block;font-size:9px;color:#777981;letter-spacing:.12em;margin:0 0 14px -65px;}
+.couple-content-mode .couple-timeline-flow button {width:100%;display:flex;align-items:center;gap:9px;position:relative;min-height:81px;padding:14px 13px;margin:0 0 14px;
+ background:#fff;border:1px solid #e7e8eb;border-radius:13px;text-align:left;}
+.couple-timeline-flow-date {position:absolute;left:-67px;top:20px;width:46px;color:#787a80;font-size:10px;font-variant-numeric:tabular-nums;}
+.couple-timeline-flow-dot {position:absolute;left:-24px;top:22px;width:11px;height:11px;border:3px solid #4d4e54;border-radius:50%;background:#f6f6f7;}
+.couple-timeline-flow button>span:nth-child(3) {display:grid;gap:6px;flex:1;min-width:0;}
+.couple-timeline-flow button strong {font-size:13px;color:#383940;}
+.couple-timeline-flow button small {font-size:10px;color:#84868c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.couple-timeline-flow img {width:48px;height:51px;border-radius:8px;object-fit:cover;filter:grayscale(1);}
+.couple-timeline-first {padding:23px 11px;margin-top:13px;border-left:2px solid #5d5e64;background:#f0f0f1;font-size:12px;color:#66676d;line-height:2;}
+/* Bucket list: airy pinned notes with real progress. */
+.couple-wish-header {display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:5px 1px 19px;border-bottom:1px solid #dedee2;}
+.couple-wish-header>div:first-child span {font-size:9px;letter-spacing:.13em;color:#8d8e95;}
+.couple-wish-header h2 {margin:7px 0 0;font-size:20px;font-weight:580;color:#2e2f34;}
+.couple-wish-ratio {display:grid;text-align:right;gap:4px;}
+.couple-wish-ratio strong {font-size:30px;line-height:1;font-weight:400;font-variant-numeric:tabular-nums;}
+.couple-wish-ratio strong small {font-size:13px;color:#999aa0;}
+.couple-wish-ratio>span {font-size:10px;color:#909198;}
+.couple-wish-board {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(144px,auto);gap:14px;margin:18px 2px 20px;}
+.couple-content-mode .couple-wish-note {position:relative;display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:10px;
+ min-width:0;padding:21px 16px 17px;text-align:left;background:#fff;border:1px solid #e6e6e9;border-radius:4px;
+ box-shadow:3px 6px 0 #e3e3e6,0 7px 12px #0000000a;transform:rotate(-1.4deg);}
+.couple-content-mode .couple-wish-note-1 {transform:rotate(2deg);background:#f2f2f3;}
+.couple-content-mode .couple-wish-note-2 {transform:rotate(-.6deg);}
+.couple-wish-pin {position:absolute;left:calc(50% - 4px);top:6px;width:8px;height:8px;border-radius:50%;background:#63646a;box-shadow:0 2px 3px #00000020;}
+.couple-wish-note-index {font-size:9px;color:#9c9da3;letter-spacing:.1em;}
+.couple-wish-note strong {font-size:15px;line-height:1.5;color:#33343a;word-break:break-word;font-weight:530;}
+.couple-wish-note small {color:#6c6d73;font-size:11px;}
+.couple-wish-note-steps {margin-top:auto;font-size:9px;color:#919299;}
+.couple-content-mode .couple-wish-note.done {background:#ececed;opacity:.72;}
+.couple-wish-blank {grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:24px 15px;min-height:166px;background:#fff;border:1px dashed #d7d7dc;border-radius:14px;text-align:center;}
+.couple-wish-blank span {letter-spacing:.14em;font-size:10px;color:#a7a7ae;}
+.couple-wish-blank strong {color:#393a40;font-size:14px;font-weight:570;}
+.couple-wish-blank small {color:#888990;font-size:11px;}
+/* Gift gallery: a gallery pedestal and object shelves, not postcard list. */
+.couple-gift-counter {display:flex;flex-direction:column;gap:6px;margin:4px 0 16px;}
+.couple-gift-counter span {font-size:9px;letter-spacing:.14em;color:#85868c;}
+.couple-gift-counter strong {font-size:22px;font-weight:550;color:#292a30;}
+.couple-gift-counter small {font-size:11px;color:#787980;}
+.couple-gift-pedestal {position:relative;height:228px;border-radius:22px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+ background:radial-gradient(ellipse at 49% 27%,#fff 0%,#f4f4f4 65%,#e7e7e7 100%);border:1px solid #e8e8e9;}
+.couple-gift-pedestal::after {content:"";position:absolute;width:170px;height:19px;border-radius:50%;background:#00000016;filter:blur(9px);bottom:42px;left:50%;transform:translateX(-50%);}
+.couple-gift-pedestal-stage {position:relative;z-index:2;display:grid;place-items:center;width:55%;height:75%;}
+.couple-gift-pedestal-stage img {max-height:100%;max-width:100%;object-fit:contain;filter:grayscale(1);border:6px solid #fff;box-shadow:8px 11px 18px #00000017;}
+.couple-gift-display-box {position:relative;width:91px;height:78px;border:1px solid #a5a6ab;background:#fafafa;box-shadow:9px 10px 0 #dedee0;}
+.couple-gift-display-box::before {content:"";position:absolute;top:-14px;left:-5px;width:101px;height:20px;background:#e8e8ea;border:1px solid #b7b8bd;}
+.couple-gift-display-box i {position:absolute;left:40px;top:0;bottom:0;width:10px;background:#bbbcc0;}
+.couple-gift-pedestal>span:last-child {position:absolute;bottom:14px;left:16px;font-size:9px;letter-spacing:.13em;color:#787980;}
+.couple-gift-shelf {margin:18px 0 0;border-top:1px solid #dbdcdf;}
+.couple-content-mode .couple-gift-shelf button {display:flex;align-items:center;gap:12px;width:100%;min-height:78px;padding:10px 3px;text-align:left;border:0;border-bottom:1px solid #e1e1e3;background:transparent;border-radius:0;}
+.couple-gift-thumbnail {display:grid;place-items:center;flex:0 0 52px;height:54px;background:#eeeeef;border-radius:8px;overflow:hidden;}
+.couple-gift-thumbnail img {width:100%;height:100%;object-fit:cover;filter:grayscale(1);}
+.couple-gift-thumbnail>span {font-size:23px;color:#9a9ba1;}
+.couple-gift-shelf button>span:nth-child(2) {display:grid;gap:5px;flex:1;min-width:0;}
+.couple-gift-shelf button strong {color:#3d3e43;font-size:13px;}
+.couple-gift-shelf button>span:nth-child(2) small {font-size:10px;color:#919198;}
+.couple-gift-shelf button>small {font-size:9px;color:#9c9da3;}
+.couple-gift-no-items {margin:12px 0 0;padding:13px 2px;font-size:11px;color:#8b8c92;text-align:center;}
+/* Sealed vault: circular lock with state-driven drawer of dated capsules. */
+.couple-capsule-vault {display:flex;flex-direction:column;align-items:center;gap:9px;min-height:240px;padding:19px 12px 17px;background:#303136;color:#fff;border-radius:21px;overflow:hidden;position:relative;}
+.couple-capsule-vault::before {content:"";position:absolute;width:230px;height:230px;border:1px solid #67686d;border-radius:50%;top:19px;left:calc(50% - 115px);box-shadow:0 0 0 20px #38393d,0 0 0 21px #505157;opacity:.66;}
+.couple-capsule-top {font-size:9px;letter-spacing:.22em;color:#d5d5d9;}
+.couple-capsule-lock {z-index:2;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:116px;height:116px;margin:7px 0 2px;border:1px solid #999aa0;border-radius:50%;background:#37383d;box-shadow:0 0 0 6px #44454a,0 0 0 7px #68696f;}
+.couple-capsule-lock i {width:18px;height:18px;border-radius:50%;border:1px solid #ababaf;box-shadow:0 0 0 3px #37383d;}
+.couple-capsule-lock strong {font-size:40px;font-weight:350;line-height:1;color:#fff;}
+.couple-capsule-lock small {font-size:10px;color:#d5d5db;}
+.couple-capsule-vault>strong {z-index:1;font-size:17px;font-weight:520;color:#fff;}
+.couple-capsule-foot {z-index:1;font-size:10px;color:#d7d7dd;}
+.couple-capsule-shelves {margin:18px 0 0;}
+.couple-content-mode .couple-capsule-shelves button {display:flex;gap:13px;align-items:center;min-height:79px;width:100%;padding:11px 14px 11px 10px;margin-bottom:9px;background:#fff;border-radius:13px;border:1px solid #e5e5e9;text-align:left;}
+.couple-capsule-round {display:grid;place-items:center;flex:0 0 49px;width:49px;height:49px;border:1px solid #a7a8ae;border-radius:50%;font-size:24px;color:#73747a;}
+.couple-capsule-shelves button.is-sealed .couple-capsule-round {background:#323338;color:#fff;}
+.couple-capsule-shelves button>span:nth-child(2) {flex:1;display:grid;gap:5px;min-width:0;}
+.couple-capsule-shelves button strong {font-size:12px;color:#42434a;}
+.couple-capsule-shelves button>span:nth-child(2) small {font-size:10px;color:#8d8e95;}
+.couple-capsule-shelves button>small {font-size:11px;color:#787980;}
+.couple-capsule-shelves>div {padding:22px 10px;color:#777880;font-size:12px;text-align:center;background:#fff;border-radius:13px;}
+/* Private drawer: user must tap to reveal contents; no secrets listed by title. */
+.couple-hollow-door {display:flex;flex-direction:column;align-items:center;gap:14px;justify-content:center;padding:24px 16px;min-height:233px;border:1px solid #48494e;background:#333438;color:#fff;border-radius:20px;}
+.couple-hollow-door>span {font-size:9px;letter-spacing:.22em;color:#c4c4c9;}
+.couple-hollow-keyhole {position:relative;display:grid;place-items:center;width:61px;height:61px;border:1px solid #98999f;border-radius:50%;font-size:54px;font-weight:200;color:#c8c8cd;line-height:1;}
+.couple-hollow-keyhole i {width:5px;height:18px;background:#c8c8cd;position:absolute;left:calc(50% - 2.5px);top:34px;border-radius:2px;}
+.couple-hollow-door strong {font-size:19px;color:#fff;font-weight:480;}
+.couple-content-mode .couple-hollow-door p {color:#dedee3;font-size:11px;margin:0;}
+.couple-hollow-door small {font-size:10px;color:#bdbec5;}
+.couple-hollow-drawer {display:grid;gap:12px;margin:16px 0;}
+.couple-content-mode .couple-hollow-drawer button {width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 16px;min-height:75px;background:#f2f2f3;border:1px solid #e2e2e5;border-radius:5px;text-align:left;}
+.couple-hollow-drawer button>span {font-size:10px;color:#62636a;}
+.couple-hollow-drawer button>strong {font-size:14px;letter-spacing:.1em;color:#7a7b80;font-weight:400;}
+.couple-hollow-drawer button>small {font-size:9px;color:#929399;}
+.couple-hollow-empty {display:grid;place-items:center;min-height:94px;color:#797a81;font-size:11px;border:1px dashed #d3d3d7;border-radius:10px;}
+@media (max-width:350px) {
+ .couple-content-mode .couple-scene-controls {gap:7px;}
+ .couple-content-mode .couple-scene-controls button {font-size:11px;min-height:40px;padding-inline:7px;}
+ .couple-anniversary-time strong {font-size:43px;}
+ .couple-anniversary-hero {min-height:242px;}
+ .couple-anniversary-next {padding:13px;}
+ .couple-content-mode .couple-mail-trays button {gap:8px;}
+ .couple-wish-board {gap:11px;}
+ .couple-content-mode .couple-wish-note {padding:20px 11px 13px;}
+ .couple-content-mode .couple-wish-note strong {font-size:13px;}
+ .couple-gift-pedestal {height:200px;}
+}
+@media(prefers-reduced-motion:reduce){.couple-content-mode .couple-scene * {animation:none!important;transition:none!important;}}
