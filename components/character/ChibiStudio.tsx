@@ -41,7 +41,8 @@ interface SlotView {
 const DisplayCase: React.FC<{
     view: SlotView;
     onEdit: () => void;
-}> = ({ view, onEdit }) => {
+    onEditChibi: () => void;
+}> = ({ view, onEdit, onEditChibi }) => {
     const { meta, url } = view;
     return (
         <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
@@ -88,7 +89,10 @@ const DisplayCase: React.FC<{
                     <button onClick={onEdit}
                         className="flex-1 rounded-lg py-2 text-[11.5px] font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
                         style={{ background: `linear-gradient(135deg, ${meta.accent}cc, ${meta.accent}88)` }}>
-                        <PencilSimple size={13} weight="bold" /> {url ? '重新捏' : '捏这只'}
+                        <PencilSimple size={13} weight="bold" /> 编辑 3D 形象
+                    </button>
+                    <button onClick={onEditChibi} className="flex-1 rounded-lg border border-indigo-300/40 py-2 text-[11.5px] font-bold text-white">
+                        Q 版捏脸
                     </button>
                 </div>
             </div>
@@ -167,10 +171,10 @@ export const ChibiShelfPanel: React.FC<{ charId: string; onOpen: () => void }> =
 const ChibiStudio: React.FC<{ charId:string; onClose:()=>void }> = ({charId,onClose}) => {
  const {characters}=useOS();
  const char=characters.find(c=>c.id===charId);
- const [editing,setEditing]=useState(false);
+ const [editing,setEditing]=useState<boolean | 'chibi'>(false);
  const [showUploader,setShowUploader]=useState(false);
  if(!char)return null;
- if(editing)return <HomeFigureStudio charId={charId} startEditing onClose={()=>setEditing(false)}/>;
+ if(editing)return <HomeFigureStudio charId={charId} startEditing={editing} onClose={()=>setEditing(false)}/>;
  if(showUploader)return <CreatorPartsUploader onClose={()=>setShowUploader(false)}/>;
  const figure=char.chibiStudio?.home3D;
  const view:SlotView={meta:SLOTS[0],raw:figure?.img,url:figure?.img,state:figure?.state,updatedAt:figure?.updatedAt};
@@ -194,7 +198,7 @@ const ChibiStudio: React.FC<{ charId:string; onClose:()=>void }> = ({charId,onCl
     </button>
    </div>
    <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-4" style={{paddingBottom:STUDIO_BOTTOM}}>
-    <DisplayCase view={view} onEdit={()=>setEditing(true)}/>
+    <DisplayCase view={view} onEdit={()=>setEditing(true)} onEditChibi={()=>setEditing('chibi')}/>
    </div>
   </div>
  );

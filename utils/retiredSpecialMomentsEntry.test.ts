@@ -14,7 +14,7 @@ describe('3D-only cabinet and retired sources',()=>{
   expect(cabinet).toContain('HomeFigureStudio');
   expect(cabinet).toContain('CreatorPartsUploader');
   expect(cabinet).not.toMatch(/小小窝|特别时光|like520|specialMomentRecords|sprites\?\.chibi|chibiStudio\?\.room/);
-  expect(home).toContain('home3D: value');
+  expect(home).toContain('home3D: update(prev.chibiStudio?.home3D)');
   expect(home).not.toMatch(/小小窝|特别时光|like520|userChibi|sprites\?\.chibi/);
   expect(editor).toContain("from './CreatorIframe'");
  });
