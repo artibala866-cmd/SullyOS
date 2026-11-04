@@ -58,8 +58,8 @@ import { injectPwaIcon, clearPwaIcon, initPwaIcon, PWA_ICON_APP_ID, PWA_CLASSIC_
 
 const BASE = 'http://localhost:3000';
 const ORIGINAL_MANIFEST_HREF = `${BASE}/manifest.webmanifest`;
-const ORIGINAL_TOUCH_ICON_HREF = './icons/apple-touch-icon.png';
-const ORIGINAL_FAVICON_HREF = './icons/icon-192.png';
+const ORIGINAL_TOUCH_ICON_HREF = './icons/baby-dog-180.png?v=babydog-20261105';
+const ORIGINAL_FAVICON_HREF = './icons/baby-dog-192.png?v=babydog-20261105';
 
 /** 复刻 index.html 里真实的三行 link（含那个写死的 apple-touch-icon）。 */
 function setupDOM() {
@@ -319,8 +319,8 @@ describe('manifest 替换（standalone）', () => {
     expect(manifest.start_url).toBe(`${BASE}/`);
     expect(manifest.scope).toBe(`${BASE}/`);
     // Even a cached manifest with the old name keeps the updated display name.
-    expect(manifest.name).toBe('SullyOS·糯米机');
-    expect(manifest.short_name).toBe('SullyOS·糯米机');
+    expect(manifest.name).toBe('宝宝狗');
+    expect(manifest.short_name).toBe('宝宝狗');
   });
 
   it('浏览器安装前也更新 manifest', async () => {
@@ -424,7 +424,7 @@ describe('built-in icon choices', () => {
   it.each([false, true])('classic uses bundled PNGs and a stable manifest (standalone=%s)', async standalone => {
     mockIsStandalone.mockReturnValue(standalone);
     await injectPwaIcon(PWA_CLASSIC_ICON_VALUE);
-    expect(appleIconHrefs()[0]).toMatch(/icons\/apple-touch-icon\.png$/);
+    expect(appleIconHrefs()[0]).toMatch(/icons\/baby-dog-180\.png\?v=babydog-20261105$/);
     expect(manifestHref()).toMatch(/manifest-classic\.webmanifest$/);
     expect(mockGetBlobForRef).not.toHaveBeenCalled();
     expect(mockToSquarePngDataUrl).not.toHaveBeenCalled();
