@@ -82,7 +82,7 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
               </g>
             )}
             {/* 旧鼻子位于 y≈300，保留；只用白底替换其下方原笑嘴。 */}
-            <path fill="#fff" d="M205 311 H344 V355 H205 Z" />
+            <path fill="#fff" d="M201 304 H348 V359 H201 Z" />
             <path d="M252 322 Q273 315 294 322 Q299 335 296 352 H251 Q246 338 252 322 Z"
               fill="#fff" stroke="#343434" strokeWidth="7" strokeLinejoin="round" />
           </svg>
