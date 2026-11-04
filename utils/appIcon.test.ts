@@ -421,20 +421,18 @@ describe('PWA_ICON_APP_ID', () => {
 });
 
 describe('built-in icon choices', () => {
-  it.each([false, true])('classic uses bundled PNGs and a stable manifest (standalone=%s)', async standalone => {
+  it.each([false, true])('legacy classic choice resolves to default (standalone=%s)', async standalone => {
     mockIsStandalone.mockReturnValue(standalone);
     await injectPwaIcon(PWA_CLASSIC_ICON_VALUE);
-    expect(appleIconHrefs()[0]).toMatch(/icons\/baby-dog-180\.png\?v=babydog-20261105$/);
-    expect(manifestHref()).toMatch(/manifest-classic\.webmanifest$/);
+    expect(appleIconHrefs()).toEqual([ORIGINAL_TOUCH_ICON_HREF]);
+    expect(manifestHref()).toBe(ORIGINAL_MANIFEST_HREF);
     expect(mockGetBlobForRef).not.toHaveBeenCalled();
     expect(mockToSquarePngDataUrl).not.toHaveBeenCalled();
-    clearPwaIcon();
+  });
+  it('treats existing classic selection as the default icon at startup', async () => {
+    await initPwaIcon({ [PWA_ICON_APP_ID]: PWA_CLASSIC_ICON_VALUE });
     expect(manifestHref()).toBe(ORIGINAL_MANIFEST_HREF);
     expect(appleIconHrefs()).toEqual([ORIGINAL_TOUCH_ICON_HREF]);
-  });
-  it('restores classic from the existing saved icon field', async () => {
-    await initPwaIcon({ [PWA_ICON_APP_ID]: PWA_CLASSIC_ICON_VALUE });
-    expect(manifestHref()).toMatch(/manifest-classic\.webmanifest$/);
   });
   it('a slow upload cannot overwrite a later default selection', async () => {
     let release!: (blob: Blob) => void;
