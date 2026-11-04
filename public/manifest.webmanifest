@@ -1,6 +1,6 @@
 {
-  "short_name": "SullyOS·糯米机",
-  "name": "SullyOS·糯米机",
+  "short_name": "宝宝狗",
+  "name": "宝宝狗",
   "display": "standalone",
   "theme_color": "#0f1115",
   "background_color": "#0f1115",
@@ -8,17 +8,17 @@
   "scope": "./",
   "icons": [
     {
-      "src": "./icons/jellyfish-192.png?v=38b1adde1d",
+      "src": "./icons/baby-dog-192.png?v=babydog-20261105",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./icons/jellyfish-512.png?v=38b1adde1d",
+      "src": "./icons/baby-dog-512.png?v=babydog-20261105",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "./icons/jellyfish-maskable-512.png?v=38b1adde1d",
+      "src": "./icons/baby-dog-maskable-512.png?v=babydog-20261105",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
