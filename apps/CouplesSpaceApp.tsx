@@ -86,7 +86,8 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
           touchStart.current = undefined;
           if (!start) return;
           const dx = (event.changedTouches[0]?.clientX ?? start.x) - start.x;
-          if (Math.abs(dx) > 38 && Math.abs(dragPx) > 5) {
+          const dy = (event.changedTouches[0]?.clientY ?? start.y) - start.y;
+          if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.1) {
             event.preventDefault();
             shift(dx < 0 ? 1 : -1);
           }
