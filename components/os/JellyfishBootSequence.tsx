@@ -26,7 +26,8 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
   }, []);
   const reduced = useMemo(() => prefersReducedMotion(), []);
   const cinematic = firstThisSession && !reduced;
-  const HOLD = cinematic ? 1400 : 420;
+  // 首次至少完整跳动一轮；重复打开也给动画留出可见时间，减少动态效果时缩短等待。
+  const HOLD = reduced ? 360 : cinematic ? 2200 : 1350;
   const EXIT = cinematic ? 380 : 220;
   const [phase, setPhase] = useState<'enter' | 'exit'>('enter');
   const startRef = useRef(0);
