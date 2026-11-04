@@ -1445,3 +1445,29 @@
 }
 .couple-content-mode .couple-letter-reply-form .couple-actions {display:flex;flex-wrap:wrap;gap:8px;}
 .couple-content-mode .couple-letter-reply-form .couple-actions button {min-height:35px;border-radius:100px;}
+
+/* Single focused editor: no repeated hero, controls or records behind the composer. */
+.couple-content-mode .couple-records-editing > .couple-record-feature,
+.couple-content-mode .couple-records-editing > .couple-record-actions,
+.couple-content-mode .couple-records-editing > .couple-record-preferences,
+.couple-content-mode .couple-records-editing > .couple-segments,
+.couple-content-mode .couple-records-editing > .couple-actions {
+  display:none;
+}
+.couple-content-mode .couple-records-editing > .couple-compose {margin-top:3px;}
+.couple-content-mode .couple-records-editing .couple-compose-buttons {
+  position:sticky;bottom:0;z-index:3;
+  border-top:1px solid #eeeeef;box-shadow:0 -6px 15px #00000008;
+}
+.couple-content-mode .couple-records .couple-record-empty {
+  min-height:98px;padding:16px;gap:9px;
+  border:1px dashed #d8d8dc;
+  background:#f9f9fa;
+}
+.couple-record-empty-line {color:#a0a1a6;font-size:17px;line-height:1;}
+.couple-content-mode .couple-record-empty strong {font-size:12px;color:#515258;font-weight:530;}
+.couple-content-mode .couple-record-empty button {
+  font-size:11px;border-radius:99px;background:#fff;color:#33343a;
+  border:1px solid #d6d7da;
+}
+.couple-content-mode .couple-records .couple-record-actions {justify-content:flex-end;}
