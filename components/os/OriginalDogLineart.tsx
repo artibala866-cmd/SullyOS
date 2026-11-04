@@ -3,8 +3,8 @@ import type { BabyDogExpression } from '../../utils/babyDogBootTimeline';
 
 /**
  * 保留原 PNG 上的全部黑色线稿：毛发、轮廓、胸前「100%笨蛋」和原来的表情。
- * 眨眼时只在原眼睛所在的小区域盖上纯白底，再描画同一对眯眼。
- * 张嘴时也只盖住原有的嘴部笔画，不往原脸上叠出第二张嘴。
+ * 眨眼时只遮住原有的两颗眼睛，同一位置换为弯弯眯眼。
+ * 微笑线是原画上嘴唇，不能擦除；嘴巴只在其后方露出一小段舌头。
  * 不调用生图，提取工作在浏览器 Canvas 内完成。
  */
 const ARTWORK = import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105';
@@ -79,29 +79,35 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
       data-expression={expression} data-mirrored={mirrored} role="img"
       aria-label="原画宝宝狗，胸前保留100%笨蛋，眨眼并张嘴">
       <div className="sully-lineart-flip">
+        {ready && expression !== 'normal' && (
+          <svg className="sully-lineart-tongue" viewBox="0 0 512 512" aria-hidden="true">
+            {/* 原画笑嘴是上唇，完整保留。小舌头从上唇中央下方露出来。 */}
+            <path d="M267 333 Q270 346 278 347 Q287 347 290 333"
+              fill="#fff" stroke="#343434" strokeWidth="5.6"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
         <canvas className="sully-lineart-canvas" ref={canvasRef}
           width={SIZE} height={SIZE} aria-hidden="true" />
         <canvas className="sully-lineart-badge" ref={badgeRef}
           width={SIZE} height={SIZE} aria-hidden="true" />
+        {ready && (
+          <svg className="sully-lineart-sticker" viewBox="0 0 512 512" aria-hidden="true">
+            {/* 原标志是圆形贴纸，不是孤零零的字：只给原稿字迹补回纸张圆边。 */}
+            <ellipse cx="274" cy="179" rx="78.5" ry="74.5" fill="none"
+              stroke="#343434" strokeWidth="3.15" />
+          </svg>
+        )}
         {ready && expression !== 'normal' && (
           <svg className="sully-lineart-features" viewBox="0 0 512 512" aria-hidden="true">
-            {/* 两个小白底完全盖住原来两个点眼睛，而不是新增一对。 */}
-            <path fill="#fff" d="M139 230 H186 V329 H139 Z M349 227 H398 V330 H349 Z" />
-            {expression === 'blink' ? (
-              <g fill="none" stroke="#343434" strokeLinecap="round" strokeWidth="10">
-                <path d="M148 270 Q163 263 177 270" />
-                <path d="M357 261 Q371 254 385 261" />
-              </g>
-            ) : (
-              <g fill="#343434" stroke="#343434" strokeLinejoin="round" strokeWidth="3">
-                <path d="M145 260 Q161 257 180 262 L149 273 Q164 270 145 260 Z" />
-                <path d="M389 253 Q373 251 354 261 L385 273 Q371 267 389 253 Z" />
-              </g>
-            )}
-            {/* 留住原鼻子中央上部；其余三块仅遮去笑嘴旧笔画及末端残影。 */}
-            <path fill="#fff" d="M185 326 H255 V382 H185 Z M300 326 H362 V382 H300 Z M255 338 H300 V382 H255 Z" />
-            <path d="M252 343 Q273 336 294 343 Q299 353 296 370 H251 Q247 351 252 343 Z"
-              fill="#fff" stroke="#343434" strokeWidth="7" strokeLinejoin="round" />
+            {/* 只覆盖真正的两颗眼睛，不碰脸部轮廓与上唇；闭眼和睁眼始终同一位置。 */}
+            <ellipse cx="162" cy="275" rx="18.5" ry="18" fill="#fff" />
+            <ellipse cx="372" cy="275" rx="18.5" ry="18" fill="#fff" />
+            <g fill="none" stroke="#343434" strokeLinecap="round"
+              strokeWidth={expression === 'squint' ? 7.8 : 6.6}>
+              <path d="M145 279 Q162 269 179 279" />
+              <path d="M355 279 Q372 269 389 279" />
+            </g>
           </svg>
         )}
       </div>
