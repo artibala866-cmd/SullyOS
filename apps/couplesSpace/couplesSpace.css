@@ -1923,3 +1923,25 @@
  .couple-detail-timeline {gap:12px;}
  .couple-records-detail .couple-record-entry>.couple-actions {margin-inline:11px!important;}
 }
+
+/* Short-device folio pass: diary must not push its actions below the viewport. */
+@media (max-width:360px) and (max-height:700px) {
+ .couple-content-mode .couple-main {padding-top:9px;padding-bottom:11px;}
+ .couple-diary-cover {height:123px;padding:13px 15px 11px;gap:5px;margin-bottom:8px;}
+ .couple-diary-cover strong {font-size:20px;}
+ .couple-diary-cover small {font-size:10px;}
+ .couple-diary-native {margin:5px 0 7px;}
+ .couple-diary-native-head {padding:3px 2px 6px;}
+ .couple-diary-paper-spread {min-height:116px;padding:4px;}
+ .couple-diary-paper-spread>div {padding:9px 7px;}
+ .couple-diary-paper-spread small {margin-bottom:6px;min-height:13px;}
+ .couple-content-mode .couple-diary-paper-spread p {max-height:113px;font-size:11px;line-height:1.7;}
+ .couple-diary-page-flip {padding:3px 2px;}
+ .couple-content-mode .couple-diary-page-flip button {min-height:28px;}
+ .couple-content-mode .couple-diary-open-original {min-height:36px;padding:8px 12px;margin-top:5px;}
+ .couple-diary-sidebook {padding:7px 0 0;}
+ .couple-diary-sidebook>div:first-child {gap:3px;}
+ .couple-content-mode .couple-diary-sidebook p {font-size:10px;margin:0;}
+ .couple-content-mode .couple-diary-sidebook .couple-scene-controls {margin:7px 0 3px;}
+ .couple-content-mode .couple-diary-sidebook .couple-scene-controls button {min-height:37px;}
+}
