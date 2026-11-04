@@ -151,7 +151,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   if(kind==='mail'){
-    const unread=rows.filter(r=>!r.reply).length;
+    const unread=bond.entries.filter(r=>r.kind==='mail' && !r.reply).length;
     return <div className="couple-scene couple-scene-mail">
       <div className="couple-mail-postbox"><span className="couple-mail-stamp">POST / {today.slice(0,4)}</span>
         <button className="couple-mail-slot" disabled={busy} onClick={onNew} aria-label={'写信给'+names.them}>
@@ -231,7 +231,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   if(kind==='capsule'){
-    const ready=rows.filter(item=>capsuleStatus(item,today)==='ready').length;
+    const ready=bond.entries.filter(item=>item.kind==='capsule' && capsuleStatus(item,today)==='ready').length;
     return <div className="couple-scene couple-scene-capsule">
       <div className="couple-capsule-vault"><span className="couple-capsule-top">DO NOT OPEN UNTIL</span>
         <div className="couple-capsule-lock"><i/><strong>{ready}</strong><small>封可开启</small></div>
