@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
-import { capsuleDate, capsuleStatus, createEntry } from '../../utils/couplesSpace';
+import { capsuleDate, capsuleStatus, createEntry, dayKey } from '../../utils/couplesSpace';
 import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
