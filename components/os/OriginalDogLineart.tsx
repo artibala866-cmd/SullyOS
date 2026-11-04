@@ -8,6 +8,8 @@ import React, { useEffect, useRef, useState } from 'react';
  */
 const ARTWORK = import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105';
 const SIZE = 512;
+// 1254 是组件 SVG 的内部坐标；源仓库图标已按透明边界裁切，
+// 五官位置必须按实际 512px 图标定位，不能直接沿用用户上传的大画布坐标。
 const ORIGINAL = 1254;
 
 const inRegion = (x: number, y: number, left: number, top: number, right: number, bottom: number) =>
@@ -34,14 +36,20 @@ export default function OriginalDogLineart({ animate }: { animate: boolean }) {
         for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
           const i = (y * SIZE + x) * 4;
           const luminance = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
+          const chroma = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]) -
+            Math.min(rgba[i], rgba[i + 1], rgba[i + 2]);
           let opacity = rgba[i + 3] * Math.pow(
             Math.max(0, Math.min(1, (222 - luminance) / 135)), 1.1,
           );
-          // 保留原本全部手绘线稿（包括胸前字样），仅为眨眼/嘴巴腾出原位置。
+          // 去掉黄章内的色块底色，只留下黑色文字和轮廓线。
+          if (luminance > 130 && chroma > 45) {
+            opacity *= Math.max(0, 1 - (chroma - 45) / 90);
+          }
+          // 只清理原图旧眼、旧嘴，让新的五官逐帧替换而非叠成四只眼睛。
           if (
-            inRegion(x, y, 429, 685, 505, 775) ||
-            inRegion(x, y, 769, 680, 845, 765) ||
-            inRegion(x, y, 533, 793, 775, 864)
+            inRegion(x, y, 354, 646, 442, 752) ||
+            inRegion(x, y, 861, 644, 953, 755) ||
+            inRegion(x, y, 484, 797, 866, 925)
           ) opacity = 0;
           rgba[i] = 52;
           rgba[i + 1] = 52;
@@ -65,20 +73,22 @@ export default function OriginalDogLineart({ animate }: { animate: boolean }) {
       <canvas className="sully-lineart-canvas" ref={canvasRef} width={SIZE} height={SIZE} aria-hidden="true" />
       {ready && (
         <svg className="sully-lineart-features" viewBox="0 0 1254 1254" aria-hidden="true">
+          <ellipse cx="652" cy="501" rx="187" ry="184" fill="none"
+            stroke="#666" strokeWidth="5" opacity="0.44" />
           <g className="sully-lineart-eyes-open" fill="#343434">
-            <ellipse cx="466" cy="729" rx="19" ry="22" />
-            <ellipse cx="806" cy="720" rx="19" ry="22" />
+            <ellipse cx="396" cy="698" rx="26" ry="28" />
+            <ellipse cx="908" cy="698" rx="26" ry="28" />
           </g>
           <g className="sully-lineart-eyes-closed" fill="none" stroke="#343434"
             strokeWidth="17" strokeLinecap="round">
-            <path d="M444 730 Q466 742 490 728" />
-            <path d="M783 720 Q806 734 832 720" />
+            <path d="M366 699 Q396 714 427 698" />
+            <path d="M879 698 Q908 715 938 698" />
           </g>
           <path className="sully-lineart-mouth-smile"
-            d="M547 802 Q588 859 649 818 Q689 856 748 805"
+            d="M526 829 Q585 891 665 847 Q742 901 827 827"
             fill="none" stroke="#343434" strokeWidth="16" strokeLinecap="round" />
           <path className="sully-lineart-mouth-talking"
-            d="M608 814 Q653 788 696 814 Q700 851 654 858 Q611 849 608 814 Z"
+            d="M620 837 Q663 815 707 837 Q709 881 663 885 Q626 878 620 837 Z"
             fill="white" stroke="#343434" strokeWidth="13" strokeLinejoin="round" />
         </svg>
       )}
