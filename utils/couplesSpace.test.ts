@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./db', () => ({ DB: {} }));
-import { DAY, type Bond, canWaterPlant, careForPlant, plantCareWait, plantStage, capsuleStatus, reward } from './couplesSpace';
+import { DAY, type Bond, canWaterPlant, careForPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, type Card } from './couplesSpace';
 
 const NOW = new Date(2026, 10, 5, 12).getTime();
 function bond(): Bond {
@@ -68,5 +68,26 @@ describe('time-capsule privacy', () => {
     expect(capsuleStatus({ ...entry, unlockDate: '2026-12-01' }, '2026-11-05')).toBe('sealed');
     expect(capsuleStatus({ ...entry, unlockDate: '2026-12-01' }, '2026-12-01')).toBe('ready');
     expect(capsuleStatus({ ...entry, opened: true, unlockDate: '2026-12-01' }, '2026-11-05')).toBe('opened');
+  });
+});
+
+describe('couples shop transactions', () => {
+  const card: Card = { id: 'hug', name: '拥抱卡', icon: '♡', effect: '拥抱', price: 40, charUse: true };
+  it('blocks invalid custom prices at the transaction boundary', () => {
+    const account = { ...bond(), points: { me: 100, them: 0, shared: 0 } };
+    expect(() => exchangeCard(account, { ...card, price: -100 }, 'me')).toThrow('价格无效');
+    expect(() => exchangeCard(account, { ...card, price: Number.NaN }, 'me')).toThrow('价格无效');
+    expect(() => exchangeCard(account, { ...card, price: 10001 }, 'me')).toThrow('价格无效');
+  });
+  it('checks stock, debits exactly once and identifies each play for delivery rollback', () => {
+    const account = { ...bond(), points: { me: 100, them: 0, shared: 0 } };
+    const bought = exchangeCard(account, card, 'me');
+    expect(bought.points.me).toBe(60);
+    expect(bought.bags.me[card.id]).toBe(1);
+    const played = playCard(bought, card, 'me', '今天也想抱你', NOW);
+    expect(played.bags.me[card.id]).toBe(0);
+    expect(played.played).toHaveLength(1);
+    expect(played.played[0].id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(() => playCard(played, card, 'me', '', NOW)).toThrow('不可打出');
   });
 });
