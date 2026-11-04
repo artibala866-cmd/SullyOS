@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useOS, DEFAULT_WALLPAPER, DEFAULT_PAPER_APPEARANCE, NOSTALGIA_APPEARANCE } from '../context/OSContext';
+import { useOS, DEFAULT_WALLPAPER, DEFAULT_PAPER_APPEARANCE } from '../context/OSContext';
 import { AppID, OSTheme, DesktopDecoration, AppearancePreset, Toast } from '../types';
 import { INSTALLED_APPS, Icons } from '../constants';
 import { processImage, processImageToBlob } from '../utils/file';
@@ -165,14 +165,6 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
     },
   },
 ];
-
-const NOSTALGIA_SKIN: DesktopSkinOption = {
-  id: 'nostalgia',
-  name: '怀旧版',
-  desc: '最初粉绿渐变 · 白色玻璃卡片、图标底与 Dock · 旧版配色',
-  swatch: NOSTALGIA_APPEARANCE.wallpaper,
-  config: { ...NOSTALGIA_APPEARANCE },
-};
 
 /**
  * 预设卡片顶部那条缩略图（壁纸打底 + 两个色块 + 装饰数量角标）。
@@ -720,7 +712,7 @@ const Appearance: React.FC = () => {
   const DESKTOP_WP_BACKUP_KEY = 'acnh_wallpaper_backup'; // Legacy key retained only to restore user wallpapers.
   const currentDesktopSkinId = DESKTOP_SKINS.some(skin => skin.id === theme.skin && skin.id !== 'default')
       ? theme.skin
-      : theme.desktopVariant === 'nostalgia' ? 'nostalgia' : 'default';
+      : 'default';
   const applyDesktopSkin = async (skin: DesktopSkinOption) => {
       const goingDefault = skin.id === 'default';
       const currentlyThemed = currentDesktopSkinId !== 'default';
@@ -868,25 +860,6 @@ const Appearance: React.FC = () => {
                             );
                         })}
                     </div>
-
-                    <button
-                        onClick={() => applyDesktopSkin(NOSTALGIA_SKIN)}
-                        aria-pressed={currentDesktopSkinId === 'nostalgia'}
-                        className={`mt-3 w-full flex items-center gap-3 rounded-2xl p-3 text-left border-2 transition-all active:scale-[0.99] ${currentDesktopSkinId === 'nostalgia' ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200 hover:border-slate-300'}`}
-                    >
-                        <div className="h-14 w-20 shrink-0 rounded-xl shadow-inner" style={{ background: NOSTALGIA_SKIN.swatch }} />
-                        <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold text-slate-700">
-                                {NOSTALGIA_SKIN.name}
-                                {currentDesktopSkinId === 'nostalgia' && <span className="ml-1 text-[9px] font-bold text-primary">· 当前</span>}
-                            </div>
-                            <div className="text-[9px] text-slate-400 mt-0.5 leading-snug">{NOSTALGIA_SKIN.desc}</div>
-                        </div>
-                        {currentDesktopSkinId !== 'nostalgia' && (
-                            <span className="shrink-0 text-[9px] font-semibold text-slate-400">一键切换</span>
-                        )}
-                    </button>
-
                 </section>
 
                 {currentDesktopSkinId === 'companion' && (
@@ -1056,7 +1029,7 @@ const Appearance: React.FC = () => {
                         <div className="flex gap-2">
                             {([['serif', '经典衬线'], ['bold', '粗体数字'], ['system', '跟随全局字体']] as const).map(([value, label]) => (
                                 <button key={value} onClick={() => updateTheme({ desktopClockStyle: value })}
-                                    className={`flex-1 py-2 rounded-xl text-xs ${(theme.desktopClockStyle || (theme.desktopVariant === 'nostalgia' ? 'bold' : 'serif')) === value ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    className={`flex-1 py-2 rounded-xl text-xs ${(theme.desktopClockStyle || 'serif') === value ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
                                     {label}
                                 </button>
                             ))}

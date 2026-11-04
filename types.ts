@@ -126,8 +126,7 @@ export interface OSTheme {
   homelyPalette?: 'apricot' | 'blue' | 'rose' | 'lilac' | 'oat';
   /** 锁定居家陪伴对象；不跟随其他 App 的当前聊天角色切换。 */
   homelyLockedCharacterId?: string;
-  /** 默认桌面的视觉版本：纸感是现行默认，nostalgia 是用户主动选择的最初粉绿白玻璃界面。 */
-  desktopVariant?: 'paper' | 'nostalgia';
+  desktopVariant?: 'paper';
   desktopClockStyle?: 'serif' | 'bold' | 'system';
   /** 动森皮肤下，聊天 App 是否也跟随换成动森界面。默认 true（undefined 视为 true）。关掉则聊天保持原样式。 */
   launcherWidgetImage?: string; // DEPRECATED: always stripped on load — never renders.

@@ -25,7 +25,7 @@ const HomelyHome = React.lazy(() => import('../components/os/HomelyHome'));
 const DesktopClock = React.memo(() => {
     const { virtualTime, theme } = useOS();
     const contentColor = theme.contentColor || '#ffffff';
-    const clockStyle = theme.desktopClockStyle || (theme.desktopVariant === 'nostalgia' ? 'bold' : 'serif');
+    const clockStyle = theme.desktopClockStyle || 'serif';
     const serifClock = clockStyle === 'serif';
     const paper = isPaperWallpaper(theme.wallpaper);
 

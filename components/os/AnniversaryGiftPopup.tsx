@@ -1,7 +1,7 @@
 import { trackEvent } from '../../utils/analytics';
 import { trackAnniversaryDownload } from '../../utils/sarAnalytics';
 import React, { useEffect, useRef, useState } from 'react';
-import { NOSTALGIA_APPEARANCE, useOS } from '../../context/OSContext';
+import { useOS } from '../../context/OSContext';
 import { PRESET_THEMES } from '../chat/ChatConstants';
 import {
   ANNIVERSARY_ARTIST, ANNIVERSARY_FRAME_STYLE, ANNIVERSARY_FRAME_URL, ANNIVERSARY_WALLPAPERS,
@@ -81,10 +81,15 @@ export default function AnniversaryGiftPopup({ onClose }: { onClose: () => void 
         });
       }
       // 赠礼配回最初的默认紫色；浅色画作配深紫文字，壁纸仍只替换勾选项。
-      const { wallpaper: _defaultWallpaper, ...purpleAppearance } = NOSTALGIA_APPEARANCE;
       const hasSkinLeaves = theme.desktopDecorations?.some(d => d.id.startsWith('acnh-leaf-'));
       await updateTheme({
-        ...purpleAppearance,
+        skin: 'default',
+        desktopVariant: 'paper',
+        hue: 245,
+        saturation: 25,
+        lightness: 65,
+        darkMode: false,
+        nowPlayingWidgetLight: false,
         contentColor: '#514168',
         ...(phone ? { wallpaper: phoneWallpaper } : {}),
         ...(hasSkinLeaves ? { desktopDecorations: theme.desktopDecorations!.filter(d => !d.id.startsWith('acnh-leaf-')) } : {}),
