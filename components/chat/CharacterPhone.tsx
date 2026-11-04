@@ -936,7 +936,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               if (file) void updateMomentsCover(file);
             }} /></label>
             {phoneAppearance.momentsCover && <button type="button" className="rounded-lg bg-black/55 px-3 py-2" onClick={() => void updateMomentsCover()}>恢复默认</button>}
-          </div><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="px-5 pt-11 pb-3"><AutomaticImageToggle scope="moments" id={characterId} /></div><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
+          </div><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-11" aria-hidden="true" /><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
         {screen === 'profile' && <div className="space-y-4 pb-8 text-[#252525]">
            <section className="bg-white px-5 py-7">
              <div className="flex items-center gap-5">
@@ -1141,6 +1141,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
+          </PhoneSettingsGroup>}
+          {showPhoneSettings('common',"朋友圈 生图 图片 配图 AI 图片生成 API") && <PhoneSettingsGroup title="朋友圈生图" searching={!!settingsQuery}>
+            <AutomaticImageToggle scope="moments" id={characterId} />
           </PhoneSettingsGroup>}
           {showPhoneSettings('advanced',"朋友圈 评论 互动 回复 点赞 频率 档位 时间 限流 去重") && <PhoneSettingsGroup title="朋友圈 NPC 生成与互动" searching={!!settingsQuery}>
           <section className="space-y-4 rounded-2xl bg-white p-4 text-xs">
