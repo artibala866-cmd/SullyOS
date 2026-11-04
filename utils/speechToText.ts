@@ -572,8 +572,8 @@ const startApiStt = async (
       // Do not publish bytes for cancelled sessions or upload an empty recording.
       if (!cancelled) cb.onAudioCaptured?.(wavBlob, totalSamples / sampleRate);
       if (cancelled) return;
-      // In private-chat free-recording mode the audio IS the message.
-      // Never request a paid API or pretend that a transcript was generated.
+      // Browser STT generates its transcript separately; this internal PCM
+      // fallback only supplies the audio draft and never charges an API.
       if (provider === null) return;
       const transcript = await transcribeAudioWithProvider(wavBlob, provider, lang, apiConfig);
       if (cancelled) return;
@@ -626,15 +626,12 @@ const startApiStt = async (
 };
 
 /**
- * Private chat's free microphone route. This is a REAL audio recorder, unlike
- * Web SpeechRecognition (which may be exposed by mobile browsers but hang when
- * the remote speech service is unreachable). Its output is not a transcript.
- *
- * MediaRecorder gives mobile browsers their preferred playable audio format;
- * WebAudio PCM/WAV is a fallback for WebViews without MediaRecorder.
- * The Call app continues to use startStt() unchanged.
+ * Private-chat STT's internal audio companion. The transcript always comes
+ * from speech recognition; this helper only keeps the matching recording.
+ * MediaRecorder is preferred, with WebAudio PCM/WAV as a WebView fallback.
+ * This is NOT a standalone audio-only message entry point.
  */
-export const startPrivateChatRecording = async (cb: SttCallbacks): Promise<SttSession> => {
+const capturePrivateChatSttAudio = async (cb: SttCallbacks): Promise<SttSession> => {
   if (!isAudioRecordingSupported()) {
     cb.onError?.('当前浏览器无法访问麦克风。请使用 HTTPS 页面、允许浏览器麦克风权限，或改用文字模拟语音');
     cb.onEnd?.();
@@ -988,7 +985,7 @@ export const startPrivateChatStt = async (
       finish();
     },
   }, config);
-  const recordingPromise = startPrivateChatRecording({
+  const recordingPromise = capturePrivateChatSttAudio({
     onAudioCaptured: (blob, durationSec) => {
       if (!cancelled) cb.onAudioCaptured?.(blob, durationSec);
     },
