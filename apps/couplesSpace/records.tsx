@@ -110,7 +110,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
   const look = recordLooks[kind];
   const latest = rows[0];
   const countDone = kind === 'wish' ? rows.filter(row => row.done).length : rows.length;
-  return <div className={'couple-records couple-records-' + kind}>
+  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '')}>
     <section className="couple-record-feature">
       <div className="couple-record-feature-copy">
         <span className="couple-record-overline">{look.english}</span>
@@ -120,7 +120,6 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       <RecordArt kind={kind} date={latest?.date || today} count={rows.length} image={kind === 'gift' ? latest?.image : undefined} />
     </section>
     <div className="couple-record-actions">
-      <div className="couple-record-summary"><span>YOUR COLLECTION</span><strong>{rows.length} <small>条记录</small></strong></div>
       <div className="couple-actions">
       <button disabled={working || busy} onClick={() => setDraft(newEntry())}>{look.create}</button>
       <button disabled={working || busy} onClick={() => void run(generated)}>{working || busy ? '处理中…' : `请 ${names.them} 写`}</button>
@@ -245,12 +244,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       </div>
     </form>}
     {!rows.length && !draft && <section className="couple-record-empty">
-      <RecordArt kind={kind} date={today} count={0} />
+      <span className="couple-record-empty-line" aria-hidden="true">—</span>
       <strong>{look.empty}</strong>
-      <p>{look.intro}</p>
-      <button type="button" onClick={() => setDraft(newEntry())}>{look.create}</button>
+      <button type="button" onClick={() => setDraft(newEntry())}>＋ {look.create}</button>
     </section>}
-    {rows.map(item => {
+    {!draft && rows.map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
       return <article className={'couple-card couple-record-entry couple-entry-' + kind + (item.done ? ' couple-entry-completed' : '')} key={item.id} id={`bond-entry-${item.id}`}>
