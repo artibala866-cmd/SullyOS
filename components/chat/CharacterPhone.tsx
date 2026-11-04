@@ -27,6 +27,7 @@ import PhoneAvatar from './PhoneAvatar';
 import PullToRefresh from './PullToRefresh';
 import MomentsCover from './MomentsCover';
 import PhoneChatBubbles from './PhoneChatBubbles';
+import PhoneWeChatPayCards from './PhoneWeChatPayCards';
 import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
@@ -830,6 +831,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
   };
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
+  const isWechatPayThread = screen === 'thread' && !isPrivateThread &&
+    !!active && (active.contactId === 'service:微信支付' ||
+      (active.kind === 'service' && active.name === '微信支付'));
   // Read-only life side: recorded facts, never a chat reply or a planned schedule slot.
   const confirmedLifeGlimpses = selectConfirmedLifeGlimpses(lifeEvents, characterId);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -869,7 +873,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => {setWechatSearchOpen(v=>!v);setWechatQuery('');}}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => {setWechatSearchOpen(v=>!v);setWechatQuery('');}}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : isWechatPayThread ? <div aria-hidden="true" className="flex items-center gap-4 text-[#242424]"><MagnifyingGlass size={21}/><GearSix size={23}/></div> : <span className="w-6"/>}
         </header>}
       <main className={'min-h-0 flex-1 '+(screen==='home'?'overflow-hidden':'overflow-y-auto')}>
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
@@ -929,7 +933,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
            <div className="mt-3">{row('钱包',<Wallet size={23}/>,()=>setScreen('wallet'))}{row('设置',<GearSix size={23}/>,()=>{settingsOrigin.current='wechat';setScreen('settings');})}</div>
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
-        {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
+        {screen === 'thread' && !isPrivateThread && (isWechatPayThread
+          ? <PhoneWeChatPayCards messages={active?.messages||[]}/>
+          : <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>) }
         {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white">
           <MomentsCover key={characterId} name={name} avatar={phoneAvatar} cover={phoneAppearance.momentsCover}
             expanded={momentsCoverExpanded} onExpandedChange={setMomentsCoverExpanded}
@@ -1253,7 +1259,10 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           </p>
         </div>}
       </main>
-      {screen === 'thread' && active && !isPrivateThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
+      {screen === 'thread' && active && !isPrivateThread && !isWechatPayThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
+      {isWechatPayThread && <nav aria-label="微信支付底部导航（仅展示）" className="grid shrink-0 grid-cols-[1fr_1fr_1fr] border-t border-[#dedede] bg-[#fafafa] py-3 text-center text-[14px] text-[#242424]">
+        <span className="border-r border-[#e2e2e2]">我的账单</span><span className="border-r border-[#e2e2e2]">支付服务</span><span>优惠</span>
+      </nav>}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-[#07b75b]':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
       {screen !== 'wechat' && screen !== 'home' && screen !== 'beautify' && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
       </>}
