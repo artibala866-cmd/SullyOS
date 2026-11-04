@@ -27,7 +27,7 @@ export default function MomentsCover({
   useLayoutEffect(()=>{
     const main=sectionRef.current?.closest('main');
     if(!main)return;
-    const update=()=>setAvailableHeight(Math.max(320,main.clientHeight-48));
+    const update=()=>setAvailableHeight(Math.max(320,main.clientHeight-135));
     update();
     const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(update):null;
     observer?.observe(main);
