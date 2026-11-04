@@ -330,11 +330,14 @@ export default function CouplesSpaceApp() {
     setActiveCharacterId(char.id);
     openApp(AppID.Chat);
   };
-  const share = async (content: string, label = '时光信箱') => {
+  const share = async (content: string, label = '时光信箱', deliveryId?: string) => {
     if (isPair || !char) throw new Error('他们的空间属于这两位角色');
     const latest = await DB.getCharacter(char.id);
     if (!latest || characterBlocksUser(latest.chatBlock)) throw new Error('当前无法发给这个角色');
-    await DB.saveMessage({ charId: char.id, role: 'user', type: 'text', content, metadata: { couplesSpace: { label } } });
+    const message = { charId: char.id, role: 'user' as const, type: 'text' as const,
+      content, metadata: { couplesSpace: { label } } };
+    if (deliveryId) await DB.saveMessageOnce(deliveryId, message);
+    else await DB.saveMessage(message);
     openChat();
   };
   const bind = (direct: boolean) => void run(async () => {
