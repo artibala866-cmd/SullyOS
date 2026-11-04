@@ -10,6 +10,7 @@ import {
   PaintBrush,
   Palette,
   Heart,
+  HandHeart,
   BookOpenText,
   SealCheck,
   House,
@@ -46,6 +47,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Gallery: ({ className }) => <Images className={className} weight="regular" />,
   ThemeMaker: ({ className }) => <PaintBrush className={className} weight="regular" />,
   Appearance: ({ className }) => <Palette className={className} weight="regular" />,
+  CouplesSpace: ({ className }) => <HandHeart className={className} weight="regular" />,
   Date: ({ className }) => <Heart className={className} weight="regular" />,
   Journal: ({ className }) => <BookOpenText className={className} weight="regular" />,
   Schedule: ({ className }) => <SealCheck className={className} weight="regular" />,
@@ -86,7 +88,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   // { id: AppID.Browser, name: '浏览器', icon: 'Browser', color: 'blue' }, // Hidden
   { id: AppID.Date, name: '见面', icon: 'Date', color: 'pink' },
   { id: AppID.User, name: '档案', icon: 'User', color: 'blue' },
-  { id: AppID.CouplesSpace, name: '情侣空间', icon: 'Date', color: 'rose' },
+  { id: AppID.CouplesSpace, name: '情侣空间', icon: 'CouplesSpace', color: 'rose' },
   { id: AppID.Journal, name: '交换日记', icon: 'Journal', color: 'amber' },
   // { id: AppID.Handbook, name: '手账', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
   { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },

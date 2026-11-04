@@ -1,4 +1,4 @@
-import { canRolePlay, canWaterPlant, careForPlant, createEntry, dayKey, exchangeCard, playCard, readBond, relationNames, reward, shopCards, writeBond, type Bond } from './couplesSpace';
+import { cardMatchesRelation, canRolePlay, canWaterPlant, careForPlant, createEntry, dayKey, exchangeCard, playCard, readBond, relationNames, reward, shopCards, writeBond, type Bond } from './couplesSpace';
 import type { APIConfig, CharacterProfile, Message, UserProfile } from '../types';
 import { DB } from './db';
 import { characterBlocksUser, userBlocksCharacter } from './chatBlock';
@@ -6,7 +6,7 @@ import { extractJson } from './safeApi';
 
 const active = (bond: Bond) => bond.disabledCards ? [] : bond.played.filter(play => play.side === 'me' &&
   !bond.hidden.includes(play.card.id) && (play.usedTurns ?? 0) < (play.card.turns ?? 1));
-const roleCards = (bond: Bond) => [...shopCards, ...bond.cards].filter(card => card.charUse && canRolePlay(bond, card.id) &&
+const roleCards = (bond: Bond) => [...shopCards, ...bond.cards].filter(card => cardMatchesRelation(card, bond.relation) && card.charUse && canRolePlay(bond, card.id) &&
   (bond.bags.them[card.id] > 0 || bond.points.them >= card.price));
 
 export function couplesChatContext(bond: Bond) {

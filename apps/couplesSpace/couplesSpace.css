@@ -122,3 +122,57 @@
   position: absolute; transform: translate(-50%, -50%); min-height: 24px;
   border: 0; padding: 2px; background: transparent; font-size: 17px; touch-action: none;
 }
+
+.couple-app { box-sizing: border-box; }
+.couple-main { scrollbar-width: thin; }
+.couple-segments {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  margin: 10px 0 14px;
+  border-radius: 14px;
+  background: #f4e5eb;
+}
+.couple-segments button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  padding: 5px 3px;
+}
+.couple-segments button[aria-pressed="true"] { background: white; color: var(--couple-accent); font-weight: 650; }
+.couple-badge, .couple-status {
+  display: inline-block;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  background: #f6e3ec;
+  color: #7f3652;
+}
+.couple-status { margin: 6px 0 3px; }
+.couple-status[data-state="sealed"], .couple-status[data-state="opened"] { background: #f4eef1; color: var(--couple-dim); }
+.couple-inline-confirm { border-radius: 13px; padding: 9px 12px 4px; background: #fff3f7; }
+.couple-portrait-interactive { width: fit-content; max-width: 100%; }
+.couple-portrait-interactive img { width: auto; max-width: 100%; margin: auto; cursor: pointer; user-select: none; }
+.couple-shop-card p { color: var(--couple-dim); }
+.couple-shop-card .couple-actions { margin-bottom: 0; }
+.couple-avatar > span { font-weight: 650; font-size: 20px; }
+.couple-shop-settings summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.couple-shop-settings summary small { float: right; font-weight: 400; }
+.couple-shop-settings[open] summary { margin-bottom: 10px; }
+.couple-card label.couple-file {
+  position: relative; display: inline-flex; align-items: center; min-height: 40px;
+  padding: 7px 12px; border: 1px solid var(--couple-border); border-radius: 12px; cursor: pointer;
+}
+.couple-card .couple-file input {
+  position: absolute; inset: 0; margin: 0; height: 100%; opacity: 0; cursor: inherit;
+}
+.couple-file:focus-within { outline: 2px solid var(--couple-accent); outline-offset: 2px; }
+.couple-portrait-empty {
+  display: grid; justify-items: center; gap: 6px; padding: 18px 10px;
+  color: var(--couple-dim); background: #fff5f8; border-radius: 14px; font-size: 12px; text-align: center;
+}

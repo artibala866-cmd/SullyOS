@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { exchangeCard, playCard, reward, shopCards, dayKey, type Bond, type Card, type Side } from '../../utils/couplesSpace';
+import { cardMatchesRelation, exchangeCard, playCard, reward, shopCards, dayKey, relationNames, type Bond, type Card, type Side } from '../../utils/couplesSpace';
 import type { ChangeBond, Generate } from './records';
 import { extractJson } from '../../utils/safeApi';
 
@@ -27,6 +27,9 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const cards = [...shopCards, ...bond.cards];
+  const [shelf, setShelf] = useState<'general' | 'relation' | 'custom'>('general');
+  const visibleCards = (shelf === 'custom' ? bond.cards : shopCards.filter(card => shelf === 'general' ? !card.relation : card.relation === bond.relation))
+    .filter(card => manage || !bond.hidden.includes(card.id));
   const run = async (task: () => Promise<void>) => {
     setError('');
     setWorking(true);
@@ -68,7 +71,8 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
       <span><b>{bond.points.shared}</b>共同积分</span>
       <span><b>{bond.points.them}</b>{partner}的积分</span>
     </div>
-    <div className="couple-card">
+    <details className="couple-card couple-shop-settings">
+      <summary>出牌设置 <small>{bond.disabledCards ? '已关闭' : bond.autoCards ? '允许角色出牌' : '手动出牌'}</small></summary>
       <label><input type="checkbox" disabled={working} checked={!bond.disabledCards} onChange={event => {
         const disabledCards = !event.target.checked;
         apply(current => ({ ...current, disabledCards }));
@@ -82,8 +86,8 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
         apply(current => ({ ...current, autoCards }));
       }} /> 允许角色在私聊后自行兑换和出牌</label>
       {!bond.noCooldown && <small>角色出牌间隔 90 分钟，同一张卡间隔 6 小时。</small>}
-    </div>
-    <nav className="couple-actions" aria-label="商店页面">{Object.entries(tabs).map(([key, label]) =>
+    </details>
+    <nav className="couple-segments" aria-label="商店页面">{Object.entries(tabs).map(([key, label]) =>
       <button key={key} aria-pressed={tab === key} onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); }}>{label}</button>)}</nav>
     {error && <p role="alert" className="couple-error">{error}</p>}
     {tab === 'shop' && <>
@@ -112,7 +116,12 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
         <label><input type="checkbox" checked={draft.charUse} onChange={event => setDraft({ ...draft, charUse: event.target.checked })} /> 角色可用</label>
         <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
       </form>}
-      {cards.filter(card => manage || !bond.hidden.includes(card.id)).map(card => <article key={card.id} className="couple-card">
+      <nav className="couple-segments" aria-label="卡片分类">
+        {([['general', '通用'], ['relation', relationNames[bond.relation]], ['custom', '自订']] as const).map(([id, title]) =>
+          <button key={id} aria-pressed={shelf === id} onClick={() => setShelf(id)}>{title}</button>)}
+      </nav>
+      {!visibleCards.length && <p className="couple-muted">这个分类暂时没有可展示的卡片。</p>}
+      {visibleCards.map(card => <article key={card.id} className="couple-card couple-shop-card">
         <h3>{card.icon} {card.name}</h3><p>{card.effect}</p><small>{card.price} 积分{card.charUse ? ' · 双方可用' : ' · 仅我可用'}</small>
         <div className="couple-actions">{manage ? <>
           <button disabled={working} onClick={() => apply(current => ({
@@ -123,7 +132,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
           </>}
         </> : <button disabled={working || bond.disabledCards || bond.points.me < card.price} onClick={() => apply(current => {
           const currentCard = [...shopCards, ...current.cards].find(item => item.id === card.id);
-          if (!currentCard) throw new Error('卡片已删除');
+          if (!currentCard || !cardMatchesRelation(currentCard, current.relation)) throw new Error('这张卡在当前关系中不可兑换');
           return exchangeCard(current, currentCard, 'me');
         })}>兑换</button>}</div>
       </article>)}

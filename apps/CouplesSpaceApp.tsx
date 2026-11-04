@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpenText, CalendarHeart, EnvelopeSimple, GearSix, Gift, HandHeart, Heart, Hourglass, Leaf, ListChecks, Medal, ShoppingBag, Tree, Users } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
+import { useLocalDateKey } from '../hooks/useLocalDateKey';
+import { avatarTouchPartLabel, resolveAvatarTouchTarget } from '../utils/avatarTouch';
+import { listCompanionDateOutfits, resolveCompanionPortrait } from '../utils/companionAvatar';
 import { useLocalBackHandler } from '../hooks/useLocalBackHandler';
 import TokenImg from '../components/os/TokenImg';
 import { AppID, type APIConfig, type CharacterProfile, type GalleryImage } from '../types';
@@ -8,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, reward, spaceKey, writeBond, careForPlant, plantStage, bondXp, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, reward, spaceKey, writeBond, careForPlant, plantStage, bondXp, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
@@ -26,8 +29,11 @@ const relationCopy = {
 };
 
 function Avatar({ person }: { person: { avatar: string; name: string } }) {
+  const [failedAvatar, setFailedAvatar] = useState<string>();
   return <span className="couple-avatar">
-    {person.avatar ? <TokenImg value={person.avatar} alt={person.name} /> : <Heart aria-label={person.name} size={25} />}
+    {person.avatar && failedAvatar !== person.avatar
+      ? <TokenImg value={person.avatar} alt={person.name} onError={() => setFailedAvatar(person.avatar)} />
+      : <span role="img" aria-label={person.name}>{Array.from(person.name.trim())[0] || '♡'}</span>}
   </span>;
 }
 
@@ -59,6 +65,8 @@ export default function CouplesSpaceApp() {
     { me: userProfile.name || '我', them: char?.name ?? 'TA' };
   const selectedRelation = bond?.relation ?? relation;
   const days = bond ? daysTogether(bond.start) : 0;
+  const today = useLocalDateKey();
+  const readyCapsules = bond?.entries.filter(item => item.kind === 'capsule' && capsuleStatus(item, today) === 'ready').length ?? 0;
 
   useEffect(() => {
     let active = true;
@@ -294,6 +302,7 @@ export default function CouplesSpaceApp() {
                 bond.gateMode === 'level' && bondLevel(bond) < (panelLevels[id] ?? 1));
               return <button key={id} onClick={() => { if (locked) setLockedPanel(id); else { setLockedPanel(undefined); setPanel(id); } }}>
                 <Icon size={24} weight="duotone" />{labels[id]}{locked && <small>待解锁</small>}
+                {id === 'capsule' && !locked && readyCapsules > 0 && <span className="couple-badge">{readyCapsules} 封可拆</span>}
               </button>;
             })}
           </nav>
@@ -423,12 +432,19 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   const [voice, setVoice] = useState('');
   const [full, setFull] = useState(false);
   const portraitRequest = useRef<AbortController>();
+  const startPoint = useRef<{ x: number; y: number }>();
+  const [failedImages, setFailedImages] = useState<string[]>([]);
+  const portraitValue = bond.portrait || resolveCompanionPortrait(char) || listCompanionDateOutfits(char)[0]?.preview;
+  const portrait = portraitValue && !failedImages.includes(portraitValue) ? portraitValue : undefined;
+  const displayImage = portrait || (!failedImages.includes(char.avatar) ? char.avatar : undefined);
   useEffect(() => () => portraitRequest.current?.abort(), []);
   useEffect(() => () => { if (voice.startsWith('blob:')) URL.revokeObjectURL(voice); }, [voice]);
-  const zones = [
-    { part: '头发', x: 49, y: 9 }, { part: '脸颊', x: 43, y: 26 },
-    { part: '肩膀', x: 75, y: 44 }, { part: '手', x: 29, y: 65 },
-  ];
+  const zones = ['头发', '脸颊', '肩膀', '手'];
+  useLocalBackHandler(() => {
+    if (!full) return false;
+    setFull(false);
+    return true;
+  }, 30);
   const tools = ['手', '羽毛', '冰块', '绳子', '毛笔', '唇', '眼罩', '轻拍'];
   const touch = (bodyPart: string) => run(async () => {
     const key = `${prop}:${bodyPart}`;
@@ -457,7 +473,10 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
       })}>AI 生成立绘</button>
       {bond.portrait && <button disabled={busy} onClick={() => run(() => change(current => ({ ...current, portrait: undefined, touchCalibration: {} })))}>移除立绘</button>}
     </div>
-    <label>立绘<input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'portrait')} /></label>
+    <label className="couple-file">
+      <span>{bond.portrait ? '更换本地立绘' : '选择本地立绘'}</span>
+      <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'portrait')} />
+    </label>
     <details>
       <summary>贴贴背景音乐</summary>
       <label>本地音频<input type="file" accept="audio/*" disabled={busy} onChange={event => {
@@ -473,25 +492,42 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
         <button disabled={busy} onClick={() => run(() => change(current => ({ ...current, touchBgm: undefined })))}>移除音乐</button>
       </div>}
     </details>
-    {bond.portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
-      <option value="">点击立绘互动</option>{zones.map(zone => <option key={zone.part} value={zone.part}>校准{zone.part}</option>)}
+    {portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
+      <option value="">按立绘位置识别</option>{zones.map(part => <option key={part} value={part}>校准{part}</option>)}
     </select></label>}
-    <div className="couple-portrait" onPointerUp={event => {
-      if (!calibration || !bond.portrait || busy) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      const point = { x: (event.clientX - rect.left) / rect.width * 100, y: (event.clientY - rect.top) / rect.height * 100 };
-      run(async () => {
-        await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, [calibration]: point } }));
-        setCalibration(undefined);
-      });
-    }}>
-      {(bond.portrait || char.avatar) && <TokenImg value={bond.portrait || char.avatar} alt={char.name} />}
-      {bond.portrait && !calibration && zones.map(zone => {
-        const point = bond.touchCalibration?.[zone.part] ?? zone;
-        return <button key={zone.part} type="button" className="couple-hotspot"
-          style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(zone.part)}>{zone.part}</button>;
+    <div className={`couple-portrait${portrait ? ' couple-portrait-interactive' : ''}`}>
+      {displayImage ? <TokenImg value={displayImage} alt={char.name} draggable={false}
+        onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
+        onPointerDown={event => { startPoint.current = { x: event.clientX, y: event.clientY }; }}
+        onPointerCancel={() => { startPoint.current = undefined; }}
+        onPointerUp={event => {
+          const start = startPoint.current;
+          startPoint.current = undefined;
+          if (!portrait || busy || !start || Math.hypot(start.x - event.clientX, start.y - event.clientY) > 12) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = (event.clientX - rect.left) / rect.width;
+          const y = (event.clientY - rect.top) / rect.height;
+          if (x < 0 || x > 1 || y < 0 || y > 1) return;
+          if (calibration) {
+            run(async () => {
+              await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, [calibration]: { x: x * 100, y: y * 100 } } }));
+              setCalibration(undefined);
+            });
+            return;
+          }
+          const part = resolveAvatarTouchTarget([], y, x).part;
+          touch(part === 'hair' ? '头发' : part === 'face' ? '脸颊' : avatarTouchPartLabel(part));
+        }} /> : <div className="couple-portrait-empty">
+          <HandHeart size={24} weight="duotone" aria-hidden />
+          <span>选一张立绘，或直接使用下方的部位按钮。</span>
+        </div>}
+      {portrait && !calibration && zones.filter(part => bond.touchCalibration?.[part]).map(part => {
+        const point = bond.touchCalibration![part];
+        return <button key={part} type="button" className="couple-hotspot"
+          style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;
       })}
     </div>
+    {portrait && <small>{calibration ? `点一下立绘上的${calibration}` : '轻点立绘，或用下方部位按钮互动。'}</small>}
     <div className="couple-actions">
       {[...tools, ...(bond.touchProps ?? [])].map((item, index) => <button key={item} aria-pressed={prop === item}
         disabled={busy || index < tools.length && index > Math.floor(bond.touches / 4)} onClick={() => setProp(item)}>
@@ -503,7 +539,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
         run(() => change(current => ({ ...current, touchProps: [...new Set([...(current.touchProps ?? []), name])] })));
       }}>自订道具</button>
     </div>
-    {!bond.portrait && <div className="couple-actions">{['头发', '脸颊', '肩膀', '手'].map(part =>
+    {!calibration && <div className="couple-actions" aria-label="触碰部位">{zones.map(part =>
       <button key={part} disabled={busy} onClick={() => touch(part)}>{part}</button>)}</div>}
     {reaction && <><p aria-live="polite">{reaction}</p>
       {voice ? <audio src={voice} controls autoPlay /> : <button disabled={busy} onClick={() => run(async () => {

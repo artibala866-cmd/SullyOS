@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
-import { createEntry, dayKey } from '../../utils/couplesSpace';
+import { capsuleDate, capsuleStatus, createEntry } from '../../utils/couplesSpace';
 import { processImage } from '../../utils/file';
+import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
 
 export const recordNames: Record<EntryKind, string> = {
@@ -13,10 +14,13 @@ export type Generate = (instruction: string) => Promise<string>;
 
 export function BondRecords({ kind, bond, names, change, generate, share, busy }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
-  generate: Generate; share?: (content: string) => Promise<void>; busy: boolean;
+  generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
 }) {
   const [draft, setDraft] = useState<Entry>();
   const [filter, setFilter] = useState('all');
+  const [earlyId, setEarlyId] = useState<string>();
+  const today = useLocalDateKey();
+  const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const run = async (task: () => Promise<void>) => {
@@ -34,7 +38,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
     }));
   };
   const rows = bond.entries.filter(item => item.kind === kind)
-    .filter(item => filter === 'all' || (filter === 'pending' ? !item.reply : item.side === filter))
+    .filter(item => filter === 'all' || (kind === 'capsule' ? capsuleStatus(item, today) === filter : filter === 'pending' ? !item.reply : item.side === filter))
     .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date));
   const roleInstruction = {
     timeline: '根据实际可见的关系记录写一段时间轴回忆，采用「标题」和正文两行格式；若没有明确事件，就写当前感受，不虚构过去。',
@@ -46,7 +50,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
     capsule: '写一封寄给未来的短信，结合已有经历和你对未来的期待。',
     hollow: '写下最近不方便当面说的一点真实心事。心事来自你的性格和已有经历。',
   }[kind];
-  const newEntry = () => ({ ...createEntry(kind, '', ''), unlockDate: kind === 'capsule' ? dayKey(new Date(Date.now() + 30 * 86_400_000)) : undefined });
+  const newEntry = () => ({ ...createEntry(kind, '', ''), unlockDate: kind === 'capsule' ? capsuleDate(1) : undefined });
   const generated = async () => {
     const content = await generate(roleInstruction);
     const [first, ...rest] = content.split('\n').filter(line => line.trim());
@@ -63,6 +67,17 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
     }
     await save({ ...entry, title: first, body: rest.join('\n') });
   };
+  const openCapsule = (id: string, allowEarly: boolean) => void run(async () => {
+    await change(current => ({
+      ...current, entries: current.entries.map(item => {
+        if (item.id !== id || item.kind !== 'capsule') return item;
+        const state = capsuleStatus(item);
+        if (state === 'opened' || (state === 'sealed' && !allowEarly)) return item;
+        return { ...item, opened: true, openedEarly: state === 'sealed' };
+      }),
+    }));
+    setEarlyId(undefined);
+  });
   const patch = (updates: Partial<Entry>) => setDraft(current => current ? { ...current, ...updates } : current);
   return <>
     <div className="couple-actions">
@@ -87,7 +102,13 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         if (diaryStyle !== (bond.diaryStyle ?? '')) void run(() => change(current => ({ ...current, diaryStyle })));
       }} /></label>
     </div>}
-    {(['diary', 'mail', 'capsule'] as EntryKind[]).includes(kind) && <div className="couple-actions">
+    {kind === 'capsule' && <nav className="couple-segments" aria-label="胶囊状态">
+      {([['all', '全部'], ['sealed', '封存中'], ['ready', '可拆封'], ['opened', '已拆封']] as const).map(([id, label]) =>
+        <button key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>
+          {label}{id === 'ready' ? ` ${capsules.filter(item => capsuleStatus(item, today) === 'ready').length}` : ''}
+        </button>)}
+    </nav>}
+    {(kind === 'diary' || kind === 'mail') && <div className="couple-actions">
       <select aria-label="筛选记录" value={filter} onChange={event => setFilter(event.target.value)}>
         <option value="all">全部</option><option value="me">{names.me}</option><option value="them">{names.them}</option>
         {kind === 'mail' && <option value="pending">待回信</option>}
@@ -120,7 +141,13 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         const steps = event.target.value.split('\n').map(text => ({ text, done: draft.steps?.find(step => step.text === text)?.done ?? false }));
         patch({ steps });
       }} /></label>}
-      {kind === 'capsule' && <label>开启日期<input required type="date" value={draft.unlockDate ?? ''} onChange={event => patch({ unlockDate: event.target.value })} /></label>}
+      {kind === 'capsule' && !draft.opened && <>
+        <label>开启日期<input required type="date" min={today} value={draft.unlockDate ?? ''} onChange={event => patch({ unlockDate: event.target.value })} /></label>
+        <div className="couple-segments" aria-label="快捷开启日期">
+          {([[1, '一个月'], [6, '半年'], [12, '一年']] as const).map(([months, label]) =>
+            <button key={months} type="button" onClick={() => patch({ unlockDate: capsuleDate(months) })}>{label}</button>)}
+        </div>
+      </>}
       {kind === 'diary' && <label>贴纸<input placeholder="例如 ♡ ✦ ☘" value={draft.stickers?.join(' ') ?? ''} onChange={event => patch({ stickers: event.target.value.split(' ').slice(0, 16) })} /></label>}
       {kind === 'gift' && <label>礼物照片<input type="file" accept="image/*" disabled={working} onChange={event => {
         const file = event.target.files?.[0];
@@ -130,15 +157,30 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
     </form>}
     {!rows.length && <p className="couple-muted">这里还没有记录。</p>}
     {rows.map(item => {
-      const sealed = kind === 'capsule' && !!item.unlockDate && !item.opened;
+      const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
+      const sealed = state === 'ready' || state === 'sealed';
       return <article className="couple-card" key={item.id} id={`bond-entry-${item.id}`}>
         <small>{item.date} · {names[item.side]}{item.pinned ? ' · 置顶' : ''}</small>
         <h3>{item.title}</h3>
-        {sealed ? <><p>{item.unlockDate} 开启</p><button onClick={() => {
-          if (item.unlockDate! <= dayKey() || window.confirm('提前开启这封信？')) void run(() => save({ ...item, opened: true }));
-        }}>{item.unlockDate! <= dayKey() ? '拆封' : '提前拆封'}</button><button onClick={() => {
-          if (window.confirm('删除这封尚未拆开的信？')) void run(() => change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) })));
-        }}>删除</button></> : <>
+        {state && <span className="couple-status" data-state={state}>
+          {state === 'ready' ? '可以拆封' : state === 'sealed' ? '封存中' : item.openedEarly ? '提前拆封' : '已拆封'}
+        </span>}
+        {sealed ? <>
+          <p>{item.unlockDate} 开启</p>
+          {earlyId === item.id ? <div className="couple-inline-confirm">
+            <p>现在打开会记为提前拆封。</p>
+            <div className="couple-actions"><button disabled={working} className="couple-primary" onClick={() => openCapsule(item.id, true)}>确认提前拆封</button>
+              <button onClick={() => setEarlyId(undefined)}>继续封存</button></div>
+          </div> : <div className="couple-actions">
+            <button className={state === 'ready' ? 'couple-primary' : undefined} disabled={working}
+              onClick={() => state === 'ready' ? openCapsule(item.id, false) : setEarlyId(item.id)}>
+              {state === 'ready' ? '拆封' : '提前拆封'}
+            </button>
+            <button disabled={working} onClick={() => {
+              if (window.confirm('删除这封尚未拆开的信？')) void run(() => change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) })));
+            }}>删除</button>
+          </div>}
+        </> : <>
           {item.image && <TokenImg value={item.image} alt={item.title} className="couple-record-image" />}
           <p>{item.body}</p>
           {item.stickers?.some(Boolean) && <div className="couple-stickers" aria-label="日记贴纸">
@@ -175,7 +217,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
                 if (reply?.trim()) void run(() => save({ ...item, reply: reply.trim() }));
               } else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }));
             }}>{item.reply ? '重写回信' : '回信'}</button>}
-            {kind === 'mail' && share && <button disabled={working} onClick={() => void run(() => share(`【时光信箱】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`))}>分享到私聊</button>}
+            {(kind === 'mail' || kind === 'capsule') && share && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
             <button disabled={working} onClick={() => {
               if (window.confirm('删除这条记录？')) void run(() => change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) })));
             }}>删除</button>

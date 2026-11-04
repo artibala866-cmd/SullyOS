@@ -4,7 +4,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CouplesSpaceApp from '../apps/CouplesSpaceApp';
-import { careForPlant, createBond, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
+import { capsuleDate, capsuleStatus, careForPlant, createBond, createEntry, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
 import { couplesChatContext } from './couplesChat';
 import { DB } from './db';
 import type { CharacterProfile } from '../types';
@@ -107,6 +107,41 @@ describe('情侣空间', () => {
     expect((await readBond(ids)).points.shared).toBe(40);
     expect((await readBond([...ids].reverse())).relation).toBe('friend');
     expect(await readBond(['partner-a'])).toBeUndefined();
+  });
+
+  it('keeps a sealed capsule private until it is opened, then shares it as a capsule', async () => {
+    const note = createEntry('capsule', '一起去看海', '封存中的正文');
+    await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open',
+      entries: [{ ...note, unlockDate: capsuleDate(1) }],
+    }));
+    await render();
+    await click('时间胶囊');
+    expect(element.textContent).not.toContain(note.body);
+    expect(findButton('分享到私聊')).toBeUndefined();
+    await click('提前拆封');
+    await click('确认提前拆封');
+    await waitFor(() => expect(element.textContent).toContain(note.body));
+    await click('分享到私聊');
+    await waitFor(() => expect(openApp).toHaveBeenCalledWith('chat'));
+    const message = (await DB.getRecentMessagesByCharId('partner-a', 20)).find(item => item.content.includes(note.body));
+    expect(message?.metadata.couplesSpace.label).toBe('时间胶囊');
+    expect((await readBond(['partner-a'])).entries[0].openedEarly).toBe(true);
+  });
+
+  it('clamps the calendar shortcut and detects capsules due today', () => {
+    expect(capsuleDate(1, new Date(2026, 0, 31))).toBe('2026-02-28');
+    const note = { ...createEntry('capsule', '信', '正文'), unlockDate: '2026-02-28' };
+    expect(capsuleStatus(note, '2026-02-27')).toBe('sealed');
+    expect(capsuleStatus(note, '2026-02-28')).toBe('ready');
+    expect(capsuleStatus({ ...note, opened: true }, '2026-02-28')).toBe('opened');
+  });
+
+  it('makes relationship-specific cards available only in the matching shop', () => {
+    const card = shopCards.find(item => item.id === 'praise')!;
+    const bond = reward(createBond(['partner-a'], 'family'), 'start', card.price);
+    expect(exchangeCard(bond, card, 'me').bags.me[card.id]).toBe(1);
+    expect(() => exchangeCard({ ...bond, relation: 'friend' }, card, 'me')).toThrow();
   });
 
   it('enforces the plant decay window and makes disabled cards invisible in chat', () => {
