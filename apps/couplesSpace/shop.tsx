@@ -18,8 +18,9 @@ export const bondAchievements = (bond: Bond, days: number) => [
   { title: '隐藏成就', count: bond.plant.careCount, goal: 30, secret: '一起种春天' },
 ];
 
-export function BondShop({ bond, partner, change, generate, share, busy }: {
+export function BondShop({ bond, partner, change, generate, share, busy, notify }: {
   bond: Bond; partner: string; change: ChangeBond; generate: Generate; share: (content: string, label: string, deliveryId?: string) => Promise<void>; busy: boolean;
+  notify?: (message: string) => void;
 }) {
   const [tab, setTab] = useState<keyof typeof tabs>('shop');
   const today = useLocalDateKey();
@@ -38,7 +39,11 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
     operationRef.current = true;
     setError('');
     setWorking(true);
-    try { await task(); } catch (e) { setError(e instanceof Error ? e.message : '操作失败'); }
+    try { await task(); } catch (e) {
+      const message = e instanceof Error ? e.message : '操作失败';
+      setError(message);
+      notify?.(message);
+    }
     finally { operationRef.current = false; setWorking(false); }
   };
   const apply = (update: (current: Bond) => Bond) => void run(() => change(update));
