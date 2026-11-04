@@ -16,9 +16,10 @@ function Screen(){
      const rect=cover?.getBoundingClientRect(),btn=picker?.getBoundingClientRect(),open=requested==='expanded';
      let chosen=false;
      if(open&&picker){const input=document.querySelector<HTMLInputElement>('input[type=file]')!;input.click=()=>{chosen=true};picker.click();}
-     const ok=!!(rect&&btn&&main&&(open?expanded&&rect.height>main.clientHeight*.72&&!picker.disabled&&chosen:!expanded&&Math.abs(rect.height-256)<2&&picker.disabled));
+     const isExpanded=cover?.dataset.expanded==='true';
+     const ok=!!(rect&&btn&&main&&(open?isExpanded&&rect.height>main.clientHeight*.72&&!picker.disabled&&chosen:!isExpanded&&Math.abs(rect.height-256)<2&&picker.disabled));
      document.body.dataset.ready=String(ok);
-     document.querySelector('output')!.textContent=JSON.stringify({ok,requested,expanded,coverHeight:Math.round(rect?.height||0),mainHeight:main?.clientHeight,pickerDisabled:picker?.disabled,pickerClicked:chosen});
+     document.querySelector('output')!.textContent=JSON.stringify({ok,requested,expanded:isExpanded,coverHeight:Math.round(rect?.height||0),mainHeight:main?.clientHeight,pickerDisabled:picker?.disabled,pickerClicked:chosen});
    },1200);
    return()=>{clearTimeout(first);clearTimeout(second)};
  },[expanded]);
