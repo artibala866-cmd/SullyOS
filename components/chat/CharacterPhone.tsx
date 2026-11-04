@@ -28,6 +28,7 @@ import PullToRefresh from './PullToRefresh';
 import MomentsCover from './MomentsCover';
 import PhoneChatBubbles from './PhoneChatBubbles';
 import PhoneWeChatPayCards from './PhoneWeChatPayCards';
+import PhoneWeChatServiceFeed,{resolvePhoneServiceFeedKind} from './PhoneWeChatServiceFeed';
 import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
 import { PENDING_PHONE_CONTACTS_CHANGED, readPendingContacts, writePendingContacts, type PendingPhoneContact } from '../../utils/characterPhoneRequests';
@@ -529,10 +530,10 @@ ${phoneTimeGuidance}
 已有会话：${JSON.stringify(existing).slice(0,6500)}
 已确认联系人：${JSON.stringify(profiles.map(p=>({id:p.id,nickname:p.nickname||p.name,realName:p.realName,identity:p.identity,relationship:p.relationship,personality:p.personality}))).slice(0,6500)}
 这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，根据偏好 chatDensity 设置消息数量：compact 每条会话1-3条、normal 2-5条、rich 4-9条。手动生成可适量包含更多类型的会话，背景刷新要节制。只有生活情境需要时才新增联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知、公众号和服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
-当 officialAccounts=true 时，允许1~3条贴合人物的公众号、服务号、物流、工作学校、微信支付等官方信息；使用kind=service，服务号不属于Char的NPC朋友圈，不许捏造真实新闻内容。officialAccounts=false时不生成服务号。
+当 officialAccounts=true 时，允许1~3条贴合人物的公众号、服务号、物流、工作学校、微信支付等官方信息；使用kind=service，并为该会话提供 accountType:官方内容资讯类公众号填official、生活服务通知类服务号填service。服务号不属于Char的NPC朋友圈，不许捏造真实新闻内容。officialAccounts=false时不生成服务号。
 当 paymentNotices=true 时，可新增0~3笔符合角色生活和经济状况的【虚构】微信支付消费。paymentNotices=false则payments为空数组。不能编造User实际转账或收款，不得从日程计划推断已付款，不得造重大金额。退款暂不生成。payments字段每笔 {"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"Char自己的消费"}，amount必须为0到5000的人民币正数。系统会自动将它记入微信支付通知及虚构账单，千万不要再在threads里重复写相同消费通知。
 ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶层 moments:{"npcPosts":[{"authorId":"已知联系人稳定ID","text":"新动态","comments":[{"authorId":"与作者确实认识的现有联系人ID或CharID","text":"独立评论"}]}],"charPost":{"publish":false,"text":""}}。只可让现有 NPC 和 Char 根据性格、已发生事件决定发不发；不能写 User 帖子。最多3条NPC贴、每条2条评论，Char可以不发。最近已有动态避免重复：${JSON.stringify(readCharacterMoments(characterId).slice(0,10).map(p=>({authorId:p.authorId,text:p.text.slice(0,120)}))).slice(0,1800)}。同一JSON内附上 moments，不可拆成多个响应；不新增单独 API 调用。${momentImage?.text || ''}` : ''}
-严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}],"payments":[{"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"具体消费"}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
+严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","accountType":"official|service（仅kind=service时）","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}],"payments":[{"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"具体消费"}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
           {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'+(fullSuite?' 同一轮顺便根据现有熟人关系生成可选朋友圈 moments；不强求发帖。':'')}
         ]})
       }, { charId: characterId, purpose: '微信收件箱批量更新', automatic: automatic });
@@ -586,7 +587,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         const fresh=messages.filter(m=>{const k=m.speaker?.role+'|'+m.text.trim();if(seen.has(k))return false;seen.add(k);return true;});
         if(!fresh.length)continue;
         const updatedThread: ChatRecord = {id:existingRecord?.id||crypto.randomUUID(),contactId:id,
-          kind:item.kind,name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),
+          kind:item.kind,
+          serviceType:item.kind==='service'
+            ?(item.accountType==='official'||item.accountType==='service'?item.accountType
+              :/公众号|订阅号/.test(String(item.identity||''))?'official'
+              :/服务号/.test(String(item.identity||''))?'service'
+              :existingRecord?.serviceType)
+            :undefined,
+          name:linked?.remark||linked?.nickname||linked?.name||item.nickname.trim().slice(0,40),
           preview:fresh[fresh.length-1].text,time:now,messages:[...(existingRecord?.messages||[]),...fresh]};
         if (alreadyIncoming) incoming[incoming.indexOf(alreadyIncoming)] = updatedThread;
         else incoming.push(updatedThread);
@@ -836,6 +844,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
   const isWechatPayThread = screen === 'thread' && !isPrivateThread &&
     !!active && (active.contactId === 'service:微信支付' ||
       (active.kind === 'service' && active.name === '微信支付'));
+  const isServiceFeedThread = screen==='thread' && !isPrivateThread &&
+    !!active && !isWechatPayThread &&
+    (active.kind==='service'||active.contactId?.startsWith('service:'));
   // Read-only life side: recorded facts, never a chat reply or a planned schedule slot.
   const confirmedLifeGlimpses = selectConfirmedLifeGlimpses(lifeEvents, characterId);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
@@ -875,7 +886,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
-          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => {setWechatSearchOpen(v=>!v);setWechatQuery('');}}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : isWechatPayThread ? <div aria-hidden="true" className="flex items-center gap-4 text-[#242424]"><MagnifyingGlass size={21}/><GearSix size={23}/></div> : <span className="w-6"/>}
+          {screen === 'wechat' && tab === 'chats' ? <div className="flex gap-4"><button type="button" aria-label="搜索聊天" onClick={() => {setWechatSearchOpen(v=>!v);setWechatQuery('');}}><MagnifyingGlass size={23}/></button><button type="button" aria-label="批量更新微信消息" disabled={busy || sharedWechatRefreshing} onClick={() => void generateInbox()}>{busy || sharedWechatRefreshing ? <SpinnerGap size={24} className="animate-spin"/> : <Plus size={25}/>}</button></div> : isWechatPayThread ? <div aria-hidden="true" className="flex items-center gap-4 text-[#242424]"><MagnifyingGlass size={21}/><GearSix size={23}/></div> : isServiceFeedThread ? <div aria-hidden="true" className="flex items-center gap-4 text-[#242424]"><MagnifyingGlass size={22}/><User size={23}/></div> : <span className="w-6"/>
         </header>}
       <main className={'min-h-0 flex-1 '+(screen==='home'?'overflow-hidden':'overflow-y-auto')}>
         {error && <div role="alert" className="bg-amber-50 px-4 py-2 text-xs text-amber-700">{error}<button className="ml-3 underline" onClick={() => setError('')}>关闭</button></div>}
@@ -937,6 +948,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && (isWechatPayThread
           ? <PhoneWeChatPayCards messages={active?.messages||[]}/>
+          : isServiceFeedThread&&active ? <PhoneWeChatServiceFeed messages={active.messages} name={active.name} kind={resolvePhoneServiceFeedKind(active)}/>
           : <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>) }
         {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white">
           <MomentsCover key={characterId} name={name} avatar={phoneAvatar} cover={phoneAppearance.momentsCover}
