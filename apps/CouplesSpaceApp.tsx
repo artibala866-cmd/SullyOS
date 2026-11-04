@@ -556,7 +556,10 @@ export default function CouplesSpaceApp() {
           </section>
         </>}
         {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
-          names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} />}
+          names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy}
+          avatarMe={isPair ? char.avatar : userProfile.avatar} avatarThem={(other ?? char).avatar}
+          charId={!isPair ? char.id : undefined}
+          onNativeJournal={!isPair ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
           <div className="couple-achievement-cover">
