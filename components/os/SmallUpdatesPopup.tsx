@@ -33,7 +33,7 @@ export default function SmallUpdatesPopup({ onDone }: { onDone: () => void }) {
     return <dialog ref={dialog} className="small-updates" aria-labelledby="small-updates-title"
         onCancel={event => { event.preventDefault(); photo === null ? close() : setPhoto(null); }}>
         <header className="small-updates-header">
-            <span>糯米机 · 近期小更新</span>
+            <span>宝宝狗 · 近期小更新</span>
             <button type="button" aria-label={photo === null ? '关闭更新说明' : '返回更新说明'} onClick={() => photo === null ? close() : setPhoto(null)}><X size={20} /></button>
         </header>
         <div ref={content} className="small-updates-body">
@@ -63,7 +63,7 @@ export default function SmallUpdatesPopup({ onDone }: { onDone: () => void }) {
                     <span>{item.label}<span><MagnifyingGlassPlus size={15} /> 放大对比</span></span>
                 </button>)}</div>
                 <section><h3>喜欢这张照片，记得主动保存</h3>
-                    <p>拍照和编辑中的图片只是临时内容。确认发送后会留在糯米机的聊天与相册里，<strong>不会自动存进手机系统相册</strong>。想留在手机里，请打开大图手动保存。</p>
+                    <p>拍照和编辑中的图片只是临时内容。确认发送后会留在宝宝狗的聊天与相册里，<strong>不会自动存进手机系统相册</strong>。想留在手机里，请打开大图手动保存。</p>
                 </section>
                 <p className="small-updates-caption">背景照片、角色立绘与 Live2D 模型请遵守各自作者的授权；示例展示不代表附带素材使用授权。<a href={`${import.meta.env.BASE_URL}licenses/camera.html`} target="_blank" rel="noopener noreferrer">查看内置素材与组件许可</a></p>
             </> : <>
