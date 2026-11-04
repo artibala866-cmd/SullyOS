@@ -162,6 +162,8 @@ export const shopCards: Card[] = [
 export const cardMatchesRelation = (card: Card, relation: Relation) => !card.relation || card.relation === relation;
 
 export function exchangeCard(bond: Bond, card: Card, side: Side): Bond {
+  if (!Number.isSafeInteger(card.price) || card.price < 1 || card.price > 10_000)
+    throw new Error('卡片价格无效');
   if (!cardMatchesRelation(card, bond.relation) || bond.disabledCards || bond.hidden.includes(card.id) || (side === 'them' && !card.charUse))
     throw new Error('这张卡当前不可兑换');
   if (bond.points[side] < card.price) throw new Error('积分不足');
