@@ -53,7 +53,7 @@ function upcomingDate(date: string, today: string) {
 function elapsedDate(start: string, today: string) {
   const a = new Date(start + 'T12:00:00').getTime();
   const b = new Date(today + 'T12:00:00').getTime();
-  return Number.isFinite(a) && Number.isFinite(b) ? Math.max(1, Math.round((b-a)/86400000)+1) : 1;
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.max(0, Math.round((b-a)/86400000)+1) : 0;
 }
 type CoupleSceneProps = {
   kind: EntryKind; bond: Bond; names: Record<Side,string>; rows: Entry[]; today: string;
