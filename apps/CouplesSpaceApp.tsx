@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CaretLeft, CaretRight, ArrowRight, GearSix, HandHeart, Heart, Medal, Users } from '@phosphor-icons/react';
+import { ArrowLeft, CaretLeft, CaretRight, ArrowRight, GearSix, HandHeart, Heart, Users } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { avatarTouchPartLabel, resolveAvatarTouchTarget } from '../utils/avatarTouch';
@@ -563,15 +563,22 @@ export default function CouplesSpaceApp() {
         {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
           names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} />}
-        {panel === 'achievements' && bondAchievements(bond, days).map((item, index) => <div className="couple-achievement" key={item.title}>
+        {panel === 'achievements' && <section className="couple-achievement-hall">
+          <div className="couple-achievement-cover">
+            <span>THE LITTLE MILESTONES</span>
+            <div><strong>{bondAchievements(bond, days).filter(item => item.count >= item.goal).length}<small> / {bondAchievements(bond, days).length}</small></strong>
+            <p>每个小小的里程碑，都是你们一起走过的证明。</p></div>
+          </div>
+        {bondAchievements(bond, days).map((item, index) => <div className="couple-achievement" key={item.title}>
           <div className="couple-achievement-copy">
             <small>{String(index + 1).padStart(2, '0')} / ACHIEVEMENT</small>
             <strong>{item.count >= item.goal ? item.secret ?? item.title : item.title}</strong>
             <small>{item.secret && item.count < item.goal ? '等待发现' : `${Math.min(item.count, item.goal)} / ${item.goal}`}</small>
           </div>
-          <Medal size={30} weight={item.count >= item.goal ? 'fill' : 'thin'} />
+          <span className="couple-achievement-value">{Math.min(item.count, item.goal)} <small>/ {item.goal}</small></span>
           <div className="couple-achievement-track"><span style={{ width: `${Math.min(100, Math.round(item.count / Math.max(1,item.goal) * 100))}%` }} /></div>
         </div>)}
+        </section>}
         {panel === 'plant' && <section className="couple-plant-room">
           <div className="couple-plant-header"><span>OUR LITTLE GARDEN</span><strong>一起把春天养大</strong></div>
           <div className={'couple-plant-scene couple-plant-stage-' + plantStage(bond.plant)}>
@@ -631,7 +638,12 @@ export default function CouplesSpaceApp() {
           </div>
         </section>}
         {panel === 'touch' && <TouchPanel key={key} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />}
-        {panel === 'settings' && <section className="couple-card">
+        {panel === 'settings' && <section className="couple-settings">
+          <div className="couple-settings-preview">
+            {bond.cover ? <TokenImg value={bond.cover} alt="当前空间封面" /> : <div className="couple-settings-cover-blank"><span>OUR SPACE</span><strong>{names.me} &amp; {names.them}</strong></div>}
+            <span>SPACE / CUSTOMIZE</span>
+          </div>
+          <div className="couple-settings-group-heading"><span>01</span><strong>关系与纪念</strong></div>
           <label>羁绊类型<select value={bond.relation} disabled={busy} onChange={event => {
             const next = event.target.value as Relation;
             void run(() => change(current => ({ ...current, relation: next })));
@@ -644,6 +656,7 @@ export default function CouplesSpaceApp() {
             const start = event.target.value;
             if (start) void run(() => change(current => ({ ...current, start })));
           }} /></label>
+          <div className="couple-settings-group-heading"><span>02</span><strong>空间封面</strong></div>
           <label className="couple-file"><span>选择本地封面</span>
             <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'cover')} />
           </label>
@@ -686,6 +699,7 @@ export default function CouplesSpaceApp() {
               if (zoom !== bond.zoom) void run(() => change(current => ({ ...current, zoom })));
             }} /></label>
           </>}
+          <div className="couple-settings-group-heading"><span>03</span><strong>空间管理</strong></div>
           <div className="couple-actions">
             <button disabled={busy} onClick={() => { setPanel(undefined); if (isPair) setPair([]); else setPairs(true); }}>{isPair ? '更换配对' : '他们的空间'}</button>
             <button disabled={busy} onClick={() => {
