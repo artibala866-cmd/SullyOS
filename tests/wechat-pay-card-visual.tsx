@@ -27,7 +27,8 @@ createRoot(document.getElementById('root')!).render(
   <main id="wechat-pay-scroll" className="min-h-0 flex-1 overflow-y-auto">
    <PhoneWeChatPayCards messages={messages}/>
   </main>
-  <nav className="grid h-[56px] shrink-0 grid-cols-3 items-center border-t border-[#ddd] bg-[#fafafa] text-center text-[14px]">
+  <nav className="grid h-[56px] shrink-0 grid-cols-[48px_repeat(3,minmax(0,1fr))] items-center border-t border-[#ddd] bg-[#fafafa] text-center text-[14px]">
+    <span className="flex justify-center border-r border-[#ddd]"><span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#444] text-[17px]">⌨</span></span>
     <span className="border-r border-[#ddd]">我的账单</span><span className="border-r border-[#ddd]">支付服务</span><span>优惠</span>
   </nav>
  </div>
