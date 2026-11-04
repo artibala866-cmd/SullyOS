@@ -60,21 +60,29 @@ const openPage = async () => {
 const inspectExpression = `(() => {
   const dog = document.querySelector('.sully-lineart');
   const canvas = document.querySelector('.sully-lineart-canvas');
+  const badge = document.querySelector('.sully-lineart-badge');
   const label = document.querySelector('.sully-boot-side-label');
   const caption = document.querySelector('.sully-boot-welcome');
   const root = document.querySelector('.sully-boot');
-  if (!dog || !canvas || !label || !caption || !root) return null;
+  if (!dog || !canvas || !badge || !label || !caption || !root) return null;
   const bounds = dog.getBoundingClientRect();
   const rgba = canvas.getContext('2d').getImageData(0, 0, 512, 512).data;
   let ink = 0;
   for (let y = 115; y < 390; y += 4) for (let x = 100; x < 420; x += 4) {
     if (rgba[(y * 512 + x) * 4 + 3] > 120) ink++;
   }
+  const badgePixelData = badge.getContext('2d').getImageData(0,0,512,512).data;
+  let badgeInk = 0;
+  for(let y=125; y<243; y+=3) for(let x=205; x<341; x+=3) {
+    if (badgePixelData[(y*512+x)*4+3] > 120) badgeInk++;
+  }
   const svg = document.querySelector('.sully-lineart-features');
   return {
     ready: dog.dataset.lineReady === 'true',
     white: getComputedStyle(root).backgroundColor === 'rgb(255, 255, 255)',
     ink,
+    badgeInk,
+    badgeTransform: getComputedStyle(badge).transform,
     width: bounds.width,
     expression: dog.dataset.expression,
     mirrored: dog.dataset.mirrored === 'true',
@@ -120,7 +128,8 @@ try {
       });
       const first = await waitForState(page, s => s.ready && s.ink > 250,
         'original dog ink available');
-      assert(first.white && first.zoomRunning, 'Original drawing must zoom on white');
+      assert(first.white && first.zoomRunning && first.badgeInk > 40,
+        'Original drawing and 100% badge must survive line extraction');
       await page.shot('baby-dog-' + variant + '-entry.png');
 
       const blink1 = await waitForState(page, s => s.expression === 'blink',
