@@ -41,7 +41,10 @@ it('shows an actual saved query as a visual card, with insights and verification
     api={{baseUrl:'',apiKey:'',model:''}}
   />);});
   expect(container.querySelector('[aria-label="搜索记录图文封面"]')).not.toBeNull();
-  expect(container.textContent).toContain('搜索记录预览');
+  expect(container.textContent).toContain('百度');
+  expect(container.textContent).toContain('网页');
+  expect(container.textContent).not.toContain('卡片直接展示');
+  expect(container.textContent).not.toContain('这里展示保存的搜索词');
   expect(container.textContent).toContain('想了解');
   expect(container.textContent).toContain('心声');
   expect(container.textContent).not.toContain('记录缩略预览');
