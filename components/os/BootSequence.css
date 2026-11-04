@@ -35,12 +35,15 @@
 }
 .sully-lineart[data-mirrored='true'] .sully-lineart-flip { transform: scaleX(-1); }
 /* 原画圆章随头左右移动，内部「100%笨蛋」文字抵消镜像，始终正向。 */
-.sully-lineart[data-mirrored='true'] .sully-lineart-badge {
+.sully-lineart[data-mirrored='true'] .sully-lineart-badge,
+.sully-lineart[data-mirrored='true'] .sully-lineart-sticker {
   transform: translateX(7.03%) scaleX(-1);
 }
 .sully-lineart-canvas,
 .sully-lineart-badge,
-.sully-lineart-features {
+.sully-lineart-features,
+.sully-lineart-tongue,
+.sully-lineart-sticker {
   position: absolute;
   inset: 0;
   display: block;
