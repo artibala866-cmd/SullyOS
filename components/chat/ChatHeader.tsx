@@ -20,7 +20,6 @@ interface ChatHeaderProps {
     onCancelSelection: () => void;
     activeCharacter: CharacterProfile;
     isTyping: boolean;
-    isSummarizing: boolean;
     isEmotionEvaluating?: boolean;
     lastTokenUsage: number | null;
     tokenBreakdown?: TokenBreakdown | null;
@@ -54,7 +53,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     onCancelSelection,
     activeCharacter,
     isTyping,
-    isSummarizing,
     isEmotionEvaluating,
     lastTokenUsage,
     tokenBreakdown,

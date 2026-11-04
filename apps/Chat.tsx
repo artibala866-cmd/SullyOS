@@ -28,7 +28,6 @@ import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
 import { processImageToBlob } from '../utils/file';
-import { safeResponseJson, extractContent } from '../utils/safeApi';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
 import TokenImg from '../components/os/TokenImg';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
@@ -38,7 +37,7 @@ import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { generateSlotTheater } from '../utils/theaterGenerator';
 import TheaterPlayer from '../components/schedule/TheaterPlayer';
-import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, getVoiceTranscript, normalizeMessageContent } from '../utils/messageFormat';
+import { getVoiceTranscript, normalizeMessageContent } from '../utils/messageFormat';
 import { getRoomLabel } from '../utils/memoryPalace/types';
 import { XhsMcpClient, extractNotesFromMcpData, normalizeXhsLiteDetail } from '../utils/xhsMcpClient';
 import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsShareTitle, isXhsUrl, extractXhsNoteLink, expandShortUrl, type ExtractedWebpage } from '../utils/webpageExtractor';
@@ -56,7 +55,7 @@ import McdMiniApp from '../components/mcd/McdMiniApp';
 import LuckinMiniApp from '../components/luckin/LuckinMiniApp';
 import LuckinLocationModal from '../components/luckin/LuckinLocationModal';
 import LuckinHelpModal from '../components/luckin/LuckinHelpModal';
-import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
+import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import { resolveChatTheme } from '../utils/groupChat/theme';
 import { BLACK_WHITE_FACEBOOK_CSS, formatBlackWhiteTime, isBlackWhiteFacebookTheme, shouldStartBlackWhiteTimeGroup } from '../utils/blackWhiteFacebookTheme';
 import { isBuiltInWechatTheme, WECHAT_BUBBLE_CSS } from '../utils/wechatBubbleTheme';
@@ -344,7 +343,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
 
-    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'archive-legacy-warning' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block'>('none');
+    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block'>('none');
     // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
     const [decorationTab, setDecorationTab] = useState<DecorationTab>('layout');
     // 切换角色时收掉装扮气泡：定制是 per-character 的，避免误改到下一个角色
@@ -410,15 +409,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [selectedEmoji, setSelectedEmoji] = useState<Emoji | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<EmojiCategory | null>(null); // For deletion modal
     const [editContent, setEditContent] = useState('');
-    const [isSummarizing, setIsSummarizing] = useState(false);
-    const [archiveProgress, setArchiveProgress] = useState('');
     const [showActiveMsg2Modal, setShowActiveMsg2Modal] = useState(false);
     const [showThinkingChainModal, setShowThinkingChainModal] = useState(false);
-
-    // Archive Prompts State
-    const [archivePrompts, setArchivePrompts] = useState<{id: string, name: string, content: string}[]>(DEFAULT_ARCHIVE_PROMPTS);
-    const [selectedPromptId, setSelectedPromptId] = useState<string>('preset_rational');
-    const [editingPrompt, setEditingPrompt] = useState<{id: string, name: string, content: string} | null>(null);
 
     // --- Multi-Select State ---
     const [selectionMode, setSelectionMode] = useState(false);
@@ -1417,19 +1409,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     }, [modalType, activeCharacterId]);
 
     useEffect(() => {
-        const savedPrompts = localStorage.getItem('chat_archive_prompts');
-        if (savedPrompts) {
-            try {
-                const parsed = JSON.parse(savedPrompts);
-                const merged = [...DEFAULT_ARCHIVE_PROMPTS, ...parsed.filter((p: any) => !p.id.startsWith('preset_'))];
-                setArchivePrompts(merged);
-            } catch(e) {}
-        }
-        const savedId = localStorage.getItem('chat_active_archive_prompt_id');
-        if (savedId && archivePrompts.some(p => p.id === savedId)) setSelectedPromptId(savedId);
-    }, []);
-
-    useEffect(() => {
         if (activeCharacterId) {
             reloadMessages(visibleCountRef.current);
             clearUnread(activeCharacterId);
@@ -1592,10 +1571,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 基线只增不减：翻旧历史让末尾 ID 变小时不下调，返回底部也不会重复触发。
         sync.maxId = sync.maxId == null ? lastId : Math.max(sync.maxId, lastId);
     }, [messages, activeCharacterId, osTheme.chatChromeCustomCss, osTheme.chatSound, char?.chromeCustomCss, char?.chatSound]);
-
-    const formatTime = (ts: number) => {
-        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    };
 
     // --- Actions ---
 
@@ -2177,7 +2152,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // 只统计「打开某个面板 / 开关某个能力」这几个固定入口，名单写死在这里；
         // 选表情、选分类之类的动作不上报。
         if ([
-            'transfer', 'archive', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
+            'transfer', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
             'meetup', 'proactive', 'active-msg-2', 'schedule', 'life-pacing', 'mcd-request', 'luckin-request',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
@@ -2200,7 +2175,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 handleSendText('[戳一戳]', 'interaction', suffix ? {pokeSuffix:suffix} : undefined);
                 break;
             }
-            case 'archive': setModalType(char?.memoryPalaceEnabled ? 'archive-legacy-warning' : 'archive-settings'); break;
             case 'settings': setModalType('chat-settings'); break;
             case 'chrome-css': setShowPanel('none'); setDecorationTab('library'); setModalType('chrome-css'); break;
             case 'chrome-sound': setShowPanel('none'); setDecorationTab('sound'); setModalType('chrome-css'); break;
@@ -2773,58 +2747,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         addToast(allowedCharacterIds ? `已设置 ${allowedCharacterIds.length} 个角色可见` : '已设为所有角色可见', 'success');
     };
 
-    const handleSavePrompt = () => {
-        if (!editingPrompt || !editingPrompt.name.trim() || !editingPrompt.content.trim()) {
-            addToast('请填写完整', 'error');
-            return;
-        }
-        setArchivePrompts(prev => {
-            let next;
-            if (prev.some(p => p.id === editingPrompt.id)) {
-                next = prev.map(p => p.id === editingPrompt.id ? editingPrompt : p);
-            } else {
-                next = [...prev, editingPrompt];
-            }
-            const customOnly = next.filter(p => !p.id.startsWith('preset_'));
-            localStorage.setItem('chat_archive_prompts', JSON.stringify(customOnly));
-            return next;
-        });
-        setSelectedPromptId(editingPrompt.id);
-        setModalType('archive-settings');
-        setEditingPrompt(null);
-    };
-
-    const handleDeletePrompt = (id: string) => {
-        if (id.startsWith('preset_')) {
-            addToast('默认预设不可删除', 'error');
-            return;
-        }
-        setArchivePrompts(prev => {
-            const next = prev.filter(p => p.id !== id);
-            const customOnly = next.filter(p => !p.id.startsWith('preset_'));
-            localStorage.setItem('chat_archive_prompts', JSON.stringify(customOnly));
-            return next;
-        });
-        if (selectedPromptId === id) setSelectedPromptId('preset_rational');
-        addToast('预设已删除', 'success');
-    };
-
-    const createNewPrompt = () => {
-        setEditingPrompt({ id: `custom_${Date.now()}`, name: '新预设', content: DEFAULT_ARCHIVE_PROMPTS[0].content });
-        setModalType('prompt-editor');
-    };
-
-    const editSelectedPrompt = () => {
-        const p = archivePrompts.find(a => a.id === selectedPromptId);
-        if (!p) return;
-        if (p.id.startsWith('preset_')) {
-            setEditingPrompt({ id: `custom_${Date.now()}`, name: `${p.name} (Copy)`, content: p.content });
-        } else {
-            setEditingPrompt({ ...p });
-        }
-        setModalType('prompt-editor');
-    };
-
     const handleBgUpload = async (file: File) => {
         try {
             // 改存 Blob：原画质不重绘，二进制进 blob_assets，字段只存 blobref 令牌
@@ -3235,138 +3157,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         requestAnimationFrame(() => {
             scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
         });
-    };
-
-    const handleFullArchive = async () => {
-        if (!apiConfig.apiKey || !char) {
-            addToast('请先配置 API Key', 'error');
-            return;
-        }
-        const allMessages = await DB.getMessagesByCharId(char.id, true);
-        const msgsByDate: Record<string, Message[]> = {};
-        allMessages
-        .filter(m => !char.hideBeforeMessageId || m.id >= char.hideBeforeMessageId)
-        .forEach(m => {
-            const d = new Date(m.timestamp);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            if (!msgsByDate[dateStr]) msgsByDate[dateStr] = [];
-            msgsByDate[dateStr].push(m);
-        });
-
-        const datesToProcess = Object.keys(msgsByDate).sort();
-        if (datesToProcess.length === 0) {
-            addToast('聊天记录为空，无法归档', 'info');
-            return;
-        }
-
-        setIsSummarizing(true);
-        setShowPanel('none');
-        setArchiveProgress(`准备归档 ${datesToProcess.length} 天...`);
-        addToast(`开始归档 ${datesToProcess.length} 天聊天记录`, 'info');
-        trackEvent('归档聊天记录');
-
-        try {
-            let processedCount = 0;
-            const newMemories: MemoryFragment[] = [];
-            const templateObj = archivePrompts.find(p => p.id === selectedPromptId) || DEFAULT_ARCHIVE_PROMPTS[0];
-            const template = templateObj.content;
-
-            for (let idx = 0; idx < datesToProcess.length; idx++) {
-                const dateStr = datesToProcess[idx];
-                setArchiveProgress(`归档中 ${dateStr} (${idx + 1}/${datesToProcess.length})`);
-                const dayMsgs = msgsByDate[dateStr];
-                const rawLog = dayMsgs
-                    .map(m => formatMessageWithTime(m, char.name, userProfile.name, formatTime))
-                    .join('\n');
-                
-                let prompt = template;
-                const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(rawLog);
-                if (sarMemoryBoundary) prompt = `${sarMemoryBoundary}\n\n${prompt}`;
-                prompt = prompt.replace(/\$\{dateStr\}/g, dateStr);
-                prompt = prompt.replace(/\$\{char\.name\}/g, char.name);
-                prompt = prompt.replace(/\$\{userProfile\.name\}/g, userProfile.name);
-                prompt = prompt.replace(/\$\{rawLog.*?\}/g, rawLog.substring(0, 200000));
-
-                const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                    body: JSON.stringify({
-                        model: apiConfig.model,
-                        messages: [{ role: "user", content: prompt }],
-                        temperature: 0.5,
-                        max_tokens: 8000 
-                    })
-                });
-
-                if (!response.ok) throw new Error(`API Error on ${dateStr}`);
-                const data = await safeResponseJson(response);
-                let summary = extractContent(data);
-                summary = summary.replace(/^["']|["']$/g, '').trim();
-
-                if (summary) {
-                    newMemories.push({ id: `mem-${Date.now()}-${idx}`, date: dateStr, summary: summary, mood: 'archive' });
-                    processedCount++;
-                }
-                await new Promise(r => setTimeout(r, 500));
-            }
-
-            const total = datesToProcess.length;
-
-            if (processedCount === 0) {
-                addToast(`归档失败：${total} 天均未生成摘要（请检查 API/模型）`, 'error');
-                setModalType('none');
-            } else {
-                const finalMemories = [...(char.memories || []), ...newMemories];
-
-                // 关键修复：全量归档成功后把 hideBeforeMessageId 推到"倒数第 reserve 条"的位置。
-                // 不推的话下次再点归档，hideBefore 过滤没作用，之前已归档的几天会被重总结一遍，
-                // 往 char.memories 里堆重复条目。保留最近 max(100, 15%) 条不隐藏（和 palace
-                // auto-archive 的 hot-zone 概念对齐），这样聊天 UI 不会突然空掉。
-                //
-                // 部分失败时不推 hideBefore —— 那几天的原消息没写进 MemoryFragment，推了
-                // 就真的读不到了。用户下次重试归档会把失败的那几天补上。
-                let newHideBefore = char.hideBeforeMessageId;
-                let reservedCount = 0;
-                let hiddenCount = 0;
-                if (processedCount === total) {
-                    const allArchivedMsgs: Message[] = [];
-                    for (const d of datesToProcess) allArchivedMsgs.push(...msgsByDate[d]);
-                    allArchivedMsgs.sort((a, b) => a.id - b.id);
-                    const RESERVE = Math.max(100, Math.ceil(allArchivedMsgs.length * 0.15));
-                    if (allArchivedMsgs.length > RESERVE) {
-                        const candidate = allArchivedMsgs[allArchivedMsgs.length - RESERVE].id;
-                        // 只前进不后退
-                        if (!char.hideBeforeMessageId || candidate > char.hideBeforeMessageId) {
-                            newHideBefore = candidate;
-                            reservedCount = RESERVE;
-                            hiddenCount = allArchivedMsgs.length - RESERVE;
-                        }
-                    }
-                }
-
-                const updates: Partial<typeof char> = { memories: finalMemories };
-                if (newHideBefore !== char.hideBeforeMessageId) {
-                    (updates as any).hideBeforeMessageId = newHideBefore;
-                }
-                updateCharacter(char.id, updates as any);
-
-                const hideStr = hiddenCount > 0
-                    ? `（已隐藏 ${hiddenCount} 条旧消息，保留最近 ${reservedCount} 条可见）`
-                    : '';
-                if (processedCount < total) {
-                    addToast(`归档完成：${processedCount}/${total} 天成功（部分失败，下次再点会补上）`, 'info');
-                } else {
-                    addToast(`归档完成：成功归档 ${processedCount} 天${hideStr}`, 'success');
-                }
-                setModalType('none');
-            }
-
-        } catch (e: any) {
-            addToast(`归档中断: ${e.message}`, 'error');
-        } finally {
-            setIsSummarizing(false);
-            setArchiveProgress('');
-        }
     };
 
     useEffect(() => {
@@ -4061,7 +3851,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         // A focused but EMPTY input is not evidence the user is still typing.
         // Keeping focus after Send is normal on phones; do not wait for an extra tap.
         blocked: characterBlocksUser(char?.chatBlock) || messages.length === 0 || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
-            || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
+            || selectionMode || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showActiveMsg2Modal || showThinkingChainModal
             || mcdAppOpen || luckinAppOpen || showForwardModal,
         // Pending instant replies delay this user turn; they do not answer it.
@@ -4429,12 +4219,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 contextSuiteAllEnabled={contextSuiteAllEnabled}
                 onToggleContextSuite={handleToggleContextSuite}
                 editContent={editContent} setEditContent={setEditContent}
-                archivePrompts={archivePrompts} selectedPromptId={selectedPromptId} setSelectedPromptId={(id: string) => {
-                    setSelectedPromptId(id);
-                    // 同步写 localStorage，让 palace extraction 的风格追加能读到最新选择
-                    try { localStorage.setItem('chat_active_archive_prompt_id', id); } catch {}
-                }}
-                editingPrompt={editingPrompt} setEditingPrompt={setEditingPrompt} isSummarizing={isSummarizing} archiveProgress={archiveProgress}
                 selectedMessage={selectedMessage} selectedEmoji={selectedEmoji} activeCharacter={char} messages={messages}
                 allHistoryMessages={allHistoryMessages}
                 contextRangeSnapshot={historyContextRange}
@@ -4446,8 +4230,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 onTransfer={() => { if(transferAmt) handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' }); setTransferNote(''); setModalType('none'); }}
                 onImportEmoji={handleImportEmoji}
                 onSaveSettings={saveSettings}
-                onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }} onArchive={handleFullArchive}
-                onCreatePrompt={createNewPrompt} onEditPrompt={editSelectedPrompt} onSavePrompt={handleSavePrompt} onDeletePrompt={handleDeletePrompt}
+                onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }}
                 onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
                 onReplyMessage={handleReplyMessage} onEditMessageStart={() => { if (selectedMessage) { setEditContent(selectedMessage.content); setModalType('edit-message'); } }}
                 onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onCopyMessage={handleCopyMessage}
@@ -4556,7 +4339,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 presenceState={showSchedulePresence ? schedulePresence : undefined}
                 statusText={showSchedulePresence ? (schedulePresence === 'online' ? '在线' : '离线') : undefined}
                 isTyping={isTyping || instantChatPending}
-                isSummarizing={isSummarizing}
                 isEmotionEvaluating={emotionStatus === 'evaluating'}
                 isMemoryPalaceProcessing={!!memoryPalaceStatus}
                 memoryPalaceStatusText={memoryPalaceStatus}
@@ -5041,7 +4823,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     onImageSelect={handleImageSelect}
                     onAIGenerate={handleSendAIPhoto}
                     userFaceReferenceAvailable={!!userProfile.imageLockEnabled && !!userProfile.imageReference}
-                    isSummarizing={isSummarizing}
                     categories={visibleCategories}
                     activeCategory={activeCategory}
                     onReroll={handleReroll}

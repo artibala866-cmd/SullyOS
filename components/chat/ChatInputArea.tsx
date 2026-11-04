@@ -6,7 +6,7 @@ import wyOriginalMicrophone from '../../assets/chat/weixin-baiyu/microphone.png?
 import EmojiExportDialog from './EmojiExportDialog';
 import ChatCamera from './ChatCamera';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, Prohibit, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, Microphone, Keyboard, Stop, X, Check, CircleNotch, Waveform } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, GearSix, Image, Lock, Prohibit, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, Microphone, Keyboard, Stop, X, Check, CircleNotch, Waveform } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import type { PrivateChatSpeechStatus } from '../../hooks/usePrivateChatSpeech';
 import { PRESET_THEMES } from './ChatConstants';
@@ -108,7 +108,6 @@ interface ChatInputAreaProps {
     /** Optional only for private chat; adds AI photo to the original photo chooser. */
     onAIGenerate?: (description: string, useUserReference: boolean, signal: AbortSignal) => Promise<void>;
     userFaceReferenceAvailable?: boolean;
-    isSummarizing: boolean;
     // Categories Support
     categories?: EmojiCategory[];
     activeCategory?: string;
@@ -148,7 +147,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     customThemes = [], onUpdateTheme = () => {}, onRemoveTheme = () => {}, activeThemeId = '',
     actionsContent,
     previewActionsPage=0,
-    onPanelAction, onImageSelect, onAIGenerate, userFaceReferenceAvailable = false, isSummarizing,
+    onPanelAction, onImageSelect, onAIGenerate, userFaceReferenceAvailable = false,
     categories = [], activeCategory = 'default',
     onReroll, canReroll,
     isProactiveActive,
@@ -771,12 +770,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <PencilSimple className="w-6 h-6" weight="bold" />
           </div>
           <span className="text-xs font-bold">聊天装扮</span>
-        </button>,
-        <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}>
-            {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
-                <BookOpenText className="w-6 h-6" weight="bold" />
-            </div>}
-            <span className="text-xs font-bold">{isSummarizing ? '归档中...' : '记忆归档'}</span>
         </button>,
         <button key="memory-link"
           onClick={() => onPanelAction('memory-link')}

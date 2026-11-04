@@ -9,7 +9,7 @@ type Props = React.ComponentProps<typeof ChatHeaderShell>;
 const render = (patch: Partial<Props>) => act(() => root.render(React.createElement(ChatHeaderShell, {
     activeCharacter: { id: 'qa', name: '测试角色', avatar: '' },
     selectionMode: false, selectedCount: 0, onCancelSelection() {},
-    isTyping: false, isSummarizing: false, lastTokenUsage: null,
+    isTyping: false, lastTokenUsage: null,
     onClose() {}, onTriggerAI() {}, onShowCharsPanel() {}, ...patch,
 })));
 beforeEach(() => {

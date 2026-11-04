@@ -18,7 +18,7 @@ function App() {
             onDeleteSelected={() => {}} selectedCount={0} emojis={emojis} emojiSuggestionsEnabled
             autoReplySeconds={countdown} onCancelAutoReply={() => setCountdown(null)}
             onPanelAction={(type, emoji) => setSent(v => [...v, `${type}:${emoji.name}`])}
-            onImageSelect={() => {}} isSummarizing={false} onReroll={() => {}} canReroll={false}/>
+            onImageSelect={() => {}} onReroll={() => {}} canReroll={false}/>
     </main>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

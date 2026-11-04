@@ -50,7 +50,7 @@ try {
  const groupHeader=React.createElement(ChatHeaderShell,{
   selectionMode:false,selectedCount:0,onCancelSelection:()=>{},
   activeCharacter:{id:'demo-group',name:'示例群聊',avatar:BEAUTY_PREVIEW_AVATAR,activeBuffs:[]},
-  isTyping:false,isSummarizing:false,lastTokenUsage:0,statusText:'3 成员',
+  isTyping:false,lastTokenUsage:0,statusText:'3 成员',
   extraAction:{label:'群聊记忆规则',icon:React.createElement('svg',{viewBox:'0 0 24 24'},React.createElement('path',{d:'M12 4v16'})),onClick:()=>{}},
   onClose:()=>{},onTriggerAI:()=>{},onShowCharsPanel:()=>{},
   headerStyle:'default',avatarShape:'circle',headerAlign:'left',headerDensity:'default',statusStyle:'subtle',chromeStyle:'soft',hideBuffs:true

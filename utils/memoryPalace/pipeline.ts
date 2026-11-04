@@ -227,10 +227,7 @@ export function buildAutoArchiveFragments(
     };
 
     // 按日期 group；同一天内按 createdAt 升序
-    // 零 LLM 调用：palace extraction 那 1 次已经按"基础规则 + 用户追加风格"产出了
-    // 第一人称、控制字数的 content（见 extraction.ts 的 buildRulesBlock + 追加风格），
-    // 这里直接拼 bullets 就行。想要自定义风格 → 在"记忆归档设置"里选模板即可，
-    // extraction 阶段就会把用户模板作为额外风格偏好塞进 palace LLM 系统提示词。
+    // 直接复用已提取的宫殿节点正文，不额外调用 LLM。
     const byDate = new Map<string, string[]>();
     const sortedMems = [...memories].sort((a, b) => a.createdAt - b.createdAt);
     for (const m of sortedMems) {

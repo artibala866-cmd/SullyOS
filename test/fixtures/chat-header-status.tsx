@@ -6,7 +6,7 @@ createRoot(document.getElementById('root')!).render(<main>
     {(['left', 'center'] as const).flatMap(headerAlign => (['dot', 'pill', 'subtle'] as const).map(statusStyle => <section key={`${headerAlign}-${statusStyle}`} data-case={`${headerAlign}-${statusStyle}`}>
         <h2>Telegram · {headerAlign === 'left' ? '左对齐' : '居中'} · {statusStyle}</h2>
         <ChatHeaderShell activeCharacter={{ id: 'qa', name: 'sully', avatar }} selectionMode={false} selectedCount={0} onCancelSelection={() => {}}
-            isTyping={false} isSummarizing={false} lastTokenUsage={null} onClose={() => {}} onTriggerAI={() => {}} onShowCharsPanel={() => {}}
+            isTyping={false} lastTokenUsage={null} onClose={() => {}} onTriggerAI={() => {}} onShowCharsPanel={() => {}}
             headerStyle="telegram" headerDensity="compact" headerAlign={headerAlign} statusStyle={statusStyle}/>
     </section>))}
 </main>);

@@ -22,9 +22,7 @@ function generateId(): string {
 // ─── 共用的 prompt 规则部分 ──────────────────────────
 //
 // 设计决策（2026-04）：palace extraction 的提示词**完全固定**，不会被用户
-// 在"记忆归档设置"里选的模板影响。那里的模板只作用于手动归档路径
-// （Chat.tsx handleFullArchive / Character.tsx handleBatchSummarize /
-// handleForceArchiveDate）。
+// 在角色编辑页选择的传统归档模板影响。模板只用于角色页的批量总结和按日重总结。
 // 理由：palace 产出的 memory.content 要参与向量检索，风格化（"末尾加喵"之类）
 // 会让 embedding 语义轻微漂移。保持 palace 内置风格稳定，手动归档路径提供
 // 风格化的自由度——职责分离。

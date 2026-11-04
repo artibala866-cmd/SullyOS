@@ -1949,7 +1949,6 @@ ${memberTimeline || '(暂无互动记录)'}
                     activeBuffs: [],
                 }}
                 isTyping={isTyping}
-                isSummarizing={isSummarizing}
                 isMemoryPalaceProcessing={!!(groupPalaceStatus || personalGroupMemoryStatus)}
                 memoryPalaceStatusText={groupPalaceStatus || personalGroupMemoryStatus}
                 lastTokenUsage={lastTokenUsage}
@@ -2081,7 +2080,6 @@ ${memberTimeline || '(暂无互动记录)'}
                 activeCategory={activeEmojiCategory}
                 onPanelAction={handlePanelAction}
                 onImageSelect={handleImageFile}
-                isSummarizing={isSummarizing}
                 onReroll={handleReroll}
                 canReroll={canReroll}
                 inputStyle={osTheme.chatInputStyle}

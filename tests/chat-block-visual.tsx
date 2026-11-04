@@ -15,7 +15,7 @@ const App=()=>{
   <ChatInputArea input="" setInput={()=>{}} isTyping={false} selectionMode={false}
     previewActionsPage={2} showPanel={panel} setShowPanel={setPanel}
     onSend={()=>{}} onDeleteSelected={()=>{}} selectedCount={0}
-    emojis={[]} onImageSelect={()=>{}} isSummarizing={false} onReroll={()=>{}} canReroll={false}
+    emojis={[]} onImageSelect={()=>{}} onReroll={()=>{}} canReroll={false}
     onPanelAction={type=>{if(type==='chat-block'){result.routed=true;setOpen(true);setPanel('none');}}}/>
   {open&&<ChatBlockModal characterName="陈苍琛" state={state} onClose={()=>setOpen(false)}
     onSetUserBlock={block=>setState(prev=>changeChatBlock(prev,'user',block,{at:1000,source:'manual'}))}

@@ -26,7 +26,7 @@ const props=(mode:'idle'|'review',typed=false)=>({
  input: typed?'用输入法识别出的文字':'',setInput:()=>{},isTyping:false,selectionMode:false,
  showPanel:'none' as const,setShowPanel:()=>{},onSend:()=>{},onDeleteSelected:()=>{},
  selectedCount:0,emojis:[],onPanelAction:()=>{},onImageSelect:()=>{},
- isSummarizing:false,onReroll:()=>{},canReroll:false,typedVoiceEnabled:typed,
+ onReroll:()=>{},canReroll:false,typedVoiceEnabled:typed,
  onSelectTypedVoice:()=>{},onExitTypedVoice:()=>{},onSendTypedVoice:()=>{},
  speechInput:{...voices[mode],start:async()=>{},startTranscription:async()=>{},stop:()=>{},cancel:()=>{},editTranscript:()=>{},confirm:()=>{}},
 });

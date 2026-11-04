@@ -31,7 +31,7 @@ function Panel({ emojis, showPanel = 'emojis' }: { emojis: Emoji[]; showPanel?: 
             if (action === 'select-category') setActiveCategory(payload);
             onPanelAction(action, payload);
         },
-        onImageSelect: () => {}, isSummarizing: false, onReroll: () => {}, canReroll: false,
+        onImageSelect: () => {}, onReroll: () => {}, canReroll: false,
     });
 }
 function thumbnails() {

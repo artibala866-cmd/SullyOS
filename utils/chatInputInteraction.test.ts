@@ -47,7 +47,7 @@ beforeEach(() => {
         input: '你好', setInput: vi.fn(), isTyping: false, selectionMode: false,
         showPanel: 'none', setShowPanel: vi.fn(), onSend: vi.fn(), onGenerate: vi.fn(),
         onDeleteSelected: vi.fn(), selectedCount: 0, emojis: [], onPanelAction: vi.fn(),
-        onImageSelect: vi.fn(), isSummarizing: false, onReroll: vi.fn(), canReroll: false,
+        onImageSelect: vi.fn(), onReroll: vi.fn(), canReroll: false,
     };
 });
 
@@ -141,7 +141,7 @@ describe('private chat input controls', () => {
         const headerProps: React.ComponentProps<typeof ChatHeader> = {
             activeCharacter: { id: 'test', name: 'Test', avatar: '' },
             selectionMode: false, selectedCount: 0, onCancelSelection: vi.fn(),
-            isTyping: false, isSummarizing: false, lastTokenUsage: null,
+            isTyping: false, lastTokenUsage: null,
             onClose: vi.fn(), onTriggerAI: vi.fn(), onShowCharsPanel: vi.fn(),
         };
         for (const headerAlign of ['left', 'center'] as const) {

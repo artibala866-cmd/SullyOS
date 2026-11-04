@@ -19,7 +19,7 @@ function Page(){
  };
  useEffect(()=>{if(!active)return;const id=setInterval(()=>void readHomeSecrets(charId).then(rows=>setReadCount(rows.filter(s=>s.seen).length)),300);return()=>clearInterval(id);},[active]);
  return <div className="home-island demo-shell">
-  <ChatHeaderShell activeCharacter={{id:charId,name:'阿澄',description:'我的小栗',chatShowRemark:remark,avatar}} selectionMode={false} selectedCount={0} isTyping={false} isSummarizing={false} lastTokenUsage={null} onCancelSelection={()=>{}} onClose={()=>{}} onTriggerAI={()=>{}} onShowCharsPanel={()=>{}} headerAlign={center?'center':'left'}/>
+  <ChatHeaderShell activeCharacter={{id:charId,name:'阿澄',description:'我的小栗',chatShowRemark:remark,avatar}} selectionMode={false} selectedCount={0} isTyping={false} lastTokenUsage={null} onCancelSelection={()=>{}} onClose={()=>{}} onTriggerAI={()=>{}} onShowCharsPanel={()=>{}} headerAlign={center?'center':'left'}/>
   <div className="demo-content"><h2>小屋纸条 · 演示数据</h2><label><input type="checkbox" checked={remark} onChange={e=>setRemark(e.target.checked)}/>聊天显示备注</label><label><input type="checkbox" checked={center} onChange={e=>setCenter(e.target.checked)}/>居中顶栏</label>
    <button onClick={()=>void enter()} disabled={active}>进入小屋</button><button onClick={()=>void enter(true)} disabled={active}>长纸条演示</button><button onClick={()=>setActive(false)}>离开小屋</button>
    <button onClick={()=>{setActive(false);void DB.deleteAsset(assetKey).then(()=>setReadCount(0));}}>清理演示数据</button><output>已读 {readCount} 张；角色本名始终为阿澄</output>

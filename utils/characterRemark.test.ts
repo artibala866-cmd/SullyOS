@@ -18,8 +18,7 @@ describe('chat-only character remark', () => {
         }
     });
     it.each(['left', 'center'] as const)('the actual chat shell displays the opted-in remark with %s alignment', headerAlign => {
-        const props = {selectionMode: false, selectedCount: 0, isTyping: false, isSummarizing: false,
-            lastTokenUsage: null, onCancelSelection: () => {}, onClose: () => {}, onTriggerAI: () => {}, onShowCharsPanel: () => {}, headerAlign};
+        const props = {selectionMode: false, selectedCount: 0, isTyping: false, lastTokenUsage: null, onCancelSelection: () => {}, onClose: () => {}, onTriggerAI: () => {}, onShowCharsPanel: () => {}, headerAlign};
         const character = {id: 'remark', name: '真实名称', avatar: '', description: '我的备注', chatShowRemark: true};
         const title = (activeCharacter: typeof character | {id: string; name: string; avatar: string}) => {
             const html = renderToStaticMarkup(React.createElement(ChatHeaderShell, {...props, activeCharacter}));

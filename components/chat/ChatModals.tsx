@@ -50,15 +50,6 @@ interface ChatModalsProps {
     setNewEmojiName: (v: string) => void;
     onRenameEmoji: () => void;
 
-    // Archive Props
-    archivePrompts: {id: string, name: string, content: string}[];
-    selectedPromptId: string;
-    setSelectedPromptId: (id: string) => void;
-    editingPrompt: {id: string, name: string, content: string} | null;
-    setEditingPrompt: (p: any) => void;
-    isSummarizing: boolean;
-    archiveProgress?: string;
-
     // Selection Props
     selectedMessage: Message | null;
     selectedEmoji: {name: string, url: string} | null;
@@ -73,11 +64,6 @@ interface ChatModalsProps {
     onImportEmoji: () => void;
     onSaveSettings: () => void;
     onOpenHistoryCleanup?: () => void;
-    onArchive: () => void;
-    onCreatePrompt: () => void;
-    onEditPrompt: () => void;
-    onSavePrompt: () => void;
-    onDeletePrompt: (id: string) => void;
     onSetHistoryStart: (id: number | undefined) => void;
     onRestoreAdaptiveContext?: () => void;
     onJumpToMessageInChat?: (id: number) => void;
@@ -255,14 +241,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     editContent, setEditContent,
     newCategoryName, setNewCategoryName, onAddCategory,
     newEmojiName, setNewEmojiName, onRenameEmoji,
-    archivePrompts, selectedPromptId, setSelectedPromptId,
-    editingPrompt, setEditingPrompt, isSummarizing, archiveProgress,
     selectedMessage, selectedEmoji, selectedCategory, activeCharacter, messages,
     allHistoryMessages = [],
     contextRangeSnapshot,
     onTransfer, onImportEmoji, onSaveSettings,
     onOpenHistoryCleanup,
-    onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
     onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
     translationEnabled, onToggleTranslation, translationExpanded, onToggleTranslationExpanded, translateSourceLang, translateTargetLang, onSetTranslateSourceLang, onSetTranslateLang,
@@ -760,101 +743,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             最近 10 条此前已经处理过。为避免重复向量化，水位线没有回退，但这 10 条原文仍已按你的选择保留在上下文中。
                         </p>
                     )}
-                </div>
-            </Modal>
-
-            {/* Archive Settings Modal */}
-            <Modal isOpen={modalType === 'archive-legacy-warning'} title="旧版记忆归档" onClose={() => setModalType('none')} footer={
-                <div className="flex w-full flex-col gap-2">
-                    <button type="button" onClick={() => setModalType('none')} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">确定</button>
-                    <button type="button" onClick={() => setModalType('archive-settings')} className="w-full px-3 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">我有必须使用的原因</button>
-                </div>
-            }>
-                <p className="text-sm leading-relaxed text-slate-600">您已启用记忆宫殿，该功能为旧版记忆系统，无需使用。</p>
-            </Modal>
-
-            <Modal isOpen={modalType === 'archive-settings'} title="记忆归档设置" onClose={() => { if (!isSummarizing) setModalType('none'); }} footer={
-                isSummarizing ?
-                <div className="w-full py-3 bg-slate-100 text-neutral-600 font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin"></div>{archiveProgress || '归档中...'}</div> :
-                <button onClick={onArchive} disabled={isSummarizing} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">开始归档</button>
-            }>
-                <div className="space-y-4">
-                    {(() => {
-                        const palaceOn = !!(activeCharacter as any).memoryPalaceEnabled;
-                        const autoOn = !!(activeCharacter as any).autoArchiveEnabled;
-                        const activePrompt = archivePrompts.find(p => p.id === selectedPromptId);
-                        const activeName = activePrompt?.name || '理性精炼 (Rational)';
-                        if (palaceOn && autoOn) {
-                            return (
-                                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] text-neutral-800 leading-relaxed">
-                                    ✅ <b>自动归档已开启</b>。palace 处理后系统会按日期自动把聊天归档到"本月日度总结"。<br/>
-                                    自动归档走的是 <b>记忆宫殿内置风格</b>（保证向量检索质量稳定），
-                                    下方模板<b>只对这里的"开始归档"按钮生效</b>——你在这换风格不会影响自动归档。
-                                </div>
-                            );
-                        }
-                        if (palaceOn && !autoOn) {
-                            return (
-                                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] text-neutral-900 leading-relaxed">
-                                    ⚠️ 记忆宫殿已开，但<b>自动归档没开</b>——记忆宫殿只在后台默默建记忆，不会写进月度总结。<br/>
-                                    想让它自动写 → 神经链接 → 角色 → 记忆宫殿开关下面的 <b>"📚 自动归档"</b>；
-                                    或者继续用下方按钮手动按当前选中的 <b>「{activeName}」</b> 风格跑。
-                                </div>
-                            );
-                        }
-                        return (
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-700 leading-relaxed">
-                                📋 <b>纯手动模式</b>（没开记忆宫殿）。下方按钮会用选中的
-                                <b className="text-slate-900"> 「{activeName}」</b> 风格把聊天按天总结到"本月日度总结"。
-                                归档完会自动隐藏已总结的旧消息（保留最近一部分可见）。
-                            </div>
-                        );
-                    })()}
-                    <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase mb-2 block">选择提示词模板</label>
-                        <div className="flex flex-col gap-2">
-                            {archivePrompts.map(p => {
-                                const isSelected = selectedPromptId === p.id;
-                                return (
-                                <div key={p.id} onClick={() => setSelectedPromptId(p.id)} className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between ${isSelected ? 'bg-white border-neutral-500 shadow-sm ring-1 ring-neutral-500' : 'bg-white/50 border-neutral-200 hover:bg-white'}`}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className={`text-xs font-bold ${isSelected ? 'text-neutral-700' : 'text-slate-600'}`}>{p.name}</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); setSelectedPromptId(p.id); onEditPrompt(); }} className="text-[10px] text-slate-400 hover:text-neutral-500 px-2 py-1 rounded bg-slate-100 hover:bg-neutral-50">编辑/查看</button>
-                                        {!p.id.startsWith('preset_') && (
-                                            <button onClick={(e) => { e.stopPropagation(); onDeletePrompt(p.id); }} className="text-[10px] text-neutral-300 hover:text-neutral-500 px-2 py-1 rounded hover:bg-neutral-50">×</button>
-                                        )}
-                                    </div>
-                                </div>
-                                );
-                            })}
-                        </div>
-                        <button onClick={onCreatePrompt} className="mt-3 w-full py-2 text-xs font-bold text-neutral-500 border border-dashed border-neutral-300 rounded-lg hover:bg-neutral-100">+ 新建自定义提示词</button>
-                    </div>
-                    <div className="text-[10px] text-slate-400 bg-slate-50 p-3 rounded-xl leading-relaxed">
-                        • <b>理性精炼</b>: 适合生成条理清晰的事件日志，便于 AI 长期记忆检索。<br/>
-                        • <b>日记风格</b>: 适合生成第一人称的角色日记，更有代入感和情感色彩。<br/>
-                        • 支持变量: <code>{'${dateStr}'}</code>, <code>{'${char.name}'}</code>, <code>{'${userProfile.name}'}</code>, <code>{'${rawLog}'}</code>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Prompt Editor Modal */}
-            <Modal isOpen={modalType === 'prompt-editor'} title="编辑提示词" onClose={() => setModalType('archive-settings')} footer={<button onClick={onSavePrompt} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存预设</button>}>
-                <div className="space-y-3">
-                    <input 
-                        value={editingPrompt?.name || ''} 
-                        onChange={e => setEditingPrompt((prev: any) => prev ? {...prev, name: e.target.value} : null)}
-                        placeholder="预设名称"
-                        className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    <textarea 
-                        value={editingPrompt?.content || ''} 
-                        onChange={e => setEditingPrompt((prev: any) => prev ? {...prev, content: e.target.value} : null)}
-                        className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
-                        placeholder="输入提示词内容..."
-                    />
                 </div>
             </Modal>
 

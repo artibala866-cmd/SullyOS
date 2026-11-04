@@ -31,7 +31,7 @@ try {
    input:'',setInput:()=>{},isTyping:false,selectionMode:false,showPanel:'none',
    setShowPanel:()=>{presses.menu++},onSend:()=>{presses.send++},onDeleteSelected:()=>{},
    selectedCount:0,emojis:[],onPanelAction:()=>{},onImageSelect:()=>{},
-   isSummarizing:false,onReroll:()=>{},canReroll:false,
+   onReroll:()=>{},canReroll:false,
    speechInput:{status:'idle',transcript:'',seconds:0,error:'',start:async()=>{},
     startTranscription:async()=>{presses.voice++},stop:()=>{},cancel:()=>{},
     editTranscript:()=>{},confirm:()=>{}},

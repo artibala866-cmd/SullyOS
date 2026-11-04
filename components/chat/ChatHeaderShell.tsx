@@ -25,7 +25,6 @@ interface ChatHeaderShellProps {
     /** 仅指定成对头像美化时传入；值来自当前用户的头像，而非主题固定图。 */
     pairedAvatar?: string;
     isTyping: boolean;
-    isSummarizing: boolean;
     /** 覆盖状态区的 "Online" 文案（群聊传 "N 成员"）。不传 = 原行为 */
     statusText?: string;
     /** Binary presence from an existing schedule; not AI-authored status text. */
