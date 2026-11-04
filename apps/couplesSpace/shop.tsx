@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { cardMatchesRelation, exchangeCard, playCard, reward, shopCards, dayKey, relationNames, type Bond, type Card, type Side } from '../../utils/couplesSpace';
 import type { ChangeBond, Generate } from './records';
 import { extractJson } from '../../utils/safeApi';
@@ -25,16 +25,19 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
   const [draft, setDraft] = useState<Card>();
   const [wish, setWish] = useState('');
   const [working, setWorking] = useState(false);
+  const operationRef = useRef(false);
   const [error, setError] = useState('');
   const cards = [...shopCards, ...bond.cards];
   const [shelf, setShelf] = useState<'general' | 'relation' | 'custom'>('general');
   const visibleCards = (shelf === 'custom' ? bond.cards : shopCards.filter(card => shelf === 'general' ? !card.relation : card.relation === bond.relation))
     .filter(card => manage || !bond.hidden.includes(card.id));
   const run = async (task: () => Promise<void>) => {
+    if (operationRef.current || busy) return;
+    operationRef.current = true;
     setError('');
     setWorking(true);
     try { await task(); } catch (e) { setError(e instanceof Error ? e.message : '操作失败'); }
-    finally { setWorking(false); }
+    finally { operationRef.current = false; setWorking(false); }
   };
   const apply = (update: (current: Bond) => Bond) => void run(() => change(update));
   const decidePact = async () => {
@@ -168,7 +171,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
     </>}
     {tab === 'tasks' && [
       { id: `care:${dayKey()}`, text: '今天照料盆栽', ready: dayKey(new Date(bond.plant.watered)) === dayKey() && bond.plant.careCount > 0, amount: 25 },
-      { id: `diary:${dayKey()}`, text: '写下今天的日记', ready: bond.entries.some(item => item.kind === 'diary' && item.side === 'me' && item.date === dayKey()), amount: 35 },
+      { id: `moment:${dayKey()}`, text: '记录今天的牵绊时光', ready: bond.entries.some(item => item.kind === 'timeline' && item.side === 'me' && item.date === dayKey()), amount: 35 },
       { id: 'first-wish', text: '完成第一个共同愿望', ready: bond.entries.some(item => item.kind === 'wish' && item.done), amount: 100 },
       { id: 'first-letter', text: '交换第一封时光信', ready: bond.entries.some(item => item.kind === 'mail' && item.reply), amount: 60 },
     ].map(task => <div className="couple-card couple-split" key={task.id}>
