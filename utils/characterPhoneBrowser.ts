@@ -14,6 +14,8 @@ export type PhoneBrowserVisit = {
   title?: string;
   summary?: string;
   aiJudgement?: string;
+  /** An unverified, character-voiced thought after entering the search, not fetched page evidence. */
+  afterSearchThought?: string;
   mood?: string;
   plannedActivity?: string;
   sourceEventIds?: string[];
@@ -85,7 +87,7 @@ export function recordPhoneBrowserNavigation(
   navigation: { kind: PhoneBrowserVisit['kind']; query: string; url: string },
   actor: PhoneBrowserVisit['actor'] = 'user',
   detail?: Partial<Pick<PhoneBrowserVisit,
-    'title' | 'summary' | 'aiJudgement' | 'mood' | 'plannedActivity' | 'sourceEventIds' | 'origin'>>,
+    'title' | 'summary' | 'aiJudgement' | 'afterSearchThought' | 'mood' | 'plannedActivity' | 'sourceEventIds' | 'origin'>>,
 ): PhoneBrowserVisit | null {
   if (!characterId || !/^https?:\/\//i.test(navigation.url)) return null;
   // Validating via URL also prevents forged non-web schemes reaching history.
@@ -103,6 +105,7 @@ export function recordPhoneBrowserNavigation(
       title: typeof detail.title==='string' ? detail.title.trim().slice(0,120) : undefined,
       summary: typeof detail.summary==='string' ? detail.summary.trim().slice(0,480) : undefined,
       aiJudgement: typeof detail.aiJudgement==='string' ? detail.aiJudgement.trim().slice(0,360) : undefined,
+      afterSearchThought: typeof detail.afterSearchThought==='string' ? detail.afterSearchThought.trim().slice(0,360) : undefined,
       mood: typeof detail.mood==='string' ? detail.mood.trim().slice(0,100) : undefined,
       plannedActivity: typeof detail.plannedActivity==='string' ? detail.plannedActivity.trim().slice(0,150) : undefined,
       sourceEventIds: Array.isArray(detail.sourceEventIds)
