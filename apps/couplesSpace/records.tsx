@@ -211,24 +211,59 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   if(kind==='gift'){
     return <div className="couple-scene couple-scene-gift">
       <div className="couple-gift-counter"><span>THE THOUGHTFUL THINGS</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
-      <div className="couple-gift-pedestal"><span className="couple-gift-pedestal-light"/><div className="couple-gift-pedestal-stage">{rows[0]?.image?<TokenImg value={rows[0].image} alt={rows[0].title}/>:<span className="couple-gift-display-box"><i/></span>}</div><span>FOR {names.them}</span></div>
-      {rows.length?<div className="couple-gift-shelf">{rows.map((item,i)=><button key={item.id} onClick={()=>onJump(item.id)}><span className="couple-gift-thumbnail">{item.image?<TokenImg value={item.image} alt=""/>:<span>◻</span>}</span><span><strong>{item.title}</strong><small>{item.date}</small></span><small>NO.{String(i+1).padStart(2,'0')}</small></button>)}</div>:
-      <div className="couple-gift-no-items">这里还没有礼物。第一份心意不必昂贵。</div>}
-      {actions('＋ 包装一份礼物','听听 '+names.them+' 的心意')}
+      <div className="couple-gift-pedestal"><span className="couple-gift-pedestal-light"/>
+        {rows.length ? <button type="button" className="couple-gift-pedestal-stage" onClick={()=>onJump(rows[0].id)}>
+          {rows[0].image?<TokenImg value={rows[0].image} alt={rows[0].title}/>:<span className="couple-gift-display-box"><i/></span>}
+        </button> : <button type="button" className="couple-gift-pedestal-stage" disabled={busy} onClick={onNew}>
+          <span className="couple-gift-display-box"><i/></span>
+          <span className="couple-gift-stage-caption">＋ 放上第一份礼物</span>
+        </button>}
+        <span>FOR {names.them}</span></div>
+      {rows.length?<div className="couple-gift-shelf">{rows.map((item,i)=><button key={item.id} onClick={()=>onJump(item.id)}><span className="couple-gift-thumbnail">{item.image?<TokenImg value={item.image} alt=""/>:<span>◻</span>}</span><span><strong>{item.title}</strong><small>{item.date}</small></span><small>NO.{String(i+1).padStart(2,'0')}</small></button>)}</div> : null}
+      <div className="couple-gift-gallery-rail">
+        {rows.length > 0 && <button type="button" className="couple-gift-gallery-add" disabled={busy} onClick={onNew}>＋ 新的礼物展位</button>}
+        <button type="button" className="couple-gift-gallery-ask" disabled={busy} onClick={onAI}>
+          <span>FROM {names.them}</span><strong>打开 TA 的心意 ↗</strong>
+        </button>
+      </div>
     </div>;
   }
   if(kind==='capsule'){
     const ready=rows.filter(item=>capsuleStatus(item,today)==='ready').length;
     return <div className="couple-scene couple-scene-capsule">
-      <div className="couple-capsule-vault"><span className="couple-capsule-top">DO NOT OPEN UNTIL</span><div className="couple-capsule-lock"><i/><strong>{ready}</strong><small>封可开启</small></div><strong>寄给未来的我们</strong><span className="couple-capsule-foot">{total} 个时间约定</span></div>
-      <div className="couple-capsule-shelves">{rows.length?rows.map(item=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={capsuleStatus(item,today)==='sealed'?'is-sealed':''}><span className="couple-capsule-round">◉</span><span><strong>{capsuleStatus(item,today)==='sealed'?'封存中的时间胶囊':item.title}</strong><small>{capsuleStatus(item,today)==='sealed'?'将在 '+item.unlockDate+' 开启':item.date+' 写下'}</small></span><small>{capsuleStatus(item,today)==='ready'?'可拆':'›'}</small></button>):<div>还没有封存的约定，把想说的话留给未来。</div>}</div>
-      {actions('＋ 寄给未来一封信','请 '+names.them+' 封存')}
+      <div className="couple-capsule-vault"><span className="couple-capsule-top">DO NOT OPEN UNTIL</span>
+        <div className="couple-capsule-lock"><i/><strong>{ready}</strong><small>封可开启</small></div>
+        <strong>寄给未来的我们</strong><span className="couple-capsule-foot">{totalRecords} 个时间约定</span>
+        <button type="button" className="couple-capsule-new" disabled={busy} onClick={onNew}>＋ 放进一封给未来的信</button>
+      </div>
+      {totalRecords > 0 && <div className="couple-capsule-shelves">
+        <div className="couple-capsule-shelf-tools"><span>信件归档</span><select aria-label="按时间胶囊状态筛选"
+          value={filter} onChange={event=>onFilter(event.target.value)}>
+          <option value="all">所有约定</option><option value="sealed">未到期</option>
+          <option value="ready">可拆封 {ready}</option><option value="opened">已拆封</option>
+        </select></div>
+        {rows.length?rows.map(item=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={capsuleStatus(item,today)==='sealed'?'is-sealed':''}><span className="couple-capsule-round">◉</span><span><strong>{capsuleStatus(item,today)==='sealed'?'封存中的时间胶囊':item.title}</strong><small>{capsuleStatus(item,today)==='sealed'?'将在 '+item.unlockDate+' 开启':item.date+' 写下'}</small></span><small>{capsuleStatus(item,today)==='ready'?'可拆':'›'}</small></button>):<p className="couple-capsule-no-match">这个抽屉里暂时没有信件。</p>}</div>}
+      <button type="button" className="couple-capsule-request" disabled={busy} onClick={onAI}>
+        让 {names.them} 也留一封给未来的信 <span>↗</span>
+      </button>
     </div>;
   }
   return <div className="couple-scene couple-scene-hollow">
-    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole">○<i/></div><strong>不必说出口的心事</strong><p>写在这里，不必解释给任何人听。</p><small>已收藏 {total} 张心事</small></div>
-    <div className="couple-hollow-drawer">{rows.length?rows.map(item=><button key={item.id} type="button" onClick={()=>onJump(item.id)}><span>密封便笺</span><strong>•••• ••••</strong><small>{item.date} · 点击打开</small></button>):<div className="couple-hollow-empty">暂时没有心事。空着也很好。</div>}</div>
-    {actions('＋ 留一张心事便笺','听听 '+names.them+' 的心事')}
+    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole">○<i/></div>
+      <strong>不必说出口的心事</strong>
+      <button type="button" className="couple-hollow-drop" disabled={busy} onClick={onNew}>
+        <span>＋</span> 投进一张只有你知道的便笺
+      </button><small>{totalRecords} 张便笺收在抽屉里</small>
+    </div>
+    <div className="couple-hollow-drawer">
+      {rows.map(item=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
+        <span>密封便笺</span><strong>•••• ••••</strong><small>{item.date} · 点击打开</small>
+      </button>)}
+      <div className="couple-hollow-drawer-footer">
+        <button type="button" disabled={busy} onClick={onAI}>听听 {names.them} 藏起的心事 ↗</button>
+        {hollowPrefs}
+      </div>
+    </div>
   </div>;
 }
 
