@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
+import OriginalDogLineart from './OriginalDogLineart';
 
-// 纯白开屏：CSS 绘制白色小狗，各部位独立扭动；不依赖图片和 AI 生图。
+// 纯白开屏：提取用户上传的宝宝狗原稿线条，参考视频做轻柔放大和五官动画。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
 
 interface Props {
@@ -26,8 +27,8 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
   }, []);
   const reduced = useMemo(() => prefersReducedMotion(), []);
   const cinematic = firstThisSession && !reduced;
-  // 首次至少完整跳动一轮；重复打开也给动画留出可见时间，减少动态效果时缩短等待。
-  const HOLD = reduced ? 360 : cinematic ? 2200 : 1350;
+  // 完整展现参考视频的由小至大演出；减少动态效果时快速进入。
+  const HOLD = reduced ? 360 : 2900;
   const EXIT = cinematic ? 380 : 220;
   const [phase, setPhase] = useState<'enter' | 'exit'>('enter');
   const startRef = useRef(0);
@@ -80,7 +81,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
       className={`sully-boot${showPoster ? ' sully-boot-mid-autumn' : variant === 'night' ? ' sully-boot-night' : ''}`}
       data-phase={phase}
       data-cinematic={cinematic}
-      data-dancing={!reduced}
+      data-motion={!reduced}
       data-variant={showPoster ? 'poster' : variant}
       onClick={skip}
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); skip(); } }}
@@ -102,26 +103,13 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
         </div>
       ) : (
         <div className="sully-boot-scene">
-          <div className="sully-boot-art" role="img" aria-label="一只白色小狗在开心地跳舞">
-            <div className="sully-boot-dog" aria-hidden="true">
-              <div className="sully-dog-tail" />
-              <div className="sully-dog-body" />
-              <div className="sully-dog-ear left" />
-              <div className="sully-dog-ear right" />
-              <div className="sully-dog-head">
-                <span className="sully-dog-eye left" />
-                <span className="sully-dog-eye right" />
-                <span className="sully-dog-nose" />
-                <span className="sully-dog-mouth left" />
-                <span className="sully-dog-mouth right" />
-              </div>
-              <div className="sully-dog-paw left" />
-              <div className="sully-dog-paw right" />
-              <div className="sully-dog-foot left" />
-              <div className="sully-dog-foot right" />
+          <div className="sully-boot-center">
+            <div className="sully-boot-artwork">
+              <OriginalDogLineart animate={!reduced} />
+              <span className="sully-boot-side-label">dog</span>
             </div>
+            <p className="sully-boot-welcome">Welcome home.</p>
           </div>
-          <h1 className="sully-boot-dog-wordmark">宝宝狗</h1>
         </div>
       )}
     </div>
