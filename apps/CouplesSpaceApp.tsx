@@ -79,8 +79,10 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
           <span className="couple-orbit-core-halo" aria-hidden="true" />
         </div>
         {characters.map((person, index) => {
-          if (index === activeIndex) return null;
-          const angle = Math.PI * 2 * (index - activeIndex) / characters.length;
+          const forward = (index - activeIndex + characters.length) % characters.length;
+          const offset = forward <= characters.length / 2 ? forward : forward - characters.length;
+          if (!offset || Math.abs(offset) > 2) return null;
+          const angle = Math.PI * 2 * offset / 5;
           const depth = (Math.cos(angle) + 1) / 2;
           return <button type="button" className="couple-orbit-satellite" key={person.id}
             aria-label={'选择角色：' + person.name} disabled={busy}
@@ -124,7 +126,7 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
 
 export default function CouplesSpaceApp() {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, userProfile, apiConfig, addToast } = useOS();
-  const [partnerId, setPartnerId] = useState(() => characters.some(item => item.id === activeCharacterId) ? activeCharacterId : characters[0]?.id || '');
+  const [partnerId, setPartnerId] = useState(() => characters.some(item => item.id === activeCharacterId) ? (activeCharacterId || '') : (characters[0]?.id || ''));
   const [pickerStep, setPickerStep] = useState<'orbit' | 'actions' | 'space'>('orbit');
   const [pairs, setPairs] = useState(false);
   const [pair, setPair] = useState<string[]>([]);
@@ -276,11 +278,11 @@ export default function CouplesSpaceApp() {
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
   const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : '情侣空间';
 
-  return <div className={'couple-app' + (!pairs && !panel && pickerStep === 'orbit' ? ' couple-picker-mode' : '')}>
+  return <div className={'couple-app' + (!pairs && !panel && pickerStep !== 'space' ? ' couple-picker-mode' : '')}>
     <header className="couple-header">
       <button aria-label="返回" onClick={() => { if (!back()) closeApp(); }}><ArrowLeft size={20} /></button>
       <h1>{headerTitle}</h1>
-      {bond?.status === 'open' && !panel ? <button aria-label="空间设置" onClick={() => setPanel('settings')}><GearSix size={21} /></button> : <span />}
+      {bond?.status === 'open' && !panel && (isPair || (!pairs && pickerStep === 'space')) ? <button aria-label="空间设置" onClick={() => setPanel('settings')}><GearSix size={21} /></button> : <span />}
     </header>
     <main className="couple-main" ref={scroll}>
       {error && <p role="alert" className="couple-error">{error}</p>}
