@@ -22,11 +22,6 @@ const icons = { timeline: Heart, anniversary: CalendarHeart, diary: BookOpenText
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
 const mainPanels: Panel[] = ['timeline', 'anniversary', 'diary', 'wish', 'gift', 'touch', 'plant', 'mail', 'capsule', 'shop', 'achievements', 'hollow'];
 const pairPanels: Panel[] = ['timeline', 'anniversary', 'diary', 'mail', 'wish', 'gift', 'plant'];
-const collectionSections: { code: string; title: string; caption: string; ids: Panel[] }[] = [
-  { code: '01', title: '一起走过的时间', caption: 'TIME & STORIES', ids: ['timeline', 'anniversary', 'diary', 'mail', 'capsule', 'hollow'] },
-  { code: '02', title: '留给彼此的心意', caption: 'LITTLE THINGS', ids: ['wish', 'gift', 'touch', 'plant'] },
-  { code: '03', title: '我们的收藏', caption: 'COLLECTION', ids: ['shop', 'achievements'] },
-];
 const featureNotes: Partial<Record<Panel, string>> = {
   timeline: '写下每一个值得记住的瞬间', anniversary: '在特别的日子里相见',
   diary: '今天，想和你交换些什么', mail: '等一封写给你的信',
