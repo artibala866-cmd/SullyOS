@@ -555,11 +555,6 @@ export default function CouplesSpaceApp() {
             </div>
           </section>
         </>}
-        {panel && <div className="couple-subpage-intro">
-          <span>BETWEEN US / {relationNames[bond.relation]}</span>
-          <h2>{labels[panel]}</h2>
-          {featureNotes[panel] && <p>{featureNotes[panel]}</p>}
-        </div>}
         {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
           names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} />}
