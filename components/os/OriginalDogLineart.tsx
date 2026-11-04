@@ -82,7 +82,7 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
         {ready && expression !== 'normal' && (
           <svg className="sully-lineart-tongue" viewBox="0 0 512 512" aria-hidden="true">
             {/* 原画笑嘴是上唇，完整保留。小舌头从上唇中央下方露出来。 */}
-            <path d="M267 333 Q270 346 278 347 Q287 347 290 333"
+            <path d="M267 353 Q268 376 278 378 Q288 377 290 353"
               fill="#fff" stroke="#343434" strokeWidth="5.6"
               strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -101,12 +101,12 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
         {ready && expression !== 'normal' && (
           <svg className="sully-lineart-features" viewBox="0 0 512 512" aria-hidden="true">
             {/* 只覆盖真正的两颗眼睛，不碰脸部轮廓与上唇；闭眼和睁眼始终同一位置。 */}
-            <ellipse cx="162" cy="275" rx="18.5" ry="18" fill="#fff" />
-            <ellipse cx="372" cy="275" rx="18.5" ry="18" fill="#fff" />
+            <ellipse cx="160" cy="297" rx="19" ry="19" fill="#fff" />
+            <ellipse cx="370" cy="292" rx="19" ry="19" fill="#fff" />
             <g fill="none" stroke="#343434" strokeLinecap="round"
               strokeWidth={expression === 'squint' ? 7.8 : 6.6}>
-              <path d="M145 279 Q162 269 179 279" />
-              <path d="M355 279 Q372 269 389 279" />
+              <path d="M143 298 Q160 289 177 298" />
+              <path d="M353 293 Q370 284 387 293" />
             </g>
           </svg>
         )}
