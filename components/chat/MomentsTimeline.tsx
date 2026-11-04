@@ -95,7 +95,7 @@ export function MomentsTimeline({
           {p.provenance?.imageIsIllustrative && <p className="mt-1 text-xs text-gray-400">AI 生成配图</p>}
 
           <div className="relative mt-2.5 flex min-h-[30px] items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2.5 text-xs text-[#a6a6a6]">
+            <div className="flex min-w-0 items-center gap-1 text-xs text-[#a6a6a6]">
               <time className="truncate" dateTime={new Date(p.createdAt).toISOString()}
                 title={new Date(p.createdAt).toLocaleString('zh-CN')}>
                 {formatMomentsTime(p.createdAt)}
@@ -104,7 +104,7 @@ export function MomentsTimeline({
                 data-testid={'moment-delete-' + p.id}
                 aria-label="删除这条朋友圈"
                 title="删除这条朋友圈"
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-[#607294] active:opacity-60"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[#607294] active:opacity-60"
                 onClick={() => {
                   setActionsFor(null);
                   if (window.confirm('删除这条朋友圈？')) deleteCharacterMoment(characterId, p.id, 'user');
@@ -122,7 +122,7 @@ export function MomentsTimeline({
               </button>
               {actionsFor === p.id && <div data-testid={'moment-actions-' + p.id}
                 role="group" aria-label="朋友圈操作"
-                className="absolute right-[calc(100%+11px)] top-1/2 z-30 flex h-[45px] w-[184px] -translate-y-1/2 items-center rounded-[5px] bg-[#4b4b4b] text-white shadow-[0_2px_10px_rgba(0,0,0,.18)]">
+                className="absolute right-[calc(100%+11px)] top-1/2 z-30 flex h-[45px] w-[176px] -translate-y-1/2 items-center rounded-[5px] bg-[#4b4b4b] text-white shadow-[0_2px_10px_rgba(0,0,0,.18)]">
                 <span aria-hidden="true" className="absolute -right-[5px] top-1/2 h-[10px] w-[10px] -translate-y-1/2 rotate-45 rounded-[1px] bg-[#4b4b4b]"/>
                 <button type="button" data-testid={'moment-like-action-' + p.id}
                   onClick={() => { setMomentLike(characterId, p.id, 'user', !liked); setActionsFor(null); }}
