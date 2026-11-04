@@ -174,9 +174,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
         {rows.length ? rows.map((item,i)=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
           <span className="couple-mail-tray-envelope"><span>✉</span></span>
           <span><strong>{item.title}</strong><small>{item.reply?'已有回信':'等待回信'} · {item.date}</small></span><b>{String(i+1).padStart(2,'0')}</b>
-        </button>) : totalRecords === 0 ? <button type="button" className="couple-mail-first-letter" disabled={busy} onClick={onNew}>
-          <span aria-hidden="true">✉</span><strong>给 {names.them} 写第一封信</strong><small>轻触信封 · 开始书写</small>
-        </button> : <p className="couple-mail-no-letters">这个分类里暂时没有信。</p>}
+        </button>) : totalRecords === 0 ? null : <p className="couple-mail-no-letters">这个分类里暂时没有信。</p>}
       </div>
     </div>;
   }
@@ -492,7 +490,10 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     }}>
       {renderComposePaper()}
       <div className="couple-compose-buttons">
-        <button className="couple-primary" disabled={working}>{kind === 'capsule' ? '保存并封存' : '保存这张卡片'}</button>
+        <button className="couple-primary" disabled={working}>{({
+          timeline: '收藏这一刻', anniversary: '记住这一天', diary: '合上这页日记', wish: '贴上愿望纸',
+          gift: '收藏这份心意', mail: '把信寄出去', capsule: '封进时间胶囊', hollow: '收进我的树洞',
+        } as Record<EntryKind, string>)[kind]}</button>
         <button type="button" onClick={() => setDraft(undefined)}>取消</button>
       </div>
     </form>}
