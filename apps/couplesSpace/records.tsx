@@ -118,6 +118,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
         <strong>两个人的日记</strong><small>今天的生活，交换着读。</small>
         <div className="couple-diary-cover-people"><span>{names.me}</span><span>·</span><span>{names.them}</span></div>
         <button className="couple-diary-cover-open" disabled={busy} onClick={onNew}>＋ 写一页</button>
+        <button type="button" className="couple-diary-cover-character" disabled={busy} onClick={onAI}>✎ 请 {names.them} 写关系日记</button>
       </div>
       <div className="couple-diary-native">
         <div className="couple-diary-native-head"><strong>原生日记本</strong><span>{native.length} 篇</span></div>
@@ -135,19 +136,17 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
         {error && <p role="alert" className="couple-error">{error}</p>}
         {onNativeJournal && <button className="couple-diary-open-original" onClick={onNativeJournal}>在原生日记里继续写 <span>↗</span></button>}
       </div>
-      <div className="couple-diary-bookmarks">
-        <div className="couple-diary-bookmark-head"><span>关系书页 · {totalRecords}</span>
-          <button type="button" disabled={busy} onClick={onAI}>请 {names.them} 也写一页 ✎</button>
-        </div>
-        {totalRecords > 0 && <div className="couple-diary-filter-mark">
-          <select aria-label="日记按记录者筛选" value={filter} onChange={event=>onFilter(event.target.value)}>
-            <option value="all">全部书页</option><option value="me">{names.me} 的</option><option value="them">{names.them} 的</option>
+      {totalRecords > 0 && <div className="couple-diary-bookmarks">
+        <div className="couple-diary-bookmark-head"><span>留在你们之间的书签 · {totalRecords}</span></div>
+        <div className="couple-diary-filter-mark">
+          <select aria-label="按记录者筛选情侣日记" value={filter} onChange={event=>onFilter(event.target.value)}>
+            <option value="all">全部书签</option><option value="me">{names.me}</option><option value="them">{names.them}</option>
           </select>
-        </div>}
-        {rows.length > 0 && rows.map(row => <button key={row.id} className="couple-diary-bookmark-page" onClick={()=>onJump(row.id)}>
+        </div>
+        {rows.map(row => <button key={row.id} className="couple-diary-bookmark-page" onClick={()=>onJump(row.id)}>
           <span>{row.date.slice(5)}</span><strong>{row.title}</strong><span>›</span>
         </button>)}
-      </div>
+      </div>}
       {diaryPrefs}
     </div>;
   }
