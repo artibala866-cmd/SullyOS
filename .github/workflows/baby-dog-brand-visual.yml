@@ -7,6 +7,7 @@ on:
       - 'components/os/BootSequence.css'
       - 'components/os/JellyfishBootSequence.tsx'
       - 'components/os/OriginalDogLineart.tsx'
+      - 'scripts/check-baby-dog-visual.mjs'
       - 'components/os/ClassicBootSequence.tsx'
       - 'components/appearance/AppIconEditor.tsx'
       - 'utils/appIcon.ts'
@@ -67,30 +68,7 @@ jobs:
             if curl -fsS http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html >/dev/null; then break; fi
             sleep 1
           done
-          chrome="${{ steps.chrome.outputs.chrome-path }}"
-          for variant in warm classic; do
-            suffix=""
-            if [ "$variant" = classic ]; then suffix="?cover=classic"; fi
-            url="http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html${suffix}"
-            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
-              --window-size=390,844 --virtual-time-budget=7000 --dump-dom \
-              "$url" > "/tmp/baby-dog-${variant}.html" 2> "/tmp/baby-dog-${variant}.log"
-            grep -o 'id="baby-dog-qa-checks"[^<]*' "/tmp/baby-dog-${variant}.html" || true
-            if ! grep -q 'data-baby-dog-qa-ready="true"' "/tmp/baby-dog-${variant}.html"; then
-              grep -o 'id="baby-dog-qa-checks"[^<]*' "/tmp/baby-dog-${variant}.html" || true
-              tail -c 1800 "/tmp/baby-dog-${variant}.html" || true
-              tail -60 /tmp/baby-dog-vite.log || true
-              exit 1
-            fi
-            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-              --window-size=390,844 --virtual-time-budget=7000 \
-              --screenshot="$GITHUB_WORKSPACE/baby-dog-${variant}-mobile.png" "$url"
-            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-              --window-size=320,568 --virtual-time-budget=7000 \
-              --screenshot="$GITHUB_WORKSPACE/baby-dog-${variant}-small.png" "$url"
-            test -s "baby-dog-${variant}-mobile.png"
-            test -s "baby-dog-${variant}-small.png"
-          done
+          CHROME_PATH="${{ steps.chrome.outputs.chrome-path }}" pnpm exec node scripts/check-baby-dog-visual.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
