@@ -2230,3 +2230,86 @@
  .couple-diary-cover-people {display:none;}
  .couple-content-mode .couple-diary-cover .couple-diary-cover-character {font-size:9px;max-width:80%;}
 }
+
+/* COUPLES ART DIRECTION V4: calm monochrome, meaningful composition, no fake 3-D ornaments. */
+.couple-content-mode {--couple-ink:#28282b;--couple-dim:#88888d;--couple-accent:#28282b;--couple-border:#e8e8e9;background:#f9f9f9!important;color:#29292c}
+.couple-content-mode .couple-header {height:56px;min-height:56px;background:#fbfbfb;border-bottom:1px solid #ebebed;box-shadow:none}
+.couple-content-mode .couple-header h1 {font-size:15px;font-weight:600;letter-spacing:.035em;color:#262629}
+.couple-content-mode .couple-main {padding:19px 19px 26px;background:#f9f9f9;overscroll-behavior:contain}
+.couple-content-mode .couple-scene {color:#29292c}
+.couple-content-mode .couple-scene button {transition:background .18s,border-color .18s,transform .18s}
+.couple-content-mode .couple-scene button:active {transform:scale(.987)}
+.couple-content-mode .couple-scene button:focus-visible {outline:2px solid #5e5e61;outline-offset:3px}
+/* A keepsake, not a generic dashboard. Actual character images are still loaded. */
+.couple-content-mode .couple-anniversary-hero {min-height:235px;padding:25px 17px 22px;gap:8px;background:#fff;border:1px solid #e9e9ea;border-radius:17px;box-shadow:none}
+.couple-anniversary-hero::before {display:none}
+.couple-anniversary-kicker {color:#8a8a8e;font-size:9px;letter-spacing:.14em}
+.couple-anniversary-pair {margin:10px 0 3px;gap:0}
+.couple-scene-avatar {width:55px;height:55px;flex-basis:55px;border:3px solid #fff;box-shadow:0 0 0 1px #e5e5e7;background:#f0f0f1}
+.couple-anniversary-thread {background:#fdfdfd;border:1px solid #ebebec;width:22px;height:22px;color:#555557;font-size:12px}
+.couple-anniversary-time {gap:6px;padding-top:6px}
+.couple-anniversary-time>span {font-size:11px;color:#6b6b70;letter-spacing:0}
+.couple-anniversary-time strong {font-size:54px;line-height:1;color:#242428;font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.055em}
+.couple-anniversary-time em {font-size:11px;color:#6b6b70}
+.couple-anniversary-names {font-size:10px;color:#76767b;letter-spacing:.06em}
+.couple-anniversary-next {margin:14px 0;padding:18px 19px;border-radius:15px;background:#f0f0f1;color:#2c2c30;border:1px solid #e6e6e7}
+.couple-anniversary-next>div:first-child span {color:#88888d;font-size:10px;letter-spacing:0}
+.couple-anniversary-next>div:first-child strong {font-size:14px;color:#333337}
+.couple-anniversary-countdown strong {font-family:Georgia,'Times New Roman',serif;font-size:34px;color:#252528;font-weight:400}
+.couple-anniversary-countdown small {font-size:10px;color:#77777c}
+.couple-anniversary-calendar {border:1px solid #e8e8e9;border-radius:14px;padding:0 13px 5px;background:#fff;margin-bottom:4px}
+.couple-anniversary-calendar-head {padding:15px 4px 11px}
+.couple-anniversary-calendar-head strong {font-size:12px;font-weight:600;color:#29292e}
+.couple-anniversary-calendar button>span:nth-child(2){font-size:12px}
+.couple-content-mode .couple-anniversary-calendar .couple-anniversary-invite {background:transparent;border:1px dashed #d4d4d5;color:#505054;min-height:42px;margin:0 0 4px;font-size:11px}
+.couple-anniversary-invite>span {border-color:#d1d1d4;color:#68686d}
+.couple-content-mode .couple-anniversary-ask {border:0;min-height:40px;padding:8px 5px;font-size:11px;color:#65656a}
+/* Mail now behaves like a letter-writing desk. */
+.couple-content-mode .couple-mail-postbox {min-height:229px;border:1px solid #e9e9ea;border-radius:16px;background:#f2f2f3;box-shadow:none;padding:16px 18px 17px;overflow:hidden}
+.couple-mail-postbox::before {display:none}
+.couple-mail-stamp {font-family:inherit;font-size:9px;letter-spacing:.16em;color:#88888d}
+.couple-content-mode .couple-mail-postbox .couple-mail-slot {width:82%;height:108px;min-height:108px;background:#fff;box-shadow:0 8px 17px #0000000c;border:1px solid #e5e5e7;border-radius:5px;margin:22px auto 6px;transform:rotate(-3deg)}
+.couple-content-mode .couple-mail-slot .couple-mail-paper {pointer-events:none;position:absolute;inset:0;top:0;left:0;transform:none;width:100%;height:100%;padding:17px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;background:#fff;box-shadow:none;border:0}
+.couple-mail-paper::after {content:'↗';position:absolute;right:16px;bottom:13px;font-size:17px;color:#99999c}
+.couple-mail-paper small {font-size:9px;letter-spacing:.14em;color:#89898e}
+.couple-mail-paper strong {font-size:18px;color:#343438;font-weight:550}
+.couple-mail-paper i {position:absolute;bottom:25px;left:20px;width:55%;height:1px;background:#dddde0}
+.couple-mail-slot:active .couple-mail-paper {top:0;transform:none}
+.couple-mail-bottom {align-items:baseline;margin-top:14px}
+.couple-mail-bottom strong {font-size:16px;font-weight:570}
+.couple-mail-bottom small {font-size:10px;color:#77777b}
+.couple-content-mode .couple-mail-postbox .couple-mail-lever {position:absolute;top:11px;right:14px;max-width:59%;min-height:31px;padding:5px 9px;border:0;background:transparent;color:#636369;font-size:10px;text-decoration:underline;text-decoration-color:#bcbcc0;text-underline-offset:4px}
+.couple-mail-trays {margin-top:17px!important}
+.couple-mail-tray-heading {padding:4px 0 13px;border-bottom:1px solid #e7e7e9}
+.couple-mail-tray-heading>span {font-size:11px;color:#55555b}
+.couple-mail-tray-envelope {border-radius:4px;background:#f5f5f5}
+.couple-content-mode .couple-mail-trays button {border-radius:10px;background:#fff;box-shadow:none}
+/* Time capsule: a restrained archival seal; no giant faux metal pill. */
+.couple-content-mode .couple-capsule-vault {min-height:260px;padding:23px 20px 19px;display:flex;gap:7px;background:#fff;border:1px solid #e9e9ea;border-radius:16px;box-shadow:none}
+.couple-capsule-vault::before {display:none}
+.couple-capsule-top {font-size:9px;letter-spacing:.17em;color:#85858a}
+.couple-content-mode .couple-capsule-vault .couple-capsule-lock {margin:12px 0 9px;width:105px;height:105px;border:1px solid #dadadd;border-radius:50%;background:#f7f7f7;box-shadow:0 0 0 8px #fff,0 0 0 9px #e9e9eb;color:#252529}
+.couple-capsule-lock::before {display:none}
+.couple-capsule-lock i {width:12px;height:12px;box-shadow:none;background:#99999e;border:0}
+.couple-capsule-lock strong {font-family:Georgia,'Times New Roman',serif;font-size:36px;font-weight:400;color:#303035}
+.couple-capsule-lock small {font-size:9px;color:#808088}
+.couple-capsule-vault>strong {font-size:16px;font-weight:570;color:#333337}
+.couple-capsule-foot {font-size:10px;color:#929298}
+.couple-content-mode .couple-capsule-vault .couple-capsule-new {min-height:38px;padding:8px 13px;margin:7px 0 0;border-radius:100px;background:#2e2e32;border:1px solid #2e2e32;color:#fff;box-shadow:none;font-size:11px}
+.couple-content-mode .couple-capsule-request {color:#65656a;border-color:#e5e5e7;margin-top:7px;padding:9px 3px}
+.couple-capsule-shelves {margin-top:17px}
+.couple-content-mode .couple-capsule-shelves button {border-color:#e7e7e9;border-radius:11px}
+/* Tree hollow: simple private stationery, no concentric-ring drawing. */
+.couple-content-mode .couple-hollow-door {min-height:268px;display:flex;flex-direction:column;gap:13px;justify-content:center;padding:21px 15px 17px;border:1px solid #e7e7e8;border-radius:16px;background:#fff;overflow:hidden}
+.couple-hollow-door::before {display:none}
+.couple-hollow-door>span:first-child {position:static;transform:none;top:auto;left:auto;font-size:9px;letter-spacing:.18em;color:#99999e}
+.couple-content-mode .couple-hollow-keyhole {position:relative;inset:auto;left:auto;top:auto;transform:none;margin:0 auto;width:94px;height:80px;border:0;background:#f2f2f3;border-radius:9px;box-shadow:0 8px 20px #0000000b;display:grid;place-items:center}
+.couple-content-mode .couple-hollow-keyhole::before {content:'';position:absolute;top:12px;left:18px;right:18px;height:1px;background:#ceced1}
+.couple-hollow-folded-note {width:48px;height:39px;transform:rotate(0deg);background:#fff;box-shadow:none;border:1px solid #dadadd}
+.couple-hollow-folded-note::before {background:#f3f3f4}
+.couple-content-mode .couple-hollow-door>strong {font-size:17px;font-weight:550;letter-spacing:.01em;margin:0;color:#303035}
+.couple-content-mode .couple-hollow-door .couple-hollow-drop {border-radius:100px;min-height:40px;margin:0;background:#303033;border:1px solid #303033;box-shadow:none;padding:7px 14px;font-size:11px}
+.couple-hollow-door>small {font-size:10px;color:#909095}
+.couple-content-mode .couple-hollow-drawer {margin-top:8px}
+.couple-hollow-drawer-footer {border-top:0;padding:10px 5px;margin-top:2px}
+.couple-hollow-drawer-footer>button {font-size:11px}
