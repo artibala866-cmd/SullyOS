@@ -251,7 +251,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   return <div className="couple-scene couple-scene-hollow">
-    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole">○<i/></div>
+    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole" aria-hidden="true"><span className="couple-hollow-folded-note" /></div>
       <strong>不必说出口的心事</strong>
       <button type="button" className="couple-hollow-drop" disabled={busy} onClick={onNew}>
         <span>＋</span> 投进一张只有你知道的便笺
