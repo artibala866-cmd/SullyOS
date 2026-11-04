@@ -244,7 +244,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         <button type="button" onClick={() => setDraft(undefined)}>取消</button>
       </div>
     </form>}
-    {!rows.length && <section className="couple-record-empty">
+    {!rows.length && !draft && <section className="couple-record-empty">
       <RecordArt kind={kind} date={today} count={0} />
       <strong>{look.empty}</strong>
       <p>{look.intro}</p>
