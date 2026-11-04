@@ -477,7 +477,7 @@ const MAX_RECORDING_MS = 60_000;
 const MIN_RECORDING_SAMPLES_AT_16K = 3200; // ~0.2s
 
 const startApiStt = async (
-  provider: 'minimax' | 'fishaudio' | 'elevenlabs' | null,
+  provider: 'minimax' | 'fishaudio' | 'elevenlabs',
   lang: string,
   apiConfig: Partial<APIConfig> | null | undefined,
   cb: SttCallbacks,
@@ -572,9 +572,6 @@ const startApiStt = async (
       // Do not publish bytes for cancelled sessions or upload an empty recording.
       if (!cancelled) cb.onAudioCaptured?.(wavBlob, totalSamples / sampleRate);
       if (cancelled) return;
-      // Browser STT generates its transcript separately; this internal PCM
-      // fallback only supplies the audio draft and never charges an API.
-      if (provider === null) return;
       const transcript = await transcribeAudioWithProvider(wavBlob, provider, lang, apiConfig);
       if (cancelled) return;
       if (transcript) {
@@ -623,114 +620,6 @@ const startApiStt = async (
     cb.onEnd?.();
     return { stop: () => {}, cancel: () => {} };
   }
-};
-
-/**
- * Private-chat STT's internal audio companion. The transcript always comes
- * from speech recognition; this helper only keeps the matching recording.
- * MediaRecorder is preferred, with WebAudio PCM/WAV as a WebView fallback.
- * This is NOT a standalone audio-only message entry point.
- */
-const capturePrivateChatSttAudio = async (cb: SttCallbacks): Promise<SttSession> => {
-  if (!isAudioRecordingSupported()) {
-    cb.onError?.('当前浏览器无法访问麦克风。请使用 HTTPS 页面、允许浏览器麦克风权限，或改用文字模拟语音');
-    cb.onEnd?.();
-    return { stop: () => {}, cancel: () => {} };
-  }
-  if (typeof MediaRecorder === 'undefined') {
-    return startApiStt(null, 'zh-CN', null, cb);
-  }
-
-  let stream: MediaStream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-  } catch (error: any) {
-    cb.onError?.(friendlyBrowserError(error?.name || error?.message || 'permission-denied', false));
-    cb.onEnd?.();
-    return { stop: () => {}, cancel: () => {} };
-  }
-
-  let recorder: MediaRecorder;
-  try {
-    const preferred = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
-    const mimeType = preferred.find(type => {
-      try { return MediaRecorder.isTypeSupported(type); } catch { return false; }
-    });
-    recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-  } catch (error: any) {
-    stream.getTracks().forEach(track => track.stop());
-    cb.onError?.('当前设备录音初始化失败：' + (error?.message || '不支持音频编码'));
-    cb.onEnd?.();
-    return { stop: () => {}, cancel: () => {} };
-  }
-
-  let stopped = false;
-  let cancelled = false;
-  let ended = false;
-  const chunks: Blob[] = [];
-  const startedAt = Date.now();
-  const cleanup = () => {
-    window.clearTimeout(autoStopTimer);
-    stream.getTracks().forEach(track => track.stop());
-  };
-  const finish = () => {
-    if (ended) return;
-    ended = true;
-    cleanup();
-    cb.onEnd?.();
-  };
-  recorder.ondataavailable = event => {
-    if (!cancelled && event.data?.size) chunks.push(event.data);
-  };
-  recorder.onerror = () => {
-    if (!cancelled) cb.onError?.('录音设备中断，请重新尝试');
-    finish();
-  };
-  recorder.onstop = () => {
-    if (!cancelled) {
-      const blob = new Blob(chunks, { type: recorder.mimeType || chunks[0]?.type || 'audio/webm' });
-      const durationSec = Math.max(0, (Date.now() - startedAt) / 1000);
-      if (blob.size && durationSec >= 0.2) cb.onAudioCaptured?.(blob, durationSec);
-      else cb.onError?.('录音太短了，请说完再按停止');
-    }
-    finish();
-  };
-  const stopRecorder = () => {
-    if (stopped) return;
-    stopped = true;
-    window.clearTimeout(autoStopTimer);
-    if (recorder.state === 'inactive') finish();
-    else {
-      try { recorder.stop(); }
-      catch (error: any) {
-        if (!cancelled) cb.onError?.('录音结束失败：' + (error?.message || error));
-        finish();
-      }
-    }
-  };
-  const autoStopTimer = window.setTimeout(stopRecorder, MAX_RECORDING_MS);
-  try {
-    recorder.start(250);
-  } catch (error: any) {
-    cb.onError?.('无法开始录音：' + (error?.message || error));
-    finish();
-    return { stop: () => {}, cancel: () => {} };
-  }
-
-  return {
-    stop: stopRecorder,
-    cancel: () => {
-      if (cancelled) return;
-      cancelled = true;
-      chunks.length = 0;
-      stopRecorder();
-      // Revoke captured permission immediately; discard onstop results.
-      cleanup();
-      finish();
-    },
-  };
 };
 
 // No-response watchdog: domestic Android browsers (Via / Quark / UC / Baidu / WeChat X5)
@@ -930,109 +819,21 @@ const startNative = async (lang: string, cb: SttCallbacks, hasPaidConfigured: bo
 };
 
 /**
- * Private-chat real voice: retain the actual microphone recording AND a separate
- * SpeechRecognition transcript. The Call app's existing startStt is unchanged.
+ * Private chat voice-to-text: use exactly one recognizer/capture route.
  *
- * Official ASR providers already save their *same* captured WAV via startApiStt.
- * Browser/native recognizers normally supply only text. On web browsers with
- * getUserMedia, this private-chat adapter captures the real audio alongside STT;
- * browser implementations may internally open a second microphone stream, which
- * cannot be avoided because Web Speech API does not accept MediaStream.
+ * Browser SpeechRecognition already owns the microphone. Opening a second
+ * getUserMedia stream in parallel can interrupt recognition on Android/WebView,
+ * re-open the permission dialog and leave the draft stuck on "starting".
  *
- * One onEnd fires only after BOTH sources have stopped; sending earlier would
- * produce a text-only voice bar while a recording was still flushing.
+ * The browser/native path therefore produces only the speech transcript.
+ * Explicitly selected provider-based STT still records and transcribes the
+ * same WAV stream via startApiStt, without an extra microphone request.
  */
 export const startPrivateChatStt = async (
   lang: string,
   cb: SttCallbacks,
   config?: Partial<APIConfig> | null,
-): Promise<SttSession> => {
-  if (resolveSttProvider(config) !== 'browser' ||
-      !isBrowserSttSupported() || !isAudioRecordingSupported()) {
-    return startStt(lang, cb, config);
-  }
-
-  let cancelled = false;
-  let finished = false;
-  let recognitionEnded = false;
-  let recordingEnded = false;
-  let recordingFailed = false;
-  let stopCaptureWhenReady = false;
-  let stopRecognitionWhenReady = false;
-  let recognizer: SttSession | null = null;
-  let recorder: SttSession | null = null;
-  const finish = () => {
-    if (finished || !recognitionEnded || !recordingEnded) return;
-    finished = true;
-    if (!cancelled) cb.onEnd?.();
-  };
-  const stopRecorder = () => {
-    if (recorder) recorder.stop();
-    else stopCaptureWhenReady = true;
-  };
-  const stopRecognizer = () => {
-    if (recognizer) recognizer.stop();
-    else stopRecognitionWhenReady = true;
-  };
-
-  // Both initializers start within the direct microphone-button action.
-  // Neither reads or writes the other's transcript or audio.
-  const recognizePromise = startStt(lang, {
-    ...cb,
-    onEnd: () => {
-      recognitionEnded = true;
-      stopRecorder();
-      finish();
-    },
-  }, config);
-  const recordingPromise = capturePrivateChatSttAudio({
-    onAudioCaptured: (blob, durationSec) => {
-      if (!cancelled) cb.onAudioCaptured?.(blob, durationSec);
-    },
-    onError: message => {
-      recordingFailed = true;
-      if (!cancelled) cb.onError?.(`原声保存不可用（仍可转写文字）：${message}`);
-    },
-    onEnd: () => {
-      recordingEnded = true;
-      // The 60s recording limit should also stop the recognizer.
-      // An unavailable recorder must NOT cancel a perfectly valid transcript.
-      if (!recordingFailed && !recognitionEnded) stopRecognizer();
-      finish();
-    },
-  });
-  try {
-    [recognizer, recorder] = await Promise.all([recognizePromise, recordingPromise]);
-    if (cancelled) {
-      recognizer.cancel();
-      recorder.cancel();
-    } else {
-      if (stopCaptureWhenReady) recorder.stop();
-      if (stopRecognitionWhenReady) recognizer.stop();
-    }
-  } catch (error) {
-    cancelled = true;
-    recognizer?.cancel();
-    recorder?.cancel();
-    throw error;
-  }
-  return {
-    stop: () => {
-      if (cancelled || finished) return;
-      stopRecognizer();
-      stopRecorder();
-    },
-    cancel: () => {
-      if (cancelled) return;
-      cancelled = true;
-      recognizer?.cancel();
-      recorder?.cancel();
-      // An in-flight getUserMedia permission dialog can resolve later.
-      // The completion branch above will cancel that session immediately.
-      finished = true;
-    },
-  };
-};
+): Promise<SttSession> => startStt(lang, cb, config);
 
 /**
  * Start a speech-to-text session using the resolved provider (`minimax`, `fishaudio`, `elevenlabs`, or `browser`).
