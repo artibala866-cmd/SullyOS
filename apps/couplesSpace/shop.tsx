@@ -121,8 +121,13 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
           <button key={id} aria-pressed={shelf === id} onClick={() => setShelf(id)}>{title}</button>)}
       </nav>
       {!visibleCards.length && <p className="couple-muted">这个分类暂时没有可展示的卡片。</p>}
-      {visibleCards.map(card => <article key={card.id} className="couple-card couple-shop-card">
-        <h3>{card.icon} {card.name}</h3><p>{card.effect}</p><small>{card.price} 积分{card.charUse ? ' · 双方可用' : ' · 仅我可用'}</small>
+      {visibleCards.map((card, index) => <article key={card.id} className="couple-card couple-shop-card">
+        <div className="couple-shop-head">
+          <div><span>COUPLE PASS / {String(index + 1).padStart(2, '0')}</span><h3>{card.name}</h3></div>
+          <strong>{card.price}<small>积分</small></strong>
+        </div>
+        <p>{card.effect}</p>
+        <small>{card.charUse ? '双方可用' : '仅我可用'}</small>
         <div className="couple-actions">{manage ? <>
           <button disabled={working} onClick={() => apply(current => ({
             ...current, hidden: current.hidden.includes(card.id) ? current.hidden.filter(id => id !== card.id) : [...current.hidden, card.id],
