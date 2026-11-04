@@ -1,0 +1,78 @@
+name: Character phone browser screenshot and regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/CharacterPhoneBrowser.tsx'
+      - 'components/chat/CharacterPhoneBrowser.test.tsx'
+      - 'utils/characterPhoneBrowser.ts'
+      - 'utils/characterPhoneBrowserAutonomy.ts'
+      - 'utils/characterPhoneBrowser.test.ts'
+      - 'utils/characterPhoneBrowserAutonomy.test.ts'
+      - 'tests/character-phone-browser-visual.*'
+      - '.github/workflows/phone-browser-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: character-phone-browser-visual
+  cancel-in-progress: true
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check browser record storage, autonomous thought, and real-card click flow
+        run: pnpm exec vitest run utils/characterPhoneBrowser.test.ts utils/characterPhoneBrowserAutonomy.test.ts components/chat/CharacterPhoneBrowser.test.tsx
+      - name: Build full application
+        run: pnpm run build
+      - name: Target TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/phone-browser-tsc.log 2>&1 || true
+          grep -E '^(components/chat/CharacterPhoneBrowser(\.test)?\.tsx|utils/characterPhoneBrowser(Autonomy)?(\.test)?\.ts|tests/character-phone-browser-visual\.tsx)[(]' /tmp/phone-browser-tsc.log > /tmp/phone-browser-target-errors.log || true
+          if [ -s /tmp/phone-browser-target-errors.log ]; then cat /tmp/phone-browser-target-errors.log; exit 1; fi
+      - name: Install Chinese fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Render actual React browser component at 390px and capture list / detail
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/phone-browser-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/character-phone-browser-visual.html'
+          for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          for view in list detail; do
+            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage               --window-size=390,980 --force-device-scale-factor=1 --virtual-time-budget=12000               --dump-dom "$url?view=$view" > "/tmp/phone-browser-$view-dom.txt" 2>/tmp/phone-browser-chrome.log || true
+            if ! grep -q 'data-ready="true"' "/tmp/phone-browser-$view-dom.txt"; then
+              grep -o '<output[^>]*>[^<]*</output>' "/tmp/phone-browser-$view-dom.txt" || true
+              tail -50 /tmp/phone-browser-vite.log || true
+              exit 1
+            fi
+            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars               --window-size=390,980 --force-device-scale-factor=1 --virtual-time-budget=12000               --screenshot="$GITHUB_WORKSPACE/phone-browser-$view.png" "$url?view=$view"
+            test -s "phone-browser-$view.png"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phone-browser-390px-screenshots
+          path: |
+            phone-browser-list.png
+            phone-browser-detail.png
+          if-no-files-found: ignore
+          retention-days: 7
