@@ -1,7 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
   ArrowLeft, ArrowRight, ArrowSquareOut, CaretRight, ClockCounterClockwise,
-  Globe, Lightning, MagnifyingGlass, SpinnerGap, Trash, X,
+  Books, Cookie, GameController, Globe, GraduationCap, Lightning,
+  MagnifyingGlass, MusicNotes, PaintBrush, SpinnerGap, Trash, X,
 } from '@phosphor-icons/react';
 import type {CharacterProfile, GroupProfile, RealtimeConfig, UserProfile} from '../../types';
 import {
@@ -29,42 +30,48 @@ function visitTime(visit:PhoneBrowserVisit):string {
   return new Date(visit.visitedAt).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 
-/** A miniature of the SAVED navigation, not a scraped Baidu result or screenshot. */
+/** Topic artwork derived from the SAVED query: never a fake web screenshot. */
+function searchRecordTheme(visit:PhoneBrowserVisit) {
+  const query=[visit.query,visit.title,visit.summary].filter(Boolean).join(' ');
+  if(/曲奇|面团|烤|烘焙|饼干|蛋糕|食谱|做饭/.test(query))
+    return {name:'生活 · 美食',icon:Cookie,background:'linear-gradient(140deg,#ffefe0,#f5d4b4)',color:'#98623e'};
+  if(/游戏|steam|ps5|主机|通关|单机/i.test(query))
+    return {name:'娱乐 · 游戏',icon:GameController,background:'linear-gradient(145deg,#e5ecff,#cfdcf5)',color:'#5b6ba4'};
+  if(/课|课程|学习|考试|人体|价格|行情|老师|练习/.test(query))
+    return {name:'学习 · 资料',icon:GraduationCap,background:'linear-gradient(150deg,#e0f1e7,#bfdacb)',color:'#4f8169'};
+  if(/绘画|插画|画笔|美术|设计|色彩/.test(query))
+    return {name:'创作 · 灵感',icon:PaintBrush,background:'linear-gradient(150deg,#fae9ef,#eecdd9)',color:'#a96781'};
+  if(/歌|音乐|听歌|专辑|旋律/.test(query))
+    return {name:'影音 · 音乐',icon:MusicNotes,background:'linear-gradient(145deg,#eee7f6,#d8c8e8)',color:'#816a99'};
+  if(/读书|小说|文学|书籍|作者|出版社/.test(query))
+    return {name:'阅读 · 书籍',icon:Books,background:'linear-gradient(145deg,#f4ebdc,#e5d2b1)',color:'#957951'};
+  return {name:visit.kind==='baidu-search'?'网络 · 搜索':'网页 · 浏览',icon:Globe,
+    background:'linear-gradient(145deg,#e9eef6,#d0dce9)',color:'#617f9d'};
+}
 function BrowserRecordPreview({visit,large=false}:{visit:PhoneBrowserVisit;large?:boolean}) {
-  const isSearch=visit.kind==='baidu-search';
-  const host=browserHost(visit.url);
-  return <div className={'relative overflow-hidden bg-white text-[#263449] '+(large?'rounded-2xl border border-[#e1e8f3]':'rounded-t-2xl border-b border-[#e8edf5]')}>
-    <div className={'flex items-center gap-1.5 border-b border-[#eef2f8] bg-[#f9fbff] '+(large?'px-4 py-3':'px-2.5 py-2')}>
-      <span className="h-[5px] w-[5px] rounded-full bg-[#f3a9a9]"/>
-      <span className="h-[5px] w-[5px] rounded-full bg-[#f1d19a]"/>
-      <span className="h-[5px] w-[5px] rounded-full bg-[#a5d8b6]"/>
-      <span className="ml-1 min-w-0 flex-1 truncate rounded-md bg-[#edf2fa] px-2 py-1 text-[9px] text-[#7f8fa7]">{host}</span>
+  const theme=searchRecordTheme(visit);
+  const CoverIcon=theme.icon;
+  return <div aria-label={large?'记录封面':'搜索记录图文封面'}
+    className={'relative isolate flex shrink-0 flex-col overflow-hidden '+(large?'h-[212px] w-full':'w-[116px] min-h-[170px] self-stretch')}
+    style={{background:theme.background,color:theme.color}}>
+    <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 h-32 w-32 rounded-full border-[14px] border-white/35"/>
+    <div aria-hidden="true" className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full border-[12px] border-white/30"/>
+    <div className={'relative z-10 flex items-center gap-1.5 '+(large?'px-5 pt-5':'px-3 pt-3')}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-75"/>
+      <span className={'font-semibold tracking-wide '+(large?'text-[11px]':'text-[9px]')}>
+        {visit.kind==='baidu-search'?'百度 · 搜索':'网站 · 浏览'}
+      </span>
     </div>
-    {isSearch ? <div className={large?'px-5 pb-6 pt-5':'px-3 pb-5 pt-3'}>
-      <div className={'flex items-center gap-1 font-semibold tracking-tight text-[#2767cd] '+(large?'text-[23px]':'text-[16px]')}>
-        <span className="font-black">百</span><span className="text-[#e14c4c]">度</span>
-        <span className="ml-auto rounded bg-[#edf3ff] px-1.5 py-0.5 text-[9px] font-medium text-[#5279b8]">搜索记录</span>
+    <div className="relative z-10 flex flex-1 items-center justify-center py-1">
+      <div className={'flex items-center justify-center border border-white/50 bg-white/50 shadow-[0_10px_22px_rgba(0,0,0,.05)] '+(large?'h-[104px] w-[104px] rounded-[28px]':'h-[64px] w-[64px] rounded-[20px]')}>
+        <CoverIcon size={large?57:37} weight="duotone"/>
       </div>
-      <div className="mt-3 flex min-h-8 items-center overflow-hidden rounded-md border border-[#cfddf6] bg-white shadow-[0_2px_8px_rgba(47,102,178,.05)]">
-        <span className="min-w-0 flex-1 truncate px-2 text-[10px] text-[#334155]">{visit.query}</span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#3477e7] text-white"><MagnifyingGlass size={13}/></span>
-      </div>
-      <div className="mt-3 flex items-center gap-1.5"><span className="h-[3px] w-10 rounded-full bg-[#b0c8f5]"/><span className="h-[3px] w-14 rounded-full bg-[#e2e9f4]"/></div>
-      <p className={'mt-2 break-words text-[#697b94] '+(large?'line-clamp-3 text-xs leading-5':'line-clamp-2 text-[9px] leading-4')}>
-        {visit.summary||visit.aiJudgement||'打开搜索记录，查看当时的查询线索'}
-      </p>
-    </div> : <div className={large?'px-5 pb-7 pt-6':'px-3 pb-5 pt-4'}>
-      <div className={'flex items-center gap-2 '+(large?'text-xl':'text-sm')}>
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eaf1fb] text-[#4b80c4]"><Globe size={17}/></span>
-        <strong className="min-w-0 truncate">{host}</strong>
-      </div>
-      <div className="mt-3 h-[1px] bg-[#e4ebf4]"/>
-      <p className={'mt-3 line-clamp-2 font-medium text-[#4b5f79] '+(large?'text-sm':'text-[10px]')}>{browserTitle(visit)}</p>
-      <p className="mt-1 truncate text-[9px] text-[#91a0b3]">{visit.url}</p>
-      <div className="mt-3 flex gap-1.5"><span className="h-[4px] w-2/3 rounded-full bg-[#e3eaf5]"/><span className="h-[4px] w-1/4 rounded-full bg-[#eef2f8]"/></div>
-    </div>}
-    <div className="absolute bottom-0 left-0 right-0 flex justify-end bg-gradient-to-t from-white via-white/85 to-transparent px-3 pb-1.5 pt-4">
-      <span className="text-[9px] text-[#96a4b6]">记录缩略预览 · 非网页截图</span>
+    </div>
+    <div className={'relative z-10 '+(large?'px-5 pb-5':'px-2.5 pb-3')}>
+      <span className={'block font-semibold '+(large?'text-xs':'text-[9px]')}>{theme.name}</span>
+      <span className={'mt-1 block break-words font-semibold leading-snug '+(large?'line-clamp-2 text-[17px]':'line-clamp-2 text-[10px]')}>
+        {visit.query||browserTitle(visit)}
+      </span>
     </div>
   </div>;
 }
@@ -166,7 +173,7 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
               <span className="rounded-full bg-[#eff3f9] px-2 py-0.5">{selected.actor==='char'?'Char 自主搜索':'手动访问'}</span>
             </div>
             <h2 className="break-words text-[19px] font-semibold leading-7 text-[#1d2d45]">{browserTitle(selected)}</h2>
-            <p className="mt-2 break-all text-[11px] leading-5 text-[#8294ac]">{selected.url}</p>
+            <p className="mt-2 truncate rounded-lg bg-[#f5f7fa] px-3 py-2 text-[11px] text-[#8294ac]" title={selected.url}>{browserHost(selected.url)} · {selected.kind==='baidu-search'?'搜索词已保存':selected.url}</p>
           </div>
           {selected.aiJudgement&&<div className="border-l-[3px] border-[#91b3e5] pl-3">
             <h3 className="text-xs font-semibold text-[#6785b0]">当时为什么要查</h3>
@@ -205,28 +212,40 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eff4fb] text-[#7195c6]"><MagnifyingGlass size={26}/></div>
         <h3 className="mt-4 text-sm font-semibold text-[#415570]">{filter==='char'?'Char 还没有自主搜索':'浏览记录还是空的'}</h3>
         <p className="mt-2 text-xs leading-5 text-[#9aa7b9]">可以在上方输入网址，或让 Char 根据自己的生活决定搜索什么。</p>
-      </div> : <div className="grid grid-cols-2 gap-3">
-        {visibleHistory.map(item=><article key={item.id} className="min-w-0 overflow-hidden rounded-2xl border border-[#e2e9f2] bg-white shadow-[0_5px_16px_rgba(45,76,119,.045)]">
+      </div> : <div className="space-y-3">
+        {visibleHistory.map(item=><article key={item.id}
+          className="overflow-hidden rounded-[20px] border border-[#e4e9f0] bg-white shadow-[0_5px_16px_rgba(36,56,85,.045)]">
           <button type="button" onClick={()=>setSelectedId(item.id)}
-            aria-label={'查看浏览记录详情：'+browserTitle(item)} className="block w-full text-left active:opacity-75">
+            aria-label={'查看浏览记录详情：'+browserTitle(item)}
+            className="flex w-full items-stretch text-left active:opacity-75">
             <BrowserRecordPreview visit={item}/>
-            <div className="px-3 pb-2 pt-3">
-              <strong className="line-clamp-2 min-h-[38px] break-words text-[13px] font-semibold leading-[19px] text-[#2a3b53]">{browserTitle(item)}</strong>
-              <p className="mt-1 truncate text-[10px] text-[#7794b9]">{browserHost(item.url)}</p>
-              <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium text-[#4780cc]">查看记录 <CaretRight size={12}/></span>
+            <div className="flex min-w-0 flex-1 flex-col px-3.5 py-3.5">
+              <div className="mb-2 flex items-center justify-between gap-1.5 text-[10px] text-[#92a0b3]">
+                <span className="inline-flex items-center gap-1 truncate"><MagnifyingGlass size={12} className="shrink-0"/>
+                  {item.actor==='char'?'Char 搜索':'手动浏览'}</span>
+                <CaretRight size={15} className="shrink-0 text-[#aab8ca]"/>
+              </div>
+              <h3 className="line-clamp-2 break-words text-[15px] font-semibold leading-[21px] text-[#29364a]">{browserTitle(item)}</h3>
+              <p className="mt-2 line-clamp-2 break-words text-[11px] leading-[17px] text-[#718197]">
+                <span className="mr-1 font-semibold text-[#536780]">想了解</span>
+                {item.summary||item.query||browserHost(item.url)}
+              </p>
+              {item.afterSearchThought&&<p className="mt-2 line-clamp-2 break-words rounded-lg bg-[#f7f5fa] px-2 py-1.5 text-[10px] leading-[16px] text-[#85738f]">
+                <span className="font-semibold">心声 · </span>{item.afterSearchThought}
+              </p>}
+              <span className="mt-auto pt-2 text-[10px] text-[#9ca8b6]">{visitTime(item)}</span>
             </div>
           </button>
-          <div className="flex items-center justify-between gap-1 border-t border-[#f1f3f8] px-3 py-2">
-            <span className="min-w-0 truncate text-[10px] text-[#96a4b7]">{visitTime(item)} · {item.actor==='char'?'Char':'手动'}</span>
-            <button type="button" aria-label={'删除记录 '+browserTitle(item)}
-              onClick={()=>deletePhoneBrowserVisit(characterId,item.id)}
-              className="shrink-0 rounded-md p-1 text-[#9ca8b8] active:text-[#e15f5f]"><Trash size={15}/></button>
+          <div className="flex items-center justify-between border-t border-[#f0f2f5] px-3.5 py-2">
+            <span className="truncate text-[10px] text-[#8b9aaa]">{browserHost(item.url)} · 搜索记录预览</span>
+            <button type="button" aria-label={'删除记录 '+browserTitle(item)} onClick={()=>deletePhoneBrowserVisit(characterId,item.id)}
+              className="rounded-md p-1 text-[#9ca8b8] active:text-[#e15f5f]"><Trash size={15}/></button>
           </div>
         </article>)}
       </div>}
       {lastUrl&&<p className="mt-5 break-all text-[11px] leading-5 text-[#8494a9]">最近手动打开：<a href={lastUrl} target="_blank" rel="noopener noreferrer" className="text-[#4a82d2] underline">{lastUrl}</a></p>}
       <p className="mt-6 px-1 text-[11px] leading-5 text-[#97a4b5]">
-        缩略卡片由实际保存的搜索词、网址和角色笔记组成；没有抓取网页截图或冒充实时结果。点开记录后可查看心声，并前往真实网页核验。
+        卡片直接展示已保存的搜索主题、想了解的内容及心声摘录，配图是主题插画而非网页截图。点开后查看完整记录，再到真实网页核验。
       </p>
     </div>}
 
