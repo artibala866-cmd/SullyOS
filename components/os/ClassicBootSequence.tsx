@@ -221,7 +221,7 @@ const ClassicBootSequence: React.FC<Props> = ({ dataReady, wallpaper, onDone }) 
             animation: cinematic ? 'bootLogoIn 1400ms cubic-bezier(0.22,1,0.36,1) 250ms both' : 'bootLogoIn 600ms ease-out both',
           }}>
             <img src={import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105'} alt="宝宝狗手绘小狗"
-              className="w-[min(65vw,310px)] max-w-full object-contain" draggable={false} />
+              className="max-w-full object-contain" style={{ width: 'min(65vw, 310px)', height: 'auto', display: 'block' }} draggable={false} />
             <div className="mt-1 text-center" style={{
               fontFamily: "'ZCOOL KuaiLe','Ma Shan Zheng','Noto Sans SC',cursive",
               fontSize: 'clamp(42px, 12vw, 66px)', fontWeight: 500, letterSpacing: '0.07em',
