@@ -890,7 +890,7 @@ export function formatApiRequestCaptureTxt(capture: ApiRequestCapture): string {
     });
 
     return [
-        'SullyOS·糯米机 · LLM 本次发送统计',
+        '宝宝狗 · LLM 本次发送统计',
         '================================',
         `抓取时间：${time}`,
         `App：${capture.meta.appName || '—'}`,
