@@ -2190,9 +2190,10 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div className="pt-2 border-t border-slate-100">
                         <h3 className="mb-2 text-xs font-bold text-slate-600">输入与发送</h3>
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} scope="group" />
+                        {activeGroup && <div className="mt-1">
+                            <AutomaticImageToggle scope="group" id={activeGroup.id} />
+                        </div>}
                     </div>
-
-                    {activeGroup && <AutomaticImageToggle scope="group" id={activeGroup.id} />}
 
                     {/* Reply Mode */}
                     <div className="pt-2 border-t border-slate-100">
