@@ -136,9 +136,14 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
         {onNativeJournal && <button className="couple-diary-open-original" onClick={onNativeJournal}>在原生日记里继续写 <span>↗</span></button>}
       </div>
       <div className="couple-diary-bookmarks">
-        <div className="couple-diary-bookmark-head"><span>留在情侣空间的书页 · {totalRecords}</span>
+        <div className="couple-diary-bookmark-head"><span>关系书页 · {totalRecords}</span>
           <button type="button" disabled={busy} onClick={onAI}>请 {names.them} 也写一页 ✎</button>
         </div>
+        {totalRecords > 0 && <div className="couple-diary-filter-mark">
+          <select aria-label="日记按记录者筛选" value={filter} onChange={event=>onFilter(event.target.value)}>
+            <option value="all">全部书页</option><option value="me">{names.me} 的</option><option value="them">{names.them} 的</option>
+          </select>
+        </div>}
         {rows.length > 0 && rows.map(row => <button key={row.id} className="couple-diary-bookmark-page" onClick={()=>onJump(row.id)}>
           <span>{row.date.slice(5)}</span><strong>{row.title}</strong><span>›</span>
         </button>)}
@@ -442,14 +447,8 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       <div className="couple-edit-hollow-note">{note}{title}<div>{person}{date}</div></div>
     </div>;
   };
-  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
-    {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
-      avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
-      onNew={() => setDraft(newEntry())} onAI={() => void run(generated)} busy={working || busy}
-      onJump={id => { setActiveRecordId(id); setReplyDraft(undefined); document.querySelector('.couple-main')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
-    {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
-    {kind === 'diary' && !draft && !activeRecordId && <details className="couple-record-preferences">
-      <summary>日记偏好 <span>自动写作与回顾设置</span></summary>
+  const diaryPrefs = (<details className="couple-diary-pref-fold">
+      <summary>写作设置 <span>⌄</span></summary>
       <div className="couple-record-preferences-body">
       <label><input type="checkbox" checked={!!bond.diaryAuto} onChange={event => {
         const diaryAuto = event.target.checked;
@@ -464,25 +463,21 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         if (diaryStyle !== (bond.diaryStyle ?? '')) void run(() => change(current => ({ ...current, diaryStyle })));
       }} /></label>
       </div>
-    </details>}
-    {kind === 'capsule' && !draft && !activeRecordId && <nav className="couple-segments" aria-label="胶囊状态">
-      {([['all', '全部'], ['sealed', '封存中'], ['ready', '可拆封'], ['opened', '已拆封']] as const).map(([id, label]) =>
-        <button key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>
-          {label}{id === 'ready' ? ` ${capsules.filter(item => capsuleStatus(item, today) === 'ready').length}` : ''}
-        </button>)}
-    </nav>}
-    {!draft && !activeRecordId && (kind === 'diary' || kind === 'mail') && <div className="couple-actions">
-      <select aria-label="筛选记录" value={filter} onChange={event => setFilter(event.target.value)}>
-        <option value="all">全部</option><option value="me">{names.me}</option><option value="them">{names.them}</option>
-        {kind === 'mail' && <option value="pending">待回信</option>}
-      </select>
-    </div>}
-    {kind === 'hollow' && !draft && !activeRecordId && <div className="couple-record-preferences couple-hollow-preference"><label>
+    </details>);
+  const hollowPrefs = (<details className="couple-hollow-pref-fold"><summary>心事设置 <span>⌄</span></summary><div className="couple-hollow-pref-interior"><label>
       <input type="checkbox" checked={!!bond.hollowAuto} disabled={working} onChange={event => {
         const hollowAuto = event.target.checked;
         void run(() => change(current => ({ ...current, hollowAuto })));
       }} /> 允许角色在私聊后悄悄留下心事
-    </label></div>}
+    </label></div></details>);
+  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
+    {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
+      avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
+      filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length}
+      diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs}
+      onNew={() => setDraft(newEntry())} onAI={() => void run(generated)} busy={working || busy}
+      onJump={id => { setActiveRecordId(id); setReplyDraft(undefined); document.querySelector('.couple-main')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+    {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
     {error && <p role="alert" className="couple-error">{error}</p>}
     {draft && <form className={'couple-card couple-compose couple-compose-' + kind} onSubmit={event => {
       event.preventDefault();
