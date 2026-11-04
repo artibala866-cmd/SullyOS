@@ -198,6 +198,24 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   </div>;
 }
 
+
+function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }: {
+ kind: EntryKind; entry: Entry; names: Record<Side,string>; avatarMe?:string; avatarThem?:string; today:string;
+}) {
+ if(kind==='anniversary') return <header className="couple-detail-anniversary">
+   <div className="couple-detail-anniversary-faces"><SceneAvatar value={avatarMe} name={names.me}/><span>♡</span><SceneAvatar value={avatarThem} name={names.them}/></div>
+   <small>纪念 / {entry.date}</small><h2>{entry.title}</h2>
+   <div className="couple-detail-anniversary-days">从这一天起已经 <strong>{elapsedDate(entry.date,today)}</strong> 天</div>
+ </header>;
+ if(kind==='diary') return <header className="couple-detail-diary"><span>DIARY / {entry.date}</span><h2>{entry.title}</h2><small>{names[entry.side]} · 写下这一页</small></header>;
+ if(kind==='mail') return <header className="couple-detail-mail"><span>POSTMARK · {entry.date}</span><div className="couple-detail-mail-from"><small>FROM</small><strong>{names[entry.side]}</strong><small>TO</small><strong>{names[entry.side==='me'?'them':'me']}</strong></div><h2>{entry.title}</h2></header>;
+ if(kind==='timeline') return <header className="couple-detail-timeline"><span>{entry.date.slice(5).replace('-',' / ')}</span><div><small>{entry.date.slice(0,4)} / MOMENT</small><h2>{entry.title}</h2></div></header>;
+ if(kind==='wish') return <header className="couple-detail-wish"><span>{entry.done?'✓ 已完成':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small></header>;
+ if(kind==='gift') return <header className="couple-detail-gift"><div className="couple-detail-gift-photo">{entry.image?<TokenImg value={entry.image} alt={entry.title}/>:<span>FOR YOU</span>}</div><div><small>GIFT / {entry.date}</small><h2>{entry.title}</h2><span>FROM {names[entry.side]}</span></div></header>;
+ if(kind==='capsule') return <header className="couple-detail-capsule"><span className="couple-detail-capsule-stamp">◉</span><small>{entry.opened?'OPENED':'SEALED'} · {entry.date}</small><h2>{entry.opened||entry.openedEarly?entry.title:'一封写给未来的信'}</h2><p>寄给 {names[entry.side==='me'?'them':'me']} · {entry.unlockDate||'未设置日期'}</p></header>;
+ return <header className="couple-detail-hollow"><span>PRIVATE / {entry.date}</span><h2>{entry.title}</h2><small>写下了，就不必一直放在心上。</small></header>;
+}
+
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
@@ -415,16 +433,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       </div>
     </form>}
 
-    {!draft && rows.filter(item => item.id === activeRecordId).map(item => {
+    {!draft && bond.entries.filter(item => item.kind === kind && item.id === activeRecordId).map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
       return <article className={'couple-card couple-record-entry couple-entry-' + kind + (item.done ? ' couple-entry-completed' : '')} key={item.id} id={`bond-entry-${item.id}`}>
-        <div className="couple-entry-head">
-          <span>{kind === 'anniversary' ? item.date.slice(5) : kind === 'wish' ? (item.done ? '✓' : '○') : kind === 'mail' ? 'LETTER' : kind === 'capsule' ? 'FUTURE' : kind === 'gift' ? 'GIFT' : kind === 'diary' ? 'JOURNAL' : kind === 'hollow' ? 'PRIVATE' : item.date.slice(5)}</span>
-          <span>{recordNames[kind]}</span>
-        </div>
-        <small>{item.date} · {names[item.side]}{item.pinned ? ' · 置顶' : ''}</small>
-        <h3>{item.title}</h3>
+        <CoupleDetailHeading kind={kind} entry={item} names={names} avatarMe={avatarMe} avatarThem={avatarThem} today={today}/>
         {state && <span className="couple-status" data-state={state}>
           {state === 'ready' ? '可以拆封' : state === 'sealed' ? '封存中' : item.openedEarly ? '提前拆封' : '已拆封'}
         </span>}
@@ -444,8 +457,8 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             }}>删除</button>
           </div>}
         </> : <>
-          {item.image && <TokenImg value={item.image} alt={item.title} className="couple-record-image" />}
-          <p>{item.body}</p>
+          {item.image && kind !== 'gift' && <TokenImg value={item.image} alt={item.title} className="couple-record-image" />}
+          <div className={'couple-detail-body couple-detail-body-' + kind}><p>{item.body}</p></div>
           {item.stickers?.some(Boolean) && <div className="couple-stickers" aria-label="日记贴纸">
             {item.stickers.map((sticker, index) => sticker && <button key={index} type="button" disabled={working}
               title="拖动贴纸" aria-label={`移动贴纸 ${sticker}`} style={{
