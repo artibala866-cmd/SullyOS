@@ -59,12 +59,14 @@ type CoupleSceneProps = {
   kind: EntryKind; bond: Bond; names: Record<Side,string>; rows: Entry[]; today: string;
   onNew: () => void; onAI: () => void; busy: boolean; onJump: (id:string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
+  filter: string; onFilter: (filter: string) => void; totalRecords: number;
+  diaryPrefs?: React.ReactNode; hollowPrefs?: React.ReactNode;
 };
 function SceneAvatar({ value, name }: { value?: string; name: string }) {
   return <span className="couple-scene-avatar">{value ? <TokenImg value={value} alt={name} /> : <span>{name.slice(0,1)}</span>}</span>;
 }
 function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump,
-  avatarMe, avatarThem, charId, onNativeJournal }: CoupleSceneProps) {
+  avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, diaryPrefs, hollowPrefs }: CoupleSceneProps) {
   const [native, setNative] = useState<DiaryEntry[]>([]);
   const [journalPage, setJournalPage] = useState(0);
   const [error, setError] = useState('');
@@ -76,10 +78,6 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     }).catch(() => { if (active) setError('原生日记读取失败，可以打开日记应用重试。'); });
     return () => { active = false; };
   }, [kind, charId]);
-  const actions = (label: string, secondary?: string) => <div className="couple-scene-controls">
-    <button type="button" className="couple-scene-main-action" disabled={busy} onClick={onNew}>{label}</button>
-    <button type="button" className="couple-scene-ai-action" disabled={busy} onClick={onAI}>{secondary ?? ('邀请' + names.them)}</button>
-  </div>;
   const total = rows.length;
   if (kind === 'anniversary') {
     const source = [ { id:'start', title:'我们的起点', date:bond.start },...rows.map(r=>({id:r.id,title:r.title,date:r.date})) ];
@@ -104,8 +102,13 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
           <span>{item.title}<small>{item.date}</small></span>
           <span className="couple-anniversary-calendar-chevron">{item.id==='start' ? '始' : '›'}</span>
         </button>)}
+        <button type="button" className="couple-anniversary-invite" disabled={busy} onClick={onNew}>
+          <span aria-hidden="true">＋</span> 记住另一个特别的日子
+        </button>
       </div>
-      {actions('＋ 添加一个特别的日子','请 '+names.them+' 回忆')}
+      <button type="button" className="couple-anniversary-ask" disabled={busy} onClick={onAI}>
+        让 {names.them} 回忆属于你们的日子 <span>↗</span>
+      </button>
     </div>;
   }
   if (kind === 'diary') {
@@ -114,6 +117,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
       <div className="couple-diary-cover"><span className="couple-diary-spine"/><span>DIARY EXCHANGE</span>
         <strong>两个人的日记</strong><small>今天的生活，交换着读。</small>
         <div className="couple-diary-cover-people"><span>{names.me}</span><span>·</span><span>{names.them}</span></div>
+        <button className="couple-diary-cover-open" disabled={busy} onClick={onNew}>＋ 写一页</button>
       </div>
       <div className="couple-diary-native">
         <div className="couple-diary-native-head"><strong>原生日记本</strong><span>{native.length} 篇</span></div>
@@ -129,27 +133,46 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
           </div>
         </> : <div className="couple-diary-native-empty"><span>↗</span><strong>还没有交换的日记</strong><p>写下今天的事，再看看 TA 会记住些什么。</p></div>}
         {error && <p role="alert" className="couple-error">{error}</p>}
-        {onNativeJournal && <button className="couple-diary-open-original" onClick={onNativeJournal}>打开原生交换日记 <span>↗</span></button>}
+        {onNativeJournal && <button className="couple-diary-open-original" onClick={onNativeJournal}>在原生日记里继续写 <span>↗</span></button>}
       </div>
-      <div className="couple-diary-sidebook"><div><span>COUPLE SPACE</span><strong>情侣空间的日记页</strong><p>这里另外收藏了 {total} 页与你们的关系有关的记事。</p></div>
-        {actions('＋ 写下新的一页','请 '+names.them+' 写一页')}</div>
+      <div className="couple-diary-bookmarks">
+        <div className="couple-diary-bookmark-head"><span>留在情侣空间的书页 · {totalRecords}</span>
+          <button type="button" disabled={busy} onClick={onAI}>请 {names.them} 也写一页 ✎</button>
+        </div>
+        {rows.length > 0 && rows.map(row => <button key={row.id} className="couple-diary-bookmark-page" onClick={()=>onJump(row.id)}>
+          <span>{row.date.slice(5)}</span><strong>{row.title}</strong><span>›</span>
+        </button>)}
+      </div>
+      {diaryPrefs}
     </div>;
   }
   if(kind==='mail'){
     const unread=rows.filter(r=>!r.reply).length;
     return <div className="couple-scene couple-scene-mail">
       <div className="couple-mail-postbox"><span className="couple-mail-stamp">POST / {today.slice(0,4)}</span>
-        <div className="couple-mail-slot"><span className="couple-mail-paper"><small>TO.</small><strong>{names.them}</strong><i/></span></div>
+        <button className="couple-mail-slot" disabled={busy} onClick={onNew} aria-label={'写信给'+names.them}>
+          <span className="couple-mail-paper"><small>TO.</small><strong>{names.them}</strong><i/></span>
+        </button>
         <div className="couple-mail-bottom"><strong>时光信箱</strong><small>{unread} 封等待回信</small></div>
+        <button type="button" className="couple-mail-lever" disabled={busy} onClick={onAI}>
+          ◉ 请 {names.them} 寄来一封
+        </button>
       </div>
-      <div className="couple-mail-routing"><div><small>FROM</small><strong>{names.me}</strong></div><span>━━━━ →</span><div><small>TO</small><strong>{names.them}</strong></div></div>
-      <div className="couple-mail-trays"><span>LETTERS · {total}</span>
+      <div className="couple-mail-trays">
+        {totalRecords > 0 && <div className="couple-mail-tray-heading">
+          <span>往来信件 · {totalRecords}</span>
+          <select aria-label="信箱筛选" value={filter} onChange={event=>onFilter(event.target.value)}>
+            <option value="all">全部信件</option><option value="me">我寄出的</option>
+            <option value="them">{names.them} 寄来的</option><option value="pending">尚未回信</option>
+          </select>
+        </div>}
         {rows.length ? rows.map((item,i)=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
           <span className="couple-mail-tray-envelope"><span>✉</span></span>
           <span><strong>{item.title}</strong><small>{item.reply?'已有回信':'等待回信'} · {item.date}</small></span><b>{String(i+1).padStart(2,'0')}</b>
-        </button>) : <div className="couple-mail-no-letters">信箱里没有信，第一封由你寄出。</div>}
+        </button>) : totalRecords === 0 ? <button type="button" className="couple-mail-first-letter" disabled={busy} onClick={onNew}>
+          <span aria-hidden="true">✉</span><strong>给 {names.them} 写第一封信</strong><small>轻触信封 · 开始书写</small>
+        </button> : <p className="couple-mail-no-letters">这个分类里暂时没有信。</p>}
       </div>
-      {actions('写信给 '+names.them, '请 '+names.them+' 寄信')}
     </div>;
   }
   if(kind==='timeline'){
