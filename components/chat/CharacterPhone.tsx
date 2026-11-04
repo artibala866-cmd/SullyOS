@@ -28,6 +28,7 @@ import PullToRefresh from './PullToRefresh';
 import MomentsCover from './MomentsCover';
 import PhoneChatBubbles from './PhoneChatBubbles';
 import PhoneWeChatPayCards from './PhoneWeChatPayCards';
+import CharacterPhoneProfilePanel from './CharacterPhoneProfilePanel';
 import PhoneWeChatServiceFeed,{resolvePhoneServiceFeedKind} from './PhoneWeChatServiceFeed';
 import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
@@ -958,31 +959,15 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           <div className="h-11" aria-hidden="true" />
           <MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/>
         </div></PullToRefresh>}
-        {screen === 'profile' && <div className="space-y-4 pb-8 text-[#252525]">
-           <section className="bg-white px-5 py-7">
-             <div className="flex items-center gap-5">
-               <button type="button" aria-label="打开角色头像库" onClick={()=>setAvatarLibraryOpen(true)}>
-                 <PhoneAvatar src={phoneAvatar} name={name} className="h-[84px] w-[84px] rounded-2xl text-2xl"/>
-               </button>
-               <div className="min-w-0 flex-1"><h3 className="truncate text-xl font-semibold">{name}</h3>
-                 <p className="mt-1 text-xs text-[#999]">此手机主人 · Char</p>
-                 
-               </div>
-             </div>
-           </section>
-           <section className="mx-4 rounded-xl bg-white px-4 py-3">
-             <label className="flex items-center justify-between gap-3 text-[13px] text-[#444]">
-               <span><strong className="block">独立生活侧面 AI 展开</strong>
-                 <span className="mt-1 block text-[11px] leading-5 text-[#888]">默认关闭；开启后仍需逐条手动点击，每次使用一次已配置的对话 API。不会改私聊提示词或自动生成手机内容。</span>
-               </span>
-               <input type="checkbox" checked={manualGlimpseEnabled} onChange={e=>toggleManualGlimpse(e.target.checked)} className="h-5 w-5 shrink-0 accent-[#444]" />
-             </label>
-             {glimpseNotice && <p role="status" className="mt-2 text-xs leading-5 text-[#777]">{glimpseNotice}</p>}
-           </section>
-           {confirmedLifeGlimpses.length > 0 && <details className="mx-4 overflow-hidden rounded-xl bg-white">
-             <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-[#333]">生活侧面 · 已发生的片段（{confirmedLifeGlimpses.length}）</summary>
-             <div className="border-t border-[#eee] px-4 pb-4 pt-2">
-               <p className="pb-2 text-[11px] leading-5 text-[#888]">仅原事件摘要是已确认事实；AI 展开只表示独立叙事，不增加真实事件、不作为私聊或 NPC 微信。</p>
+        {screen === 'profile' && <CharacterPhoneProfilePanel
+          name={name}
+          avatar={phoneAvatar}
+          onOpenAvatarLibrary={()=>setAvatarLibraryOpen(true)}
+          manualGlimpseEnabled={manualGlimpseEnabled}
+          onToggleManualGlimpse={toggleManualGlimpse}
+          glimpseNotice={glimpseNotice}
+          glimpseCount={confirmedLifeGlimpses.length}
+          lifeHistory={<>
                <ol className="space-y-3">
                  {confirmedLifeGlimpses.map(event=><li key={event.id} className="border-l-2 border-[#dedede] pl-3">
                    <span className="block text-[11px] text-[#888]">{ChatPrompts.formatDate(event.occurredAt,resolveCharTimeZone(char))} · {event.source==='phone'?'私人手机':event.source==='amsg2'?'主动联系':event.source==='real-mode'?'生活行动':event.source==='chat'?'聊天相关记录':'其他已存记录'}</span>
@@ -999,25 +984,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                    </button>}
                  </li>)}
                </ol>
-             </div>
-           </details>}
-           <div className="bg-white">{row('头像库',<Images size={23}/>,()=>setAvatarLibraryOpen(true))}</div>
-           <section className="bg-white px-5 py-5">
-             <h4 className="text-sm font-semibold">戳一戳后缀</h4>
-             <p className="mt-3 rounded-xl bg-[#f4f4f4] p-4 text-sm">{selfProfile.pokeSuffix
-               ? '戳了戳'+name+selfProfile.pokeSuffix : '还没有后缀，Char 可以自己设置'}</p>
-             {selfProfile.reason && <p className="mt-2 text-xs leading-5 text-[#888]">Char 的想法：{selfProfile.reason}</p>}
-             <div className="mt-4 grid grid-cols-2 gap-3">
-               <button type="button" onClick={()=>onPoke(selfProfile.pokeSuffix)} className="rounded-xl bg-[#ececec] px-3 py-3 text-sm">戳一戳</button>
-               <button type="button" disabled={selfAutoBusy} onClick={()=>void adjustSelfProfile()}
-                 className="rounded-xl bg-[#303030] px-3 py-3 text-sm text-white disabled:opacity-50">
-                 {selfAutoBusy?'Char 正在调整…':'让 Char 自改'}
-               </button>
-             </div>
-             {selfAutoNotice && <p role="status" className="mt-3 text-xs leading-5 text-[#777]">{selfAutoNotice}</p>}
-           </section>
-           <p className="px-5 text-xs leading-5 text-[#999]">与私聊共用头像库和戳一戳功能。头像先识图后保存；情绪选头像暂时停用，已存图片不受影响。</p>
-         </div>}
+          </>}
+          pokeSuffix={selfProfile.pokeSuffix||''}
+          pokeReason={selfProfile.reason}
+          onPoke={()=>onPoke(selfProfile.pokeSuffix)}
+          onAdjustProfile={()=>void adjustSelfProfile()}
+          selfAutoBusy={selfAutoBusy}
+          selfAutoNotice={selfAutoNotice}
+        />}
          {screen === 'memo' && <PhoneMemo characterId={characterId} onGenerate={generateMemo} generating={memoBusy}/>}
         {screen === 'gallery' && <Gallery lockedCharacterId={characterId} onExit={()=>setScreen('home')}/>}
         {screen === 'calls' && <p className="p-8 text-center text-sm text-[#888]">电话记录与拨号功能待接入</p>}
