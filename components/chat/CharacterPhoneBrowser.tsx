@@ -168,7 +168,7 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
         <BrowserRecordPreview visit={selected} large/>
         <div className="space-y-4 p-4.5">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] text-[#8493a7]">
+            <div data-testid="phone-browser-visit-meta" className="mb-2 flex items-center gap-2 text-[11px] text-[#8493a7]">
               <ClockCounterClockwise size={14}/>{new Date(selected.visitedAt).toLocaleString('zh-CN')}
               <span className="rounded-full bg-[#eff3f9] px-2 py-0.5">{selected.actor==='char'?'Char 自主搜索':'手动访问'}</span>
             </div>
@@ -190,7 +190,7 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
             </p>
             {selected.mood&&<p className="mt-3 text-[11px] text-[#9286a7]">当时心情 · {selected.mood}</p>}
           </div>}
-          <a href={selected.url} target="_blank" rel="noopener noreferrer"
+          <a data-testid="phone-browser-verify-link" href={selected.url} target="_blank" rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3477df] px-4 py-3.5 text-sm font-semibold text-white">
             <ArrowSquareOut size={18}/>打开真实{selected.kind==='baidu-search'?'百度搜索':'网页'}核验
           </a>
