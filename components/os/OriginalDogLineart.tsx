@@ -1,22 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
+import type { BabyDogExpression } from '../../utils/babyDogBootTimeline';
 
 /**
- * 从用户原本的宝宝狗图标抽取黑色手绘线条。
- * 不重新绘制狗的轮廓、耳朵、毛发、圆章或「100%笨蛋」；
- * 只清除眼睛和嘴巴的少量像素，交给独立 SVG 做眨眼、张嘴。
- * 不调用生成式图片服务，也不生成新的上传图片。
+ * 保留原 PNG 上的全部黑色线稿：毛发、轮廓、胸前「100%笨蛋」和原来的表情。
+ * 眨眼时只在原眼睛所在的小区域盖上纯白底，再描画同一对眯眼。
+ * 张嘴时也只盖住原有的嘴部笔画，不往原脸上叠出第二张嘴。
+ * 不调用生图，提取工作在浏览器 Canvas 内完成。
  */
 const ARTWORK = import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105';
 const SIZE = 512;
-// 1254 是组件 SVG 的内部坐标；源仓库图标已按透明边界裁切，
-// 五官位置必须按实际 512px 图标定位，不能直接沿用用户上传的大画布坐标。
-const ORIGINAL = 1254;
 
-const inRegion = (x: number, y: number, left: number, top: number, right: number, bottom: number) =>
-  x > left / ORIGINAL * SIZE && x < right / ORIGINAL * SIZE &&
-  y > top / ORIGINAL * SIZE && y < bottom / ORIGINAL * SIZE;
+type Props = {
+  expression: BabyDogExpression;
+  mirrored: boolean;
+};
 
-export default function OriginalDogLineart({ animate }: { animate: boolean }) {
+export default function OriginalDogLineart({ expression, mirrored }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -35,22 +34,15 @@ export default function OriginalDogLineart({ animate }: { animate: boolean }) {
         const rgba = pixels.data;
         for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
           const i = (y * SIZE + x) * 4;
-          const luminance = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
+          const brightness = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
           const chroma = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]) -
             Math.min(rgba[i], rgba[i + 1], rgba[i + 2]);
-          let opacity = rgba[i + 3] * Math.pow(
-            Math.max(0, Math.min(1, (222 - luminance) / 135)), 1.1,
-          );
-          // 去掉黄章内的色块底色，只留下黑色文字和轮廓线。
-          if (luminance > 130 && chroma > 45) {
+          let opacity = rgba[i + 3] *
+            Math.pow(Math.max(0, Math.min(1, (222 - brightness) / 135)), 1.1);
+          // 白纸和黄色填色透明，深色蜡笔痕迹与「100%笨蛋」原字照原样留下。
+          if (brightness > 130 && chroma > 45) {
             opacity *= Math.max(0, 1 - (chroma - 45) / 90);
           }
-          // 只清理原图旧眼、旧嘴，让新的五官逐帧替换而非叠成四只眼睛。
-          if (
-            inRegion(x, y, 354, 646, 442, 752) ||
-            inRegion(x, y, 861, 644, 953, 755) ||
-            inRegion(x, y, 484, 797, 866, 925)
-          ) opacity = 0;
           rgba[i] = 52;
           rgba[i + 1] = 52;
           rgba[i + 2] = 52;
@@ -59,39 +51,43 @@ export default function OriginalDogLineart({ animate }: { animate: boolean }) {
         ctx.putImageData(pixels, 0, 0);
         setReady(true);
       } catch (error) {
-        console.warn('[BabyDog] original line extraction failed', error);
+        console.warn('[BabyDog] lineart extraction failed', error);
       }
     };
-    image.onerror = () => console.warn('[BabyDog] original icon missing:', ARTWORK);
+    image.onerror = () => console.warn('[BabyDog] source lineart missing:', ARTWORK);
     image.src = ARTWORK;
     return () => { cancelled = true; image.onload = null; image.onerror = null; };
   }, []);
 
   return (
-    <div className="sully-lineart" data-line-ready={ready} data-line-motion={animate} role="img"
-      aria-label="原版宝宝狗手绘线稿，胸前写着100%笨蛋，正在眨眼微笑">
-      <canvas className="sully-lineart-canvas" ref={canvasRef} width={SIZE} height={SIZE} aria-hidden="true" />
-      {ready && (
-        <svg className="sully-lineart-features" viewBox="0 0 1254 1254" aria-hidden="true">
-          <ellipse cx="652" cy="501" rx="187" ry="184" fill="none"
-            stroke="#666" strokeWidth="5" opacity="0.44" />
-          <g className="sully-lineart-eyes-open" fill="#343434">
-            <ellipse cx="396" cy="698" rx="26" ry="28" />
-            <ellipse cx="908" cy="698" rx="26" ry="28" />
-          </g>
-          <g className="sully-lineart-eyes-closed" fill="none" stroke="#343434"
-            strokeWidth="17" strokeLinecap="round">
-            <path d="M366 699 Q396 714 427 698" />
-            <path d="M879 698 Q908 715 938 698" />
-          </g>
-          <path className="sully-lineart-mouth-smile"
-            d="M526 829 Q585 891 665 847 Q742 901 827 827"
-            fill="none" stroke="#343434" strokeWidth="16" strokeLinecap="round" />
-          <path className="sully-lineart-mouth-talking"
-            d="M620 837 Q663 815 707 837 Q709 881 663 885 Q626 878 620 837 Z"
-            fill="white" stroke="#343434" strokeWidth="13" strokeLinejoin="round" />
-        </svg>
-      )}
+    <div className="sully-lineart" data-line-ready={ready}
+      data-expression={expression} data-mirrored={mirrored} role="img"
+      aria-label="原画宝宝狗，胸前保留100%笨蛋，眨眼并张嘴">
+      <div className="sully-lineart-flip">
+        <canvas className="sully-lineart-canvas" ref={canvasRef}
+          width={SIZE} height={SIZE} aria-hidden="true" />
+        {ready && expression !== 'normal' && (
+          <svg className="sully-lineart-features" viewBox="0 0 512 512" aria-hidden="true">
+            {/* 两个小白底完全盖住原来两个点眼睛，而不是新增一对。 */}
+            <path fill="#fff" d="M138 239 H188 V308 H138 Z M345 230 H403 V303 H345 Z" />
+            {expression === 'blink' ? (
+              <g fill="none" stroke="#343434" strokeLinecap="round" strokeWidth="10">
+                <path d="M148 270 Q163 263 177 270" />
+                <path d="M357 261 Q371 254 385 261" />
+              </g>
+            ) : (
+              <g fill="#343434" stroke="#343434" strokeLinejoin="round" strokeWidth="3">
+                <path d="M145 260 Q161 257 180 262 L149 273 Q164 270 145 260 Z" />
+                <path d="M389 253 Q373 251 354 261 L385 273 Q371 267 389 253 Z" />
+              </g>
+            )}
+            {/* 旧鼻子位于 y≈300，保留；只用白底替换其下方原笑嘴。 */}
+            <path fill="#fff" d="M205 311 H344 V355 H205 Z" />
+            <path d="M252 322 Q273 315 294 322 Q299 335 296 352 H251 Q246 338 252 322 Z"
+              fill="#fff" stroke="#343434" strokeWidth="7" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
     </div>
   );
 }
