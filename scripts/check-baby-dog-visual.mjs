@@ -65,25 +65,40 @@ const inspectExpression = `(() => {
   const root = document.querySelector('.sully-boot');
   if (!dog || !canvas || !label || !caption || !root) return null;
   const bounds = dog.getBoundingClientRect();
-  const pixels = canvas.getContext('2d').getImageData(0, 0, 512, 512).data;
-  let strokes = 0;
+  const rgba = canvas.getContext('2d').getImageData(0, 0, 512, 512).data;
+  let ink = 0;
   for (let y = 115; y < 390; y += 4) for (let x = 100; x < 420; x += 4) {
-    if (pixels[(y * 512 + x) * 4 + 3] > 120) strokes++;
+    if (rgba[(y * 512 + x) * 4 + 3] > 120) ink++;
   }
+  const svg = document.querySelector('.sully-lineart-features');
   return {
     ready: dog.dataset.lineReady === 'true',
     white: getComputedStyle(root).backgroundColor === 'rgb(255, 255, 255)',
-    strokes,
+    ink,
     width: bounds.width,
+    expression: dog.dataset.expression,
+    mirrored: dog.dataset.mirrored === 'true',
+    actualMirror: getComputedStyle(document.querySelector('.sully-lineart-flip')).transform,
+    replacementVisible: !!svg,
+    closedEyes: svg?.querySelectorAll('g path').length ?? 0,
+    mouthShapes: svg?.querySelectorAll('path[stroke-width="7"]').length ?? 0,
     label: label.textContent,
-    labelOpacity: parseFloat(getComputedStyle(label).opacity),
+    labelLocation: document.querySelector('.sully-boot-artwork').dataset.label,
     welcome: caption.textContent,
-    welcomeOpacity: parseFloat(getComputedStyle(caption).opacity),
-    blinking: getComputedStyle(document.querySelector('.sully-lineart-eyes-closed')).animationName.includes('sullyLineEyesClosed'),
-    talking: getComputedStyle(document.querySelector('.sully-lineart-mouth-talking')).animationName.includes('sullyLineMouthTalk'),
-    noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth,
+    welcomeShown: caption.dataset.visible === 'true',
+    zoomRunning: getComputedStyle(dog).animationName.includes('sullyLineGrow'),
+    noOverflow: document.documentElement.scrollWidth <= innerWidth,
   };
 })()`;
+const waitForState = async (page, match, description, timeoutMs = 12000) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const current = await page.evaluate(inspectExpression);
+    if (current && match(current)) return current;
+    await pause(35);
+  }
+  throw Error('Missing reference-video phase: ' + description);
+};
 
 try {
   let healthy = false;
@@ -103,41 +118,62 @@ try {
         url:'http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html' +
           (variant === 'classic' ? '?cover=classic' : ''),
       });
-      let prepared = false;
-      for (let n = 0; n < 100; n++) {
-        try {
-          if (await page.evaluate('document.querySelector(\'.sully-lineart\')?.dataset.lineReady === \'true\'')) {
-            prepared = true; break;
-          }
-        } catch { /* page still loading */ }
-        await pause(120);
-      }
-      assert(prepared, 'Original dog ink never loaded');
-      await pause(450);
+      const first = await waitForState(page, s => s.ready && s.ink > 250,
+        'original dog ink available');
+      assert(first.white && first.zoomRunning, 'Original drawing must zoom on white');
       await page.shot('baby-dog-' + variant + '-entry.png');
-      await pause(950);
-      await page.shot('baby-dog-' + variant + '-mouth-motion.png');
-      await pause(1650);
-      const final = await page.evaluate(inspectExpression);
-      assert(final, 'Missing real boot');
-      assert(final.ready && final.white);
-      assert(final.strokes > 250, 'Extracted handwritten ink missing');
-      assert(final.width <= 190, 'Dog unexpectedly oversized');
+
+      const blink1 = await waitForState(page, s => s.expression === 'blink',
+        'first squint with open mouth');
+      assert(blink1.replacementVisible && blink1.closedEyes === 2 && blink1.mouthShapes === 1,
+        'Blink frame must hide old 2 eyes and old mouth, then show exactly one replacement');
+      await page.shot('baby-dog-' + variant + '-blink.png');
+
+      const openAgain = await waitForState(page,
+        s => s.expression === 'normal' && !s.replacementVisible && s.width >= 180,
+        'return to original two eyes without a ghost pair');
+      assert(!openAgain.mirrored && openAgain.ink > 250);
+      await page.shot('baby-dog-' + variant + '-open.png');
+
+      const shout = await waitForState(page,
+        s => s.expression === 'squint' && !s.mirrored,
+        'wide-squint mouth scene before flipping');
+      assert(shout.closedEyes === 2 && shout.mouthShapes === 1);
+      await page.shot('baby-dog-' + variant + '-squint.png');
+
+      const mirrored = await waitForState(page,
+        s => s.expression === 'squint' && s.mirrored,
+        'whole puppy mirrors horizontally');
+      await pause(265); // let 235ms CSS mirror settle before verifying pixels
+      const flipped = await page.evaluate(inspectExpression);
+      assert(flipped.mirrored && flipped.actualMirror.startsWith('matrix(-1'),
+        'Mirrored phase must have a genuine negative X transform, not text-only flip');
+      await page.shot('baby-dog-' + variant + '-flipped.png');
+
+      const resumed = await waitForState(page,
+        s => s.expression === 'normal' && !s.mirrored && !s.replacementVisible,
+        'original face restored after horizontal flip');
+      assert(resumed.label === 'dog');
+      await page.shot('baby-dog-' + variant + '-restored.png');
+
+      const final = await waitForState(page,
+        s => s.welcomeShown && s.expression === 'normal' && !s.mirrored,
+        'final Welcome home caption');
       assert.equal(final.label, 'dog');
       assert.equal(final.welcome, 'Welcome home.');
-      assert(final.labelOpacity >= .95 && final.welcomeOpacity >= .95,
-        'Fade-in captions not visible at the end');
-      assert(final.blinking && final.talking, 'Face animation unavailable');
-      assert(final.noHorizontalOverflow, '390px overflow');
+      assert(final.ready && final.white && final.ink > 250);
+      assert(final.width <= 190 && final.width >= 160, 'Dog must stay video-sized');
+      assert(final.noOverflow, '390px body overflow');
       await page.shot('baby-dog-' + variant + '-mobile.png');
+
       await page.call('Emulation.setDeviceMetricsOverride', {
         width:320, height:568, deviceScaleFactor:1, mobile:true,
       });
       await pause(220);
       const small = await page.evaluate(inspectExpression);
-      assert(small?.noHorizontalOverflow && small?.width <= 180, '320px overflow');
+      assert(small?.noOverflow && small.width <= 180, '320px overflow');
       await page.shot('baby-dog-' + variant + '-small.png');
-      console.log('PASS ' + variant + ' real ink and timing', final);
+      console.log('PASS 8s reference timeline', variant, {first, blink1, shout, flipped, final, small});
     } finally {
       page.socket.close();
     }
