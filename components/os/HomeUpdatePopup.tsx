@@ -18,7 +18,7 @@ export default function HomeUpdatePopup({onDone,onVisit,onGuide}:{onDone:()=>voi
  const finish=(callback:()=>void)=>{try{localStorage.setItem(HOME_UPDATE_KEY,'1');}catch{/* Closing remains available when storage is full. */}callback();};
  const image=<img src={`${import.meta.env.BASE_URL}assets/updates/home3d-beta/${item.image}`} alt={item.alt} onError={()=>setFailed(true)} draggable={false}/>;
  return <dialog ref={dialog} className="home-release" aria-labelledby="home-release-title" onCancel={event=>{event.preventDefault();if(zoom)setZoom(false);else finish(onDone);}}>
-  <header className="home-release-header"><span>SullyOS · 糯米机</span><span>大型更新 / 3D 家园 <b>测试版</b></span><button aria-label="关闭家园更新介绍" onClick={()=>finish(onDone)}><X size={20}/></button></header>
+  <header className="home-release-header"><span>宝宝狗</span><span>大型更新 / 3D 家园 <b>测试版</b></span><button aria-label="关闭家园更新介绍" onClick={()=>finish(onDone)}><X size={20}/></button></header>
   <div ref={scroll} className="home-release-scroll">
    <div key={page} className="home-release-page">
     <figure className={`home-release-figure ${page===0?'home-release-cover':''}`}><button className="home-release-shot" aria-label={`放大截图：${item.label}`} onClick={()=>setZoom(true)} disabled={failed}>{failed?<span>截图暂时未加载，可先阅读下方说明。</span>:image}<span className="home-release-enlarge"><MagnifyingGlassPlus size={16}/> 点图放大</span></button><figcaption>实际界面 · 演示角色与对话</figcaption></figure>
