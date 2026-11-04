@@ -20,6 +20,13 @@ export function parseWeChatPayNotice(text:string):WeChatPayNotice|null {
     direction:match[2] as '支出'|'收入',detail:match[4].trim()};
 }
 
+function merchantMark(name:string):{text:string;background:string}{
+  if(/拼多多/.test(name))return {text:'拼',background:'#e73731'};
+  if(/PlayStation|索尼/i.test(name))return {text:'PS',background:'#2055a2'};
+  if(/便利店|超市|杂货/.test(name))return {text:'店',background:'#e98f40'};
+  if(/纹身|器材/.test(name))return {text:'商',background:'#4a4a4a'};
+  return {text:'¥',background:'#20b46a'};
+}
 function timeOf(timestamp:number|undefined):string {
   if(!timestamp||!Number.isFinite(timestamp))return '';
   const date=new Date(timestamp);
@@ -36,25 +43,27 @@ export default function PhoneWeChatPayCards({messages}:{messages:PhoneMessage[]}
       const preceding=timeOf(messages[index-1]?.createdAt);
       const showTime=!!clock&&(index===0||clock!==preceding);
       const received=record?.direction==='收入';
+      const mark=merchantMark(record?.merchant||'');
       return <React.Fragment key={index}>
         {showTime&&<p className="pb-4 pt-3 text-center text-[12px] font-normal text-[#a5a5a5]">{clock}</p>}
         <article data-testid="wechat-pay-card" className="mb-5 w-full overflow-hidden rounded-[12px] bg-white">
           <div className="flex min-h-[57px] items-center gap-3 border-b border-[#ededed] px-4 py-3">
-            <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#20b46a] text-[19px] font-semibold text-white">¥</span>
+            <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-white" style={{background:mark.background}}>{mark.text}</span>
             <span className="min-w-0 flex-1 break-words text-[15px] font-semibold leading-5 text-[#202020]">{record?.merchant||'微信支付'}</span>
           </div>
           {record ? <>
             <div className="flex flex-col items-center px-4 pb-5 pt-7 text-center">
               <span className="text-[17px] text-[#252525]">{received?'收款成功':'微信支付成功'}</span>
-              <strong className="mt-5 break-all text-[36px] font-semibold leading-none tracking-[-.03em] tabular-nums text-black">¥{record.amount}</strong>
-              <span className="mt-5 rounded-[5px] bg-[#e7f8ef] px-2.5 py-1 text-[12px] text-[#34ae75]">
+              <strong className="mt-[60px] break-all text-[38px] font-semibold leading-none tracking-[-.03em] tabular-nums text-black">¥{record.amount}</strong>
+              <span className="mt-6 rounded-[5px] bg-[#e7f8ef] px-2.5 py-1 text-[12px] text-[#34ae75]">
                 <Check size={13} weight="bold" className="mr-1 inline-block align-[-2px]"/>{received?'已收款':'支付成功'}
               </span>
               <span className="mt-5 flex items-center gap-1 text-[13px] text-[#999]">交易详情 <CaretRight size={13}/></span>
             </div>
-            <div className="space-y-3 px-4 pb-5 text-[13px] leading-[20px]">
+            <div className="space-y-3 px-4 pb-6 text-[13px] leading-[20px]">
               {clock&&<div className="flex gap-4"><span className="w-[70px] shrink-0 text-[#999]">交易时间</span><span className="min-w-0 flex-1 text-[#333]">{clock}</span></div>}
               {record.detail&&<div className="flex gap-4"><span className="w-[70px] shrink-0 text-[#999]">商品说明</span><span className="min-w-0 flex-1 break-words text-[#333]">{record.detail}</span></div>}
+              <div className="flex gap-4"><span className="w-[70px] shrink-0 text-[#999]">支付方式</span><span className="min-w-0 flex-1 text-[#333]">微信支付</span></div>
             </div>
             <div className="flex min-h-[52px] items-center justify-between border-t border-[#ededed] px-4 text-[14px]">
               <span>查看商家订单</span><CaretRight size={17} color="#b7b7b7"/>
