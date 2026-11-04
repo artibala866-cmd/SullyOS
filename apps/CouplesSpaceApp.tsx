@@ -504,8 +504,8 @@ export default function CouplesSpaceApp() {
             </div>
             <div className="couple-ios-hero-center">
               <div className="couple-ios-portrait-pair">
-                <span className="couple-ios-face couple-ios-face-first"><Avatar person={isPair ? char : userProfile} /></span>
-                <span className="couple-ios-face couple-ios-face-second"><Avatar person={other ?? char} /></span>
+                <span className="couple-ios-face couple-ios-face-first"><Avatar person={isPair ? (char ?? { avatar: '', name: names.me }) : userProfile} /></span>
+                <span className="couple-ios-face couple-ios-face-second"><Avatar person={other ?? char ?? { avatar: '', name: names.them }} /></span>
               </div>
               <div className="couple-ios-days"><span>在一起</span><strong>{String(days).padStart(2,'0')}</strong><small>天</small></div>
             </div>
@@ -600,9 +600,9 @@ export default function CouplesSpaceApp() {
         </>}
         {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
           names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy}
-          avatarMe={isPair ? char.avatar : userProfile.avatar} avatarThem={(other ?? char).avatar}
-          charId={!isPair ? char.id : undefined}
-          onNativeJournal={!isPair ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
+          avatarMe={isPair ? char?.avatar : userProfile.avatar} avatarThem={(other ?? char)?.avatar}
+          charId={!isPair ? char?.id : undefined}
+          onNativeJournal={!isPair && char ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
           <div className="couple-achievement-cover">
@@ -693,7 +693,8 @@ export default function CouplesSpaceApp() {
               : <div className="couple-flower-empty">第一朵花，会被收藏在这里。</div>}
           </div>
         </section>}
-        {panel === 'touch' && <TouchPanel key={key} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />}
+        {panel === 'touch' && (char ? <TouchPanel key={key} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />
+          : <p className="couple-error" role="alert">原绑定角色已不存在，请返回选择仍存在的角色。</p>)}
         {panel === 'settings' && <section className="couple-settings">
           <div className="couple-settings-preview">
             {bond.cover ? <TokenImg value={bond.cover} alt="当前空间封面" /> : <div className="couple-settings-cover-blank"><span>OUR SPACE</span><strong>{names.me} &amp; {names.them}</strong></div>}
@@ -720,7 +721,8 @@ export default function CouplesSpaceApp() {
             <button disabled={busy} onClick={() => void run(async () => setGallery(gallery ? undefined : (await DB.getGalleryImages()).slice(-48).reverse()))}>
               {gallery ? '关闭相册' : '从相册选封面'}
             </button>
-            <button disabled={busy} onClick={() => void run(async () => {
+            <button disabled={busy || !char || (isPair && !other)} onClick={() => void run(async () => {
+              if (!char) throw new Error('原绑定角色已不存在');
               const style = window.prompt('想要什么样的合照？例如日常抓拍、影楼棚拍、电影感。', '日常抓拍');
               if (style === null) return;
               const controller = new AbortController();
