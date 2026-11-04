@@ -10,7 +10,7 @@ export type Entry = {
   reply?: string; unlockDate?: string; opened?: boolean; openedEarly?: boolean; image?: string; stickers?: string[]; stickerPositions?: { x: number; y: number }[];
 };
 export type Card = { id: string; name: string; icon: string; effect: string; price: number; charUse: boolean; turns?: number; voucher?: boolean; relation?: Relation };
-export type PlayedCard = { card: Card; side: Side; at: number; note?: string; usedTurns?: number };
+export type PlayedCard = { id?: string; card: Card; side: Side; at: number; note?: string; usedTurns?: number };
 export type Bond = {
   id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open' | 'closed';
   start: string; cover?: string; zoom?: number; position?: number; entries: Entry[];
@@ -178,7 +178,7 @@ export function playCard(bond: Bond, card: Card, side: Side, note?: string, now 
       (side === 'them' && (!card.charUse || !canRolePlay(bond, card.id, now)))) throw new Error('这张卡当前不可打出');
   return {
     ...bond, bags: { ...bond.bags, [side]: { ...bond.bags[side], [card.id]: bond.bags[side][card.id] - 1 } },
-    played: [...bond.played, { card, side, note, at: now }].slice(-100),
+    played: [...bond.played, { id: crypto.randomUUID(), card, side, note, at: now }].slice(-100),
   };
 }
 
