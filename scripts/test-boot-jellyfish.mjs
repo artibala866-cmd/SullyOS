@@ -30,11 +30,14 @@ try {
  await classic.click(); await page.getByText('已保存',{exact:true}).waitFor(); await page.reload(); await classic.waitFor();
  assert.equal(await classic.getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'预览所选开场'}).click();
- await page.locator('[aria-label="宝宝狗"]').waitFor();
- assert.equal(await page.locator('.sully-boot').count(),0);
- await page.locator('[aria-label="宝宝狗"]').click();await jelly.click();await page.getByText('已保存',{exact:true}).waitFor();await page.reload();await jelly.waitFor();
+ await page.locator('.sully-boot-night').waitFor();
+ assert.equal(await page.locator('.sully-boot-dog').count(),1);
+ assert.equal(await page.locator('.sully-boot').getAttribute('data-variant'),'night');
+ await page.screenshot({path:out+'/selected-night.png'});
+ await page.getByRole('button',{name:'宝宝狗，轻触进入'}).click();await jelly.click();await page.getByText('已保存',{exact:true}).waitFor();await page.reload();await jelly.waitFor();
  assert.equal(await jelly.getAttribute('aria-pressed'),'true');
  await page.getByRole('button',{name:'预览所选开场'}).click();await page.locator('.sully-boot').waitFor();
+ assert.equal(await page.locator('.sully-boot').getAttribute('data-variant'),'warm');
  await page.screenshot({path:out+'/selected-babydog.png'});
  assert.deepEqual(errors,[]);console.log('PASS Baby Dog source artwork, warm cover, data gate, automatic exit, session short mode, keyboard skip, reduced motion, responsive layouts');
 }finally{await browser.close();}
