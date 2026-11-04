@@ -910,3 +910,13 @@
 .couple-content-mode .couple-shop-card > p { margin: 11px 0 7px; font-size: 12px; color: #65666c; }
 .couple-content-mode .couple-shop-card > small { display: block; border-top: none; padding-top: 0; margin: 0; color: #8b8c93; font-size: 10px; }
 .couple-content-mode .couple-shop-card .couple-actions { margin-top: 9px; padding-top: 9px; border-top: 1px solid #f0f0f1; }
+
+.couple-ios-hero { position: relative; isolation: isolate; overflow: hidden; }
+.couple-ios-cover {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; filter: grayscale(1); opacity: .14; z-index: -1; pointer-events: none;
+}
+.couple-binding-controls { border-top: 1px solid var(--couple-border); padding-top: 11px; margin-top: 12px; }
+.couple-content-mode .couple-binding-danger { color: #8a393d; }
+.couple-content-mode .couple-binding-state p { margin-block: 6px 12px; }
+.couple-binding-controls > [role="group"] { scroll-margin-block-end: 16px; }

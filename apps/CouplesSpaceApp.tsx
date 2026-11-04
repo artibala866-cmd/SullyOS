@@ -11,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, reward, spaceKey, writeBond, careForPlant, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
@@ -141,12 +141,12 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
         <Avatar person={active} />
         <div className="couple-picker-profile-copy">
           <strong>{active.name}</strong>
-          <small>{status === 'open' ? '专属空间已建立' : status === 'pending' ? '有一份等待回应的邀请' : status === 'declined' ? '可重新发出邀请' : '等待与你建立专属连接'}</small>
+          <small>{status === 'open' ? '专属空间已建立' : status === 'pending' ? '有一份等待回应的邀请' : status === 'closed' ? '空间已关闭，记录仍保留' : status === 'declined' ? '可重新发出邀请' : '等待与你建立专属连接'}</small>
         </div>
-        <span className="couple-picker-state">{status === 'open' ? '已绑定' : status === 'pending' ? '待回应' : '待绑定'}</span>
+        <span className="couple-picker-state">{status === 'open' ? '已绑定' : status === 'pending' ? '待回应' : status === 'closed' ? '已关闭' : '待绑定'}</span>
       </div>
       <button type="button" className="couple-picker-confirm" disabled={busy} onClick={onContinue}>
-        {status === 'open' ? '进入专属空间' : status === 'pending' ? '查看邀请' : '选择此角色'} <ArrowRight size={18} />
+        {status === 'open' ? '进入专属空间' : status === 'pending' ? '查看邀请' : status === 'closed' ? '查看空间状态' : '选择此角色'} <ArrowRight size={18} />
       </button>
       <button type="button" className="couple-picker-pairs" disabled={busy} onClick={onPairs}><Users size={18} /> 他们的空间</button>
       <p className="couple-picker-hint">滑动星轨切换 · 点击确认后继续</p>
@@ -176,7 +176,12 @@ export default function CouplesSpaceApp() {
   const [gallery, setGallery] = useState<GalleryImage[]>();
   const requestRef = useRef<AbortController>();
   const loading = useRef(false);
+  const withdrawing = useRef(false);
+  const withdrawnId = useRef<string>();
+  const [withdrawingInvite, setWithdrawingInvite] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const scroll = useRef<HTMLElement>(null);
+  const confirmation = useRef<HTMLDivElement>(null);
   const isPair = pairs && pair.length === 2;
   const members = pairs ? pair : [partnerId];
   const key = spaceKey(members);
@@ -206,8 +211,25 @@ export default function CouplesSpaceApp() {
       setPickerStep('orbit');
     }
   }, [characters, partnerId]);
+  useEffect(() => {
+    if (!spaces || pairs || pickerStep === 'orbit') return;
+    if (pickerStep === 'space' && bond?.status !== 'open') {
+      setPanel(undefined);
+      setConfirmClose(false);
+      setLockedPanel(undefined);
+      setGallery(undefined);
+      setPickerStep('actions');
+    } else if (pickerStep === 'actions' && bond?.status === 'open') {
+      setPickerStep('space');
+    }
+  }, [spaces, pairs, pickerStep, bond?.status]);
   useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [panel, key, pairs, pickerStep]);
+  useEffect(() => {
+    if (confirmClose) confirmation.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [confirmClose]);
   const back = () => {
+    if (withdrawingInvite) return true;
+    if (confirmClose && !busy) { setConfirmClose(false); return true; }
     if (busy) return true;
     if (lockedPanel) { setLockedPanel(undefined); return true; }
     if (panel) { setPanel(undefined); return true; }
@@ -231,7 +253,7 @@ export default function CouplesSpaceApp() {
   const change: ChangeBond = async update => {
     if (!bond) throw new Error('请先建立空间');
     await persist(members, current => {
-      if (current?.id !== bond.id) throw new Error('空间已经重置，请重新进入');
+      if (current?.id !== bond.id || current.status !== bond.status) throw new Error('空间状态已变化，请重新进入');
       return update(current);
     });
   };
@@ -272,29 +294,65 @@ export default function CouplesSpaceApp() {
     if (!direct && (characterBlocksUser(char.chatBlock) || userBlocksCharacter(char.chatBlock))) throw new Error('当前私聊已拉黑，无法发送绑定申请');
     if (direct && !window.confirm(`以「${relationNames[selectedRelation]}」关系建立和 ${char.name} 的空间？`)) return;
     const pending = await persist(members, current => {
-      if (current?.status === 'open') return current;
+      if (current?.status === 'open' || current?.status === 'closed') return current;
       const next = current?.status === 'pending' ? current : { ...createBond(members, selectedRelation), ...current, id: crypto.randomUUID() };
       return { ...next, status: direct ? 'open' : 'pending', start: dayKey() };
     });
-    if (!pending) return;
+    if (!pending || pending.status === 'closed') return;
     if (direct || pending.status === 'open') { setPickerStep('space'); return; }
     await DB.saveMessageOnce(`couples-invite:${pending.id}`, {
       charId: char.id, role: 'user', type: 'text',
       content: `【情侣空间邀请】我想和你建立一个${relationNames[pending.relation]}空间，你愿意吗？`, metadata: { couplesSpace: { label: '绑定邀请' } },
     });
-    const response = extractJson(await generate(`用户邀请你建立${relationNames[pending.relation]}空间。依据真实关系和角色性格独立选择接受或拒绝。仅输出 JSON {"accept":true或false,"reply":"角色给用户的自然答复"}。`, pending));
+    if (withdrawnId.current === pending.id) return;
+    let rawResponse: string;
+    try { rawResponse = await generate(`用户邀请你建立${relationNames[pending.relation]}空间。依据真实关系和角色性格独立选择接受或拒绝。仅输出 JSON {"accept":true或false,"reply":"角色给用户的自然答复"}。`, pending); }
+    catch (error) { if (withdrawnId.current === pending.id) return; throw error; }
+    if (withdrawnId.current === pending.id) return;
+    const response = extractJson(rawResponse);
     if (typeof response?.accept !== 'boolean' || typeof response?.reply !== 'string' || !response.reply.trim()) throw new Error('没有读到明确答复，可以继续等待或重试');
     const latest = await DB.getCharacter(char.id);
     if (!latest || characterBlocksUser(latest.chatBlock) || userBlocksCharacter(latest.chatBlock)) throw new Error('当前私聊无法接收绑定答复');
-    const updated = await persist(members, current => current?.id === pending.id && current.status === 'pending'
+    const updated = await persist(members, current => withdrawnId.current !== pending.id && current?.id === pending.id && current.status === 'pending'
       ? { ...current, status: response.accept ? 'open' : 'declined' } : current);
-    if (updated?.id !== pending.id || updated.status !== (response.accept ? 'open' : 'declined')) return;
+    if (withdrawnId.current === pending.id || updated?.id !== pending.id || updated.status !== (response.accept ? 'open' : 'declined')) return;
     await DB.saveMessageOnce(`couples-invite-reply:${pending.id}`, {
       charId: char.id, role: 'assistant', type: 'text',
       content: `【${response.accept ? '接受邀请' : '婉拒邀请'}】${response.reply.trim()}`, metadata: { couplesSpace: { label: '邀请答复' } },
     });
     if (response.accept) setPickerStep('space');
     openChat();
+  });
+  const withdrawInvite = async () => {
+    if (!bond || bond.status !== 'pending' || withdrawing.current) return;
+    withdrawing.current = true;
+    withdrawnId.current = bond.id;
+    setWithdrawingInvite(true);
+    setError('');
+    requestRef.current?.abort();
+    try {
+      const remaining = await persist(members, current =>
+        current?.id === bond.id && current.status === 'pending' ? undefined : current);
+      if (remaining) throw new Error('邀请状态已变化，请返回查看');
+      setRelation(bond.relation);
+      addToast('已撤回绑定邀请');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '撤回邀请失败，请重试');
+    } finally {
+      withdrawing.current = false;
+      setWithdrawingInvite(false);
+    }
+  };
+  const toggleSpace = (open: boolean) => void run(async () => {
+    if (!bond) return;
+    const next = await persist(members, current => current?.id === bond.id ? setBondOpen(current, open) : current);
+    if (next?.status !== (open ? 'open' : 'closed')) throw new Error('空间状态已变化，请返回查看');
+    setPanel(undefined);
+    setConfirmClose(false);
+    setGallery(undefined);
+    setLockedPanel(undefined);
+    setPickerStep(open ? 'space' : 'actions');
+    addToast(open ? '已重新开启情侣空间' : '已解除情侣空间绑定');
   });
   const upload = (file: File | undefined, field: 'cover' | 'portrait') => {
     if (file) void run(async () => {
@@ -332,7 +390,7 @@ export default function CouplesSpaceApp() {
     return '';
   };
 
-  return <div className={'couple-app' + (!pairs && !panel && pickerStep !== 'space' ? ' couple-picker-mode' : ' couple-content-mode')}>
+  return <div className={'couple-app' + (!pairs && !panel && pickerStep !== 'space' && !(pickerStep === 'actions' && bond?.status === 'closed') ? ' couple-picker-mode' : ' couple-content-mode')}>
     <header className="couple-header">
       <button aria-label="返回" onClick={() => { if (!back()) closeApp(); }}><ArrowLeft size={20} /></button>
       <h1>{headerTitle}</h1>
@@ -368,7 +426,7 @@ export default function CouplesSpaceApp() {
         onSelect={id => setPartnerId(id)}
         onContinue={() => setPickerStep(bond?.status === 'open' ? 'space' : 'actions')}
         onPairs={() => setPairs(true)} />}
-      {spaces && !pairs && pickerStep === 'actions' && bond?.status !== 'open' && <section className="couple-lock couple-bind-step">
+      {spaces && !pairs && pickerStep === 'actions' && bond?.status !== 'open' && bond?.status !== 'closed' && <section className="couple-lock couple-bind-step">
         <div className="couple-avatars"><Avatar person={userProfile} /><Heart weight="duotone" size={25} />{char && <Avatar person={char} />}</div>
         <small className="couple-bind-kicker">RELATIONSHIP · 02</small>
         <h2>与 {char?.name ?? 'TA'} 建立羁绊</h2><p>先选择你们的关系，再决定如何发出邀请。</p>
@@ -379,14 +437,25 @@ export default function CouplesSpaceApp() {
         }}>{Object.entries(relationNames).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         {bond?.status === 'declined' && <p>{char?.name}婉拒了上一次邀请。</p>}
         {bond?.status === 'pending' && <p>邀请已发出，等待角色回应。</p>}
-        <button className="couple-primary" disabled={busy || !char} onClick={() => bind(false)}>{busy ? '等待回应…' : bond?.status === 'pending' ? '获取邀请回应' : '发送绑定申请'}</button>
-        <button disabled={busy || !char} onClick={() => bind(true)}>直接建立羁绊</button>
+        <button className="couple-primary" disabled={busy || withdrawingInvite || !char} onClick={() => bind(false)}>{busy ? '等待回应…' : bond?.status === 'pending' ? '获取邀请回应' : '发送绑定申请'}</button>
+        {bond?.status === 'pending' && <button disabled={withdrawingInvite} onClick={() => void withdrawInvite()}>
+          {withdrawingInvite ? '正在撤回…' : '撤回绑定邀请'}
+        </button>}
+        <button disabled={busy || withdrawingInvite || !char} onClick={() => bind(true)}>直接建立羁绊</button>
         <button disabled={busy} onClick={() => setPickerStep('orbit')}><CaretLeft size={17} /> 返回角色星轨</button>
+      </section>}
+      {!pairs && pickerStep === 'actions' && bond?.status === 'closed' && <section className="couple-card couple-binding-state">
+        <h3>空间已关闭</h3>
+        <p>你与 {names.them} 的空间记录和积分已保留。重新开启后可以继续使用。</p>
+        <button className="couple-primary" disabled={busy} onClick={() => toggleSpace(true)}>重新开启</button>
       </section>}
       {bond?.status === 'open' && char && (!isPair || other) && (isPair || (!pairs && pickerStep === 'space')) && <>
         {!panel && <>
 
           <section className="couple-ios-hero" aria-label="我们的空间">
+            {bond.cover && <TokenImg value={bond.cover} alt="" className="couple-ios-cover" key={bond.cover}
+              style={{ objectPosition: `center ${bond.position ?? 50}%`, transform: `scale(${bond.zoom ?? 1})` }}
+              onError={event => { event.currentTarget.hidden = true; }} />}
             <div className="couple-ios-topline">
               <span>JUST THE TWO OF US</span><span>{bond.start}</span>
             </div>
@@ -553,7 +622,9 @@ export default function CouplesSpaceApp() {
             const start = event.target.value;
             if (start) void run(() => change(current => ({ ...current, start })));
           }} /></label>
-          <label>更换封面<input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'cover')} /></label>
+          <label className="couple-file"><span>选择本地封面</span>
+            <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'cover')} />
+          </label>
           <div className="couple-actions">
             <button disabled={busy} onClick={() => void run(async () => setGallery(gallery ? undefined : (await DB.getGalleryImages()).slice(-48).reverse()))}>
               {gallery ? '关闭相册' : '从相册选封面'}
@@ -600,9 +671,20 @@ export default function CouplesSpaceApp() {
                 await persist(members, current => current?.id === bond.id ? undefined : current);
                 setPanel(undefined);
                 if (isPair) setPair([]);
+                else setPickerStep('actions');
               });
             }}>重置空间</button>
           </div>
+          {!isPair && <div className="couple-binding-controls">
+            {confirmClose ? <div ref={confirmation} role="group" aria-label="确认解除绑定">
+              <h3>解除与 {names.them} 的绑定？</h3>
+              <p>空间会关闭，记录、积分和私聊历史会保留。</p>
+              <div className="couple-actions">
+                <button disabled={busy} onClick={() => setConfirmClose(false)}>保留空间</button>
+                <button className="couple-binding-danger" disabled={busy} onClick={() => toggleSpace(false)}>确认解除</button>
+              </div>
+            </div> : <button className="couple-binding-danger" disabled={busy} onClick={() => setConfirmClose(true)}>解除绑定</button>}
+          </div>}
         </section>}
       </>}
     </main>

@@ -12,7 +12,7 @@ export type Entry = {
 export type Card = { id: string; name: string; icon: string; effect: string; price: number; charUse: boolean; turns?: number; voucher?: boolean; relation?: Relation };
 export type PlayedCard = { card: Card; side: Side; at: number; note?: string; usedTurns?: number };
 export type Bond = {
-  id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open';
+  id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open' | 'closed';
   start: string; cover?: string; zoom?: number; position?: number; entries: Entry[];
   plant: { xp: number; watered: number; fertilized?: number; lastSide?: Side; careCount: number; cycleWaters?: number };
   touches: number; portrait?: string; touchLines?: Record<string, string>; touchProps?: string[]; touchCalibration?: Record<string, { x: number; y: number }>;
@@ -66,6 +66,12 @@ export async function writeBond(members: string[], update: (bond: Bond | undefin
   });
   return spaces[key];
 }
+/** Change the binding generation so that old requests cannot write into a restored space. */
+export function setBondOpen(bond: Bond, open: boolean): Bond {
+  if (bond.members.length !== 1 || bond.status !== (open ? 'closed' : 'open')) return bond;
+  return { ...bond, id: crypto.randomUUID(), status: open ? 'open' : 'closed' };
+}
+
 export const createEntry = (kind: EntryKind, title: string, body: string, side: Side = 'me'): Entry =>
   ({ id: crypto.randomUUID(), kind, title, body, side, date: dayKey() });
 

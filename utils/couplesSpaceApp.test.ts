@@ -31,7 +31,7 @@ vi.mock('./couplesGeneration', () => ({
 let element: HTMLDivElement;
 let root: Root;
 
-const findButton = (label: string) => Array.from(element.querySelectorAll('button')).find(item => item.textContent?.trim() === label);
+const findButton = (label: string) => Array.from(element.querySelectorAll('button')).find(item => item.getAttribute('aria-label') === label || item.textContent?.trim() === label || item.querySelector('strong')?.textContent?.trim() === label);
 async function click(label: string) {
   const target = findButton(label);
   expect(target, label).toBeDefined();
@@ -46,7 +46,7 @@ async function waitFor(assertion: () => void) {
 
 async function render() {
   await act(async () => root.render(React.createElement(CouplesSpaceApp)));
-  await waitFor(() => expect(element.querySelector('select')).not.toBeNull());
+  await waitFor(() => expect(element.querySelector('.couple-picker-confirm')).not.toBeNull());
 }
 
 beforeEach(async () => {
@@ -71,9 +71,10 @@ afterEach(async () => {
 describe('情侣空间', () => {
   it('starts locked, binds directly, and reopens with the same partner’s data', async () => {
     await render();
-    expect(element.textContent).toContain('两个人的专属空间');
+    await click('选择此角色');
     await click('直接建立羁绊');
-    await waitFor(() => expect(findButton('愿望清单')).toBeDefined());
+    await waitFor(() => expect(element.querySelector('.couple-ios-hero')).not.toBeNull());
+    await click('心意');
     expect((await readBond(['partner-a'])).status).toBe('open');
     expect(await readBond(['partner-b'])).toBeUndefined();
     await click('同频阳台');
@@ -83,6 +84,8 @@ describe('情侣空间', () => {
     await act(async () => root.unmount());
     root = createRoot(element);
     await render();
+    await click('进入专属空间');
+    await click('心意');
     await click('同频阳台');
     expect(element.textContent).toContain('12 / 100');
   });
@@ -90,11 +93,55 @@ describe('情侣空间', () => {
   it('lets a character decline a binding invitation and keeps the space locked', async () => {
     generateBondText.mockResolvedValue('{"accept":false,"reply":"再给我一点时间吧。"}');
     await render();
+    await click('选择此角色');
     await click('发送绑定申请');
     await waitFor(() => expect(element.textContent).toContain('婉拒了上一次邀请'));
     expect((await readBond(['partner-a'])).status).toBe('declined');
     expect(findButton('愿望清单')).toBeUndefined();
     await waitFor(() => expect(openApp).toHaveBeenCalledWith('chat'));
+  });
+
+  it('closes without deleting records, isolates other roles, and restores under a new generation', async () => {
+    const note = createEntry('diary', '旧日记', '仍然保存');
+    const initial = await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open', diaryContext: true, entries: [note], cover: '/cover.png',
+    }));
+    const other = await writeBond(['partner-b'], () => ({ ...createBond(['partner-b']), status: 'open' }));
+    await render();
+    await click('进入专属空间');
+    expect(element.querySelector('.couple-ios-cover')).not.toBeNull();
+    await click('空间设置');
+    await click('解除绑定');
+    await click('保留空间');
+    expect((await readBond(['partner-a'])).status).toBe('open');
+    await click('解除绑定');
+    await click('确认解除');
+    await waitFor(() => expect(element.textContent).toContain('空间已关闭'));
+    const closed = await readBond(['partner-a']);
+    expect(closed.id).not.toBe(initial.id);
+    expect(closed.entries).toEqual([note]);
+    expect(couplesChatContext(closed)).toBe('');
+    expect(await readBond(['partner-b'])).toEqual(other);
+    await click('重新开启');
+    await waitFor(() => expect(element.querySelector('.couple-ios-hero')).not.toBeNull());
+    const restored = await readBond(['partner-a']);
+    expect(restored.id).not.toBe(closed.id);
+    expect(restored.entries).toEqual([note]);
+    expect(restored.cover).toBe('/cover.png');
+  });
+
+  it('withdraws a pending invitation and ignores a late acceptance', async () => {
+    let finish!: (value: string) => void;
+    generateBondText.mockImplementation(() => new Promise<string>(resolve => { finish = resolve; }));
+    await render();
+    await click('选择此角色');
+    await click('发送绑定申请');
+    await waitFor(() => expect(generateBondText).toHaveBeenCalled());
+    await click('撤回绑定邀请');
+    await waitFor(() => expect(findButton('撤回绑定邀请')).toBeUndefined());
+    await act(async () => finish('{"accept":true,"reply":"晚到的回复"}'));
+    expect(await readBond(['partner-a'])).toBeUndefined();
+    expect(openApp).not.toHaveBeenCalled();
   });
 
   it('keeps pair keys independent and serializes concurrent point claims', async () => {
@@ -116,6 +163,7 @@ describe('情侣空间', () => {
       entries: [{ ...note, unlockDate: capsuleDate(1) }],
     }));
     await render();
+    await click('进入专属空间');
     await click('时间胶囊');
     expect(element.textContent).not.toContain(note.body);
     expect(findButton('分享到私聊')).toBeUndefined();
@@ -146,7 +194,7 @@ describe('情侣空间', () => {
 
   it('enforces the plant decay window and makes disabled cards invisible in chat', () => {
     const start = Date.now();
-    let bond = createBond(['partner-a']);
+    let bond = { ...createBond(['partner-a']), status: 'open' as const } as ReturnType<typeof createBond>;
     bond = careForPlant(bond, 'water', 'me', start);
     expect(() => careForPlant(bond, 'water', 'them', start + 1000)).toThrow();
     expect(plantStage(bond.plant, start + 3 * DAY)).toBe('枯萎');

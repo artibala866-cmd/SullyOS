@@ -10,6 +10,7 @@ const roleCards = (bond: Bond) => [...shopCards, ...bond.cards].filter(card => c
   (bond.bags.them[card.id] > 0 || bond.points.them >= card.price));
 
 export function couplesChatContext(bond: Bond) {
+  if (bond.status !== 'open') return '';
   const effects = active(bond);
   const diaries = bond.diaryContext ? bond.entries.filter(row => row.kind === 'diary')
     .sort((a, b) => a.date.localeCompare(b.date)).slice(-3) : [];
@@ -90,7 +91,7 @@ export async function settleCouplesChat(
     sentCard = card.name;
     return playCard(next.bags.them[card.id] ? next : exchangeCard(next, card, 'them'), card, 'them', note);
   });
-  if (sentCard && !signal.aborted) await DB.saveMessageOnce(`couples-play:${snapshot.id}:${lastUser.id}`, {
+  if (sentCard && !signal.aborted && ready(await readBond(ids))) await DB.saveMessageOnce(`couples-play:${snapshot.id}:${lastUser.id}`, {
     charId: char.id, role: 'assistant', type: 'text', content: `【${sentCard}】${note}`,
     metadata: { couplesSpace: { label: '角色出牌' } },
   });
