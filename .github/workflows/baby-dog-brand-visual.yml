@@ -33,6 +33,11 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
+      - name: Audit all remaining old product-name references
+        shell: bash
+        run: |
+          echo "=== Remaining 糯米机 references in application source ==="
+          git grep -n '糯米机' -- 'apps/' 'components/' 'context/' 'hooks/' 'utils/' 'index.html' 'metadata.json' 'capacitor.config.json' 'public/' | head -n 180 || true
       - run: pnpm install --frozen-lockfile
       - name: Verify 宝宝狗 install names
         run: node scripts/test-app-display-name.mjs
