@@ -14,7 +14,7 @@ export type PlayedCard = { card: Card; side: Side; at: number; note?: string; us
 export type Bond = {
   id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open' | 'closed';
   start: string; cover?: string; zoom?: number; position?: number; entries: Entry[];
-  plant: { xp: number; watered: number; fertilized?: number; lastSide?: Side; careCount: number; cycleWaters?: number };
+  plant: { xp: number; watered: number; fertilized?: number; lastCaredAt?: number; lastSide?: Side; careCount: number; cycleWaters?: number };
   touches: number; portrait?: string; touchLines?: Record<string, string>; touchProps?: string[]; touchCalibration?: Record<string, { x: number; y: number }>;
   plantAuto?: boolean; touchBgm?: string;
   diaryAuto?: boolean; diaryStyle?: string; diaryContext?: boolean; hollowAuto?: boolean;
@@ -109,6 +109,7 @@ export function careForPlant(bond: Bond, action: 'water' | 'fertilize', side: Si
     plant: {
       ...plant, xp: Math.min(100, plant.xp + (action === 'water' ? 12 : 22)),
       ...(action === 'water' ? { watered: now, lastSide: side, cycleWaters: (plant.cycleWaters ?? 0) + 1 } : { fertilized: now }),
+      lastCaredAt: now,
       careCount: plant.careCount + 1,
     },
     points: { ...bond.points, [side]: bond.points[side] + 8, shared: bond.points.shared + 10 },
