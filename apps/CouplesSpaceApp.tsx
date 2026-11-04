@@ -316,6 +316,38 @@ export default function CouplesSpaceApp() {
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
   const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
 
+  const renderFeature = (id: Panel) => {
+    if (!(isPair ? pairPanels : mainPanels).includes(id)) return null;
+    const Icon = icons[id];
+    const locked = !isPair && id !== 'achievements' && !bond?.unlocks?.[id] && (bond?.gateMode === 'pact' ||
+      (bond?.gateMode === 'level' && bondLevel(bond) < (panelLevels[id] ?? 1)));
+    const count = bond?.entries.filter(entry => entry.kind === id).length ?? 0;
+    const photo = id === 'timeline' || id === 'gift' || id === 'touch' || id === 'shop' || id === 'diary';
+    return <button type="button" key={id}
+      className={'couple-portal couple-portal-' + id + (locked ? ' couple-portal-locked' : '')}
+      aria-label={labels[id] + (locked ? '，待解锁' : '')}
+      onClick={() => { if (locked) setLockedPanel(id); else { setLockedPanel(undefined); setPanel(id); } }}>
+      <span className="couple-portal-top"><span>{id === 'timeline' ? 'A / 01' : id === 'shop' ? 'C / 01' : id === 'touch' ? 'B / 03' : '●'}</span><Icon size={17} weight="light" /></span>
+      {photo && <span className="couple-portal-image" aria-hidden="true">
+        {(id === 'gift' || id === 'touch') && <span className="couple-portal-second-photo"><Avatar person={isPair ? char! : userProfile} /></span>}
+        {char && <Avatar person={other ?? char} />}
+      </span>}
+      {id === 'wish' && <span className="couple-portal-checks" aria-hidden="true"><i/><i/><i/></span>}
+      {id === 'mail' && <span className="couple-portal-stamp" aria-hidden="true">✉</span>}
+      {id === 'capsule' && <span className="couple-portal-wave" aria-hidden="true"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></span>}
+      {id === 'plant' && <span className="couple-portal-branch" aria-hidden="true"><Leaf size={47} weight="thin" /></span>}
+      {id === 'achievements' && <span className="couple-portal-medal" aria-hidden="true"><Medal size={39} weight="thin" /></span>}
+      <span className="couple-portal-bottom">
+        <strong>{labels[id]}</strong>
+        <small>{locked ? '尚未解锁' : id === 'timeline' || id === 'diary' || id === 'gift' || id === 'mail'
+          ? (count + ' 条记录') : id === 'capsule' ? (readyCapsules ? readyCapsules + ' 封可拆' : '收藏寄往未来的话')
+          : featureNotes[id]}</small>
+      </span>
+      <span className="couple-portal-arrow" aria-hidden="true">↗</span>
+    </button>;
+  };
+
+
   return <div className={'couple-app' + (!pairs && !panel && pickerStep !== 'space' ? ' couple-picker-mode' : ' couple-content-mode')}>
     <header className="couple-header">
       <button aria-label="返回" onClick={() => { if (!back()) closeApp(); }}><ArrowLeft size={20} /></button>
@@ -369,21 +401,25 @@ export default function CouplesSpaceApp() {
       </section>}
       {bond?.status === 'open' && char && (!isPair || other) && (isPair || (!pairs && pickerStep === 'space')) && <>
         {!panel && <>
-          <section className="couple-hero">
+          <section className="couple-hero couple-scrapbook-hero">
             {bond.cover && <TokenImg value={bond.cover} className="couple-cover" alt="空间封面"
-              style={{ objectPosition: `center ${bond.position ?? 50}%`, transform: `scale(${bond.zoom ?? 1})` }} />}
-            <div className="couple-hero-lede"><span>BETWEEN US</span><span>{bond.start}</span></div>
-            <div className="couple-hero-scene">
-              <div className="couple-hero-portraits">
-                <div className="couple-hero-member couple-hero-member-one"><Avatar person={isPair ? char : userProfile} /></div>
-                <span className="couple-hero-link" aria-hidden="true"><Heart weight="light" size={20} /></span>
-                <div className="couple-hero-member couple-hero-member-two"><Avatar person={other ?? char} /></div>
-              </div>
-              <div className="couple-hero-count"><small>TOGETHER</small><strong>{String(days).padStart(2, '0')}</strong><span>DAYS</span></div>
+              style={{ objectPosition: 'center ' + (bond.position ?? 50) + '%', transform: 'scale(' + (bond.zoom ?? 1) + ')' }} />}
+            <div className="couple-scrapbook-topline">
+              <span>PRIVATE / OUR SPACE</span><span>{bond.start}</span>
             </div>
-            <div className="couple-hero-footer">
-              <div><small>{relationCopy[bond.relation].name}</small><h2>{names.me} <span>&</span> {names.them}</h2></div>
-              <p>{relationCopy[bond.relation].sub}</p>
+            <div className="couple-scrapbook-composition">
+              <div className="couple-scrapbook-person couple-scrapbook-person-me">
+                <Avatar person={isPair ? char : userProfile} /><span>{names.me}</span>
+              </div>
+              <span className="couple-scrapbook-connecting" aria-hidden="true"><Heart size={17} weight="light" /></span>
+              <div className="couple-scrapbook-person couple-scrapbook-person-them">
+                <Avatar person={other ?? char} /><span>{names.them}</span>
+              </div>
+              <div className="couple-scrapbook-counter"><span>OUR STORY</span><strong>{String(days).padStart(2, '0')}</strong><small>DAYS TOGETHER</small></div>
+            </div>
+            <div className="couple-scrapbook-bottomline">
+              <div><strong>{relationCopy[bond.relation].name}</strong><span>{names.me} &amp; {names.them}</span></div>
+              <span>{relationCopy[bond.relation].sub}</span>
             </div>
           </section>
           {isPair ? <section className="couple-card couple-pair-summary">
@@ -439,41 +475,27 @@ export default function CouplesSpaceApp() {
               <button disabled={busy} onClick={() => setLockedPanel(undefined)}>返回</button>
             </div>
           </section>}
-          <div className="couple-dashboard">
-            <div className="couple-dashboard-intro">
-              <span>OUR LITTLE WORLD <Heart size={12} weight="thin" /></span>
-              <p>这里，存放着你们的每一个日常。</p>
+          <div className="couple-dashboard couple-scrapbook-dashboard">
+            <div className="couple-scrapbook-heading"><span>01 / MEMORY DESK</span><strong>我们的私藏角落</strong><small>一点点，把日常存进这里。</small></div>
+            <div className="couple-scrapbook-layout-top">
+              {renderFeature('timeline')}
+              <div className="couple-scrapbook-top-stack">
+                {renderFeature('anniversary')}
+                {renderFeature('diary')}
+              </div>
             </div>
-            {collectionSections.map(section => {
-              const enabled = section.ids.filter(id => (isPair ? pairPanels : mainPanels).includes(id));
-              if (!enabled.length) return null;
-              return <section className="couple-collection" key={section.code}>
-                <div className="couple-section-heading">
-                  <span>{section.code} / {section.caption}</span>
-                  <h3>{section.title}</h3>
-                </div>
-                <nav className="couple-gallery" aria-label={section.title}>
-                  {enabled.map((id, index) => {
-                    const Icon = icons[id];
-                    const locked = !isPair && id !== 'achievements' && !bond.unlocks?.[id] && (bond.gateMode === 'pact' ||
-                      bond.gateMode === 'level' && bondLevel(bond) < (panelLevels[id] ?? 1));
-                    return <button type="button" key={id}
-                      className={`couple-tile couple-tile-${id}`}
-                      onClick={() => { if (locked) setLockedPanel(id); else { setLockedPanel(undefined); setPanel(id); } }}>
-                      <span className="couple-tile-index">{String(index + 1).padStart(2, '0')}</span>
-                      <Icon className="couple-tile-icon" size={26} weight="thin" />
-                      <span className="couple-tile-info">
-                        <strong>{labels[id]}</strong>
-                        <small>{locked ? '等待解锁' : featureNotes[id]}</small>
-                      </span>
-                      <span className="couple-tile-arrow" aria-hidden="true">↗</span>
-                      {id === 'capsule' && !locked && readyCapsules > 0 && <span className="couple-badge">{readyCapsules} 封可拆</span>}
-                    </button>;
-                  })}
-                </nav>
-              </section>;
-            })}
-            <div className="couple-dashboard-end">MADE OF LITTLE MOMENTS <Heart size={11} weight="thin" /></div>
+            <div className="couple-scrapbook-floating-row">
+              {renderFeature('mail')}
+              {renderFeature('capsule')}
+            </div>
+            {renderFeature('hollow')}
+            <div className="couple-scrapbook-heading couple-scrapbook-heading-second"><span>02 / TINY PROMISES</span><strong>留给彼此的小小心意</strong></div>
+            {renderFeature('wish')}
+            <div className="couple-scrapbook-photo-pair">{renderFeature('gift')}{renderFeature('touch')}</div>
+            {renderFeature('plant')}
+            <div className="couple-scrapbook-heading couple-scrapbook-heading-third"><span>03 / COLLECTION</span><strong>关于我们的收藏</strong></div>
+            <div className="couple-scrapbook-collection-row">{renderFeature('shop')}{renderFeature('achievements')}</div>
+            <div className="couple-scrapbook-signature">MADE OF LITTLE MOMENTS · ♡</div>
           </div>
         </>}
         {panel && <div className="couple-subpage-intro">
