@@ -125,7 +125,7 @@ const AppIconEditor: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 gap-3" role="group" aria-label="内置 PWA 图标">
-        {[{ classic: false, name: '水母', image: PWA_DEFAULT_ICON_URL }, { classic: true, name: '经典', image: PWA_CLASSIC_ICON_URL }].map(option => {
+        {[{ classic: false, name: '宝宝狗 · 默认', image: PWA_DEFAULT_ICON_URL }, { classic: true, name: '宝宝狗 · 经典', image: PWA_CLASSIC_ICON_URL }].map(option => {
           const selected = option.classic ? currentValue === PWA_CLASSIC_ICON_VALUE : !currentValue;
           return <button key={option.name} type="button" disabled={processing} aria-pressed={selected}
             onClick={()=>void chooseBuiltin(option.classic)} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-colors disabled:opacity-50 ${selected ? 'border-primary bg-primary/5' : 'border-slate-200'}`}>
@@ -150,7 +150,7 @@ const AppIconEditor: React.FC = () => {
         </div>
         <div className="min-w-0">
           <div className="text-xs text-slate-500">
-            {currentValue === PWA_CLASSIC_ICON_VALUE ? '经典图标' : currentValue ? '已设置自定义图标' : '水母图标 · 默认'}
+            {currentValue === PWA_CLASSIC_ICON_VALUE ? '宝宝狗 · 经典图标' : currentValue ? '已设置自定义图标' : '宝宝狗图标 · 默认'}
           </div>
           {currentValue && (
             <button
