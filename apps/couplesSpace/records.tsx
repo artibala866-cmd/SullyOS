@@ -210,6 +210,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   const [filter, setFilter] = useState('all');
   const [earlyId, setEarlyId] = useState<string>();
   const [replyDraft, setReplyDraft] = useState<{ id: string; text: string }>();
+  const [activeRecordId, setActiveRecordId] = useState<string>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
@@ -273,12 +274,13 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   const look = recordLooks[kind];
   const latest = rows[0];
   const countDone = kind === 'wish' ? rows.filter(row => row.done).length : rows.length;
-  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '')}>
-    {!draft && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
+  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
+    {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
       onNew={() => setDraft(newEntry())} onAI={() => void run(generated)} busy={working || busy}
-      onJump={id => document.getElementById('bond-entry-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />}
-    {kind === 'diary' && <details className="couple-record-preferences">
+      onJump={id => { setActiveRecordId(id); setReplyDraft(undefined); document.querySelector('.couple-main')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+    {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
+    {kind === 'diary' && !draft && !activeRecordId && <details className="couple-record-preferences">
       <summary>日记偏好 <span>自动写作与回顾设置</span></summary>
       <div className="couple-record-preferences-body">
       <label><input type="checkbox" checked={!!bond.diaryAuto} onChange={event => {
@@ -295,19 +297,19 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       }} /></label>
       </div>
     </details>}
-    {kind === 'capsule' && <nav className="couple-segments" aria-label="胶囊状态">
+    {kind === 'capsule' && !draft && !activeRecordId && <nav className="couple-segments" aria-label="胶囊状态">
       {([['all', '全部'], ['sealed', '封存中'], ['ready', '可拆封'], ['opened', '已拆封']] as const).map(([id, label]) =>
         <button key={id} aria-pressed={filter === id} onClick={() => setFilter(id)}>
           {label}{id === 'ready' ? ` ${capsules.filter(item => capsuleStatus(item, today) === 'ready').length}` : ''}
         </button>)}
     </nav>}
-    {(kind === 'diary' || kind === 'mail') && <div className="couple-actions">
+    {!draft && !activeRecordId && (kind === 'diary' || kind === 'mail') && <div className="couple-actions">
       <select aria-label="筛选记录" value={filter} onChange={event => setFilter(event.target.value)}>
         <option value="all">全部</option><option value="me">{names.me}</option><option value="them">{names.them}</option>
         {kind === 'mail' && <option value="pending">待回信</option>}
       </select>
     </div>}
-    {kind === 'hollow' && <div className="couple-record-preferences couple-hollow-preference"><label>
+    {kind === 'hollow' && !draft && !activeRecordId && <div className="couple-record-preferences couple-hollow-preference"><label>
       <input type="checkbox" checked={!!bond.hollowAuto} disabled={working} onChange={event => {
         const hollowAuto = event.target.checked;
         void run(() => change(current => ({ ...current, hollowAuto })));
@@ -322,6 +324,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         const record = { ...draft, title, body: draft.body.trim() };
         await save(record);
         setDraft(undefined);
+        setActiveRecordId(undefined);
       });
     }}>
       <div className="couple-compose-intro">
@@ -393,7 +396,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       </div>
     </form>}
 
-    {!draft && rows.map(item => {
+    {!draft && rows.filter(item => item.id === activeRecordId).map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
       return <article className={'couple-card couple-record-entry couple-entry-' + kind + (item.done ? ' couple-entry-completed' : '')} key={item.id} id={`bond-entry-${item.id}`}>
