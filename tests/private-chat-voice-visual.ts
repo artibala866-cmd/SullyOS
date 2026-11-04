@@ -7,6 +7,18 @@ import {PRESET_THEMES} from '../components/chat/ChatConstants';
 import {attachUserVoiceAudio, makeUserVoiceMetadata} from '../utils/userVoiceMessage';
 import {putImageBlob} from '../utils/blobRef';
 import {encodeWavFromFloat32} from '../utils/speechToText';
+import {DB} from '../utils/db';
+
+// The screenshot page verifies the real voice bubble and its WAV-backed play control,
+// not IndexedDB migrations. In headless Chrome, a first-run DB upgrade can time out
+// under virtual time before React ever renders. Keep the production BlobRef adapter
+// and actual WAV bytes, but back this isolated *test page* with ephemeral storage.
+// Neither the app's DB implementation nor its production persistence is modified.
+const previewAudioAssets=new Map<string, Blob>();
+DB.putBlobAsset=async(id: string, blob: Blob): Promise<void>=>{
+ previewAudioAssets.set(id,blob);
+};
+DB.getBlobAsset=async(id: string): Promise<Blob|null>=>previewAudioAssets.get(id)??null;
 
 const root=document.getElementById('voice-visual');
 if(!root)throw Error('Missing visual test root');
@@ -48,7 +60,7 @@ void (async()=>{try{
   content:'你好，今天画稿进度怎么样？',
   metadata:makeUserVoiceMetadata('你好，今天画稿进度怎么样？','recorded')
  },styleConfig:PRESET_THEMES.forest.ai,initiallyExpanded:true})));
- // Persist one genuine WAV in the same IndexedDB Blob store used by Chat.
+ // Generate a genuine WAV; the production BlobRef API uses the page-only in-memory store.
  const actual=document.createElement('section');actual.className='scene';actual.dataset.scene='real-audio';
  actual.innerHTML='<h2>真实录音：可播放的原声音频和转写</h2><div class="voice-example"></div>';root.appendChild(actual);
  root.dataset.voiceVisualStage='saving-wav';
