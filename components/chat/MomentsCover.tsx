@@ -103,8 +103,9 @@ export default function MomentsCover({
       恢复默认
     </button>}
 
-    <strong className={'pointer-events-none absolute bottom-5 right-24 max-w-[calc(100%-8rem)] truncate text-xl font-semibold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,.5)] transition-opacity duration-200 '+(expanded?'opacity-0':'opacity-100')}>{name}</strong>
-    <div className={'pointer-events-none absolute -bottom-8 right-5 z-10 transition-opacity duration-200 '+(expanded?'opacity-0':'opacity-100')}>
+    <strong data-testid="moments-cover-nickname"
+      className={'pointer-events-none absolute bottom-5 left-4 right-[112px] block truncate text-right text-xl font-semibold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,.5)] transition-opacity duration-200 '+(expanded?'opacity-0':'opacity-100')}>{name}</strong>
+    <div data-testid="moments-cover-avatar" className={'pointer-events-none absolute -bottom-8 right-5 z-10 transition-opacity duration-200 '+(expanded?'opacity-0':'opacity-100')}>
       <PhoneAvatar key={avatar||name} src={avatar} name={name}
         className="h-20 w-20 rounded-xl border-4 border-white bg-white text-3xl shadow-sm"/>
     </div>

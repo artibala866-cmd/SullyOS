@@ -61,10 +61,28 @@ jobs:
               assert collapsed is not None and abs(collapsed['height']-256)<2,collapsed
               assert not trigger.get_attribute('aria-expanded')=='true'
               assert picker.is_disabled()
+              nickname=page.locator('[data-testid="moments-cover-nickname"]')
+              avatar=page.locator('[data-testid="moments-cover-avatar"]')
+              nr=nickname.bounding_box()
+              ar=avatar.bounding_box()
+              # Physical geometry, not inferred from class names: keep at least 12px clearance.
+              assert nr and ar and nr['x']+nr['width']<=ar['x']-11.5,(nr,ar)
+              assert nr['x']>=15,(nr,ar)
               for edge in ('top','bottom'):
                   fade=page.locator('[data-testid="moments-cover-'+edge+'-fade"]')
                   assert float(fade.evaluate('(el)=>getComputedStyle(el).opacity'))<0.02
               page.screenshot(path='moments-cover-collapsed.png')
+              # Verify that longer display names also stay clear of the avatar
+              # at a narrower handset viewport, without moving the avatar.
+              narrow=browser.new_page(viewport={'width':320,'height':760},device_scale_factor=1)
+              narrow.goto('http://127.0.0.1:5173/tests/moments-cover-visual.html?view=collapsed&name='+__import__('urllib.parse',fromlist=['quote']).quote('宝宝狗的超长微信昵称测试版本'))
+              narrow.locator('[data-testid="moments-cover-nickname"]').wait_for()
+              narrow.wait_for_timeout(400)
+              nr=narrow.locator('[data-testid="moments-cover-nickname"]').bounding_box()
+              ar=narrow.locator('[data-testid="moments-cover-avatar"]').bounding_box()
+              assert nr and ar and nr['x']>=15 and nr['x']+nr['width']<=ar['x']-11.5,(nr,ar)
+              narrow.screenshot(path='moments-cover-long-name-320.png')
+              narrow.close()
               trigger.click()
               page.wait_for_timeout(850)
               expanded=page.locator('[data-moments-cover]').bounding_box()
