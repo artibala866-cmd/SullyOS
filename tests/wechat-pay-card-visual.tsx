@@ -41,7 +41,8 @@ setTimeout(()=>{
   const bounds=cards[0]?.getBoundingClientRect();
   const noOverflow=document.documentElement.scrollWidth<=Math.max(390,innerWidth);
   const hasAmount=!!document.querySelector('[data-testid="wechat-pay-card"] strong');
-  const ready=cards.length===3&&width>=350&&width<=362&&!!bounds&&bounds.left>=14&&noOverflow&&hasAmount;
+  const rootBounds=document.getElementById('root')!.getBoundingClientRect();
+  const ready=cards.length===3&&Math.abs(width-(rootBounds.width-32))<=2&&!!bounds&&bounds.left>=rootBounds.left+14&&noOverflow&&hasAmount;
   document.body.dataset.ready=String(ready);
-  document.getElementById('wechat-pay-test-status')!.textContent=JSON.stringify({ready,view,width,left:bounds?.left,amount:hasAmount});
+  document.getElementById('wechat-pay-test-status')!.textContent=JSON.stringify({ready,view,rootWidth:rootBounds.width,width,left:bounds?.left,amount:hasAmount});
 },1800);
