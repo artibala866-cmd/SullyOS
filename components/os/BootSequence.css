@@ -17,7 +17,7 @@
   position: absolute;
   top: 44%;
   left: 50%;
-  width: min(72vw, 244px);
+  width: min(53vw, 185px);
   transform: translate(-50%, -50%);
   text-align: center;
 }
@@ -41,7 +41,7 @@
 .sully-lineart-eyes-closed, .sully-lineart-mouth-talking { opacity: 0; }
 .sully-boot-side-label {
   position: absolute;
-  right: -5px;
+  right: -24px;
   top: 49%;
   margin: 0;
   color: #353535;
@@ -86,7 +86,7 @@
   43%, 55%, 69%, 82% { opacity: 1; }
 }
 @media (max-width: 350px), (max-height: 620px) {
-  .sully-boot-center { width: min(70vw, 225px); top: 44%; }
+  .sully-boot-center { width: min(56vw, 176px); top: 44%; }
   .sully-boot-side-label { font-size: 12px; }
   .sully-boot-welcome { font-size: 11px; margin-top: -8px; }
 }
