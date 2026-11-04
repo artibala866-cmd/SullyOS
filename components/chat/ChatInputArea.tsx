@@ -23,7 +23,6 @@ const ACTION_PAGE_SIZE = 8;
 
 interface PrivateChatSpeechInput {
     status: PrivateChatSpeechStatus;
-    mode?: 'record' | 'transcribe';
     transcript: string;
     seconds: number;
     hasAudioDraft?: boolean;
@@ -984,7 +983,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 rows={2}
                                 value={speechInput.transcript}
                                 onChange={event => speechInput.editTranscript(event.target.value)}
-                                placeholder={speechInput.hasAudioDraft ? '识别内容（可修改）…' : speechInput.mode === 'transcribe' ? '正在等待语音识别…' : '可选：补充文字，方便 Char 理解录音'}
+                                placeholder={speechInput.hasAudioDraft ? '识别内容（可修改）…' : '正在等待语音识别…'}
                                 disabled={speechInput.status === 'starting' || speechInput.status === 'transcribing'}
                                 className={`w-full min-h-[3rem] max-h-24 resize-y rounded-xl px-3 py-2 text-sm outline-none ${isDiscordStyle ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
                             />
