@@ -25,6 +25,7 @@ import CharacterPhoneWallet from './CharacterPhoneWallet';
 import CharacterPhoneBrowser from './CharacterPhoneBrowser';
 import PhoneAvatar from './PhoneAvatar';
 import PullToRefresh from './PullToRefresh';
+import MomentsCover from './MomentsCover';
 import PhoneChatBubbles from './PhoneChatBubbles';
 import { MomentsTimeline } from './MomentsTimeline';
 import { CHARACTER_MOMENTS_CHANGED, readCharacterMoments, publishCharacterMoment, deleteCharacterMoment, addMomentComment, type CharacterMoment } from '../../utils/characterPhoneMoments';
@@ -927,16 +928,13 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
-        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]">
-          {phoneAppearance.momentsCover && <img src={phoneAppearance.momentsCover} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-          <div className="absolute top-3 right-3 flex gap-2 text-xs text-white">
-            <label className="cursor-pointer rounded-lg bg-black/55 px-3 py-2">更换朋友圈背景<input className="sr-only" type="file" accept="image/*" onChange={event => {
-              const file = event.currentTarget.files?.[0];
-              event.currentTarget.value = '';
-              if (file) void updateMomentsCover(file);
-            }} /></label>
-            {phoneAppearance.momentsCover && <button type="button" className="rounded-lg bg-black/55 px-3 py-2" onClick={() => void updateMomentsCover()}>恢复默认</button>}
-          </div><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-11" aria-hidden="true" /><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
+        {screen === 'moments' && <PullToRefresh stretchCover loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white">
+          <MomentsCover key={characterId} name={name} avatar={phoneAvatar} cover={phoneAppearance.momentsCover}
+            onSelectCover={file => void updateMomentsCover(file)}
+            onRestoreDefault={() => void updateMomentsCover()} />
+          <div className="h-11" aria-hidden="true" />
+          <MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/>
+        </div></PullToRefresh>}
         {screen === 'profile' && <div className="space-y-4 pb-8 text-[#252525]">
            <section className="bg-white px-5 py-7">
              <div className="flex items-center gap-5">
