@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpenText, CalendarHeart, EnvelopeSimple, GearSix, Gift, HandHeart, Heart, Hourglass, Leaf, ListChecks, Medal, ShoppingBag, Tree, Users } from '@phosphor-icons/react';
+import { ArrowLeft, BookOpenText, CalendarHeart, CaretLeft, CaretRight, ArrowRight, EnvelopeSimple, GearSix, Gift, HandHeart, Heart, Hourglass, Leaf, ListChecks, Medal, ShoppingBag, Tree, Users } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { avatarTouchPartLabel, resolveAvatarTouchTarget } from '../utils/avatarTouch';
@@ -35,6 +35,91 @@ function Avatar({ person }: { person: { avatar: string; name: string } }) {
       ? <TokenImg value={person.avatar} alt={person.name} onError={() => setFailedAvatar(person.avatar)} />
       : <span role="img" aria-label={person.name}>{Array.from(person.name.trim())[0] || '♡'}</span>}
   </span>;
+}
+
+
+/** Browsing this orbit never writes a bond or sends an invitation. */
+function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, onContinue, onPairs }: {
+  characters: CharacterProfile[];
+  selectedId: string;
+  status?: Bond['status'];
+  busy: boolean;
+  onSelect: (id: string) => void;
+  onContinue: () => void;
+  onPairs: () => void;
+}) {
+  const activeIndex = Math.max(0, characters.findIndex(item => item.id === selectedId));
+  const active = characters[activeIndex];
+  const touchStart = useRef<number>();
+  const shift = (step: number) => {
+    if (characters.length > 1) onSelect(characters[(activeIndex + step + characters.length) % characters.length].id);
+  };
+  return <section className="couple-picker" aria-label="环绕星球角色选择">
+    <div className="couple-picker-intro">
+      <span className="couple-picker-overline"><Heart size={13} weight="fill" /> OUR LITTLE UNIVERSE</span>
+      <h2>情侣空间</h2><p>在星轨之间，找到想要连接的 TA</p>
+    </div>
+    {active ? <>
+      <div className="couple-orbit-scene" aria-label="滑动星轨或点击头像切换角色"
+        onTouchStart={event => { touchStart.current = event.touches[0]?.clientX; }}
+        onTouchEnd={event => {
+          if (touchStart.current === undefined) return;
+          const distance = event.changedTouches[0]?.clientX - touchStart.current;
+          touchStart.current = undefined;
+          if (Math.abs(distance ?? 0) > 38) {
+            event.preventDefault();
+            shift(distance! < 0 ? 1 : -1);
+          }
+        }}>
+        <div className="couple-orbit-aura" aria-hidden="true" />
+        <div className="couple-orbit-track couple-orbit-track-back" aria-hidden="true" />
+        <div className="couple-orbit-track couple-orbit-track-front" aria-hidden="true" />
+        <div className="couple-orbit-core" key={active.id} aria-label={'当前角色：' + active.name}>
+          <Avatar person={active} />
+          <span className="couple-orbit-core-halo" aria-hidden="true" />
+        </div>
+        {characters.map((person, index) => {
+          if (index === activeIndex) return null;
+          const angle = Math.PI * 2 * (index - activeIndex) / characters.length;
+          const depth = (Math.cos(angle) + 1) / 2;
+          return <button type="button" className="couple-orbit-satellite" key={person.id}
+            aria-label={'选择角色：' + person.name} disabled={busy}
+            onClick={() => onSelect(person.id)}
+            style={{
+              left: (50 + Math.sin(angle) * 41) + '%',
+              top: (51 + Math.cos(angle) * 21) + '%',
+              transform: 'translate(-50%, -50%) translateZ(' + Math.round(depth * 30) + 'px) scale(' + (0.81 + depth * 0.17) + ')',
+              zIndex: Math.round(depth * 8) + 2,
+            }}>
+            <Avatar person={person} />
+          </button>;
+        })}
+        <span className="couple-orbit-spark couple-orbit-spark-left" aria-hidden="true" />
+        <span className="couple-orbit-spark couple-orbit-spark-right" aria-hidden="true" />
+      </div>
+      <div className="couple-picker-navigation">
+        <button type="button" aria-label="上一个角色" disabled={busy || characters.length < 2} onClick={() => shift(-1)}><CaretLeft size={19} /></button>
+        <span>角色 {activeIndex + 1} / {characters.length}</span>
+        <button type="button" aria-label="下一个角色" disabled={busy || characters.length < 2} onClick={() => shift(1)}><CaretRight size={19} /></button>
+      </div>
+      <div className="couple-picker-profile">
+        <Avatar person={active} />
+        <div className="couple-picker-profile-copy">
+          <strong>{active.name}</strong>
+          <small>{status === 'open' ? '专属空间已建立' : status === 'pending' ? '有一份等待回应的邀请' : status === 'declined' ? '可重新发出邀请' : '等待与你建立专属连接'}</small>
+        </div>
+        <span className="couple-picker-state">{status === 'open' ? '已绑定' : status === 'pending' ? '待回应' : '待绑定'}</span>
+      </div>
+      <button type="button" className="couple-picker-confirm" disabled={busy} onClick={onContinue}>
+        {status === 'open' ? '进入专属空间' : status === 'pending' ? '查看邀请' : '选择此角色'} <ArrowRight size={18} />
+      </button>
+      <button type="button" className="couple-picker-pairs" disabled={busy} onClick={onPairs}><Users size={18} /> 他们的空间</button>
+      <p className="couple-picker-hint">轻点环绕头像切换 · 确认后再选择关系与邀请</p>
+    </> : <div className="couple-picker-empty">
+      <Heart size={32} weight="thin" /><p>还没有可以绑定的角色</p>
+      <small>先创建角色，再回来开启你们的空间。</small>
+    </div>}
+  </section>;
 }
 
 export default function CouplesSpaceApp() {
