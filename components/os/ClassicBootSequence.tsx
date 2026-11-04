@@ -2,7 +2,7 @@ import React from 'react';
 import JellyfishBootSequence from './JellyfishBootSequence';
 
 // 保留旧存档中的 classic 开屏风格选项，但统一使用宝宝狗原图与同一套细腻动效。
-// 夜空只改变背景配色，不再渲染旧版宇宙粒子、旧 Logo 或壁纸蒙层。
+// 两种旧配置统一使用同一套纯白色 CSS 狗狗开屏，避免夜空色块复现。
 interface Props {
   dataReady: boolean;
   wallpaper?: string;
