@@ -2722,7 +2722,7 @@ const MessageItem = React.memo(({
                     {/* 报头 */}
                     <div className="px-3 pt-2 pb-1.5 border-b-2 border-double border-stone-500/60">
                         <div className="flex items-center justify-between text-stone-500">
-                            <span className="text-[8.5px] tracking-[0.3em] uppercase font-bold">SullyOS·糯米机 Daily</span>
+                            <span className="text-[8.5px] tracking-[0.3em] uppercase font-bold">宝宝狗 Daily</span>
                             <span className="text-[8.5px] tracking-wide">{dateStr} · 号外</span>
                         </div>
                     </div>
@@ -3642,7 +3642,7 @@ const MessageItem = React.memo(({
                         <circle cx="8" cy="8" r="7" fill="#c8c8c8" />
                         <path d="m4.6 8 2.2 2.2 4.5-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span>由糯米机提供翻译支持</span>
+                    <span>由宝宝狗提供翻译支持</span>
                 </div>
             </div>
         )}
