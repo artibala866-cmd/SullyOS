@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { DiaryEntry } from '../../types';
+import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
 import { capsuleDate, capsuleStatus, createEntry } from '../../utils/couplesSpace';
 import { processImage } from '../../utils/file';
@@ -33,6 +35,166 @@ function RecordArt({ kind, date, count, image }: { kind: EntryKind; date: string
     {kind === 'capsule' && <div className="couple-art-capsule"><span>FUTURE</span><i/><small>SEALED LETTER</small></div>}
     {kind === 'hollow' && <div className="couple-art-secret"><i/><i/><span>PRIVATE</span></div>}
     <span className="couple-art-count">{String(count).padStart(2, '0')}</span>
+  </div>;
+}
+
+
+/* Distinct pages, not a single collection template with different badges. */
+function upcomingDate(date: string, today: string) {
+  const parts = date.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return undefined;
+  const now = new Date(today + 'T12:00:00');
+  if (!Number.isFinite(now.getTime())) return undefined;
+  let year = now.getFullYear();
+  let due = new Date(year, parts[1] - 1, Math.min(parts[2], new Date(year, parts[1], 0).getDate()), 12);
+  if (due < now) { year++; due = new Date(year, parts[1] - 1, Math.min(parts[2], new Date(year, parts[1], 0).getDate()), 12); }
+  return Math.round((due.getTime() - now.getTime()) / 86400000);
+}
+function elapsedDate(start: string, today: string) {
+  const a = new Date(start + 'T12:00:00').getTime();
+  const b = new Date(today + 'T12:00:00').getTime();
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.max(1, Math.round((b-a)/86400000)+1) : 1;
+}
+type CoupleSceneProps = {
+  kind: EntryKind; bond: Bond; names: Record<Side,string>; rows: Entry[]; today: string;
+  onNew: () => void; onAI: () => void; busy: boolean; onJump: (id:string) => void;
+  avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
+};
+function SceneAvatar({ value, name }: { value?: string; name: string }) {
+  return <span className="couple-scene-avatar">{value ? <TokenImg value={value} alt={name} /> : <span>{name.slice(0,1)}</span>}</span>;
+}
+function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump,
+  avatarMe, avatarThem, charId, onNativeJournal }: CoupleSceneProps) {
+  const [native, setNative] = useState<DiaryEntry[]>([]);
+  const [journalPage, setJournalPage] = useState(0);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (kind !== 'diary' || !charId) return;
+    let active = true;
+    DB.getDiariesByCharId(charId).then(items => {
+      if (active) { setNative(items.sort((a,b) => b.date.localeCompare(a.date))); setError(''); }
+    }).catch(() => { if (active) setError('原生日记读取失败，可以打开日记应用重试。'); });
+    return () => { active = false; };
+  }, [kind, charId]);
+  const actions = (label: string, secondary?: string) => <div className="couple-scene-controls">
+    <button type="button" className="couple-scene-main-action" disabled={busy} onClick={onNew}>{label}</button>
+    <button type="button" className="couple-scene-ai-action" disabled={busy} onClick={onAI}>{secondary ?? ('邀请' + names.them)}</button>
+  </div>;
+  const total = rows.length;
+  if (kind === 'anniversary') {
+    const source = [ { id:'start', title:'我们的起点', date:bond.start },...rows.map(r=>({id:r.id,title:r.title,date:r.date})) ];
+    const nearest = source.map(r=>({...r,delta:upcomingDate(r.date,today) ?? 9999})).sort((a,b)=>a.delta-b.delta)[0];
+    const elapsed = elapsedDate(bond.start,today);
+    return <div className="couple-scene couple-scene-anniversary">
+      <div className="couple-anniversary-hero">
+        <div className="couple-anniversary-kicker"><span>SINCE {bond.start}</span><span>纪念日</span></div>
+        <div className="couple-anniversary-pair"><SceneAvatar value={avatarMe} name={names.me}/><span className="couple-anniversary-thread">♡</span><SceneAvatar value={avatarThem} name={names.them}/></div>
+        <div className="couple-anniversary-time"><span>我们已经相伴</span><strong>{elapsed.toLocaleString('zh-CN')}</strong><em>天</em></div>
+        <div className="couple-anniversary-names">{names.me} <span>&</span> {names.them}</div>
+      </div>
+      <div className="couple-anniversary-next">
+        <div><span>下一次值得期待</span><strong>{nearest?.title ?? '属于我们的日子'}</strong></div>
+        <div className="couple-anniversary-countdown"><strong>{nearest?.delta ?? '—'}</strong><small>天后</small></div>
+      </div>
+      <div className="couple-anniversary-calendar">
+        <div className="couple-anniversary-calendar-head"><strong>纪念日期</strong><small>{source.length} 个日子</small></div>
+        {source.map(item => <button key={item.id} type="button" disabled={item.id==='start'}
+          onClick={()=>item.id!=='start' && onJump(item.id)}>
+          <span className="couple-anniversary-calendar-date"><b>{item.date.slice(8,10)}</b><small>{item.date.slice(5,7)}月</small></span>
+          <span>{item.title}<small>{item.date}</small></span>
+          <span className="couple-anniversary-calendar-chevron">{item.id==='start' ? '始' : '›'}</span>
+        </button>)}
+      </div>
+      {actions('＋ 添加一个特别的日子','请 '+names.them+' 回忆')}
+    </div>;
+  }
+  if (kind === 'diary') {
+    const active = native[Math.min(journalPage,Math.max(native.length-1,0))];
+    return <div className="couple-scene couple-scene-diary">
+      <div className="couple-diary-cover"><span className="couple-diary-spine"/><span>DIARY EXCHANGE</span>
+        <strong>两个人的日记</strong><small>今天的生活，交换着读。</small>
+        <div className="couple-diary-cover-people"><span>{names.me}</span><span>·</span><span>{names.them}</span></div>
+      </div>
+      <div className="couple-diary-native">
+        <div className="couple-diary-native-head"><strong>原生日记本</strong><span>{native.length} 篇</span></div>
+        {native.length ? <>
+          <div className="couple-diary-paper-spread">
+            <div className="couple-diary-left-page"><small>{active?.date} / {names.me}</small><p>{active?.userPage?.text?.trim() || '这一页还没有写下文字。'}</p></div>
+            <div className="couple-diary-right-page"><small>{names.them} / REPLY</small><p>{active?.charPage?.text?.trim() || '这一页还在等 TA 的日记。'}</p></div>
+          </div>
+          <div className="couple-diary-page-flip">
+            <button disabled={journalPage>=native.length-1} onClick={()=>setJournalPage(i=>i+1)}>‹ 旧日记</button>
+            <span>{journalPage+1} / {native.length}</span>
+            <button disabled={journalPage===0} onClick={()=>setJournalPage(i=>i-1)}>新日记 ›</button>
+          </div>
+        </> : <div className="couple-diary-native-empty"><span>↗</span><strong>还没有交换的日记</strong><p>写下今天的事，再看看 TA 会记住些什么。</p></div>}
+        {error && <p role="alert" className="couple-error">{error}</p>}
+        {onNativeJournal && <button className="couple-diary-open-original" onClick={onNativeJournal}>打开原生交换日记 <span>↗</span></button>}
+      </div>
+      <div className="couple-diary-sidebook"><div><span>COUPLE SPACE</span><strong>情侣空间的日记页</strong><p>这里另外收藏了 {total} 页与你们的关系有关的记事。</p></div>
+        {actions('＋ 写下新的一页','请 '+names.them+' 写一页')}</div>
+    </div>;
+  }
+  if(kind==='mail'){
+    const unread=rows.filter(r=>!r.reply).length;
+    return <div className="couple-scene couple-scene-mail">
+      <div className="couple-mail-postbox"><span className="couple-mail-stamp">POST / {today.slice(0,4)}</span>
+        <div className="couple-mail-slot"><span className="couple-mail-paper"><small>TO.</small><strong>{names.them}</strong><i/></span></div>
+        <div className="couple-mail-bottom"><strong>时光信箱</strong><small>{unread} 封等待回信</small></div>
+      </div>
+      <div className="couple-mail-routing"><div><small>FROM</small><strong>{names.me}</strong></div><span>━━━━ →</span><div><small>TO</small><strong>{names.them}</strong></div></div>
+      <div className="couple-mail-trays"><span>LETTERS · {total}</span>
+        {rows.length ? rows.map((item,i)=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
+          <span className="couple-mail-tray-envelope"><span>✉</span></span>
+          <span><strong>{item.title}</strong><small>{item.reply?'已有回信':'等待回信'} · {item.date}</small></span><b>{String(i+1).padStart(2,'0')}</b>
+        </button>) : <div className="couple-mail-no-letters">信箱里没有信，第一封由你寄出。</div>}
+      </div>
+      {actions('写信给 '+names.them, '请 '+names.them+' 寄信')}
+    </div>;
+  }
+  if(kind==='timeline'){
+    return <div className="couple-scene couple-scene-timeline">
+      <div className="couple-timeline-cover"><span>THE STORY SO FAR</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div></div>
+      <div className="couple-timeline-flow"><span className="couple-timeline-flow-label">MOMENTS / {today.slice(0,4)}</span>
+        {rows.length ? rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)}><span className="couple-timeline-flow-date">{item.date.slice(5).replace('-','/')}</span><span className="couple-timeline-flow-dot"/><span><strong>{item.title}</strong><small>{item.body || names[item.side]+' 记录'}</small></span>{item.image&&<TokenImg value={item.image} alt="" />}</button>)
+        : <div className="couple-timeline-first">故事开始于 {bond.start}。<br/>下一件值得收藏的事，等你们来写。</div>}
+      </div>{actions('＋ 珍藏这一刻','请 '+names.them+' 讲述')}
+    </div>;
+  }
+  if(kind==='wish'){
+    const done=rows.filter(row=>row.done).length;
+    return <div className="couple-scene couple-scene-wish">
+      <div className="couple-wish-header"><div><span>OUR BUCKET LIST</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {total}</small></strong><span>已完成</span></div></div>
+      <div className="couple-wish-board">
+        {rows.length?rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={'couple-wish-note couple-wish-note-'+index%3+(item.done?' done':'')}>
+          <span className="couple-wish-pin" /><span className="couple-wish-note-index">{String(index+1).padStart(2,'0')}</span>
+          <strong>{item.title}</strong><small>{item.done?'✓ 已完成':'待一起实现'}</small>
+          <span className="couple-wish-note-steps">{(item.steps??[]).filter(s=>s.text.trim()).length} 个小目标</span>
+        </button>):<div className="couple-wish-blank"><span>01 · 02 · 03</span><strong>这面愿望墙还空着。</strong><small>先贴上第一件想一起做的事吧。</small></div>}
+      </div>{actions('＋ 写一张愿望纸','问问 '+names.them+' 的愿望')}
+    </div>;
+  }
+  if(kind==='gift'){
+    return <div className="couple-scene couple-scene-gift">
+      <div className="couple-gift-counter"><span>THE THOUGHTFUL THINGS</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
+      <div className="couple-gift-pedestal"><span className="couple-gift-pedestal-light"/><div className="couple-gift-pedestal-stage">{rows[0]?.image?<TokenImg value={rows[0].image} alt={rows[0].title}/>:<span className="couple-gift-display-box"><i/></span>}</div><span>FOR {names.them}</span></div>
+      {rows.length?<div className="couple-gift-shelf">{rows.map((item,i)=><button key={item.id} onClick={()=>onJump(item.id)}><span className="couple-gift-thumbnail">{item.image?<TokenImg value={item.image} alt=""/>:<span>◻</span>}</span><span><strong>{item.title}</strong><small>{item.date}</small></span><small>NO.{String(i+1).padStart(2,'0')}</small></button>)}</div>:
+      <div className="couple-gift-no-items">这里还没有礼物。第一份心意不必昂贵。</div>}
+      {actions('＋ 包装一份礼物','听听 '+names.them+' 的心意')}
+    </div>;
+  }
+  if(kind==='capsule'){
+    const ready=rows.filter(item=>capsuleStatus(item,today)==='ready').length;
+    return <div className="couple-scene couple-scene-capsule">
+      <div className="couple-capsule-vault"><span className="couple-capsule-top">DO NOT OPEN UNTIL</span><div className="couple-capsule-lock"><i/><strong>{ready}</strong><small>封可开启</small></div><strong>寄给未来的我们</strong><span className="couple-capsule-foot">{total} 个时间约定</span></div>
+      <div className="couple-capsule-shelves">{rows.length?rows.map(item=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={capsuleStatus(item,today)==='sealed'?'is-sealed':''}><span className="couple-capsule-round">◉</span><span><strong>{capsuleStatus(item,today)==='sealed'?'封存中的时间胶囊':item.title}</strong><small>{capsuleStatus(item,today)==='sealed'?'将在 '+item.unlockDate+' 开启':item.date+' 写下'}</small></span><small>{capsuleStatus(item,today)==='ready'?'可拆':'›'}</small></button>):<div>还没有封存的约定，把想说的话留给未来。</div>}</div>
+      {actions('＋ 寄给未来一封信','请 '+names.them+' 封存')}
+    </div>;
+  }
+  return <div className="couple-scene couple-scene-hollow">
+    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole">○<i/></div><strong>不必说出口的心事</strong><p>写在这里，不必解释给任何人听。</p><small>已收藏 {total} 张心事</small></div>
+    <div className="couple-hollow-drawer">{rows.length?rows.map(item=><button key={item.id} type="button" onClick={()=>onJump(item.id)}><span>密封便笺</span><strong>•••• ••••</strong><small>{item.date} · 点击打开</small></button>):<div className="couple-hollow-empty">暂时没有心事。空着也很好。</div>}</div>
+    {actions('＋ 留一张心事便笺','听听 '+names.them+' 的心事')}
   </div>;
 }
 
