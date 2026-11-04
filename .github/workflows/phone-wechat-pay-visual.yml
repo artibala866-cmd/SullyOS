@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: phone-wechat-pay-visual
+  group: phone-wechat-pay-secondary-visual
   cancel-in-progress: true
 jobs:
   inspect:
