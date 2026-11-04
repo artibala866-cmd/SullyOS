@@ -29,7 +29,7 @@
   background: radial-gradient(circle at 12% 18%, rgba(255,226,181,.34) 0 5%, transparent 34%),
     radial-gradient(circle at 92% 78%, rgba(250,200,180,.35) 0 5%, transparent 35%);
 }
-.sully-boot-night::before {
+.sully-boot.sully-boot-night::before {
   background: radial-gradient(circle at 14% 20%, rgba(233,208,255,.16), transparent 36%),
     radial-gradient(circle at 90% 80%, rgba(255,222,189,.12), transparent 35%);
 }
@@ -64,7 +64,7 @@
 .sully-boot-eyebrow::before, .sully-boot-eyebrow::after { content: '✦'; font-size: 9px; opacity: .75; }
 .sully-boot-art {
   position: relative;
-  width: min(74vw, 310px);
+  width: min(92vw, 378px);
   max-width: 100%;
   aspect-ratio: 1;
   margin: 0 auto 10px;
@@ -78,7 +78,7 @@
   color: var(--boot-text);
   font-family: 'ZCOOL KuaiLe', 'YouYuan', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
   font-size: clamp(45px, 12vw, 65px);
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: .055em;
   line-height: 1.2;
   text-shadow: 0 2px 0 rgba(255,255,255,.25);
@@ -119,7 +119,7 @@
 @media (max-height: 620px) {
   .sully-boot-scene { padding: calc(16px + var(--safe-top, 0px)) 18px calc(46px + var(--safe-bottom, 0px)); }
   .sully-boot-eyebrow { margin-bottom: 7px; }
-  .sully-boot-art { width: min(61vw, 235px); margin-bottom: 3px; }
+  .sully-boot-art { width: min(74vw, 260px); margin-bottom: 3px; }
   .sully-boot-ornament { margin-top: 13px; }
   .sully-boot-greeting { margin-top: 7px; }
   .sully-boot-hint { bottom: max(17px, var(--safe-bottom, 0px)); }
