@@ -61,8 +61,8 @@
 .sully-boot[data-motion='true'] .sully-boot-welcome { animation: sullyLineFade .7s 2.05s both; }
 .sully-boot[data-motion='true'] .sully-lineart-eyes-open { animation: sullyLineEyesOpen 4s step-end infinite; }
 .sully-boot[data-motion='true'] .sully-lineart-eyes-closed { animation: sullyLineEyesClosed 4s step-end infinite; }
-.sully-boot[data-motion='true'] .sully-lineart-mouth-smile { animation: sullyLineMouthSmile 4.6s step-end infinite; }
-.sully-boot[data-motion='true'] .sully-lineart-mouth-talking { animation: sullyLineMouthTalk 4.6s step-end infinite; }
+.sully-boot[data-motion='true'] .sully-lineart-mouth-smile { animation: sullyLineMouthSmile 3s step-end infinite; }
+.sully-boot[data-motion='true'] .sully-lineart-mouth-talking { animation: sullyLineMouthTalk 3s step-end infinite; }
 @keyframes sullyLineGrow {
   0% { opacity: .76; transform: scale(.12); }
   30% { opacity: 1; transform: scale(.3); }
@@ -78,12 +78,12 @@
   52%, 56% { opacity: 1; }
 }
 @keyframes sullyLineMouthSmile {
-  0%, 72%, 83%, 100% { opacity: 1; }
-  73%, 82% { opacity: 0; }
+  0%, 42%, 56%, 68%, 83%, 100% { opacity: 1; }
+  43%, 55%, 69%, 82% { opacity: 0; }
 }
 @keyframes sullyLineMouthTalk {
-  0%, 72%, 83%, 100% { opacity: 0; }
-  73%, 82% { opacity: 1; }
+  0%, 42%, 56%, 68%, 83%, 100% { opacity: 0; }
+  43%, 55%, 69%, 82% { opacity: 1; }
 }
 @media (max-width: 350px), (max-height: 620px) {
   .sully-boot-center { width: min(70vw, 225px); top: 44%; }
