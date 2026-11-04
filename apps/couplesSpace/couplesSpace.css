@@ -2212,3 +2212,21 @@
  .couple-content-mode .couple-diary-cover .couple-diary-cover-character {left:14px;bottom:9px;font-size:9px;}
  .couple-diary-cover-people {right:12px;bottom:14px;font-size:9px;}
 }
+
+/* QA fixes from compact phone checks. */
+.couple-hollow-drawer-footer:has(.couple-hollow-pref-fold[open]) {flex-wrap:wrap;}
+.couple-hollow-pref-fold[open] {width:100%;flex-basis:100%;}
+@media (max-width:350px) and (max-height:700px) {
+ .couple-anniversary-hero {min-height:220px;padding-top:10px;padding-bottom:10px;}
+ .couple-anniversary-pair {margin:0;}
+ .couple-anniversary-time {padding-top:3px;}
+ .couple-anniversary-next {margin:9px 0;padding:10px 13px;}
+ .couple-anniversary-calendar {margin-bottom:8px;}
+ .couple-anniversary-calendar-head {padding:8px 4px;}
+ .couple-content-mode .couple-anniversary-calendar button:not(.couple-anniversary-invite) {min-height:50px;padding:7px 5px;}
+ .couple-content-mode .couple-anniversary-calendar .couple-anniversary-invite {min-height:39px;padding:7px;margin-bottom:5px;}
+ .couple-content-mode .couple-anniversary-ask {min-height:29px;padding:4px 3px;}
+ .couple-content-mode .couple-diary-cover {height:134px;}
+ .couple-diary-cover-people {display:none;}
+ .couple-content-mode .couple-diary-cover .couple-diary-cover-character {font-size:9px;max-width:80%;}
+}
