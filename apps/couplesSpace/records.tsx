@@ -221,9 +221,19 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
             <button key={months} type="button" onClick={() => patch({ unlockDate: capsuleDate(months) })}>{label}</button>)}
         </div>
       </div>}
-      {kind === 'diary' && <label>贴纸<input placeholder="例如 ♡ ✦ ☘" value={draft.stickers?.join(' ') ?? ''} onChange={event => patch({ stickers: event.target.value.split(' ').slice(0, 16) })} /></label>}
-      {kind === 'gift' && <label className="couple-compose-gift-photo"><span>礼物照片</span>
-        <div className="couple-compose-photo-preview">{draft.image ? <TokenImg value={draft.image} alt="礼物照片预览" /> : <span>添加一张照片，装进礼物卡</span>}</div>
+      {kind === 'diary' && <div className="couple-diary-sticker-tray">
+        <span>给这页贴上小贴纸</span>
+        <div className="couple-diary-sticker-chips">
+          {['♡', '✦', '☾', '☼'].map(sticker => <button key={sticker} type="button"
+            aria-pressed={!!draft.stickers?.includes(sticker)} aria-label={'贴纸 ' + sticker}
+            onClick={() => patch({ stickers: draft.stickers?.includes(sticker)
+              ? draft.stickers.filter(value => value !== sticker)
+              : [...(draft.stickers ?? []).filter(Boolean), sticker].slice(0, 16) })}>{sticker}</button>)}
+        </div>
+      </div>}
+      {(['gift', 'diary', 'timeline', 'anniversary'] as EntryKind[]).includes(kind) && <label className="couple-compose-gift-photo">
+        <span>{kind === 'gift' ? '礼物照片' : kind === 'diary' ? '这一页的照片' : kind === 'anniversary' ? '纪念日照片' : '这一刻的照片'}</span>
+        <div className="couple-compose-photo-preview">{draft.image ? <TokenImg value={draft.image} alt="记录照片预览" /> : <span>{kind === 'gift' ? '添加礼物照片' : '为这段记录添加一张照片'}</span>}</div>
         <input type="file" accept="image/*" disabled={working} onChange={event => {
         const file = event.target.files?.[0];
         if (file) void run(async () => patch({ image: await processImage(file, { maxWidth: 720 }) }));
