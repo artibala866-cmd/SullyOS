@@ -61,6 +61,9 @@ jobs:
               assert collapsed is not None and abs(collapsed['height']-256)<2,collapsed
               assert not trigger.get_attribute('aria-expanded')=='true'
               assert picker.is_disabled()
+              for edge in ('top','bottom'):
+                  fade=page.locator('[data-testid="moments-cover-'+edge+'-fade"]')
+                  assert float(fade.evaluate('(el)=>getComputedStyle(el).opacity'))<0.02
               page.screenshot(path='moments-cover-collapsed.png')
               trigger.click()
               page.wait_for_timeout(850)
@@ -70,6 +73,12 @@ jobs:
               assert trigger.get_attribute('aria-expanded')=='true'
               assert not picker.is_disabled()
               assert page.locator('header').count()==0
+              # The faded edges appear ONLY on the expanded cover.
+              for edge in ('top','bottom'):
+                  fade=page.locator('[data-testid="moments-cover-'+edge+'-fade"]')
+                  assert fade.count()==1
+                  assert float(fade.evaluate('(el)=>getComputedStyle(el).opacity'))>0.98
+                  assert 'linear-gradient' in fade.evaluate('(el)=>getComputedStyle(el).backgroundImage')
               pb=picker.bounding_box()
               assert pb and pb['x']+pb['width']<=expanded['x']+expanded['width']+1
               assert pb['y']+pb['height']<=expanded['y']+expanded['height']+1

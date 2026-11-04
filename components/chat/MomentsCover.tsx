@@ -47,7 +47,27 @@ export default function MomentsCover({
     }}>
     <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#90a3af] via-[#bacbd0] to-[#e2e7e4]">
       {cover&&<img src={cover} alt="朋友圈封面背景" className="absolute inset-0 h-full w-full object-cover"/>}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 via-black/5 to-transparent"/>
+      {/* In expanded view the original image gently blends into neutral gray at both edges,
+          like the WeChat cover preview. These overlays never intercept the cover tap. */}
+      <div data-testid="moments-cover-top-fade" aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0"
+        style={{
+          height:'clamp(110px, 23%, 205px)',
+          background:'linear-gradient(to bottom, rgba(137,138,140,.44) 0%, rgba(137,138,140,.19) 46%, rgba(137,138,140,0) 100%)',
+          opacity:expanded?1:0,
+          transition:'opacity 360ms ease-out',
+        }}/>
+      <div data-testid="moments-cover-bottom-fade" aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0"
+        style={{
+          height:'clamp(116px, 25%, 210px)',
+          background:'linear-gradient(to top, rgba(118,119,121,.48) 0%, rgba(118,119,121,.21) 47%, rgba(118,119,121,0) 100%)',
+          opacity:expanded?1:0,
+          transition:'opacity 360ms ease-out',
+        }}/>
+      {/* The small footer shadow belongs to the collapsed timeline banner only. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 via-black/5 to-transparent"
+        style={{opacity:expanded?0:1,transition:'opacity 260ms ease-out'}}/>
     </div>
 
     <button type="button" data-testid="moments-cover-background"
