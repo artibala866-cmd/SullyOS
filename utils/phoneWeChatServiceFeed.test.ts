@@ -42,3 +42,23 @@ it('shows official quick news + read feed with neutral thumbnails, no fake artic
  expect(element.querySelector('img')).toBeNull();
  expect(element.querySelector('button')).toBeNull();
 });
+
+it('never invents fixed sample content, subscription status or empty article cards',async()=>{
+ const saved:PhoneMessage[]=[
+   {speaker:{role:'contact',contactId:'service:测试'},text:'通知',createdAt:Date.UTC(2026,10,4,7,0)},
+ ];
+ await act(async()=>root.render(React.createElement(PhoneWeChatServiceFeed,{messages:saved,name:'角色自己的服务通知',kind:'service'})));
+ expect(element.textContent).toContain('角色自己的服务通知');
+ expect(element.textContent).not.toContain('我的关注');
+ expect(element.textContent).not.toContain('正课改图班');
+ expect(element.textContent).not.toContain('贴图');
+ expect(element.textContent).not.toContain('服务通知');
+ expect(element.querySelectorAll('[data-testid="service-feed-tile"]')).toHaveLength(0);
+ await act(async()=>root.render(React.createElement(PhoneWeChatServiceFeed,{messages:saved,name:'角色订阅的公众号',kind:'official'})));
+ expect(element.textContent).not.toContain('看一看');
+ expect(element.textContent).not.toContain('更多消息');
+ expect(element.querySelectorAll('[data-testid="official-article-tile"]')).toHaveLength(0);
+ await act(async()=>root.render(React.createElement(PhoneWeChatServiceFeed,{messages:[],name:'空账号',kind:'official'})));
+ expect(element.textContent).toBe('');
+ expect(element.querySelectorAll('[aria-label="图片占位"]')).toHaveLength(0);
+});
