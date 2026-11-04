@@ -45,4 +45,17 @@ describe('real Baidu navigation in character-owned browser',()=>{
     expect(clearPhoneBrowserHistory('char-b')).toBe(true);
     expect(readCharacterPhoneBrowserHistory('char-b')).toHaveLength(0);
   });
+  it('persists a post-search thought for Char without changing the real URL or legacy records',()=>{
+    const navigation=resolvePhoneBrowserNavigation('冷藏面团直接烤')!;
+    const saved=recordPhoneBrowserNavigation('char-a',navigation,'char',{
+      title:'冷藏面团',summary:'找烤箱预热方式',aiJudgement:'打算给妹妹烤饼干',
+      afterSearchThought:'这样的话，还是先确认预热温度比较稳妥。',origin:'ai-generated',
+    });
+    expect(saved?.afterSearchThought).toContain('先确认');
+    expect(readCharacterPhoneBrowserHistory('char-a')[0]).toMatchObject({
+      afterSearchThought:'这样的话，还是先确认预热温度比较稳妥。',actor:'char',url:navigation.url,
+    });
+    const legacy=recordPhoneBrowserNavigation('char-a',resolvePhoneBrowserNavigation('翻译')!);
+    expect(legacy?.afterSearchThought).toBeUndefined();
+  });
 });
