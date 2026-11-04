@@ -11,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, reward, spaceKey, writeBond, careForPlant, plantStage, bondXp, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, reward, spaceKey, writeBond, careForPlant, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
@@ -34,11 +34,6 @@ const featureNotes: Partial<Record<Panel, string>> = {
   wish: '一件件完成心里的期待', gift: '把温柔装进一份礼物',
   touch: '只属于彼此的小互动', plant: '一起养成一片小小的绿意',
   shop: '交换有趣的专属羁绊', achievements: '收藏共同完成的成就',
-};
-const relationCopy = {
-  love: { name: '恋人之间', days: '在一起的第', sub: '收藏只属于两个人的日常' },
-  family: { name: '家人的角落', days: '成为家人的第', sub: '把一屋子的牵挂慢慢收好' },
-  friend: { name: '朋友基地', days: '并肩走过的第', sub: '记录默契、约定和一起闯过的日子' },
 };
 
 function Avatar({ person }: { person: { avatar: string; name: string } }) {
