@@ -1,0 +1,75 @@
+name: Character phone profile UI screenshot
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'components/chat/CharacterPhoneProfilePanel.tsx'
+      - 'components/chat/CharacterPhone.tsx'
+      - 'utils/phoneProfilePanel.test.tsx'
+      - 'tests/phone-profile-visual.*'
+      - '.github/workflows/phone-profile-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: character-phone-profile-visual
+  cancel-in-progress: true
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check profile control integration
+        run: pnpm exec vitest run utils/phoneProfilePanel.test.tsx
+      - name: Build application
+        run: pnpm run build
+      - name: Check changed TypeScript
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/phone-profile-tsc.log 2>&1 || true
+          grep -E '^(components/chat/(CharacterPhoneProfilePanel|CharacterPhone)\.tsx|utils/phoneProfilePanel\.test\.tsx|tests/phone-profile-visual\.tsx)[(]' /tmp/phone-profile-tsc.log > /tmp/phone-profile-errors.log || true
+          if [ -s /tmp/phone-profile-errors.log ]; then cat /tmp/phone-profile-errors.log; exit 1; fi
+      - name: Install Chinese fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Inspect real component on mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/profile-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/phone-profile-visual.html'
+          for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          for view in main expanded; do
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=390,900 --force-device-scale-factor=1 --virtual-time-budget=11000 --dump-dom "$url?view=$view" > "/tmp/profile-$view-dom.txt" 2>/tmp/profile-chrome.log || true
+            if ! grep -q 'data-ready="true"' "/tmp/profile-$view-dom.txt"; then
+              grep -o '<output[^>]*>[^<]*</output>' "/tmp/profile-$view-dom.txt" || true
+              tail -35 /tmp/profile-vite.log || true
+              exit 1
+            fi
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars --window-size=390,900 --force-device-scale-factor=1 --virtual-time-budget=11000 --screenshot="$GITHUB_WORKSPACE/phone-profile-$view.png" "$url?view=$view"
+            test -s "phone-profile-$view.png"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phone-profile-390px
+          path: |
+            phone-profile-main.png
+            phone-profile-expanded.png
+          if-no-files-found: ignore
+          retention-days: 7
