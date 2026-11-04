@@ -294,7 +294,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
             setExportNotice(`已复制 ${list.length} 套带署名的预设`);
         }else{
             const content=signedCss(await portableCssImages(value),'白框样式');const author=readCssAttribution(content)!.credit;
-            await shareOrDownloadFile({card:{kind:'chrome-css',title:'白框样式',author},content,fileName:'sullyos-whitebox.css',mimeType:'text/css;charset=utf-8',shareTitle:'SullyOS·糯米机 白框样式'});
+            await shareOrDownloadFile({card:{kind:'chrome-css',title:'白框样式',author},content,fileName:'sullyos-whitebox.css',mimeType:'text/css;charset=utf-8',shareTitle:'宝宝狗 白框样式'});
         }
     };
     const handleImport = () => {
