@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
-import { capsuleDate, capsuleStatus, createEntry, dayKey, wishCategories, wishTags } from '../../utils/couplesSpace';
+import { capsuleDate, capsuleStatus, createEntry, dayKey, timelineTags, wishCategories, wishTags } from '../../utils/couplesSpace';
+import { extractJson } from '../../utils/safeApi';
 import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
@@ -60,13 +61,13 @@ type CoupleSceneProps = {
   onNew: () => void; onAI: () => void; busy: boolean; onJump: (id:string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
   filter: string; onFilter: (filter: string) => void; totalRecords: number;
-  diaryPrefs?: React.ReactNode; hollowPrefs?: React.ReactNode;
+  diaryPrefs?: React.ReactNode; hollowPrefs?: React.ReactNode; tools?: React.ReactNode;
 };
 function SceneAvatar({ value, name }: { value?: string; name: string }) {
   return <span className="couple-scene-avatar">{value ? <TokenImg value={value} alt={name} /> : <span>{name.slice(0,1)}</span>}</span>;
 }
 function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump,
-  avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, diaryPrefs, hollowPrefs }: CoupleSceneProps) {
+  avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, diaryPrefs, hollowPrefs, tools }: CoupleSceneProps) {
   const [native, setNative] = useState<DiaryEntry[]>([]);
   const [journalPage, setJournalPage] = useState(0);
   const [error, setError] = useState('');
@@ -162,17 +163,18 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
           ◉ 请 {names.them} 寄来一封
         </button>
       </div>
+      {tools}
       <div className="couple-mail-trays">
         {totalRecords > 0 && <div className="couple-mail-tray-heading">
           <span>往来信件 · {totalRecords}</span>
           <select aria-label="信箱筛选" value={filter} onChange={event=>onFilter(event.target.value)}>
             <option value="all">全部信件</option><option value="me">我寄出的</option>
-            <option value="them">{names.them} 寄来的</option><option value="pending">尚未回信</option>
+            <option value="them">{names.them} 寄来的</option><option value="pending">尚未回信</option><option value="postman">时光邮递员</option>
           </select>
         </div>}
         {rows.length ? rows.map((item,i)=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
           <span className="couple-mail-tray-envelope"><span>✉</span></span>
-          <span><strong>{item.title}</strong><small>{item.reply?'已有回信':'等待回信'} · {item.date}</small></span><b>{String(i+1).padStart(2,'0')}</b>
+          <span><strong>{item.title}</strong><small>{item.mailMode === 'postman' ? '时光邮递员 · ' : ''}{item.reply?'已有回信':'等待回信'} · {item.date}</small></span><b>{String(i+1).padStart(2,'0')}</b>
         </button>) : totalRecords === 0 ? null : <p className="couple-mail-no-letters">这个分类里暂时没有信。</p>}
       </div>
     </div>;
@@ -182,8 +184,12 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
       <div className="couple-timeline-cover"><span>THE STORY SO FAR</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div>
         <button type="button" className="couple-timeline-ask" disabled={busy} onClick={onAI}>让 {names.them} 讲述 ↗</button>
       </div>
-      <div className="couple-timeline-flow"><span className="couple-timeline-flow-label">MOMENTS / {today.slice(0,4)}</span>
-        {rows.length ? rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)}><span className="couple-timeline-flow-date">{item.date.slice(5).replace('-','/')}</span><span className="couple-timeline-flow-dot"/><span><strong>{item.title}</strong><small>{item.body || names[item.side]+' 记录'}</small></span>{item.image&&<TokenImg value={item.image} alt="" />}</button>)
+      {tools}
+      <div className={'couple-timeline-flow' + (filter === 'handbook' ? ' couple-timeline-handbook' : '')}><span className="couple-timeline-flow-label">{filter === 'handbook' ? 'HANDBOOK' : 'MOMENTS'} / {today.slice(0,4)}</span>
+        {rows.length ? rows.map((item,index)=><React.Fragment key={item.id}>
+          {filter === 'handbook' && rows[index - 1]?.date !== item.date && <time className="couple-timeline-day">{item.date}</time>}
+          <button type="button" onClick={()=>onJump(item.id)}><span className="couple-timeline-flow-date">{filter === 'handbook' ? item.time?.slice(0,5) || '·' : item.date.slice(5).replace('-','/')}</span><span className="couple-timeline-flow-dot"/><span><strong>{item.title}</strong><small>{[item.timelineTag, item.body || names[item.side]+' 记录'].filter(Boolean).join(' · ')}</small></span>{(item.images?.[0] || item.image) && <TokenImg value={(item.images?.[0] || item.image)!} alt="" />}</button>
+        </React.Fragment>)
         : <div className="couple-timeline-first"><time>{bond.start}</time><span>故事从这一天开始</span></div>}
         <button type="button" className="couple-timeline-add" disabled={busy} onClick={onNew}>
           <span className="couple-timeline-flow-dot" aria-hidden="true"/>＋ 写下下一段故事
@@ -270,6 +276,10 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
       </button>)}
       <div className="couple-hollow-drawer-footer">
         <button type="button" disabled={busy} onClick={onAI}>听听 {names.them} 藏起的心事 ↗</button>
+        {rows.some(row => !row.done && row.side === 'them') && <button type="button" onClick={() => {
+          const pending = rows.filter(row => !row.done && row.side === 'them');
+          onJump(pending[Math.floor(Math.random() * pending.length)].id);
+        }}>摇一摇，抽张心事</button>}
         {hollowPrefs}
       </div>
     </div>
@@ -298,16 +308,22 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
-export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal }: {
+export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal, generateTimeline, abortGenerate }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
   generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
   notify?: (message: string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
+  generateTimeline?: (instruction: string, date: string) => Promise<string>; abortGenerate?: () => void;
 }) {
   const [draft, setDraft] = useState<Entry>();
   const [filter, setFilter] = useState('all');
   const [earlyId, setEarlyId] = useState<string>();
   const [replyDraft, setReplyDraft] = useState<{ id: string; text: string }>();
+  const [timelineDate, setTimelineDate] = useState('');
+  const [timelineSelection, setTimelineSelection] = useState<string[]>();
+  const [mailDelivery, setMailDelivery] = useState<string>();
+  const [failedDelivery, setFailedDelivery] = useState<string>();
+  const cancelledMail = useRef(false);
   const [activeRecordId, setActiveRecordId] = useState<string>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
@@ -339,9 +355,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       if (filter === 'all') return true;
       if (kind === 'wish') return (item.wishCategory ?? 'other') === filter;
       if (kind === 'capsule') return capsuleStatus(item, today) === filter;
+      if (kind === 'timeline') return true;
+      if (kind === 'mail' && filter === 'postman') return item.mailMode === 'postman';
       return filter === 'pending' ? !item.reply : item.side === filter;
     })
-    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date));
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date) || (b.time ?? '').localeCompare(a.time ?? ''));
   const roleInstruction = {
     timeline: '根据实际可见的关系记录写一段时间轴回忆，采用「标题」和正文两行格式；若没有明确事件，就写当前感受，不虚构过去。',
     anniversary: '从资料里找一个确知日期的纪念事件，用「YYYY-MM-DD｜标题」作为首行并补充正文。没有确知日期则只回复「没有明确日期」。',
@@ -359,6 +377,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   });
   const generated = async () => {
     const content = (await generate(roleInstruction)).trim();
+    if (kind === 'mail' && cancelledMail.current) return;
     if (!content) throw new Error('角色没有生成可保存的内容，请重试');
     const [first, ...rest] = content.split('\n').filter(line => line.trim());
     const entry = { ...newEntry(), side: 'them' as const };
@@ -376,6 +395,62 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     }
     await save({ ...entry, title: first, body: rest.join('\n') });
   };
+  const backfillTimeline = (date: string) => void run(async () => {
+    if (!generateTimeline) return;
+    const result = extractJson(await generateTimeline(
+      '从提供的真实记录提取已经发生的事件，忽略假设、计划和重复事件。仅返回 JSON {"moments":[{"date":"YYYY-MM-DD","title":"事件","body":"事实摘要","tag":"日常"}]}，最多八条。', date,
+    ));
+    const entries: Entry[] = (Array.isArray(result?.moments) ? result.moments : []).slice(0, 8).flatMap((row: Record<string, unknown> | null) => {
+      if (!row || typeof row.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.date) ||
+          typeof row.title !== 'string' || !row.title.trim() || typeof row.body !== 'string' || !row.body.trim()) return [];
+      return [{ ...createEntry('timeline', row.title.trim().slice(0, 140), row.body.trim().slice(0, 1500), 'them'),
+        date: row.date, timelineTag: timelineTags.find(tag => tag === row.tag) }];
+    });
+    if (!entries.length) throw new Error('没有找到可以补全的历史事件');
+    let added = 0;
+    await change(current => {
+      const seen = new Set(current.entries.filter(row => row.kind === 'timeline').map(row => row.date + row.title));
+      const unique = entries.filter(row => {
+        const key = row.date + row.title;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      added = unique.length;
+      return added ? { ...current, entries: [...current.entries, ...unique] } : current;
+    });
+    notify?.(added ? `已补全 ${added} 条回忆` : '这批回忆已经收录');
+  });
+  const deliverMail = (delivery: string) => void run(async () => {
+    cancelledMail.current = false;
+    setMailDelivery(delivery);
+    setFailedDelivery(undefined);
+    const item = bond.entries.find(row => row.id === delivery && row.kind === 'mail');
+    try {
+      if (delivery === 'incoming') await generated();
+      else if (delivery === 'postman') {
+        const result = extractJson(await generate('时光邮递员要送出一张默契问答卡。以角色身份给一个适合双方独立回答的开放问题和你自己的答案。只输出 JSON {"question":"问题","answer":"角色自己的答案"}。'));
+        const question = typeof result?.question === 'string' ? result.question.trim() : '';
+        const answer = typeof result?.answer === 'string' ? result.answer.trim() : '';
+        if (!question || !answer) throw new Error('邮递员没有带回完整的问答，请重试');
+        if (!cancelledMail.current) await save({ ...createEntry('mail', question.slice(0, 140), answer.slice(0, 10000), 'them'), mailMode: 'postman' });
+      } else if (item) {
+        const reply = (await generate(`请以角色身份回复时光信箱的问题。先独立作答，再考虑是否回应信中正文。\n主题：${item.title}\n正文：${item.body}`)).trim();
+        if (!reply) throw new Error('回信没有内容，请重试');
+        if (!cancelledMail.current) await change(current => ({
+          ...current, entries: current.entries.map(row => row.id === item.id && row.body === item.body && row.title === item.title
+            ? { ...row, reply } : row),
+        }));
+      }
+    } catch (error) {
+      if (!cancelledMail.current) {
+        setFailedDelivery(delivery);
+        throw error;
+      }
+    } finally {
+      setMailDelivery(undefined);
+    }
+  });
   const openCapsule = (id: string, allowEarly: boolean) => void run(async () => {
     await change(current => ({
       ...current, entries: current.entries.map(item => {
@@ -453,7 +528,27 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     </div>;
     if(kind==='timeline') return <div className="couple-edit-timeline">
       <div className="couple-edit-timeline-date"><span>NEW MOMENT</span><strong>{draft.date.slice(8,10)}</strong><span>{draft.date.slice(5,7)} / {draft.date.slice(0,4)}</span></div>
-      <div className="couple-edit-timeline-page">{title}{note}{photo}<div className="couple-edit-timeline-by">{date}{person}</div></div>
+      <div className="couple-edit-timeline-page">{title}{note}
+        <label>事件照片 · 最多 6 张<input type="file" accept="image/*" multiple disabled={working} onChange={event => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = '';
+          if (!files.length) return;
+          void run(async () => {
+            const existing = draft.images ?? (draft.image ? [draft.image] : []);
+            if (existing.length + files.length > 6) throw new Error('每条回忆最多可保存 6 张照片');
+            if (files.some(file => !file.type.startsWith('image/') || file.size > 12 * 1024 * 1024))
+              throw new Error('每张照片须在 12 MB 以内');
+            const images = await Promise.all(files.map(file => processImage(file, { maxWidth: 720 })));
+            patch({ images: [...existing, ...images], image: undefined });
+          });
+        }} /></label>
+        <div className="couple-timeline-photos">{(draft.images ?? (draft.image ? [draft.image] : [])).map((value, index, images) =>
+          <div key={index}><TokenImg value={value} alt={`照片 ${index + 1}`} />
+            <button type="button" disabled={working} onClick={() => patch({ images: images.filter((_, i) => i !== index), image: undefined })}>移除照片 {index + 1}</button></div>)}</div>
+        <div className="couple-edit-timeline-by">{date}
+          <label>时间<input type="time" step="1" value={draft.time ?? ''} onChange={event => patch({ time: event.target.value || undefined })}/></label>
+          <label>事件标签<select value={draft.timelineTag ?? ''} onChange={event => patch({ timelineTag: timelineTags.find(tag => tag === event.target.value) })}>
+            <option value="">无标签</option>{timelineTags.map(tag => <option key={tag}>{tag}</option>)}</select></label>{person}</div></div>
     </div>;
     if(kind==='wish') return <div className="couple-edit-wish">
       <div className="couple-edit-wish-paper"><span>WISH NO. {String(rows.length+1).padStart(2,'0')}</span>{title}{steps}{note}</div>
@@ -509,12 +604,56 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         void run(() => change(current => ({ ...current, hollowAuto })));
       }} /> 允许角色在私聊后悄悄留下心事
     </label></div></details>);
+  const deliveryStatus = (mailDelivery || failedDelivery) && <div className="couple-actions couple-record-tools" role="status">
+    {mailDelivery ? <><span>信件正在寄送</span><button type="button" disabled={cancelledMail.current} onClick={() => {
+      cancelledMail.current = true;
+      abortGenerate?.();
+    }}>取消寄送</button></> : <button type="button" disabled={working || busy} onClick={() => deliverMail(failedDelivery!)}>重新寄送</button>}
+  </div>;
+  const sceneTools = kind === 'timeline' ? <div className="couple-record-tools">
+    <div className="couple-segments" aria-label="时间轴视图">
+      <button type="button" aria-pressed={filter !== 'handbook'} onClick={() => setFilter('all')}>旅程</button>
+      <button type="button" aria-pressed={filter === 'handbook'} onClick={() => setFilter('handbook')}>手账</button>
+    </div>
+    {generateTimeline && <details><summary>从聊天补全回忆</summary><div className="couple-actions">
+      <label>指定日期 <input type="date" value={timelineDate} onChange={event => setTimelineDate(event.target.value)}/></label>
+      <button type="button" disabled={working || busy || !timelineDate} onClick={() => backfillTimeline(timelineDate)}>补全当天</button>
+      <button type="button" disabled={working || busy} onClick={() => backfillTimeline('*')}>批量补全近期</button>
+    </div></details>}
+    {!!rows.length && <details onToggle={event => {
+      if (!event.currentTarget.open) setTimelineSelection(undefined);
+    }}>
+      <summary>管理回忆</summary>
+      <div className="couple-actions">
+        <button type="button" disabled={working} onClick={() => setTimelineSelection(rows.map(row => row.id))}>全选</button>
+        <button type="button" disabled={working} onClick={() => setTimelineSelection([])}>取消全选</button>
+        <button type="button" disabled={working || !timelineSelection?.length} onClick={() => {
+          const selected = new Set(timelineSelection);
+          if (!window.confirm(`删除选中的 ${selected.size} 条回忆？`)) return;
+          void run(async () => {
+            await change(current => ({ ...current, entries: current.entries.filter(item => item.kind !== 'timeline' || !selected.has(item.id)) }));
+            setTimelineSelection(undefined);
+          });
+        }}>删除选中回忆</button>
+      </div>
+      <div className="couple-timeline-selection">{rows.map(row => <label key={row.id}>
+        <input type="checkbox" checked={timelineSelection?.includes(row.id) ?? false} disabled={working} onChange={event => {
+          const checked = event.target.checked;
+          setTimelineSelection(current => checked ? [...(current ?? []), row.id] : current?.filter(id => id !== row.id));
+        }}/>
+        <span>{row.date} · {row.title}</span>
+      </label>)}</div>
+    </details>}
+  </div> : kind === 'mail' ? <div className="couple-record-tools">
+    <div className="couple-actions"><button type="button" disabled={working || busy} onClick={() => deliverMail('postman')}>请时光邮递员投递问答</button></div>
+    {deliveryStatus}
+  </div> : undefined;
   return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
     {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
       filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length}
-      diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs}
-      onNew={() => setDraft(newEntry())} onAI={() => void run(generated)} busy={working || busy}
+      diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs} tools={sceneTools}
+      onNew={() => setDraft(newEntry())} onAI={() => kind === 'mail' ? deliverMail('incoming') : void run(generated)} busy={working || busy}
       onJump={id => { setActiveRecordId(id); setReplyDraft(undefined); document.querySelector('.couple-main')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
     {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
     {error && <p role="alert" className="couple-error">{error}</p>}
@@ -568,8 +707,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             }}>删除</button>
           </div>}
         </> : <>
+          {kind === 'timeline' && item.timelineTag && <span className="couple-status">{item.timelineTag}{item.time && ' · ' + item.time}</span>}
+          {!!item.images?.length && <div className="couple-timeline-photos">{item.images.map((value, index) => <TokenImg key={index} value={value} alt={`回忆照片 ${index + 1}`} />)}</div>}
           {item.image && kind !== 'gift' && <TokenImg value={item.image} alt={item.title} className="couple-record-image" />}
-          <div className={'couple-detail-body couple-detail-body-' + kind}><p>{item.body}</p></div>
+          <div className={'couple-detail-body couple-detail-body-' + kind}><p>{item.mailMode === 'postman' && !item.reply
+            ? '写下自己的答案后，就能看到对方怎么回答。' : item.body}</p></div>
           {item.stickers?.some(Boolean) && <div className="couple-stickers" aria-label="日记贴纸">
             {item.stickers.map((sticker, index) => sticker && <button key={index} type="button" disabled={working}
               title="拖动贴纸" aria-label={`移动贴纸 ${sticker}`} style={{
@@ -593,7 +735,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             }} /> {step.text}
           </label>)}
           <div className="couple-actions">
-            <button disabled={working} onClick={() => setDraft(item)}>编辑</button>
+            {item.mailMode !== 'postman' && <button disabled={working} onClick={() => setDraft(item)}>编辑</button>}
             {(kind === 'wish' || kind === 'hollow') && <button disabled={working} onClick={() => void run(() => save({ ...item, done: !item.done }))}>
               {item.done ? '重新打开' : kind === 'wish' ? '标记完成' : '标记已解决'}
             </button>}
@@ -601,9 +743,10 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             {(kind === 'mail' || kind === 'diary' || kind === 'capsule') && <button disabled={working || busy} onClick={() => {
               if (item.side === 'them') {
                 setReplyDraft({ id: item.id, text: item.reply ?? '' });
-              } else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }));
+              } else if (kind === 'mail') deliverMail(item.id);
+              else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }));
             }}>{item.reply ? '重写回信' : '回信'}</button>}
-            {(kind === 'mail' || kind === 'capsule') && share && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
+            {(kind === 'mail' || kind === 'capsule') && share && (item.mailMode !== 'postman' || item.reply) && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
             <button disabled={working} onClick={() => {
               if (window.confirm('删除这条记录？')) void run(async () => {
                  await change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) }));
@@ -613,6 +756,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             }}>删除</button>
           </div>
         </>}
+        {kind === 'mail' && deliveryStatus}
         {replyDraft?.id === item.id && <form className="couple-letter-reply-form" onSubmit={event => {
           event.preventDefault();
           const reply = replyDraft.text.trim();

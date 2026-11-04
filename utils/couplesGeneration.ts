@@ -5,7 +5,7 @@ import { normalizeMessageContent } from './messageFormat';
 import { ContextBuilder } from './context';
 import { safeResponseJson } from './safeApi';
 import { DB } from './db';
-import { relationNames, type Bond, type Relation } from './couplesSpace';
+import { dayKey, relationNames, type Bond, type Relation } from './couplesSpace';
 
 export async function readPairDigest(members: string[]) {
   const [groups, scenes, posts] = await Promise.all([DB.getGroups(), DB.getStoryTheaters(), DB.getSocialPosts()]);
@@ -48,19 +48,27 @@ export async function generateBondPortrait(char: CharacterProfile, pose: string,
 
 export async function generateBondText(
   char: CharacterProfile, partner: UserProfile, apiConfig: APIConfig, bond: Bond,
-  instruction: string, signal: AbortSignal, other?: CharacterProfile,
+  instruction: string, signal: AbortSignal, other?: CharacterProfile, timelineDate?: string,
 ) {
   const api = resolveDialogueApi(apiConfig, char);
   if (!api.baseUrl || !api.model) throw new Error('请先在设置里配置对话 API');
-  const privateRows = other ? [] : (await loadCharacterContextMessages(char)).slice(-24);
+  const privateRows = other ? [] : await loadCharacterContextMessages(char);
   const pairDigest = other ? await readPairDigest([char.id, other.id]) : undefined;
   const sharedGroups = pairDigest?.groups.slice(0, 3) ?? [];
   const groupRows = (await Promise.all(sharedGroups.map(group => DB.getRecentGroupMessagesWithCount(group.id, 10))))
     .flatMap(result => result.messages).sort((a, b) => a.timestamp - b.timestamp);
-  const history = [...privateRows, ...groupRows].map(message => ({
-    role: message.role, content: normalizeMessageContent(message, char.name, partner.name).slice(0, 1200),
-  })).filter(message => message.role !== 'system' && message.content.trim());
-  const records = bond.entries.filter(item => item.kind !== 'capsule' && item.kind !== 'hollow')
+  const eligible = [...privateRows, ...groupRows].filter(message => message.role !== 'system' &&
+    (!timelineDate || timelineDate === '*' || dayKey(new Date(message.timestamp)) === timelineDate));
+  const history = eligible.slice(timelineDate ? -80 : -24).flatMap(message => {
+    const text = normalizeMessageContent(message, char.name, partner.name).slice(0, timelineDate ? 700 : 1200);
+    if (!text.trim()) return [];
+    return [{ role: message.role, content: timelineDate ? `[${dayKey(new Date(message.timestamp))}] ${text}` : text }];
+  });
+  if (timelineDate && !history.length) throw new Error('所选范围内没有可用于补全的聊天记录');
+  const supportedDays = new Set(history.flatMap(message => message.content.match(/^\[(\d{4}-\d{2}-\d{2})\]/)?.[1] ?? []));
+  if (timelineDate) instruction += '\n只使用这些有资料的日期：' + [...supportedDays].join('、');
+  const records = bond.entries.filter(item => item.kind !== 'capsule' && item.kind !== 'hollow' &&
+    (item.mailMode !== 'postman' || !!item.reply))
     .slice(-12).map(item => `${item.date} ${item.title}：${item.body.slice(0, 260)}`).join('\n');
   const pairContext = other ? (await ContextBuilder.buildCharacterRequest({
     char: other, user: { name: char.name, avatar: char.avatar, bio: '' },
@@ -83,5 +91,31 @@ export async function generateBondText(
   const data = await safeResponseJson(response);
   const text = data?.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || !text.trim()) throw new Error('角色没有返回可用内容');
+  if (timelineDate) {
+    const { extractJson } = await import('./safeApi');
+    const parsed = extractJson(text);
+    if (!Array.isArray(parsed?.moments)) throw new Error('补全结果格式有误，请重试');
+    return JSON.stringify({ moments: parsed.moments.filter((row: Record<string, unknown> | null) => typeof row?.date === 'string' && supportedDays.has(row.date)) });
+  }
   return text.trim();
+}
+
+export async function detectBondPortraitAnchors(image: HTMLImageElement) {
+  const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+  const root = import.meta.env.BASE_URL;
+  const fileset = await FilesetResolver.forVisionTasks(root + 'mediapipe/wasm');
+  const detector = await FaceLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: root + 'mediapipe/models/face_landmarker.task' },
+    runningMode: 'IMAGE', numFaces: 1,
+  });
+  try {
+    const landmarks = detector.detect(image).faceLandmarks[0];
+    if (!landmarks?.[152]) throw new Error('没有识别到清晰面部，请手动校准');
+    const point = (index: number) => ({
+      x: Math.max(0, Math.min(100, landmarks[index].x * 100)),
+      y: Math.max(0, Math.min(100, landmarks[index].y * 100)),
+    });
+    return { 头发: point(10), 脸颊: point(234), 左眼: point(33), 右眼: point(263),
+      鼻尖: point(1), 嘴唇: point(13), 下巴: point(152) };
+  } finally { detector.close(); }
 }

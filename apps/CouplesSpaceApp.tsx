@@ -11,14 +11,19 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
-import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest } from '../utils/couplesGeneration';
+import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors } from '../utils/couplesGeneration';
 import './couplesSpace/couplesSpace.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
+const relationshipCopy = {
+  love: { days: '在一起', title: '我们的日常', care: '留给你的心意', collection: '我们的收藏' },
+  family: { days: '家人相伴', title: '家里的日常', care: '给家人的心意', collection: '家里的收藏' },
+  friend: { days: '成为朋友', title: '朋友间的日常', care: '留给朋友的心意', collection: '友情纪念册' },
+};
 const mainPanels: Panel[] = ['timeline', 'anniversary', 'wish', 'gift', 'touch', 'plant', 'mail', 'capsule', 'shop', 'achievements', 'hollow'];
 const pairPanels: Panel[] = ['timeline', 'anniversary', 'mail', 'wish', 'gift', 'plant'];
 type SpaceShelf = 'memory' | 'care' | 'collection';
@@ -166,6 +171,9 @@ export default function CouplesSpaceApp() {
   const [pairA, setPairA] = useState('');
   const [pairB, setPairB] = useState('');
   const [panel, setPanel] = useState<Panel>();
+  const [pairCoverStyle, setPairCoverStyle] = useState<typeof pairCoverStyles[number]>('日常互动');
+  const [milestoneFilter, setMilestoneFilter] = useState('all');
+  const [milestoneDraft, setMilestoneDraft] = useState<NonNullable<Bond['milestones']>[number]>();
   const [activeShelf, setActiveShelf] = useState<SpaceShelf>('memory');
   const [lockedPanel, setLockedPanel] = useState<Panel>();
   const [spaces, setSpaces] = useState<Awaited<ReturnType<typeof readSpaces>>>();
@@ -193,6 +201,7 @@ export default function CouplesSpaceApp() {
   const names = isPair ? { me: char?.name ?? '角色 A', them: other?.name ?? '角色 B' } :
     { me: userProfile.name || '我', them: char?.name ?? 'TA' };
   const selectedRelation = bond?.relation ?? relation;
+  const relationship = relationshipCopy[selectedRelation];
   const days = bond ? daysTogether(bond.start) : 0;
   const today = useLocalDateKey();
   const readyCapsules = bond?.entries.filter(item => item.kind === 'capsule' && capsuleStatus(item, today) === 'ready').length ?? 0;
@@ -230,7 +239,7 @@ export default function CouplesSpaceApp() {
       requestRef.current?.abort();
     };
   }, []);
-  useEffect(() => { setError(''); setDigest(undefined); }, [key]);
+  useEffect(() => { setError(''); setDigest(undefined); setMilestoneDraft(undefined); setMilestoneFilter('all'); }, [key]);
   // Visual-only garden clock: recheck minute-scale cooldowns, and expire a
   // transient watering notice exactly on time without rerendering the app each second.
   useEffect(() => {
@@ -317,7 +326,7 @@ export default function CouplesSpaceApp() {
     }
     finally { loading.current = false; setBusy(false); }
   };
-  const generate = async (instruction: string, current = bond) => {
+  const generate = async (instruction: string, current = bond, timelineDate?: string) => {
     if (!char || !current || (isPair && !other)) throw new Error('请先选择角色');
     if (!isPair && (characterBlocksUser(char.chatBlock) || userBlocksCharacter(char.chatBlock))) throw new Error('当前私聊已拉黑，无法请求角色回应');
     if (requestRef.current) throw new Error('角色正在回应');
@@ -326,7 +335,7 @@ export default function CouplesSpaceApp() {
     const timer = window.setTimeout(() => controller.abort(), 90_000);
     try {
       return await generateBondText(char, other ? { name: other.name, avatar: other.avatar, bio: '' } : userProfile,
-        apiConfig, current, instruction, controller.signal, other);
+        apiConfig, current, instruction, controller.signal, other, timelineDate);
     } finally { clearTimeout(timer); requestRef.current = undefined; }
   };
   const openChat = () => {
@@ -519,7 +528,7 @@ export default function CouplesSpaceApp() {
                 <span className="couple-ios-face couple-ios-face-first"><Avatar person={isPair ? (char ?? { avatar: '', name: names.me }) : userProfile} /></span>
                 <span className="couple-ios-face couple-ios-face-second"><Avatar person={other ?? char ?? { avatar: '', name: names.them }} /></span>
               </div>
-              <div className="couple-ios-days"><span>在一起</span><strong>{String(days).padStart(2,'0')}</strong><small>天</small></div>
+              <div className="couple-ios-days"><span>{relationship.days}</span><strong>{String(days).padStart(2,'0')}</strong><small>天</small></div>
             </div>
             <div className="couple-ios-hero-bottom">
               <div><strong>{names.me} <span>·</span> {names.them}</strong><small>{relationNames[bond.relation]} · Lv.{bondLevel(bond)} 专属牵绊</small></div>
@@ -586,7 +595,7 @@ export default function CouplesSpaceApp() {
             </nav>
             <div id="couple-ios-current-shelf" role="tabpanel" className="couple-ios-shelf" key={shelf.id}>
               <div className="couple-ios-section-title">
-                <span>{shelf.english}</span><strong>{shelf.title === '日常' ? '我们的日常' : shelf.title === '心意' ? '留给你的心意' : '我们的收藏'}</strong>
+                <span>{shelf.english}</span><strong>{shelf.id === 'memory' ? relationship.title : shelf.id === 'care' ? relationship.care : relationship.collection}</strong>
               </div>
               {visibleShelfPanels.length > 0 && <>
                 <button className="couple-ios-spotlight" type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
@@ -614,14 +623,51 @@ export default function CouplesSpaceApp() {
           names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} notify={addToast}
           avatarMe={isPair ? char?.avatar : userProfile.avatar} avatarThem={(other ?? char)?.avatar}
           charId={!isPair ? char?.id : undefined}
+          generateTimeline={(instruction, date) => generate(instruction, bond, date)}
+          abortGenerate={() => requestRef.current?.abort()}
           onNativeJournal={!isPair && char ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} notify={addToast} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
           <div className="couple-achievement-cover">
             <span>THE LITTLE MILESTONES</span>
-            <div><strong>{bondAchievements(bond, days).filter(item => item.count >= item.goal).length}<small> / {bondAchievements(bond, days).length}</small></strong>
+            <div><strong>{bondAchievements(bond, days).filter(item => item.count >= item.goal).length + (bond.milestones?.length ?? 0)}<small> / {bondAchievements(bond, days).length + (bond.milestones?.length ?? 0)}</small></strong>
             <p>每个小小的里程碑，都是你们一起走过的证明。</p></div>
           </div>
+          <details className="couple-record-tools">
+            <summary>剧情与家园成就</summary>
+            <div className="couple-actions">
+              <label>成就来源 <select value={milestoneFilter} onChange={event => setMilestoneFilter(event.target.value)}>
+                <option value="all">全部来源</option><option value="story">剧情</option><option value="home">家园</option>
+              </select></label>
+              <button type="button" disabled={busy} onClick={() => setMilestoneDraft({ id: crypto.randomUUID(), title: '', date: today,
+                source: milestoneFilter === 'home' ? 'home' : 'story' })}>记下成就</button>
+            </div>
+            {milestoneDraft && <form className="couple-record-tools" onSubmit={event => {
+              event.preventDefault();
+              const title = milestoneDraft.title.trim();
+              if (!title) return;
+              void run(async () => {
+                const milestone = { ...milestoneDraft, title };
+                await change(current => ({ ...current, milestones: [...(current.milestones ?? []).filter(item => item.id !== milestone.id), milestone] }));
+                setMilestoneDraft(undefined);
+              });
+            }}>
+              <label>成就名称<input required maxLength={100} value={milestoneDraft.title} onChange={event => setMilestoneDraft({ ...milestoneDraft, title: event.target.value })}/></label>
+              <label>记录日期<input required type="date" value={milestoneDraft.date} onChange={event => setMilestoneDraft({ ...milestoneDraft, date: event.target.value })}/></label>
+              <label>来源<select value={milestoneDraft.source} onChange={event => setMilestoneDraft({ ...milestoneDraft, source: event.target.value === 'home' ? 'home' : 'story' })}>
+                <option value="story">剧情</option><option value="home">家园</option></select></label>
+              <div className="couple-actions"><button disabled={busy}>保存成就</button><button type="button" onClick={() => setMilestoneDraft(undefined)}>取消</button></div>
+            </form>}
+            {(bond.milestones ?? []).filter(item => milestoneFilter === 'all' || item.source === milestoneFilter)
+              .sort((a,b) => b.date.localeCompare(a.date)).map(item => <div className="couple-achievement" key={item.id}>
+                <div className="couple-achievement-copy"><strong>{item.title}</strong><small>{item.source === 'home' ? '家园' : '剧情'} · {item.date}</small></div>
+                <div className="couple-actions"><button disabled={busy} onClick={() => setMilestoneDraft(item)}>编辑</button>
+                  <button disabled={busy} onClick={() => {
+                    if (window.confirm('删除这条成就？')) void run(() => change(current => ({ ...current,
+                      milestones: current.milestones?.filter(row => row.id !== item.id) })));
+                  }}>删除</button></div>
+              </div>)}
+          </details>
         {bondAchievements(bond, days).map((item, index) => <div className="couple-achievement" key={item.title}>
           <div className="couple-achievement-copy">
             <small>{String(index + 1).padStart(2, '0')} / ACHIEVEMENT</small>
@@ -673,22 +719,20 @@ export default function CouplesSpaceApp() {
               addToast(typeof result.reply === 'string' ? result.reply : (result.water ? '角色帮你浇水了' : '角色暂时没有浇水'));
             })}>请 {names.them} 照料</button>}
             {plantStageNow === '枯萎' && <button disabled={busy} onClick={() => void run(() => change(current => ({
-              ...current, plant: { ...current.plant, xp: 0, watered: Date.now(), cycleWaters: 0, lastSide: undefined, fertilized: undefined },
+              ...current, plant: { ...current.plant, xp: 0, watered: Date.now(), cycleWaters: 0, lastSide: undefined, fertilized: undefined, droplets: 0, partnerCare: 0 },
             })))}>重新播种</button>}
-            {plantStageNow === '开花' && <button disabled={busy} onClick={() => void run(() => change(current => {
-              if (plantStage(current.plant) !== '开花') throw new Error('现在还没有可收下的花');
-              const varieties = ['雏菊', '郁金香', '洋桔梗', '风信子'];
-              const name = varieties[(current.flowers?.length ?? 0) % varieties.length];
-              const date = dayKey();
-              return { ...current, plant: { ...current.plant, xp: 0, watered: Date.now(), cycleWaters: 0, lastSide: undefined, fertilized: undefined },
-                flowers: [...(current.flowers ?? []), { id: crypto.randomUUID(), name, date, from: 'me' }],
-                entries: [...current.entries, createEntry('gift', name, `一起养开的花，送给 ${names.them}`)] };
-            }))}>收花并送给 {names.them}</button>}
+            {!!bond.plant.droplets && <button disabled={busy || plantStageNow === '枯萎'} onClick={() => void run(() => change(current => {
+              if (plantStage(current.plant) === '枯萎') throw new Error('先重新播种，再收集水滴');
+              return collectPlantDroplets(current);
+            }))}>收下水滴 · {bond.plant.droplets}</button>}
+            {plantStageNow === '开花' && <button disabled={busy} onClick={() => void run(() =>
+              change(current => harvestPlant(current, 'me', names.them)))}>收花并送给 {names.them}</button>}
           </div>
           <div className="couple-plant-footnote">
             {plantStageNow === '枯萎' ? '盆栽已枯萎，重新播种后才能继续照料。' :
               `浇水：${careWaitLabel(waterWait)} · 施肥：${careWaitLabel(feedWait)} · 连续 3 天未浇水会枯萎`}
           </div>
+          {!!bond.plant.partnerCare && <p className="couple-plant-footnote">{names.them} 已照料这盆花 {bond.plant.partnerCare} 次</p>}
           {!isPair && <label className="couple-plant-auto"><input type="checkbox" checked={!!bond.plantAuto} disabled={busy} onChange={event => {
             const plantAuto = event.target.checked;
             void run(() => change(current => ({ ...current, plantAuto })));
@@ -701,6 +745,7 @@ export default function CouplesSpaceApp() {
                 <strong>{flower.name}</strong>
                 <small>{flower.date}</small>
                 <small>来自 {names[flower.from]}</small>
+                {flower.story && <details><summary>花笺</summary><p>{flower.story}</p></details>}
               </article>)}</div>
               : <div className="couple-flower-empty">第一朵花，会被收藏在这里。</div>}
           </div>
@@ -726,6 +771,10 @@ export default function CouplesSpaceApp() {
             if (start) void run(() => change(current => ({ ...current, start })));
           }} /></label>
           <div className="couple-settings-group-heading"><span>02</span><strong>空间封面</strong></div>
+          {isPair && <label>合影风格<select disabled={busy} value={pairCoverStyle} onChange={event => {
+            const style = pairCoverStyles.find(item => item === event.target.value);
+            if (style) setPairCoverStyle(style);
+          }}>{pairCoverStyles.map(style => <option key={style}>{style}</option>)}</select></label>}
           <label className="couple-file"><span>选择本地封面</span>
             <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'cover')} />
           </label>
@@ -735,7 +784,7 @@ export default function CouplesSpaceApp() {
             </button>
             <button disabled={busy || !char || (isPair && !other)} onClick={() => void run(async () => {
               if (!char) throw new Error('原绑定角色已不存在');
-              const style = window.prompt('想要什么样的合照？例如日常抓拍、影楼棚拍、电影感。', '日常抓拍');
+              const style = isPair ? pairCoverStyle : window.prompt('想要什么样的合照？例如日常抓拍、影楼棚拍、电影感。', '日常抓拍');
               if (style === null) return;
               const controller = new AbortController();
               requestRef.current = controller;
@@ -807,21 +856,32 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   const [calibration, setCalibration] = useState<string>();
   const [voice, setVoice] = useState('');
   const [full, setFull] = useState(false);
+  const [portraitSlot, setPortraitSlot] = useState<keyof typeof touchPortraitSlots>('press');
+  const [pressed, setPressed] = useState(false);
+  const [closePose, setClosePose] = useState(false);
+  const [batchSize, setBatchSize] = useState(2);
+  const portraitImage = useRef<HTMLImageElement | null>(null);
   const portraitRequest = useRef<AbortController>();
-  const startPoint = useRef<{ x: number; y: number }>();
+  const startPoint = useRef<{ x: number; y: number; rect: DOMRect }>();
   const [failedImages, setFailedImages] = useState<string[]>([]);
-  const portraitValue = bond.portrait || resolveCompanionPortrait(char) || listCompanionDateOutfits(char)[0]?.preview;
+  const portraitValue = bond.touchPortraits?.idle || bond.portrait || resolveCompanionPortrait(char) || listCompanionDateOutfits(char)[0]?.preview;
   const portrait = portraitValue && !failedImages.includes(portraitValue) ? portraitValue : undefined;
-  const displayImage = portrait || (!failedImages.includes(char.avatar) ? char.avatar : undefined);
+  const variant = calibration ? undefined : pressed
+    ? (closePose ? bond.touchPortraits?.closePress : undefined) || bond.touchPortraits?.press
+    : closePose ? bond.touchPortraits?.closeIdle : undefined;
+  const displayImage = (variant && !failedImages.includes(variant) ? variant : portrait) ||
+    (!failedImages.includes(char.avatar) ? char.avatar : undefined);
   useEffect(() => () => portraitRequest.current?.abort(), []);
   useEffect(() => () => { if (voice.startsWith('blob:')) URL.revokeObjectURL(voice); }, [voice]);
   const zones = ['头发', '脸颊', '肩膀', '手'];
+  const anchorZones = [...zones, '左眼', '右眼', '鼻尖', '嘴唇', '下巴'];
   useLocalBackHandler(() => {
     if (!full) return false;
     setFull(false);
     return true;
   }, 30);
   const tools = ['手', '羽毛', '冰块', '绳子', '毛笔', '唇', '眼罩', '轻拍'];
+  const props = [...tools, ...(bond.touchProps ?? [])];
   const touch = (bodyPart: string) => run(async () => {
     const key = `${prop}:${bodyPart}`;
     const text = bond.touchLines?.[key] ?? await generate(
@@ -832,6 +892,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     }, `touch:${dayKey()}`, 5));
     setReaction(text);
     setVoice('');
+    if (bond.touches >= 3) setClosePose(true);
   });
   return <section className={'couple-touch-room' + (full ? ' couple-touch-full' : '')}>
     <div className="couple-touch-heading"><span>TOUCH STUDIO</span><strong>给 TA 的一点点靠近</strong><p>轻点立绘，选择互动方式，等待真实回应。</p></div>
@@ -854,6 +915,58 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
       <span>{bond.portrait ? '更换本地立绘' : '选择本地立绘'}</span>
       <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'portrait')} />
     </label>
+    <details className="couple-record-tools">
+      <summary>立绘差分与台词</summary>
+      <label>立绘状态<select value={portraitSlot} disabled={busy} onChange={event => {
+        setPortraitSlot(event.target.value as keyof typeof touchPortraitSlots);
+      }}>{Object.entries(touchPortraitSlots).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+      <label className="couple-file"><span>上传{touchPortraitSlots[portraitSlot]}立绘</span>
+        <input type="file" accept="image/*" disabled={busy} onChange={event => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = '';
+          if (!file) return;
+          run(async () => {
+            if (!file.type.startsWith('image/') || file.size > 12 * 1024 * 1024) throw new Error('请选择 12 MB 以内的图片');
+            const image = await processImage(file, { maxWidth: 1000 });
+            await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image } }));
+          });
+        }}/>
+      </label>
+      <div className="couple-actions">
+        <button type="button" disabled={busy} onClick={() => run(async () => {
+          const pose = window.prompt('写下差分的姿势和表情', touchPortraitSlots[portraitSlot]);
+          if (pose === null) return;
+          const controller = new AbortController();
+          portraitRequest.current = controller;
+          const timer = window.setTimeout(() => controller.abort(), 90_000);
+          try {
+            const image = await generateBondPortrait(char, `同一角色的互动差分：${touchPortraitSlots[portraitSlot]}，${pose}`, controller.signal);
+            if (!controller.signal.aborted) await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image } }));
+          } finally { clearTimeout(timer); portraitRequest.current = undefined; }
+        })}>生成当前差分</button>
+        {bond.touchPortraits?.[portraitSlot] && <button type="button" disabled={busy} onClick={() => run(() => change(current => {
+          const touchPortraits = { ...current.touchPortraits };
+          delete touchPortraits[portraitSlot];
+          return { ...current, touchPortraits };
+        }))}>移除当前差分</button>}
+      </div>
+      <label>每批道具数<select value={batchSize} disabled={busy} onChange={event => setBatchSize(Number(event.target.value))}>
+        <option value={1}>1 个</option><option value={2}>2 个</option><option value={4}>4 个</option></select></label>
+      <div className="couple-actions"><button type="button" disabled={busy} onClick={() => run(async () => {
+        const missing = props.filter(tool => zones.some(part => !bond.touchLines?.[`${tool}:${part}`]));
+        const batch = missing.slice(0, batchSize);
+        if (!batch.length) throw new Error('台词已经齐全，需要替换时可先清空旧台词');
+        const keys = batch.flatMap(tool => zones.map(part => `${tool}:${part}`));
+        const result = extractJson(await generate(`给这些「道具:部位」组合各写一句符合人设、尊重同意边界的即时回应。仅返回 JSON 对象，原样使用键名：${JSON.stringify(keys)}`));
+        const lines = Object.fromEntries(keys.flatMap(key => {
+          const line = result?.[key];
+          return typeof line === 'string' && line.trim() ? [[key, line.trim().slice(0, 400)]] : [];
+        }));
+        if (!Object.keys(lines).length) throw new Error('这批没有生成可用台词，请重试');
+        await change(current => ({ ...current, touchLines: { ...current.touchLines, ...lines } }));
+        setReaction(`收录 ${Object.keys(lines).length} 条台词`);
+      })}>生成下一批台词</button></div>
+    </details>
     <details>
       <summary>贴贴背景音乐</summary>
       <label>本地音频<input type="file" accept="audio/*" disabled={busy} onChange={event => {
@@ -870,18 +983,34 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
       </div>}
     </details>
     {portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
-      <option value="">按立绘位置识别</option>{zones.map(part => <option key={part} value={part}>校准{part}</option>)}
+      <option value="">按立绘位置识别</option>{anchorZones.map(part => <option key={part} value={part}>校准{part}</option>)}
     </select></label>}
+    {portrait && <div className="couple-actions"><button type="button" disabled={busy || pressed || closePose} onClick={() => run(async () => {
+      const image = portraitImage.current;
+      if (!image?.complete || !image.naturalWidth) throw new Error('等立绘加载完成再校准');
+      const anchors = await detectBondPortraitAnchors(image);
+      await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, ...anchors } }));
+      setCalibration(undefined);
+    })}>自动校准面部</button>{closePose && <button type="button" onClick={() => setClosePose(false)}>回到初始立绘</button>}</div>}
     <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : '')}>
-      {displayImage ? <TokenImg value={displayImage} alt={char.name} draggable={false}
+      {displayImage ? <div className="couple-touch-image"><TokenImg value={displayImage} alt={char.name} draggable={false}
+        onLoad={event => { portraitImage.current = event.currentTarget; }}
         onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
-        onPointerDown={event => { startPoint.current = { x: event.clientX, y: event.clientY }; }}
-        onPointerCancel={() => { startPoint.current = undefined; }}
+        onPointerDown={event => {
+          startPoint.current = { x: event.clientX, y: event.clientY, rect: event.currentTarget.getBoundingClientRect() };
+          if (!busy && !calibration && portrait) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setPressed(true);
+          }
+        }}
+        onPointerCancel={() => { startPoint.current = undefined; setPressed(false); }}
+        onLostPointerCapture={() => { startPoint.current = undefined; setPressed(false); }}
         onPointerUp={event => {
+          setPressed(false);
           const start = startPoint.current;
           startPoint.current = undefined;
           if (!portrait || busy || !start || Math.hypot(start.x - event.clientX, start.y - event.clientY) > 12) return;
-          const rect = event.currentTarget.getBoundingClientRect();
+          const rect = start.rect;
           const x = (event.clientX - rect.left) / rect.width;
           const y = (event.clientY - rect.top) / rect.height;
           if (x < 0 || x > 1 || y < 0 || y > 1) return;
@@ -894,19 +1023,20 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
           }
           const part = resolveAvatarTouchTarget([], y, x).part;
           touch(part === 'hair' ? '头发' : part === 'face' ? '脸颊' : avatarTouchPartLabel(part));
-        }} /> : <div className="couple-portrait-empty">
-          <HandHeart size={24} weight="duotone" aria-hidden />
-          <span>选一张立绘，或直接使用下方的部位按钮。</span>
-        </div>}
-      {portrait && !calibration && zones.filter(part => bond.touchCalibration?.[part]).map(part => {
+        }} />
+        {portrait && !calibration && !pressed && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
         const point = bond.touchCalibration![part];
         return <button key={part} type="button" className="couple-hotspot"
           style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;
       })}
+      </div> : <div className="couple-portrait-empty">
+        <HandHeart size={24} weight="duotone" aria-hidden />
+        <span>选一张立绘，或直接使用下方的部位按钮。</span>
+      </div>}
     </div>
     {portrait && <small>{calibration ? `点一下立绘上的${calibration}` : '轻点立绘，或用下方部位按钮互动。'}</small>}
     <div className="couple-actions">
-      {[...tools, ...(bond.touchProps ?? [])].map((item, index) => <button key={item} aria-pressed={prop === item}
+      {props.map((item, index) => <button key={item} aria-pressed={prop === item}
         disabled={busy || index < tools.length && index > Math.floor(bond.touches / 4)} onClick={() => setProp(item)}>
         {item}{index < tools.length && index > Math.floor(bond.touches / 4) ? ' · 未解锁' : ''}
       </button>)}
@@ -926,6 +1056,6 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     <div className="couple-actions"><button disabled={busy || !Object.keys(bond.touchLines ?? {}).length} onClick={() => {
       run(() => change(current => ({ ...current, touchLines: {} })));
       setReaction('');
-    }}>重新生成台词</button></div>
+    }}>清空已生成台词</button></div>
   </section>;
 }

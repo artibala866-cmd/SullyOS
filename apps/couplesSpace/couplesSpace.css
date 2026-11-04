@@ -2436,3 +2436,25 @@
 @media(prefers-reduced-motion:reduce) {
   .couple-content-mode .couple-plant-notice {animation:none;}
 }
+
+/* Existing record controls and photo treatments, reused in expanded panels. */
+.couple-record-tools {margin: 12px 0; color: #56565e; font-size: 12px; min-width: 0;}
+.couple-record-tools summary {cursor: pointer; padding: 10px 0;}
+.couple-record-tools label {display: grid; gap: 5px; min-width: 0;}
+.couple-content-mode .couple-record-tools :is(input:not([type=file]),select) {
+  width: 100%; min-width: 0; min-height: 38px; padding: 7px 10px;
+  border: 1px solid #e6e6e8; border-radius: 8px; background: #fff; color: #303035;
+}
+.couple-record-tools form > label {margin: 8px 0;}
+.couple-timeline-day {display: block; margin: 16px 0 5px; font-size: 11px; color: #68686e;}
+.couple-timeline-photos {display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 8px 0;}
+.couple-timeline-photos img {display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;}
+.couple-flower-card details {width: 100%; min-width: 0; overflow-wrap: anywhere;}
+
+.couple-touch-image {position: relative; display: grid; max-width: 100%; min-width: 0;}
+.couple-content-mode .couple-record-tools .couple-segments button[aria-pressed="true"] {background: #fff; color: #242529;}
+
+.couple-edit-timeline-by :is(.couple-edit-date, label:has(input[type=time])) {min-width: min(100%, 140px);}
+.couple-timeline-selection {max-height: 220px; overflow: auto;}
+.couple-content-mode .couple-timeline-selection label {display: flex; align-items: start; gap: 8px; padding: 7px 0; overflow-wrap: anywhere;}
+.couple-content-mode .couple-timeline-selection input[type=checkbox] {width: 16px; min-height: 16px; flex: 0 0 16px; padding: 0;}

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./db', () => ({ DB: {} }));
-import { DAY, type Bond, canWaterPlant, careForPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
+import { DAY, type Bond, canWaterPlant, careForPlant, collectPlantDroplets, harvestPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
 
 const NOW = new Date(2026, 10, 5, 12).getTime();
 function bond(): Bond {
@@ -27,6 +27,20 @@ describe('couples garden cooldowns and activity state', () => {
     expect(next.plant.xp).toBe(24);
     expect(next.plant.lastSide).toBe('them');
     expect(next.plant.lastCaredAt).toBe(NOW + 4 * 3_600_000);
+  });
+
+  it('collects a partner’s drops once and harvests one correctly attributed gift', () => {
+    const watered = careForPlant({ ...bond(), plant: { ...bond().plant, xp: 84 } }, 'water', 'them', NOW);
+    expect(watered.plant.droplets).toBe(1);
+    expect(watered.plant.partnerCare).toBe(1);
+    const bloom = collectPlantDroplets(watered);
+    expect(bloom.plant.xp).toBe(100);
+    expect(collectPlantDroplets(bloom)).toBe(bloom);
+    const harvested = harvestPlant(bloom, 'them', '小满', '送你一束春天', NOW);
+    expect(harvested.flowers).toMatchObject([{ from: 'them', story: '送你一束春天' }]);
+    expect(harvested.entries).toMatchObject([{ kind: 'gift', side: 'them', body: '送你一束春天' }]);
+    expect(harvested.plant).toMatchObject({ xp: 0, droplets: 0, partnerCare: 0 });
+    expect(() => harvestPlant(harvested, 'me', '知夏', undefined, NOW)).toThrow();
   });
 
   it('tracks fertilizer separately and never attributes it to a watering record', () => {

@@ -10,10 +10,15 @@ export const wishCategories = {
 export const wishTags = {
   planning: '计划中', soon: '近期推进', thisYear: '今年内', longTerm: '长期目标', bigDream: '大梦想', smallJoy: '小确幸',
 };
+export const timelineTags = ['初识', '日常', '里程碑', '约会', '旅行', '节日', '争执', '和好'] as const;
+export const touchPortraitSlots = { idle: '待机', press: '按压', closeIdle: '亲近后待机', closePress: '亲近后按压' } as const;
+export const pairCoverStyles = ['影楼棚拍', '生活抓拍', '电影感', '正式合影', '日常互动'] as const;
+
 export type Entry = {
   id: string; kind: EntryKind; date: string; title: string; body: string;
   side: Side; done?: boolean; pinned?: boolean; steps?: { text: string; done: boolean }[];
-  wishCategory?: keyof typeof wishCategories; wishTag?: keyof typeof wishTags;
+  images?: string[]; timelineTag?: typeof timelineTags[number]; time?: string;
+  mailMode?: 'postman'; wishCategory?: keyof typeof wishCategories; wishTag?: keyof typeof wishTags;
   reply?: string; unlockDate?: string; opened?: boolean; openedEarly?: boolean; image?: string; stickers?: string[]; stickerPositions?: { x: number; y: number }[];
 };
 export type Card = { id: string; name: string; icon: string; effect: string; price: number; charUse: boolean; turns?: number; voucher?: boolean; relation?: Relation };
@@ -21,8 +26,8 @@ export type PlayedCard = { id?: string; card: Card; side: Side; at: number; note
 export type Bond = {
   id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open' | 'closed';
   start: string; cover?: string; zoom?: number; position?: number; entries: Entry[];
-  plant: { xp: number; watered: number; fertilized?: number; lastCaredAt?: number; lastSide?: Side; careCount: number; cycleWaters?: number };
-  touches: number; portrait?: string; touchLines?: Record<string, string>; touchProps?: string[]; touchCalibration?: Record<string, { x: number; y: number }>;
+  plant: { xp: number; watered: number; fertilized?: number; lastCaredAt?: number; lastSide?: Side; careCount: number; cycleWaters?: number; droplets?: number; partnerCare?: number };
+  touches: number; portrait?: string; touchPortraits?: Partial<Record<keyof typeof touchPortraitSlots, string>>; touchLines?: Record<string, string>; touchProps?: string[]; touchCalibration?: Record<string, { x: number; y: number }>;
   plantAuto?: boolean; touchBgm?: string;
   diaryAuto?: boolean; diaryStyle?: string; diaryContext?: boolean; hollowAuto?: boolean;
   disabledCards?: boolean; autoCards?: boolean; lastSceneTurn?: number; noCooldown?: boolean; hidden: string[]; cards: Card[]; bags: Record<Side, Record<string, number>>;
@@ -30,7 +35,8 @@ export type Bond = {
   pact?: { wish: string; spent: number; status: 'pending' | 'accepted' | 'declined' | 'done'; response?: string };
   gateMode?: 'open' | 'level' | 'pact';
   unlocks?: Record<string, { terms: string; response: string }>;
-  flowers?: { id: string; name: string; from: Side; date: string }[];
+  flowers?: { id: string; name: string; from: Side; date: string; story?: string }[];
+  milestones?: { id: string; title: string; date: string; source: 'story' | 'home' }[];
   pairStats?: { intimacy: number; trust: number; tension: number };
 };
 type Spaces = Record<string, Bond>;
@@ -122,8 +128,33 @@ export function careForPlant(bond: Bond, action: 'water' | 'fertilize', side: Si
       ...(action === 'water' ? { watered: now, lastSide: side, cycleWaters: (plant.cycleWaters ?? 0) + 1 } : { fertilized: now }),
       lastCaredAt: now,
       careCount: plant.careCount + 1,
+      droplets: Math.min(12, (plant.droplets ?? 0) + (side === 'them' && action === 'water' ? 1 : 0)),
+      partnerCare: (plant.partnerCare ?? 0) + Number(side === 'them'),
     },
     points: { ...bond.points, [side]: bond.points[side] + 8, shared: bond.points.shared + 10 },
+  };
+}
+
+export function collectPlantDroplets(bond: Bond): Bond {
+  const amount = Math.min(12, Math.max(0, bond.plant.droplets ?? 0));
+  if (!amount) return bond;
+  return { ...bond, plant: { ...bond.plant, droplets: 0, xp: Math.min(100, bond.plant.xp + amount * 4) } };
+}
+
+export function harvestPlant(bond: Bond, from: Side, recipient: string, scene?: string, now = Date.now()): Bond {
+  if (plantStage(bond.plant, now) !== '开花') throw new Error('现在还没有可收下的花');
+  const varieties = ['雏菊', '郁金香', '洋桔梗', '风信子'];
+  const name = varieties[(bond.flowers?.length ?? 0) % varieties.length];
+  const date = dayKey(new Date(now));
+  const story = scene?.trim().slice(0, 900) || (from === 'them'
+    ? '窗边多了一盆刚开好的花，旁边夹着一张留给你的手写小卡。'
+    : `把一起养开的花送给 ${recipient}，给这段共同照料的日子留个纪念。`);
+  return {
+    ...bond,
+    plant: { ...bond.plant, xp: 0, watered: now, cycleWaters: 0, lastSide: undefined,
+      fertilized: undefined, droplets: 0, partnerCare: 0 },
+    flowers: [...(bond.flowers ?? []), { id: crypto.randomUUID(), name, date, from, story }],
+    entries: [...bond.entries, { ...createEntry('gift', name, story, from), date }],
   };
 }
 

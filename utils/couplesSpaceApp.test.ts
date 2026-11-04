@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CouplesSpaceApp from '../apps/CouplesSpaceApp';
 import { capsuleDate, capsuleStatus, careForPlant, createBond, createEntry, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
-import { couplesChatContext } from './couplesChat';
+import { couplesChatContext, pairedCouplesChatContext } from './couplesChat';
 import { DB } from './db';
 import type { CharacterProfile } from '../types';
 
@@ -154,6 +154,25 @@ describe('情侣空间', () => {
     expect((await readBond(ids)).points.shared).toBe(40);
     expect((await readBond([...ids].reverse())).relation).toBe('friend');
     expect(await readBond(['partner-a'])).toBeUndefined();
+  });
+
+  it('uses only pair records belonging to the speaking character and omits sealed content', async () => {
+    const ids = ['partner-a', 'partner-b'];
+    await DB.saveCharacter({ id: 'partner-b', name: '晓白', avatar: '' } as CharacterProfile);
+    await writeBond(ids, () => ({
+      ...createBond(ids), entries: [
+        createEntry('timeline', '一起赏雪', '配对可用回忆'),
+        createEntry('mail', '私信', '不可注入的答案'),
+        createEntry('capsule', '未来', '不可注入的封存内容'),
+      ],
+    }));
+    try {
+      const block = await pairedCouplesChatContext('partner-a');
+      expect(block).toContain('晓白');
+      expect(block).toContain('配对可用回忆');
+      expect(block).not.toContain('不可注入');
+      expect(await pairedCouplesChatContext('unrelated')).toBe('');
+    } finally { await writeBond(ids, () => undefined); }
   });
 
   it('keeps a sealed capsule private until it is opened, then shares it as a capsule', async () => {

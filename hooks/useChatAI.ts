@@ -40,7 +40,7 @@ import { hasUnansweredUserTurn, withVerifiedUserReplyContinuation } from '../uti
 import { findPendingRealPersonUserTurn } from '../utils/realPersonReplyTurn';
 import { assertChatHasDialogue } from '../utils/chatRequestGuard';
 import { readBond } from '../utils/couplesSpace';
-import { couplesChatContext, settleCouplesChat } from '../utils/couplesChat';
+import { couplesChatContext, pairedCouplesChatContext, settleCouplesChat } from '../utils/couplesChat';
 import { applyAssistantPostProcessing, type XhsCaches } from '../utils/applyAssistantPostProcessing';
 import { userBlocksCharacter, characterBlocksUser, allowsCharacterToBlock, changeChatBlock, didCharReplyFailDuringGeneration } from '../utils/chatBlock';
 import { buildCharacterBlockAutonomyInstruction, buildPrivateChatBlockHistoryContext, buildFirstPostUnblockOpeningInstruction, extractCharacterBlockDirective } from '../utils/chatBlockAI';
@@ -988,9 +988,12 @@ export const useChatAI = ({
                 ? undefined : await replyStep(() => readBond([char.id]).catch(() => undefined));
             const couplesContext = couplesBond?.status === 'open' && !payload.flags.promptBuildSkipped && !userBlockedAtReplyStart
                 ? couplesChatContext(couplesBond) : '';
-            if (couplesContext) payload.fullMessages.splice(
+            const pairedContext = !homePhoneContext && !opts?.postUnblockOpening && !payload.flags.promptBuildSkipped &&
+                !userBlockedAtReplyStart ? await replyStep(() => pairedCouplesChatContext(char.id).catch(() => '')) : '';
+            const relationshipContext = [couplesContext, pairedContext].filter(Boolean).join('\n');
+            if (relationshipContext) payload.fullMessages.splice(
                 payload.volatileTailIndex >= 0 ? payload.volatileTailIndex : payload.fullMessages.length,
-                0, { role: 'system', content: couplesContext },
+                0, { role: 'system', content: relationshipContext },
             );
             payload.fullMessages.unshift({ role: 'system', content: puffAvatarInstruction + avatarInstruction } as any);
             // 原版拉黑自主动作仅在当前私聊请求中启用，不修改角色卡、世界书及群聊。
