@@ -11,7 +11,7 @@ const PRESETS = [
         name: '电影与剧集 · Orca',
         url: 'https://orca-mcp.mmdju.workers.dev/mcp',
         source: 'https://github.com/mmdju/orca-mcp',
-        hint: '无需 Key。打开后自动连接；直连遇到浏览器 CORS 或网络超时，会尝试糯米机电影专用中转。第三方服务仍可能暂时不可用。',
+        hint: '无需 Key。打开后自动连接；直连遇到浏览器 CORS 或网络超时，会尝试宝宝狗电影专用中转。第三方服务仍可能暂时不可用。',
     },
     {
         id: 'realtime.bilibili.search',
