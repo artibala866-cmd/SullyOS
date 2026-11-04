@@ -35,7 +35,8 @@ setTimeout(()=>{
   const widths=cards.map(c=>Math.round(c.getBoundingClientRect().width));
   const hasAmount=document.body.textContent?.includes('¥680.00');
   const noInput=!document.querySelector('input')&&!document.querySelector('button');
-  const ready=cards.length===3&&widths.every(w=>w>=350&&w<=390)&&hasAmount&&noInput;
-  document.getElementById('pay-visual-status')!.textContent=JSON.stringify({ready,widths,hasAmount,noInput});
+  const viewport=Math.round(document.getElementById('root')!.getBoundingClientRect().width);
+  const ready=cards.length===3&&widths.every(w=>Math.abs(w-(viewport-32))<=2)&&hasAmount&&noInput;
+  document.getElementById('pay-visual-status')!.textContent=JSON.stringify({ready,viewport,widths,hasAmount,noInput});
   document.body.dataset.ready=String(ready);
 },1200);
