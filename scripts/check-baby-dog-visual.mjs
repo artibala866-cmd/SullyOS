@@ -1,76 +1,146 @@
-import { chromium } from 'playwright';
+// Chrome DevTools Protocol screenshot regression using built-in Node 22 APIs.
+// No Playwright package or generated art is required.
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-const base = 'http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html';
-const browser = await chromium.launch({
-  headless: true,
-  executablePath: process.env.CHROME_PATH || undefined,
-  args: ['--no-sandbox', '--disable-dev-shm-usage'],
-});
-const errors = [];
-const screenshots = process.cwd();
-const inspect = async page => page.evaluate(() => {
+const port = 9329;
+const profile = mkdtempSync(join(tmpdir(), 'baby-dog-visual-'));
+const chrome = spawn(process.env.CHROME_PATH || 'google-chrome', [
+  '--headless=new', '--no-sandbox', '--disable-dev-shm-usage',
+  '--no-first-run', '--disable-background-networking', '--hide-scrollbars',
+  '--remote-debugging-port=' + port,
+  '--user-data-dir=' + profile,
+  'about:blank',
+], { stdio: 'ignore' });
+
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const json = async (path, options) => {
+  const response = await fetch('http://127.0.0.1:' + port + path, options);
+  if (!response.ok) throw Error('CDP HTTP ' + response.status);
+  return response.json();
+};
+
+const openPage = async () => {
+  const page = await json('/json/new?about:blank', { method: 'PUT' });
+  const socket = new WebSocket(page.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true });
+    socket.addEventListener('error', reject, { once: true });
+  });
+  let sequence = 0;
+  const pending = new Map();
+  socket.addEventListener('message', event => {
+    const data = JSON.parse(event.data);
+    if (data.id && pending.has(data.id)) {
+      const { resolve, reject } = pending.get(data.id);
+      pending.delete(data.id);
+      data.error ? reject(Error(JSON.stringify(data.error))) : resolve(data.result);
+    }
+  });
+  const call = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = ++sequence;
+    pending.set(id, {resolve, reject});
+    socket.send(JSON.stringify({id, method, params}));
+  });
+  const evaluate = async expression => {
+    const result = await call('Runtime.evaluate', {expression, returnByValue:true});
+    if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails));
+    return result.result.value;
+  };
+  const shot = async path => {
+    const output = await call('Page.captureScreenshot', {format:'png', fromSurface:true});
+    writeFileSync(path, Buffer.from(output.data,'base64'));
+  };
+  return { socket, call, evaluate, shot };
+};
+
+const inspectExpression = `(() => {
   const dog = document.querySelector('.sully-lineart');
   const canvas = document.querySelector('.sully-lineart-canvas');
   const label = document.querySelector('.sully-boot-side-label');
   const caption = document.querySelector('.sully-boot-welcome');
   const root = document.querySelector('.sully-boot');
+  if (!dog || !canvas || !label || !caption || !root) return null;
   const bounds = dog.getBoundingClientRect();
-  const image = canvas.getContext('2d').getImageData(0,0,512,512);
-  let lines = 0;
-  for (let y=115; y<390; y+=4) for (let x=100; x<420; x+=4) {
-    if (image.data[(y*512+x)*4+3] > 120) lines++;
+  const pixels = canvas.getContext('2d').getImageData(0, 0, 512, 512).data;
+  let strokes = 0;
+  for (let y = 115; y < 390; y += 4) for (let x = 100; x < 420; x += 4) {
+    if (pixels[(y * 512 + x) * 4 + 3] > 120) strokes++;
   }
   return {
-    loaded: dog.dataset.lineReady === 'true',
+    ready: dog.dataset.lineReady === 'true',
     white: getComputedStyle(root).backgroundColor === 'rgb(255, 255, 255)',
-    lines,
+    strokes,
     width: bounds.width,
-    dogLabel: label.textContent,
-    dogLabelOpacity: parseFloat(getComputedStyle(label).opacity),
+    label: label.textContent,
+    labelOpacity: parseFloat(getComputedStyle(label).opacity),
     welcome: caption.textContent,
     welcomeOpacity: parseFloat(getComputedStyle(caption).opacity),
-    blinkAnimation: getComputedStyle(document.querySelector('.sully-lineart-eyes-closed')).animationName,
-    mouthAnimation: getComputedStyle(document.querySelector('.sully-lineart-mouth-talking')).animationName,
+    blinking: getComputedStyle(document.querySelector('.sully-lineart-eyes-closed')).animationName.includes('sullyLineEyesClosed'),
+    talking: getComputedStyle(document.querySelector('.sully-lineart-mouth-talking')).animationName.includes('sullyLineMouthTalk'),
     noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth,
   };
-});
-try {
-  for (const variant of ['warm', 'classic']) {
-    const page = await browser.newPage({
-      viewport: { width: 390, height: 844 },
-      reducedMotion: 'no-preference',
-      deviceScaleFactor: 1,
-    });
-    page.on('pageerror', error => errors.push(error.message));
-    await page.goto(base + (variant === 'classic' ? '?cover=classic' : ''), {waitUntil:'domcontentloaded'});
-    await page.locator('.sully-lineart[data-line-ready="true"]').waitFor({timeout:20000});
-    await page.waitForTimeout(550);
-    await page.screenshot({path: screenshots + '/baby-dog-' + variant + '-entry.png'});
-    await page.waitForTimeout(2500);
-    const final = await inspect(page);
-    assert.equal(final.loaded, true);
-    assert.equal(final.white, true);
-    assert(final.lines > 250, 'Original hand-drawn ink must be present');
-    assert(final.width <= 250, 'Dog must stay video-sized rather than filling the screen');
-    assert.equal(final.dogLabel, 'dog');
-    assert.equal(final.welcome, 'Welcome home.');
-    assert(final.dogLabelOpacity >= .95 && final.welcomeOpacity >= .95,
-      'Captions must be visible in the final screenshot');
-    assert(final.blinkAnimation.includes('sullyLineEyesClosed'));
-    assert(final.mouthAnimation.includes('sullyLineMouthTalk'));
-    assert(final.noHorizontalOverflow);
-    await page.screenshot({path: screenshots + '/baby-dog-' + variant + '-mobile.png'});
+})()`;
 
-    await page.setViewportSize({width:320,height:568});
-    await page.waitForTimeout(150);
-    assert.equal((await inspect(page)).noHorizontalOverflow,true);
-    await page.screenshot({path: screenshots + '/baby-dog-' + variant + '-small.png'});
-    console.log('PASS ' + variant + ' original ink, entry zoom, eyes/mouth, English, 390/320 screens', final);
-    await page.close();
+try {
+  let healthy = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try { await json('/json/version'); healthy = true; break; } catch { await pause(150); }
   }
-  assert.deepEqual(errors, []);
+  if (!healthy) throw Error('Chrome debugging port did not open');
+  for (const variant of ['warm', 'classic']) {
+    const page = await openPage();
+    try {
+      await page.call('Page.enable');
+      await page.call('Runtime.enable');
+      await page.call('Emulation.setDeviceMetricsOverride', {
+        width:390, height:844, deviceScaleFactor:1, mobile:true,
+      });
+      await page.call('Page.navigate', {
+        url:'http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html' +
+          (variant === 'classic' ? '?cover=classic' : ''),
+      });
+      let prepared = false;
+      for (let n = 0; n < 100; n++) {
+        try {
+          if (await page.evaluate('document.querySelector(\'.sully-lineart\')?.dataset.lineReady === \'true\'')) {
+            prepared = true; break;
+          }
+        } catch { /* page still loading */ }
+        await pause(120);
+      }
+      assert(prepared, 'Original dog ink never loaded');
+      await pause(450);
+      await page.shot('baby-dog-' + variant + '-entry.png');
+      await pause(2600);
+      const final = await page.evaluate(inspectExpression);
+      assert(final, 'Missing real boot');
+      assert(final.ready && final.white);
+      assert(final.strokes > 250, 'Extracted handwritten ink missing');
+      assert(final.width <= 250, 'Dog unexpectedly oversized');
+      assert.equal(final.label, 'dog');
+      assert.equal(final.welcome, 'Welcome home.');
+      assert(final.labelOpacity >= .95 && final.welcomeOpacity >= .95,
+        'Fade-in captions not visible at the end');
+      assert(final.blinking && final.talking, 'Face animation unavailable');
+      assert(final.noHorizontalOverflow, '390px overflow');
+      await page.shot('baby-dog-' + variant + '-mobile.png');
+      await page.call('Emulation.setDeviceMetricsOverride', {
+        width:320, height:568, deviceScaleFactor:1, mobile:true,
+      });
+      await pause(220);
+      const small = await page.evaluate(inspectExpression);
+      assert(small?.noHorizontalOverflow && small?.width < 230, '320px overflow');
+      await page.shot('baby-dog-' + variant + '-small.png');
+      console.log('PASS ' + variant + ' real ink and timing', final);
+    } finally {
+      page.socket.close();
+    }
+  }
 } finally {
-  await browser.close();
+  chrome.kill('SIGTERM');
+  rmSync(profile, {recursive:true, force:true});
 }
