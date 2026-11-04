@@ -38,8 +38,14 @@ setTimeout(()=>{
   setTimeout(()=>{
    const cards=document.querySelectorAll('[aria-label^="查看浏览记录详情"]');
    const detail=document.body.textContent?.includes('搜完后的心声')||false;
-   const ready=(view==='list' && cards.length>=2)||(view==='detail' && detail);
-   document.getElementById('browser-visual-status')!.textContent=JSON.stringify({ready,view,cards:cards.length,detail});
+   const cover=document.querySelector('[aria-label="记录封面"]')?.getBoundingClientRect();
+   const meta=document.querySelector('[data-testid="phone-browser-visit-meta"]')?.getBoundingClientRect();
+   const verify=document.querySelector('[data-testid="phone-browser-verify-link"]')?.getBoundingClientRect();
+   const layoutOk=view==='list'||(!!cover&&!!meta&&!!verify&&cover.bottom<=meta.top+2&&verify.bottom<=900);
+   const ready=((view==='list' && cards.length>=2)||(view==='detail' && detail))&&layoutOk;
+   document.getElementById('browser-visual-status')!.textContent=JSON.stringify({
+     ready,view,cards:cards.length,detail,layoutOk,coverBottom:cover?.bottom,metaTop:meta?.top,verifyBottom:verify?.bottom,
+   });
    document.body.dataset.ready=String(ready);
   },500);
 },1000);
