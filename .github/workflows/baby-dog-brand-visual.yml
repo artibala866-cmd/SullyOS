@@ -52,8 +52,6 @@ jobs:
         run: node scripts/test-app-display-name.mjs
       - name: Verify legacy icon migration and startup behavior
         run: pnpm exec vitest run utils/appIcon.test.ts utils/babyDogBootTimeline.test.ts
-      - name: Verify production bundle
-        run: pnpm build
       # Chrome picks up system fonts; avoid blocking visual checks on package mirrors.
       - uses: browser-actions/setup-chrome@v1
         id: chrome
@@ -71,6 +69,8 @@ jobs:
             sleep 1
           done
           CHROME_PATH="${{ steps.chrome.outputs.chrome-path }}" pnpm exec node scripts/check-baby-dog-visual.mjs
+      - name: Verify production bundle
+        run: pnpm build
       - uses: actions/upload-artifact@v4
         if: always()
         with:
