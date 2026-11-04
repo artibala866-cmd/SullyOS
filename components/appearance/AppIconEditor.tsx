@@ -7,7 +7,7 @@ import { useOS } from '../../context/OSContext';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import { isStandaloneDisplayMode } from '../../utils/iosStandalone';
-import { injectPwaIcon, clearPwaIcon, PWA_ICON_APP_ID, PWA_CLASSIC_ICON_VALUE, PWA_DEFAULT_ICON_URL, PWA_CLASSIC_ICON_URL } from '../../utils/appIcon';
+import { injectPwaIcon, clearPwaIcon, PWA_ICON_APP_ID, PWA_CLASSIC_ICON_VALUE, PWA_DEFAULT_ICON_URL } from '../../utils/appIcon';
 
 type Mode = 'upload' | 'url';
 
@@ -22,8 +22,10 @@ const AppIconEditor: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isStandalone = isStandaloneDisplayMode();
-  const customPreviewUrl = useBlobRefUrl(currentValue === PWA_CLASSIC_ICON_VALUE ? undefined : currentValue);
-  const previewUrl = currentValue === PWA_CLASSIC_ICON_VALUE ? PWA_CLASSIC_ICON_URL : customPreviewUrl || PWA_DEFAULT_ICON_URL;
+  // 曾经的「经典」与默认图一致，旧存档视作默认，不重复展示。
+  const isCustom = !!currentValue && currentValue !== PWA_CLASSIC_ICON_VALUE;
+  const customPreviewUrl = useBlobRefUrl(isCustom ? currentValue : undefined);
+  const previewUrl = customPreviewUrl || PWA_DEFAULT_ICON_URL;
 
   // ── 保存 ───────────────────────────────────────────────────
 
@@ -102,15 +104,6 @@ const AppIconEditor: React.FC = () => {
     addToast('PWA 图标已恢复默认', 'info');
   }, [setCustomIcon, addToast]);
 
-  const chooseBuiltin = async (classic: boolean) => {
-    if (processing) return;
-    setProcessing(true);
-    try {
-      if (classic) await saveIcon(PWA_CLASSIC_ICON_VALUE);
-      else await handleReset();
-    } catch { addToast('图标保存失败，请重试', 'error'); }
-    finally { setProcessing(false); }
-  };
 
   // ── 渲染 ───────────────────────────────────────────────────
 
@@ -124,15 +117,17 @@ const AppIconEditor: React.FC = () => {
         <span className="text-sm font-medium text-slate-700">PWA 应用图标</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3" role="group" aria-label="内置 PWA 图标">
-        {[{ classic: false, name: '宝宝狗 · 默认', image: PWA_DEFAULT_ICON_URL }, { classic: true, name: '宝宝狗 · 经典', image: PWA_CLASSIC_ICON_URL }].map(option => {
-          const selected = option.classic ? currentValue === PWA_CLASSIC_ICON_VALUE : !currentValue;
-          return <button key={option.name} type="button" disabled={processing} aria-pressed={selected}
-            onClick={()=>void chooseBuiltin(option.classic)} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-colors disabled:opacity-50 ${selected ? 'border-primary bg-primary/5' : 'border-slate-200'}`}>
-            <img src={option.image} alt="" className="w-20 h-20 rounded-2xl"/>
-            <span className="text-xs text-slate-700">{option.name}{selected ? ' · 已选' : ''}</span>
-          </button>;
-        })}
+      <div role="group" aria-label="内置 PWA 图标">
+        <button type="button" disabled={processing} aria-pressed={!isCustom}
+          onClick={() => { if (isCustom || currentValue === PWA_CLASSIC_ICON_VALUE) void handleReset(); }}
+          className={`flex w-full items-center gap-4 rounded-2xl border p-3 text-left transition-colors disabled:opacity-50 ${!isCustom ? 'border-primary bg-primary/5' : 'border-slate-200 bg-white'}`}>
+          <img src={PWA_DEFAULT_ICON_URL} alt="" className="h-20 w-20 shrink-0 rounded-2xl" />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-slate-700">宝宝狗 · 默认</span>
+            <span className="mt-1 block text-xs text-slate-400">原版手绘小狗</span>
+          </span>
+          {!isCustom && <span className="ml-auto text-xs text-primary">已选</span>}
+        </button>
       </div>
 
       {/* 当前图标预览 */}
@@ -150,9 +145,9 @@ const AppIconEditor: React.FC = () => {
         </div>
         <div className="min-w-0">
           <div className="text-xs text-slate-500">
-            {currentValue === PWA_CLASSIC_ICON_VALUE ? '宝宝狗 · 经典图标' : currentValue ? '已设置自定义图标' : '宝宝狗图标 · 默认'}
+            {isCustom ? '已设置自定义图标' : '宝宝狗图标 · 默认'}
           </div>
-          {currentValue && (
+          {isCustom && (
             <button
               onClick={handleReset}
               className="text-xs text-red-400 hover:text-red-500 mt-1"
