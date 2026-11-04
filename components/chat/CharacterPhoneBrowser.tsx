@@ -52,7 +52,7 @@ function BrowserRecordPreview({visit,large=false}:{visit:PhoneBrowserVisit;large
   const theme=searchRecordTheme(visit);
   const CoverIcon=theme.icon;
   return <div aria-label={large?'记录封面':'搜索记录图文封面'}
-    className={'relative isolate flex shrink-0 flex-col overflow-hidden '+(large?'h-[212px] w-full':'w-[116px] min-h-[170px] self-stretch')}
+    className={'relative isolate flex shrink-0 flex-col overflow-hidden '+(large?'h-[164px] w-full':'w-[116px] min-h-[170px] self-stretch')}
     style={{background:theme.background,color:theme.color}}>
     <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 h-32 w-32 rounded-full border-[14px] border-white/35"/>
     <div aria-hidden="true" className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full border-[12px] border-white/30"/>
@@ -63,8 +63,8 @@ function BrowserRecordPreview({visit,large=false}:{visit:PhoneBrowserVisit;large
       </span>
     </div>
     <div className="relative z-10 flex flex-1 items-center justify-center py-1">
-      <div className={'flex items-center justify-center border border-white/50 bg-white/50 shadow-[0_10px_22px_rgba(0,0,0,.05)] '+(large?'h-[104px] w-[104px] rounded-[28px]':'h-[64px] w-[64px] rounded-[20px]')}>
-        <CoverIcon size={large?57:37} weight="duotone"/>
+      <div className={'flex items-center justify-center border border-white/50 bg-white/50 shadow-[0_10px_22px_rgba(0,0,0,.05)] '+(large?'h-[79px] w-[79px] rounded-[24px]':'h-[64px] w-[64px] rounded-[20px]')}>
+        <CoverIcon size={large?46:37} weight="duotone"/>
       </div>
     </div>
     <div className={'relative z-10 '+(large?'px-5 pb-5':'px-2.5 pb-3')}>
@@ -166,7 +166,7 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
       </button>
       <div className="overflow-hidden rounded-[22px] border border-[#e4eaf3] bg-white shadow-[0_8px_28px_rgba(50,76,112,.05)]">
         <BrowserRecordPreview visit={selected} large/>
-        <div className="space-y-5 p-5">
+        <div className="space-y-4 p-4.5">
           <div>
             <div className="mb-2 flex items-center gap-2 text-[11px] text-[#8493a7]">
               <ClockCounterClockwise size={14}/>{new Date(selected.visitedAt).toLocaleString('zh-CN')}
@@ -226,11 +226,11 @@ export default function CharacterPhoneBrowser({characterId,char,userProfile,grou
                 <CaretRight size={15} className="shrink-0 text-[#aab8ca]"/>
               </div>
               <h3 className="line-clamp-2 break-words text-[15px] font-semibold leading-[21px] text-[#29364a]">{browserTitle(item)}</h3>
-              <p className="mt-2 line-clamp-2 break-words text-[11px] leading-[17px] text-[#718197]">
+              <p className="mt-2 line-clamp-2 break-words text-[12px] leading-[18px] text-[#718197]">
                 <span className="mr-1 font-semibold text-[#536780]">想了解</span>
                 {item.summary||item.query||browserHost(item.url)}
               </p>
-              {item.afterSearchThought&&<p className="mt-2 line-clamp-2 break-words rounded-lg bg-[#f7f5fa] px-2 py-1.5 text-[10px] leading-[16px] text-[#85738f]">
+              {item.afterSearchThought&&<p className="mt-2 line-clamp-2 break-words rounded-lg bg-[#f7f5fa] px-2 py-1.5 text-[11px] leading-[17px] text-[#85738f]">
                 <span className="font-semibold">心声 · </span>{item.afterSearchThought}
               </p>}
               <span className="mt-auto pt-2 text-[10px] text-[#9ca8b6]">{visitTime(item)}</span>
