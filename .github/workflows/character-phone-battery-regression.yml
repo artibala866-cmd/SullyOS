@@ -1,0 +1,33 @@
+name: Character Phone Battery Regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'utils/characterPhonePower.ts'
+      - 'utils/characterPhonePower.test.ts'
+      - 'components/chat/PhoneStatusBar.tsx'
+      - '.github/workflows/character-phone-battery-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: character-phone-battery-regression
+  cancel-in-progress: true
+jobs:
+  battery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run virtual battery regression tests
+        run: pnpm exec vitest run utils/characterPhonePower.test.ts
+      - name: Build application
+        run: pnpm run build
