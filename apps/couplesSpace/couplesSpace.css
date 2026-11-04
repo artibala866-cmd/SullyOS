@@ -1141,3 +1141,15 @@
 }
 .couple-content-mode .couple-achievement-track span { display: block; height: 100%; background: #353537; }
 .couple-content-mode .couple-shop-card h3 { filter: grayscale(1); }
+
+/* Preserve the original full-screen touch interaction under the new interior theme. */
+.couple-content-mode .couple-touch-full {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 !important;
+  padding: 16px !important;
+  border-radius: 0 !important;
+}
