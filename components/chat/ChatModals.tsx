@@ -546,7 +546,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             </div>
                         )}
                     </ChatSettingsSection>
-                    <ChatSettingsSection title="翻译与语音" summary="消息语言、语音、自动播放与生图">
+                    <ChatSettingsSection title="生图、翻译与语音" summary="角色主动生图、消息语言、语音与自动播放">
                         {imageCharacterId && <AutomaticImageToggle scope="private" id={imageCharacterId} />}
                         {/* Translation Settings */}
                         <div className="pt-2 border-t border-slate-100">
