@@ -33,7 +33,9 @@ export const relationNames = { love: '恋爱', family: '亲情', friend: '友情
 export const dayKey = getLocalDateKey;
 export type CapsuleStatus = 'sealed' | 'ready' | 'opened';
 export function capsuleStatus(entry: Entry, today = dayKey()): CapsuleStatus {
-  if (entry.opened || !entry.unlockDate) return 'opened';
+  if (entry.opened) return 'opened';
+  // Legacy capsules without an opening date must never reveal their text automatically.
+  if (!entry.unlockDate) return 'sealed';
   return entry.unlockDate <= today ? 'ready' : 'sealed';
 }
 export function capsuleDate(months: number, now = new Date()) {
@@ -81,8 +83,18 @@ export const bondLevel = (bond: Bond) => 1 + Math.floor(bondXp(bond) / 100);
 export const panelLevels: Partial<Record<EntryKind | 'shop' | 'achievements' | 'plant' | 'touch' | 'settings', number>> = {
   timeline: 1, anniversary: 1, diary: 1, wish: 2, gift: 2, mail: 2, plant: 2, touch: 3, shop: 3, capsule: 3, hollow: 4,
 };
+export type PlantCareAction = 'water' | 'fertilize';
+/** Remaining cooldown (ms); Infinity when replanting is required. */
+export function plantCareWait(plant: Bond['plant'], action: PlantCareAction, now = Date.now()): number {
+  if (plantStage(plant, now) === '枯萎') return Infinity;
+  if (action === 'water' && !plant.cycleWaters) return 0;
+  const last = action === 'water' ? plant.watered : (plant.fertilized ?? 0);
+  const cooldown = action === 'water' ? 4 * 3_600_000 : DAY;
+  return Math.max(0, cooldown - (now - last));
+}
+
 export function canWaterPlant(plant: Bond['plant'], now = Date.now()) {
-  return plantStage(plant, now) !== '枯萎' && (!plant.cycleWaters || now - plant.watered >= 4 * 3_600_000);
+  return plantCareWait(plant, 'water', now) === 0;
 }
 
 export const plantStage = (plant: Bond['plant'], now = Date.now()) =>
@@ -91,8 +103,7 @@ export const plantStage = (plant: Bond['plant'], now = Date.now()) =>
 export function careForPlant(bond: Bond, action: 'water' | 'fertilize', side: Side, now = Date.now()): Bond {
   const { plant } = bond;
   if (plantStage(plant, now) === '枯萎') throw new Error('盆栽已经枯萎，请重新播种');
-  const last = action === 'water' ? (plant.cycleWaters ? plant.watered : 0) : plant.fertilized ?? 0;
-  if (now - last < (action === 'water' ? 4 * 3_600_000 : DAY)) throw new Error('刚照料过，过一会儿再来');
+  if (plantCareWait(plant, action, now) > 0) throw new Error('刚照料过，过一会儿再来');
   return {
     ...bond,
     plant: {
