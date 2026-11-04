@@ -21,7 +21,7 @@ export default function NavigationBallNotice({ onDone, onConfigure }: { onDone: 
     onCancel={event => { event.preventDefault(); finish(onDone); }}>
     <button type="button" className="navigation-ball-notice-close" aria-label="关闭悬浮球介绍" onClick={() => finish(onDone)}><X size={20} /></button>
     <div className="navigation-ball-notice-symbol" aria-hidden="true"><span /></div>
-    <p className="navigation-ball-notice-eyebrow">糯米机 · 快捷导航</p>
+    <p className="navigation-ball-notice-eyebrow">宝宝狗 · 快捷导航</p>
     <h2 id={titleId}>悬浮球来了</h2>
     <p>常用入口，放在手边。</p>
     <ul>

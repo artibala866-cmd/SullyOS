@@ -21,7 +21,7 @@ import {
     validateScopedCss,
 } from '../../utils/scopedCss';
 
-const AI_PROMPT = `你是 CSS 设计师，请为 SullyOS·糯米机 的日程卡片写一段自定义 CSS。
+const AI_PROMPT = `你是 CSS 设计师，请为 宝宝狗 的日程卡片写一段自定义 CSS。
 只能使用以 .sully-schedule-* 开头的选择器；覆盖内联样式时使用 !important。
 
 可用钩子：
