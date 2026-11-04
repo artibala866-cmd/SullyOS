@@ -10,8 +10,8 @@ export default function BootAnimationSettings({theme,updateTheme}: {
     <p className="mt-1 text-[10px] leading-relaxed text-slate-400">下次启动时生效。动画开关在「动画与过场」中，关闭后仍会记住所选风格。</p>
     <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="开机动画风格">
       {([
-        {id:'classic',name:'原版',description:'壁纸柔光 · 文字浮现'},
-        {id:'jellyfish',name:'水母',description:'紫色星光 · 小水母'},
+        {id:'classic',name:'宝宝狗·夜空',description:'柔光星空 · 小狗封面'},
+        {id:'jellyfish',name:'宝宝狗·暖心',description:'奶油暖色 · 手绘小狗'},
       ] as const).map(option => <button key={option.id} type="button"
         aria-pressed={(theme.bootAnimationStyle || 'jellyfish') === option.id}
         onClick={()=>updateTheme({bootAnimationStyle:option.id})}

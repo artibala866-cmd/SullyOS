@@ -119,7 +119,7 @@ const ClassicBootSequence: React.FC<Props> = ({ dataReady, wallpaper, onDone }) 
   return (
     <div
       onClick={skip}
-      aria-label="SullyOS·糯米机"
+      aria-label="宝宝狗"
       className="fixed inset-0 z-[9999] overflow-hidden select-none cursor-pointer"
       style={{
         background: '#05060f',
@@ -217,14 +217,16 @@ const ClassicBootSequence: React.FC<Props> = ({ dataReady, wallpaper, onDone }) 
 
         {/* 前景：logo 自景深浮现 + 光线 + tagline（UI 从场景中生长出来） */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 pointer-events-none">
-          <div className="text-white font-light" style={{
-            fontSize: 'clamp(38px, 12vw, 64px)',
-            letterSpacing: '0.04em',
-            textShadow: '0 0 36px rgba(170,150,255,0.55), 0 2px 14px rgba(0,0,0,0.4)',
+          <div className="flex flex-col items-center" style={{
             animation: cinematic ? 'bootLogoIn 1400ms cubic-bezier(0.22,1,0.36,1) 250ms both' : 'bootLogoIn 600ms ease-out both',
           }}>
-            Sully<span style={{ fontWeight: 500 }}>OS</span>
-            <small className="block text-center text-[14px] tracking-[0.25em] mt-2">· 糯米机</small>
+            <img src={import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105'} alt="宝宝狗手绘小狗"
+              className="w-[min(65vw,310px)] max-w-full object-contain" draggable={false} />
+            <div className="mt-1 text-center" style={{
+              fontFamily: "'ZCOOL KuaiLe','Ma Shan Zheng','Noto Sans SC',cursive",
+              fontSize: 'clamp(42px, 12vw, 66px)', fontWeight: 500, letterSpacing: '0.07em',
+              color: '#fff2c8', textShadow: '0 3px 18px rgba(0,0,0,0.6)',
+            }}>宝宝狗</div>
           </div>
           <div className="mt-3 h-px w-28" style={{
             background: 'linear-gradient(90deg, transparent, rgba(200,190,255,0.85), transparent)',

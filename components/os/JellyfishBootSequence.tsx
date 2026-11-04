@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
 
-// CSS 水母开场：紫黑星空、轻浮与微光，沿用原有数据等待和同会话短开场。
+// 宝宝狗原图开场：保留原有数据等待、短开场和减少动态效果支持。
 // 动画仅使用 transform / opacity；减少动态效果时以静态图形呈现。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
 
@@ -95,12 +95,12 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster }) =
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); skip(); } }}
       role="button"
       tabIndex={0}
-      aria-label="SullyOS·糯米机，轻触进入"
+      aria-label="宝宝狗，轻触进入"
       style={{ opacity: exiting ? 0 : 1, transition: 'opacity ' + EXIT + 'ms ease-in' }}
     >
       {showPoster ? <div className="sully-boot-poster-scene">
         <div className="sully-boot-poster-frame">
-          <img src={poster} alt="SullyOS 糯米机·中秋，月亮上的猫与玉兔" className="sully-boot-poster" draggable={false}
+          <img src={poster} alt="宝宝狗·中秋，月亮上的猫与玉兔" className="sully-boot-poster" draggable={false}
             onLoad={() => {
               startRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
               setPosterLoaded(true);
@@ -116,16 +116,9 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster }) =
           }} />
         ))}
         <div className="sully-boot-art" aria-hidden="true">
-          <div className="sully-boot-orbit" />
-          <div className="sully-boot-jelly">
-            <div className="sully-boot-threads"><i /><i /><i /></div>
-            <div className="sully-boot-ribbons"><i /><i /><i /><i /></div>
-            <div className="sully-boot-bell"><div className="sully-boot-facets" /><span>∞</span><i className="sully-boot-shine" /></div>
-          </div>
-          <i className="sully-boot-planet planet-one" /><i className="sully-boot-planet planet-two" /><i className="sully-boot-planet planet-three" />
-          <i className="sully-boot-spark spark-one" /><i className="sully-boot-spark spark-two" /><i className="sully-boot-spark spark-three" />
+          <img className="sully-boot-dog" src={import.meta.env.BASE_URL + 'icons/baby-dog-512.png?v=babydog-20261105'} alt="" draggable={false} />
         </div>
-        <div className="sully-boot-wordmark">Sully<span>OS<i /></span><small>糯米机</small></div>
+        <div className="sully-boot-wordmark sully-boot-dog-wordmark">宝宝狗</div>
         <div className="sully-boot-rule" aria-hidden="true" />
         <p className="sully-boot-greeting">欢迎回家</p>
       </div>}
