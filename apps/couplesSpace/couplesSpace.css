@@ -1195,3 +1195,112 @@
   .couple-compose-metadata {gap:8px;}
   .couple-compose-buttons {padding-inline:13px;}
 }
+
+/* A growing terrarium is not a block of text or a generic log form. */
+.couple-content-mode .couple-plant-room {
+  --garden:#45464a;
+  padding:0 0 28px;
+  color:#27282b;
+}
+.couple-plant-header { display:grid;gap:7px;margin:0 0 15px; }
+.couple-plant-header > span {font-size:9px;letter-spacing:.15em;color:#81828a;}
+.couple-plant-header strong {font-size:17px;font-weight:580;color:#34353a;}
+.couple-plant-scene {
+  height:225px;position:relative;isolation:isolate;
+  display:grid;place-items:center;overflow:hidden;
+  border:1px solid #e3e4e5;border-radius:22px;
+  background:radial-gradient(ellipse at 50% 40%,#fff 0,#f4f5f3 66%,#e5e6e4 100%);
+}
+.couple-plant-scene::before {content:"";position:absolute;width:230px;height:110px;border:1px solid #dddfe0;border-radius:50%;top:53px;transform:rotate(-11deg);}
+.couple-plant-scene::after {content:"";position:absolute;width:160px;height:18px;bottom:25px;left:50%;transform:translateX(-50%);border-radius:50%;background:#20202212;filter:blur(9px);}
+.couple-plant-scene-sun {position:absolute;right:28px;top:25px;width:37px;height:37px;border:1px solid #cfd1d0;border-radius:50%;}
+.couple-plant-scene-caption {position:absolute;left:18px;bottom:17px;font-size:9px;letter-spacing:.18em;color:#88898e;z-index:5;}
+.couple-plant-specimen {width:124px;height:165px;position:relative;z-index:2;display:block;}
+.couple-plant-specimen-pot {
+  position:absolute;left:35px;bottom:7px;width:60px;height:47px;
+  background:linear-gradient(120deg,#e6e7e5,#c5c6c5);clip-path:polygon(0 0,100% 0,83% 100%,17% 100%);
+  border-radius:4px 4px 13px 13px;box-shadow:0 6px 12px #00000012;
+}
+.couple-plant-specimen-pot::before {content:"";position:absolute;left:0;top:0;width:100%;height:7px;background:#999b9c;}
+.couple-plant-specimen-stem {position:absolute;bottom:51px;left:64px;height:85px;width:4px;background:#555d57;border-radius:4px;transform:rotate(3deg);transform-origin:bottom center;}
+.couple-plant-specimen-leaf {
+  position:absolute;width:38px;height:24px;background:linear-gradient(140deg,#929b91,#555c56);
+  border-radius:100% 2% 100% 2%;bottom:85px;
+}
+.couple-leaf-left {left:28px;transform:rotate(26deg);}
+.couple-leaf-right {left:65px;bottom:105px;transform:scaleX(-1) rotate(21deg);}
+.couple-plant-specimen-bloom {
+  position:absolute;left:50px;top:12px;width:33px;height:33px;background:#f6f6f6;border:1px solid #a6aaa7;
+  border-radius:50%;box-shadow:0 0 0 8px #e0e2df, 0 0 0 9px #b6b9b6;
+}
+.couple-plant-stage-种子 .couple-plant-specimen-stem,
+.couple-plant-stage-种子 .couple-plant-specimen-leaf,
+.couple-plant-stage-种子 .couple-plant-specimen-bloom {display:none;}
+.couple-plant-stage-种子 .couple-plant-specimen::before {
+  content:"";position:absolute;left:57px;bottom:50px;width:17px;height:11px;border-radius:60%;background:#7e817e;
+}
+.couple-plant-stage-嫩芽 .couple-plant-specimen-bloom,
+.couple-plant-stage-嫩芽 .couple-leaf-right {display:none;}
+.couple-plant-stage-嫩芽 .couple-plant-specimen-stem {height:48px;}
+.couple-plant-stage-嫩芽 .couple-leaf-left {bottom:71px;left:34px;width:24px;height:17px;}
+.couple-plant-stage-茂盛 .couple-plant-specimen-bloom {display:none;}
+.couple-plant-stage-枯萎 .couple-plant-specimen-stem {background:#84817c;transform:rotate(24deg);}
+.couple-plant-stage-枯萎 .couple-plant-specimen-leaf {background:#a8a4a0;transform:rotate(-30deg);}
+.couple-plant-stage-枯萎 .couple-plant-specimen-bloom {display:none;}
+.couple-plant-status {display:flex;justify-content:space-between;gap:12px;margin:16px 4px 10px;}
+.couple-plant-status > div {display:flex;flex-direction:column;gap:5px;}
+.couple-plant-status > div:last-child {text-align:right;}
+.couple-plant-status span {font-size:10px;color:#85868b;}
+.couple-plant-status strong {font-size:18px;font-weight:530;color:#313237;font-variant-numeric:tabular-nums;}
+.couple-content-mode .couple-plant-room progress {width:100%;height:5px;border:0;border-radius:10px;accent-color:#4b5050;overflow:hidden;}
+.couple-plant-room progress::-webkit-progress-bar {background:#dfe0e1;border-radius:10px;}
+.couple-plant-room progress::-webkit-progress-value {background:#55595a;border-radius:10px;}
+.couple-plant-room progress::-moz-progress-bar {background:#55595a;border-radius:10px;}
+.couple-content-mode .couple-plant-last {margin:8px 4px 13px;font-size:11px;}
+.couple-content-mode .couple-plant-room .couple-plant-actions {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0;
+}
+.couple-content-mode .couple-plant-room .couple-plant-actions button {min-height:44px;border-radius:12px;font-size:12px;}
+.couple-content-mode .couple-plant-room .couple-plant-actions button:first-child {background:#303136;color:#fff;border-color:#303136;}
+.couple-plant-footnote {font-size:10px;color:#7d7f84;line-height:1.7;margin:0 3px 9px;}
+.couple-plant-auto {display:flex;align-items:center;gap:10px;padding:12px 13px;margin:12px 0 21px;background:#fff;border-radius:12px;border:1px solid #e5e5e7;font-size:11px;color:#55565b;}
+.couple-plant-auto input {flex:0 0 16px;width:16px;height:16px;}
+.couple-plant-gallery {border-top:1px solid #dcdde0;padding-top:20px;margin-top:17px;}
+.couple-plant-gallery-heading {display:grid;gap:5px;margin-bottom:13px;}
+.couple-plant-gallery-heading > span {font-size:9px;letter-spacing:.15em;color:#88898f;}
+.couple-content-mode .couple-plant-gallery-heading h3 {font-size:16px;color:#34353a;}
+.couple-plant-flowers {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.couple-flower-card {display:flex;flex-direction:column;gap:6px;min-height:143px;padding:16px;background:#fff;border:1px solid #e7e7e9;border-radius:15px;}
+.couple-flower-card .couple-flower-mark {font-size:27px;color:#606165;}
+.couple-flower-card strong {color:#3a3b3f;font-size:14px;}
+.couple-flower-card small {color:#85868b;font-size:10px;}
+.couple-flower-empty {display:grid;place-items:center;min-height:91px;border:1px dashed #d6d6d9;border-radius:13px;font-size:11px;color:#7c7d83;background:#fff;}
+/* Dedicated portrait-led interaction studio, with tool chips and inline response bubble. */
+.couple-content-mode .couple-touch-room {margin:0;padding:0 0 22px;background:transparent;border:0;}
+.couple-touch-heading {display:grid;gap:6px;margin-bottom:15px;}
+.couple-touch-heading > span {font-size:9px;letter-spacing:.15em;color:#86878c;}
+.couple-content-mode .couple-touch-heading strong {font-size:17px;color:#343539;font-weight:590;}
+.couple-content-mode .couple-touch-heading p {margin:0;color:#77787e;font-size:11px;}
+.couple-content-mode .couple-touch-room > .couple-actions:first-of-type {margin-top:10px;}
+.couple-content-mode .couple-touch-room .couple-file {display:inline-flex;position:relative;align-items:center;padding:10px 13px;margin:6px 0 13px;min-height:38px;border:1px dashed #c5c6cb;border-radius:12px;background:#fff;color:#55565b;font-size:11px;cursor:pointer;}
+.couple-content-mode .couple-touch-room .couple-file input {position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;}
+.couple-content-mode .couple-touch-room details {padding:11px 13px;background:#fff;border:1px solid #e5e5e7;border-radius:13px;margin-bottom:14px;}
+.couple-touch-room details summary {font-size:12px;color:#3f4045;cursor:pointer;}
+.couple-content-mode .couple-touch-frame {
+  position:relative;width:min(100%,340px);min-height:255px;padding:15px;margin:10px auto 15px;
+  border-radius:22px;background:radial-gradient(ellipse at 51% 43%,#fff 15%,#ededee 100%);border:1px solid #e2e3e6;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.couple-touch-frame::before {content:"";position:absolute;inset:9px;border:1px dashed #cccdd1;border-radius:16px;pointer-events:none;}
+.couple-content-mode .couple-touch-frame img {position:relative;width:auto;max-width:100%;max-height:415px;object-fit:contain;border-radius:12px;z-index:1;touch-action:manipulation;}
+.couple-content-mode .couple-touch-frame .couple-hotspot {z-index:3;background:#ffffffc9;border:1px solid #88898e;border-radius:99px;font-size:10px;transform:translate(-50%,-50%);}
+.couple-touch-room .couple-portrait-empty {min-height:240px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:13px;text-align:center;font-size:11px;color:#78797e;}
+.couple-content-mode .couple-touch-room .couple-actions {gap:7px;}
+.couple-content-mode .couple-touch-room .couple-actions button {border-radius:99px;padding:9px 12px;min-height:36px;}
+.couple-content-mode .couple-touch-room .couple-actions button[aria-pressed="true"] {background:#36373c;color:#fff;border-color:#36373c;}
+.couple-content-mode .couple-touch-room > p[aria-live] {margin:14px 2px;padding:15px 17px;background:#fff;border-radius:16px;border:1px solid #ededee;color:#47484d;line-height:1.8;font-size:12px;}
+.couple-content-mode .couple-touch-full {
+  position:absolute;inset:0;z-index:4;min-height:0;overflow:auto;margin:0;padding:13px;
+  background:#f6f6f7;border-radius:0;
+}
+@media(max-width:350px){.couple-plant-scene {height:196px;}.couple-content-mode .couple-touch-frame {min-height:220px;padding:10px;}}
