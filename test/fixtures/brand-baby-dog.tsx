@@ -15,22 +15,19 @@ createRoot(root).render(
 // Inspect the real React cover. Do not accept screenshots of an unloaded logo,
 // missing title, clipped illustration or a replaced/AI-generated placeholder.
 const inspect = (attempt = 0) => {
-  const image = document.querySelector<HTMLImageElement>(
-    classic ? 'img[alt="宝宝狗手绘小狗"]' : 'img.sully-boot-dog',
-  );
+  const image = document.querySelector<HTMLImageElement>('img.sully-boot-dog');
   if ((!image || !image.complete) && attempt < 45) {
     setTimeout(() => inspect(attempt + 1), 100);
     return;
   }
-  const title = classic
-    ? Array.from(document.querySelectorAll('div')).find(el =>
-      el.textContent?.trim() === '宝宝狗' && el.getAttribute('style')?.includes('font-family'))
-    : document.querySelector<HTMLElement>('.sully-boot-dog-wordmark');
+  const title = document.querySelector<HTMLElement>('.sully-boot-dog-wordmark');
   const bounds = image?.getBoundingClientRect();
   const checks = {
     originalDogImageLoaded: !!image?.complete && (image?.naturalWidth ?? 0) >= 192,
     dogNotClipped: !!bounds && bounds.width > 90 && bounds.left >= -2 && bounds.right <= innerWidth + 2,
-    dogTitleVisible: !!title && (title as HTMLElement).getBoundingClientRect().width > 30,
+    dogTitleVisible: !!title && title.getBoundingClientRect().width > 30,
+    correctCoverVariant: document.querySelector('.sully-boot')?.getAttribute('data-variant') === (classic ? 'night' : 'warm'),
+    noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth,
     oldBrandNotVisible: !document.body.innerText.includes('糯米机'),
     oldSullyWordmarkNotVisible: !document.body.innerText.includes('SullyOS'),
   };
