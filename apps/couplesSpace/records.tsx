@@ -201,9 +201,10 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
-export function BondRecords({ kind, bond, names, change, generate, share, busy }: {
+export function BondRecords({ kind, bond, names, change, generate, share, busy, avatarMe, avatarThem, charId, onNativeJournal }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
   generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
+  avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
 }) {
   const [draft, setDraft] = useState<Entry>();
   const [filter, setFilter] = useState('all');
@@ -273,24 +274,10 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
   const latest = rows[0];
   const countDone = kind === 'wish' ? rows.filter(row => row.done).length : rows.length;
   return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '')}>
-    <section className="couple-record-feature">
-      <div className="couple-record-feature-copy">
-        <span className="couple-record-overline">{look.english}</span>
-        <strong>{kind === 'wish' ? countDone + ' / ' + rows.length + ' 已完成' : kind === 'capsule' ? capsules.filter(row => capsuleStatus(row, today) === 'ready').length + ' 封待拆' : rows.length + ' 份收藏'}</strong>
-        <p>{look.intro}</p>
-      </div>
-      <RecordArt kind={kind} date={latest?.date || today} count={rows.length} image={kind === 'gift' ? latest?.image : undefined} />
-    </section>
-    <div className="couple-record-actions">
-      <div className="couple-actions">
-      <button disabled={working || busy} onClick={() => setDraft(newEntry())}>{look.create}</button>
-      <button disabled={working || busy} onClick={() => void run(generated)}>{working || busy ? '处理中…' : `请 ${names.them} 写`}</button>
-      {kind === 'hollow' && <button disabled={!rows.length} onClick={() => {
-        const row = rows[Math.floor(Math.random() * rows.length)];
-        document.getElementById(`bond-entry-${row.id}`)?.scrollIntoView({ block: 'center' });
-      }}>摇一摇</button>}
-      </div>
-    </div>
+    {!draft && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
+      avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
+      onNew={() => setDraft(newEntry())} onAI={() => void run(generated)} busy={working || busy}
+      onJump={id => document.getElementById('bond-entry-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />}
     {kind === 'diary' && <details className="couple-record-preferences">
       <summary>日记偏好 <span>自动写作与回顾设置</span></summary>
       <div className="couple-record-preferences-body">
@@ -405,11 +392,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         <button type="button" onClick={() => setDraft(undefined)}>取消</button>
       </div>
     </form>}
-    {!rows.length && !draft && <section className="couple-record-empty">
-      <span className="couple-record-empty-line" aria-hidden="true">—</span>
-      <strong>{look.empty}</strong>
-      <button type="button" onClick={() => setDraft(newEntry())}>＋ {look.create}</button>
-    </section>}
+
     {!draft && rows.map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
