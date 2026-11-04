@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
@@ -304,11 +304,14 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
+  const operationRef = useRef(false);
   const run = async (task: () => Promise<void>) => {
+    if (operationRef.current || busy) return;
+    operationRef.current = true;
     setWorking(true);
     setError('');
     try { await task(); } catch (e) { setError(e instanceof Error ? e.message : '操作失败'); }
-    finally { setWorking(false); }
+    finally { operationRef.current = false; setWorking(false); }
   };
   const save = async (entry: Entry) => {
     await change(current => ({
@@ -333,12 +336,15 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   }[kind];
   const newEntry = () => ({ ...createEntry(kind, '', ''), unlockDate: kind === 'capsule' ? capsuleDate(1) : undefined });
   const generated = async () => {
-    const content = await generate(roleInstruction);
+    const content = (await generate(roleInstruction)).trim();
+    if (!content) throw new Error('角色没有生成可保存的内容，请重试');
     const [first, ...rest] = content.split('\n').filter(line => line.trim());
     const entry = { ...newEntry(), side: 'them' as const };
     if (kind === 'anniversary') {
       const match = first?.match(/^(\d{4}-\d{2}-\d{2})\s*[｜|]\s*(.+)$/);
-      if (!match || !Number.isFinite(Date.parse(match[1]))) throw new Error('目前没有找到日期明确的纪念事件');
+      const parsed = match ? new Date(match[1] + 'T12:00:00') : undefined;
+      if (!match || !parsed || !Number.isFinite(parsed.getTime()) || dayKey(parsed) !== match[1])
+        throw new Error('目前没有找到有效日期的纪念事件');
       await save({ ...entry, date: match[1], title: match[2], body: rest.join('\n') });
       return;
     }
@@ -376,7 +382,12 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     const photo = <label className="couple-edit-photo">{kind==='gift'?'礼物照片':'这一页的照片'}
       <span className="couple-edit-photo-box">{draft.image?<TokenImg value={draft.image} alt="记录照片"/>:<span>＋ 添加照片</span>}</span>
       <input type="file" accept="image/*" disabled={working} onChange={event=>{
-        const file=event.target.files?.[0];if(file) void run(async()=>patch({image:await processImage(file,{maxWidth:720})}));
+        const file = event.target.files?.[0];
+        if (file) void run(async () => {
+          if (!file.type.startsWith('image/') || file.size > 12 * 1024 * 1024)
+            throw new Error('请选择 12 MB 以内的图片');
+          patch({image: await processImage(file, {maxWidth:720})});
+        });
       }}/></label>;
     const steps = <div className="couple-compose-checklist"><strong>想一起完成的小步骤</strong>
       {(draft.steps??[]).map((step,index)=><div className="couple-compose-step" key={index}>
@@ -506,7 +517,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
           {state === 'ready' ? '可以拆封' : state === 'sealed' ? '封存中' : item.openedEarly ? '提前拆封' : '已拆封'}
         </span>}
         {sealed ? <>
-          <p>{item.unlockDate} 开启</p>
+          <p>{item.unlockDate ? item.unlockDate + ' 开启' : '此信未设置拆封日期，需主动确认才能打开。'}</p>
           {earlyId === item.id ? <div className="couple-inline-confirm">
             <p>现在打开会记为提前拆封。</p>
             <div className="couple-actions"><button disabled={working} className="couple-primary" onClick={() => openCapsule(item.id, true)}>确认提前拆封</button>
@@ -517,7 +528,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
               {state === 'ready' ? '拆封' : '提前拆封'}
             </button>
             <button disabled={working} onClick={() => {
-              if (window.confirm('删除这封尚未拆开的信？')) void run(() => change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) })));
+              if (window.confirm('删除这封尚未拆开的信？')) void run(async () => {
+                 await change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) }));
+                 setEarlyId(undefined);
+                 setActiveRecordId(undefined);
+               });
             }}>删除</button>
           </div>}
         </> : <>
@@ -558,7 +573,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
             }}>{item.reply ? '重写回信' : '回信'}</button>}
             {(kind === 'mail' || kind === 'capsule') && share && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
             <button disabled={working} onClick={() => {
-              if (window.confirm('删除这条记录？')) void run(() => change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) })));
+              if (window.confirm('删除这条记录？')) void run(async () => {
+                 await change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) }));
+                 setReplyDraft(undefined);
+                 setActiveRecordId(undefined);
+               });
             }}>删除</button>
           </div>
         </>}
