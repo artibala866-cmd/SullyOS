@@ -274,6 +274,87 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   const look = recordLooks[kind];
   const latest = rows[0];
   const countDone = kind === 'wish' ? rows.filter(row => row.done).length : rows.length;
+
+  const renderComposePaper = () => {
+    if (!draft) return null;
+    const date = <label className="couple-edit-date">日期<input type="date" required value={draft.date} onChange={event => patch({date:event.target.value})}/></label>;
+    const person = <label className="couple-edit-person">记录者<select value={draft.side} onChange={event=>patch({side:event.target.value as Side})}>
+      <option value="me">{names.me}</option><option value="them">{names.them}</option></select></label>;
+    const title = <label className="couple-edit-title">{kind==='mail'?'信件主题':kind==='hollow'?'心事代号':'标题'}
+      <input required maxLength={140} value={draft.title} placeholder={look.title} onChange={event=>patch({title:event.target.value})}/></label>;
+    const note = <label className="couple-edit-note">{kind==='diary'?'日记内页':kind==='mail'?'信纸正文':'想记下的事'}
+      <textarea maxLength={10000} value={draft.body} placeholder={look.body} onChange={event=>patch({body:event.target.value})}/></label>;
+    const photo = <label className="couple-edit-photo">{kind==='gift'?'礼物照片':'这一页的照片'}
+      <span className="couple-edit-photo-box">{draft.image?<TokenImg value={draft.image} alt="记录照片"/>:<span>＋ 添加照片</span>}</span>
+      <input type="file" accept="image/*" disabled={working} onChange={event=>{
+        const file=event.target.files?.[0];if(file) void run(async()=>patch({image:await processImage(file,{maxWidth:720})}));
+      }}/></label>;
+    const steps = <div className="couple-compose-checklist"><strong>想一起完成的小步骤</strong>
+      {(draft.steps??[]).map((step,index)=><div className="couple-compose-step" key={index}>
+        <span className="couple-compose-step-bullet" aria-hidden>{step.done?'✓':''}</span>
+        <input aria-label={'第'+(index+1)+'个步骤'} value={step.text} placeholder="一起完成的一件事"
+          onChange={event=>patch({steps:(draft.steps??[]).map((v,i)=>i===index?{...v,text:event.target.value}:v)})}/>
+        <button type="button" aria-label={'删除步骤'+(index+1)}
+          onClick={()=>patch({steps:(draft.steps??[]).filter((_,i)=>i!==index)})}>×</button>
+      </div>)}
+      <button type="button" className="couple-compose-step-add"
+        onClick={()=>patch({steps:[...(draft.steps??[]),{text:'',done:false}]})}>＋ 再写一个小步骤</button>
+    </div>;
+    const stickers = <div className="couple-diary-sticker-tray"><span>给日记角落做个标记</span>
+      <div className="couple-diary-sticker-chips">
+        {['♡','✦','☾','☼'].map(sticker=><button type="button" key={sticker}
+          aria-pressed={!!draft.stickers?.includes(sticker)}
+          onClick={()=>patch({stickers:draft.stickers?.includes(sticker)
+            ?draft.stickers.filter(v=>v!==sticker):[...(draft.stickers??[]).filter(Boolean),sticker].slice(0,16)})}>{sticker}</button>)}
+      </div>
+    </div>;
+    if(kind==='anniversary') return <div className="couple-edit-anniversary">
+      <div className="couple-edit-anniversary-banner"><span>ONE MORE DAY TO REMEMBER</span>
+        <div className="couple-edit-anniversary-date"><strong>{draft.date.slice(8,10)}</strong><span>{draft.date.slice(5,7)} / {draft.date.slice(0,4)}</span></div>
+        <div className="couple-edit-anniversary-pair"><SceneAvatar value={avatarMe} name={names.me}/><span>♡</span><SceneAvatar value={avatarThem} name={names.them}/></div>
+      </div><div className="couple-edit-anniversary-fields">{date}{title}{note}{photo}{person}</div>
+    </div>;
+    if(kind==='diary') return <div className="couple-edit-diary">
+      <div className="couple-edit-diary-top"><span>MY PAGE · {draft.date}</span><strong>翻开今天的日记</strong></div>
+      <div className="couple-edit-diary-contents">
+        <div className="couple-edit-diary-left">{date}{person}{title}{note}</div>
+        <div className="couple-edit-diary-right"><span>YOUR SIDE</span><small>{names.them} 的那一页，在原生交换日记中。</small>
+          {onNativeJournal&&<button type="button" onClick={onNativeJournal}>打开原生日记 ↗</button>}</div>
+      </div>{stickers}{photo}
+    </div>;
+    if(kind==='mail') return <div className="couple-edit-mail">
+      <div className="couple-edit-mail-envelope"><span>POSTED WITH CARE</span>
+        <div><small>FROM</small><strong>{names[draft.side]}</strong></div>
+        <div><small>TO</small><strong>{names[draft.side==='me'?'them':'me']}</strong></div>
+        <span className="couple-edit-mail-stamp">✳</span></div>
+      <div className="couple-edit-mail-letter">{title}{note}<div className="couple-edit-mail-signature">{person}{date}</div></div>
+    </div>;
+    if(kind==='timeline') return <div className="couple-edit-timeline">
+      <div className="couple-edit-timeline-date"><span>NEW MOMENT</span><strong>{draft.date.slice(8,10)}</strong><span>{draft.date.slice(5,7)} / {draft.date.slice(0,4)}</span></div>
+      <div className="couple-edit-timeline-page">{title}{note}{photo}<div className="couple-edit-timeline-by">{date}{person}</div></div>
+    </div>;
+    if(kind==='wish') return <div className="couple-edit-wish">
+      <div className="couple-edit-wish-paper"><span>WISH NO. {String(rows.length+1).padStart(2,'0')}</span>{title}{steps}{note}</div>
+      <div className="couple-edit-wish-meta">{person}{date}</div>
+    </div>;
+    if(kind==='gift') return <div className="couple-edit-gift">
+      <div className="couple-edit-gift-display"><span>FOR YOU</span>{photo}</div>
+      <div className="couple-edit-gift-label">{title}{note}<div>{person}{date}</div></div>
+    </div>;
+    if(kind==='capsule') return <div className="couple-edit-capsule">
+      <div className="couple-edit-capsule-header"><span>THE FUTURE AWAITS</span><strong>给未来的我们</strong><div className="couple-edit-capsule-seal">◉</div></div>
+      {!draft.opened&&<div className="couple-edit-capsule-when">
+        <label>约定拆封日<input required type="date" min={today} value={draft.unlockDate??''} onChange={event=>patch({unlockDate:event.target.value})}/></label>
+        <div className="couple-segments" aria-label="快捷开启日期">{([[1,'一个月'],[6,'半年'],[12,'一年']] as const).map(([n,l])=>
+          <button type="button" key={n} onClick={()=>patch({unlockDate:capsuleDate(n)})}>{l}</button>)}</div>
+      </div>}
+      <div className="couple-edit-capsule-message">{title}{note}<div>{person}{date}</div></div>
+    </div>;
+    return <div className="couple-edit-hollow">
+      <div className="couple-edit-hollow-header"><span>SEALED · JUST FOR YOU</span><strong>写下不想说出口的事</strong><small>写完后，它会收进私人抽屉。</small></div>
+      <div className="couple-edit-hollow-note">{note}{title}<div>{person}{date}</div></div>
+    </div>;
+  };
   return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
     {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
@@ -327,69 +408,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         setActiveRecordId(undefined);
       });
     }}>
-      <div className="couple-compose-intro">
-        <span>{look.english} / {rows.some(row => row.id === draft.id) ? 'EDIT' : 'NEW'}</span>
-        <strong>{look.create}</strong>
-        {kind === 'mail' && <div className="couple-compose-mail-route">
-          <span>FROM · {names[draft.side]}</span>
-          <span>TO · {names[draft.side === 'me' ? 'them' : 'me']}</span>
-        </div>}
-        <p>{look.intro}</p>
-      </div>
-      <div className="couple-compose-paper">
-        <div className="couple-compose-metadata">
-          <label>{kind === 'anniversary' ? '值得记住的日期' : '日期'}
-            <input type="date" required value={draft.date} onChange={event => patch({ date: event.target.value })} />
-          </label>
-          <label>署名
-            <select value={draft.side} onChange={event => patch({ side: event.target.value as Side })}>
-              <option value="me">{names.me}</option><option value="them">{names.them}</option>
-            </select>
-          </label>
-        </div>
-        <label className="couple-compose-heading">{kind === 'mail' ? '信件主题' : kind === 'hollow' ? '一个代号' : '标题'}
-          <input required value={draft.title} placeholder={look.title} onChange={event => patch({ title: event.target.value })} maxLength={140} />
-        </label>
-        <label className="couple-compose-textarea">{kind === 'mail' ? '信件正文' : kind === 'diary' ? '日记内页' : '内容'}
-          <textarea value={draft.body} placeholder={look.body} onChange={event => patch({ body: event.target.value })} maxLength={10000} />
-        </label>
-      </div>
-      {kind === 'wish' && <div className="couple-compose-checklist">
-        <span>愿望的小步骤</span>
-        {(draft.steps ?? []).map((step, index) => <div className="couple-compose-step" key={index}>
-          <span className="couple-compose-step-bullet" aria-hidden="true">{step.done ? '✓' : ''}</span>
-          <input aria-label={'第 ' + (index+1) + ' 个步骤'} placeholder="写下一个可以一起完成的步骤"
-            value={step.text} onChange={event => patch({ steps: (draft.steps ?? []).map((value, i) => i === index ? { ...value, text: event.target.value } : value) })} />
-          <button type="button" aria-label={'删除第 ' + (index+1) + ' 个步骤'}
-            onClick={() => patch({ steps: (draft.steps ?? []).filter((_, i) => i !== index) })}>×</button>
-        </div>)}
-        <button type="button" className="couple-compose-step-add"
-          onClick={() => patch({ steps: [...(draft.steps ?? []), { text: '', done: false }] })}>＋ 添加一个小步骤</button>
-      </div>}
-      {kind === 'capsule' && !draft.opened && <div className="couple-compose-unlock">
-        <label>开启日期<input required type="date" min={today} value={draft.unlockDate ?? ''} onChange={event => patch({ unlockDate: event.target.value })} /></label>
-        <div className="couple-segments" aria-label="快捷开启日期">
-          {([[1, '一个月'], [6, '半年'], [12, '一年']] as const).map(([months, label]) =>
-            <button key={months} type="button" onClick={() => patch({ unlockDate: capsuleDate(months) })}>{label}</button>)}
-        </div>
-      </div>}
-      {kind === 'diary' && <div className="couple-diary-sticker-tray">
-        <span>给这页贴上小贴纸</span>
-        <div className="couple-diary-sticker-chips">
-          {['♡', '✦', '☾', '☼'].map(sticker => <button key={sticker} type="button"
-            aria-pressed={!!draft.stickers?.includes(sticker)} aria-label={'贴纸 ' + sticker}
-            onClick={() => patch({ stickers: draft.stickers?.includes(sticker)
-              ? draft.stickers.filter(value => value !== sticker)
-              : [...(draft.stickers ?? []).filter(Boolean), sticker].slice(0, 16) })}>{sticker}</button>)}
-        </div>
-      </div>}
-      {(['gift', 'diary', 'timeline', 'anniversary'] as EntryKind[]).includes(kind) && <label className="couple-compose-gift-photo">
-        <span>{kind === 'gift' ? '礼物照片' : kind === 'diary' ? '这一页的照片' : kind === 'anniversary' ? '纪念日照片' : '这一刻的照片'}</span>
-        <div className="couple-compose-photo-preview">{draft.image ? <TokenImg value={draft.image} alt="记录照片预览" /> : <span>{kind === 'gift' ? '添加礼物照片' : '为这段记录添加一张照片'}</span>}</div>
-        <input type="file" accept="image/*" disabled={working} onChange={event => {
-        const file = event.target.files?.[0];
-        if (file) void run(async () => patch({ image: await processImage(file, { maxWidth: 720 }) }));
-      }} /></label>}
+      {renderComposePaper()}
       <div className="couple-compose-buttons">
         <button className="couple-primary" disabled={working}>{kind === 'capsule' ? '保存并封存' : '保存这张卡片'}</button>
         <button type="button" onClick={() => setDraft(undefined)}>取消</button>
