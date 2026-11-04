@@ -124,7 +124,8 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
 
 export default function CouplesSpaceApp() {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, userProfile, apiConfig, addToast } = useOS();
-  const [partnerId, setPartnerId] = useState(() => activeCharacterId || characters[0]?.id || '');
+  const [partnerId, setPartnerId] = useState(() => characters.some(item => item.id === activeCharacterId) ? activeCharacterId : characters[0]?.id || '');
+  const [pickerStep, setPickerStep] = useState<'orbit' | 'actions' | 'space'>('orbit');
   const [pairs, setPairs] = useState(false);
   const [pair, setPair] = useState<string[]>([]);
   const [pairA, setPairA] = useState('');
@@ -163,13 +164,20 @@ export default function CouplesSpaceApp() {
     return () => { active = false; window.removeEventListener('focus', load); requestRef.current?.abort(); };
   }, []);
   useEffect(() => { setError(''); setDigest(undefined); }, [key]);
-  useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [panel, key, pairs]);
+  useEffect(() => {
+    if (characters.length && !characters.some(item => item.id === partnerId)) {
+      setPartnerId(characters[0].id);
+      setPickerStep('orbit');
+    }
+  }, [characters, partnerId]);
+  useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [panel, key, pairs, pickerStep]);
   const back = () => {
     if (busy) return true;
     if (lockedPanel) { setLockedPanel(undefined); return true; }
     if (panel) { setPanel(undefined); return true; }
     if (isPair) { setPair([]); return true; }
-    if (pairs) { setPairs(false); return true; }
+    if (pairs) { setPairs(false); setPickerStep('orbit'); return true; }
+    if (pickerStep !== 'orbit') { setPickerStep('orbit'); return true; }
     return false;
   };
   useLocalBackHandler(back, 25);
@@ -232,7 +240,8 @@ export default function CouplesSpaceApp() {
       const next = current?.status === 'pending' ? current : { ...createBond(members, selectedRelation), ...current, id: crypto.randomUUID() };
       return { ...next, status: direct ? 'open' : 'pending', start: dayKey() };
     });
-    if (!pending || direct || pending.status === 'open') return;
+    if (!pending) return;
+    if (direct || pending.status === 'open') { setPickerStep('space'); return; }
     await DB.saveMessageOnce(`couples-invite:${pending.id}`, {
       charId: char.id, role: 'user', type: 'text',
       content: `【情侣空间邀请】我想和你建立一个${relationNames[pending.relation]}空间，你愿意吗？`, metadata: { couplesSpace: { label: '绑定邀请' } },
@@ -248,6 +257,7 @@ export default function CouplesSpaceApp() {
       charId: char.id, role: 'assistant', type: 'text',
       content: `【${response.accept ? '接受邀请' : '婉拒邀请'}】${response.reply.trim()}`, metadata: { couplesSpace: { label: '邀请答复' } },
     });
+    if (response.accept) setPickerStep('space');
     openChat();
   });
   const upload = (file: File | undefined, field: 'cover' | 'portrait') => {
@@ -266,7 +276,7 @@ export default function CouplesSpaceApp() {
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
   const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : '情侣空间';
 
-  return <div className="couple-app">
+  return <div className={'couple-app' + (!pairs && !panel && pickerStep === 'orbit' ? ' couple-picker-mode' : '')}>
     <header className="couple-header">
       <button aria-label="返回" onClick={() => { if (!back()) closeApp(); }}><ArrowLeft size={20} /></button>
       <h1>{headerTitle}</h1>
@@ -297,12 +307,15 @@ export default function CouplesSpaceApp() {
           }}>删除</button>
         </div>)}
       </>}
-      {spaces && !pairs && bond?.status !== 'open' && <section className="couple-lock">
+      {spaces && !pairs && pickerStep === 'orbit' && <OrbitCharacterPicker
+        characters={characters} selectedId={partnerId} status={bond?.status} busy={busy}
+        onSelect={id => setPartnerId(id)}
+        onContinue={() => setPickerStep(bond?.status === 'open' ? 'space' : 'actions')}
+        onPairs={() => setPairs(true)} />}
+      {spaces && !pairs && pickerStep === 'actions' && bond?.status !== 'open' && <section className="couple-lock couple-bind-step">
         <div className="couple-avatars"><Avatar person={userProfile} /><Heart weight="duotone" size={25} />{char && <Avatar person={char} />}</div>
-        <h2>两个人的专属空间</h2><p>选一位角色和关系定位，收藏一起走过的日子。</p>
-        <label>选择角色<select value={partnerId} disabled={busy} onChange={event => setPartnerId(event.target.value)}>
-          <option value="">请选择</option>{characters.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </select></label>
+        <small className="couple-bind-kicker">RELATIONSHIP · 02</small>
+        <h2>与 {char?.name ?? 'TA'} 建立羁绊</h2><p>先选择你们的关系，再决定如何发出邀请。</p>
         <label>关系定位<select value={selectedRelation} disabled={busy || bond?.status === 'pending'} onChange={event => {
           const selected = event.target.value as Relation;
           setRelation(selected);
@@ -312,9 +325,9 @@ export default function CouplesSpaceApp() {
         {bond?.status === 'pending' && <p>邀请已发出，等待角色回应。</p>}
         <button className="couple-primary" disabled={busy || !char} onClick={() => bind(false)}>{busy ? '等待回应…' : bond?.status === 'pending' ? '获取邀请回应' : '发送绑定申请'}</button>
         <button disabled={busy || !char} onClick={() => bind(true)}>直接建立羁绊</button>
-        <button disabled={busy} onClick={() => setPairs(true)}><Users size={17} /> 他们的空间</button>
+        <button disabled={busy} onClick={() => setPickerStep('orbit')}><CaretLeft size={17} /> 返回角色星轨</button>
       </section>}
-      {bond?.status === 'open' && char && (!isPair || other) && <>
+      {bond?.status === 'open' && char && (!isPair || other) && (isPair || (!pairs && pickerStep === 'space')) && <>
         {!panel && <>
           <section className="couple-hero">
             {bond.cover && <TokenImg value={bond.cover} className="couple-cover" alt="空间封面"
@@ -350,7 +363,7 @@ export default function CouplesSpaceApp() {
             </div>
           </section> : <div className="couple-card couple-split">
             <span>Lv.{bondLevel(bond)} · 专属牵绊<br /><small>距下一级 {100 - bondXp(bond) % 100} 点</small></span>
-            <select aria-label="切换角色" value={partnerId} onChange={event => setPartnerId(event.target.value)}>
+            <select aria-label="切换角色" value={partnerId} onChange={event => { setPartnerId(event.target.value); setPickerStep('orbit'); }}>
               {characters.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
             </select>
           </div>}
