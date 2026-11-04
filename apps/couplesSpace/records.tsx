@@ -178,6 +178,10 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       <div className="couple-compose-intro">
         <span>{look.english} / {rows.some(row => row.id === draft.id) ? 'EDIT' : 'NEW'}</span>
         <strong>{look.create}</strong>
+        {kind === 'mail' && <div className="couple-compose-mail-route">
+          <span>FROM · {names[draft.side]}</span>
+          <span>TO · {names[draft.side === 'me' ? 'them' : 'me']}</span>
+        </div>}
         <p>{look.intro}</p>
       </div>
       <div className="couple-compose-paper">
@@ -198,17 +202,25 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
           <textarea value={draft.body} placeholder={look.body} onChange={event => patch({ body: event.target.value })} maxLength={10000} />
         </label>
       </div>
-      {kind === 'wish' && <label>小目标（每行一个）<textarea value={draft.steps?.map(step => step.text).join('\n') ?? ''} onChange={event => {
-        const steps = event.target.value.split('\n').map(text => ({ text, done: draft.steps?.find(step => step.text === text)?.done ?? false }));
-        patch({ steps });
-      }} /></label>}
-      {kind === 'capsule' && !draft.opened && <>
+      {kind === 'wish' && <div className="couple-compose-checklist">
+        <span>愿望的小步骤</span>
+        {(draft.steps ?? []).map((step, index) => <div className="couple-compose-step" key={index}>
+          <span className="couple-compose-step-bullet" aria-hidden="true">{step.done ? '✓' : ''}</span>
+          <input aria-label={'第 ' + (index+1) + ' 个步骤'} placeholder="写下一个可以一起完成的步骤"
+            value={step.text} onChange={event => patch({ steps: (draft.steps ?? []).map((value, i) => i === index ? { ...value, text: event.target.value } : value) })} />
+          <button type="button" aria-label={'删除第 ' + (index+1) + ' 个步骤'}
+            onClick={() => patch({ steps: (draft.steps ?? []).filter((_, i) => i !== index) })}>×</button>
+        </div>)}
+        <button type="button" className="couple-compose-step-add"
+          onClick={() => patch({ steps: [...(draft.steps ?? []), { text: '', done: false }] })}>＋ 添加一个小步骤</button>
+      </div>}
+      {kind === 'capsule' && !draft.opened && <div className="couple-compose-unlock">
         <label>开启日期<input required type="date" min={today} value={draft.unlockDate ?? ''} onChange={event => patch({ unlockDate: event.target.value })} /></label>
         <div className="couple-segments" aria-label="快捷开启日期">
           {([[1, '一个月'], [6, '半年'], [12, '一年']] as const).map(([months, label]) =>
             <button key={months} type="button" onClick={() => patch({ unlockDate: capsuleDate(months) })}>{label}</button>)}
         </div>
-      </>}
+      </div>}
       {kind === 'diary' && <label>贴纸<input placeholder="例如 ♡ ✦ ☘" value={draft.stickers?.join(' ') ?? ''} onChange={event => patch({ stickers: event.target.value.split(' ').slice(0, 16) })} /></label>}
       {kind === 'gift' && <label className="couple-compose-gift-photo"><span>礼物照片</span>
         <div className="couple-compose-photo-preview">{draft.image ? <TokenImg value={draft.image} alt="礼物照片预览" /> : <span>添加一张照片，装进礼物卡</span>}</div>
