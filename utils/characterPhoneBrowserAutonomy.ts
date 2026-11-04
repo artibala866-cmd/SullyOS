@@ -113,10 +113,11 @@ export async function runCharacterPhoneBrowserAutonomy(
 已保存生活经历：${JSON.stringify(confirmed).slice(0,2000)}
 已有浏览记录，避免重复：${JSON.stringify(recent).slice(0,1200)}
 若角色没理由使用手机，可以返回 search:false。否则输出1至2条具体百度搜索词。
-每条必须包含 title（简短主题）、query（具体搜索短语，不要只有「电影/音乐/吃饭」等大词）、reason（Char 当时为什么要查、心里在想什么）、note（TA 准备找哪类信息，而非已经看到的网页结论）、mood（当时心情），以及sourceEventIds（最多2个确切对应的已保存生活事件ID；可空）。
+每条必须包含 title（简短主题）、query（具体搜索短语，不要只有「电影/音乐/吃饭」等大词）、reason（Char 当时为什么要查、心里在想什么）、note（TA 准备找哪类信息，而非已经看到的网页结论）、afterSearchThought（刚搜下关键词后 TA 心里的自然反应：结合自己已有常识，初步理解了什么、猜测下一步怎么做，或察觉之前没想明白的地方；要像角色的心声而非解释性报告）、mood（当时心情），以及sourceEventIds（最多2个确切对应的已保存生活事件ID；可空）。
+注意：没有网页读取接口，afterSearchThought 只是搜索后的即时思考与初步推测，必须明确区分“有所领悟”与“已经证实”，绝不能声称看到了真实搜索结果、阅读过某篇文章或得出了已核实结论。
 搜索行为可受到现实情绪影响，也可以由自己的工作、爱好、好奇、与NPC的未了话题触发。
 禁止编造实际百度结果、网页文章标题、权威结论、已完成的线下行动或用户搜索记录；不可输出网页正文。只输出JSON：
-{"search":true,"records":[{"title":"具体主题","query":"具体可搜索词","reason":"我为什么要查","note":"我想弄清什么","mood":"心情","sourceEventIds":[]}]}。
+{"search":true,"records":[{"title":"具体主题","query":"具体可搜索词","reason":"我为什么要查","note":"我想弄清什么","afterSearchThought":"搜完之后自己的初步领悟、疑问与下一步打算（非已读网页结果）","mood":"心情","sourceEventIds":[]}]}。
 内容务必符合真实角色自己的身份，不要为了填记录强行搜索。`},
         {role:'user',content:'由角色独立决定是否打开百度搜索，留下搜索动机和想法；没有自然动机就不搜索。'},
       ]}),
@@ -144,6 +145,7 @@ export async function runCharacterPhoneBrowserAutonomy(
         kind:'baidu-search', query,url,
       },'char',{
         origin:'ai-generated',title,aiJudgement:reason,summary:note,
+        afterSearchThought:text(item.afterSearchThought,340),
         mood:text(item.mood,90),plannedActivity:life.plannedActivity||undefined,
         sourceEventIds:Array.isArray(item.sourceEventIds)
           ?item.sourceEventIds.filter((v:unknown):v is string=>typeof v==='string'&&allowId.has(v)).slice(0,2):[],
