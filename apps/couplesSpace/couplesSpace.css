@@ -2313,3 +2313,86 @@
 .couple-content-mode .couple-hollow-drawer {margin-top:8px}
 .couple-hollow-drawer-footer {border-top:0;padding:10px 5px;margin-top:2px}
 .couple-hollow-drawer-footer>button {font-size:11px}
+
+/* COUPLES EDITORIAL PASS V4B: each object keeps its behavior, with restrained visual rhythm. */
+/* Timeline reads like a memoir, not a dark banner. */
+.couple-content-mode .couple-timeline-cover {background:#fff;border:1px solid #e8e8e9;border-radius:16px;color:#303035;min-height:178px;padding:23px 20px 20px;gap:12px}
+.couple-timeline-cover::after {display:none}
+.couple-timeline-cover>span {font-size:9px;letter-spacing:.19em;color:#99999c}
+.couple-timeline-cover>strong {font-family:inherit;font-size:21px;font-weight:540;color:#2f2f33}
+.couple-timeline-cover>strong em {color:#a8a8ac}
+.couple-content-mode .couple-timeline-cover p {font-size:11px;color:#77777d;max-width:255px;line-height:1.65}
+.couple-timeline-cover>div b {font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:400;color:#333338}
+.couple-timeline-cover>div span {font-size:10px;color:#88888c}
+.couple-content-mode .couple-timeline-ask {color:#75757c;border-bottom:1px solid #ceced1;font-size:10px;right:18px;bottom:19px;padding:5px 1px}
+.couple-timeline-flow {margin-top:24px;padding-left:65px}
+.couple-timeline-flow::before {left:51px;background:#d4d4d8}
+.couple-timeline-flow-label {margin-left:-59px;color:#93939a;font-size:9px}
+.couple-timeline-flow-date {left:-61px}
+.couple-timeline-flow-dot {background:#fff;border:2px solid #a6a6ad;width:10px;height:10px;left:-19px}
+.couple-timeline-flow .couple-timeline-first {background:transparent;color:#7a7a80}
+.couple-timeline-first time {font-size:15px;color:#45454a}
+.couple-content-mode .couple-timeline-flow .couple-timeline-add {border:1px dashed #d3d3d6;border-radius:10px;background:#fff;color:#5e5e63;min-height:54px}
+/* Wish cards become fine stationery; no black angled cards. */
+.couple-wish-header {padding:6px 1px 18px;border-bottom:1px solid #e4e4e5}
+.couple-wish-header h2 {font-size:21px;color:#2b2b2f;font-weight:560}
+.couple-wish-header>div:first-child span {color:#929297}
+.couple-wish-ratio strong {font-family:Georgia,'Times New Roman',serif;font-size:27px;font-weight:400;color:#343439}
+.couple-wish-board {gap:12px;margin:19px 1px;grid-auto-rows:minmax(142px,auto)}
+.couple-content-mode .couple-wish-add-note,.couple-content-mode .couple-wish-ai-note,.couple-content-mode .couple-wish-note {transform:none;box-shadow:none;border-radius:12px;min-height:146px;padding:19px 15px;background:#fff;border:1px solid #e5e5e7}
+.couple-content-mode .couple-wish-add-note {border-style:dashed;background:#fff}
+.couple-wish-add-note>span {font-size:27px;color:#56565b}
+.couple-content-mode .couple-wish-add-note strong {font-size:13px;font-weight:560;color:#333338}
+.couple-wish-add-note small {font-size:10px;color:#8e8e94}
+.couple-content-mode .couple-wish-ai-note {background:#f2f2f3;border-color:#e8e8e9}
+.couple-content-mode .couple-wish-ai-note>span {font-size:24px;color:#68686d}
+.couple-content-mode .couple-wish-ai-note small {font-size:12px;color:#55555b}
+.couple-wish-note .couple-wish-pin {background:#b2b2b7;box-shadow:none}
+/* Gifts need a photo plinth rather than a clip-art parcel. */
+.couple-gift-counter {margin-top:4px;margin-bottom:18px;gap:7px}
+.couple-gift-counter span {color:#99999d;font-size:9px}
+.couple-gift-counter strong {font-size:21px;font-weight:560}
+.couple-content-mode .couple-gift-pedestal {height:234px;background:#fff;border:1px solid #e8e8e9;border-radius:15px}
+.couple-gift-pedestal::after {display:none}
+.couple-content-mode .couple-gift-pedestal .couple-gift-pedestal-stage {width:78%;height:72%;gap:13px;background:#fafafa;border:1px dashed #d6d6da;border-radius:11px}
+.couple-content-mode .couple-gift-pedestal .couple-gift-display-box {display:none}
+.couple-gift-pedestal-stage::before {content:'+';display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border-radius:50%;background:#fff;border:1px solid #e6e6e7;font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:400;color:#55555a}
+.couple-gift-pedestal-stage:has(img)::before {display:none}
+.couple-gift-stage-caption {font-size:11px;color:#76767b}
+.couple-gift-pedestal>span:last-child {font-size:9px;letter-spacing:.14em;color:#9d9da2}
+.couple-content-mode .couple-gift-gallery-ask {border:1px solid #e8e8e9;border-radius:11px;background:#fff;padding:13px 15px}
+.couple-gift-gallery-ask>span {color:#aaaab0;font-size:9px}
+.couple-gift-gallery-ask>strong {color:#404044;font-size:12px;font-weight:540}
+.couple-content-mode .couple-gift-gallery-add {background:#f4f4f5;border:1px dashed #d2d2d5}
+/* Quiet, legible editors and item details; their functional layouts stay independent. */
+.couple-content-mode .couple-records .couple-compose {border:1px solid #e9e9ea!important;border-radius:15px!important;box-shadow:none!important;background:#fff!important}
+.couple-content-mode .couple-records .couple-compose :is(input:not([type=checkbox]),textarea,select) {border:1px solid #e6e6e8;background:#fff;color:#303035;font-size:13px;border-radius:8px}
+.couple-content-mode .couple-records .couple-compose .couple-edit-title input {font-size:16px;font-weight:540}
+.couple-content-mode .couple-records .couple-compose-buttons {background:#fff;border-top:1px solid #efeff0;box-shadow:none;position:sticky}
+.couple-content-mode .couple-records .couple-compose-buttons button {border-radius:12px;font-weight:540;font-size:12px}
+.couple-content-mode .couple-edit-capsule-header {background:#f3f3f4;color:#323237;min-height:155px}
+.couple-edit-capsule-header>span {color:#88888e}
+.couple-edit-capsule-header>strong {color:#303035;font-size:18px}
+.couple-edit-capsule-seal {color:#66666d;border-color:#c7c7cb}
+.couple-content-mode .couple-edit-hollow-header {background:#f4f4f4}
+.couple-edit-hollow-header>span,.couple-edit-hollow-header>small {color:#8c8c92}
+.couple-edit-hollow-header>strong {color:#303035}
+.couple-content-mode .couple-edit-diary-top {background:#f3f3f4;color:#303035}
+.couple-edit-diary-top>span {color:#9a9aa0}
+.couple-edit-diary-top>strong {color:#303035}
+.couple-content-mode .couple-edit-wish {background:#f4f4f5}
+.couple-edit-wish-paper {transform:none;box-shadow:none;border-radius:9px}
+.couple-content-mode .couple-edit-gift-display {background:#f4f4f5}
+/* Narrow-screen quality: maintain touch targets without giant panels or horizontal crop. */
+@media(max-width:350px) {
+ .couple-content-mode .couple-main {padding:14px 13px 24px}
+ .couple-content-mode .couple-anniversary-hero {min-height:215px;padding:15px 13px}
+ .couple-anniversary-time strong {font-size:44px}
+ .couple-content-mode .couple-mail-postbox {min-height:207px}
+ .couple-content-mode .couple-mail-postbox .couple-mail-slot {height:92px;min-height:92px;margin:20px auto 4px}
+ .couple-content-mode .couple-hollow-door {min-height:250px}
+ .couple-content-mode .couple-capsule-vault {min-height:242px}
+ .couple-content-mode .couple-wish-add-note,.couple-content-mode .couple-wish-ai-note {min-height:132px;padding:14px 12px}
+ .couple-content-mode .couple-gift-pedestal {height:208px}
+}
+@media (prefers-reduced-motion:reduce) {.couple-content-mode .couple-scene button{transition:none}}
