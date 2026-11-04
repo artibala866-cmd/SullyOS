@@ -32,9 +32,10 @@ const inspect = (attempt = 0) => {
     artworkSmall: !!rect && rect.width <= Math.min(innerWidth * .75, 250) && rect.right < innerWidth && rect.left > 0,
     noFabricatedDog: !document.querySelector('.sully-dog-body, .sully-dog-ear, .sully-dog-tail'),
     growing: !!dog && getComputedStyle(dog).animationName.includes('sullyLineGrow'),
-    blinking: !!document.querySelector('.sully-lineart-eyes-closed') &&
-      getComputedStyle(document.querySelector('.sully-lineart-eyes-closed')!).animationName.includes('sullyLineEyesClosed'),
-    speaking: !!document.querySelector('.sully-lineart-mouth-talking'),
+    eyesNotDoubledAtRest: dog?.dataset.expression === 'normal' &&
+      !document.querySelector('.sully-lineart-features'),
+    faceCanReplaceOriginal: !!document.querySelector('.sully-lineart-flip'),
+    referenceFlipIsReachable: !!document.querySelector('.sully-lineart-flip'),
     dogLabel: label?.textContent === 'dog',
     englishWelcome: caption?.textContent === 'Welcome home.',
     correctCoverVariant: boot?.getAttribute('data-variant') === (classic ? 'night' : 'warm'),
