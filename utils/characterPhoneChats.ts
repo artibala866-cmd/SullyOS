@@ -8,6 +8,8 @@ export type CharacterPhoneChat = {
   id: string;
   contactId?: string;
   kind?: 'npc'|'group'|'service';
+  /** Layout hint for generated public account; optional for legacy saved threads. */
+  serviceType?: 'official'|'service';
   name: string;
   preview: string;
   time: number;
