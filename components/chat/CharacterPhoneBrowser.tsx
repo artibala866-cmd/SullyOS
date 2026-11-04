@@ -52,7 +52,7 @@ function BrowserRecordPreview({visit,large=false}:{visit:PhoneBrowserVisit;large
   const theme=searchRecordTheme(visit);
   const CoverIcon=theme.icon;
   return <div aria-label={large?'记录封面':'搜索记录图文封面'}
-    className={'relative isolate flex shrink-0 flex-col overflow-hidden '+(large?'h-[164px] w-full':'w-[116px] min-h-[170px] self-stretch')}
+    className={'relative isolate flex shrink-0 flex-col overflow-hidden '+(large?'h-[196px] w-full':'w-[116px] min-h-[170px] self-stretch')}
     style={{background:theme.background,color:theme.color}}>
     <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 h-32 w-32 rounded-full border-[14px] border-white/35"/>
     <div aria-hidden="true" className="pointer-events-none absolute -bottom-12 -left-10 h-36 w-36 rounded-full border-[12px] border-white/30"/>
