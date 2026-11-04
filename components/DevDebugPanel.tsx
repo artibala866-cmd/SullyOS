@@ -284,7 +284,7 @@ const DevDebugPanel: React.FC = () => {
             content: text,
             fileName: `devdebug-log-${__BUILD_BRANCH__}-${stamp}.json`,
             mimeType: 'application/json;charset=utf-8',
-            shareTitle: 'SullyOS·糯米机 调试日志',
+            shareTitle: '宝宝狗 调试日志',
         });
         trackEvent('导出调试日志', { 方式: result === 'shared' ? '分享' : '下载' });
     };
