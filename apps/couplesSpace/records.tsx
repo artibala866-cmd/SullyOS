@@ -238,7 +238,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       <strong>{look.empty}</strong>
       <p>{look.intro}</p>
       <button type="button" onClick={() => setDraft(newEntry())}>{look.create}</button>
-    </section>
+    </section>}
     {rows.map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
