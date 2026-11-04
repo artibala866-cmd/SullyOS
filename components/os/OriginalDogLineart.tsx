@@ -99,8 +99,8 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
               </g>
             )}
             {/* 留住原鼻子中央上部；其余三块仅遮去笑嘴旧笔画及末端残影。 */}
-            <path fill="#fff" d="M185 327 H255 V382 H185 Z M300 327 H362 V382 H300 Z M255 327 H300 V382 H255 Z" />
-            <path d="M252 322 Q273 315 294 322 Q299 335 296 352 H251 Q246 338 252 322 Z"
+            <path fill="#fff" d="M185 338 H255 V382 H185 Z M300 338 H362 V382 H300 Z M255 338 H300 V382 H255 Z" />
+            <path d="M252 343 Q273 336 294 343 Q299 353 296 370 H251 Q247 351 252 343 Z"
               fill="#fff" stroke="#343434" strokeWidth="7" strokeLinejoin="round" />
           </svg>
         )}
