@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CaretLeft, CaretRight, ArrowRight, GearSix, Heart, Medal, Users } from '@phosphor-icons/react';
+import { ArrowLeft, CaretLeft, CaretRight, ArrowRight, GearSix, HandHeart, Heart, Medal, Users } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { avatarTouchPartLabel, resolveAvatarTouchTarget } from '../utils/avatarTouch';
@@ -572,12 +572,26 @@ export default function CouplesSpaceApp() {
           <Medal size={30} weight={item.count >= item.goal ? 'fill' : 'thin'} />
           <div className="couple-achievement-track"><span style={{ width: `${Math.min(100, Math.round(item.count / Math.max(1,item.goal) * 100))}%` }} /></div>
         </div>)}
-        {panel === 'plant' && <section className="couple-card">
-          <div className="couple-plant" aria-hidden="true">{({ 枯萎: '🍂', 开花: '🌷', 茂盛: '🪴', 嫩芽: '🌱', 种子: '🫘' })[plantStage(bond.plant)]}</div>
-          <h3>{plantStage(bond.plant)} · {bond.plant.xp} / 100</h3>
+        {panel === 'plant' && <section className="couple-plant-room">
+          <div className="couple-plant-header"><span>OUR LITTLE GARDEN</span><strong>一起把春天养大</strong></div>
+          <div className={'couple-plant-scene couple-plant-stage-' + plantStage(bond.plant)}>
+            <span className="couple-plant-scene-sun" aria-hidden="true"/>
+            <div className="couple-plant-specimen" role="img" aria-label={'植物状态：' + plantStage(bond.plant)}>
+              <span className="couple-plant-specimen-stem"/>
+              <span className="couple-plant-specimen-leaf couple-leaf-left"/>
+              <span className="couple-plant-specimen-leaf couple-leaf-right"/>
+              <span className="couple-plant-specimen-bloom"/>
+              <span className="couple-plant-specimen-pot"/>
+            </div>
+            <span className="couple-plant-scene-caption">GROW WITH YOU</span>
+          </div>
+          <div className="couple-plant-status">
+            <div><span>当前状态</span><strong>{plantStage(bond.plant)}</strong></div>
+            <div><span>成长进度</span><strong>{bond.plant.xp} / 100</strong></div>
+          </div>
           <progress max={100} value={bond.plant.xp} />
-          {bond.plant.lastSide && <p>{names[bond.plant.lastSide]}在 {new Date(bond.plant.watered).toLocaleString()} 浇了水。</p>}
-          <div className="couple-actions">
+          {bond.plant.lastSide && <p className="couple-plant-last">{names[bond.plant.lastSide]}在 {new Date(bond.plant.watered).toLocaleString()} 浇了水。</p>}
+          <div className="couple-actions couple-plant-actions">
             <button disabled={busy} onClick={() => void run(() => change(current => careForPlant(current, 'water', 'me')))}>浇水</button>
             <button disabled={busy} onClick={() => void run(() => change(current => careForPlant(current, 'fertilize', 'me')))}>施肥</button>
             {!isPair && <button disabled={busy} onClick={() => void run(async () => {
@@ -599,14 +613,22 @@ export default function CouplesSpaceApp() {
                 entries: [...current.entries, createEntry('gift', name, `一起养开的花，送给 ${names.them}`)] };
             }))}>收花并送给 {names.them}</button>}
           </div>
-          <small>浇水间隔 4 小时，施肥间隔 1 天。连续 3 天没浇水会枯萎。</small>
-          {!isPair && <label><input type="checkbox" checked={!!bond.plantAuto} disabled={busy} onChange={event => {
+          <div className="couple-plant-footnote">浇水间隔 4 小时 · 施肥间隔 1 天 · 连续 3 天未照料会枯萎</div>
+          {!isPair && <label className="couple-plant-auto"><input type="checkbox" checked={!!bond.plantAuto} disabled={busy} onChange={event => {
             const plantAuto = event.target.checked;
             void run(() => change(current => ({ ...current, plantAuto })));
           }} /> 允许角色在私聊后顺手照料盆栽</label>}
-          <h3 className="mt-4">花朵图鉴</h3>
-          {bond.flowers?.length ? bond.flowers.map(flower => <p key={flower.id}>{flower.name} · {flower.date} · {names[flower.from]}送出</p>)
-            : <p className="couple-muted">收下第一朵花后，这里会留下纪念。</p>}
+          <div className="couple-plant-gallery">
+            <div className="couple-plant-gallery-heading"><span>BOTANICAL COLLECTION</span><h3>花朵图鉴</h3></div>
+            {bond.flowers?.length ? <div className="couple-plant-flowers">{bond.flowers.map(flower =>
+              <article key={flower.id} className="couple-flower-card">
+                <span className="couple-flower-mark" aria-hidden="true">✳</span>
+                <strong>{flower.name}</strong>
+                <small>{flower.date}</small>
+                <small>来自 {names[flower.from]}</small>
+              </article>)}</div>
+              : <div className="couple-flower-empty">第一朵花，会被收藏在这里。</div>}
+          </div>
         </section>}
         {panel === 'touch' && <TouchPanel key={key} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />}
         {panel === 'settings' && <section className="couple-card">
@@ -727,7 +749,8 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     setReaction(text);
     setVoice('');
   });
-  return <section className={`couple-card${full ? ' couple-touch-full' : ''}`}>
+  return <section className={'couple-touch-room' + (full ? ' couple-touch-full' : '')}>
+    <div className="couple-touch-heading"><span>TOUCH STUDIO</span><strong>给 TA 的一点点靠近</strong><p>轻点立绘，选择互动方式，等待真实回应。</p></div>
     <div className="couple-actions">
       <button onClick={() => setFull(!full)}>{full ? '退出全屏' : '全屏'}</button>
       <button disabled={busy} onClick={() => run(async () => {
@@ -765,7 +788,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     {portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
       <option value="">按立绘位置识别</option>{zones.map(part => <option key={part} value={part}>校准{part}</option>)}
     </select></label>}
-    <div className={`couple-portrait${portrait ? ' couple-portrait-interactive' : ''}`}>
+    <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : '')}>
       {displayImage ? <TokenImg value={displayImage} alt={char.name} draggable={false}
         onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
         onPointerDown={event => { startPoint.current = { x: event.clientX, y: event.clientY }; }}
