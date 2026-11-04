@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./db', () => ({ DB: {} }));
-import { DAY, type Bond, canWaterPlant, careForPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, type Card } from './couplesSpace';
+import { DAY, type Bond, canWaterPlant, careForPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
 
 const NOW = new Date(2026, 10, 5, 12).getTime();
 function bond(): Bond {
@@ -89,5 +89,16 @@ describe('couples shop transactions', () => {
     expect(played.played).toHaveLength(1);
     expect(played.played[0].id).toMatch(/^[0-9a-f-]{36}$/i);
     expect(() => playCard(played, card, 'me', '', NOW)).toThrow('不可打出');
+  });
+});
+
+describe('watering notice is temporary', () => {
+  it('shows only after a genuine watering and disappears after 12 seconds', () => {
+    const fresh = careForPlant(bond(), 'water', 'me', NOW);
+    expect(isRecentPlantWatering(fresh.plant, NOW)).toBe(true);
+    expect(isRecentPlantWatering(fresh.plant, NOW + PLANT_WATER_NOTICE_MS - 1)).toBe(true);
+    expect(isRecentPlantWatering(fresh.plant, NOW + PLANT_WATER_NOTICE_MS)).toBe(false);
+    expect(isRecentPlantWatering(fresh.plant, NOW - 1)).toBe(false);
+    expect(isRecentPlantWatering({ ...fresh.plant, lastSide: undefined }, NOW)).toBe(false);
   });
 });
