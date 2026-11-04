@@ -44,7 +44,7 @@ export default function MomentsCover({
   return <section aria-label="朋友圈封面" className="relative isolate bg-[#b9c6cb]"
     style={{
       height,
-      transition:reducedMotion?'none':'height 540ms cubic-bezier(.22,1,.36,1)',
+      transition:reducedMotion?'none':'var(--moments-cover-transition, height 540ms cubic-bezier(.22,1,.36,1))',
     }}>
     <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#90a3af] via-[#bacbd0] to-[#e2e7e4]">
       {cover && <img src={cover} alt="朋友圈封面背景" className="absolute inset-0 h-full w-full object-cover" />}

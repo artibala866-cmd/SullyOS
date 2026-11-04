@@ -13,7 +13,8 @@ export default function PullToRefresh({children,onRefresh,loading,stretchCover=f
   const [distance,setDistance]=useState(0);
   const pull=(value:number)=>setDistance(Math.min(stretchCover?124:112,Math.max(0,value)*(stretchCover?0.55:0.48)));
   const contentStyle=stretchCover
-    ? ({'--moments-cover-pull':distance+'px'} as React.CSSProperties)
+    ? ({'--moments-cover-pull':distance+'px',
+      '--moments-cover-transition':distance>0?'none':'height 540ms cubic-bezier(.22,1,.36,1)'} as React.CSSProperties)
     : {transform:'translateY('+distance+'px)',transition:distance?'none':'transform 280ms cubic-bezier(.2,.8,.2,1)'};
 
   return <div className="min-h-full touch-pan-y"
