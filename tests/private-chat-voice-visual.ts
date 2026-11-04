@@ -11,8 +11,8 @@ import {encodeWavFromFloat32} from '../utils/speechToText';
 const root=document.getElementById('voice-visual');
 if(!root)throw Error('Missing visual test root');
 const voices={
- idle:{status:'idle',mode:'transcribe',transcript:'',hasAudioDraft:false,seconds:0,error:''},
- review:{status:'review',mode:'transcribe',transcript:'你好，今天画稿进度怎么样？',hasAudioDraft:true,seconds:6,error:''},
+ idle:{status:'idle',transcript:'',hasAudioDraft:false,seconds:0,error:''},
+ review:{status:'review',transcript:'你好，今天画稿进度怎么样？',hasAudioDraft:true,seconds:6,error:''},
 };
 const scene=(label:string,id:string)=>{
  const section=document.createElement('section');
