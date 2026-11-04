@@ -2,7 +2,7 @@
 // No Playwright package or generated art is required.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,5 +142,5 @@ try {
   }
 } finally {
   chrome.kill('SIGTERM');
-  rmSync(profile, {recursive:true, force:true});
+  // CI temporary profile is deleted by the runner after Chrome actually exits.
 }
