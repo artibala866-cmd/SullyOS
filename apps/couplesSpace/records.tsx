@@ -9,6 +9,33 @@ export const recordNames: Record<EntryKind, string> = {
   timeline: '牵绊时光', anniversary: '纪念日', diary: '交换日记', wish: '愿望清单',
   gift: '礼物图鉴', mail: '时光信箱', capsule: '时间胶囊', hollow: '树洞',
 };
+
+const recordLooks: Record<EntryKind, { english: string; intro: string; create: string; empty: string; title: string; body: string }> = {
+  timeline: { english: 'OUR TIMELINE', intro: '沿着时间的线，慢慢收集共同的片段。', create: '记下这一刻', empty: '第一段故事，从此刻开始。', title: '给这个瞬间一个名字', body: '这一天发生了什么？' },
+  anniversary: { english: 'SPECIAL DATES', intro: '留一张日期票根，记住值得庆祝的日子。', create: '添加纪念日', empty: '留一个日期给未来的我们。', title: '这是什么特别的日子？', body: '写下为什么值得纪念' },
+  diary: { english: 'PRIVATE JOURNAL', intro: '两本日记，写下今天各自的心情。', create: '翻开新的一页', empty: '写下第一页，等 TA 也来写。', title: '今天这一页的标题', body: '今天想记住些什么……' },
+  wish: { english: 'OUR WISHLIST', intro: '想和你完成的事，变成一张张待勾选的愿望。', create: '许一个心愿', empty: '第一张愿望卡，留给我们。', title: '我们想一起做什么？', body: '为什么想和 TA 一起实现？' },
+  gift: { english: 'GIFT GALLERY', intro: '每一份心意，都值得像礼物一样被收藏。', create: '包装一份礼物', empty: '第一份礼物，会是什么样子？', title: '礼物的名字', body: '写一句送礼物的心意' },
+  mail: { english: 'LETTERS BETWEEN US', intro: '将想说的话装进信封，等待对方回信。', create: '写一封信', empty: '信箱空着，等你的第一封信。', title: '想问 TA 什么？', body: '在这里写下你的回答与心里话' },
+  capsule: { english: 'TO THE FUTURE', intro: '封好一封寄给未来的信，到了日子再打开。', create: '封存一封信', empty: '在未来的某一天，打开今天写的信。', title: '给未来的一句话', body: '写给未来的我们……' },
+  hollow: { english: 'QUIET CORNER', intro: '把难以开口的小心事，轻轻藏在这里。', create: '藏一张心事卡', empty: '这里是一处安静的角落。', title: '这件心事叫什么？', body: '不方便说出口的话，写在这里' },
+};
+function RecordArt({ kind, date, count, image }: { kind: EntryKind; date: string; count: number; image?: string }) {
+  const month = date.slice(5, 7) || '--';
+  const day = date.slice(8, 10) || '--';
+  return <div className={'couple-record-art couple-record-art-' + kind} aria-hidden="true">
+    {kind === 'timeline' && <div className="couple-art-rail"><i/><i/><i/><span>{date.slice(0, 4)}</span></div>}
+    {kind === 'anniversary' && <div className="couple-art-calendar"><span>DATE</span><strong>{day}</strong><small>{month} / {date.slice(0, 4)}</small></div>}
+    {kind === 'diary' && <div className="couple-art-notebook"><span>MY DEAR DIARY</span><i/><i/><i/><i/></div>}
+    {kind === 'wish' && <div className="couple-art-checklist"><i/><i/><i/></div>}
+    {kind === 'gift' && <div className="couple-art-gift">{image ? <TokenImg value={image} alt="" /> : <><span className="couple-gift-box"/><span className="couple-gift-ribbon"/></>}</div>}
+    {kind === 'mail' && <div className="couple-art-envelope"><i/><span>TO YOU</span></div>}
+    {kind === 'capsule' && <div className="couple-art-capsule"><span>FUTURE</span><i/><small>SEALED LETTER</small></div>}
+    {kind === 'hollow' && <div className="couple-art-secret"><i/><i/><span>PRIVATE</span></div>}
+    <span className="couple-art-count">{String(count).padStart(2, '0')}</span>
+  </div>;
+}
+
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
@@ -79,11 +106,22 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
     setEarlyId(undefined);
   });
   const patch = (updates: Partial<Entry>) => setDraft(current => current ? { ...current, ...updates } : current);
-  return <>
+  const look = recordLooks[kind];
+  const latest = rows[0];
+  const countDone = kind === 'wish' ? rows.filter(row => row.done).length : rows.length;
+  return <div className={'couple-records couple-records-' + kind}>
+    <section className="couple-record-feature">
+      <div className="couple-record-feature-copy">
+        <span className="couple-record-overline">{look.english}</span>
+        <strong>{kind === 'wish' ? countDone + ' / ' + rows.length + ' 已完成' : kind === 'capsule' ? capsules.filter(row => capsuleStatus(row, today) === 'ready').length + ' 封待拆' : rows.length + ' 份收藏'}</strong>
+        <p>{look.intro}</p>
+      </div>
+      <RecordArt kind={kind} date={latest?.date || today} count={rows.length} image={kind === 'gift' ? latest?.image : undefined} />
+    </section>
     <div className="couple-record-actions">
-      <div className="couple-record-summary"><span>OUR ARCHIVE</span><strong>{rows.length} <small>条记录</small></strong></div>
+      <div className="couple-record-summary"><span>YOUR COLLECTION</span><strong>{rows.length} <small>条记录</small></strong></div>
       <div className="couple-actions">
-      <button disabled={working || busy} onClick={() => setDraft(newEntry())}>{kind === 'capsule' ? '写信并封存' : '新增记录'}</button>
+      <button disabled={working || busy} onClick={() => setDraft(newEntry())}>{look.create}</button>
       <button disabled={working || busy} onClick={() => void run(generated)}>{working || busy ? '处理中…' : `请 ${names.them} 写`}</button>
       {kind === 'hollow' && <button disabled={!rows.length} onClick={() => {
         const row = rows[Math.floor(Math.random() * rows.length)];
@@ -159,14 +197,19 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
       <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
     </form>}
     {!rows.length && <section className="couple-record-empty">
-      <span>NO MEMORIES YET</span>
-      <strong>这里还没有记录</strong>
-      <p>可以从上方开始写下第一条，或邀请 TA 留下记录。</p>
-    </section>}
+      <RecordArt kind={kind} date={today} count={0} />
+      <strong>{look.empty}</strong>
+      <p>{look.intro}</p>
+      <button type="button" onClick={() => setDraft(newEntry())}>{look.create}</button>
+    </section>
     {rows.map(item => {
       const state = kind === 'capsule' ? capsuleStatus(item, today) : undefined;
       const sealed = state === 'ready' || state === 'sealed';
-      return <article className="couple-card couple-record-entry" key={item.id} id={`bond-entry-${item.id}`}>
+      return <article className={'couple-card couple-record-entry couple-entry-' + kind + (item.done ? ' couple-entry-completed' : '')} key={item.id} id={`bond-entry-${item.id}`}>
+        <div className="couple-entry-head">
+          <span>{kind === 'anniversary' ? item.date.slice(5) : kind === 'wish' ? (item.done ? '✓' : '○') : kind === 'mail' ? 'LETTER' : kind === 'capsule' ? 'FUTURE' : kind === 'gift' ? 'GIFT' : kind === 'diary' ? 'JOURNAL' : kind === 'hollow' ? 'PRIVATE' : item.date.slice(5)}</span>
+          <span>{recordNames[kind]}</span>
+        </div>
         <small>{item.date} · {names[item.side]}{item.pinned ? ' · 置顶' : ''}</small>
         <h3>{item.title}</h3>
         {state && <span className="couple-status" data-state={state}>
@@ -232,5 +275,5 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
         </>}
       </article>;
     })}
-  </>;
+  </div>;
 }
