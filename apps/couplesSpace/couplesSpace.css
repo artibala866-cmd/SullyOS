@@ -2338,6 +2338,9 @@
 .couple-wish-header h2 {font-size:21px;color:#2b2b2f;font-weight:560}
 .couple-wish-header>div:first-child span {color:#929297}
 .couple-wish-ratio strong {font-family:Georgia,'Times New Roman',serif;font-size:27px;font-weight:400;color:#343439}
+.couple-wish-filter {display:flex;align-items:center;gap:10px;margin:14px 1px 0;color:#64656b;font-size:12px;white-space:nowrap}
+.couple-wish-filter select {flex:1;min-width:0;min-height:38px;padding:6px 10px;border:1px solid #e6e6e8;border-radius:8px;background:#fff;color:#303035;font:inherit}
+.couple-wish-filter-empty {margin:12px 1px 0;color:#64656b;font-size:12px}
 .couple-wish-board {gap:12px;margin:19px 1px;grid-auto-rows:minmax(142px,auto)}
 .couple-content-mode .couple-wish-add-note,.couple-content-mode .couple-wish-ai-note,.couple-content-mode .couple-wish-note {transform:none;box-shadow:none;border-radius:12px;min-height:146px;padding:19px 15px;background:#fff;border:1px solid #e5e5e7}
 .couple-content-mode .couple-wish-add-note {border-style:dashed;background:#fff}

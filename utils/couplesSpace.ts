@@ -4,9 +4,16 @@ import { getLocalDateKey } from './localDate';
 export type Relation = 'love' | 'family' | 'friend';
 export type EntryKind = 'timeline' | 'anniversary' | 'diary' | 'wish' | 'gift' | 'mail' | 'capsule' | 'hollow';
 export type Side = 'me' | 'them';
+export const wishCategories = {
+  places: '想去的地方', activities: '想一起做的事', food: '想一起吃的', memorable: '值得纪念的', other: '其他',
+};
+export const wishTags = {
+  planning: '计划中', soon: '近期推进', thisYear: '今年内', longTerm: '长期目标', bigDream: '大梦想', smallJoy: '小确幸',
+};
 export type Entry = {
   id: string; kind: EntryKind; date: string; title: string; body: string;
   side: Side; done?: boolean; pinned?: boolean; steps?: { text: string; done: boolean }[];
+  wishCategory?: keyof typeof wishCategories; wishTag?: keyof typeof wishTags;
   reply?: string; unlockDate?: string; opened?: boolean; openedEarly?: boolean; image?: string; stickers?: string[]; stickerPositions?: { x: number; y: number }[];
 };
 export type Card = { id: string; name: string; icon: string; effect: string; price: number; charUse: boolean; turns?: number; voucher?: boolean; relation?: Relation };

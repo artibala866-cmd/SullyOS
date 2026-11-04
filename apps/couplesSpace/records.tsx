@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
-import { capsuleDate, capsuleStatus, createEntry, dayKey } from '../../utils/couplesSpace';
+import { capsuleDate, capsuleStatus, createEntry, dayKey, wishCategories, wishTags } from '../../utils/couplesSpace';
 import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
@@ -192,13 +192,20 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   if(kind==='wish'){
-    const done=rows.filter(row=>row.done).length;
+    const done=bond.entries.filter(row=>row.kind==='wish' && row.done).length;
     return <div className="couple-scene couple-scene-wish">
-      <div className="couple-wish-header"><div><span>OUR BUCKET LIST</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {total}</small></strong><span>已完成</span></div></div>
+      <div className="couple-wish-header"><div><span>OUR BUCKET LIST</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {totalRecords}</small></strong><span>已完成</span></div></div>
+      {totalRecords > 0 && <label className="couple-wish-filter">筛选愿望
+        <select value={filter} onChange={event => onFilter(event.target.value)}>
+          <option value="all">全部分类</option>
+          {Object.entries(wishCategories).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </label>}
+      {filter !== 'all' && !rows.length && <p role="status" className="couple-wish-filter-empty">这个分类还没有愿望。</p>}
       <div className="couple-wish-board">
         {rows.length?rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={'couple-wish-note couple-wish-note-'+index%3+(item.done?' done':'')}>
           <span className="couple-wish-pin" /><span className="couple-wish-note-index">{String(index+1).padStart(2,'0')}</span>
-          <strong>{item.title}</strong><small>{item.done?'✓ 已完成':'待一起实现'}</small>
+          <strong>{item.title}</strong><small>{item.done?'✓ 已完成':'待一起实现'}{item.wishTag && ' · ' + wishTags[item.wishTag]}</small>
           <span className="couple-wish-note-steps">{(item.steps??[]).filter(s=>s.text.trim()).length} 个小目标</span>
         </button>):null}
         <button type="button" className="couple-wish-add-note" disabled={busy} onClick={onNew}>
@@ -281,7 +288,8 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
  if(kind==='diary') return <header className="couple-detail-diary"><span>DIARY / {entry.date}</span><h2>{entry.title}</h2><small>{names[entry.side]} · 写下这一页</small></header>;
  if(kind==='mail') return <header className="couple-detail-mail"><span>POSTMARK · {entry.date}</span><div className="couple-detail-mail-from"><small>FROM</small><strong>{names[entry.side]}</strong><small>TO</small><strong>{names[entry.side==='me'?'them':'me']}</strong></div><h2>{entry.title}</h2></header>;
  if(kind==='timeline') return <header className="couple-detail-timeline"><span>{entry.date.slice(5).replace('-',' / ')}</span><div><small>{entry.date.slice(0,4)} / MOMENT</small><h2>{entry.title}</h2></div></header>;
- if(kind==='wish') return <header className="couple-detail-wish"><span>{entry.done?'✓ 已完成':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small></header>;
+ if(kind==='wish') return <header className="couple-detail-wish"><span>{entry.done?'✓ 已完成':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small>{(entry.wishCategory || entry.wishTag) &&
+   <small>{[entry.wishCategory && wishCategories[entry.wishCategory], entry.wishTag && wishTags[entry.wishTag]].filter(Boolean).join(' · ')}</small>}</header>;
  if(kind==='gift') return <header className="couple-detail-gift"><div className="couple-detail-gift-photo">{entry.image?<TokenImg value={entry.image} alt={entry.title}/>:<span>FOR YOU</span>}</div><div><small>GIFT / {entry.date}</small><h2>{entry.title}</h2><span>FROM {names[entry.side]}</span></div></header>;
  if(kind==='capsule') return <header className="couple-detail-capsule"><span className="couple-detail-capsule-stamp">◉</span><small>{entry.opened?'OPENED':'SEALED'} · {entry.date}</small><h2>{entry.opened||entry.openedEarly?entry.title:'一封写给未来的信'}</h2><p>寄给 {names[entry.side==='me'?'them':'me']} · {entry.unlockDate||'未设置日期'}</p></header>;
  return <header className="couple-detail-hollow"><span>PRIVATE / {entry.date}</span><h2>{entry.title}</h2><small>写下了，就不必一直放在心上。</small></header>;
@@ -327,7 +335,12 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     }));
   };
   const rows = bond.entries.filter(item => item.kind === kind)
-    .filter(item => filter === 'all' || (kind === 'capsule' ? capsuleStatus(item, today) === filter : filter === 'pending' ? !item.reply : item.side === filter))
+    .filter(item => {
+      if (filter === 'all') return true;
+      if (kind === 'wish') return (item.wishCategory ?? 'other') === filter;
+      if (kind === 'capsule') return capsuleStatus(item, today) === filter;
+      return filter === 'pending' ? !item.reply : item.side === filter;
+    })
     .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date));
   const roleInstruction = {
     timeline: '根据实际可见的关系记录写一段时间轴回忆，采用「标题」和正文两行格式；若没有明确事件，就写当前感受，不虚构过去。',
@@ -339,7 +352,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     capsule: '写一封寄给未来的短信，结合已有经历和你对未来的期待。',
     hollow: '写下最近不方便当面说的一点真实心事。心事来自你的性格和已有经历。',
   }[kind];
-  const newEntry = () => ({ ...createEntry(kind, '', ''), unlockDate: kind === 'capsule' ? capsuleDate(1) : undefined });
+  const newEntry = (): Entry => ({
+    ...createEntry(kind, '', ''),
+    unlockDate: kind === 'capsule' ? capsuleDate(1) : undefined,
+    wishCategory: kind === 'wish' && filter !== 'all' ? filter as Entry['wishCategory'] : undefined,
+  });
   const generated = async () => {
     const content = (await generate(roleInstruction)).trim();
     if (!content) throw new Error('角色没有生成可保存的内容，请重试');
@@ -440,7 +457,16 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     </div>;
     if(kind==='wish') return <div className="couple-edit-wish">
       <div className="couple-edit-wish-paper"><span>WISH NO. {String(rows.length+1).padStart(2,'0')}</span>{title}{steps}{note}</div>
-      <div className="couple-edit-wish-meta">{person}{date}</div>
+      <div className="couple-edit-wish-meta">
+        <label>分类<select value={draft.wishCategory ?? 'other'} onChange={event => patch({ wishCategory: event.target.value as Entry['wishCategory'] })}>
+          {Object.entries(wishCategories).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select></label>
+        <label>计划标签<select value={draft.wishTag ?? ''} onChange={event => patch({ wishTag: (event.target.value || undefined) as Entry['wishTag'] })}>
+          <option value="">无标签</option>
+          {Object.entries(wishTags).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select></label>
+        {person}{date}
+      </div>
     </div>;
     if(kind==='gift') return <div className="couple-edit-gift">
       <div className="couple-edit-gift-display"><span>FOR YOU</span>{photo}</div>
@@ -499,6 +525,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         if (!title) return;
         const record = { ...draft, title, body: draft.body.trim() };
         await save(record);
+        if (kind === 'wish' && filter !== 'all' && (record.wishCategory ?? 'other') !== filter) setFilter('all');
         setDraft(undefined);
         setActiveRecordId(undefined);
       });

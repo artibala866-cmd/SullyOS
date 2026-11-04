@@ -167,6 +167,8 @@ describe('情侣空间', () => {
     await click('时间胶囊');
     expect(element.textContent).not.toContain(note.body);
     expect(findButton('分享到私聊')).toBeUndefined();
+    await click('封存中的时间胶囊');
+    expect(element.textContent).not.toContain(note.body);
     await click('提前拆封');
     await click('确认提前拆封');
     await waitFor(() => expect(element.textContent).toContain(note.body));
