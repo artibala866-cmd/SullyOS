@@ -28,7 +28,6 @@ interface PrivateChatSpeechInput {
     seconds: number;
     hasAudioDraft?: boolean;
     error: string;
-    start: () => Promise<void>;
     startTranscription: () => Promise<void>;
     stop: () => void;
     cancel: () => void;
@@ -896,7 +895,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         </button>
                         {/* Original 白榆 layout has a second microphone near the sticker.
                             It is an actual speech-to-text shortcut, not a dead decorative icon;
-                            the left voice control retains its full three-mode native menu. */}
+                            the left voice control retains the two voice-input options. */}
                         {weixinOriginalIcons && speechInput && !compactHome && (
                             <button type="button" aria-label="快捷语音转文字" title="语音转文字"
                                 disabled={speechInput.status !== 'idle'}
@@ -935,12 +934,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-black/5 active:bg-black/10 ${typedVoiceEnabled ? 'bg-primary/10 text-primary' : ''}`}>
                                 <Keyboard size={18} weight="regular" className="shrink-0" />
                                 <span>{typedVoiceEnabled ? '恢复普通文字' : '输入法语音'}</span>
-                            </button>
-                            <button type="button" aria-label="仅发送原声录音"
-                                onClick={() => { setVoiceMenuOpen(false); onExitTypedVoice?.(); textareaRef.current?.blur(); void speechInput.start(); }}
-                                className="flex w-full items-center gap-2.5 rounded-xl border-t border-current/10 px-2.5 py-1.5 text-left text-[11px] opacity-65 hover:bg-black/5 active:bg-black/10">
-                                <Waveform size={16} weight="regular" className="shrink-0" />
-                                <span>仅发原声（不识别）</span>
                             </button>
                         </div>
                     )}
