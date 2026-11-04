@@ -50,7 +50,10 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
 }) {
   const activeIndex = Math.max(0, characters.findIndex(item => item.id === selectedId));
   const active = characters[activeIndex];
-  const touchStart = useRef<number>();
+  const touchStart = useRef<{ x: number; y: number }>();
+  const [dragPx, setDragPx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragProgress = Math.max(-1, Math.min(1, dragPx / 115));
   const shift = (step: number) => {
     if (characters.length > 1) onSelect(characters[(activeIndex + step + characters.length) % characters.length].id);
   };
@@ -60,21 +63,41 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
       <h2>情侣空间</h2><p>在星轨之间，找到想要连接的 TA</p>
     </div>
     {active ? <>
-      <div className="couple-orbit-scene" aria-label="滑动星轨或点击头像切换角色"
-        onTouchStart={event => { touchStart.current = event.touches[0]?.clientX; }}
-        onTouchEnd={event => {
-          if (touchStart.current === undefined) return;
-          const distance = event.changedTouches[0]?.clientX - touchStart.current;
-          touchStart.current = undefined;
-          if (Math.abs(distance ?? 0) > 38) {
-            event.preventDefault();
-            shift(distance! < 0 ? 1 : -1);
+      <div className={'couple-orbit-scene' + (dragging ? ' couple-orbit-dragging' : '')}
+        aria-label="左右滑动星轨或点击头像切换角色"
+        onTouchStart={event => {
+          const touch = event.touches[0];
+          if (touch) { touchStart.current = { x: touch.clientX, y: touch.clientY }; setDragging(false); }
+        }}
+        onTouchMove={event => {
+          const touch = event.touches[0];
+          const start = touchStart.current;
+          if (!touch || !start) return;
+          const dx = touch.clientX - start.x;
+          const dy = touch.clientY - start.y;
+          if (Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+            setDragging(true);
+            setDragPx(Math.max(-115, Math.min(115, dx)));
           }
+        }}
+        onTouchCancel={() => { touchStart.current = undefined; setDragging(false); setDragPx(0); }}
+        onTouchEnd={event => {
+          const start = touchStart.current;
+          touchStart.current = undefined;
+          if (!start) return;
+          const dx = (event.changedTouches[0]?.clientX ?? start.x) - start.x;
+          if (Math.abs(dx) > 38 && Math.abs(dragPx) > 5) {
+            event.preventDefault();
+            shift(dx < 0 ? 1 : -1);
+          }
+          setDragging(false);
+          setDragPx(0);
         }}>
         <div className="couple-orbit-aura" aria-hidden="true" />
         <div className="couple-orbit-track couple-orbit-track-back" aria-hidden="true" />
         <div className="couple-orbit-track couple-orbit-track-front" aria-hidden="true" />
-        <div className="couple-orbit-core" key={active.id} aria-label={'当前角色：' + active.name}>
+        <div className="couple-orbit-core" key={active.id} aria-label={'当前角色：' + active.name}
+          style={{ transform: 'translate(-50%, -50%) translate3d(' + (-dragProgress * 20) + 'px, 0, 42px) rotateY(' + (-dragProgress * 14) + 'deg) scale(' + (1 - Math.abs(dragProgress) * .07) + ')' }}>
           <Avatar person={active} />
           <span className="couple-orbit-core-halo" aria-hidden="true" />
         </div>
@@ -82,15 +105,16 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
           const forward = (index - activeIndex + characters.length) % characters.length;
           const offset = forward <= characters.length / 2 ? forward : forward - characters.length;
           if (!offset || Math.abs(offset) > 2) return null;
-          const angle = Math.PI * 2 * offset / 5;
+          const angle = Math.PI * 2 * (offset - dragProgress * .72) / 5;
           const depth = (Math.cos(angle) + 1) / 2;
           return <button type="button" className="couple-orbit-satellite" key={person.id}
             aria-label={'选择角色：' + person.name} disabled={busy}
             onClick={() => onSelect(person.id)}
             style={{
-              left: (50 + Math.sin(angle) * 41) + '%',
-              top: (51 + Math.cos(angle) * 21) + '%',
-              transform: 'translate(-50%, -50%) translateZ(' + Math.round(depth * 30) + 'px) scale(' + (0.81 + depth * 0.17) + ')',
+              left: (50 + Math.sin(angle) * 39) + '%',
+              top: (51 + Math.cos(angle) * 18) + '%',
+              transform: 'translate(-50%, -50%) translateZ(' + Math.round((depth - .4) * 80) + 'px) rotateY(' + (-Math.sin(angle) * 25) + 'deg) scale(' + (.72 + depth * .27) + ')',
+              opacity: .73 + depth * .27,
               zIndex: Math.round(depth * 8) + 2,
             }}>
             <Avatar person={person} />
@@ -116,7 +140,7 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
         {status === 'open' ? '进入专属空间' : status === 'pending' ? '查看邀请' : '选择此角色'} <ArrowRight size={18} />
       </button>
       <button type="button" className="couple-picker-pairs" disabled={busy} onClick={onPairs}><Users size={18} /> 他们的空间</button>
-      <p className="couple-picker-hint">轻点环绕头像切换 · 确认后再选择关系与邀请</p>
+      <p className="couple-picker-hint">滑动星轨切换 · 点击确认后继续</p>
     </> : <div className="couple-picker-empty">
       <Heart size={32} weight="thin" /><p>还没有可以绑定的角色</p>
       <small>先创建角色，再回来开启你们的空间。</small>
