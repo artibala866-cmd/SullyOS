@@ -17,6 +17,7 @@ type Props = {
 
 export default function OriginalDogLineart({ expression, mirrored }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const badgeRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -26,12 +27,15 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
       if (cancelled) return;
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
+      const badgeCtx = badgeRef.current?.getContext('2d');
+      if (!ctx || !badgeCtx) return;
       try {
         ctx.clearRect(0, 0, SIZE, SIZE);
         ctx.drawImage(image, 0, 0, SIZE, SIZE);
         const pixels = ctx.getImageData(0, 0, SIZE, SIZE);
         const rgba = pixels.data;
+        const badgePixels = badgeCtx.createImageData(SIZE, SIZE);
+        const badgeRGBA = badgePixels.data;
         for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
           const i = (y * SIZE + x) * 4;
           const brightness = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
@@ -47,8 +51,19 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
           rgba[i + 1] = 52;
           rgba[i + 2] = 52;
           rgba[i + 3] = Math.round(opacity);
+          // 仅按原画裁出胸前徽章图层；左右翻转时反向镜像，使「100%笨蛋」始终可读。
+          // 两张画布正常叠放时，合起来就是同一张未经重新绘制的线稿。
+          const badgeArea = Math.pow((x - 274) / 91, 2) + Math.pow((y - 179) / 82, 2) <= 1;
+          if (badgeArea) {
+            badgeRGBA[i] = rgba[i];
+            badgeRGBA[i + 1] = rgba[i + 1];
+            badgeRGBA[i + 2] = rgba[i + 2];
+            badgeRGBA[i + 3] = rgba[i + 3];
+            rgba[i + 3] = 0;
+          }
         }
         ctx.putImageData(pixels, 0, 0);
+        badgeCtx.putImageData(badgePixels, 0, 0);
         setReady(true);
       } catch (error) {
         console.warn('[BabyDog] lineart extraction failed', error);
@@ -65,6 +80,8 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
       aria-label="原画宝宝狗，胸前保留100%笨蛋，眨眼并张嘴">
       <div className="sully-lineart-flip">
         <canvas className="sully-lineart-canvas" ref={canvasRef}
+          width={SIZE} height={SIZE} aria-hidden="true" />
+        <canvas className="sully-lineart-badge" ref={badgeRef}
           width={SIZE} height={SIZE} aria-hidden="true" />
         {ready && expression !== 'normal' && (
           <svg className="sully-lineart-features" viewBox="0 0 512 512" aria-hidden="true">
