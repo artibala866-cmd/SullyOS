@@ -86,7 +86,7 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
         {ready && expression !== 'normal' && (
           <svg className="sully-lineart-features" viewBox="0 0 512 512" aria-hidden="true">
             {/* 两个小白底完全盖住原来两个点眼睛，而不是新增一对。 */}
-            <path fill="#fff" d="M138 239 H188 V308 H138 Z M345 230 H403 V303 H345 Z" />
+            <path fill="#fff" d="M139 230 H186 V329 H139 Z M349 227 H398 V330 H349 Z" />
             {expression === 'blink' ? (
               <g fill="none" stroke="#343434" strokeLinecap="round" strokeWidth="10">
                 <path d="M148 270 Q163 263 177 270" />
@@ -98,8 +98,8 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
                 <path d="M389 253 Q373 251 354 261 L385 273 Q371 267 389 253 Z" />
               </g>
             )}
-            {/* 旧鼻子位于 y≈300，保留；只用白底替换其下方原笑嘴。 */}
-            <path fill="#fff" d="M201 304 H348 V359 H201 Z" />
+            {/* 留住原鼻子中央上部；其余三块仅遮去笑嘴旧笔画及末端残影。 */}
+            <path fill="#fff" d="M185 301 H255 V382 H185 Z M300 301 H362 V382 H300 Z M255 319 H300 V382 H255 Z" />
             <path d="M252 322 Q273 315 294 322 Q299 335 296 352 H251 Q246 338 252 322 Z"
               fill="#fff" stroke="#343434" strokeWidth="7" strokeLinejoin="round" />
           </svg>
