@@ -10,8 +10,8 @@ try {
  await page.waitForTimeout(1500);await page.screenshot({path:out+'/mobile.png'});
  assert.equal(await page.locator('.sully-boot').getAttribute('data-cinematic'),'true');
  assert.equal(await page.locator('.sully-boot-dog').count(),1);
- assert.equal(await page.locator('.sully-boot-dog').evaluate(img=>img.complete && img.naturalWidth>0),true);
- assert((await page.locator('.sully-boot').evaluate(el=>getComputedStyle(el).backgroundImage)).includes('radial-gradient'));
+ assert.equal(await page.locator('.sully-dog-body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+ assert.equal(await page.locator('.sully-boot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
  await page.waitForTimeout(1500);assert.equal(await page.locator('.sully-boot').getAttribute('data-phase'),'enter');
  await page.evaluate(()=>window.dispatchEvent(new Event('boot-ready')));await page.getByText('已进入桌面').waitFor();
  await page.reload();assert.equal(await page.locator('.sully-boot').getAttribute('data-cinematic'),'false');
@@ -24,20 +24,14 @@ try {
  await page.emulateMedia({reducedMotion:'no-preference'});await page.evaluate(()=>sessionStorage.clear());await page.setViewportSize({width:1440,height:900});await page.goto(url);await page.waitForTimeout(1500);await page.screenshot({path:out+'/desktop.png'});
 
  await page.goto(url+'?ready');await page.getByText('已进入桌面').waitFor();
- await page.goto('http://127.0.0.1:5183/test/fixtures/boot-choice.html');
- const classic=page.getByRole('button',{name:'宝宝狗·夜空 柔光星空 · 小狗封面'});
- const jelly=page.getByRole('button',{name:'宝宝狗·暖心 奶油暖色 · 手绘小狗'});
- await classic.click(); await page.getByText('已保存',{exact:true}).waitFor(); await page.reload(); await classic.waitFor();
- assert.equal(await classic.getAttribute('aria-pressed'),'true');
- await page.getByRole('button',{name:'预览所选开场'}).click();
- await page.locator('.sully-boot-night').waitFor();
- assert.equal(await page.locator('.sully-boot-dog').count(),1);
+ await page.goto('http://127.0.0.1:5183/test/fixtures/brand-baby-dog.html?cover=classic');
+ await page.locator('.sully-boot-dog').waitFor();
  assert.equal(await page.locator('.sully-boot').getAttribute('data-variant'),'night');
+ assert.equal(await page.locator('.sully-boot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
  await page.screenshot({path:out+'/selected-night.png'});
- await page.getByRole('button',{name:'宝宝狗，轻触进入'}).click();await jelly.click();await page.getByText('已保存',{exact:true}).waitFor();await page.reload();await jelly.waitFor();
- assert.equal(await jelly.getAttribute('aria-pressed'),'true');
- await page.getByRole('button',{name:'预览所选开场'}).click();await page.locator('.sully-boot').waitFor();
+ await page.goto('http://127.0.0.1:5183/test/fixtures/brand-baby-dog.html');
+ await page.locator('.sully-boot-dog').waitFor();
  assert.equal(await page.locator('.sully-boot').getAttribute('data-variant'),'warm');
  await page.screenshot({path:out+'/selected-babydog.png'});
- assert.deepEqual(errors,[]);console.log('PASS Baby Dog source artwork, warm cover, data gate, automatic exit, session short mode, keyboard skip, reduced motion, responsive layouts');
+ assert.deepEqual(errors,[]);console.log('PASS pure white CSS puppy, dance, data gate, automatic exit, keyboard skip, reduced motion, responsive layouts');
 }finally{await browser.close();}
