@@ -46,6 +46,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
   const [draft, setDraft] = useState<Entry>();
   const [filter, setFilter] = useState('all');
   const [earlyId, setEarlyId] = useState<string>();
+  const [replyDraft, setReplyDraft] = useState<{ id: string; text: string }>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
@@ -310,8 +311,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
             {kind === 'wish' && <button disabled={working} onClick={() => void run(() => save({ ...item, pinned: !item.pinned }))}>{item.pinned ? '取消置顶' : '置顶'}</button>}
             {(kind === 'mail' || kind === 'diary' || kind === 'capsule') && <button disabled={working || busy} onClick={() => {
               if (item.side === 'them') {
-                const reply = window.prompt('写回信', item.reply);
-                if (reply?.trim()) void run(() => save({ ...item, reply: reply.trim() }));
+                setReplyDraft({ id: item.id, text: item.reply ?? '' });
               } else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }));
             }}>{item.reply ? '重写回信' : '回信'}</button>}
             {(kind === 'mail' || kind === 'capsule') && share && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
@@ -320,6 +320,23 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy }
             }}>删除</button>
           </div>
         </>}
+        {replyDraft?.id === item.id && <form className="couple-letter-reply-form" onSubmit={event => {
+          event.preventDefault();
+          const reply = replyDraft.text.trim();
+          if (!reply) return;
+          void run(async () => { await save({ ...item, reply }); setReplyDraft(undefined); });
+        }}>
+          <span>REPLY / {names.me}</span>
+          <label>写给 {names.them}
+            <textarea required maxLength={10000} value={replyDraft.text}
+              onChange={event => setReplyDraft({ id: item.id, text: event.target.value })}
+              placeholder="把想说的话写进这封回信……" />
+          </label>
+          <div className="couple-actions">
+            <button className="couple-primary" disabled={working || !replyDraft.text.trim()}>保存回信</button>
+            <button type="button" onClick={() => setReplyDraft(undefined)}>取消</button>
+          </div>
+        </form>}
       </article>;
     })}
   </div>;
