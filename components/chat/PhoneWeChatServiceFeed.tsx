@@ -13,7 +13,10 @@ export function resolvePhoneServiceFeedKind(thread:{
     ?'official':'service';
 }
 type FeedEntry={id:number;title:string;source:string;time:string;raw:string};
-const shortTitle=(s:string)=>s.replace(/^\s*(?:通知|【消息】|【推送】|快讯)[:：\s]*/,'').trim().replace(/\s+/g,' ')||'服务通知';
+const shortTitle=(s:string)=>{
+  const original=s.trim().replace(/\s+/g,' ');
+  return original.replace(/^(?:通知|【消息】|【推送】|快讯)[:：\s]*/,'').trim()||original;
+};
 function formatTime(ms?:number){
   if(!ms||!Number.isFinite(ms))return '';
   const d=new Date(ms);
@@ -33,6 +36,7 @@ function GrayImage({className='',testId}:{className?:string;testId?:string}){
 }
 function ServiceFeed({items,name}:{items:FeedEntry[];name:string}){
   const first=items[0];const remainder=items.slice(1);
+  if(!first)return <div data-testid="phone-service-feed" className="min-h-full bg-[#f8f8f8]"/>;
   return <div data-testid="phone-service-feed" className="min-h-full bg-[#f8f8f8] px-[8px] pb-9 pt-4 text-[#191919]">
     <section aria-label="通知" className="px-3">
       <h3 className="mb-5 text-[17px] font-semibold">通知</h3>
@@ -43,20 +47,21 @@ function ServiceFeed({items,name}:{items:FeedEntry[];name:string}){
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words text-[17px] font-medium leading-[26px]">{first.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] text-[#a7a7a7]">
-            <span className="font-medium text-[#3395d0]">我的关注</span><span className="max-w-[140px] truncate">{name}</span>
+            <span className="max-w-[140px] truncate">{name}</span>
             <span>{first.time}</span>
           </div>
         </div>
         <GrayImage testId="service-notice-cover" className="h-[74px] w-[74px] rounded-[5px]"/>
       </div>
     </div>}
+    {remainder.length>0&&<>
     <div className="mt-7 flex items-center justify-between px-3 pb-3">
       <h3 className="text-[17px] font-semibold">贴图</h3>
       <div className="flex items-center gap-4 text-[14px]">
         <span className="border-b-2 border-[#222] pb-1 text-[#222]">推荐</span><span className="pb-1 text-[#969696]">关注</span>
       </div>
     </div>
-    {remainder.length>0 ? <div className="grid grid-cols-2 items-start gap-2">
+    <div className="grid grid-cols-2 items-start gap-2">
       {remainder.map((item,i)=><article key={item.id} data-testid="service-feed-tile"
         className="overflow-hidden rounded-[9px] bg-white">
         <GrayImage className={'w-full '+(i%3===1?'aspect-[4/3]':'aspect-[3/4]')}/>
@@ -67,13 +72,12 @@ function ServiceFeed({items,name}:{items:FeedEntry[];name:string}){
           </div>
         </div>
       </article>)}
-    </div> : <div className="grid grid-cols-2 gap-2">
-      <div className="h-36 rounded-[9px] bg-[#ebebeb]"/><div className="h-36 rounded-[9px] bg-[#ededed]"/>
-    </div>}
+    </div></>}
   </div>;
 }
 function OfficialFeed({items,name}:{items:FeedEntry[];name:string}){
   const news=items[0];const older=items.slice(1);
+  if(!news)return <div data-testid="phone-official-feed" className="min-h-full bg-[#ededed]"/>;
   return <div data-testid="phone-official-feed" className="min-h-full bg-[#ededed] px-[8px] pb-9 pt-3 text-[#161616]">
     {news&&<div className="overflow-hidden rounded-[12px] bg-white px-4 py-4">
       <div className="flex items-center gap-2 text-[14px] text-[#65738b]">
@@ -93,9 +97,9 @@ function OfficialFeed({items,name}:{items:FeedEntry[];name:string}){
         <span>查看其余{older.length}条</span><CaretRight size={16} className="text-[#bbb]"/>
       </div>}
     </div>}
-    <p className="my-7 flex items-center justify-center gap-1 text-[12px] text-[#b1b1b1]">更多消息 <CaretRight size={15}/></p>
-    <h3 className="mb-5 pl-2 text-[17px] font-semibold">看一看</h3>
     {older.length>0&&<>
+      <p className="my-7 flex items-center justify-center gap-1 text-[12px] text-[#b1b1b1]">更多消息 <CaretRight size={15}/></p>
+      <h3 className="mb-5 pl-2 text-[17px] font-semibold">看一看</h3>
       <div className="mb-2.5 overflow-hidden rounded-[11px] bg-white px-4 py-4">
         <p className="line-clamp-3 break-words text-[17px] leading-[25px]">{older[0].title}</p>
         <div className="mt-3 grid grid-cols-3 gap-[5px]">
@@ -116,9 +120,7 @@ function OfficialFeed({items,name}:{items:FeedEntry[];name:string}){
         </article>)}
       </div>
     </>}
-    {older.length===0&&<div className="grid grid-cols-2 gap-2">
-      <div className="h-40 rounded-[10px] bg-[#e2e2e2]"/><div className="h-40 rounded-[10px] bg-[#e4e4e4]"/>
-    </div>}
+
   </div>;
 }
 export default function PhoneWeChatServiceFeed({messages,name,kind}:{
