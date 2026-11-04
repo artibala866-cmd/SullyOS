@@ -5,7 +5,7 @@ on:
     paths:
       - 'components/chat/CharacterPhoneProfilePanel.tsx'
       - 'components/chat/CharacterPhone.tsx'
-      - 'utils/phoneProfilePanel.test.tsx'
+      - 'utils/phoneProfilePanel.test.ts'
       - 'tests/phone-profile-visual.*'
       - '.github/workflows/phone-profile-visual.yml'
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Check profile control integration
-        run: pnpm exec vitest run utils/phoneProfilePanel.test.tsx
+        run: pnpm exec vitest run utils/phoneProfilePanel.test.ts
       - name: Build application
         run: pnpm run build
       - name: Check changed TypeScript
