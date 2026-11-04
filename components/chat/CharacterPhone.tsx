@@ -164,6 +164,8 @@ export default function CharacterPhone({
     return lib.entries.find(entry => entry.id === lib.activeId)?.image || char.avatar;
   }, [characterId, char.avatar, avatarRevision]);
   const [screen, setScreen] = useState<Screen>('home');
+  const [momentsCoverExpanded,setMomentsCoverExpanded] = useState(false);
+  useEffect(()=>{if(screen!=='moments')setMomentsCoverExpanded(false);},[screen,characterId]);
   const [phoneUnlocked,setPhoneUnlocked] = useState(false);
   const phoneAppearance=useAppearance(characterId);
   const settingsOrigin=useRef<'home'|'wechat'>('wechat');
@@ -863,7 +865,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       <PhoneStatusBar characterId={characterId} showBattery={phoneAppearance.showBattery}/>
       {!phoneUnlocked ? <CharacterPhoneLockScreen characterId={characterId} name={name} avatar={phoneAvatar}
         onUnlock={unlockPhone} onClose={onClose}/> : <>
-      {screen === 'home'||screen === 'beautify'||isCharacterPhoneSocialAppId(screen) ? null :
+      {screen === 'home'||screen === 'beautify'||isCharacterPhoneSocialAppId(screen)||(screen==='moments'&&momentsCoverExpanded) ? null :
         <header className="flex shrink-0 items-center gap-3 border-b border-[#dcdcdc] bg-[#ededed] px-4 py-3">
           <button type="button" onClick={back} aria-label="返回"><ArrowLeft size={23}/></button>
           <h2 className="min-w-0 flex-1 truncate text-center text-[19px] font-medium text-[#181818]">{screen === 'wechat' ? ({ chats: '微信', contacts: '通讯录', discover: '发现', me: '我' }[tab]) : screen === 'thread' ? (isPrivateThread ? userProfile.name : active?.name) : screen === 'contact-detail' ? contact?.name : ({ moments: '朋友圈', wallet: '钱包', settings: '设置', memo:'备忘录',gallery:'相册',calls:'电话',sms:'短信',browser:'浏览器',profile:'个人资料' } as Record<string,string>)[screen]}</h2>
@@ -928,8 +930,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
-        {screen === 'moments' && <PullToRefresh stretchCover loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white">
+        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white">
           <MomentsCover key={characterId} name={name} avatar={phoneAvatar} cover={phoneAppearance.momentsCover}
+            expanded={momentsCoverExpanded} onExpandedChange={setMomentsCoverExpanded}
             onSelectCover={file => void updateMomentsCover(file)}
             onRestoreDefault={() => void updateMomentsCover()} />
           <div className="h-11" aria-hidden="true" />
