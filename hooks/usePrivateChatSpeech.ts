@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { APIConfig } from '../types';
-import { isAudioRecordingSupported, isBrowserSttSupported, resolveSttProvider, startPrivateChatRecording, startPrivateChatStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
+import { isBrowserSttSupported, resolveSttProvider, startPrivateChatStt, type SttCallbacks, type SttSession } from '../utils/speechToText';
 
 export type PrivateChatSpeechStatus = 'idle' | 'starting' | 'listening' | 'transcribing' | 'review';
-export type PrivateChatSpeechMode = 'record' | 'transcribe';
 
 /** A private-chat speech draft; it never posts a message without explicit confirmation. */
 export function usePrivateChatSpeech(characterId: string | undefined, apiConfig: Partial<APIConfig> | null | undefined) {
@@ -12,7 +11,6 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [hasAudioDraft, setHasAudioDraft] = useState(false);
-  const [mode, setMode] = useState<PrivateChatSpeechMode>('transcribe');
   const sessionRef = useRef<SttSession | null>(null);
   // Recorded audio may come from original microphone capture or paid STT.
   // Browser/Android recognizers may only provide a transcript; never invent an audio file.
@@ -76,7 +74,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     };
   }, [status, cancel]);
 
-  const start = useCallback(async (nextMode: PrivateChatSpeechMode = 'transcribe') => {
+  const start = useCallback(async () => {
     if (!characterId || status !== 'idle') return;
     const generation = ++generationRef.current;
     sessionRef.current = null;
@@ -87,16 +85,10 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setTranscript('');
     setError('');
     setSeconds(0);
-    setMode(nextMode);
     // An unsupported browser cannot transcribe audio through its microphone API.
     // Tell the user to use the actual system keyboard mic instead of recording unusable audio.
-    if (nextMode === 'transcribe' && resolveSttProvider(apiConfig) === 'browser' && !isBrowserSttSupported()) {
+    if (resolveSttProvider(apiConfig) === 'browser' && !isBrowserSttSupported()) {
       setError('此浏览器没有可用的语音识别接口。请选「输入法语音」，用手机键盘自带的麦克风说话。');
-      setStatus('review');
-      return;
-    }
-    if (nextMode === 'record' && !isAudioRecordingSupported()) {
-      setError('这个设备无法采集原声。可以改用「语音转文字」或手机输入法的麦克风。');
       setStatus('review');
       return;
     }
@@ -107,9 +99,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     let ended = false;
 
     try {
-      // Voice dictation uses selected STT. 'Only original audio' always uses
-      // local microphone capture; never silently charges a configured STT API.
-      const useLocalRecording = nextMode === 'record';
+      // Voice dictation uses the selected STT and may capture real audio alongside text.
       const callbacks: SttCallbacks = {
         onAudioCaptured: (blob, durationSec) => {
           if (generation !== generationRef.current || blob.size === 0 || durationSec <= 0) return;
@@ -143,9 +133,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
           setStatus('review');
         },
       };
-      const session = useLocalRecording
-        ? await startPrivateChatRecording(callbacks)
-        : await startPrivateChatStt('zh-CN', callbacks, apiConfig);
+      const session = await startPrivateChatStt('zh-CN', callbacks, apiConfig);
       if (generation !== generationRef.current || ended) {
         session.cancel();
         return;
@@ -175,8 +163,7 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
     setStatus('transcribing');
   }, [status, clearElapsedTimer]);
 
-  const startTranscription = useCallback(() => start('transcribe'), [start]);
-  const startRecording = useCallback(() => start('record'), [start]);
+  const startTranscription = useCallback(() => start(), [start]);
 
   const editTranscript = useCallback((text: string) => {
     editedRef.current = true;
@@ -185,5 +172,5 @@ export function usePrivateChatSpeech(characterId: string | undefined, apiConfig:
 
   const getAudioDraft = useCallback(() => audioDraftRef.current, []);
 
-  return { status, mode, transcript, error, seconds, hasAudioDraft, start: startRecording, startTranscription, stop, cancel, editTranscript, getAudioDraft };
+  return { status, transcript, error, seconds, hasAudioDraft, startTranscription, stop, cancel, editTranscript, getAudioDraft };
 }
