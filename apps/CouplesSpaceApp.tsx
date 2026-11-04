@@ -231,21 +231,26 @@ export default function CouplesSpaceApp() {
     };
   }, []);
   useEffect(() => { setError(''); setDigest(undefined); }, [key]);
-  // Visual-only clock while the garden is open: never sends messages or calls APIs.
+  // Visual-only garden clock: recheck minute-scale cooldowns, and expire a
+  // transient watering notice exactly on time without rerendering the app each second.
   useEffect(() => {
     if (panel !== 'plant') return;
     const refresh = () => setPlantNow(Date.now());
     refresh();
-    const interval = window.setInterval(refresh, 1_000);
+    const interval = window.setInterval(refresh, 30_000);
+    const age = Date.now() - (bond?.plant.watered ?? 0);
+    const remaining = bond?.plant.lastSide && age >= 0 && age < 12_000 ? 12_000 - age : 0;
+    const expiry = remaining > 0 ? window.setTimeout(refresh, remaining + 15) : undefined;
     const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(interval);
+      if (expiry !== undefined) window.clearTimeout(expiry);
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [panel]);
+  }, [panel, bond?.plant.watered, bond?.plant.lastSide]);
   useEffect(() => {
     if (characters.length && !characters.some(item => item.id === partnerId)) {
       setPartnerId(characters[0].id);
