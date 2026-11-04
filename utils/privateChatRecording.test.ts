@@ -1,84 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startPrivateChatRecording, startPrivateChatStt, startStt } from './speechToText';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { startPrivateChatStt, startStt } from './speechToText';
 import { makeUserVoiceMetadata } from './userVoiceMessage';
 import { getVoiceTranscript, normalizeMessageContent } from './messageFormat';
 import type { Message } from '../types';
 
-const trackStop = vi.fn();
-class FakeRecorder {
-  static isTypeSupported = (type: string) => type.includes('webm');
-  state = 'inactive';
-  mimeType = 'audio/webm;codecs=opus';
-  ondataavailable: ((event: { data: Blob }) => void) | null = null;
-  onerror: (() => void) | null = null;
-  onstop: (() => void) | null = null;
-  constructor(public stream: unknown) {}
-  start() { this.state = 'recording'; }
-  stop() {
-    this.state = 'inactive';
-    this.ondataavailable?.({ data: new Blob(['voice-binary'], { type: this.mimeType }) });
-    this.onstop?.();
-  }
-}
-
-describe('private chat real microphone recording', () => {
-  beforeEach(() => {
-    vi.stubGlobal('window', globalThis);
-    vi.stubGlobal('MediaRecorder', FakeRecorder);
-    vi.stubGlobal('navigator', {
-      mediaDevices: { getUserMedia: vi.fn(async () => ({
-        getTracks: () => [{ stop: trackStop }],
-      })) },
-    });
-    trackStop.mockClear();
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
-
-  it('captures playable real audio even when no browser speech recognition service exists', async () => {
-    const audio = vi.fn();
-    const end = vi.fn();
-    const error = vi.fn();
-    const session = await startPrivateChatRecording({ onAudioCaptured: audio, onEnd: end, onError: error });
-    // No SpeechRecognition constructor and no paid STT provider configured.
-    await new Promise(resolve => setTimeout(resolve, 230));
-    session.stop();
-    expect(error).not.toHaveBeenCalled();
-    expect(audio).toHaveBeenCalledTimes(1);
-    expect(audio.mock.calls[0][0]).toBeInstanceOf(Blob);
-    expect(audio.mock.calls[0][0].type).toBe('audio/webm;codecs=opus');
-    expect(audio.mock.calls[0][0].size).toBeGreaterThan(0);
-    expect(audio.mock.calls[0][1]).toBeGreaterThan(0);
-    expect(end).toHaveBeenCalledTimes(1);
-    expect(trackStop).toHaveBeenCalled();
-    session.stop();
-    expect(audio).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancels recording without emitting an audio asset', async () => {
-    const audio = vi.fn(), end = vi.fn();
-    const session = await startPrivateChatRecording({ onAudioCaptured: audio, onEnd: end });
-    session.cancel();
-    expect(audio).not.toHaveBeenCalled();
-    expect(end).toHaveBeenCalledTimes(1);
-    expect(trackStop).toHaveBeenCalled();
-  });
-
-  it('reports denied microphone permission instead of creating an empty fake voice', async () => {
-    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => {
-      throw Object.assign(new Error('denied'), { name: 'NotAllowedError' });
-    }) } });
-    const error = vi.fn(), end = vi.fn(), audio = vi.fn();
-    const session = await startPrivateChatRecording({ onError: error, onEnd: end, onAudioCaptured: audio });
-    expect(error.mock.calls[0][0]).toContain('麦克风权限被拒绝');
-    expect(audio).not.toHaveBeenCalled();
-    expect(end).toHaveBeenCalledTimes(1);
-    session.cancel();
-  });
-
-  it('keeps audio-only speech honest, and lets the user supply a real transcript', () => {
+describe('existing user voice history', () => {
+  it('keeps historical audio-only metadata honest, without inventing transcripts', () => {
     const meta = makeUserVoiceMetadata('', 'recorded');
     expect(meta).toMatchObject({ transcript: '', inputMode: 'recorded', hasAudio: false });
     expect(() => makeUserVoiceMetadata('', 'typed')).toThrow();
@@ -213,101 +140,83 @@ describe('browser speech recognition resilience', () => {
   });
 });
 
-describe('combined private-chat audio and words', () => {
+describe('private-chat speech-to-text needs only one microphone', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-  it('saves the real recording and recognized text before a single onEnd', async () => {
+  const setupBrowserRecognizer = () => {
     class Recognizer {
       static current: Recognizer;
       onresult: ((event: any) => void) | null = null;
       onend: (() => void) | null = null;
       onaudiostart: (() => void) | null = null;
+      onspeechstart: (() => void) | null = null;
       onerror: ((event: any) => void) | null = null;
-      continuous = false; interimResults = false; lang = '';
+      continuous = false;
+      interimResults = false;
+      lang = '';
+      stopCount = 0;
+      abortCount = 0;
       constructor() { Recognizer.current = this; }
       start() { this.onaudiostart?.(); }
-      stop() { this.onend?.(); }
-      abort() { this.onend?.(); }
+      stop() { this.stopCount++; this.onend?.(); }
+      abort() { this.abortCount++; this.onend?.(); }
     }
     vi.stubGlobal('window', globalThis);
     vi.stubGlobal('SpeechRecognition', Recognizer);
-    vi.stubGlobal('SpeechRecognition', Recognizer);
-    vi.stubGlobal('MediaRecorder', FakeRecorder);
-    const stopTrack = vi.fn();
-    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => ({
-      getTracks: () => [{ stop: stopTrack }],
-    })) } });
+    return Recognizer;
+  };
+
+  it('transcribes genuine Chinese words without opening a second recording stream', async () => {
+    const Recognizer = setupBrowserRecognizer();
+    const getUserMedia = vi.fn(async () => { throw Error('Second microphone must not open'); });
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
     const calls: string[] = [];
-    const end = vi.fn(() => calls.push('end'));
-    const final = vi.fn((words: string) => calls.push('words:'+words));
-    const audio = vi.fn((blob: Blob) => calls.push('audio:'+blob.type));
-    const session = await startPrivateChatStt('zh-CN', {
-      onEnd: end, onFinal: final, onAudioCaptured: audio,
-    }, { sttProvider: 'browser' });
-    await new Promise(resolve => setTimeout(resolve, 220));
-    const spoken = Object.assign([{ transcript: '今天要画画' }], { isFinal: true });
-    Recognizer.current.onresult?.({ resultIndex: 0, results: [spoken] });
+    const onFinal = vi.fn((text: string) => calls.push('text:' + text));
+    const onAudioCaptured = vi.fn();
+    const onEnd = vi.fn(() => calls.push('end'));
+    const session = await startPrivateChatStt('zh-CN', { onFinal, onAudioCaptured, onEnd }, { sttProvider: 'browser' });
+    expect(getUserMedia).not.toHaveBeenCalled();
+    const word = Object.assign([{ transcript: '今天要画画' }], { isFinal: true });
+    Recognizer.current.onresult?.({ resultIndex: 0, results: [word] });
     session.stop();
-    expect(final).toHaveBeenCalledWith('今天要画画');
-    expect(audio).toHaveBeenCalledTimes(1);
-    expect(audio.mock.calls[0][0].type).toContain('audio/webm');
-    expect(end).toHaveBeenCalledTimes(1);
+    expect(onFinal).toHaveBeenCalledWith('今天要画画');
+    expect(onAudioCaptured).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
     expect(calls.at(-1)).toBe('end');
-    expect(stopTrack).toHaveBeenCalled();
+    expect(Recognizer.current.stopCount).toBe(1);
   });
 
-  it('discards both captured audio and STT when the user cancels', async () => {
-    class Recognizer {
-      onend: (() => void) | null = null;
-      onaudiostart: (() => void) | null = null;
-      onerror: ((event: any) => void) | null = null;
-      start() { this.onaudiostart?.(); }
-      stop() { this.onend?.(); }
-      abort() { this.onend?.(); }
-    }
-    vi.stubGlobal('window', globalThis);
-    vi.stubGlobal('SpeechRecognition', Recognizer);
-    vi.stubGlobal('MediaRecorder', FakeRecorder);
-    const stopTrack = vi.fn();
-    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => ({
-      getTracks: () => [{ stop: stopTrack }],
-    })) } });
+  it('cancels recognition immediately without opening or saving audio', async () => {
+    const Recognizer = setupBrowserRecognizer();
+    const getUserMedia = vi.fn();
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
     const audio = vi.fn(), end = vi.fn(), final = vi.fn();
     const session = await startPrivateChatStt('zh-CN', {
       onAudioCaptured: audio, onEnd: end, onFinal: final,
     }, { sttProvider: 'browser' });
     session.cancel();
+    expect(Recognizer.current.abortCount).toBe(1);
+    expect(getUserMedia).not.toHaveBeenCalled();
     expect(audio).not.toHaveBeenCalled();
     expect(final).not.toHaveBeenCalled();
-    expect(end).not.toHaveBeenCalled();
-    expect(stopTrack).toHaveBeenCalled();
+    expect(end).toHaveBeenCalledTimes(1);
   });
 
-  it('continues genuine transcription when microphone audio storage is not permitted', async () => {
-    class Recognizer {
-      static current: Recognizer;
-      onresult: ((event: any) => void) | null = null;
-      onend: (() => void) | null = null;
-      onaudiostart: (() => void) | null = null;
-      onerror: ((event: any) => void) | null = null;
-      constructor() { Recognizer.current = this; }
-      start() { this.onaudiostart?.(); }
-      stop() { this.onend?.(); }
-      abort() { this.onend?.(); }
-    }
-    vi.stubGlobal('window', globalThis);
-    vi.stubGlobal('SpeechRecognition', Recognizer);
-    vi.stubGlobal('MediaRecorder', FakeRecorder);
-    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => {
+  it('does not block browser recognition on a separate microphone permission denial', async () => {
+    const Recognizer = setupBrowserRecognizer();
+    const getUserMedia = vi.fn(async () => {
       throw Object.assign(new Error('denied'), { name: 'NotAllowedError' });
-    }) } });
-    const audio = vi.fn(), end = vi.fn(), final = vi.fn(), error = vi.fn();
-    const session = await startPrivateChatStt('zh-CN', { onAudioCaptured: audio, onEnd: end, onFinal: final, onError: error }, { sttProvider: 'browser' });
-    expect(error).toHaveBeenCalledTimes(1);
-    expect(audio).not.toHaveBeenCalled();
-    Recognizer.current.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript:'说出的内容' }], { isFinal: true })] });
+    });
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
+    const onFinal = vi.fn(), onEnd = vi.fn(), onError = vi.fn();
+    const session = await startPrivateChatStt('zh-CN', { onFinal, onEnd, onError }, { sttProvider: 'browser' });
+    expect(getUserMedia).not.toHaveBeenCalled();
+    Recognizer.current.onresult?.({ resultIndex: 0, results: [
+      Object.assign([{ transcript: '说出的内容' }], { isFinal: true }),
+    ] });
     session.stop();
-    expect(final).toHaveBeenCalledWith('说出的内容');
-    expect(end).toHaveBeenCalledTimes(1);
+    expect(onFinal).toHaveBeenCalledWith('说出的内容');
+    expect(onError).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
   });
 });
