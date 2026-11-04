@@ -1,0 +1,34 @@
+name: Couples Space Interaction Regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'apps/couplesSpace/**'
+      - 'utils/couplesSpace.ts'
+      - 'utils/couplesSpace.test.ts'
+      - '.github/workflows/couples-space-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couples-space-regression-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run garden and capsule regression tests
+        run: pnpm exec vitest run utils/couplesSpace.test.ts
+      - name: Validate app compilation
+        run: pnpm exec vite build
