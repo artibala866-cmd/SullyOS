@@ -5,6 +5,7 @@ on:
     paths:
       - 'components/chat/PhoneWeChatPayCards.tsx'
       - 'components/chat/PhoneWeChatPayCards.test.tsx'
+      - 'utils/phoneWeChatPayCards.test.ts'
       - 'components/chat/CharacterPhone.tsx'
       - 'tests/wechat-pay-card-visual.*'
       - '.github/workflows/wechat-pay-card-visual.yml'
@@ -29,7 +30,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Test saved WeChat Pay notice card parsing and display
-        run: pnpm exec vitest run components/chat/PhoneWeChatPayCards.test.tsx
+        run: pnpm exec vitest run utils/phoneWeChatPayCards.test.ts
       - name: Build real application
         run: pnpm run build
       - name: Install Chinese font and Chrome
