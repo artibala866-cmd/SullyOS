@@ -19,7 +19,7 @@ export const bondAchievements = (bond: Bond, days: number) => [
 ];
 
 export function BondShop({ bond, partner, change, generate, share, busy }: {
-  bond: Bond; partner: string; change: ChangeBond; generate: Generate; share: (content: string, label: string) => Promise<void>; busy: boolean;
+  bond: Bond; partner: string; change: ChangeBond; generate: Generate; share: (content: string, label: string, deliveryId?: string) => Promise<void>; busy: boolean;
 }) {
   const [tab, setTab] = useState<keyof typeof tabs>('shop');
   const today = useLocalDateKey();
@@ -167,12 +167,37 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
             const note = window.prompt('出牌留言（可留空）', '');
             if (note === null) return;
             void run(async () => {
+              let playId: string | undefined;
               await change(current => {
                 const currentCard = [...shopCards, ...current.cards].find(item => item.id === card.id);
                 if (!currentCard) throw new Error('卡片已删除');
-                return playCard(current, currentCard, 'me', note.trim());
+                const updated = playCard(current, currentCard, 'me', note.trim());
+                playId = updated.played.at(-1)?.id;
+                return updated;
               });
-              await share(`【${card.name}】${note.trim() || card.effect}`, '我的出牌');
+              try {
+                await share(`【${card.name}】${note.trim() || card.effect}`, '我的出牌', `couples-play:${playId}`);
+              } catch (error) {
+                // A blocked/failed chat delivery must not silently consume a paid card.
+                // Refund only the exact still-present play, even if other cards changed.
+                let refunded = false;
+                try {
+                  await change(current => {
+                    if (!playId || !current.played.some(play => play.id === playId)) return current;
+                    refunded = true;
+                    return { ...current,
+                      played: current.played.filter(play => play.id !== playId),
+                      bags: { ...current.bags, me: {
+                        ...current.bags.me, [card.id]: (current.bags.me[card.id] ?? 0) + 1,
+                      } },
+                    };
+                  });
+                } catch {
+                  throw new Error('消息发送失败，卡片返还状态未确认，请检查卡包后重试');
+                }
+                throw new Error(refunded ? '消息未发出，卡片已退回卡包。请检查私聊状态。' :
+                  '消息发送失败，卡片状态已变化，请检查卡包');
+              }
             });
           }}>打出</button>}
         </div>)}
