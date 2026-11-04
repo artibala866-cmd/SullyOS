@@ -69,7 +69,7 @@ export function FeedbackInvitationDialog({ onClose }: { onClose: () => void }) {
                 }}>
                 <div className="sully-repo-tape" aria-hidden="true" />
                 <div className="sully-repo-scroll">
-                    <header className="sully-repo-topline"><span>糯米机 · 作者来信</span><span aria-hidden="true">一张小纸条 ↗</span></header>
+                    <header className="sully-repo-topline"><span>宝宝狗 · 作者来信</span><span aria-hidden="true">一张小纸条 ↗</span></header>
                     <div className="sully-repo-hero">
                         <div>
                             <span className="sully-repo-aside">（悄悄探头）</span>
@@ -97,7 +97,7 @@ export function FeedbackInvitationDialog({ onClose }: { onClose: () => void }) {
                             <p>原来真的有人在玩<br />我做的小手机啊 <span aria-hidden="true">:)</span></p>
                             <span className="sully-repo-note-star" aria-hidden="true">✳</span>
                         </div>
-                        <p className="sully-repo-closing">糯米机是免费项目。你愿意分享的每一份真实 repo，都是让我继续更新的一点动力。</p>
+                        <p className="sully-repo-closing">宝宝狗是免费项目。你愿意分享的每一份真实 repo，都是让我继续更新的一点动力。</p>
                     </div>
                     <div className="sully-repo-signoff"><span>谢谢你来玩，故事还在继续。</span><span>— 作者留</span></div>
                 </div>
