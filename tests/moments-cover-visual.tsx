@@ -4,7 +4,7 @@ import MomentsCover from '../components/chat/MomentsCover';
 import {MomentsTimeline} from '../components/chat/MomentsTimeline';
 import type {CharacterMoment} from '../utils/characterPhoneMoments';
 const requested=new URLSearchParams(location.search).get('view')||'collapsed';
-const posts=[{id:'m1',authorId:'qa-char',text:'二十二岁 有长寿面有蛋糕 还有全世界最神的大王亲手改的专属立绘 爽飞了',createdAt:Date.UTC(2026,10,1,7,19,13),comments:[],likes:[],imageUrls:[]} as CharacterMoment];
+const posts=[{id:'m1',authorId:'qa-char',text:'二十二岁 有长寿面有蛋糕 还有全世界最神的大王亲手改的专属立绘 爽飞了',createdAt:Date.UTC(2026,10,1,7,19,13),comments:[],likes:[],imageUrls:[]} as unknown as CharacterMoment];
 function Screen(){
  const [expanded,setExpanded]=useState(false);
  useEffect(()=>{
