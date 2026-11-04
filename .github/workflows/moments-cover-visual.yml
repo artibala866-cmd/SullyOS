@@ -33,23 +33,58 @@ jobs:
       - run: pnpm run build
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
       - uses: browser-actions/setup-chrome@v1
-      - name: Screenshot actual React component before and after clicking background
+      - name: Render real click and wait for transition in Chromium Playwright
         shell: bash
         run: |
           set -euo pipefail
           pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/moments-vite.log 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
-          url='http://127.0.0.1:5173/tests/moments-cover-visual.html'
+          url='http://127.0.0.1:5173/tests/moments-cover-visual.html?view=collapsed'
           for i in $(seq 1 60); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          python -m pip install --quiet playwright==1.57.0 Pillow==11.3.0
           chrome="$(command -v google-chrome || command -v chrome || command -v chromium)"
-          for view in collapsed expanded; do
-            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,900 --force-device-scale-factor=1 --virtual-time-budget=6000 --dump-dom "$url?view=$view" >"/tmp/moments-$view-dom.txt" 2>/tmp/moments-chrome.log || true
-            grep -o '<output[^>]*>[^<]*</output>' "/tmp/moments-$view-dom.txt" || true
-            if ! grep -q 'data-ready="true"' "/tmp/moments-$view-dom.txt"; then tail -50 /tmp/moments-vite.log; exit 1; fi
-            "$chrome" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --hide-scrollbars --window-size=390,900 --force-device-scale-factor=1 --virtual-time-budget=6000 --screenshot="$GITHUB_WORKSPACE/moments-cover-$view.png" "$url?view=$view"
-            test -s "moments-cover-$view.png"
-          done
+          CHROME_BIN="$chrome" python - <<'PY'
+          import os
+          from PIL import Image, ImageChops
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser=p.chromium.launch(executable_path=os.environ['CHROME_BIN'],headless=True,
+                  args=['--no-sandbox','--disable-dev-shm-usage'])
+              page=browser.new_page(viewport={'width':390,'height':840},device_scale_factor=1)
+              page.goto('http://127.0.0.1:5173/tests/moments-cover-visual.html?view=collapsed')
+              trigger=page.locator('[data-testid="moments-cover-background"]')
+              picker=page.locator('[data-testid="moments-cover-picker"]')
+              trigger.wait_for()
+              page.wait_for_timeout(650)
+              collapsed=page.locator('[data-moments-cover]').bounding_box()
+              assert collapsed is not None and abs(collapsed['height']-256)<2,collapsed
+              assert not trigger.get_attribute('aria-expanded')=='true'
+              assert picker.is_disabled()
+              page.screenshot(path='moments-cover-collapsed.png')
+              trigger.click()
+              page.wait_for_timeout(850)
+              expanded=page.locator('[data-moments-cover]').bounding_box()
+              main_height=page.locator('main').evaluate('(el)=>el.clientHeight')
+              assert expanded is not None and expanded['height']>main_height*.72,(expanded,main_height)
+              assert trigger.get_attribute('aria-expanded')=='true'
+              assert not picker.is_disabled()
+              assert page.locator('header').count()==0
+              pb=picker.bounding_box()
+              assert pb and pb['x']+pb['width']<=expanded['x']+expanded['width']+1
+              assert pb['y']+pb['height']<=expanded['y']+expanded['height']+1
+              page.screenshot(path='moments-cover-expanded.png')
+              with page.expect_file_chooser() as picker_event:
+                  picker.click()
+              assert picker_event.value is not None
+              print('CLICK COVER METRICS: collapsed=',collapsed,'expanded=',expanded,'mainHeight=',main_height,
+                    'picker=',pb,'fileChooser=opened')
+              browser.close()
+          a=Image.open('moments-cover-collapsed.png').convert('RGB')
+          b=Image.open('moments-cover-expanded.png').convert('RGB')
+          assert ImageChops.difference(a,b).getbbox() is not None
+          print('PASS: real React screenshots before/after click differ and picker opens')
+          PY
       - name: Export compact visual snapshots into audit logs
         run: |
           python -m pip install --quiet Pillow==11.3.0
