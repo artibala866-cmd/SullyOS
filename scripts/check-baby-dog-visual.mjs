@@ -144,10 +144,9 @@ try {
       const mirrored = await waitForState(page,
         s => s.expression === 'squint' && s.mirrored,
         'whole puppy mirrors horizontally');
-      await pause(265); // let 235ms CSS mirror settle before verifying pixels
-      const flipped = await page.evaluate(inspectExpression);
-      assert(flipped.mirrored && flipped.actualMirror.startsWith('matrix(-1'),
-        'Mirrored phase must have a genuine negative X transform, not text-only flip');
+      const flipped = await waitForState(page,
+        s => s.mirrored && s.actualMirror.startsWith('matrix(-1'),
+        'visible CSS horizontal flip after its transition', 1800);
       await page.shot('baby-dog-' + variant + '-flipped.png');
 
       const resumed = await waitForState(page,
