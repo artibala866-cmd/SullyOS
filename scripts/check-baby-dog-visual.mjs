@@ -89,7 +89,10 @@ const inspectExpression = `(() => {
     actualMirror: getComputedStyle(document.querySelector('.sully-lineart-flip')).transform,
     replacementVisible: !!svg,
     closedEyes: svg?.querySelectorAll('g path').length ?? 0,
-    mouthShapes: svg?.querySelectorAll('path[stroke-width="7"]').length ?? 0,
+    tongueShapes: document.querySelectorAll('.sully-lineart-tongue path').length,
+    originalLipIntact: !!canvas && rgba[(330 * 512 + 263) * 4 + 3] >= 0,
+    stickerOutline: document.querySelectorAll('.sully-lineart-sticker ellipse').length,
+    stickerTransform: getComputedStyle(document.querySelector('.sully-lineart-sticker')).transform,
     label: label.textContent,
     labelLocation: document.querySelector('.sully-boot-artwork').dataset.label,
     welcome: caption.textContent,
@@ -135,8 +138,8 @@ try {
 
       const blink1 = await waitForState(page, s => s.expression === 'blink',
         'first squint with open mouth');
-      assert(blink1.replacementVisible && blink1.closedEyes === 2 && blink1.mouthShapes === 1,
-        'Blink frame must hide old 2 eyes and old mouth, then show exactly one replacement');
+      assert(blink1.replacementVisible && blink1.closedEyes === 2 && blink1.tongueShapes === 1 && blink1.stickerOutline === 1,
+        'Blink frame must hide only two original dots, retain original lip, and add one tongue + one sticker');
       await page.shot('baby-dog-' + variant + '-blink.png');
 
       const openAgain = await waitForState(page,
@@ -148,7 +151,7 @@ try {
       const shout = await waitForState(page,
         s => s.expression === 'squint' && !s.mirrored,
         'wide-squint mouth scene before flipping');
-      assert(shout.closedEyes === 2 && shout.mouthShapes === 1);
+      assert(shout.closedEyes === 2 && shout.tongueShapes === 1);
       await page.shot('baby-dog-' + variant + '-squint.png');
 
       const mirrored = await waitForState(page,
