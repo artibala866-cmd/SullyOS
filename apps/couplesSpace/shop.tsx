@@ -96,7 +96,7 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
         <button onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>自订卡</button>
         {manage && <button disabled={working || !bond.hidden.length} onClick={() => apply(current => ({ ...current, hidden: [] }))}>全部放回</button>}
       </div>
-      {draft && <form className="couple-card" onSubmit={event => {
+      {draft && <form className="couple-card couple-shop-editor" onSubmit={event => {
         event.preventDefault();
         const card = { ...draft, name: draft.name.trim(), effect: draft.effect.trim() };
         if (!card.name || !card.effect || !Number.isSafeInteger(card.price) || card.price < 1) return;
@@ -121,13 +121,14 @@ export function BondShop({ bond, partner, change, generate, share, busy }: {
           <button key={id} aria-pressed={shelf === id} onClick={() => setShelf(id)}>{title}</button>)}
       </nav>
       {!visibleCards.length && <p className="couple-muted">这个分类暂时没有可展示的卡片。</p>}
-      {visibleCards.map((card, index) => <article key={card.id} className="couple-card couple-shop-card">
+      {visibleCards.map((card, index) => <article key={card.id} className={'couple-card couple-shop-card couple-shop-pass-' + (index % 3)}>
+        <div className="couple-shop-card-stamp" aria-hidden="true"><span>C</span><span>·</span><span>S</span></div>
         <div className="couple-shop-head">
           <div><span>COUPLE PASS / {String(index + 1).padStart(2, '0')}</span><h3>{card.name}</h3></div>
           <strong>{card.price}<small>积分</small></strong>
         </div>
         <p>{card.effect}</p>
-        <small>{card.charUse ? '双方可用' : '仅我可用'}</small>
+        <div className="couple-shop-pass-foot"><span>VALID FOR OUR STORY</span><small>{card.charUse ? '双方可用' : '仅我可用'}</small></div>
         <div className="couple-actions">{manage ? <>
           <button disabled={working} onClick={() => apply(current => ({
             ...current, hidden: current.hidden.includes(card.id) ? current.hidden.filter(id => id !== card.id) : [...current.hidden, card.id],
