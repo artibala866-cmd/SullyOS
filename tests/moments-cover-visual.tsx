@@ -22,7 +22,7 @@ function Screen(){
      document.querySelector('output')!.textContent=JSON.stringify({ok,requested,expanded:isExpanded,coverHeight:Math.round(rect?.height||0),mainHeight:main?.clientHeight,pickerDisabled:picker?.disabled,pickerClicked:chosen});
    },1200);
    return()=>{clearTimeout(first);clearTimeout(second)};
- },[expanded]);
+ },[]);
  return <div style={{height:'100%',background:'#ededed',display:'flex',flexDirection:'column'}}>
    <div style={{height:34,flexShrink:0,padding:'7px 18px',fontSize:13}}>13:50 <span style={{float:'right'}}>4G ▮▮▮ 35%</span></div>
    {!expanded&&<header style={{height:56,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 18px',background:'#ededed'}}><span style={{fontSize:26}}>‹</span><strong style={{fontSize:21}}>朋友圈</strong><span style={{width:22}}/></header>}
