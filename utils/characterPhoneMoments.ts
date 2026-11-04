@@ -24,7 +24,7 @@ export interface CharacterMoment {
   deletedBy?: 'char' | 'user';
 }
 export const CHARACTER_MOMENTS_CHANGED = 'sully:character-moments-changed';
-export type CharacterMomentChange = 'published' | 'commented' | 'liked' | 'deleted' | 'comment-deleted';
+export type CharacterMomentChange = 'published' | 'commented' | 'liked' | 'deleted' | 'comment-deleted' | 'media-added';
 export type CharacterMomentChangeDetail = {
   characterId: string;
   changeKind?: CharacterMomentChange;
@@ -99,4 +99,14 @@ export function deleteMomentComment(characterId: string, postId: string, comment
   const comment=target?.comments?.find(c=>c.id===commentId && !c.deletedAt);
   if(!comment || comment.authorId!==actorId) return false;
   return save(characterId,posts.map(p=>p.id===postId?{...p,comments:(p.comments||[]).map(c=>c.id===commentId?{...c,deletedAt:Date.now()}:c)}:p), 'comment-deleted', actorId);
+}
+
+export function attachGeneratedMomentImage(characterId: string, postId: string, token: string, description: string): boolean {
+  const posts = readCharacterMoments(characterId);
+  const post = posts.find(item => item.id === postId && !item.deletedAt);
+  if (!post || post.imageUrls.length || post.media?.length) return false;
+  const media: MomentMedia = {id: postId + ':image', url: token, source: 'generated', prompt: description};
+  return save(characterId, posts.map(item => item.id === postId
+    ? {...item, imageUrls:[token], media:[media], provenance:{...item.provenance, imageIsIllustrative:true}}
+    : item), 'media-added');
 }

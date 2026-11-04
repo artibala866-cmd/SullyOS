@@ -15,6 +15,14 @@ describe('character phone P1 wallpaper and widgets',()=>{
     expect(readPhoneAppearance('a').wallpaper).toBe('');
     expect(readPhoneAppearance('a').polaroidLeft).toBe('');
   });
+  it('stores and resets a custom Moments cover independently of the desktop wallpaper',()=>{
+    const image='data:image/png;base64,AAAA';
+    savePhoneAppearance('a',{wallpaper:image,momentsCover:image});
+    expect(readPhoneAppearance('b').momentsCover).toBe('');
+    expect(readPhoneAppearance('a').momentsCover).toBe(image);
+    savePhoneAppearance('a',{momentsCover:''});
+    expect(readPhoneAppearance('a')).toMatchObject({wallpaper:image,momentsCover:''});
+  });
   it('uses user supplied anniversary, not a fabricated count',()=>{
     expect(relationshipDayCount('')).toBeNull();
     expect(relationshipDayCount('2026-02-30',new Date(2026,3,1))).toBeNull();

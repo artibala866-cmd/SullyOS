@@ -1,3 +1,4 @@
+import {novelAiQualityPrompt} from './imagePromptDefaults';
 import type { ImageApiSettings } from '../components/settings/ImageApiSettingsPanel';
 import type { CharacterImageProfile } from './characterImageProfile';
 import { dataUrlToBlob, getBlobForRef, isBlobRef } from './blobRef';
@@ -168,11 +169,15 @@ export async function generateCharacterImage(
   config: ImageApiSettings,
   profile: CharacterImageProfile,
   signal?: AbortSignal,
+  extraReferences?: {name: string; value: string}[],
 ): Promise<Blob> {
   if (!config.apiKey?.trim() || !config.model?.trim()) throw new Error('请先在设置中保存生图 API Key 和模型');
   // The character-owned profile is shared by manual edits and BabyLink imports.
   // Never use a disabled reference, but retain it in storage for later re-enabling.
-  const hasReference = !!profile.reference?.trim() && profile.referenceEnabled !== false;
+  const references = extraReferences?.length
+    ? (config.provider === 'openai' ? extraReferences : [])
+    : (profile.reference?.trim() && profile.referenceEnabled !== false ? [{name: '', value: profile.reference}] : []);
+  const hasReference = references.length > 0;
   const wardrobe = profile.wardrobe;
   const promptParts = [
     config.positive?.trim(), profile.appearance?.trim(), profile.facePrompt?.trim(),
@@ -182,6 +187,10 @@ export async function generateCharacterImage(
   // BabyLink's appearancePrompt and facePrompt are both empty.
   if (!promptParts.length && hasReference) promptParts.push('A new natural portrait of the referenced character');
   if (!promptParts.length) throw new Error('请先填写角色外貌描述或全局正面提示词');
+  if (config.provider === 'nai') {
+    const quality = (config.qualityPrompt ?? novelAiQualityPrompt(config.model)).trim();
+    if (quality) promptParts.push(quality);
+  }
   const negative = [config.negative?.trim(), wardrobe?.avoid?.trim()].filter(Boolean).join(', ');
   const prompt = (config.provider === 'nai' && hasReference && profile.referenceMode !== 'composition'
     ? ['Preserve the referenced character identity and facial features', ...promptParts].join(', ')
@@ -202,7 +211,7 @@ export async function generateCharacterImage(
     const parameters: Record<string, unknown> = {
       width: config.width, height: config.height, steps, scale,
       sampler: config.sampler?.trim() || 'k_euler_ancestral',
-      n_samples: 1, uc: negative, qualityToggle: true,
+      n_samples: 1, uc: negative, qualityToggle: false,
     };
     // NovelAI V4/4.5 models require V4 caption envelopes in addition to the
     // top-level prompt. Do not send the V4 fields to legacy NAI V3 models.
@@ -237,7 +246,7 @@ export async function generateCharacterImage(
       parameters.seed = Number(rawSeed);
     }
     if (hasReference) {
-      const reference = await readReference(profile.reference);
+      const reference = await readReference(references[0].value);
       if (!reference.type.startsWith('image/')) throw new Error('锁脸参考图不是有效图片');
       parameters.image = await blobBase64(reference);
       parameters.strength = strength;
@@ -257,12 +266,17 @@ export async function generateCharacterImage(
   const url = endpointFor(base, hasReference);
   let response: Response;
   if (hasReference) {
-    const reference = await readReference(profile.reference);
-    if (!reference.type.startsWith('image/')) throw new Error('锁脸参考图不是有效图片');
-    const format = reference.type === 'image/jpeg' ? 'jpg' : reference.type === 'image/webp' ? 'webp' : 'png';
     const body = new FormData();
-    body.append('image', reference, 'reference.' + format);
-    body.append('prompt', profile.referenceMode === 'composition' ? prompt : identityReferencePrompt(prompt));
+    for (const [index, entry] of references.entries()) {
+      const reference = await readReference(entry.value);
+      if (!reference.type.startsWith('image/')) throw new Error('锁脸参考图不是有效图片');
+      const format = reference.type === 'image/jpeg' ? 'jpg' : reference.type === 'image/webp' ? 'webp' : 'png';
+      body.append(references.length > 1 ? 'image[]' : 'image', reference, `reference-${index + 1}.${format}`);
+    }
+    const referencedPrompt = extraReferences?.length
+      ? 'Keep each person distinct and preserve their facial identity. Reference image order: ' + references.map(ref => ref.name).join(', ') + '. ' + prompt
+      : profile.referenceMode === 'composition' ? prompt : identityReferencePrompt(prompt);
+    body.append('prompt', referencedPrompt);
     body.append('model', config.model.trim());
     body.append('size', size);
     body.append('n', '1');

@@ -1,3 +1,5 @@
+import {parseImageDirective, photoInstruction} from './automaticImage';
+import {attachMomentPhoto} from './momentImage';
 import { readCharacterMoments, publishCharacterMoment, addMomentComment } from './characterPhoneMoments';
 import { readMomentInteractionPreferences, allowMomentComment } from './momentInteractionPreferences';
 import { fetchCharacterPhoneJson, canRunAutomaticPhoneAi } from './characterPhoneAiRequest';
@@ -24,10 +26,11 @@ export async function refreshNpcMoments(characterId:string, contacts:NpcProfile[
     .map(r=>({contactId:r.contactId,recent:r.messages.slice(-5).map(m=>({
       speaker:m.speaker.role,text:m.text.slice(0,180)
     }))})).slice(0,6);
+  const image = photoInstruction('moments', characterId);
   const {response,json}=await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+api.apiKey},
     body:JSON.stringify({model:api.model,stream:false,messages:[
-      {role:'system',content:'你模拟微信朋友圈中NPC各自的独立日常。只能让给定联系人发帖，绝对不能生成Char或User的帖子。根据每个人的性格、身份和生活圈决定是否发；可以无人发帖。内容自然、不同风格，不围绕Char或User，不冒充真实聊天事件，不重复近期内容。只返回JSON：{"posts":[{"authorId":"给定联系人ID","text":"朋友圈正文","comments":[{"authorId":"与作者认识的CharID或NPC联系人ID","text":"自然评论","replyToIndex":-1}]}]}。最多4条动态，每条最多3条评论，允许0条。replyToIndex=-1表示直接评论；0或1表示只回复本条动态已生成的某条之前的评论。允许动态作者礼貌回复别人，但禁止回复的回复和接龙。陌生NPC不能假装认识，不能所有人机械表扬，更不能同人重复同句话。熟人关系必须双方mutualContactIds都承认；Char是所有联系人认识的手机主人。其他已存联系人及彼此互认关系：' +JSON.stringify(contacts.slice(0,18).map(p=>({id:p.id,name:p.name,mutualContactIds:p.mutualContactIds,personality:p.personality,speechStyle:p.speechStyle}))).slice(0,4200)+'。发布作者候选：'+JSON.stringify(chosen.map(p=>({id:p.id,name:p.name,identity:p.identity,personality:p.personality,background:p.background}))).slice(0,6500)+'。与手机主人已保存的最近微信：'+JSON.stringify(chats).slice(0,2500)+'。近期动态：'+JSON.stringify(recent.map(p=>({authorId:p.authorId,text:p.text}))).slice(0,4000)},
+      {role:'system',content:'你模拟微信朋友圈中NPC各自的独立日常。只能让给定联系人发帖，绝对不能生成Char或User的帖子。根据每个人的性格、身份和生活圈决定是否发；可以无人发帖。内容自然、不同风格，不围绕Char或User，不冒充真实聊天事件，不重复近期内容。只返回JSON：{"posts":[{"authorId":"给定联系人ID","text":"朋友圈正文","comments":[{"authorId":"与作者认识的CharID或NPC联系人ID","text":"自然评论","replyToIndex":-1}]}]}。最多4条动态，每条最多3条评论，允许0条。replyToIndex=-1表示直接评论；0或1表示只回复本条动态已生成的某条之前的评论。允许动态作者礼貌回复别人，但禁止回复的回复和接龙。陌生NPC不能假装认识，不能所有人机械表扬，更不能同人重复同句话。熟人关系必须双方mutualContactIds都承认；Char是所有联系人认识的手机主人。其他已存联系人及彼此互认关系：' +JSON.stringify(contacts.slice(0,18).map(p=>({id:p.id,name:p.name,mutualContactIds:p.mutualContactIds,personality:p.personality,speechStyle:p.speechStyle}))).slice(0,4200)+'。发布作者候选：'+JSON.stringify(chosen.map(p=>({id:p.id,name:p.name,identity:p.identity,personality:p.personality,background:p.background}))).slice(0,6500)+'。与手机主人已保存的最近微信：'+JSON.stringify(chats).slice(0,2500)+'。近期动态：'+JSON.stringify(recent.map(p=>({authorId:p.authorId,text:p.text}))).slice(0,4000)+image.text},
       {role:'user',content:'看看这些NPC好友最近是否有新的朋友圈。'}
     ]})
   },{charId:characterId,purpose:'NPC 朋友圈新动态与熟人评论',automatic});
@@ -36,9 +39,12 @@ export async function refreshNpcMoments(characterId:string, contacts:NpcProfile[
   const data=JSON.parse(raw.startsWith('```')?raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''):raw);
   if(!Array.isArray(data.posts))throw new Error('NPC 朋友圈格式错误');
   let count=0;
+  let imageUsed = false;
   for(const item of data.posts.slice(0,4)){
     if(!chosen.some(p=>p.id===item?.authorId)||typeof item.text!=='string'||!item.text.trim())continue;
-    const text=item.text.trim().slice(0,1200);
+    const photo = parseImageDirective(item.text);
+    const text=photo.text.slice(0,1200);
+    if(!text)continue;
     if(readCharacterMoments(characterId).some(p=>p.authorId===item.authorId&&p.text===text))continue;
     const post=publishCharacterMoment({characterId,authorId:item.authorId,origin:'npc',text,imageUrls:[],visibility:'all'});
     if(!post)continue;
@@ -47,6 +53,10 @@ export async function refreshNpcMoments(characterId:string, contacts:NpcProfile[
     // Check reciprocal NPC relationships and only reply to already saved
     // top-level comments; never manufacture a User response.
     const author=contacts.find(c=>c.id===item.authorId)!;
+    if (!imageUsed && photo.description && image.permission) {
+      imageUsed = true;
+      await attachMomentPhoto(post, photo, image.permission, author.name);
+    }
     const liveIds:string[]=[];
     for(const entry of (Array.isArray(item.comments)?item.comments:[]).slice(0,3)){
       if(typeof entry?.authorId!=='string'||typeof entry?.text!=='string')continue;

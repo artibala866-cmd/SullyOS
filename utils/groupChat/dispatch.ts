@@ -1,3 +1,5 @@
+import {deliverAutomaticImage, parseImageDirective} from '../automaticImage';
+import type {UserProfile} from '../../types';
 // 群聊动作派发 —— 从 GroupChat.tsx triggerDirector 抽出的执行层（PRIVATE 侧信道、
 // 表情包、气泡分段、打字延迟），导演模式与轮询模式共用。
 import { DB } from '../db';
@@ -36,6 +38,9 @@ export interface DispatchContext {
     userName: string;
     /** 群 HTML 模块模式开启时解析 [html] 块为 html_card 消息 */
     htmlMode?: boolean;
+    photoPermission?: string | null;
+    photoUser?: UserProfile;
+    onPhoto?: () => void;
 }
 
 /**
@@ -46,6 +51,7 @@ export interface DispatchContext {
 export async function dispatchMemberActions(actions: DirectorAction[], ctx: DispatchContext): Promise<void> {
     const { groupId, memberIds, characters, emojis, categories, refresh, addToast, signal, resolveQuote } = ctx;
 
+    let photoUsed = false;
     for (const action of actions) {
         if (signal?.aborted) return;
         const targetId = memberIds.find(id => id === action.charId);
@@ -64,7 +70,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
 
         if (privateMatches.length > 0) {
             for (const m of privateMatches) {
-                const privateContent = m[1].trim();
+                const privateContent = parseImageDirective(m[1]).text;
                 if (privateContent) {
                     // Save to private chat (no groupId)
                     await DB.saveMessage({
@@ -84,6 +90,9 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             if (!publicContent) continue;
         }
 
+        const photo = parseImageDirective(publicContent);
+        publicContent = photo.text;
+
         // 0.5 [[QUOTE: 原话片段]]：AI 想针对某条具体发言回复。两层容错精神——
         // 匹配不到目标就静默剥除标记，绝不因引用失败丢正文
         // Keep every citation in place until text is split, including standalone tags.
@@ -98,7 +107,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             await executePacketCommand(cmd, targetId, charName, ctx);
         }
 
-        if (!publicContent) continue;
+        if (!publicContent && !photo.description) continue;
 
         publicContent = normalizeAssistantEmojiFormatting(publicContent);
 
@@ -197,6 +206,19 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
                 quoteReplyTo = undefined;
                 await refresh();
             }
+        }
+        if (!photoUsed && ctx.photoPermission && photo.description) {
+            photoUsed = true;
+            ctx.onPhoto?.();
+            const delivered = await deliverAutomaticImage({
+                scope:'group', id:groupId, permission:ctx.photoPermission, photo, sender:{id:targetId,name:charName},
+                user:ctx.photoUser, known:characters.filter(c => memberIds.includes(c.id)), signal,
+                commit:async (token, description, imageSignal) => {
+                    await DB.saveMessage({charId:targetId, groupId, role:'assistant', type:'image', content:token, metadata:{visionDescription:description}}, imageSignal);
+                    return true;
+                },
+            });
+            if (delivered) await refresh();
         }
     }
 }

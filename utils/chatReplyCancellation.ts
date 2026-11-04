@@ -105,9 +105,9 @@ export class ReplyRun {
         } finally { this.signal.removeEventListener('abort', abort); }
     }
 
-    saveMessage: typeof DB.saveMessage = async (message) => {
+    saveMessage: typeof DB.saveMessage = async (message, signal) => {
         this.check();
-        const id = await DB.saveMessage(message);
+        const id = await DB.saveMessage(message, signal);
         this.savedIds.add(id);
         // A transaction can complete after stop was clicked. Never leave its unseen row behind.
         if (this.signal.aborted && !this.stoppedDisplay?.ids.has(id)) await DB.deleteMessages([id]);

@@ -1,3 +1,4 @@
+import {photoInstruction} from '../utils/automaticImage';
 import { isRealPersonAutoReplyAuthorized } from '../utils/realPersonMode';
 import { waitForChatComposer, chatComposerWaitMs } from '../utils/chatComposerActivity';
 import { resolveDialogueApi } from '../utils/characterApi';
@@ -1018,6 +1019,10 @@ export const useChatAI = ({
             const phoneEventsInstruction = opts?.immediateMusicInvite || opts?.postUnblockOpening || payload.flags.promptBuildSkipped
                 ? '' : chatPhonePiggybackPrompt(char.id);
             if(phoneEventsInstruction)fullMessages.unshift({role:'system',content:phoneEventsInstruction} as any);
+            const photo = opts?.immediateMusicInvite || opts?.postUnblockOpening || payload.flags.promptBuildSkipped
+                ? {permission: null, text: ''}
+                : photoInstruction('private', char.id, contextMsgs.slice(-8).some(m => m.role === 'assistant' && m.type === 'image'), !!instantChatRoute);
+            if (photo.text) fullMessages.unshift({role:'system',content:photo.text} as any);
             const promptBuildSkipped = payload.flags.promptBuildSkipped;
             if (payload.flags.mcdActive) {
                 console.log(`🍔 [MCD-MiniApp] 注入协同点餐上下文 step=${mcdMiniSnap?.step} cartItems=${mcdMiniSnap?.cart?.length || 0} menuItems=${mcdMiniSnap?.menuMeals ? Object.keys(mcdMiniSnap.menuMeals).length : 0} nutrition=${mcdMiniSnap?.nutritionData ? mcdMiniSnap.nutritionData.length : 0}字`);
@@ -2141,6 +2146,8 @@ export const useChatAI = ({
             if (characterBlocksUser(charRef.current?.chatBlock)) return;
             if (avatarCleanContent) await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
+                photoPermission: photo.permission,
+                canDeliverPhoto: () => !characterBlocksUser(charRef.current?.chatBlock),
                 char,
                 userProfile,
                 emojis,

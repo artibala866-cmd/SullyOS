@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
-import { imageApiModelsEndpoint } from '../../utils/imageGeneration';
+import React, { useEffect, useState } from 'react';
+import { DEFAULT_IMAGE_SCENE_INSTRUCTION, imagePromptDefaults, novelAiQualityPrompt } from '../../utils/imagePromptDefaults';
+import { generateCharacterImage, imageApiModelsEndpoint } from '../../utils/imageGeneration';
 
 export type ImageProvider = 'openai' | 'nai';
-export type ImageApiSettings = { provider: ImageProvider; baseUrl: string; apiKey: string; model: string; positive: string; negative: string; width: number; height: number; steps?: number; scale?: number; sampler?: string; referenceStrength?: number };
+export type ImageApiSettings = { provider: ImageProvider; baseUrl: string; apiKey: string; model: string; positive: string; negative: string; width: number; height: number; steps?: number; scale?: number; sampler?: string; referenceStrength?: number; sceneInstruction?: string; qualityPrompt?: string };
 const KEY = 'sully_image_api_v1';
 const PRESETS = 'sully_image_presets_v1';
 export const readImageSettings = (): ImageApiSettings => {
-  const fallback: ImageApiSettings = { provider: 'openai', baseUrl: '', apiKey: '', model: '', positive: '', negative: '', width: 832, height: 1216, steps: 28, scale: 5, sampler: 'k_euler_ancestral', referenceStrength: 0.45 };
-  try { return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return fallback; }
+  const fallback: ImageApiSettings = { provider: 'openai', baseUrl: '', apiKey: '', model: '', ...imagePromptDefaults('openai'), width: 832, height: 1216, steps: 28, scale: 5, sampler: 'k_euler_ancestral', referenceStrength: 0.45 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    return { ...fallback, ...imagePromptDefaults(saved?.provider === 'nai' ? 'nai' : 'openai'), ...saved };
+  } catch { return fallback; }
 };
 export const saveImageSettings = (settings: ImageApiSettings) => localStorage.setItem(KEY, JSON.stringify(settings));
 const inputStyle = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400';
@@ -19,6 +23,27 @@ export const ImageApiSettingsPanel: React.FC = () => {
   const [presetName, setPresetName] = useState('');
   const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [testPrompt, setTestPrompt] = useState('窗边木桌上一杯热茶，自然光');
+  const [testImage, setTestImage] = useState<Blob>();
+  const [testUrl, setTestUrl] = useState('');
+  const [testing, setTesting] = useState(false);
+  useEffect(() => {
+    if (!testImage) return;
+    const url = URL.createObjectURL(testImage);
+    setTestUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [testImage]);
+  const testGeneration = async () => {
+    setTesting(true);
+    setStatus('正在用当前表单配置测试生图…');
+    try {
+      const image = await generateCharacterImage(form, {appearance:testPrompt.trim(), reference:''});
+      setTestImage(image);
+      setStatus('测试生图成功');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '测试生图失败');
+    } finally { setTesting(false); }
+  };
   const persist = (next: {name:string; config:ImageApiSettings}[]) => { localStorage.setItem(PRESETS, JSON.stringify(next)); setPresets(next); };
   const fetchModels = async () => {
     setLoading(true); setStatus('正在拉取模型...');
@@ -35,7 +60,7 @@ export const ImageApiSettingsPanel: React.FC = () => {
   return <section className="bg-[#fffefe] rounded-3xl p-5 shadow-sm border border-slate-200 space-y-4">
     <button type="button" className="w-full text-left flex items-center gap-2" onClick={() => setExpanded(v => !v)}><div className="p-2 bg-slate-100/60 rounded-xl text-slate-800 shrink-0"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path strokeLinecap="round" strokeLinejoin="round" d="m3.5 17 5.5-5.5 4 4 3-3 4.5 4.5" /></svg></div><strong className="text-sm font-semibold text-slate-600 tracking-wider">生图 API</strong><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden="true" className={`w-3 h-3 text-slate-300 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg></button>
     {expanded && <div className="space-y-4">
-    <label className="block text-xs text-slate-500 space-y-2">接入渠道<select className={inputStyle} value={form.provider} onChange={e => patch({ provider: e.target.value as ImageProvider })}><option value="openai">OpenAI 兼容中转站</option><option value="nai">NovelAI (NAI)</option></select></label>
+    <label className="block text-xs text-slate-500 space-y-2">接入渠道<select className={inputStyle} value={form.provider} onChange={e => { const provider = e.target.value as ImageProvider; const previous = imagePromptDefaults(form.provider); const next = imagePromptDefaults(provider); patch({provider, positive: form.positive === previous.positive ? next.positive : form.positive, negative: form.negative === previous.negative ? next.negative : form.negative}); }}><option value="openai">OpenAI 兼容中转站</option><option value="nai">NovelAI (NAI)</option></select></label>
     <label className="block text-xs text-slate-500 space-y-2">API 地址<input className={inputStyle} value={form.baseUrl} placeholder={form.provider === 'nai' ? 'https://image.novelai.net' : 'https://your-relay.example/v1'} onChange={e => patch({ baseUrl: e.target.value })} /></label>
     <label className="block text-xs text-slate-500 space-y-2">API Key<input className={inputStyle} type="password" autoComplete="off" value={form.apiKey} onChange={e => patch({ apiKey: e.target.value })} /></label>
     <button type="button" disabled={loading || form.provider === 'nai'} onClick={fetchModels} className="rounded-2xl bg-[#ededed] text-[#222] px-4 py-3 text-xs disabled:opacity-50">{loading ? '拉取中...' : form.provider === 'nai' ? 'NAI 手动填写模型' : '拉取模型'}</button>
@@ -43,6 +68,9 @@ export const ImageApiSettingsPanel: React.FC = () => {
     <label className="block text-xs text-slate-500 space-y-2">模型名称<input className={inputStyle} value={form.model} placeholder={form.provider === 'nai' ? 'nai-diffusion-4-5-full' : '填写中转站模型 ID'} onChange={e => patch({ model: e.target.value })} /></label>
     <label className="block text-xs text-slate-500 space-y-2">全局正面提示词<textarea className={inputStyle} rows={3} value={form.positive} onChange={e => patch({ positive: e.target.value })} placeholder="画风、光影、画质等" /></label>
     <label className="block text-xs text-slate-500 space-y-2">全局负面提示词<textarea className={inputStyle} rows={3} value={form.negative} onChange={e => patch({ negative: e.target.value })} placeholder="不希望出现的元素" /></label>
+    <label className="block text-xs text-slate-500 space-y-2">角色发图提示词<textarea className={inputStyle} rows={4} value={form.sceneInstruction ?? DEFAULT_IMAGE_SCENE_INSTRUCTION} onChange={e => patch({sceneInstruction:e.target.value})} /></label>
+    {form.provider === 'nai' && <label className="block text-xs text-slate-500 space-y-2">NovelAI 质量提示词<textarea className={inputStyle} rows={2} value={form.qualityPrompt ?? novelAiQualityPrompt(form.model)} onChange={e => patch({qualityPrompt:e.target.value})} /></label>}
+    <button type="button" className="text-xs underline" onClick={() => patch({...imagePromptDefaults(form.provider), sceneInstruction:undefined, qualityPrompt:undefined})}>恢复参考版默认提示词</button>
     <div className="grid grid-cols-2 gap-3">{(['width','height'] as const).map(key => <label key={key} className="text-xs text-slate-500 space-y-2">{key === 'width' ? '宽度' : '高度'}<input className={inputStyle} type="number" min={64} max={2048} step={64} value={form[key]} onChange={e => patch({ [key]: Number(e.target.value) })} /></label>)}</div>
     {form.provider === 'nai' && <div className="border-t border-slate-100 pt-3 space-y-3">
       <p className="text-xs font-semibold text-slate-600">NovelAI 高级生图参数</p>
@@ -65,6 +93,13 @@ export const ImageApiSettingsPanel: React.FC = () => {
       <p className="text-xs text-slate-400">只在神经链接已上传参考图时使用变化强度；数值越小越贴近原图，但不能保证严格锁脸。</p>
     </div>}
     <button className="w-full py-3 rounded-xl bg-slate-700 text-white text-sm" onClick={() => { try { saveImageSettings(form); setStatus('生图配置已保存到当前设备'); } catch { setStatus('保存失败，请检查浏览器存储权限'); } }}>保存生图 API</button>
+    <div className="space-y-2 border-t border-slate-100 pt-3">
+      <label className="block space-y-2 text-xs text-slate-500">测试画面
+        <input className={inputStyle} value={testPrompt} onChange={event => setTestPrompt(event.target.value)} />
+      </label>
+      <button type="button" disabled={testing || !testPrompt.trim()} onClick={testGeneration} className="rounded-xl bg-slate-100 px-4 py-2 text-xs disabled:opacity-50">{testing ? '生成中…' : '测试生图'}</button>
+      {testUrl && <img src={testUrl} alt="测试生图结果" className="max-h-64 rounded-xl object-contain" />}
+    </div>
     {status && <p role="status" className="text-xs text-slate-500">{status}</p>}
     <div className="border-t border-slate-100 pt-3 space-y-2"><h3 className="text-sm font-semibold">API 预设</h3><div className="flex gap-2"><input className={inputStyle} placeholder="预设名称" value={presetName} onChange={e => setPresetName(e.target.value)} /><button type="button" className="rounded-2xl bg-[#242424] text-white px-4 text-xs shrink-0" onClick={() => { if (!presetName.trim()) return; persist([...presets, { name: presetName.trim(), config: { ...form } }]); setPresetName(''); }}>保存预设</button></div>{presets.map((p,i) => <div key={i} className="flex gap-3 items-center text-xs"><span className="flex-1 truncate">{p.name}</span><button type="button" className="underline" onClick={() => { setForm(p.config); saveImageSettings(p.config); setStatus('已切换预设'); }}>使用</button><button type="button" className="text-neutral-500 underline" onClick={() => persist(presets.filter((_,j) => j !== i))}>删除</button></div>)}</div>
     <p className="text-xs text-slate-400">API Key 仅保存在当前浏览器，请勿在公共设备填写。不同中转站的生图协议可能不同。</p>

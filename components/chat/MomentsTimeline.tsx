@@ -1,3 +1,4 @@
+import TokenImg from '../os/TokenImg';
 import React, { useState } from 'react';
 import PhoneAvatar from './PhoneAvatar';
 import { setMomentLike, addMomentComment, deleteCharacterMoment } from '../../utils/characterPhoneMoments';
@@ -31,8 +32,9 @@ export function MomentsTimeline({
           <strong className="text-[#333]">{label(p.authorId)}</strong>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm">{p.text}</p>
           {!!p.imageUrls?.length && <div className="mt-2 grid grid-cols-3 gap-1">
-            {p.imageUrls.map((url, i) => <img key={i} src={url} alt="朋友圈图片" className="aspect-square w-full object-cover"/>)}
+            {p.imageUrls.map((url, i) => <TokenImg key={i} value={url} alt={p.media?.find(media => media.url === url)?.prompt || "朋友圈图片"} className="aspect-square w-full object-cover"/>)}
           </div>}
+          {p.provenance?.imageIsIllustrative && <p className="mt-1 text-xs text-gray-400">AI 生成配图</p>}
           <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
             <time>{new Date(p.createdAt).toLocaleString('zh-CN')}</time>
             <span className="flex gap-3">

@@ -1,3 +1,6 @@
+import type {UserProfile} from '../types';
+import {parseImageDirective, photoInstruction} from './automaticImage';
+import {attachMomentPhoto} from './momentImage';
 /**
  * Optional phone events returned INSIDE the regular Char/User completion.
  * Never calls an LLM. Used by both local reply post-processing and cloud inbox
@@ -37,10 +40,11 @@ export function chatPhonePiggybackPrompt(charId:string):string{
 结构（在有自然动机时才输出，纯 JSON，不能用 Markdown 代码块）：
 <sully_phone_events>{"chats":[{"contactId":"已存在NPC的ID","messages":[{"speaker":"owner","text":"Char自然发出的一条微信"},{"speaker":"contact","text":"NPC根据其原设回复的一条微信"}]}],"moment":{"publish":false,"text":"","comments":[{"authorId":"已知NPC的ID","text":"贴合人物的评论"}]}}</sully_phone_events>
 chats 至多 1 个会话、至多 4 个气泡；NPC 回复可缺席、也可冷淡。moment 可不发，且必须有当前已发生的事实与性格动机；Char 朋友圈发布不等同于把 User 私聊公开。NPC 对刚发布的 Char 动态至多留 2 条认识彼此的人物评论，禁止套路赞美、无限接龙或重复文字。不能强行填满这些数组。
-同轮只增加最终回答 token，不调用独立模型；不要连续在每条回复重复发社交事件。
+同轮只增加最终回答 token，不调用独立聊天模型；不要连续在每条回复重复发社交事件。
+只对内部 moment.text 应用下面的朋友圈配图规则，私聊正文使用私聊自己的发图规则：${photoInstruction('moments', charId, false, true).text}
 `;
 }
-export function applyChatPhoneEvents(charId:string,raw:unknown,now=Date.now()):number{
+export function applyChatPhoneEvents(charId:string,raw:unknown,now=Date.now(),imageContext?:{senderName:string;user:UserProfile;signal?:AbortSignal}):number{
  if(!charId||!readPhoneAutonomyPreferences(charId).chatPiggybackEnabled||!raw||typeof raw!=='object'||Array.isArray(raw))return 0;
  const value=raw as {chats?:unknown;moment?:unknown};
  const contacts=readNpcProfiles(charId), known=new Set(contacts.map(x=>x.id));
@@ -72,10 +76,12 @@ export function applyChatPhoneEvents(charId:string,raw:unknown,now=Date.now()):n
  }
  const moment=(value.moment&&typeof value.moment==='object')?value.moment as {publish?:unknown;text?:unknown;comments?:unknown}:null;
  if(moment?.publish===true){
-  const text=compact(moment.text,900),old=readCharacterMoments(charId);
+  const photo=parseImageDirective(compact(moment.text,2400));
+  const text=photo.text.slice(0,900),old=readCharacterMoments(charId);
   if(text&&!old.some(p=>p.authorId===charId&&!p.deletedAt&&(p.text.trim()===text||now-p.createdAt<12*3600_000))){
    const post=publishCharacterMoment({characterId:charId,origin:'char',text,imageUrls:[],visibility:'all'},{fromChatPiggyback:true});
    if(post){
+    if(imageContext) void attachMomentPhoto(post, photo, photo.turn, imageContext.senderName, imageContext.user, imageContext.signal);
     changed++;
     try{recordCharacterLifeEvent({id:'moment:'+post.id,characterId:charId,kind:'moment-post',fromChatPiggyback:true,
       occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});}catch{}

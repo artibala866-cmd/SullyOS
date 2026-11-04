@@ -1,3 +1,5 @@
+import {parseImageDirective, photoInstruction} from './automaticImage';
+import {attachMomentPhoto} from './momentImage';
 import { isPhoneRequestCancelled } from './characterPhoneAiRequest';
 import { readCharacterLifeEvents, type CharacterLifeEvent } from './characterLifeEvents';
 import { publishCharacterMoment, readCharacterMoments } from './characterPhoneMoments';
@@ -92,11 +94,12 @@ export async function considerAutonomousMoment(input: {
     if (!events.some(e => currentEventIds.has(e.id))) return 'skipped';
     if (!writeState(id, { ...readState(id), lastDecisionAt: now })) return 'unavailable';
     if (input.budgeted && !reservePhoneApiBudget(id)) return 'cooldown';
+    const image = photoInstruction('moments', id);
     const { response, json } = await fetchCharacterPhoneJson(api.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + api.apiKey },
       body: JSON.stringify({ model: api.model, stream: false, messages: [
-        { role: 'system', content: `你是${char.name}的朋友圈自主决策。基于角色原本人设、世界书、真实私聊与已记录事件决定是否发一条纯文字朋友圈。可以不发；不要迎合User。不要把日程、推测、AI先前写过的朋友圈当成真实发生的事，也不要伪造照片和聊天截图。${scheduleHint}真实上下文：${context.systemPrompt}。已确认生活事实（仅作连续性背景，不得扩大为未发生的经历）：${JSON.stringify(life.confirmedEvents.slice(0, 12)).slice(0, 3500)}。本次可引用的新增真实事件：${JSON.stringify(events).slice(0, 3000)}。近期朋友圈：${JSON.stringify(recent)}。只能引用给出的事件ID；若没有值得发的内容请选择publish:false。必须只返回JSON：{"publish":false,"text":"","eventIds":[]}或{"publish":true,"text":"朋友圈正文","eventIds":["真实事件ID"]}。` },
+        { role: 'system', content: `你是${char.name}的朋友圈自主决策。基于角色原本人设、世界书、真实私聊与已记录事件决定是否发一条朋友圈。可以不发；不要迎合User。不要把日程、推测、AI先前写过的朋友圈当成真实发生的事，也不要伪造照片和聊天截图。${scheduleHint}真实上下文：${context.systemPrompt}。已确认生活事实（仅作连续性背景，不得扩大为未发生的经历）：${JSON.stringify(life.confirmedEvents.slice(0, 12)).slice(0, 3500)}。本次可引用的新增真实事件：${JSON.stringify(events).slice(0, 3000)}。近期朋友圈：${JSON.stringify(recent)}。只能引用给出的事件ID；若没有值得发的内容请选择publish:false。必须只返回JSON：{"publish":false,"text":"","eventIds":[]}或{"publish":true,"text":"朋友圈正文","eventIds":["真实事件ID"]}。${image.text}` },
         { role: 'user', content: '这是角色自己的生活，不是给User的回复。请决定发还是不发。' }
       ] })
     }, { charId: id, purpose: '生活事件触发朋友圈决策', automatic: true });
@@ -120,8 +123,10 @@ export async function considerAutonomousMoment(input: {
     writeState(id, { ...readState(id), seenEventIds: [...new Set([...readState(id).seenEventIds, ...events.map(e => e.id)])].slice(-300) });
     if (parsed.publish !== true) return 'skipped';
     if (typeof parsed.text !== 'string' || !parsed.text.trim() || !ids.length) return 'skipped';
+    const photo = parseImageDirective(parsed.text);
+    if (!photo.text) return 'skipped';
     const post = publishCharacterMoment({
-      characterId: id, origin: 'char', text: parsed.text.trim().slice(0, 2000),
+      characterId: id, origin: 'char', text: photo.text.slice(0, 2000),
       imageUrls: [], visibility: 'all', provenance: { eventIds: ids, decision: 'event-triggered' }
     });
     if (!post) return 'skipped';
@@ -131,6 +136,7 @@ export async function considerAutonomousMoment(input: {
       occurredAt: post.createdAt, source: 'phone',
       summary: 'Char 自主发布朋友圈：' + post.text.slice(0, 100)
     });
+    await attachMomentPhoto(post, photo, image.permission, char.name, input.user);
     return 'posted';
   } catch (error) {
     if (isPhoneRequestCancelled(error)) return 'skipped';

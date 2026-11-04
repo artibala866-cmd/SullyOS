@@ -2,6 +2,7 @@
 export type PhoneAppearance = {
   preset:'mist'|'paper'|'graphite';
   wallpaper:string;
+  momentsCover:string;
   polaroidLeft:string;
   polaroidRight:string;
   quote:string;
@@ -13,7 +14,7 @@ export type PhoneAppearance = {
 };
 export const PHONE_APPEARANCE_CHANGED='sully:character-phone-appearance-changed';
 const PREFIX='sully_character_phone_appearance_v1:';
-const defaults=():PhoneAppearance=>({preset:'mist',wallpaper:'',polaroidLeft:'',polaroidRight:'',quote:'',caption:'',location:'',anniversary:'',fullscreen:false,showBattery:true});
+const defaults=():PhoneAppearance=>({preset:'mist',wallpaper:'',momentsCover:'',polaroidLeft:'',polaroidRight:'',quote:'',caption:'',location:'',anniversary:'',fullscreen:false,showBattery:true});
 const isLocalImage=(src:unknown):src is string =>
   typeof src==='string' && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(src) && src.length<900000;
 const sanitizeImage=(src:unknown):string=>isLocalImage(src)?src:'';
@@ -24,6 +25,7 @@ export function readPhoneAppearance(characterId:string):PhoneAppearance {
     return {
       preset:raw?.preset==='paper'||raw?.preset==='graphite'?raw.preset:'mist',
       wallpaper:sanitizeImage(raw?.wallpaper),
+      momentsCover:sanitizeImage(raw?.momentsCover),
       polaroidLeft:sanitizeImage(raw?.polaroidLeft),
       polaroidRight:sanitizeImage(raw?.polaroidRight),
       quote:typeof raw?.quote==='string'?raw.quote.slice(0,120):'',
@@ -41,7 +43,7 @@ export function savePhoneAppearance(characterId:string,updates:Partial<PhoneAppe
   const candidate={...original,...updates};
   const sanitized:PhoneAppearance={
     preset:candidate.preset==='paper'||candidate.preset==='graphite'?candidate.preset:'mist',
-    wallpaper:sanitizeImage(candidate.wallpaper),polaroidLeft:sanitizeImage(candidate.polaroidLeft),
+    wallpaper:sanitizeImage(candidate.wallpaper),momentsCover:sanitizeImage(candidate.momentsCover),polaroidLeft:sanitizeImage(candidate.polaroidLeft),
     polaroidRight:sanitizeImage(candidate.polaroidRight),
     quote:String(candidate.quote||'').slice(0,120),
     caption:String(candidate.caption||'').slice(0,72),

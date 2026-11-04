@@ -1,3 +1,5 @@
+import AutomaticImageToggle from '../components/chat/AutomaticImageToggle';
+import {photoInstruction} from '../utils/automaticImage';
 import '../components/chat/WeixinOriginalAssets.css';
 import { resolveDialogueApi } from '../utils/characterApi';
 import {ChatCardSurface} from '../components/chat/ChatCardSurface';
@@ -1548,7 +1550,8 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}\n`;
+            const photo = photoInstruction('group', activeGroup.id, currentMsgs.slice(-8).some(m => m.role === 'assistant' && m.type === 'image'));
+            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photo.text}\n`;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1599,6 +1602,8 @@ ${memberTimeline || '(暂无互动记录)'}
                 resolveQuote,
                 userName: userProfile.name,
                 htmlMode: !!activeGroup.htmlModeEnabled,
+                photoPermission: photo.permission,
+                photoUser: userProfile,
             });
 
         } catch (e: any) {
@@ -1636,6 +1641,8 @@ ${memberTimeline || '(暂无互动记录)'}
         try {
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
             let roundMsgs = [...currentMsgs];
+            const photo = photoInstruction('group', activeGroup.id, currentMsgs.slice(-8).some(m => m.role === 'assistant' && m.type === 'image'));
+            let photoUsed = false;
 
             for (const member of groupMembers) {
                 if (abort.signal.aborted) break;
@@ -1663,7 +1670,8 @@ ${memberTimeline || '(暂无互动记录)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}\n`;
+                    const photoRule = photoUsed ? '\n本轮群聊已有配图，不要再发图。' : photo.text;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photoRule}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${dialogueApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1710,6 +1718,9 @@ ${memberTimeline || '(暂无互动记录)'}
                         resolveQuote,
                         userName: userProfile.name,
                         htmlMode: !!activeGroup.htmlModeEnabled,
+                        photoPermission: photoUsed ? null : photo.permission,
+                        photoUser: userProfile,
+                        onPhoto: () => { photoUsed = true; },
                     });
 
                     // 刷新滚动历史给下一位成员
@@ -2180,6 +2191,8 @@ ${memberTimeline || '(暂无互动记录)'}
                         <h3 className="mb-2 text-xs font-bold text-slate-600">输入与发送</h3>
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} scope="group" />
                     </div>
+
+                    {activeGroup && <AutomaticImageToggle scope="group" id={activeGroup.id} />}
 
                     {/* Reply Mode */}
                     <div className="pt-2 border-t border-slate-100">

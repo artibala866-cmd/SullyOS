@@ -984,10 +984,14 @@ export const DB = {
     });
   },
 
-  saveMessage: async (msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+  saveMessage: async (msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }, signal?: AbortSignal): Promise<number> => {
     const db = await openDB();
+    signal?.throwIfAborted();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+        const abort = () => { try { transaction.abort(); } catch { /* transaction already settled */ } };
+        const clean = () => signal?.removeEventListener('abort', abort);
+        signal?.addEventListener('abort', abort, {once:true});
         const store = transaction.objectStore(STORE_MESSAGES);
         const timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
         const { timestamp: _ignored, ...payload } = msg;
@@ -995,6 +999,7 @@ export const DB = {
         request.onsuccess = () => clearStaleMemoryMirror(transaction, msg.charId, request.result as number);
         // request 成功后事务仍可能回滚。主动消息通知和定时任务销账都必须等提交。
         transaction.oncomplete = () => {
+            clean();
             const newId = request.result as number;
             if (msg.metadata?.source === 'story_theater_memory' && msg.metadata.theaterTimestampVersion !== 1) invalidateStoryTimelineRepair(db);
             // 水位线自愈：新消息的自增 id 必然大于既有一切消息 id，也就必然大于水位线
@@ -1013,7 +1018,7 @@ export const DB = {
         };
         request.onerror = () => reject(request.error);
         transaction.onerror = () => reject(transaction.error || new Error('消息未能保存'));
-        transaction.onabort = () => reject(transaction.error || new Error('消息未能保存'));
+        transaction.onabort = () => { clean(); reject(signal?.aborted ? signal.reason : transaction.error || new Error('消息未能保存')); };
     });
   },
 

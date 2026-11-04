@@ -1,3 +1,4 @@
+import {deliverAutomaticImage, parseImageDirective} from './automaticImage';
 import { withReplyCancellation, type ReplyRun } from './chatReplyCancellation';
 /**
  * applyAssistantPostProcessing — 抽自 hooks/useChatAI.ts 的 sendMessage 后处理管线
@@ -520,6 +521,8 @@ export interface PostProcessHooks {
 }
 
 export interface PostProcessCtx {
+    photoPermission?: string | null;
+    canDeliverPhoto?: () => boolean;
     replyRun?: ReplyRun;
     char: CharacterProfile;
     userProfile: UserProfile;
@@ -655,7 +658,7 @@ export async function applyAssistantPostProcessing(
     // 统一落库入口：ctx.messageTimestamp（若有）盖到每条消息上，保证同一轮拆出的
     // 正文 / 表情 / 卡片 / 系统提示时间戳一致；没传则维持 DB.saveMessage 默认（写库当刻）。
     // 全函数落库一律走这里，别直接调 DB.saveMessage——漏一处就会出现气泡时间戳互相打架。
-    const persistMessage: typeof DB.saveMessage = (msg) => {
+    const persistMessage: typeof DB.saveMessage = (msg, signal) => {
         const stamped = messageTimestamp != null ? { ...msg, timestamp: messageTimestamp } : msg;
         // 本地分条发送可能横跨拉黑操作；云端仍使用原始发送时刻算出的固定结果。
         const sendFailed = typeof ctx.messageSendFailedByUserBlock === 'function'
@@ -663,7 +666,7 @@ export async function applyAssistantPostProcessing(
         const finalMessage = sendFailed && stamped.role === 'assistant'
             ? { ...stamped, metadata: { ...(stamped.metadata || {}), chatBlockSendFailed: true } }
             : stamped;
-        return (ctx.replyRun?.saveMessage ?? DB.saveMessage)(finalMessage);
+        return (ctx.replyRun?.saveMessage ?? DB.saveMessage)(finalMessage, signal);
     };
     const {
         setMessages,
@@ -792,6 +795,8 @@ export async function applyAssistantPostProcessing(
 
     // ─── Step 1: 初次粗洗 ───
     const piggyback=extractChatPhoneEvents(rawAiContent);
+    const photo = parseImageDirective(piggyback.cleaned);
+    piggyback.cleaned = photo.text;
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${piggyback.cleaned}` : piggyback.cleaned;
     aiContent = normalizeAiContent(aiContent);
     // 先于 lead-in / 二轮渲染消费：否则控制标签会作为普通气泡短暂闪给用户看。
@@ -842,6 +847,7 @@ export async function applyAssistantPostProcessing(
     // 把一段文本 (parseAndExecuteActions / HTML 之外的部分) 渲染成气泡并落库 —— 双语 / 表情 / 引用 / 分段
     // 与原 inline 末尾逻辑一致。抽出来是为了让"执行功能前的本轮正文 A"能在二轮前先展示, 二轮结果 B 复用同一套。
     const renderAndPersist = async (rawContent: string, firstThinkingChain: string | null): Promise<void> => {
+        rawContent = parseImageDirective(rawContent).text;
         let firstMeta: any = firstThinkingChain ? { thinkingChain: firstThinkingChain } : null;
         // Preserve all normal bubble metadata; no retired VR surface metadata is written.
         const takeMeta = (base: any, _canonicalChunk?: string): any => {
@@ -2383,10 +2389,23 @@ export async function applyAssistantPostProcessing(
             setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
         }
     }
+    const photoPermission = ctx.photoPermission === undefined ? photo.turn : ctx.photoPermission;
+    if (photoPermission && photo.description && ctx.canDeliverPhoto?.() !== false) {
+        const delivered = await deliverAutomaticImage({
+            scope:'private', id:char.id, permission:photoPermission, photo, sender:char, user:userProfile,
+            signal:ctx.replyRun?.signal,
+            commit:async (token, description, signal) => {
+                if (ctx.canDeliverPhoto?.() === false) return false;
+                await persistMessage({charId:char.id, role:'assistant', type:'image', content:token, metadata:{visionDescription:description}}, signal);
+                return true;
+            },
+        });
+        if (delivered) setMessages(await replyStep(() => DB.getRecentMessagesByCharId(char.id, 200)));
+    }
     // Additional Char/NPC events are part of this SAME AI response; never
     // interrupt or duplicate the User's persisted dialogue if they fail.
     if(piggyback.data){
-        try{applyChatPhoneEvents(char.id,piggyback.data,messageTimestamp??Date.now());}
+        try{applyChatPhoneEvents(char.id,piggyback.data,messageTimestamp??Date.now(),{senderName:char.name,user:userProfile,signal:ctx.replyRun?.signal});}
         catch(e){console.warn('[PhonePiggyback] optional phone write skipped',e);}
     }
 }

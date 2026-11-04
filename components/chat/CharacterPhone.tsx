@@ -1,3 +1,7 @@
+import AutomaticImageToggle from './AutomaticImageToggle';
+import {compressPhoneAppearanceImage, savePhoneAppearance} from '../../utils/characterPhoneAppearance';
+import {parseImageDirective, photoInstruction} from '../../utils/automaticImage';
+import {attachMomentPhoto} from '../../utils/momentImage';
 import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import { getCharacterLifeScheduleContext } from '../../utils/characterLifeScheduleContext';
 import {useOS} from '../../context/OSContext';
@@ -95,6 +99,16 @@ export default function CharacterPhone({
   onPoke:(suffix:string)=>void;
 }) {
   const {apiPresets} = useOS();
+  const coverUpdate = useRef(0);
+  const updateMomentsCover = async (file?: File) => {
+    const revision = ++coverUpdate.current;
+    try {
+      const momentsCover = file ? await compressPhoneAppearanceImage(file) : '';
+      if (revision === coverUpdate.current) savePhoneAppearance(characterId, {momentsCover});
+    } catch (error) {
+      if (revision === coverUpdate.current) setError(error instanceof Error ? error.message : '朋友圈背景保存失败');
+    }
+  };
   const [phoneApiSettings,setPhoneApiSettings] = useState(()=>readCharacterPhoneApiSettings(characterId));
   useEffect(()=>{setPhoneApiSettings(readCharacterPhoneApiSettings(characterId));},[characterId]);
   const phoneApi=resolveCharacterPhoneApi(characterId,api);
@@ -462,6 +476,7 @@ export default function CharacterPhone({
     const chatsRevisionAtStart=readPhoneContentClearRevision(characterId,'chats');
     const contactsRevisionAtStart=readPhoneContentClearRevision(characterId,'contacts');
     const momentsRevisionAtStart=readPhoneContentClearRevision(characterId,'moments');
+    const momentImage = fullSuite ? photoInstruction('moments', characterId) : null;
     const paymentsRevisionAtStart=readPhoneContentClearRevision(characterId,'payments');
     try {
       const context = await loadRealContext();
@@ -511,7 +526,7 @@ ${phoneTimeGuidance}
 这是增量更新，不是初始化或重建。优先挑选已有会话延续对话，根据偏好 chatDensity 设置消息数量：compact 每条会话1-3条、normal 2-5条、rich 4-9条。手动生成可适量包含更多类型的会话，背景刷新要节制。只有生活情境需要时才新增联系人或通知。不得重述、改写或重新生成已有消息，不得复制历史聊天气泡。涵盖真实生活中合适的亲友、学校/工作、普通事务、群通知、公众号和服务通知，不强制每类出现。不是所有人都热情友善；允许简短、冷淡、忙碌、无回复，禁止无意义互夸和装乖。仅模拟手机内容，不将模拟内容冒充真人感已经发生的事件。
 当 officialAccounts=true 时，允许1~3条贴合人物的公众号、服务号、物流、工作学校、微信支付等官方信息；使用kind=service，服务号不属于Char的NPC朋友圈，不许捏造真实新闻内容。officialAccounts=false时不生成服务号。
 当 paymentNotices=true 时，可新增0~3笔符合角色生活和经济状况的【虚构】微信支付消费。paymentNotices=false则payments为空数组。不能编造User实际转账或收款，不得从日程计划推断已付款，不得造重大金额。退款暂不生成。payments字段每笔 {"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"Char自己的消费"}，amount必须为0到5000的人民币正数。系统会自动将它记入微信支付通知及虚构账单，千万不要再在threads里重复写相同消费通知。
-${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶层 moments:{"npcPosts":[{"authorId":"已知联系人稳定ID","text":"新动态","comments":[{"authorId":"与作者确实认识的现有联系人ID或CharID","text":"独立评论"}]}],"charPost":{"publish":false,"text":""}}。只可让现有 NPC 和 Char 根据性格、已发生事件决定发不发；不能写 User 帖子。最多3条NPC贴、每条2条评论，Char可以不发。最近已有动态避免重复：${JSON.stringify(readCharacterMoments(characterId).slice(0,10).map(p=>({authorId:p.authorId,text:p.text.slice(0,120)}))).slice(0,1800)}。同一JSON内附上 moments，不可拆成多个响应；不新增单独 API 调用。` : ''}
+${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶层 moments:{"npcPosts":[{"authorId":"已知联系人稳定ID","text":"新动态","comments":[{"authorId":"与作者确实认识的现有联系人ID或CharID","text":"独立评论"}]}],"charPost":{"publish":false,"text":""}}。只可让现有 NPC 和 Char 根据性格、已发生事件决定发不发；不能写 User 帖子。最多3条NPC贴、每条2条评论，Char可以不发。最近已有动态避免重复：${JSON.stringify(readCharacterMoments(characterId).slice(0,10).map(p=>({authorId:p.authorId,text:p.text.slice(0,120)}))).slice(0,1800)}。同一JSON内附上 moments，不可拆成多个响应；不新增单独 API 调用。${momentImage?.text || ''}` : ''}
 严格返回JSON对象 {"threads":[{"contactId":"已确认联系人ID或新生成稳定ID","nickname":"微信网名","realName":"真实姓名（未知可为空）","identity":"身份或服务类型","personality":"性格/消息风格","speechStyle":"惯用口气","boundary":"交往边界","relationship":"与Char的关系","background":"背景","origin":"known|introduced|stranger","kind":"npc|group|service","messages":[{"speaker":"owner|contact","text":"微信气泡"}]}],"payments":[{"title":"商家/消费","kind":"expense","amount":12.5,"category":"日常","detail":"具体消费"}]}。已认识的人用known；新认识但已互相交流用introduced；陌生人用stranger。同名不能作为身份标识；新人物必须使用不同ID。服务号/群通知一般只有contact消息。不要创建User会话。不要markdown。`},
           {role:'user',content:'根据手机主人自己的生活和已有上下文，增量更新现有微信收件箱：优先续写已有联系人对话，适量补充新通知或新联系人。不得重复已有聊天。'+(fullSuite?' 同一轮顺便根据现有熟人关系生成可选朋友圈 moments；不强求发帖。':'')}
         ]})
@@ -663,15 +678,22 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           const known=readNpcProfiles(characterId);
           const listed=readCharacterMoments(characterId);
           const posts=Array.isArray(data.moments.npcPosts)?data.moments.npcPosts.slice(0,3):[];
+          let imageUsed = false;
           for(const item of posts){
             if(!item||typeof item.text!=='string'||!item.text.trim())continue;
             const author=known.find(person=>person.id===item.authorId);
             if(!author)continue;
-            const text=item.text.trim().slice(0,1200);
+            const photo = parseImageDirective(item.text);
+            const text=photo.text.slice(0,1200);
+            if(!text)continue;
             if(listed.some(old=>old.authorId===author.id&&old.text.trim()===text))continue;
             const post=publishCharacterMoment({characterId,authorId:author.id,origin:'npc',text,imageUrls:[],visibility:'all'});
             if(!post)continue;
             savedNonChatItems++;
+            if (!imageUsed && photo.description && momentImage?.permission) {
+              imageUsed = true;
+              void attachMomentPhoto(post, photo, momentImage.permission, author.name, userProfile);
+            }
             const comments=Array.isArray(item.comments)?item.comments.slice(0,2):[];
             for(const c of comments){
               const actorId=typeof c?.authorId==='string'?c.authorId:'';
@@ -685,13 +707,15 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           }
           const own=data.moments.charPost;
           if(own?.publish===true&&typeof own.text==='string'&&own.text.trim()){
-            const text=own.text.trim().slice(0,1200);
+            const photo = parseImageDirective(own.text);
+            const text=photo.text.slice(0,1200);
             const old=readCharacterMoments(characterId);
-            if(!old.some(post=>post.authorId===characterId&&!post.deletedAt&&
+            if(text && !old.some(post=>post.authorId===characterId&&!post.deletedAt&&
               (post.text.trim()===text||Date.now()-post.createdAt<12*3600_000))){
               const post=publishCharacterMoment({characterId,origin:'char',text,imageUrls:[],visibility:'all'});
               if(post){
                 savedNonChatItems++;
+                if (!imageUsed) void attachMomentPhoto(post, photo, momentImage?.permission ?? null, name, userProfile);
                 recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',
                   occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+text.slice(0,100)});
               }
@@ -757,6 +781,8 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     if(momentBusy) return;
     if(!phoneApi.apiKey || !phoneApi.baseUrl || !phoneApi.model){setError('请先配置聊天 API，Char 才能自主决定是否发朋友圈');return;}
     setMomentBusy(true);setError('');
+    const image = photoInstruction('moments', characterId);
+    const clearRevision = readPhoneContentClearRevision(characterId, 'moments');
     try {
       const context=await loadRealContext();
       const events=(await getCharacterLifeScheduleContext(char)).confirmedEvents.filter(e=>e.kind!=='moment-post' && e.kind!=='moment-comment').slice(0,18);
@@ -764,7 +790,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       const { response, json } = await fetchCharacterPhoneJson(phoneApi.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
         method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+phoneApi.apiKey},
         body:JSON.stringify({model:phoneApi.model,stream:false,temperature:0.85,messages:[
-          {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。首阶段只发纯文字，图片由后续独立生图系统提供。`},
+          {role:'system',content:`你是角色${name}的朋友圈自主决策器。根据真实私聊上下文、角色人设、世界书、日程及已发生的生活事件判断角色现在是否愿意发朋友圈。角色可以自恋、炫耀、冷淡、毒舌、琐碎，也可以完全不发；不要讨好User。不要把想法、猜测、日程计划当成已经发生的事实。绝不能伪造聊天截图、现实照片或未发生的事件。当前日程：${scheduleContext}。私聊真实上下文：${context.systemPrompt}。已记录的生活事件：${JSON.stringify(events).slice(0,7500)}。近期朋友圈：${JSON.stringify(recent).slice(0,3500)}。只返回JSON：{"publish":true或false,"text":"符合角色口吻的朋友圈文字","eventIds":["引用的真实事件ID"]}。如果没有想发的内容，publish为false。${image.text}`},
           {role:'user',content:'由Char自己决定此刻要不要发布一条朋友圈。'}
         ]})
       }, { charId: characterId, purpose: '角色朋友圈发布决策', automatic: false });
@@ -773,8 +799,11 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       if(data.publish!==true){setError(name+'现在不想发朋友圈');return;}
       if(typeof data.text!=='string'||!data.text.trim())throw new Error('AI 未返回有效朋友圈文字');
       const ids=Array.isArray(data.eventIds)?data.eventIds.filter((id:unknown):id is string=>typeof id==='string'&&events.some(e=>e.id===id)):[];
-      const post=publishCharacterMoment({characterId,origin:'char',text:data.text.trim().slice(0,2000),imageUrls:[],visibility:'all',provenance:{eventIds:ids,decision:ids.length?'event-triggered':'spontaneous'}});
+      const photo = parseImageDirective(data.text);
+      if (!photo.text || clearRevision !== readPhoneContentClearRevision(characterId, 'moments')) return;
+      const post=publishCharacterMoment({characterId,origin:'char',text:photo.text.slice(0,2000),imageUrls:[],visibility:'all',provenance:{eventIds:ids,decision:ids.length?'event-triggered':'spontaneous'}});
       if(!post)throw new Error('朋友圈保存失败');
+      void attachMomentPhoto(post, photo, image.permission, name, userProfile);
       recordCharacterLifeEvent({id:'moment:'+post.id,characterId,kind:'moment-post',occurredAt:post.createdAt,source:'phone',summary:'Char 自主发布朋友圈：'+post.text.slice(0,100)});
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setMomentBusy(false);}
@@ -898,7 +927,16 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
          </div>}
         {screen === 'thread' && isPrivateThread && <div className="space-y-4 p-4">{privateThread?.messages.map(m=><div key={m.id} className={'flex items-start gap-2.5 '+(m.speakerId.startsWith('owner:')?'flex-row-reverse':'')}><PhoneAvatar src={m.speakerId.startsWith('owner:') ? phoneAvatar : (userProfile.perCharAvatars?.[characterId] || userProfile.avatar)} name={m.speakerId.startsWith('owner:') ? name : userProfile.name} className="h-10 w-10 rounded-lg text-sm"/><div className={'relative max-w-[78%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm '+(m.speakerId.startsWith('owner:')?'bg-[#95ec69]':'bg-white')}><span className={'absolute top-3 h-2.5 w-2.5 rotate-45 '+(m.speakerId.startsWith('owner:')?'-right-1 bg-[#95ec69]':'-left-1 bg-white')}/><span className="relative">{m.text}</span></div></div>)}</div>}
         {screen === 'thread' && !isPrivateThread && <PhoneChatBubbles messages={active?.messages||[]} ownerAvatar={phoneAvatar} contactAvatar={profiles.find(p=>p.id===active?.contactId)?.avatar} ownerName={name} contactName={active?.name||''}/>}
-        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]"><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="h-24"/><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
+        {screen === 'moments' && <PullToRefresh loading={npcMomentLoading||sharedMomentsRefreshing} onRefresh={loadNpcMoments}><div className="min-h-full bg-white"><div className="relative h-64 bg-gradient-to-br from-[#8f9fab] via-[#b8c9ce] to-[#e0e4e1]">
+          {phoneAppearance.momentsCover && <img src={phoneAppearance.momentsCover} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+          <div className="absolute top-3 right-3 flex gap-2 text-xs text-white">
+            <label className="cursor-pointer rounded-lg bg-black/55 px-3 py-2">更换朋友圈背景<input className="sr-only" type="file" accept="image/*" onChange={event => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (file) void updateMomentsCover(file);
+            }} /></label>
+            {phoneAppearance.momentsCover && <button type="button" className="rounded-lg bg-black/55 px-3 py-2" onClick={() => void updateMomentsCover()}>恢复默认</button>}
+          </div><strong className="absolute bottom-5 right-24 text-xl text-white drop-shadow">{name}</strong><PhoneAvatar key={phoneAvatar||name} src={phoneAvatar} name={name} className="absolute -bottom-8 right-5 h-20 w-20 rounded-xl border-4 border-white text-3xl"/></div><div className="px-5 pt-11 pb-3"><AutomaticImageToggle scope="moments" id={characterId} /></div><MomentsTimeline name={name} characterId={characterId} posts={moments} contacts={profiles} charAvatar={phoneAvatar} userProfile={userProfile}/></div></PullToRefresh>}
         {screen === 'profile' && <div className="space-y-4 pb-8 text-[#252525]">
            <section className="bg-white px-5 py-7">
              <div className="flex items-center gap-5">

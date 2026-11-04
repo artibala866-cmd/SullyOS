@@ -1,3 +1,4 @@
+import AutomaticImageToggle from './AutomaticImageToggle';
 
 import React, { useRef, useState } from 'react';
 import Modal from '../os/Modal';
@@ -16,6 +17,7 @@ import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../util
 import { chatMessageFuzzyMatchesKeyword } from '../../utils/chatMessageSearch';
 
 interface ChatModalsProps {
+    imageCharacterId?: string;
     compactHome?: boolean;
     modalType: string;
     setModalType: (v: any) => void;
@@ -229,6 +231,7 @@ const TranslationLanguagePicker: React.FC<TranslationLanguagePickerProps> = ({
 };
 
 const ChatModals: React.FC<ChatModalsProps> = ({
+    imageCharacterId,
     modalType, setModalType, compactHome=false,
     transferAmt, setTransferAmt,
     transferNote, setTransferNote,
@@ -543,7 +546,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             </div>
                         )}
                     </ChatSettingsSection>
-                    <ChatSettingsSection title="翻译与语音" summary="消息语言、语音与自动播放">
+                    <ChatSettingsSection title="翻译与语音" summary="消息语言、语音、自动播放与生图">
+                        {imageCharacterId && <AutomaticImageToggle scope="private" id={imageCharacterId} />}
                         {/* Translation Settings */}
                         <div className="pt-2 border-t border-slate-100">
                             <div className="flex justify-between items-center cursor-pointer" onClick={onToggleTranslation}>
