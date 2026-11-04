@@ -332,6 +332,7 @@ export default function CharacterPhone({
   const [wechatSuiteNotice,setWechatSuiteNotice]=useState('');
   const [memoBusy,setMemoBusy]=useState(false);
   const [chatComposer,setChatComposer]=useState('');
+  const [paymentComposerOpen,setPaymentComposerOpen]=useState(false);
   const [npcMomentLoading,setNpcMomentLoading]=useState(false);
   const [sharedMomentsRefreshing,setSharedMomentsRefreshing]=useState(() =>
     isCharacterPhoneRefreshing(characterId, 'moments'));
@@ -829,6 +830,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
     }catch(err){setWechatSuiteNotice(err instanceof Error?err.message:'本次批量生成未全部完成，可再试一次');}
     finally{setWechatSuiteBusy(false);}
   };
+  useEffect(()=>{setPaymentComposerOpen(false);},[thread]);
   const isPrivateThread = thread === 'private:' + characterId;
   const active = records.find(r => r.id === thread);
   const isWechatPayThread = screen === 'thread' && !isPrivateThread &&
@@ -1260,11 +1262,13 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
         </div>}
       </main>
       {screen === 'thread' && active && !isPrivateThread && !isWechatPayThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
-      {isWechatPayThread && <nav aria-label="微信支付底部导航（仅展示）" className="grid shrink-0 grid-cols-[1fr_1fr_1fr] border-t border-[#dedede] bg-[#fafafa] py-3 text-center text-[14px] text-[#242424]">
+      {isWechatPayThread && paymentComposerOpen && active && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
+      {isWechatPayThread && <nav aria-label="微信支付底部导航" className="grid shrink-0 grid-cols-[48px_repeat(3,minmax(0,1fr))] items-center border-t border-[#dedede] bg-[#fafafa] py-3 text-center text-[14px] text-[#242424]">
+        <button type="button" aria-label="显示或收起原有聊天输入框" aria-expanded={paymentComposerOpen} onClick={()=>setPaymentComposerOpen(v=>!v)} className="flex items-center justify-center border-r border-[#e2e2e2]"><span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#444] text-[17px] leading-none">⌨</span></button>
         <span className="border-r border-[#e2e2e2]">我的账单</span><span className="border-r border-[#e2e2e2]">支付服务</span><span>优惠</span>
       </nav>}
       {screen === 'wechat' && <nav className="grid shrink-0 grid-cols-4 border-t border-[#ddd] bg-[#f8f8f8] py-2">{([{id:'chats',label:'微信',Icon:ChatCircleDots},{id:'contacts',label:'通讯录',Icon:UsersThree},{id:'discover',label:'发现',Icon:Compass},{id:'me',label:'我',Icon:User}] as const).map(({id,label,Icon})=><button key={id} onClick={()=>setTab(id)} className={`flex flex-col items-center gap-1 text-xs ${tab===id?'text-[#07b75b]':'text-[#222]'}`}><Icon size={26} weight={tab===id?'fill':'regular'}/>{label}</button>)}</nav>}
-      {screen !== 'wechat' && screen !== 'home' && screen !== 'beautify' && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
+      {screen !== 'wechat' && screen !== 'home' && screen !== 'beautify' && !isWechatPayThread && !isCharacterPhoneSocialAppId(screen) && <footer className="flex shrink-0 justify-center border-t border-[#ddd] bg-[#fafafa] py-2"><button type="button" onClick={()=>setScreen('home')} aria-label="返回手机桌面"><House size={21}/></button></footer>}
       </>}
     </div>
     {avatarLibraryOpen && createPortal(
