@@ -529,7 +529,10 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     if(kind==='timeline') return <div className="couple-edit-timeline">
       <div className="couple-edit-timeline-date"><span>NEW MOMENT</span><strong>{draft.date.slice(8,10)}</strong><span>{draft.date.slice(5,7)} / {draft.date.slice(0,4)}</span></div>
       <div className="couple-edit-timeline-page">{title}{note}
-        <label>事件照片 · 最多 6 张<input type="file" accept="image/*" multiple disabled={working} onChange={event => {
+        <label className="couple-edit-photo couple-timeline-upload">
+          <span>事件照片 · 最多 6 张</span>
+          <span className="couple-edit-photo-box">＋ 添加事件照片</span>
+          <input aria-label="添加事件照片" type="file" accept="image/*" multiple disabled={working} onChange={event => {
           const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = '';
           if (!files.length) return;
