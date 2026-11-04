@@ -211,6 +211,10 @@ jobs:
               assert popup.inner_text().strip().replace('\n','')=='取消评论'
               assert popup.evaluate('(el)=>getComputedStyle(el).backgroundColor')=='rgb(75, 75, 75)'
               assert not popup.bounding_box()['x']<0
+              # Compact WeChat-style time must not be covered by the popover.
+              when=date.bounding_box()
+              menu_bounds=popup.bounding_box()
+              assert when and menu_bounds and menu_bounds['x']>when['x']+when['width']+6,(when,menu_bounds)
               page.screenshot(path='moments-timeline-menu-open-390.png')
               page.get_by_test_id('moment-like-action-my-post').click()
               assert page.get_by_test_id('moment-actions-my-post').count()==0
