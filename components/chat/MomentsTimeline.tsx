@@ -7,6 +7,21 @@ import type { CharacterMoment } from '../../utils/characterPhoneMoments';
 import type { UserProfile } from '../../types';
 import type { NpcProfile } from '../../utils/characterPhoneNpcs';
 
+/** WeChat-like compact feed time; the complete timestamp remains in title. */
+function formatMomentsTime(timestamp: number): string {
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  if (elapsed < 60_000) return '刚刚';
+  if (elapsed < 3_600_000) return Math.floor(elapsed / 60_000) + '分钟前';
+  if (elapsed < 86_400_000) return Math.floor(elapsed / 3_600_000) + '小时前';
+  const days = Math.floor(elapsed / 86_400_000);
+  if (days === 1) return '昨天';
+  if (days < 7) return days + '天前';
+  const date = new Date(timestamp);
+  const today = new Date();
+  return (date.getFullYear() === today.getFullYear() ? '' : date.getFullYear() + '年') +
+    (date.getMonth() + 1) + '月' + date.getDate() + '日';
+}
+
 export function MomentsTimeline({
   name, characterId, posts, contacts, charAvatar, userProfile,
 }: {
@@ -81,8 +96,9 @@ export function MomentsTimeline({
 
           <div className="relative mt-2.5 flex min-h-[30px] items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5 text-xs text-[#a6a6a6]">
-              <time className="truncate" dateTime={new Date(p.createdAt).toISOString()}>
-                {new Date(p.createdAt).toLocaleString('zh-CN')}
+              <time className="truncate" dateTime={new Date(p.createdAt).toISOString()}
+                title={new Date(p.createdAt).toLocaleString('zh-CN')}>
+                {formatMomentsTime(p.createdAt)}
               </time>
               {p.authorId === characterId && <button type="button"
                 data-testid={'moment-delete-' + p.id}
