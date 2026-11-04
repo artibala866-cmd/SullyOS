@@ -215,6 +215,9 @@ jobs:
               when=date.bounding_box()
               menu_bounds=popup.bounding_box()
               assert when and menu_bounds and menu_bounds['x']>when['x']+when['width']+6,(when,menu_bounds)
+              # The inline trash can must remain fully visible as in the WeChat reference.
+              trash_bounds=trash.bounding_box()
+              assert trash_bounds and menu_bounds['x']>trash_bounds['x']+trash_bounds['width']+5,(trash_bounds,menu_bounds)
               page.screenshot(path='moments-timeline-menu-open-390.png')
               page.get_by_test_id('moment-like-action-my-post').click()
               assert page.get_by_test_id('moment-actions-my-post').count()==0
