@@ -1,24 +1,14 @@
 import React from 'react';
 import type { OSTheme } from '../../types';
 
-export default function BootAnimationSettings({theme,updateTheme}: {
+// 旧 warm / classic 皮肤值继续兼容，两种入口使用同一款纯白小狗开屏。
+// 只展示唯一真正生效的样式，避免两张一样的预览卡片误导。
+export default function BootAnimationSettings({theme: _theme, updateTheme: _updateTheme}: {
   theme: OSTheme;
   updateTheme: (patch: Partial<OSTheme>) => void;
 }) {
   return <div className="mt-5 border-t border-slate-100 pt-4">
-    <h3 className="text-xs font-bold text-slate-700">开机动画风格</h3>
-    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">下次启动时生效。动画开关在「动画与过场」中，关闭后仍会记住所选风格。</p>
-    <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="开机动画风格">
-      {([
-        {id:'classic',name:'宝宝狗·夜空',description:'柔光星空 · 小狗封面'},
-        {id:'jellyfish',name:'宝宝狗·暖心',description:'奶油暖色 · 手绘小狗'},
-      ] as const).map(option => <button key={option.id} type="button"
-        aria-pressed={(theme.bootAnimationStyle || 'jellyfish') === option.id}
-        onClick={()=>updateTheme({bootAnimationStyle:option.id})}
-        className={`rounded-2xl border px-3 py-3 text-left transition-colors ${(theme.bootAnimationStyle || 'jellyfish') === option.id ? 'border-primary bg-primary/5' : 'border-slate-200 bg-white'}`}>
-        <span className="block text-xs font-semibold text-slate-700">{option.name}</span>
-        <span className="mt-1 block text-[10px] text-slate-400">{option.description}</span>
-      </button>)}
-    </div>
+    <h3 className="text-xs font-bold text-slate-700">开机动画</h3>
+    <p className="mt-1 text-xs leading-relaxed text-slate-500">纯白背景 · 白色小狗轻轻跳舞。可在「动画与过场」中关闭。</p>
   </div>;
 }
