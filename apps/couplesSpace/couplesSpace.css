@@ -875,3 +875,38 @@
   .couple-ios-shelf { animation: none; }
   .couple-content-mode button { transition: none; }
 }
+
+/* Small-phone second screenshot pass: keep every memory control visible without horizontal or vertical clipping. */
+@media (max-height: 680px) and (max-width: 360px) {
+  .couple-content-mode .couple-main { padding-top: 9px; padding-bottom: 11px; }
+  .couple-ios-hero { padding-top: 9px; padding-bottom: 9px; margin-bottom: 8px; }
+  .couple-ios-topline { font-size: 8px; }
+  .couple-ios-hero-center { min-height: 64px; }
+  .couple-ios-face { width: 48px; height: 48px; flex-basis: 48px; }
+  .couple-ios-days strong { font-size: 33px; }
+  .couple-ios-hero-bottom { padding-top: 7px; }
+  .couple-ios-hero-bottom small { font-size: 9px; }
+  .couple-ios-tabs { height: 36px; margin-bottom: 7px; }
+  .couple-ios-section-title { margin-bottom: 5px; }
+  .couple-content-mode .couple-ios-spotlight { height: 83px; margin-bottom: 7px; padding: 11px 12px; }
+  .couple-ios-spotlight-bottom strong { font-size: 18px; }
+  .couple-content-mode .couple-ios-link { min-height: 36px; padding: 6px 10px; }
+  .couple-ios-link-label small { display: none; }
+  .couple-ios-link-label { gap: 0; }
+  .couple-ios-link-label strong { font-size: 12px; }
+}
+/* Card exchange is a clean pass ledger with a price column, not emojis and repeated thick text boxes. */
+.couple-content-mode .couple-shop-card { padding: 15px 16px; }
+.couple-shop-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.couple-shop-head > div { flex: 1; min-width: 0; }
+.couple-shop-head > div > span { color: #8d8e94; font-size: 9px; letter-spacing: .13em; }
+.couple-content-mode .couple-shop-head h3 { margin: 5px 0 0; font-size: 16px; color: #28292d; }
+.couple-content-mode .couple-shop-head > strong {
+  display: flex; flex-direction: column; align-items: flex-end;
+  color: #313237; font-size: 21px; line-height: 1.1;
+  font-weight: 490; font-variant-numeric: tabular-nums;
+}
+.couple-shop-head > strong > small { padding-top: 4px; font-size: 10px; font-weight: 400; color: #7c7e85; }
+.couple-content-mode .couple-shop-card > p { margin: 11px 0 7px; font-size: 12px; color: #65666c; }
+.couple-content-mode .couple-shop-card > small { display: block; border-top: none; padding-top: 0; margin: 0; color: #8b8c93; font-size: 10px; }
+.couple-content-mode .couple-shop-card .couple-actions { margin-top: 9px; padding-top: 9px; border-top: 1px solid #f0f0f1; }
