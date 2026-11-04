@@ -1945,3 +1945,190 @@
  .couple-content-mode .couple-diary-sidebook .couple-scene-controls {margin:7px 0 3px;}
  .couple-content-mode .couple-diary-sidebook .couple-scene-controls button {min-height:37px;}
 }
+
+/* CUSTOM ACTION SURFACES 2026-11. No repeated CTA strip / filter / blank record panels. */
+/* In the anniversary the insertion point is a real extra row of the date ledger. */
+.couple-content-mode .couple-anniversary-calendar .couple-anniversary-invite {
+  width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
+  min-height:51px;padding:12px;margin:2px 0 8px;
+  border:1px dashed #c7c8cc;border-radius:10px;
+  background:#f7f7f8;color:#414249;font-size:12px;font-weight:480;
+}
+.couple-anniversary-invite>span {display:grid;place-items:center;width:23px;height:23px;border:1px solid #b9babe;border-radius:50%;font-size:18px;line-height:1;}
+.couple-content-mode .couple-anniversary-ask {
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  width:100%;padding:8px 4px;min-height:35px;margin:0;
+  border:0;border-bottom:1px solid #dadbde;border-radius:0;
+  background:transparent;color:#6c6d73;text-align:left;font-size:11px;letter-spacing:.01em;
+}
+.couple-anniversary-ask>span {font-size:16px;color:#37383d;}
+/* Diary options are on the back cover; external diary and extra sheets remain discrete objects. */
+.couple-diary-cover {position:relative;}
+.couple-content-mode .couple-diary-cover-open {
+  position:absolute;top:17px;right:16px;min-height:33px;padding:5px 10px;
+  background:#f4f4f4;border:1px solid #e7e7e8;border-radius:99px;
+  font-size:11px;font-weight:560;color:#303136;box-shadow:0 2px 6px #00000020;
+}
+.couple-diary-bookmarks {position:relative;margin:12px 0 0;padding:12px 3px 9px;border-top:1px solid #d4d5d8;}
+.couple-diary-bookmark-head {display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.couple-diary-bookmark-head>span {font-size:11px;color:#45464b;font-weight:570;}
+.couple-content-mode .couple-diary-bookmark-head button {
+  border:0;background:transparent;padding:7px 0;min-height:34px;
+  font-size:10px;color:#686a71;white-space:nowrap;
+}
+.couple-diary-filter-mark {display:flex;justify-content:flex-end;margin:8px 0 2px;}
+.couple-content-mode .couple-diary-filter-mark select {
+  width:auto;min-height:30px;padding:5px 21px 5px 10px;
+  background:#fff;border:1px solid #dedee0;border-radius:8px;font-size:10px;
+}
+.couple-content-mode .couple-diary-bookmark-page {
+  display:grid;grid-template-columns:45px 1fr auto;align-items:center;gap:12px;
+  padding:11px 4px;width:100%;min-height:44px;text-align:left;
+  border:0;border-bottom:1px solid #dfe0e2;border-radius:0;background:transparent;
+}
+.couple-diary-bookmark-page>span {font-size:10px;color:#85868c;font-variant-numeric:tabular-nums;}
+.couple-diary-bookmark-page>strong {font-size:12px;color:#393a3f;font-weight:520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.couple-diary-pref-fold {margin-top:11px;padding:0 0 9px;}
+.couple-diary-pref-fold summary {display:flex;justify-content:space-between;cursor:pointer;gap:12px;
+  padding:9px 3px;color:#8a8b92;font-size:10px;list-style:none;}
+.couple-diary-pref-fold summary::-webkit-details-marker {display:none;}
+.couple-diary-pref-fold summary>span {font-size:12px;}
+.couple-diary-pref-fold[open] summary>span {transform:rotate(180deg);}
+.couple-diary-pref-fold .couple-record-preferences-body {
+  padding:13px 12px;border:1px solid #e5e5e7;background:#fff;border-radius:10px;
+}
+.couple-diary-pref-fold .couple-record-preferences-body label {font-size:11px;line-height:1.8;color:#4e4f55;}
+.couple-diary-pref-fold .couple-record-preferences-body input[type=checkbox] {margin-right:7px;accent-color:#333;}
+.couple-diary-pref-fold .couple-record-preferences-body input:not([type=checkbox]) {background:#fafafa;border-color:#dfe0e2;color:#333;}
+/* Mail is a postbox. Touch the protruding envelope to compose, pull the metal lever for character mail. */
+.couple-mail-postbox {position:relative;min-height:212px;}
+.couple-content-mode .couple-mail-postbox .couple-mail-slot {
+  display:block;width:75%;height:12px;min-height:12px;position:relative;
+  margin:36px auto 32px;padding:0;border:0;border-radius:3px;
+  background:#414247;box-shadow:inset 0 2px 3px #141414aa;
+  overflow:visible;outline-offset:5px;touch-action:manipulation;cursor:pointer;
+}
+.couple-mail-postbox .couple-mail-slot:focus-visible {outline:2px solid #393a3f;}
+.couple-mail-slot .couple-mail-paper {pointer-events:none;transition:transform .2s ease,top .2s ease;}
+.couple-mail-slot:active .couple-mail-paper {top:-43px;transform:translateX(-50%) rotate(-2deg);}
+.couple-content-mode .couple-mail-postbox .couple-mail-lever {
+  position:absolute;top:16px;right:16px;
+  min-height:31px;max-width:54%;padding:5px 10px;border:1px solid #c4c5c8;
+  border-radius:99px;background:#fff;color:#414248;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.couple-mail-bottom {margin-top:4px;}
+.couple-mail-tray-heading {display:flex;align-items:center;justify-content:space-between;gap:13px;padding:3px 2px 10px;}
+.couple-mail-tray-heading>span {font-size:10px;letter-spacing:.04em;color:#73747a;}
+.couple-content-mode .couple-mail-tray-heading select {
+  width:auto;max-width:54%;min-height:31px;padding:6px 8px;
+  background:#fff;border:1px solid #dedee0;border-radius:7px;color:#44454a;font-size:11px;
+}
+.couple-content-mode .couple-mail-trays {margin-top:12px;padding:0;}
+.couple-content-mode .couple-mail-no-letters {
+  display:block;min-height:0;padding:8px 1px;margin:0;
+  color:#81838a;text-align:left;font-size:11px;background:transparent;border:0;
+}
+/* Timeline has a single growing spine rather than a note + two buttons. */
+.couple-timeline-cover {position:relative;}
+.couple-content-mode .couple-timeline-ask {
+  position:absolute;right:16px;bottom:15px;min-height:30px;
+  max-width:57%;padding:4px 0 4px 9px;
+  border:0;border-bottom:1px solid #85868c;border-radius:0;
+  color:#e2e2e6;background:transparent;font-size:10px;text-align:right;
+}
+.couple-content-mode .couple-timeline-flow .couple-timeline-add {
+  position:relative;display:block;width:100%;min-height:57px;
+  padding:15px 12px;margin:2px 0 6px;border:1px dashed #c3c4c9;
+  border-radius:9px;background:#f9f9fa;color:#3d3e44;
+  text-align:left;font-size:12px;
+}
+.couple-timeline-flow .couple-timeline-add .couple-timeline-flow-dot {top:19px;left:-23px;}
+.couple-timeline-first {display:flex;flex-direction:column;gap:7px;padding:12px 10px;margin-top:4px;
+  border-left:0;background:transparent;font-size:11px;color:#696a71;line-height:1.6;}
+.couple-timeline-first time {font-size:15px;color:#32333a;font-weight:470;font-variant-numeric:tabular-nums;}
+/* Wishboard controls ARE pinned memo objects, not a row of repeated full-width buttons. */
+.couple-content-mode .couple-wish-add-note,
+.couple-content-mode .couple-wish-ai-note {
+  min-height:142px;display:flex;align-items:flex-start;flex-direction:column;justify-content:center;
+  padding:15px 15px;border-radius:4px;text-align:left;gap:9px;
+  box-shadow:3px 6px 0 #dedee1,0 8px 14px #0000000b;
+}
+.couple-content-mode .couple-wish-add-note {background:#fdfdfd;border:1px dashed #b8b9bf;transform:rotate(-1.5deg);}
+.couple-content-mode .couple-wish-add-note>span {font-size:27px;color:#5a5b62;line-height:1;}
+.couple-content-mode .couple-wish-add-note strong {font-size:12px;color:#3e3f46;font-weight:560;}
+.couple-content-mode .couple-wish-add-note small {font-size:10px;color:#83848b;}
+.couple-content-mode .couple-wish-ai-note {background:#34353a;border:1px solid #34353a;transform:rotate(1deg);justify-content:center;}
+.couple-content-mode .couple-wish-ai-note>span {font-size:27px;color:#eeeeef;}
+.couple-content-mode .couple-wish-ai-note small {font-size:12px;line-height:1.55;color:#f0f0f2;}
+/* An empty gift gallery is not another blank information card; interact with the plinth directly. */
+.couple-content-mode .couple-gift-pedestal .couple-gift-pedestal-stage {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;
+  height:78%;width:65%;min-height:125px;padding:10px;
+  border:0;border-radius:12px;background:transparent;
+  position:relative;z-index:2;cursor:pointer;
+}
+.couple-content-mode .couple-gift-pedestal .couple-gift-pedestal-stage:focus-visible {outline:2px solid #44454b;}
+.couple-gift-stage-caption {font-size:11px;color:#66676d;white-space:nowrap;}
+.couple-gift-gallery-rail {display:flex;align-items:stretch;justify-content:space-between;gap:10px;margin:13px 0 0;}
+.couple-content-mode .couple-gift-gallery-add {flex:1;min-width:0;padding:10px 9px;border:1px dashed #cacbd0;background:#fff;border-radius:9px;font-size:11px;color:#62636a;}
+.couple-content-mode .couple-gift-gallery-ask {
+  flex:1;min-width:0;padding:10px 12px;background:#34353a;color:#fff;border-radius:9px;border:1px solid #34353a;
+  display:flex;flex-direction:column;gap:6px;text-align:left;justify-content:center;
+}
+.couple-gift-gallery-ask>span {font-size:9px;letter-spacing:.11em;color:#d0d0d5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.couple-gift-gallery-ask>strong {font-size:11px;color:#fff;line-height:1.4;font-weight:530;}
+/* Vault seal is the add button; the filter stays INSIDE its drawer only when there are sealed records. */
+.couple-capsule-vault {min-height:259px;gap:6px;padding-bottom:15px;}
+.couple-capsule-vault .couple-capsule-lock {width:100px;height:100px;margin:7px 0 4px;}
+.couple-capsule-lock strong {font-size:34px;}
+.couple-content-mode .couple-capsule-vault .couple-capsule-new {
+  position:relative;z-index:3;display:inline-flex;align-items:center;justify-content:center;
+  min-height:34px;max-width:95%;padding:6px 13px;margin-top:4px;
+  border:1px solid #a3a4ab;border-radius:99px;background:#f9f9fa;color:#33343a;font-size:10px;
+}
+.couple-content-mode .couple-capsule-request {
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:38px;padding:7px 3px;margin-top:13px;
+  border:0;border-bottom:1px solid #cfd0d3;border-radius:0;background:transparent;text-align:left;
+  color:#66676e;font-size:11px;
+}
+.couple-capsule-request>span {font-size:15px;color:#43444b;}
+.couple-capsule-shelf-tools {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;}
+.couple-capsule-shelf-tools>span {color:#5a5b62;font-size:11px;font-weight:600;}
+.couple-content-mode .couple-capsule-shelf-tools select {
+  min-height:32px;width:auto;max-width:60%;padding:6px 8px;border-radius:7px;background:#fff;
+  color:#4b4c52;border:1px solid #dddde1;font-size:11px;
+}
+.couple-capsule-no-match {padding:12px 5px;color:#8a8b91;font-size:11px;}
+/* Tree hollow is a locked drawer; write by dropping a secret through its slot, not by opening a generic CTA. */
+.couple-hollow-door {min-height:233px;padding:20px 14px;gap:12px;}
+.couple-content-mode .couple-hollow-door .couple-hollow-drop {
+  display:flex;align-items:center;gap:11px;justify-content:center;
+  min-height:39px;max-width:100%;padding:7px 13px;margin:0;
+  border:1px solid #92939b;border-radius:99px;background:#ececee;color:#303136;
+  font-size:11px;letter-spacing:0;line-height:1.5;
+}
+.couple-hollow-drop>span {display:grid;place-items:center;border:1px solid #83848b;border-radius:50%;width:22px;height:22px;font-size:17px;color:#4c4d53;}
+.couple-hollow-door>small {font-size:9px;color:#adaeb5;}
+.couple-hollow-drawer {margin:8px 0 0;}
+.couple-hollow-drawer-footer {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px;border-top:1px solid #dbdcdf;}
+.couple-content-mode .couple-hollow-drawer-footer>button {flex:1;min-width:0;border:0;background:transparent;text-align:left;color:#6a6b71;font-size:11px;padding:7px 0;min-height:36px;}
+.couple-hollow-pref-fold {min-width:70px;flex-shrink:0;position:relative;}
+.couple-hollow-pref-fold summary {cursor:pointer;display:flex;align-items:center;gap:7px;justify-content:flex-end;color:#83848b;font-size:10px;list-style:none;}
+.couple-hollow-pref-fold summary::-webkit-details-marker {display:none;}
+.couple-hollow-pref-fold[open] {flex:1 1 100%;}
+.couple-hollow-pref-fold[open] summary {padding-bottom:11px;}
+.couple-hollow-pref-interior {padding:12px;background:#fff;border:1px solid #dadbde;border-radius:10px;color:#57585f;}
+.couple-hollow-pref-interior label {display:flex;gap:9px;align-items:center;font-size:10px;line-height:1.5;}
+.couple-hollow-pref-interior input[type=checkbox] {width:16px;height:16px;flex-shrink:0;accent-color:#35363a;}
+@media(max-width:350px){
+  .couple-content-mode .couple-wish-add-note,.couple-content-mode .couple-wish-ai-note {min-height:126px;padding:11px;}
+  .couple-content-mode .couple-wish-ai-note small {font-size:11px;}
+  .couple-content-mode .couple-mail-postbox .couple-mail-lever {right:9px;max-width:55%;font-size:9px;}
+  .couple-content-mode .couple-gift-pedestal .couple-gift-pedestal-stage {width:80%;}
+  .couple-content-mode .couple-diary-cover-open {right:10px;top:12px;}
+  .couple-hollow-drawer-footer {gap:7px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .couple-mail-slot .couple-mail-paper {transition:none;}
+}
