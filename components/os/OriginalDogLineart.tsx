@@ -94,8 +94,8 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
         {ready && (
           <svg className="sully-lineart-sticker" viewBox="0 0 512 512" aria-hidden="true">
             {/* 原标志是圆形贴纸，不是孤零零的字：只给原稿字迹补回纸张圆边。 */}
-            <ellipse cx="274" cy="179" rx="78.5" ry="74.5" fill="none"
-              stroke="#343434" strokeWidth="3.15" />
+            <ellipse cx="274" cy="206" rx="78.5" ry="74.5" fill="none"
+              stroke="#343434" strokeWidth="4" />
           </svg>
         )}
         {ready && expression !== 'normal' && (
