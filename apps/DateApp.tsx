@@ -192,7 +192,7 @@ const DateApp: React.FC = () => {
                 model: dialogueApi.model,
                 messages,
                 temperature,
-                // max_tokens 是 Claude 原生 API 的必填字段；缺了它，糯米机/Csy 等
+                // max_tokens 是 Claude 原生 API 的必填字段；缺了它，宝宝狗/Csy 等
                 // OpenAI→Claude 中转会被上游打回，再包成 502 / bad_response_status_code。
                 // 与私聊 (useChatAI.ts) 对齐，统一带 8000。
                 max_tokens: 8000,
@@ -378,7 +378,7 @@ const DateApp: React.FC = () => {
         }
     }, [memoryPalaceConfig, apiConfig, userProfile?.name, updateCharacter, addToast]);
 
-    // 糯叽机原版见面解锁：仅使用糯米机现有见面回复和角色 chatBlock。
+    // 糯叽机原版见面解锁：仅使用宝宝狗现有见面回复和角色 chatBlock。
     // 角色在现实见面中决定原谅，才解锁私聊；不会因普通发送自动解锁。
     const applyMeetingBlockAction = async (charId: string, action: CharacterBlockAction | null, expected: CharacterProfile['chatBlock']) => {
         if (!action) return;
