@@ -89,10 +89,12 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
   };
   return <section className="wish-universe" aria-label="愿望清单 · 双人心愿图">
     <header className="wish-universe-heading">
-      
-      <div className="wish-universe-heading-main"><h2>愿望清单</h2><div className="wish-universe-tally">
-        <strong>{String(finished).padStart(2,'0')}</strong><span> / {String(allCount).padStart(2,'0')}</span></div></div>
-      <div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span><span>每一颗星，都是一个真实的愿望</span></div>
+      <div className="wish-universe-heading-main">
+        <div className="wish-universe-identity"><h2>愿望清单</h2><div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span></div></div>
+        <div className="wish-universe-tally" aria-label={`已实现 ${finished} 个，共 ${allCount} 个愿望`}>
+          <strong>{String(finished).padStart(2,'0')}</strong><span> / {String(allCount).padStart(2,'0')}</span>
+        </div>
+      </div>
     </header>
 
     <div className="wish-universe-bar">
@@ -104,7 +106,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
         <button type="button" aria-pressed={view==='list'} onClick={()=>setView('list')}>目录</button></div>
     </div>
 
-    {view==='sky' ? <div className="wish-universe-field" onTouchStart={onTouchStart}
+    {view==='sky' ? <div className={'wish-universe-field'+(stars.length===0?' is-empty':'')} onTouchStart={onTouchStart}
       onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       onTouchCancel={()=>{touch.current=null;setDrag(0);}}>
       {stars.length>0 ? <div className={'wish-universe-plane'+(focused && stars.some(item=>item.id===focused.id)?' has-focus':'')} style={{transform:`translateX(${drag*.46}px)`}}>
@@ -124,15 +126,26 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
             <span className="wish-universe-star-field">
               <span className="wish-universe-star-core" aria-hidden="true" />
               <span className="wish-universe-star-ring" aria-hidden="true" />
+              {stats.percent>0 && <span className="wish-universe-star-progress" aria-hidden="true"/>}
             </span>
             <span className="wish-universe-star-title">{item.title}</span>
           </button>;
         })}
       </div> : <div className="wish-universe-empty">
+        <svg className="wish-universe-eclipse" viewBox="0 0 390 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <defs>
+            <radialGradient id="wish-eclipse-shadow"><stop offset="0" stopColor="#17191e" stopOpacity=".68"/><stop offset=".75" stopColor="#111318" stopOpacity=".65"/><stop offset="1" stopColor="#08090d" stopOpacity=".2"/></radialGradient>
+            <linearGradient id="wish-eclipse-rim" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#f5f5f5" stopOpacity="0"/><stop offset=".36" stopColor="#f6f6f6" stopOpacity=".08"/><stop offset=".64" stopColor="#ededed" stopOpacity=".38"/><stop offset=".83" stopColor="#fff" stopOpacity=".58"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient>
+            <linearGradient id="wish-eclipse-trail" x1="0" y1=".5" x2="1" y2=".5"><stop offset="0" stopColor="#fff" stopOpacity="0"/><stop offset=".5" stopColor="#fff" stopOpacity=".14"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient>
+          </defs>
+          <ellipse cx="217" cy="275" rx="172" ry="210" fill="url(#wish-eclipse-shadow)"/>
+          <path d="M83 425 C35 348 66 160 174 89 C276 28 397 143 369 286" fill="none" stroke="url(#wish-eclipse-rim)" strokeWidth="1.05"/>
+          <path d="M-15 392 C106 457 226 430 361 304 C410 264 452 239 495 250" fill="none" stroke="url(#wish-eclipse-trail)" strokeWidth=".85"/>
+        </svg>
         <button type="button" className="wish-universe-first-star" disabled={busy} onClick={onNew} aria-label="许下第一个愿望">
           <span className="wish-universe-first-core" aria-hidden="true"/>
         </button>
-        <div className="wish-universe-empty-hint">{filter==='all'?'轻触光点，许下第一个愿望':'这个分类还没有愿望'}</div>
+        <div className="wish-universe-empty-hint">{filter==='all'?'点亮第一个愿望':'这个分类还没有愿望'}</div>
         {filter!=='all' && <button type="button" className="wish-universe-all" onClick={()=>onFilter('all')}>查看全部愿望</button>}
       </div>}
       {focused && stars.some(item=>item.id===focused.id) && <div className={'wish-universe-focus'+(focused.done?' is-done':'')} key={focused.id}>
@@ -158,7 +171,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
       {rows.length?rows.map((item,i)=>{
         const stats=stepCompletion(item);
         return <button key={item.id} type="button" onClick={()=>onOpen(item.id)} disabled={busy}>
-          <span className={'wish-universe-list-dot'+(item.done?' is-done':'')}/>
+          <span className={'wish-universe-list-dot'+(item.done?' is-done':'')} aria-hidden="true"/>
           <span className="wish-universe-list-body"><strong>{item.title}</strong>
             <small>{wishCategories[item.wishCategory??'other']}{item.wishTag?' · '+wishTags[item.wishTag]:''}</small></span>
           <span className="wish-universe-list-progress">{item.done?'已实现':stats.count?stats.done+'/'+stats.count:'↗'}</span>
