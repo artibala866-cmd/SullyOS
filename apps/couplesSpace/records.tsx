@@ -8,6 +8,7 @@ import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
 import { TimelineCinema } from './timelineCinema';
+import { WishConstellation } from './wishConstellation';
 
 export const recordNames: Record<EntryKind, string> = {
   timeline: '牵绊时光', anniversary: '纪念日', diary: '交换日记', wish: '愿望清单',
@@ -60,6 +61,7 @@ function elapsedDate(start: string, today: string) {
 type CoupleSceneProps = {
   kind: EntryKind; bond: Bond; names: Record<Side,string>; rows: Entry[]; today: string;
   onNew: () => void; onAI: () => void; busy: boolean; onJump: (id:string) => void;
+  onWishToggle?: (entry: Entry) => void; glowingRecordId?: string;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
   filter: string; onFilter: (filter: string) => void; totalRecords: number; focusRecordId?: string;
   diaryPrefs?: React.ReactNode; hollowPrefs?: React.ReactNode; tools?: React.ReactNode;
@@ -67,7 +69,7 @@ type CoupleSceneProps = {
 function SceneAvatar({ value, name }: { value?: string; name: string }) {
   return <span className="couple-scene-avatar">{value ? <TokenImg value={value} alt={name} /> : <span>{name.slice(0,1)}</span>}</span>;
 }
-function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump,
+function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump, onWishToggle, glowingRecordId,
   avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, focusRecordId, diaryPrefs, hollowPrefs, tools }: CoupleSceneProps) {
   const [native, setNative] = useState<DiaryEntry[]>([]);
   const [journalPage, setJournalPage] = useState(0);
@@ -216,32 +218,12 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     bond={bond} names={names} rows={rows} today={today} initialFocusId={focusRecordId} filter={filter} onFilter={onFilter}
     busy={busy} tools={tools} onNew={onNew} onAI={onAI} onJump={onJump}
   />;
-  if(kind==='wish'){
-    const done=bond.entries.filter(row=>row.kind==='wish' && row.done).length;
-    return <div className="couple-scene couple-scene-wish">
-      <div className="couple-wish-header"><div><span aria-hidden="true">✧</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {totalRecords}</small></strong><span>已完成</span></div></div>
-      {totalRecords > 0 && <label className="couple-wish-filter">筛选愿望
-        <select value={filter} onChange={event => onFilter(event.target.value)}>
-          <option value="all">全部分类</option>
-          {Object.entries(wishCategories).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
-      </label>}
-      {filter !== 'all' && !rows.length && <p role="status" className="couple-wish-filter-empty">这个分类还没有愿望。</p>}
-      <div className="couple-wish-board">
-        {rows.length?rows.map((item,index)=><button type="button" key={item.id} onClick={()=>onJump(item.id)} className={'couple-wish-note couple-wish-note-'+index%3+(item.done?' done':'')}>
-          <span className="couple-wish-pin" /><span className="couple-wish-note-index">{String(index+1).padStart(2,'0')}</span>
-          <strong>{item.title}</strong><small>{item.done?'✓ 已完成':'待一起实现'}{item.wishTag && ' · ' + wishTags[item.wishTag]}</small>
-          <span className="couple-wish-note-steps">{(item.steps??[]).filter(s=>s.text.trim()).length} 个小目标</span>
-        </button>):null}
-        <button type="button" className="couple-wish-add-note" disabled={busy} onClick={onNew}>
-          <span>＋</span><strong>贴一张愿望纸</strong><small>写下第一件想做的事</small>
-        </button>
-        <button type="button" className="couple-wish-ai-note" disabled={busy} onClick={onAI}>
-          <span>✎</span><small>看看 {names.them} 的愿望</small>
-        </button>
-      </div>
-    </div>;
-  }
+  if (kind === 'wish') return <WishConstellation
+    bond={bond} names={names} rows={rows} allCount={totalRecords} filter={filter}
+    onFilter={onFilter} busy={busy} focusRecordId={focusRecordId} glowingRecordId={glowingRecordId}
+    onNew={onNew} onAI={onAI} onOpen={onJump}
+    onToggleDone={onWishToggle ?? (()=>{})}
+  />;
   if(kind==='gift'){
     return <div className="couple-scene couple-scene-gift">
       <div className="couple-gift-counter"><span aria-hidden="true">✧</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
@@ -365,6 +347,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   useEffect(() => () => mailRequest.current?.abort(), []);
   const [activeRecordId, setActiveRecordId] = useState<string>();
   const [lastSavedRecordId, setLastSavedRecordId] = useState<string>();
+  const [lastGlowingRecordId, setLastGlowingRecordId] = useState<string>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
@@ -421,7 +404,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         ? current.entries.map(item => item.id === entry.id ? entry : item)
         : [...current.entries, entry] };
     });
-    if (kind === 'timeline') setLastSavedRecordId(entry.id);
+    if (kind === 'timeline' || kind === 'wish') setLastSavedRecordId(entry.id);
   };
   const rows = bond.entries.filter(item => item.kind === kind)
     .filter(item => {
@@ -733,6 +716,11 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
       filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length} focusRecordId={lastSavedRecordId}
       diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs} tools={sceneTools}
+      glowingRecordId={lastGlowingRecordId}
+      onWishToggle={entry => void run(async () => {
+        await save({ ...entry, done: !entry.done }, entry);
+        setLastGlowingRecordId(entry.done ? undefined : entry.id);
+      })}
       onNew={() => { rememberListPosition(); draftSource.current = undefined; setDraft(newEntry()); }} onAI={() => kind === 'mail' ? deliverMail('incoming') : void run(generated)} busy={working || busy}
       onJump={id => { rememberListPosition(); setActiveRecordId(id); setReplyDraft(undefined); }} />}
     {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
