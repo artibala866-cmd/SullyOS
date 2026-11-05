@@ -90,7 +90,7 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
     {rows.length > 0 && <>
     <div className="couple-cinema-reel-heading">
       <span>THE REEL <i/> {filter === 'handbook' ? '手账索引' : '轻触胶片切换回忆'}</span>
-      {filter === 'handbook' && <button type="button" disabled={busy} onClick={onNew} aria-label="写下新回忆">＋</button>}
+      <button type="button" disabled={busy} onClick={onNew} aria-label="写下新回忆">＋</button>
     </div>
     {filter === 'handbook' ? <div className="couple-cinema-index">
       {rows.map((item,index)=><React.Fragment key={item.id}>
@@ -112,13 +112,6 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
         <span className="couple-cinema-frame-title">{item.title}</span>
         <span className="couple-cinema-perfs" aria-hidden="true"><i/><i/><i/><i/><i/></span>
       </button>)}
-      <button type="button" className="couple-cinema-frame couple-cinema-frame-add" disabled={busy} onClick={onNew} aria-label="记录下一帧">
-        <span className="couple-cinema-perfs" aria-hidden="true"><i/><i/><i/><i/><i/></span>
-        <span className="couple-cinema-frame-screen"><span>＋</span></span>
-        <span className="couple-cinema-frame-date">NEXT</span>
-        <span className="couple-cinema-frame-title">下一段故事</span>
-        <span className="couple-cinema-perfs" aria-hidden="true"><i/><i/><i/><i/><i/></span>
-      </button>
     </div>}
     </>}
     <footer className="couple-cinema-controls">
