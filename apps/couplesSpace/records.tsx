@@ -213,7 +213,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   if (kind === 'timeline') return <TimelineCinema
-    bond={bond} names={names} rows={rows} today={today} initialFocusId={focusRecordId} filter={filter}
+    bond={bond} names={names} rows={rows} today={today} initialFocusId={focusRecordId} filter={filter} onFilter={onFilter}
     busy={busy} tools={tools} onNew={onNew} onAI={onAI} onJump={onJump}
   />;
   if(kind==='wish'){
@@ -684,10 +684,6 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     {mailDelivery ? <><span>信件正在寄送</span><button type="button" onClick={() => mailRequest.current?.abort()}>取消寄送</button></> : <button type="button" disabled={working || busy} onClick={() => deliverMail(failedDelivery!)}>重新寄送</button>}
   </div>;
   const sceneTools = kind === 'timeline' ? <div className="couple-record-tools">
-    <div className="couple-segments" aria-label="时间轴视图">
-      <button type="button" aria-pressed={filter !== 'handbook'} onClick={() => setFilter('all')}>旅程</button>
-      <button type="button" aria-pressed={filter === 'handbook'} onClick={() => setFilter('handbook')}>手账</button>
-    </div>
     {generateTimeline && <details><summary>从聊天补全回忆</summary><p>也会参考已开放的日度总结。</p><div className="couple-actions">
       <label>指定日期 <input type="date" value={timelineDate} onChange={event => setTimelineDate(event.target.value)}/></label>
       <button type="button" disabled={working || busy || !timelineDate} onClick={() => backfillTimeline(timelineDate)}>补全当天</button>
