@@ -115,7 +115,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
       <div className="wish-universe-nebula" aria-hidden="true"/>
       <div className="wish-universe-ambient" aria-hidden="true">{ambient.map(([x,y,size],i)=><i key={i} style={{left:x+'%',top:y+'%',opacity:size}}/>)}</div>
       <div className="wish-universe-gravity" aria-hidden="true"><span/><span/><span/></div>
-      {stars.length>0 ? <div className="wish-universe-plane" style={{transform:`translateX(${drag*.46}px)`}}>
+      {stars.length>0 ? <div className={'wish-universe-plane'+(focused && stars.some(item=>item.id===focused.id)?' has-focus':'')} style={{transform:`translateX(${drag*.46}px)`}}>
         <svg className="wish-universe-connections" viewBox="0 0 380 500" preserveAspectRatio="none" aria-hidden="true">
           <circle cx="190" cy="247" r="126" className="wish-universe-orbit" />
           <ellipse cx="190" cy="249" rx="180" ry="105" transform="rotate(-29 190 249)" className="wish-universe-orbit faint"/>
@@ -126,7 +126,8 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
           const selected=focusedId===item.id;
           return <button type="button" key={item.id} className={'wish-universe-star'+(item.done?' is-done':'')+(selected?' is-focused':'')+
             (glowingRecordId===item.id?' is-newly-lit':'')+(item.pinned?' is-pinned':'')}
-            style={{left:p.x/380*100+'%',top:p.y/500*100+'%', '--wish-progress':stats.percent+'%','--wish-delay':(i*-.75)+'s'} as React.CSSProperties}
+            style={{left:p.x/380*100+'%',top:p.y/500*100+'%', '--wish-progress':stats.percent+'%','--wish-delay':(i*-.75)+'s',
+              '--wish-focus-x':((190-p.x)*.60)+'px','--wish-focus-y':((185-p.y)*.55)+'px'} as React.CSSProperties}
             disabled={busy} aria-pressed={selected} aria-label={item.title+'，'+(item.done?'已实现':'待实现')}
             onClick={()=>choose(item)}>
             <span className="wish-universe-star-field"><span className="wish-universe-star-corona"/><span className="wish-universe-star-core"/>
@@ -173,7 +174,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
     </div>}
 
     <div className="wish-universe-actions">
-      <button type="button" className="wish-universe-new" disabled={busy} onClick={onNew}><span aria-hidden="true">＋</span> 许一个心愿</button>
+      {(allCount>0 || filter!=='all' || view==='list') && <button type="button" className="wish-universe-new" disabled={busy} onClick={onNew}><span aria-hidden="true">＋</span> 许一个心愿</button>}
       <button type="button" className="wish-universe-partner" disabled={busy} onClick={onAI}>听听 {names.them} 的愿望 <span>↗</span></button>
     </div>
   </section>;
