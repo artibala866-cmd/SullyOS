@@ -82,14 +82,21 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
   const [bagIndex, setBagIndex] = useState(0);
   const [cardMotion, setCardMotion] = useState<'none' | 'issuing'>('none');
   const [stampedId, setStampedId] = useState<string | null>(null);
+  const [issuedCardId, setIssuedCardId] = useState<string | null>(null);
+  const [stampPreview, setStampPreview] = useState<Card | null>(null);
   const swipeX = useRef<number | null>(null);
   const activeCard = visibleCards[Math.min(activeIndex, Math.max(visibleCards.length - 1, 0))];
   const bagCards = cards.filter(card => (bond.bags[bagOwner][card.id] ?? 0) > 0);
-  const activeBagCard = bagCards[Math.min(bagIndex, Math.max(0, bagCards.length - 1))];
+  const selectedBagIndex = issuedCardId && bagOwner === 'me'
+    ? Math.max(0, bagCards.findIndex(card => card.id === issuedCardId))
+    : Math.min(bagIndex, Math.max(0, bagCards.length - 1));
+  const activeBagCard = (bagOwner === 'me' && stampPreview) || bagCards[selectedBagIndex];
   const shopMove = (delta: number) => setActiveIndex(current =>
     Math.max(0, Math.min(visibleCards.length - 1, current + delta)));
-  const bagMove = (delta: number) => setBagIndex(current =>
-    Math.max(0, Math.min(bagCards.length - 1, current + delta)));
+  const bagMove = (delta: number) => {
+    setIssuedCardId(null);
+    setBagIndex(Math.max(0, Math.min(bagCards.length - 1, selectedBagIndex + delta)));
+  };
 
   // Delay the ledger change until the ticket has visibly moved into the slot.
   // The existing exchangeCard transaction is still the only inventory/point writer.
@@ -105,6 +112,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       });
       setBagOwner('me');
       setBagIndex(0);
+      setIssuedCardId(card.id);
       setTab('bag');
       notify?.('已收入卡包');
     } finally { setCardMotion('none'); }
@@ -124,8 +132,12 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       });
       try {
         await share('【' + card.name + '】' + (note.trim() || card.effect), '我的出牌', 'couples-play:' + playId);
+        setStampPreview(card);
         setStampedId(card.id);
-        window.setTimeout(() => setStampedId(current => current === card.id ? null : current), 1100);
+        window.setTimeout(() => {
+          setStampedId(current => current === card.id ? null : current);
+          setStampPreview(current => current?.id === card.id ? null : current);
+        }, 1100);
       } catch (error) {
         let refunded = false;
         try {
@@ -162,7 +174,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     <nav className="bond-ticket-tabs" aria-label="羁绊商店区域">
       {Object.entries(tabs).map(([key, label]) =>
         <button key={key} type="button" disabled={working || busy} aria-pressed={tab === key}
-          onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); setActiveIndex(0); setBagIndex(0); }}>
+          onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); setActiveIndex(0); setBagIndex(0); setIssuedCardId(null); }}>
           <span className="bond-ticket-tab-mark" aria-hidden="true">{({shop: '⌑', bag: '▣', tasks: '✓', grand: '✧'} as Record<string,string>)[key]}</span>
           {label}
         </button>)}
@@ -184,7 +196,8 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       {manage && <div className="bond-ticket-manage-note"><span>卡券整理</span>
         <button type="button" disabled={working || busy || !bond.hidden.length} onClick={() => apply(current => ({ ...current, hidden: [] }))}>全部放回</button>
       </div>}
-          {draft && <form className="couple-card couple-shop-editor" onSubmit={event => {
+          <div className="bond-ticket-editor-wrap">
+      {draft && <form className="couple-card couple-shop-editor" onSubmit={event => {
             event.preventDefault();
             const card = { ...draft, name: draft.name.trim(), effect: draft.effect.trim() };
             if (!card.name || !card.effect || !Number.isSafeInteger(card.price) || card.price < 1) return;
@@ -213,7 +226,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <label><input type="checkbox" checked={draft.charUse} onChange={event => setDraft({ ...draft, charUse: event.target.checked })} /> 角色可用</label>
             <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
           </form>}
-    
+      </div>
       {activeCard ? <div className="bond-ticket-showcase" onTouchStart={event => { swipeX.current = event.touches[0]?.clientX ?? null; }}
         onTouchEnd={event => { const x=swipeX.current; swipeX.current=null;
           if(x===null || working || busy) return;
@@ -265,10 +278,10 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
 
     {tab === 'bag' && <section className="bond-ticket-wallet">
       <div className="bond-ticket-wallet-top">
-        <div><small>收纳夹</small><h3>我的卡包</h3></div>
+        <div><small>收纳夹</small><h3>{bagOwner==='me'?'我的卡包':partner+'的卡包'}</h3></div>
         <nav className="bond-ticket-wallet-switch" aria-label="查看谁的卡包">
-          <button type="button" aria-pressed={bagOwner==='me'} onClick={() => { setBagOwner('me');setBagIndex(0); }}>我的</button>
-          <button type="button" aria-pressed={bagOwner==='them'} onClick={() => { setBagOwner('them');setBagIndex(0); }}>{partner}</button>
+          <button type="button" aria-pressed={bagOwner==='me'} onClick={() => { setBagOwner('me');setBagIndex(0);setIssuedCardId(null); }}>我的</button>
+          <button type="button" aria-pressed={bagOwner==='them'} onClick={() => { setBagOwner('them');setBagIndex(0);setIssuedCardId(null); }}>{partner}</button>
         </nav>
       </div>
       <div className="bond-ticket-wallet-pocket">
@@ -278,18 +291,18 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <div className="bond-ticket-wallet-pass-head"><span>PRIVATE PASS</span><span>{activeBagCard.icon || '✧'}</span></div>
             <strong>{activeBagCard.name}</strong><p>{activeBagCard.effect}</p>
             <div className="bond-ticket-wallet-pass-rule" aria-hidden="true" />
-            <div className="bond-ticket-wallet-pass-foot"><span>库存 × {bond.bags[bagOwner][activeBagCard.id]}</span>
-              {bagOwner==='me' && <button type="button" disabled={working || busy || bond.disabledCards || bond.hidden.includes(activeBagCard.id)} onClick={() => playOwnedCard(activeBagCard)}>使用卡券 ↗</button>}
+            <div className="bond-ticket-wallet-pass-foot"><span>{stampedId===activeBagCard.id ? '已使用' : '库存 × '+(bond.bags[bagOwner][activeBagCard.id]??0)}</span>
+              {bagOwner==='me' && <button type="button" disabled={working || busy || stampedId===activeBagCard.id || bond.disabledCards || bond.hidden.includes(activeBagCard.id)} onClick={() => playOwnedCard(activeBagCard)}>使用卡券 ↗</button>}
             </div>
             <div className="bond-ticket-wallet-stamp" aria-hidden="true">USED</div>
           </div>
           <div className="bond-ticket-wallet-paging">
-            <button type="button" disabled={bagIndex<=0} onClick={() => bagMove(-1)} aria-label="上一张已拥有的票券">‹</button>
-            <span>{bagIndex+1} / {bagCards.length}</span>
-            <button type="button" disabled={bagIndex>=bagCards.length-1} onClick={() => bagMove(1)} aria-label="下一张已拥有的票券">›</button>
+            <button type="button" disabled={selectedBagIndex<=0} onClick={() => bagMove(-1)} aria-label="上一张已拥有的票券">‹</button>
+            <span>{bagCards.length ? selectedBagIndex+1 : 0} / {bagCards.length}</span>
+            <button type="button" disabled={selectedBagIndex>=bagCards.length-1} onClick={() => bagMove(1)} aria-label="下一张已拥有的票券">›</button>
           </div>
           <div className="bond-ticket-wallet-thumbs">
-            {bagCards.map((card,i)=><button key={card.id} type="button" aria-pressed={i===bagIndex} onClick={()=>setBagIndex(i)} title={card.name}>
+            {bagCards.map((card,i)=><button key={card.id} type="button" aria-pressed={i===selectedBagIndex} onClick={()=>{setIssuedCardId(null);setBagIndex(i);}} title={card.name}>
               <span>{card.icon || '✧'}</span><small>{card.name}</small></button>)}
           </div>
         </div> : <div className="bond-ticket-wallet-empty"><span aria-hidden="true">⌑</span><p>还没有收藏的票券</p>
