@@ -99,6 +99,9 @@ jobs:
               --virtual-time-budget=7000 --dump-dom "$url" > "/tmp/wish-$state-small-dom.txt" 2>/tmp/wish-chrome.log
             grep -q 'data-ready="true"' "/tmp/wish-$state-small-dom.txt" || exit 1
             grep -q 'data-overflow="false"' "/tmp/wish-$state-small-dom.txt" || { echo "320px horizontal overflow in $state"; exit 1; }
+            if [[ "$state" == "empty" || "$state" == "populated" ]]; then
+              grep -q 'data-actions-visible="true"' "/tmp/wish-$state-small-dom.txt" || { echo "320px first-screen actions hidden in $state"; exit 1; }
+            fi
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
               --window-size=320,710 --force-device-scale-factor=1 \
               --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/wish-constellation-screenshots/$state-320.png" "$url"
