@@ -7,6 +7,7 @@ type TimelineCinemaProps = {
   names: Record<Side, string>;
   rows: Entry[];
   today: string;
+  initialFocusId?: string;
   filter: string;
   busy: boolean;
   tools?: React.ReactNode;
@@ -16,8 +17,8 @@ type TimelineCinemaProps = {
 };
 
 /** The film frames are the actual stored moments, not decorative or invented entries. */
-export function TimelineCinema({ bond, names, rows, today, filter, busy, tools, onNew, onAI, onJump }: TimelineCinemaProps) {
-  const [focusedId, setFocusedId] = useState<string>();
+export function TimelineCinema({ bond, names, rows, today, initialFocusId, filter, busy, tools, onNew, onAI, onJump }: TimelineCinemaProps) {
+  const [focusedId, setFocusedId] = useState<string | undefined>(initialFocusId);
   const touchStart = useRef<number | null>(null);
   const didSwipe = useRef(false);
   const filmStrip = useRef<HTMLDivElement>(null);
