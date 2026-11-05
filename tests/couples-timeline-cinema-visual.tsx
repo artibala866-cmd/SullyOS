@@ -28,6 +28,16 @@ function App() {
     return ()=>clearTimeout(t);
   },[]);
   useEffect(()=>{
+    // Capture the final fully-opened page, not the 3-D half-turn transition.
+    // This affects the QA harness only, never the real app animation.
+    const t = window.setTimeout(() => {
+      document.querySelector('.couple-cinema-v2-gate')?.getAnimations().forEach(animation => {
+        try { animation.finish(); } catch { /* infinite ambient loop stays live */ }
+      });
+    },1500);
+    return ()=>clearTimeout(t);
+  },[]);
+  useEffect(()=>{
     const timer = window.setTimeout(()=>{
       const out = document.getElementById('qa-metrics');
       if(out) {
@@ -35,6 +45,8 @@ function App() {
         out.dataset.state=state;
         out.dataset.overflow=String(document.documentElement.scrollWidth > window.innerWidth + 2);
         out.dataset.frames=String(document.querySelectorAll('.couple-cinema-v2-cell').length);
+        out.dataset.handbook=String(Boolean(document.querySelector('.couple-cinema-v2-paper')));
+        out.dataset.leader=String(Boolean(document.querySelector('.couple-cinema-v2-leader')));
       }
     },1700);
     return ()=>clearTimeout(timer);
