@@ -21,9 +21,9 @@ function App() {
   useEffect(()=>{
     if(state!=='editor'&&state!=='detail'&&state!=='handbook') return;
     const t = window.setTimeout(()=>{
-      if(state==='editor') document.querySelector<HTMLButtonElement>('.couple-cinema-reel-heading button')?.click();
-      if(state==='detail') document.querySelector<HTMLButtonElement>('.couple-cinema-picture')?.click();
-      if(state==='handbook') [...document.querySelectorAll<HTMLButtonElement>('.couple-segments button')].find(b=>b.textContent==='手账')?.click();
+      if(state==='editor') document.querySelector<HTMLButtonElement>('.couple-cinema-v2-first, .couple-cinema-v2-browser-top button')?.click();
+      if(state==='detail') document.querySelector<HTMLButtonElement>('.couple-cinema-v2-memory')?.click();
+      if(state==='handbook') [...document.querySelectorAll<HTMLButtonElement>('.couple-cinema-v2-modes button')].find(b=>b.textContent?.includes('手账'))?.click();
     },850);
     return ()=>clearTimeout(t);
   },[]);
@@ -34,7 +34,7 @@ function App() {
         out.dataset.ready='true';
         out.dataset.state=state;
         out.dataset.overflow=String(document.documentElement.scrollWidth > window.innerWidth + 2);
-        out.dataset.frames=String(document.querySelectorAll('.couple-cinema-frame').length);
+        out.dataset.frames=String(document.querySelectorAll('.couple-cinema-v2-cell').length);
       }
     },1700);
     return ()=>clearTimeout(timer);
