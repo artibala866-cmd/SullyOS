@@ -1,0 +1,91 @@
+name: Couples bond ticket shop mobile visual QA
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/couplesSpace/shop.tsx'
+      - 'apps/couplesSpace/bondTicketShop.css'
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'tests/couples-ticketshop-visual.*'
+      - '.github/workflows/couples-ticketshop-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couple-ticketshop-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check couples domain logic and compile production
+        run: |
+          pnpm exec vitest run utils/couplesSpace.test.ts
+          pnpm exec vite build
+      - name: Verify shop-specific TypeScript
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/ticket-tsc.log 2>&1 || true
+          grep -E '^(apps/couplesSpace/shop\\.tsx|tests/couples-ticketshop-visual\\.tsx)[(]' /tmp/ticket-tsc.log > /tmp/ticket-errors.txt || true
+          if test -s /tmp/ticket-errors.txt; then cat /tmp/ticket-errors.txt; exit 1; fi
+      - name: Install fonts and browser
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Capture actual BondShop rendered component
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/ticket-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/tests/couples-ticketshop-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          mkdir -p bond-ticket-screenshots
+          for state in shop next empty bag bag-empty tasks grand editor exchange play; do
+            url="http://127.0.0.1:5173/tests/couples-ticketshop-visual.html?state=$state"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+              --window-size=430,940 --force-device-scale-factor=1 --virtual-time-budget=4200 \
+              --dump-dom "$url" > "/tmp/bond-ticket-$state-dom.txt" 2>/tmp/ticket-chrome.log
+            grep -q 'data-ready="true"' "/tmp/bond-ticket-$state-dom.txt" || { tail -80 /tmp/ticket-vite.log; tail -40 /tmp/ticket-chrome.log; exit 1; }
+            grep -q 'data-overflow="false"' "/tmp/bond-ticket-$state-dom.txt" || { echo "Horizontal overflow: $state"; exit 1; }
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=430,940 --force-device-scale-factor=1 --virtual-time-budget=4200 \
+              --screenshot="$GITHUB_WORKSPACE/bond-ticket-screenshots/$state.png" "$url"
+            test -s "bond-ticket-screenshots/$state.png"
+          done
+          for state in shop bag empty; do
+            url="http://127.0.0.1:5173/tests/couples-ticketshop-visual.html?state=$state"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=320,710 --force-device-scale-factor=1 --virtual-time-budget=4200 \
+              --screenshot="$GITHUB_WORKSPACE/bond-ticket-screenshots/$state-320.png" "$url"
+            test -s "bond-ticket-screenshots/$state-320.png"
+          done
+          for state in shop bag; do
+            echo "TICKET_SCREENSHOT_BEGIN_$state"
+            base64 -w 0 "bond-ticket-screenshots/$state.png"
+            echo
+            echo "TICKET_SCREENSHOT_END_$state"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bond-ticket-mobile-screenshots
+          path: bond-ticket-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
