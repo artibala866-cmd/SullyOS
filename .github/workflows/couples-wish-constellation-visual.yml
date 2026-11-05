@@ -1,0 +1,95 @@
+name: Couples wish constellation visual and interaction regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/couplesSpace/wishConstellation.*'
+      - 'apps/couplesSpace/records.tsx'
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'tests/couples-wish-constellation-visual.*'
+      - '.github/workflows/couples-wish-constellation-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couple-wish-constellation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Preserve existing couples functionality and compile production Vite
+        run: |
+          pnpm exec vitest run utils/couplesSpace.test.ts
+          pnpm exec vite build
+      - name: Check wish starfield TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/couple-wish-tsc.log 2>&1 || true
+          grep -E '^(apps/couplesSpace/(wishConstellation|records)\.tsx|tests/couples-wish-constellation-visual\.tsx)[(]' /tmp/couple-wish-tsc.log > /tmp/couple-wish-errors.log || true
+          if [ -s /tmp/couple-wish-errors.log ]; then cat /tmp/couple-wish-errors.log; exit 1; fi
+      - name: Install CJK fonts and Chrome
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Capture real wish starfield and verify states
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/wish-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/tests/couples-wish-constellation-visual.html > /dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          mkdir -p wish-constellation-screenshots
+          for state in empty populated focus complete editor detail list many role filtered; do
+            url="http://127.0.0.1:5173/tests/couples-wish-constellation-visual.html?state=$state"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+              --window-size=430,940 --force-device-scale-factor=1 \
+              --virtual-time-budget=7000 --dump-dom "$url" > "/tmp/wish-$state-dom.txt" 2>/tmp/wish-chrome.log
+            grep -q 'data-ready="true"' "/tmp/wish-$state-dom.txt" || { tail -60 /tmp/wish-vite.log; tail -30 /tmp/wish-chrome.log; exit 1; }
+            grep -q 'data-overflow="false"' "/tmp/wish-$state-dom.txt" || { echo "Horizontal overflow in $state"; exit 1; }
+            if [[ "$state" == "empty" ]]; then
+              grep -q 'class="wish-universe-first-star"' "/tmp/wish-$state-dom.txt" || { echo 'Missing first real wish trigger'; exit 1; }
+            elif [[ "$state" == "focus" ]]; then
+              grep -q 'data-focus="true"' "/tmp/wish-$state-dom.txt" || exit 1
+            elif [[ "$state" == "complete" ]]; then
+              grep -q 'data-completed="true"' "/tmp/wish-$state-dom.txt" || { echo 'Wish completion did not light saved star'; exit 1; }
+            elif [[ "$state" == "editor" ]]; then
+              grep -q 'data-editor="true"' "/tmp/wish-$state-dom.txt" || exit 1
+            elif [[ "$state" == "detail" ]]; then
+              grep -q 'data-detail="true"' "/tmp/wish-$state-dom.txt" || exit 1
+            elif [[ "$state" == "list" ]]; then
+              grep -q 'data-list="true"' "/tmp/wish-$state-dom.txt" || exit 1
+            elif [[ "$state" == "many" ]]; then
+              grep -q 'data-page="02 / 02"' "/tmp/wish-$state-dom.txt" || { echo 'Multi-page constellation not navigable'; exit 1; }
+            elif [[ "$state" == "role" ]]; then
+              grep -q 'data-stars="8"' "/tmp/wish-$state-dom.txt" || { echo 'Character wish did not persist'; exit 1; }
+            fi
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=430,940 --force-device-scale-factor=1 \
+              --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/wish-constellation-screenshots/$state.png" "$url"
+            test -s "wish-constellation-screenshots/$state.png"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wish-constellation-mobile-screenshots
+          path: wish-constellation-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
