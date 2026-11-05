@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./db', () => ({ DB: {} }));
-import { DAY, type Bond, canWaterPlant, careForPlant, collectPlantDroplets, harvestPlant, replantBond, rolePointStats, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
+import { DAY, type Bond, canWaterPlant, careForPlant, collectPlantDroplets, harvestPlant, replantBond, rolePointStats, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, pickHollowPaper, type Card, type Entry } from './couplesSpace';
 
 const NOW = new Date(2026, 10, 5, 12).getTime();
 function bond(): Bond {
@@ -135,5 +135,27 @@ describe('watering notice is temporary', () => {
     expect(isRecentPlantWatering(fresh.plant, NOW + PLANT_WATER_NOTICE_MS)).toBe(false);
     expect(isRecentPlantWatering(fresh.plant, NOW - 1)).toBe(false);
     expect(isRecentPlantWatering({ ...fresh.plant, lastSide: undefined }, NOW)).toBe(false);
+  });
+});
+
+describe('tree hollow shake-to-draw paper', () => {
+  const note = (id: string, side: 'me' | 'them', done = false): Entry => ({
+    id, kind: 'hollow', title: '密封纸条', body: '只在打开时阅读',
+    date: '2026-11-05', side, done,
+  });
+  it('shows no invented message when the hollow is empty', () => {
+    expect(pickHollowPaper([])).toBeUndefined();
+  });
+  it('prefers unread character notes without immediately repeating the previous paper', () => {
+    const all = [note('me', 'me'), note('a', 'them'), note('b', 'them')];
+    expect(pickHollowPaper(all, undefined, 0)?.id).toBe('a');
+    expect(pickHollowPaper(all, 'a', 0)?.id).toBe('b');
+    expect(pickHollowPaper(all, 'b', 0.95)?.id).toBe('a');
+  });
+  it('falls back to personal notes and never mixes in unrelated records', () => {
+    const only = [note('old', 'them', true), note('me', 'me')];
+    expect(pickHollowPaper(only, undefined, 0.999)?.id).toBe('me');
+    expect(pickHollowPaper([{...only[0],kind:'mail'}])).toBeUndefined();
+    expect(pickHollowPaper(only, 'me', 0)?.id).toBe('old');
   });
 });
