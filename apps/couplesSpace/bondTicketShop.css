@@ -246,3 +246,75 @@
 }
 
 .bond-ticket-details>summary>span {margin-left:auto;margin-right:12px;color:#9c9992;font-variant-numeric:tabular-nums}
+
+/* The editor is a live die-cutting desk, not a stack of generic settings inputs. */
+.bond-ticket-editor-wrap {padding:12px 0 24px}
+.bond-ticket-editor-head {display:flex;justify-content:space-between;align-items:center;gap:12px;margin:2px 5px 21px}
+.bond-ticket-editor-head>div {display:flex;flex-direction:column;gap:5px}
+.bond-ticket-editor-head small {font-size:10px;letter-spacing:.13em;color:#96918a}
+.bond-ticket-editor-head strong {font-size:21px;color:#292724;letter-spacing:.025em}
+.couple-content-mode .bond-ticket-editor-head button {width:39px;height:39px;min-height:39px;border:1px solid #c8c4bd;border-radius:50%;font-size:22px;font-weight:300}
+.bond-ticket-editor-preview {position:relative;min-height:184px;display:flex;flex-direction:column;gap:8px;margin:0 15px 26px;
+  padding:19px 19px 13px 43px;background:linear-gradient(135deg,#fffefa,#ece9e3);border:1px solid #c2beb5;
+  transform:rotate(-2.5deg);box-shadow:5px 8px 0 #c7c3bb,10px 14px 17px #2222221d}
+.bond-ticket-editor-preview::before {content:"";position:absolute;top:0;left:0;bottom:0;width:25px;background:#262626}
+.bond-ticket-editor-preview::after {content:"";position:absolute;left:-7px;right:-7px;bottom:48px;height:14px;pointer-events:none;
+  background:radial-gradient(circle at left center,#eae8e4 0 7px,transparent 7px),
+  radial-gradient(circle at right center,#eae8e4 0 7px,transparent 7px)}
+.bond-ticket-editor-preview-top {display:flex;align-items:start;justify-content:space-between}
+.bond-ticket-editor-preview-top span:first-child {font-size:9px;letter-spacing:.15em;color:#979189}
+.bond-ticket-editor-preview-top span:last-child {font-size:22px;color:#555;filter:grayscale(1)}
+.bond-ticket-editor-preview>strong {font-size:25px;line-height:1.25;color:#262522;overflow-wrap:anywhere}
+.bond-ticket-editor-preview>p {font-size:11px;line-height:1.5;color:#888078;margin:0 0 12px;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.bond-ticket-editor-preview-cut {margin-top:auto;border-top:1px dashed #a7a29a}
+.bond-ticket-editor-preview footer {display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:7px}
+.bond-ticket-editor-preview footer span {font-size:10px;color:#aaa39a}
+.bond-ticket-editor-preview footer b {font-size:22px;font-weight:500;color:#272724}
+.bond-ticket-editor-preview footer b small {font-size:10px;font-weight:400;color:#928b83}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px 15px;padding:6px 6px 0;background:transparent;border:0;box-shadow:none;margin:0}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label {font-size:11px;color:#6c675f;margin:0 0 9px;min-width:0}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:nth-of-type(2),
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:nth-of-type(3) {grid-column:1/-1}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:has(input[type=checkbox]) {grid-column:1/-1;display:flex;align-items:center;gap:8px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label :is(input:not([type=checkbox]),textarea,select) {
+  display:block;min-width:0;width:100%;min-height:40px;margin-top:7px;
+  padding:9px 0;border:0!important;border-bottom:1px solid #bdb8af!important;
+  background:transparent!important;box-shadow:none!important;border-radius:0!important;
+  color:#242321;font-size:13px;font-family:inherit}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label textarea {min-height:76px!important;resize:vertical}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions {grid-column:1/-1;display:flex;gap:9px;margin-top:4px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button:first-child {
+  flex:1 1 60%;min-height:44px;background:#262626;color:white;border:1px solid #262626!important;font-size:12px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button:last-child {
+  flex:1 1 40%;min-height:44px;background:transparent;color:#45413b;border:1px solid #bbb5ad!important;font-size:12px}
+
+/* Each reward is a separate punched stamp ticket, not an ordinary to-do row. */
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task {
+  position:relative;display:flex;align-items:center;gap:0;margin:0 4px 13px;padding:13px 12px 13px 0;min-height:100px;
+  border:1px solid #c4c0b8!important;border-radius:1px;
+  background:linear-gradient(90deg,#2c2c2c 0,#2c2c2c 55px,#faf9f5 55px,#faf9f5 100%);
+  box-shadow:3px 4px 0 #dad6d0}
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task::before,
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task::after {
+  content:"";position:absolute;left:49px;width:11px;height:11px;border:1px solid #bbb6ad;border-radius:50%;background:#f1efeb}
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task::before {top:-6px}
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task::after {bottom:-6px}
+.bond-ticket-tasks .bond-ticket-task-count {min-width:55px;text-align:center;color:#f2efe8;font-size:19px;font-family:Georgia,serif}
+.bond-ticket-tasks .bond-ticket-task-copy {padding:0 10px 0 15px;gap:6px}
+.bond-ticket-tasks .bond-ticket-task-copy strong {font-size:12px;line-height:1.5;color:#34322f}
+.bond-ticket-tasks .bond-ticket-task-copy small {color:#89847e;font-size:10px}
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task button {
+  display:grid;place-items:center;width:67px;min-width:67px;height:57px;min-height:57px;
+  padding:5px;white-space:normal;line-height:1.25;transform:rotate(-8deg);
+  border-radius:50%;border:2px double #959088;background:transparent;color:#65615b;font-size:10px;box-shadow:none}
+.couple-content-mode .bond-ticket-tasks .bond-ticket-task button:not(:disabled) {
+  color:#282726;border-color:#292929;font-weight:700;background:#efede8}
+.bond-ticket-tasks .bond-ticket-task:last-child {border-bottom:1px solid #c4c0b8}
+
+/* A truly empty custom shelf has an unprinted ticket blank, not fictitious stock. */
+.bond-ticket-empty-cut {position:relative;display:grid;place-items:center;width:200px;height:153px;
+  background:linear-gradient(135deg,#fffefa,#e9e7e1);border:1px dashed #b8b3a9;
+  box-shadow:7px 10px 0 #d4d0c9;color:#bdb6ab;transform:rotate(-5deg);font-size:39px}
+.bond-ticket-empty-cut::before {content:"";position:absolute;left:0;top:0;bottom:0;width:19px;background:#2b2b2b}
+.bond-ticket-empty-cut::after {content:"";position:absolute;left:28px;right:13px;bottom:32px;border-top:1px dashed #c5c0b7}
