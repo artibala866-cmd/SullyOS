@@ -54,6 +54,20 @@ function App(){
     return ()=>clearTimeout(action);
   },[]);
   useEffect(()=>{
+    // QA snapshots must show completed focus transitions, not a translucent half-frame.
+    const settle=window.setTimeout(()=>{
+      document.querySelectorAll('.wish-universe-focus,.wish-universe-star,.wish-universe-nebula').forEach(node=>{
+        node.getAnimations().forEach(animation=>{
+          try {
+            const count=animation.effect?.getComputedTiming().iterations;
+            if(count!==Infinity) animation.finish();
+          } catch { /* infinite ambient motion intentionally stays active */ }
+        });
+      });
+    },1700);
+    return ()=>clearTimeout(settle);
+  },[]);
+  useEffect(()=>{
     const timer=window.setTimeout(()=>{
       const output=document.querySelector<HTMLOutputElement>('#qa-wish-metrics');
       if(!output) return;
