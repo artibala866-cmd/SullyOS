@@ -210,20 +210,8 @@
 .couple-content-mode .couple-records-wish .wish-detail-constellation .wish-detail-dot{display:block;width:10px;height:10px;border-radius:50%;background:#e0e0e0;box-shadow:0 0 9px #ffffff90,0 0 23px #ffffff35;}
 .couple-entry-completed .wish-detail-constellation .wish-detail-dot{width:13px;height:13px;background:#fff;box-shadow:0 0 12px #ffffffd5,0 0 32px #ffffff77;}
 .wish-detail-progress{display:none;}
-@media(max-width:350px){
- .wish-universe-heading{padding:17px 17px 0;}
- .couple-content-mode .wish-universe-heading h2{font-size:23px;}
- .wish-universe-bar{margin:17px 17px 0;gap:6px;}
- .wish-universe-view{gap:10px;}
- .wish-universe-field{height:clamp(330px,calc(100dvh - 300px),440px);}
- .couple-content-mode .wish-universe-star{min-width:76px;max-width:88px;min-height:66px;}
- .wish-universe-star-field{width:49px;height:47px;}
- .wish-universe-star-title{font-size:10px;}
- .couple-content-mode .wish-universe-star.is-focused{transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px) - 26px)) scale(1.15);}
- .wish-universe-actions{margin-inline:17px;}
- .wish-universe-focus{left:11px;right:11px;}
- .couple-content-mode .couple-records-wish .couple-edit-wish-meta{grid-template-columns:1fr;}
-}
+/* Editor form on narrow screens keeps original fields fully accessible. */
+@media(max-width:350px){.couple-content-mode .couple-records-wish .couple-edit-wish-meta{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){
  .wish-universe,.wish-universe-first-core,.wish-universe-star,.wish-universe-star-field,.wish-universe-star-core,.wish-universe-star-ring,.wish-universe-focus{animation:none!important;transition:none!important;}
 }
