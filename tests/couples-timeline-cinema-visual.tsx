@@ -21,7 +21,7 @@ function App() {
   useEffect(()=>{
     if(state!=='editor'&&state!=='detail'&&state!=='handbook') return;
     const t = window.setTimeout(()=>{
-      if(state==='editor') document.querySelector<HTMLButtonElement>('.couple-cinema-frame-add')?.click();
+      if(state==='editor') document.querySelector<HTMLButtonElement>('.couple-cinema-reel-heading button')?.click();
       if(state==='detail') document.querySelector<HTMLButtonElement>('.couple-cinema-picture')?.click();
       if(state==='handbook') [...document.querySelectorAll<HTMLButtonElement>('.couple-segments button')].find(b=>b.textContent==='手账')?.click();
     },850);
