@@ -104,6 +104,16 @@ jobs:
               --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/wish-constellation-screenshots/$state-320.png" "$url"
             test -s "wish-constellation-screenshots/$state-320.png"
           done
+      - name: Expose captured mobile screenshots for visual quality review
+        shell: bash
+        run: |
+          # Fictional fixture data only, never user records.
+          for state in empty populated focus; do
+            echo "SCREENSHOT_BEGIN_${state}"
+            base64 -w 0 "wish-constellation-screenshots/${state}.png"
+            echo
+            echo "SCREENSHOT_END_${state}"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
