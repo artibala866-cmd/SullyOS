@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import type { Bond, Entry, Side } from '../../utils/couplesSpace';
 import TokenImg from '../../components/os/TokenImg';
 
@@ -24,6 +24,13 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
   const filmStrip = useRef<HTMLDivElement>(null);
   const selectedIndex = Math.max(0, rows.findIndex(item => item.id === focusedId));
   const selected = rows[selectedIndex];
+  useLayoutEffect(() => {
+    if (!initialFocusId || !filmStrip.current) return;
+    const index = rows.findIndex(item => item.id === initialFocusId);
+    const reel = filmStrip.current;
+    const frame = index < 0 ? null : reel.children.item(index) as HTMLElement | null;
+    if (frame) reel.scrollLeft = frame.offsetLeft - reel.offsetLeft - (reel.clientWidth - frame.offsetWidth) / 2;
+  }, [initialFocusId]);
   const focusedImage = selected?.images?.[0] || selected?.image;
   const changeFrame = (index: number) => {
     if (!rows.length) return;
