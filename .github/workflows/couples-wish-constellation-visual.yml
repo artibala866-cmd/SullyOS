@@ -65,9 +65,9 @@ jobs:
             grep -q 'data-ready="true"' "/tmp/wish-$state-dom.txt" || { tail -60 /tmp/wish-vite.log; tail -30 /tmp/wish-chrome.log; exit 1; }
             grep -q 'data-overflow="false"' "/tmp/wish-$state-dom.txt" || { echo "Horizontal overflow in $state"; exit 1; }
             if [[ "$state" == "empty" ]]; then
-              grep -q 'wish-universe-first-heart' "/tmp/wish-$state-dom.txt" || { echo 'Missing first wish heart trigger'; exit 1; }
-              grep -q 'wish-universe-tiny-hearts' "/tmp/wish-$state-dom.txt" || { echo 'Missing linked background hearts'; exit 1; }
-              if grep -q 'class="wish-universe-first-core"' "/tmp/wish-$state-dom.txt"; then echo 'Old giant star element is still present'; exit 1; fi
+              grep -q 'wish-universe-first-core' "/tmp/wish-$state-dom.txt" || { echo 'Missing first-wish light trigger'; exit 1; }
+              grep -q 'data-stars="0"' "/tmp/wish-$state-dom.txt" || { echo 'Empty wish view contains fake wishes'; exit 1; }
+              if grep -q 'wish-universe-threads\|wish-universe-tiny-hearts\|wish-universe-heartspace' "/tmp/wish-$state-dom.txt"; then echo 'Decorative heart tangle returned'; exit 1; fi
             elif [[ "$state" == "focus" ]]; then
               grep -q 'data-focus="true"' "/tmp/wish-$state-dom.txt" || exit 1
             elif [[ "$state" == "complete" ]]; then
@@ -79,11 +79,12 @@ jobs:
             elif [[ "$state" == "list" ]]; then
               grep -q 'data-list="true"' "/tmp/wish-$state-dom.txt" || exit 1
             elif [[ "$state" == "many" ]]; then
-              grep -q 'data-page="02 / 02"' "/tmp/wish-$state-dom.txt" || { echo 'Multi-page constellation not navigable'; exit 1; }
+              grep -q 'data-page="02 / 03"' "/tmp/wish-$state-dom.txt" || { echo 'Multi-page constellation not navigable'; exit 1; }
             elif [[ "$state" == "create-first" ]]; then
               grep -q 'data-stars="1"' "/tmp/wish-$state-dom.txt" || { echo 'First-wish creation failed'; exit 1; }
             elif [[ "$state" == "role" ]]; then
-              grep -q 'data-stars="8"' "/tmp/wish-$state-dom.txt" || { echo 'Character wish did not persist'; exit 1; }
+              grep -q 'data-stars="5"' "/tmp/wish-$state-dom.txt" || { echo 'Saved wishes not displayed'; exit 1; }
+              grep -q 'data-total="8"' "/tmp/wish-$state-dom.txt" || { echo 'Character wish did not persist'; exit 1; }
             fi
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
               --window-size=430,940 --force-device-scale-factor=1 \
