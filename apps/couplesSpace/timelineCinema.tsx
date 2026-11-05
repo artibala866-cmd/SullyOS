@@ -99,7 +99,7 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
       <div className="couple-cinema-v2-count">{rows.length} <span>幕</span><i/> {bond.start.slice(0,4)}—{today.slice(0,4)}</div>
     </header>
 
-    <div className="couple-cinema-v2-scene" style={{ '--cinema-drag-x': `${dragX}px` } as React.CSSProperties}>
+    <div className="couple-cinema-v2-scene" style={{ '--cinema-drag-x': `${dragX * .07}px`, '--cinema-drag-angle': `${-dragX * .13}deg` } as React.CSSProperties}>
       <div className="couple-cinema-v2-halo" aria-hidden="true"/>
       <svg className="couple-cinema-v2-ribbon" viewBox="0 0 400 480" preserveAspectRatio="none" aria-hidden="true">
         <defs>
@@ -178,11 +178,11 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
 
     <nav className="couple-cinema-v2-modes" aria-label="回忆观看方式"
       onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={event=>touchEnd(event,'mode')} onTouchCancel={()=>{swipe.current=null;setDragX(0);}}>
-      <button type="button" aria-current={!isHandbook?'page':undefined} disabled={busy} onClick={()=>chooseMode('all')}>
+      <button type="button" aria-current={!isHandbook?'page':undefined} disabled={busy} onClick={()=>{if(skipClick.current){skipClick.current=false;return;}chooseMode('all');}}>
         <span className="couple-cinema-v2-mode-icon"><i/><i/><i/></span><strong>旅程</strong>
       </button>
       <span className="couple-cinema-v2-mode-bridge" aria-hidden="true"><i/></span>
-      <button type="button" aria-current={isHandbook?'page':undefined} disabled={busy} onClick={()=>chooseMode('handbook')}>
+      <button type="button" aria-current={isHandbook?'page':undefined} disabled={busy} onClick={()=>{if(skipClick.current){skipClick.current=false;return;}chooseMode('handbook');}}>
         <span className="couple-cinema-v2-mode-icon book"><i/><i/><i/></span><strong>手账</strong>
       </button>
       <span className="couple-cinema-v2-mode-hint">左右滑动切换</span>
