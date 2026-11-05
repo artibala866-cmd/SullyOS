@@ -196,8 +196,17 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       {manage && <div className="bond-ticket-manage-note"><span>卡券整理</span>
         <button type="button" disabled={working || busy || !bond.hidden.length} onClick={() => apply(current => ({ ...current, hidden: [] }))}>全部放回</button>
       </div>}
-          <div className="bond-ticket-editor-wrap">
-      {draft && <form className="couple-card couple-shop-editor" onSubmit={event => {
+      {draft && <div className="bond-ticket-editor-wrap">
+        <header className="bond-ticket-editor-head"><div><small>裁券工作台</small><strong>制作自己的票券</strong></div>
+          <button type="button" aria-label="关闭制券台" onClick={() => setDraft(undefined)}>×</button></header>
+        <div className="bond-ticket-editor-preview">
+          <div className="bond-ticket-editor-preview-top"><span>PERSONAL / PASS</span><span>{draft.icon || '✧'}</span></div>
+          <strong>{draft.name.trim() || '未命名票券'}</strong>
+          <p>{draft.effect.trim() || '出牌效果会呈现在这里'}</p>
+          <div className="bond-ticket-editor-preview-cut" aria-hidden="true" />
+          <footer><span>卡券样式预览</span><b>{draft.price || 0}<small> PTS</small></b></footer>
+        </div>
+      <form className="couple-card couple-shop-editor" onSubmit={event => {
             event.preventDefault();
             const card = { ...draft, name: draft.name.trim(), effect: draft.effect.trim() };
             if (!card.name || !card.effect || !Number.isSafeInteger(card.price) || card.price < 1) return;
@@ -225,9 +234,9 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             {draft.turns && <label>持续轮数<input type="number" min={1} max={20} value={draft.turns} onChange={event => setDraft({ ...draft, turns: Math.max(1, Number(event.target.value)) })} /></label>}
             <label><input type="checkbox" checked={draft.charUse} onChange={event => setDraft({ ...draft, charUse: event.target.checked })} /> 角色可用</label>
             <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
-          </form>}
-      </div>
-      {activeCard ? <div className="bond-ticket-showcase" onTouchStart={event => { swipeX.current = event.touches[0]?.clientX ?? null; }}
+          </form>
+      </div>}
+      {!draft && (activeCard ? <div className="bond-ticket-showcase" onTouchStart={event => { swipeX.current = event.touches[0]?.clientX ?? null; }}
         onTouchEnd={event => { const x=swipeX.current; swipeX.current=null;
           if(x===null || working || busy) return;
           const dx=(event.changedTouches[0]?.clientX ?? x)-x;
@@ -273,7 +282,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
         <div className="bond-ticket-empty-cut" aria-hidden="true">✧</div>
         <strong>这里还没有票券</strong>
         <button type="button" disabled={working || busy} onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>制作一张</button>
-      </div>}
+      </div>)}
     </section>}
 
     {tab === 'bag' && <section className="bond-ticket-wallet">
