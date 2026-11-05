@@ -2702,3 +2702,36 @@
  .couple-ios-link-label strong {font-size:13px;}
  .couple-ios-link:nth-child(3n+3) {min-height:85px;}
 }
+
+
+/* Visual QA 320/390: no orphaned last feature tile; avatar-first touch works without a special portrait. */
+.couple-content-mode .couple-ios-link:last-child:nth-child(3n+1) {
+  grid-column:1 / -1;min-height:98px;
+}
+.couple-content-mode .couple-touch-stage .couple-touch-avatar-only {
+  align-items:center;justify-content:center;
+}
+.couple-content-mode .couple-touch-stage .couple-touch-avatar-only .couple-touch-image {
+  display:flex;align-items:center;justify-content:center;width:100%;
+  padding:17px 0 5px;
+}
+.couple-content-mode .couple-touch-stage .couple-touch-avatar-only img {
+  width:min(75%,268px);height:auto;max-height:275px;aspect-ratio:1;
+  object-fit:cover;border-radius:50%;
+  border:6px solid rgba(255,255,255,.86);
+  box-shadow:0 10px 34px rgba(52,45,51,.11);
+}
+.couple-touch-stage:not(.couple-touch-stage-pressed) .couple-touch-avatar-only .couple-touch-image {
+  animation:coupleAvatarFloat 6s ease-in-out infinite;
+}
+@keyframes coupleAvatarFloat {
+  0%,100% {transform:translateY(0)}
+  50% {transform:translateY(-5px)}
+}
+@media (max-width:350px) {
+ .couple-content-mode .couple-ios-link:last-child:nth-child(3n+1) {min-height:91px;}
+ .couple-content-mode .couple-touch-stage .couple-touch-avatar-only img {width:min(76%,225px);max-height:235px;}
+}
+@media (prefers-reduced-motion:reduce) {
+ .couple-touch-stage:not(.couple-touch-stage-pressed) .couple-touch-avatar-only .couple-touch-image {animation:none;}
+}
