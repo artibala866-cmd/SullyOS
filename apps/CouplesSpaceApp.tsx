@@ -17,6 +17,7 @@ import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors, loadBondMilestoneSources } from '../utils/couplesGeneration';
 import './couplesSpace/couplesSpace.css';
 import './couplesSpace/timelineCinema.css';
+import './couplesSpace/wishConstellation.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
@@ -443,7 +444,7 @@ export default function CouplesSpaceApp() {
     if (existingOrNew) setPair(existingOrNew.members);
   });
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
-  const headerTitle = panel === 'timeline' ? '情侣空间' : panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
+  const headerTitle = panel === 'timeline' || panel === 'wish' ? '情侣空间' : panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
 
 
   const shelf = spaceShelves.find(section => section.id === activeShelf) ?? spaceShelves[0];
@@ -612,7 +613,7 @@ export default function CouplesSpaceApp() {
                 <span>{shelf.english}</span><strong>{shelf.id === 'memory' ? relationship.title : shelf.id === 'care' ? relationship.care : relationship.collection}</strong>
               </div>
               {visibleShelfPanels.length > 0 && <>
-                <button className={visibleShelfPanels[0] === 'timeline' ? 'couple-ios-spotlight couple-ios-spotlight-cinema' : 'couple-ios-spotlight'} type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
+                <button className={visibleShelfPanels[0] === 'timeline' ? 'couple-ios-spotlight couple-ios-spotlight-cinema' : visibleShelfPanels[0] === 'wish' ? 'couple-ios-spotlight couple-ios-spotlight-wish' : 'couple-ios-spotlight'} type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
                   <span className="couple-ios-spotlight-overline">01 / {shelf.english}</span>
                   <span className="couple-ios-spotlight-bottom">
                     <span><strong>{labels[visibleShelfPanels[0]]}</strong>
