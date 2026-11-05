@@ -2735,3 +2735,18 @@
 @media (prefers-reduced-motion:reduce) {
  .couple-touch-stage:not(.couple-touch-stage-pressed) .couple-touch-avatar-only .couple-touch-image {animation:none;}
 }
+
+
+/* Tactile feedback: touches acknowledge immediately while a fresh response is prepared. */
+.couple-content-mode .couple-touch-response .couple-touch-awaiting {
+  color:#817a83;font-size:12px;line-height:1.6;
+}
+.couple-touch-awaiting span {
+  display:inline-block;white-space:nowrap;color:#827984;
+  animation:coupleTouchThinking 1.5s ease-in-out infinite;
+}
+@keyframes coupleTouchThinking {
+  0%,100% {opacity:.35;transform:translateY(0)}
+  50% {opacity:1;transform:translateY(-1px)}
+}
+@media(prefers-reduced-motion:reduce){.couple-touch-awaiting span{animation:none}}
