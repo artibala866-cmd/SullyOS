@@ -138,9 +138,9 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
             <linearGradient id="wish-eclipse-rim" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#f5f5f5" stopOpacity="0"/><stop offset=".36" stopColor="#f6f6f6" stopOpacity=".08"/><stop offset=".64" stopColor="#ededed" stopOpacity=".38"/><stop offset=".83" stopColor="#fff" stopOpacity=".58"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient>
             <linearGradient id="wish-eclipse-trail" x1="0" y1=".5" x2="1" y2=".5"><stop offset="0" stopColor="#fff" stopOpacity="0"/><stop offset=".5" stopColor="#fff" stopOpacity=".14"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient>
           </defs>
-          <ellipse cx="217" cy="275" rx="172" ry="210" fill="url(#wish-eclipse-shadow)"/>
-          <path d="M83 425 C35 348 66 160 174 89 C276 28 397 143 369 286" fill="none" stroke="url(#wish-eclipse-rim)" strokeWidth="1.05"/>
-          <path d="M-15 392 C106 457 226 430 361 304 C410 264 452 239 495 250" fill="none" stroke="url(#wish-eclipse-trail)" strokeWidth=".85"/>
+          <ellipse cx="248" cy="283" rx="183" ry="207" fill="url(#wish-eclipse-shadow)" opacity=".67"/>
+          <path d="M109 350 C126 223 213 146 294 180 C335 197 364 232 373 262" fill="none" stroke="url(#wish-eclipse-rim)" strokeWidth="1.1"/>
+          <path d="M25 476 C143 443 250 390 331 296" fill="none" stroke="url(#wish-eclipse-trail)" strokeWidth=".8"/>
         </svg>
         <button type="button" className="wish-universe-first-star" disabled={busy} onClick={onNew} aria-label="许下第一个愿望">
           <span className="wish-universe-first-core" aria-hidden="true"/>
