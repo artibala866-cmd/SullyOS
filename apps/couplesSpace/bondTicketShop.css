@@ -84,11 +84,11 @@
 .bond-ticket-pass-terms span {font-size:10px;color:#8b8780;white-space:nowrap}
 .bond-ticket-pass-terms strong {font-size:28px;line-height:1;letter-spacing:-.035em;font-weight:500;font-variant-numeric:tabular-nums;color:#252321}
 .bond-ticket-pass-terms strong small {font-size:10px;font-weight:500;letter-spacing:.06em;color:#8e8b85}
-.couple-content-mode .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:8px 12px;
+.couple-content-mode .bond-ticket-room .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:8px 12px;
   background:#202020;color:#fff;border-radius:3px;font-size:12px;font-weight:650;white-space:nowrap;max-width:56%;box-shadow:3px 3px 0 #d4d0c9}
-.couple-content-mode .bond-ticket-buy:active {transform:translateY(2px);box-shadow:1px 1px 0 #d4d0c9}
-.couple-content-mode .bond-ticket-buy span {font-size:17px;font-weight:400}
-.couple-content-mode .bond-ticket-buy:disabled {background:#a4a19b;opacity:.65;box-shadow:none}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy:active {transform:translateY(2px);box-shadow:1px 1px 0 #d4d0c9}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy span {font-size:17px;font-weight:400}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy:disabled {background:#a4a19b;opacity:.65;box-shadow:none}
 .bond-ticket-pass-actions {display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
 .couple-content-mode .bond-ticket-pass-actions button {font-size:11px;min-height:31px;border:1px solid #c7c4bd;background:#fff;padding:6px 9px}
 .bond-ticket-slot {position:relative;width:min(75%,260px);height:17px;margin:22px auto 0;transform:perspective(160px) rotateX(-27deg);
@@ -210,6 +210,7 @@
 .bond-ticket-option-body input[type=checkbox] {accent-color:#272727}
 .bond-ticket-option-body small {font-size:10px;color:#7e7a73}
 .bond-ticket-editor-wrap {padding:10px 0}
+.bond-ticket-editor-wrap:empty {display:none}
 .couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor {background:#fdfcf9;border:1px solid #cecac3;border-radius:4px}
 .bond-ticket-editor-wrap .couple-shop-editor input,.bond-ticket-editor-wrap .couple-shop-editor textarea,
 .bond-ticket-editor-wrap .couple-shop-editor select {border-radius:4px!important}
@@ -229,17 +230,19 @@
   .couple-content-mode .bond-ticket-pass {padding:19px 15px 18px 41px}
   .couple-content-mode .bond-ticket-pass-center h3 {font-size:26px}
   .bond-ticket-pass-foot {gap:4px}
-  .couple-content-mode .bond-ticket-buy {padding:7px 9px;font-size:11px;gap:4px}
+  .couple-content-mode .bond-ticket-room .bond-ticket-buy {padding:7px 9px;font-size:11px;gap:4px}
 }
 @media(max-width:330px) {
   .bond-ticket-ledger-other {display:none}
   .bond-ticket-showcase {margin-inline:-6px;padding-inline:8px}
   .couple-content-mode .bond-ticket-pass {padding-right:10px;padding-left:36px}
   .bond-ticket-pass-terms strong {font-size:23px}
-  .couple-content-mode .bond-ticket-buy {font-size:10px}
+  .couple-content-mode .bond-ticket-room .bond-ticket-buy {font-size:10px}
   .bond-ticket-wallet-pocket {padding-inline:12px}
 }
 @media(prefers-reduced-motion:reduce) {
   .bond-ticket-pass,.bond-ticket-wallet-pass,.bond-ticket-wallet-stamp{animation-duration:.01ms!important}
   .bond-ticket-grand-progress i {transition:none}
 }
+
+.bond-ticket-details>summary>span {margin-left:auto;margin-right:12px;color:#9c9992;font-variant-numeric:tabular-nums}
