@@ -16,6 +16,7 @@ import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/record
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors, loadBondMilestoneSources } from '../utils/couplesGeneration';
 import './couplesSpace/couplesSpace.css';
+import './couplesSpace/timelineCinema.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
@@ -611,7 +612,7 @@ export default function CouplesSpaceApp() {
                 <span>{shelf.english}</span><strong>{shelf.id === 'memory' ? relationship.title : shelf.id === 'care' ? relationship.care : relationship.collection}</strong>
               </div>
               {visibleShelfPanels.length > 0 && <>
-                <button className="couple-ios-spotlight" type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
+                <button className={visibleShelfPanels[0] === 'timeline' ? 'couple-ios-spotlight couple-ios-spotlight-cinema' : 'couple-ios-spotlight'} type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
                   <span className="couple-ios-spotlight-overline">01 / {shelf.english}</span>
                   <span className="couple-ios-spotlight-bottom">
                     <span><strong>{labels[visibleShelfPanels[0]]}</strong>
