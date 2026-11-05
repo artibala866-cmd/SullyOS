@@ -249,3 +249,37 @@
  {animation:none!important;}
  .wish-universe-plane,.wish-universe-star-field,.wish-universe-connections path {transition:none!important;}
 }
+
+/* Screenshot refinement: the chosen star travels inward, neighboring wishes fall quiet. */
+.wish-universe-star {transition:transform .52s cubic-bezier(.19,.83,.2,1),opacity .43s ease,filter .43s ease;}
+.wish-universe-plane.has-focus .wish-universe-star:not(.is-focused) {opacity:.17;filter:blur(.45px);}
+.wish-universe-plane.has-focus .wish-universe-connections {opacity:.25;transition:opacity .35s ease;}
+.couple-content-mode .wish-universe-star.is-focused {
+  transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px))) scale(1.18);
+  z-index:7;
+}
+.wish-universe-actions:has(> .wish-universe-partner:only-child) {justify-content:center;}
+.couple-content-mode .wish-universe-actions>.wish-universe-partner:only-child {text-align:center;}
+
+/* The wish studio no longer reuses the editor card and stationery-paper metaphor. */
+.couple-content-mode .couple-records-wish .couple-compose.couple-compose-wish {
+  background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible;
+}
+.couple-content-mode .couple-records-wish .couple-edit-wish {padding:25px 8px 20px;background:transparent;overflow:visible;}
+.couple-content-mode .couple-records-wish .couple-edit-wish:before {
+  width:105px;height:105px;margin-bottom:20px;
+  box-shadow:0 0 0 19px #e5e6f007,0 0 0 40px #e5e6f004,0 0 28px #f3f4ff23;
+}
+.couple-content-mode .couple-records-wish .couple-edit-wish-paper {padding-inline:3px;}
+.couple-content-mode .couple-records-wish .couple-compose-buttons {padding-inline:6px;background:#090c14;border-top-color:#3c4352;}
+
+/* Follow actual checked subgoals with a visible star orbit in detail. */
+.wish-detail-progress {position:absolute;inset:-6px;border-radius:50%;opacity:.9;
+ background:conic-gradient(#e8ecff 0 var(--detail-wish-progress,0%),transparent var(--detail-wish-progress,0%) 100%);
+ mask:radial-gradient(circle,transparent 0 60px,#000 60.5px 62px,transparent 63px);
+ -webkit-mask:radial-gradient(circle,transparent 0 60px,#000 60.5px 62px,transparent 63px);
+ filter:drop-shadow(0 0 3px #fff);}
+.couple-entry-completed .wish-detail-progress {opacity:1;}
+@media(prefers-reduced-motion:reduce){
+ .wish-universe-star,.wish-universe-plane.has-focus .wish-universe-connections {transition:none!important;}
+}
