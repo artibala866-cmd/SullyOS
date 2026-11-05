@@ -165,3 +165,14 @@
 @media(prefers-reduced-motion:no-preference) {
   .couple-content-mode .couple-ios-spotlight-cinema:active::after {transform:translateX(5px);transition:transform .2s ease;}
 }
+
+/* Screenshot pass 2: a lone memory photo must occupy the film reading area, without being cropped. */
+.couple-content-mode .couple-records-timeline .couple-entry-timeline .couple-timeline-photos:has(> img:only-child) {
+  grid-template-columns:minmax(0,1fr);
+}
+.couple-content-mode .couple-records-timeline .couple-entry-timeline .couple-timeline-photos:has(> img:only-child) img {
+  width:100%;height:auto;aspect-ratio:auto;max-height:320px;object-fit:contain;background:#0d0e13;
+}
+.couple-content-mode .couple-records-timeline .couple-entry-timeline > img.couple-record-image {
+  display:block;width:calc(100% - 34px);max-width:none;height:auto;max-height:320px;object-fit:contain;background:#0d0e13;
+}
