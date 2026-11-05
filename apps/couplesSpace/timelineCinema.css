@@ -388,3 +388,49 @@
 .couple-cinema-v2-scene:has(.couple-cinema-v2-deck:active) .couple-cinema-v2-deck {
   box-shadow:0 31px 54px #000d,0 0 0 3px #ffffff0a;
 }
+
+/* Screenshot refinement: remove the generic enclosing player-card silhouette.
+   The film gate, projecting beam and transport now have distinct depth planes. */
+.couple-cinema-v2-scene {height:470px;}
+.couple-cinema-v2-deck {
+  top:67px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  transform-style:preserve-3d;
+}
+.couple-cinema-v2-deck-top {
+  position:absolute;z-index:6;top:-27px;left:6px;right:6px;
+  height:24px;padding:0 3px;
+  background:transparent;letter-spacing:.19em;
+}
+.couple-cinema-v2-gate {
+  border:1px solid #8d8f9a8c;
+  box-shadow:0 23px 44px #000d,0 0 0 5px #ffffff08,8px 13px 24px #0005;
+  border-radius:3px;
+  overflow:hidden;
+}
+.couple-cinema-v2-transport {
+  height:52px;margin-top:4px;padding:0 7px;
+  background:transparent;border:0;
+}
+.couple-content-mode .couple-cinema-v2-transport button {
+  min-width:55px;color:#b7bac5;
+  text-shadow:0 3px 10px #000;
+}
+.couple-cinema-v2-transport-track:before,.couple-cinema-v2-transport-track:after {
+  width:32px;background:linear-gradient(90deg,transparent,#b0b4c45d);
+}
+.couple-cinema-v2-transport-track:after {transform:scaleX(-1);}
+.couple-cinema-v2-sidefilm {top:51px;filter:drop-shadow(0 9px 16px #0008);}
+.couple-cinema-v2-sidefilm.sidefilm-right {top:53px;}
+.couple-cinema-v2-ribbon {top:-69px;}
+.couple-cinema-v2-modes {margin-top:5px;}
+@media(max-width:360px) {
+ .couple-cinema-v2-scene {height:441px;}
+ .couple-cinema-v2-deck {top:62px;}
+ .couple-cinema-v2-sidefilm {top:46px;}
+ .couple-cinema-v2-sidefilm.sidefilm-right {top:49px;}
+}
