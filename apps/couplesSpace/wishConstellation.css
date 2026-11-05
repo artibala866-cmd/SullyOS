@@ -161,9 +161,8 @@
 .couple-content-mode .couple-records-wish .couple-compose.couple-compose-wish{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;}
 .couple-content-mode .couple-records-wish .couple-detail-wish .wish-detail-constellation{width:108px;height:108px;margin-bottom:9px;border:0;box-shadow:none;}
 .couple-content-mode .couple-records-wish .couple-detail-wish .wish-detail-constellation:before{inset:18px;border-color:#ffffff33;}
-.couple-content-mode .couple-records-wish .wish-detail-constellation svg{width:14px;height:14px;overflow:visible;}
-.couple-content-mode .couple-records-wish .wish-detail-constellation svg path{fill:#f4f4f4;stroke:none;transform:scale(.16);transform-origin:50% 50%;filter:drop-shadow(0 0 16px #ffffffb6);}
-.couple-entry-completed .wish-detail-constellation svg path{fill:#fff!important;filter:drop-shadow(0 0 20px #fff)!important;}
+.couple-content-mode .couple-records-wish .wish-detail-constellation .wish-detail-dot{display:block;width:10px;height:10px;border-radius:50%;background:#e0e0e0;box-shadow:0 0 9px #ffffff90,0 0 23px #ffffff35;}
+.couple-entry-completed .wish-detail-constellation .wish-detail-dot{width:13px;height:13px;background:#fff;box-shadow:0 0 12px #ffffffd5,0 0 32px #ffffff77;}
 .wish-detail-progress{display:none;}
 @media(max-width:350px){
  .wish-universe-heading{padding:17px 17px 0;}
