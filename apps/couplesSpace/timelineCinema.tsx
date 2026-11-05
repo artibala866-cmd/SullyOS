@@ -27,6 +27,7 @@ const sprockets = Array.from({ length: 11 }, (_, index) => index);
 export function TimelineCinema({ bond, names, rows, today, initialFocusId, filter, onFilter, busy, tools, onNew, onAI, onJump }: TimelineCinemaProps) {
   const [focusedId, setFocusedId] = useState<string | undefined>(initialFocusId);
   const [turn, setTurn] = useState(0);
+  const [dragX, setDragX] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const skipClick = useRef(false);
@@ -64,7 +65,16 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
     if (point) swipe.current = { x: point.clientX, y: point.clientY };
     skipClick.current = false;
   };
+  const touchMove = (event: React.TouchEvent) => {
+    const start = swipe.current;
+    const point = event.touches[0];
+    if (!start || !point) return;
+    const dx = point.clientX - start.x;
+    const dy = point.clientY - start.y;
+    if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy) * 1.25) setDragX(Math.max(-95, Math.min(95, dx)));
+  };
   const touchEnd = (event: React.TouchEvent, area: 'stage' | 'mode') => {
+    setDragX(0);
     const start = swipe.current;
     swipe.current = null;
     const point = event.changedTouches[0];
@@ -89,7 +99,7 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
       <div className="couple-cinema-v2-count">{rows.length} <span>幕</span><i/> {bond.start.slice(0,4)}—{today.slice(0,4)}</div>
     </header>
 
-    <div className="couple-cinema-v2-scene">
+    <div className="couple-cinema-v2-scene" style={{ '--cinema-drag-x': `${dragX}px` } as React.CSSProperties}>
       <div className="couple-cinema-v2-halo" aria-hidden="true"/>
       <svg className="couple-cinema-v2-ribbon" viewBox="0 0 400 480" preserveAspectRatio="none" aria-hidden="true">
         <defs>
@@ -118,7 +128,7 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
         {sprockets.map(i=><span key={i}><i/></span>)}
       </div>
 
-      <div className="couple-cinema-v2-deck" onTouchStart={touchStart} onTouchEnd={event=>touchEnd(event,'stage')} onTouchCancel={()=>{swipe.current=null}}>
+      <div className="couple-cinema-v2-deck" onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={event=>touchEnd(event,'stage')} onTouchCancel={()=>{swipe.current=null;setDragX(0);}}>
         <div className="couple-cinema-v2-deck-top">
           <span className="couple-cinema-v2-gate-dot"/><span>{isHandbook ? 'MEMORY BOOK' : 'MEMORY REEL'}</span>
           <span>{String(selected ? selectedIndex+1:0).padStart(2,'0')} / {String(rows.length).padStart(2,'0')}</span>
@@ -167,7 +177,7 @@ export function TimelineCinema({ bond, names, rows, today, initialFocusId, filte
     </div>
 
     <nav className="couple-cinema-v2-modes" aria-label="回忆观看方式"
-      onTouchStart={touchStart} onTouchEnd={event=>touchEnd(event,'mode')} onTouchCancel={()=>{swipe.current=null}}>
+      onTouchStart={touchStart} onTouchMove={touchMove} onTouchEnd={event=>touchEnd(event,'mode')} onTouchCancel={()=>{swipe.current=null;setDragX(0);}}>
       <button type="button" aria-current={!isHandbook?'page':undefined} disabled={busy} onClick={()=>chooseMode('all')}>
         <span className="couple-cinema-v2-mode-icon"><i/><i/><i/></span><strong>旅程</strong>
       </button>
