@@ -95,20 +95,20 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
     if(ignoreClick.current){ignoreClick.current=false;return;}
     setFocusedId(prev=>prev===item.id?undefined:item.id);
   };
-  return <section className="wish-universe" aria-label="愿望清单 · 双人星图">
+  return <section className="wish-universe" aria-label="愿望清单 · 双人心愿图">
     <header className="wish-universe-heading">
       
       <div className="wish-universe-heading-main"><h2>愿望清单</h2><div className="wish-universe-tally">
         <strong>{String(finished).padStart(2,'0')}</strong><span> / {String(allCount).padStart(2,'0')}</span></div></div>
-      <div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span><span>已点亮 {finished} 颗</span></div>
+      <div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span><span>已实现 {finished} / {allCount}</span></div>
     </header>
 
     <div className="wish-universe-bar">
-      <label>星域 <select aria-label="按分类筛选愿望" value={filter} onChange={event=>{onFilter(event.target.value);setFocusedId(undefined);setPage(0);}}>
+      <label>分类 <select aria-label="按分类筛选愿望" value={filter} onChange={event=>{onFilter(event.target.value);setFocusedId(undefined);setPage(0);}}>
         <option value="all">全部愿望</option>
         {Object.entries(wishCategories).map(([id,label])=><option key={id} value={id}>{label}</option>)}
       </select></label>
-      <div className="wish-universe-view"><button type="button" aria-pressed={view==='sky'} onClick={()=>setView('sky')}>星图</button>
+      <div className="wish-universe-view"><button type="button" aria-pressed={view==='sky'} onClick={()=>setView('sky')}>心愿图</button>
         <button type="button" aria-pressed={view==='list'} onClick={()=>setView('list')}>目录</button></div>
     </div>
 
@@ -174,7 +174,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
         <p>{focused.body?.trim() || (focused.wishTag ? wishTags[focused.wishTag] : wishCategories[focused.wishCategory ?? 'other'])}</p>
         <div className="wish-universe-focus-progress">
           <span>{stepCompletion(focused).count ? '小目标 '+stepCompletion(focused).done+' / '+stepCompletion(focused).count : focused.date}</span>
-          <span>{focused.done?'光已点亮':'轨迹等待延伸'}</span>
+          <span>{focused.done?'心愿已实现':'心愿正在靠近'}</span>
         </div>
         <div className="wish-universe-focus-actions">
           <button type="button" disabled={busy} onClick={()=>onOpen(focused.id)}>查看愿望 ↗</button>
