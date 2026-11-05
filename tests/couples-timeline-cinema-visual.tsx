@@ -15,15 +15,26 @@ const sample: Entry[] = [
   {id:'qa-3',kind:'timeline',title:'第一次牵手',body:'在路灯亮起之前，我们的手悄悄碰在了一起。',date:'2026-10-14',timelineTag:'里程碑',side:'me',images:[memorySvg('MEMORIES')]},
   {id:'qa-4',kind:'timeline',title:'属于我们的一个小小周末',body:'把平凡的一天也留在胶片里。',date:'2026-09-30',timelineTag:'日常',side:'them'},
 ];
+function swipeSurface(selector: string, startX: number, endX: number) {
+  const surface = document.querySelector(selector);
+  if (!surface) throw new Error('Swipe target missing: '+selector);
+  const finger = (clientX:number) => new Touch({identifier:1,target:surface,clientX,clientY:380});
+  const start = finger(startX), end = finger(endX);
+  surface.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,cancelable:true,touches:[start],targetTouches:[start],changedTouches:[start]}));
+  surface.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[end],targetTouches:[end],changedTouches:[end]}));
+  surface.dispatchEvent(new TouchEvent('touchend',{bubbles:true,cancelable:true,touches:[],targetTouches:[],changedTouches:[end]}));
+}
 function App() {
   const [bond,setBond] = useState<Bond>(()=>({ ...createBond(['qa-me','qa-them']), start:'2025-11-05',entries:state==='empty' ? [] : sample }));
   const [message,setMessage] = useState('');
   useEffect(()=>{
-    if(state!=='editor'&&state!=='detail'&&state!=='handbook') return;
+    if(!['editor','detail','handbook','swipe-mode','swipe-frame'].includes(state)) return;
     const t = window.setTimeout(()=>{
       if(state==='editor') document.querySelector<HTMLButtonElement>('.couple-cinema-v2-first, .couple-cinema-v2-browser-top button')?.click();
       if(state==='detail') document.querySelector<HTMLButtonElement>('.couple-cinema-v2-memory')?.click();
       if(state==='handbook') [...document.querySelectorAll<HTMLButtonElement>('.couple-cinema-v2-modes button')].find(b=>b.textContent?.includes('手账'))?.click();
+      if(state==='swipe-mode') swipeSurface('.couple-cinema-v2-modes',260,75);
+      if(state==='swipe-frame') swipeSurface('.couple-cinema-v2-deck',260,75);
     },850);
     return ()=>clearTimeout(t);
   },[]);
@@ -47,6 +58,7 @@ function App() {
         out.dataset.frames=String(document.querySelectorAll('.couple-cinema-v2-cell').length);
         out.dataset.handbook=String(Boolean(document.querySelector('.couple-cinema-v2-paper')));
         out.dataset.leader=String(Boolean(document.querySelector('.couple-cinema-v2-leader')));
+        out.dataset.activeframe=document.querySelector('.couple-cinema-v2-deck-top span:last-child')?.textContent?.replace(/\\s/g,'') ?? '';
       }
     },1700);
     return ()=>clearTimeout(timer);
