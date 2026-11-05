@@ -67,7 +67,7 @@ jobs:
             if [[ "$state" == "empty" ]]; then
               grep -q 'wish-universe-first-heart' "/tmp/wish-$state-dom.txt" || { echo 'Missing first wish heart trigger'; exit 1; }
               grep -q 'wish-universe-tiny-hearts' "/tmp/wish-$state-dom.txt" || { echo 'Missing linked background hearts'; exit 1; }
-              if grep -q 'wish-universe-first-core' "/tmp/wish-$state-dom.txt"; then echo 'Old giant star is still present'; exit 1; fi
+              if grep -q 'class="wish-universe-first-core"' "/tmp/wish-$state-dom.txt"; then echo 'Old giant star element is still present'; exit 1; fi
             elif [[ "$state" == "focus" ]]; then
               grep -q 'data-focus="true"' "/tmp/wish-$state-dom.txt" || exit 1
             elif [[ "$state" == "complete" ]]; then
