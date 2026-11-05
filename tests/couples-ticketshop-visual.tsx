@@ -45,6 +45,7 @@ function App(){
       output.dataset.wallet=String(!!document.querySelector('.bond-ticket-wallet-pass'));
       output.dataset.editor=String(!!document.querySelector('.couple-shop-editor'));
       output.dataset.points=String(bond.points.me);
+      output.dataset.played=String(bond.played.length);
     },2200);
     return ()=>window.clearTimeout(timer);
   },[bond]);
