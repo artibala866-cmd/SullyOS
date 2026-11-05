@@ -934,7 +934,12 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     );
     await change(current => reward({
       ...current, touches: current.touches + 1, touchLines: { ...current.touchLines, [key]: text },
-    }, `t  return <section className={'couple-touch-room couple-touch-experience' + (full ? ' couple-touch-full' : '')}>
+    }, `touch:${dayKey()}`, 5));
+    setReaction(text);
+    setVoice('');
+    if (bond.touches >= 3) setClosePose(true);
+  });
+  return <section className={'couple-touch-room couple-touch-experience' + (full ? ' couple-touch-full' : '')}>
     <div className="couple-touch-intro">
       <div><span>JUST A LITTLE CLOSER</span><h2>靠近一点点</h2><p>不必先设置什么，轻触 TA 就好。</p></div>
       <button type="button" className="couple-touch-focus" aria-pressed={full} onClick={() => setFull(!full)}>
@@ -1131,8 +1136,6 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
       setReaction('');
     }}>清空已生成台词</button></div>
       </div>
-    </details>  run(() => change(current => ({ ...current, touchLines: {} })));
-      setReaction('');
-    }}>清空已生成台词</button></div>
+    </details>
   </section>;
 }
