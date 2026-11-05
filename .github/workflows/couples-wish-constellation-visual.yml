@@ -57,7 +57,7 @@ jobs:
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
           mkdir -p wish-constellation-screenshots
-          for state in empty populated focus complete editor detail list many role filtered; do
+          for state in empty populated focus complete editor detail list many role filtered create-first; do
             url="http://127.0.0.1:5173/tests/couples-wish-constellation-visual.html?state=$state"
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
               --window-size=430,940 --force-device-scale-factor=1 \
@@ -78,6 +78,8 @@ jobs:
               grep -q 'data-list="true"' "/tmp/wish-$state-dom.txt" || exit 1
             elif [[ "$state" == "many" ]]; then
               grep -q 'data-page="02 / 02"' "/tmp/wish-$state-dom.txt" || { echo 'Multi-page constellation not navigable'; exit 1; }
+            elif [[ "$state" == "create-first" ]]; then
+              grep -q 'data-stars="1"' "/tmp/wish-$state-dom.txt" || { echo 'First-wish creation failed'; exit 1; }
             elif [[ "$state" == "role" ]]; then
               grep -q 'data-stars="8"' "/tmp/wish-$state-dom.txt" || { echo 'Character wish did not persist'; exit 1; }
             fi
