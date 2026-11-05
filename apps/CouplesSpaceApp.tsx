@@ -895,6 +895,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
 }) {
   const [prop, setProp] = useState('手');
   const [reaction, setReaction] = useState('');
+  const [pendingTouch, setPendingTouch] = useState(false);
   const [calibration, setCalibration] = useState<string>();
   const [voice, setVoice] = useState('');
   const [full, setFull] = useState(false);
@@ -929,23 +930,26 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   const gestures = [["头发","摸摸头","像揉乱一缕发丝"],["脸颊","碰碰脸","靠近一点点"],["肩膀","拍拍肩","轻声回应"],["手","牵一下","把心意放进掌心"]] as const;
 
   const touch = (bodyPart: string, bringReplyIntoView = false) => run(async () => {
-    const key = `${prop}:${bodyPart}`;
-    const text = bond.touchLines?.[key] ?? await generate(
-      `在专属贴贴里，用户想用「${prop}」轻碰你的「${bodyPart}」。按人设、关系和同意边界给出一到三句当下回应。可以接受、移开或拒绝。`,
-    );
-    await change(current => reward({
-      ...current, touches: current.touches + 1, touchLines: { ...current.touchLines, [key]: text },
-    }, `touch:${dayKey()}`, 5));
-    setReaction(text);
-    setVoice('');
-    if (bond.touches >= 3) setClosePose(true);
     if (bringReplyIntoView) {
-      window.requestAnimationFrame(() => {
-        replyRef.current?.scrollIntoView({
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-          block: 'nearest',
-        });
-      });
+      window.requestAnimationFrame(() => replyRef.current?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'nearest',
+      }));
+    }
+    setPendingTouch(true);
+    try {
+      const key = `${prop}:${bodyPart}`;
+      const text = bond.touchLines?.[key] ?? await generate(
+        `在专属贴贴里，用户想用「${prop}」轻碰你的「${bodyPart}」。按人设、关系和同意边界给出一到三句当下回应。可以接受、移开或拒绝。`,
+      );
+      await change(current => reward({
+        ...current, touches: current.touches + 1, touchLines: { ...current.touchLines, [key]: text },
+      }, `touch:${dayKey()}`, 5));
+      setReaction(text);
+      setVoice('');
+      if (bond.touches >= 3) setClosePose(true);
+    } finally {
+      setPendingTouch(false);
     }
   });
   return <section className={'couple-touch-room couple-touch-experience' + (full ? ' couple-touch-full' : '')}>
@@ -1003,7 +1007,10 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     </div>
     
       <div ref={replyRef} className="couple-touch-response" aria-live="polite">
-        {reaction ? <>
+        {pendingTouch ? <>
+          <span>{char.name} 正在回应</span>
+          <p className="couple-touch-awaiting">TA 正在想怎么回应你的靠近<span aria-hidden="true"> ···</span></p>
+        </> : reaction ? <>
           <span>{char.name} 说</span>
           <p>{reaction}</p>
           {voice ? <audio src={voice} controls autoPlay /> : <button type="button" disabled={busy} onClick={() => run(async () => {
