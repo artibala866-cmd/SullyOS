@@ -74,6 +74,8 @@ function App(){
       output.dataset.ready='true';output.dataset.state=scene;
       output.dataset.overflow=String(document.documentElement.scrollWidth>window.innerWidth+2);
       output.dataset.stars=String(document.querySelectorAll('.wish-universe-star').length);
+      output.dataset.total=String(bond.entries.filter(item=>item.kind==='wish').length);
+      output.dataset.decorations=String(document.querySelectorAll('.wish-universe-tiny-hearts,.wish-universe-threads,.wish-universe-heartspace').length);
       output.dataset.focus=String(Boolean(document.querySelector('.wish-universe-focus')));
       output.dataset.editor=String(Boolean(document.querySelector('.couple-compose-wish')));
       output.dataset.detail=String(Boolean(document.querySelector('.couple-detail-wish')));
