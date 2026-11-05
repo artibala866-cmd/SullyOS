@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CouplesSpaceApp from '../apps/CouplesSpaceApp';
 import { capsuleDate, capsuleStatus, careForPlant, createBond, createEntry, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
-import { couplesChatContext, pairedCouplesChatContext } from './couplesChat';
+import { couplesChatContext, pairedCouplesChatContext, settleCouplesChat } from './couplesChat';
 import { DB } from './db';
 import type { CharacterProfile } from '../types';
 
@@ -173,6 +173,63 @@ describe('情侣空间', () => {
       expect(block).not.toContain('不可注入');
       expect(await pairedCouplesChatContext('unrelated')).toBe('');
     } finally { await writeBond(ids, () => undefined); }
+  });
+
+  it('keeps existing pair attribution when reopening with reversed selectors', async () => {
+    const ids = ['partner-a', 'partner-b'];
+    await writeBond(ids, () => ({ ...createBond(ids), entries: [createEntry('wish', '配对愿望', '', 'me')] }));
+    try {
+      await render();
+      await click('他们的空间');
+      for (const [label, value] of [['角色 A', 'partner-b'], ['角色 B', 'partner-a']]) {
+        const input = element.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
+        await act(async () => { input.value = value; input.dispatchEvent(new Event('change', { bubbles: true })); });
+      }
+      await click('建立空间');
+      await waitFor(() => expect(element.querySelector('.couple-ios-hero-bottom')?.textContent).toContain('知夏 · 晓白'));
+    } finally { await writeBond(ids, () => undefined); }
+  });
+
+  it('cancels pending postman delivery on back and ignores a late response', async () => {
+    await writeBond(['partner-a'], () => ({ ...createBond(['partner-a']), status: 'open' }));
+    let resolve!: (value: string) => void;
+    generateBondText.mockImplementationOnce(() => new Promise<string>(done => { resolve = done; }));
+    await render();
+    await click('进入专属空间');
+    await click('时光信箱');
+    await click('请时光邮递员投递问答');
+    await click('返回');
+    expect(generateBondText.mock.calls[0][5].aborted).toBe(true);
+    await act(async () => resolve(JSON.stringify({ question: '迟到的问答', answer: '不得保存' })));
+    expect((await readBond(['partner-a'])).entries).toEqual([]);
+    expect(findButton('请时光邮递员投递问答')).toBeDefined();
+  });
+
+  it('keeps externally deleted timeline records deleted when an old editor saves', async () => {
+    const record = createEntry('timeline', '旧故事', '已删除');
+    await writeBond(['partner-a'], () => ({ ...createBond(['partner-a']), status: 'open', entries: [record] }));
+    await render();
+    await click('进入专属空间');
+    await click('牵绊时光');
+    await click('旧故事');
+    await click('编辑');
+    await writeBond(['partner-a'], current => ({ ...current!, entries: [] }));
+    const form = element.querySelector('.couple-compose')!;
+    await act(async () => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await waitFor(() => expect(element.textContent).toContain('这条记录已在别处修改或删除'));
+    expect((await readBond(['partner-a'])).entries).toEqual([]);
+  });
+
+  it('does not reserve an API observation for an older delivered turn', async () => {
+    const snapshot = await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open', hollowAuto: true, lastSceneTurn: 90,
+    }));
+    const char = (await DB.getCharacter('partner-a'))!;
+    await settleCouplesChat(char, { name: '小满', avatar: '', bio: '' }, {} as Parameters<typeof settleCouplesChat>[2],
+      snapshot!, { id: 80, charId: char.id, timestamp: Date.now(), type: 'text', role: 'user', content: '旧消息' },
+      '旧回应', new AbortController().signal, true);
+    expect(generateBondText).not.toHaveBeenCalled();
+    expect((await readBond(['partner-a'])).claims).toEqual([]);
   });
 
   it('keeps a sealed capsule private until it is opened, then shares it as a capsule', async () => {

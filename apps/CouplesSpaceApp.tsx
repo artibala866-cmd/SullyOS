@@ -14,7 +14,7 @@ import { processImage } from '../utils/file';
 import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
-import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors } from '../utils/couplesGeneration';
+import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors, loadBondMilestoneSources } from '../utils/couplesGeneration';
 import './couplesSpace/couplesSpace.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
@@ -25,7 +25,7 @@ const relationshipCopy = {
   friend: { days: '成为朋友', title: '朋友间的日常', care: '留给朋友的心意', collection: '友情纪念册' },
 };
 const mainPanels: Panel[] = ['timeline', 'anniversary', 'wish', 'gift', 'touch', 'plant', 'mail', 'capsule', 'shop', 'achievements', 'hollow'];
-const pairPanels: Panel[] = ['timeline', 'anniversary', 'mail', 'wish', 'gift', 'plant'];
+const pairPanels: Panel[] = ['timeline', 'anniversary', 'mail', 'wish', 'gift', 'plant', 'achievements'];
 type SpaceShelf = 'memory' | 'care' | 'collection';
 const spaceShelves: { id: SpaceShelf; title: string; english: string; panels: Panel[] }[] = [
   { id: 'memory', title: '日常', english: 'MEMORIES', panels: ['timeline','anniversary','mail','capsule','hollow'] },
@@ -173,6 +173,7 @@ export default function CouplesSpaceApp() {
   const [panel, setPanel] = useState<Panel>();
   const [pairCoverStyle, setPairCoverStyle] = useState<typeof pairCoverStyles[number]>('日常互动');
   const [milestoneFilter, setMilestoneFilter] = useState('all');
+  const [milestoneSources, setMilestoneSources] = useState<Bond['milestones']>();
   const [milestoneDraft, setMilestoneDraft] = useState<NonNullable<Bond['milestones']>[number]>();
   const [activeShelf, setActiveShelf] = useState<SpaceShelf>('memory');
   const [lockedPanel, setLockedPanel] = useState<Panel>();
@@ -192,6 +193,7 @@ export default function CouplesSpaceApp() {
   const [confirmClose, setConfirmClose] = useState(false);
   const scroll = useRef<HTMLElement>(null);
   const confirmation = useRef<HTMLDivElement>(null);
+  const recordBack = useRef<(() => boolean) | undefined>(undefined);
   const isPair = pairs && pair.length === 2;
   const members = pairs ? pair : [partnerId];
   const key = spaceKey(members);
@@ -239,7 +241,7 @@ export default function CouplesSpaceApp() {
       requestRef.current?.abort();
     };
   }, []);
-  useEffect(() => { setError(''); setDigest(undefined); setMilestoneDraft(undefined); setMilestoneFilter('all'); }, [key]);
+  useEffect(() => { setError(''); setDigest(undefined); setMilestoneDraft(undefined); setMilestoneSources(undefined); setMilestoneFilter('all'); setPairCoverStyle('日常互动'); }, [key]);
   // Visual-only garden clock: recheck minute-scale cooldowns, and expire a
   // transient watering notice exactly on time without rerendering the app each second.
   useEffect(() => {
@@ -287,7 +289,7 @@ export default function CouplesSpaceApp() {
     if (confirmClose && !busy) { setConfirmClose(false); return true; }
     if (busy) return true;
     if (lockedPanel) { setLockedPanel(undefined); return true; }
-    if (panel) { setPanel(undefined); return true; }
+    if (panel) { if (!recordBack.current?.()) setPanel(undefined); return true; }
     if (isPair) { setPair([]); return true; }
     if (pairs) { setPairs(false); setPickerStep('orbit'); return true; }
     if (pickerStep !== 'orbit') { setPickerStep('orbit'); return true; }
@@ -299,6 +301,7 @@ export default function CouplesSpaceApp() {
     // Ignore a focus-refresh which began before this atomic write.
     readRevision.current++;
     const entry = await writeBond(ids, update);
+    readRevision.current++;
     setSpaces(current => {
       const next = { ...current };
       if (entry) next[spaceKey(ids)] = entry;
@@ -326,17 +329,24 @@ export default function CouplesSpaceApp() {
     }
     finally { loading.current = false; setBusy(false); }
   };
-  const generate = async (instruction: string, current = bond, timelineDate?: string) => {
+  const generate = async (instruction: string, current = bond, timelineDate?: string, cancel?: AbortSignal) => {
     if (!char || !current || (isPair && !other)) throw new Error('请先选择角色');
     if (!isPair && (characterBlocksUser(char.chatBlock) || userBlocksCharacter(char.chatBlock))) throw new Error('当前私聊已拉黑，无法请求角色回应');
     if (requestRef.current) throw new Error('角色正在回应');
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (cancel?.aborted) abort();
+    else cancel?.addEventListener('abort', abort, { once: true });
     requestRef.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 90_000);
     try {
-      return await generateBondText(char, other ? { name: other.name, avatar: other.avatar, bio: '' } : userProfile,
+      const currentCharacter = await DB.getCharacter(char.id);
+      if (!currentCharacter || (!isPair && (characterBlocksUser(currentCharacter.chatBlock) || userBlocksCharacter(currentCharacter.chatBlock))))
+        throw new Error('角色已移除或私聊当前不可用');
+      if (controller.signal.aborted) throw new DOMException('请求已取消', 'AbortError');
+      return await generateBondText(currentCharacter, other ? { name: other.name, avatar: other.avatar, bio: '' } : userProfile,
         apiConfig, current, instruction, controller.signal, other, timelineDate);
-    } finally { clearTimeout(timer); requestRef.current = undefined; }
+    } finally { clearTimeout(timer); cancel?.removeEventListener('abort', abort); requestRef.current = undefined; }
   };
   const openChat = () => {
     if (!char || isPair) return;
@@ -422,14 +432,14 @@ export default function CouplesSpaceApp() {
     if (file) void run(async () => {
       if (file.size > 12 * 1024 * 1024) throw new Error('请选择 12 MB 以内的图片');
       const image = await processImage(file, { maxWidth: 1000 });
-      await change(current => ({ ...current, [field]: image, ...(field === 'cover' ? { position: 50, zoom: 1 } : {}) }));
+      await change(current => ({ ...current, [field]: image, ...(field === 'cover' ? { position: 50, zoom: 1 } : { touchCalibration: {} }) }));
     });
   };
   const createPair = () => void run(async () => {
     if (!pairA || !pairB || pairA === pairB) return;
     const ids = [pairA, pairB];
-    await persist(ids, current => current ?? createBond(ids, relation));
-    setPair(ids);
+    const existingOrNew = await persist(ids, current => current ?? createBond(ids, relation));
+    if (existingOrNew) setPair(existingOrNew.members);
   });
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
   const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
@@ -481,7 +491,10 @@ export default function CouplesSpaceApp() {
             <small>{relationNames[item.relation]} · {item.entries.length} 条记录</small></span>
           <button disabled={item.members.some(id => !characters.some(person => person.id === id))} onClick={() => setPair(item.members)}>进入</button>
           <button disabled={busy} onClick={() => {
-            if (window.confirm('删除这个配对空间和里面的故事？')) void run(async () => { await persist(item.members, () => undefined); });
+            if (window.confirm('删除这个配对空间和里面的故事？')) void run(async () => { await persist(item.members, current => {
+              if (current?.id !== item.id) throw new Error('配对空间已变化，请刷新后再删除');
+              return undefined;
+            }); });
           }}>删除</button>
         </div>)}
       </>}
@@ -619,12 +632,12 @@ export default function CouplesSpaceApp() {
             </div>
           </section>
         </>}
-        {panel && panel in recordNames && <BondRecords key={`${key}:${panel}`} kind={panel as EntryKind} bond={bond}
-          names={names} change={change} generate={generate} share={isPair ? undefined : share} busy={busy} notify={addToast}
+        {panel && panel in recordNames && <BondRecords key={`${key}:${bond.id}:${panel}`} kind={panel as EntryKind} bond={bond}
+          names={names} change={change} generate={(instruction, signal) => generate(instruction, bond, undefined, signal)} share={isPair ? undefined : share} busy={busy} notify={addToast}
           avatarMe={isPair ? char?.avatar : userProfile.avatar} avatarThem={(other ?? char)?.avatar}
           charId={!isPair ? char?.id : undefined}
           generateTimeline={(instruction, date) => generate(instruction, bond, date)}
-          abortGenerate={() => requestRef.current?.abort()}
+          backHandler={recordBack}
           onNativeJournal={!isPair && char ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
         {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} notify={addToast} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
@@ -641,7 +654,25 @@ export default function CouplesSpaceApp() {
               </select></label>
               <button type="button" disabled={busy} onClick={() => setMilestoneDraft({ id: crypto.randomUUID(), title: '', date: today,
                 source: milestoneFilter === 'home' ? 'home' : 'story' })}>记下成就</button>
+              <button type="button" disabled={busy} onClick={() => {
+                if (milestoneSources) setMilestoneSources(undefined);
+                else void run(async () => setMilestoneSources(await loadBondMilestoneSources(members)));
+              }}>{milestoneSources ? '收起已有记录' : '从已有记录选取'}</button>
             </div>
+            {milestoneSources && <div className="couple-record-tools">
+              {!milestoneSources.some(item => milestoneFilter === 'all' || item.source === milestoneFilter) &&
+                <p>这个来源暂时没有可选记录。</p>}
+              {milestoneSources.filter(item => milestoneFilter === 'all' || item.source === milestoneFilter).map(item => {
+                const included = bond.milestones?.some(row => row.id === item.id);
+                return <div className="couple-achievement" key={item.id}>
+                  <div className="couple-achievement-copy"><strong>{item.title}</strong><small>{item.source === 'home' ? '家园' : '剧情'} · {item.date}</small></div>
+                  <div className="couple-actions"><button disabled={busy || included} onClick={() => {
+                    setMilestoneDraft(item);
+                    setMilestoneSources(undefined);
+                  }}>{included ? '已收录' : '选用'}</button></div>
+                </div>;
+              })}
+            </div>}
             {milestoneDraft && <form className="couple-record-tools" onSubmit={event => {
               event.preventDefault();
               const title = milestoneDraft.title.trim();
@@ -864,13 +895,14 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   const portraitRequest = useRef<AbortController>();
   const startPoint = useRef<{ x: number; y: number; rect: DOMRect }>();
   const [failedImages, setFailedImages] = useState<string[]>([]);
-  const portraitValue = bond.touchPortraits?.idle || bond.portrait || resolveCompanionPortrait(char) || listCompanionDateOutfits(char)[0]?.preview;
-  const portrait = portraitValue && !failedImages.includes(portraitValue) ? portraitValue : undefined;
+  const availableImage = (value: string | undefined) => value && !failedImages.includes(value);
+  const portrait = [bond.touchPortraits?.idle, bond.portrait, resolveCompanionPortrait(char),
+    listCompanionDateOutfits(char)[0]?.preview, bond.touchPortraits?.press, bond.touchPortraits?.closeIdle,
+    bond.touchPortraits?.closePress].find(availableImage);
   const variant = calibration ? undefined : pressed
-    ? (closePose ? bond.touchPortraits?.closePress : undefined) || bond.touchPortraits?.press
-    : closePose ? bond.touchPortraits?.closeIdle : undefined;
-  const displayImage = (variant && !failedImages.includes(variant) ? variant : portrait) ||
-    (!failedImages.includes(char.avatar) ? char.avatar : undefined);
+    ? [closePose ? bond.touchPortraits?.closePress : undefined, bond.touchPortraits?.press].find(availableImage)
+    : closePose ? [bond.touchPortraits?.closeIdle].find(availableImage) : undefined;
+  const displayImage = variant || portrait || (availableImage(char.avatar) ? char.avatar : undefined);
   useEffect(() => () => portraitRequest.current?.abort(), []);
   useEffect(() => () => { if (voice.startsWith('blob:')) URL.revokeObjectURL(voice); }, [voice]);
   const zones = ['头发', '脸颊', '肩膀', '手'];
@@ -913,7 +945,11 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     </div>
     <label className="couple-file">
       <span>{bond.portrait ? '更换本地立绘' : '选择本地立绘'}</span>
-      <input type="file" accept="image/*" disabled={busy} onChange={event => upload(event.target.files?.[0], 'portrait')} />
+      <input type="file" accept="image/*" disabled={busy} onChange={event => {
+        const file = event.currentTarget.files?.[0];
+        event.currentTarget.value = '';
+        upload(file, 'portrait');
+      }} />
     </label>
     <details className="couple-record-tools">
       <summary>立绘差分与台词</summary>
@@ -928,7 +964,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
           run(async () => {
             if (!file.type.startsWith('image/') || file.size > 12 * 1024 * 1024) throw new Error('请选择 12 MB 以内的图片');
             const image = await processImage(file, { maxWidth: 1000 });
-            await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image } }));
+            await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image }, ...(portraitSlot === 'idle' ? { touchCalibration: {} } : {}) }));
           });
         }}/>
       </label>
@@ -941,13 +977,13 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
           const timer = window.setTimeout(() => controller.abort(), 90_000);
           try {
             const image = await generateBondPortrait(char, `同一角色的互动差分：${touchPortraitSlots[portraitSlot]}，${pose}`, controller.signal);
-            if (!controller.signal.aborted) await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image } }));
+            if (!controller.signal.aborted) await change(current => ({ ...current, touchPortraits: { ...current.touchPortraits, [portraitSlot]: image }, ...(portraitSlot === 'idle' ? { touchCalibration: {} } : {}) }));
           } finally { clearTimeout(timer); portraitRequest.current = undefined; }
         })}>生成当前差分</button>
         {bond.touchPortraits?.[portraitSlot] && <button type="button" disabled={busy} onClick={() => run(() => change(current => {
           const touchPortraits = { ...current.touchPortraits };
           delete touchPortraits[portraitSlot];
-          return { ...current, touchPortraits };
+          return { ...current, touchPortraits, ...(portraitSlot === 'idle' ? { touchCalibration: {} } : {}) };
         }))}>移除当前差分</button>}
       </div>
       <label>每批道具数<select value={batchSize} disabled={busy} onChange={event => setBatchSize(Number(event.target.value))}>
@@ -1024,7 +1060,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
           const part = resolveAvatarTouchTarget([], y, x).part;
           touch(part === 'hair' ? '头发' : part === 'face' ? '脸颊' : avatarTouchPartLabel(part));
         }} />
-        {portrait && !calibration && !pressed && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
+        {portrait && !calibration && !pressed && displayImage === portrait && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
         const point = bond.touchCalibration![part];
         return <button key={part} type="button" className="couple-hotspot"
           style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;

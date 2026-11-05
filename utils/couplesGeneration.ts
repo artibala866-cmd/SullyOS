@@ -3,6 +3,8 @@ import { resolveDialogueApi } from './characterApi';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { normalizeMessageContent } from './messageFormat';
 import { ContextBuilder } from './context';
+import { readableContextMemories } from './contextMemories';
+import { parseLocalDateKey } from './localDate';
 import { safeResponseJson } from './safeApi';
 import { DB } from './db';
 import { dayKey, relationNames, type Bond, type Relation } from './couplesSpace';
@@ -15,6 +17,28 @@ export async function readPairDigest(members: string[]) {
     posts: posts.filter(post => post.authorCharId && members.includes(post.authorCharId) &&
       post.comments.some(comment => comment.authorCharId && comment.authorCharId !== post.authorCharId && members.includes(comment.authorCharId))),
   };
+}
+
+export async function loadBondMilestoneSources(members: string[]): Promise<NonNullable<Bond['milestones']>> {
+  const [{ storyTheaterThreadId }, scenes, actors] = await Promise.all([
+    import('./storyTheater'), DB.getStoryTheaters(), Promise.all(members.map(id => DB.getCharacter(id))),
+  ]);
+  const recentScenes = scenes.filter(scene => members.every(id => scene.characterIds.includes(id))).slice(0, 12);
+  const stories = (await Promise.all(recentScenes.map(async scene => {
+    const [last] = await DB.getRecentMessagesByCharId(storyTheaterThreadId(scene.id), 1, true);
+    const lastArchive = scene.archives?.at(-1);
+    const at = last?.timestamp ?? lastArchive?.createdAt;
+    return Number.isFinite(at) ? [{ id: `story:${scene.id}`, source: 'story' as const,
+      title: scene.title || '共同剧情', date: dayKey(new Date(at!)) }] : [];
+  }))).flat();
+  const homes = actors.flatMap(actor => (actor?.home3D?.records ?? []).flatMap(record => {
+    if (record.kind !== 'action' || record.automatic || !record.text?.trim() || !Number.isFinite(record.at)) return [];
+    const belongs = members.length === 1 ? record.actor === 'user' && !record.sharedScene
+      : members.every(id => record.sharedScene?.participantIds.includes(id));
+    return belongs ? [{ id: `home:${record.id}`, source: 'home' as const,
+      title: record.text.trim().slice(0, 100), date: dayKey(new Date(record.at)) }] : [];
+  })).sort((a,b) => b.date.localeCompare(a.date)).slice(0, 12);
+  return [...new Map([...stories, ...homes].map(item => [item.id, item])).values()];
 }
 
 export async function generateBondArtwork(char: CharacterProfile, other: CharacterProfile | UserProfile, relation: Relation, style: string, signal: AbortSignal, pair: boolean) {
@@ -64,9 +88,19 @@ export async function generateBondText(
     if (!text.trim()) return [];
     return [{ role: message.role, content: timelineDate ? `[${dayKey(new Date(message.timestamp))}] ${text}` : text }];
   });
-  if (timelineDate && !history.length) throw new Error('所选范围内没有可用于补全的聊天记录');
   const supportedDays = new Set(history.flatMap(message => message.content.match(/^\[(\d{4}-\d{2}-\d{2})\]/)?.[1] ?? []));
+  const summaries = timelineDate && !other
+    ? readableContextMemories(char).daily.flatMap(group => group.entries).flatMap(memory => {
+      const match = memory.date.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?$/);
+      if (!match || !memory.summary.trim()) return [];
+      const key = [match[1], match[2].padStart(2, '0'), match[3].padStart(2, '0')].join('-');
+      return parseLocalDateKey(key) && (timelineDate === '*' || timelineDate === key)
+        ? [{ date: key, content: memory.summary.trim().slice(0, 700) }] : [];
+    }).sort((a,b) => b.date.localeCompare(a.date)).slice(0, 14) : [];
+  for (const summary of summaries) supportedDays.add(summary.date);
+  if (timelineDate && !supportedDays.size) throw new Error('所选范围内没有可用于补全的聊天记录或已开放的日度总结');
   if (timelineDate) instruction += '\n只使用这些有资料的日期：' + [...supportedDays].join('、');
+  if (summaries.length) instruction += '\n可参考的日度总结：\n' + summaries.map(row => `[${row.date}] ${row.content}`).join('\n');
   const records = bond.entries.filter(item => item.kind !== 'capsule' && item.kind !== 'hollow' &&
     (item.mailMode !== 'postman' || !!item.reply))
     .slice(-12).map(item => `${item.date} ${item.title}：${item.body.slice(0, 260)}`).join('\n');

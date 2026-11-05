@@ -55,11 +55,11 @@ export async function settleCouplesChat(
     };
     return reward(reward(settled, `conversation:me:${dayKey()}`, 20), `conversation:them:${dayKey()}`, 20, 'them');
   });
-  if (!updated || !ready(updated) || signal.aborted) return;
+  if (!updated || !ready(updated) || updated.lastSceneTurn !== lastUser.id || signal.aborted) return;
   const hasDiary = (bond: Bond) => bond.entries.some(row => row.kind === 'diary' && row.side === 'them' && row.date === dayKey());
   const diary = updated.diaryAuto && !hasDiary(updated);
   const cards = updated.autoCards ? roleCards(updated) : [];
-  const shouldVisitHollow = updated.hollowAuto && !updated.entries.some(row => row.kind === 'hollow' && row.date === dayKey());
+  const shouldVisitHollow = updated.hollowAuto && !updated.entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey());
   const shouldCare = updated.plantAuto && canWaterPlant(updated.plant);
   const shouldHarvest = updated.plantAuto && plantStage(updated.plant) === '开花';
   if (!diary && !cards.length && !shouldVisitHollow && !shouldCare && !shouldHarvest) return;
@@ -67,25 +67,30 @@ export async function settleCouplesChat(
   const claim = `scene:${lastUser.id}`;
   let reserved = false;
   await writeBond(ids, current => {
-    if (!current || !ready(current) || current.claims.includes(claim)) return current;
+    if (!current || !ready(current) || current.lastSceneTurn !== lastUser.id || current.claims.includes(claim)) return current;
     reserved = true;
     return { ...current, claims: [...current.claims.filter(value => !value.startsWith('scene:')), claim] };
   });
   if (!reserved || signal.aborted) return;
   const fresh = await DB.getCharacter(char.id);
   const latest = await readBond(ids);
-  if (!fresh || !latest || !ready(latest) || signal.aborted ||
+  if (!fresh || !latest || !ready(latest) || latest.lastSceneTurn !== lastUser.id || signal.aborted ||
     characterBlocksUser(fresh.chatBlock) || userBlocksCharacter(fresh.chatBlock)) return;
-  const { generateBondText } = await import('./couplesGeneration');
-  const result = extractJson(await generateBondText(fresh, user, api, latest, [
-    '延续刚刚真实发生的私聊，只输出 JSON 对象。没有合适内容的字段留空，不编造事实。',
-    `本轮用户：${lastUser.content.slice(0, 900)}\n角色：${reply.slice(0, 900)}`,
+  const actions = [
     diary && latest.diaryAuto ? `diary：写一段今天的角色日记，风格：${latest.diaryStyle || '角色原有风格'}。` : '',
     shouldVisitHollow && latest.hollowAuto ? 'hollow：有一件确实不适合当面说的具体心事才填。' : '',
     shouldCare && latest.plantAuto ? 'water：只有角色此刻有理由和空闲照料两人的盆栽时填 true，否则填 false。' : '',
     shouldHarvest && latest.plantAuto ? 'harvest：只有此刻适合送花才为 true，flowerScene：写一小段亲手送出这盆已开花的盆栽的小剧场。' : '',
     latest.autoCards && cards.length ? `card：只有当前话题适合才选一个 ID，否则留空。note：角色用自己的口吻写打出该卡的内容，表达卡片效果。可用卡：${cards.map(item => `${item.id}=${item.name}（${item.effect}）`).join('、')}。` : '',
-  ].filter(Boolean).join('\n'), signal));
+  ].filter(Boolean);
+  if (!actions.length || signal.aborted) return;
+  const { generateBondText } = await import('./couplesGeneration');
+  if (signal.aborted) return;
+  const result = extractJson(await generateBondText(fresh, user, api, latest, [
+    '延续刚刚真实发生的私聊，只输出 JSON 对象。没有合适内容的字段留空，不编造事实。',
+    `本轮用户：${lastUser.content.slice(0, 900)}\n角色：${reply.slice(0, 900)}`,
+    ...actions,
+  ].join('\n'), signal));
   if (!result || signal.aborted) return;
   const stillAllowed = await DB.getCharacter(char.id);
   if (!stillAllowed || characterBlocksUser(stillAllowed.chatBlock) || userBlocksCharacter(stillAllowed.chatBlock)) return;
@@ -100,7 +105,7 @@ export async function settleCouplesChat(
     const entries = [...current.entries];
     if (diary && current.diaryAuto && diaryText && !hasDiary(current))
       entries.push(createEntry('diary', '今日记事', diaryText, 'them'));
-    if (current.hollowAuto && hollow && !entries.some(row => row.kind === 'hollow' && row.date === dayKey()))
+    if (current.hollowAuto && hollow && !entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey()))
       entries.push(createEntry('hollow', '未说出口的话', hollow, 'them'));
     const record = { ...current, entries };
     const cared = shouldCare && current.plantAuto && result.water === true && canWaterPlant(current.plant)

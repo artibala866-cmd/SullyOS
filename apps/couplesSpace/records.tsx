@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
@@ -227,7 +227,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     return <div className="couple-scene couple-scene-gift">
       <div className="couple-gift-counter"><span>THE THOUGHTFUL THINGS</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
       <div className="couple-gift-pedestal"><span className="couple-gift-pedestal-light"/>
-        {rows.length ? <button type="button" className="couple-gift-pedestal-stage" onClick={()=>onJump(rows[0].id)}>
+        {rows.length ? <button type="button" className="couple-gift-pedestal-stage" aria-label={`查看礼物：${rows[0].title}`} onClick={()=>onJump(rows[0].id)}>
           {rows[0].image?<TokenImg value={rows[0].image} alt={rows[0].title}/>:<span className="couple-gift-display-box"><i/></span>}
         </button> : <button type="button" className="couple-gift-pedestal-stage" disabled={busy} onClick={onNew}>
           <span className="couple-gift-display-box"><i/></span>
@@ -308,22 +308,26 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
 export type ChangeBond = (update: (bond: Bond) => Bond) => Promise<void>;
 export type Generate = (instruction: string) => Promise<string>;
 
-export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal, generateTimeline, abortGenerate }: {
+export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal, generateTimeline, backHandler }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
   generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
   notify?: (message: string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
-  generateTimeline?: (instruction: string, date: string) => Promise<string>; abortGenerate?: () => void;
+  generateTimeline?: (instruction: string, date: string) => Promise<string>; backHandler?: React.MutableRefObject<(() => boolean) | undefined>;
 }) {
   const [draft, setDraft] = useState<Entry>();
   const [filter, setFilter] = useState('all');
   const [earlyId, setEarlyId] = useState<string>();
-  const [replyDraft, setReplyDraft] = useState<{ id: string; text: string }>();
+  const [replyDraft, setReplyDraft] = useState<{ id: string; text: string; source: Entry }>();
   const [timelineDate, setTimelineDate] = useState('');
   const [timelineSelection, setTimelineSelection] = useState<string[]>();
   const [mailDelivery, setMailDelivery] = useState<string>();
   const [failedDelivery, setFailedDelivery] = useState<string>();
-  const cancelledMail = useRef(false);
+  const mailRequest = useRef<AbortController>();
+  const draftSource = useRef<Entry>();
+  const recordsView = useRef<HTMLDivElement>(null);
+  const listScrollTop = useRef(0);
+  useEffect(() => () => mailRequest.current?.abort(), []);
   const [activeRecordId, setActiveRecordId] = useState<string>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
@@ -342,13 +346,45 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     }
     finally { operationRef.current = false; setWorking(false); }
   };
-  const save = async (entry: Entry) => {
-    await change(current => ({
-      ...current,
-      entries: current.entries.some(item => item.id === entry.id)
+  useEffect(() => {
+    if (!backHandler) return;
+    backHandler.current = () => {
+      if (mailRequest.current && !mailRequest.current.signal.aborted) {
+        mailRequest.current.abort();
+        return true;
+      }
+      if (operationRef.current) return true;
+      if (draft) { setDraft(undefined); return true; }
+      if (replyDraft) { setReplyDraft(undefined); return true; }
+      if (earlyId) { setEarlyId(undefined); return true; }
+      if (activeRecordId) { setActiveRecordId(undefined); return true; }
+      return false;
+    };
+    return () => { backHandler.current = undefined; };
+  }, [activeRecordId, backHandler, draft, earlyId, replyDraft]);
+  useEffect(() => {
+    if (activeRecordId && !draft && !bond.entries.some(item => item.id === activeRecordId)) {
+      setActiveRecordId(undefined);
+      setReplyDraft(undefined);
+      setEarlyId(undefined);
+    }
+  }, [activeRecordId, bond.entries, draft]);
+  useLayoutEffect(() => {
+    recordsView.current?.closest('.couple-main')?.scrollTo({ top: draft || activeRecordId ? 0 : listScrollTop.current });
+  }, [activeRecordId, draft?.id]);
+  const rememberListPosition = () => {
+    listScrollTop.current = recordsView.current?.closest('.couple-main')?.scrollTop ?? 0;
+  };
+  const save = async (entry: Entry, expected?: Entry, signal?: AbortSignal) => {
+    await change(current => {
+      if (signal?.aborted) return current;
+      const stored = current.entries.find(item => item.id === entry.id);
+      if (expected && (!stored || JSON.stringify(stored) !== JSON.stringify(expected)))
+        throw new Error('这条记录已在别处修改或删除，请返回列表重新打开');
+      return { ...current, entries: stored
         ? current.entries.map(item => item.id === entry.id ? entry : item)
-        : [...current.entries, entry],
-    }));
+        : [...current.entries, entry] };
+    });
   };
   const rows = bond.entries.filter(item => item.kind === kind)
     .filter(item => {
@@ -375,9 +411,9 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     unlockDate: kind === 'capsule' ? capsuleDate(1) : undefined,
     wishCategory: kind === 'wish' && filter !== 'all' ? filter as Entry['wishCategory'] : undefined,
   });
-  const generated = async () => {
-    const content = (await generate(roleInstruction)).trim();
-    if (kind === 'mail' && cancelledMail.current) return;
+  const generated = async (signal?: AbortSignal) => {
+    const content = (await generate(roleInstruction, signal)).trim();
+    if (signal?.aborted) return;
     if (!content) throw new Error('角色没有生成可保存的内容，请重试');
     const [first, ...rest] = content.split('\n').filter(line => line.trim());
     const entry = { ...newEntry(), side: 'them' as const };
@@ -393,7 +429,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       await save({ ...entry, title: kind === 'diary' ? '今日记事' : recordNames[kind], body: content });
       return;
     }
-    await save({ ...entry, title: first, body: rest.join('\n') });
+    await save({ ...entry, title: first, body: rest.join('\n') }, undefined, signal);
   };
   const backfillTimeline = (date: string) => void run(async () => {
     if (!generateTimeline) return;
@@ -422,32 +458,32 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
     notify?.(added ? `已补全 ${added} 条回忆` : '这批回忆已经收录');
   });
   const deliverMail = (delivery: string) => void run(async () => {
-    cancelledMail.current = false;
+    const controller = new AbortController();
+    mailRequest.current = controller;
+    const { signal } = controller;
     setMailDelivery(delivery);
     setFailedDelivery(undefined);
     const item = bond.entries.find(row => row.id === delivery && row.kind === 'mail');
     try {
-      if (delivery === 'incoming') await generated();
+      if (delivery === 'incoming') await generated(signal);
       else if (delivery === 'postman') {
-        const result = extractJson(await generate('时光邮递员要送出一张默契问答卡。以角色身份给一个适合双方独立回答的开放问题和你自己的答案。只输出 JSON {"question":"问题","answer":"角色自己的答案"}。'));
+        const result = extractJson(await generate('时光邮递员要送出一张默契问答卡。以角色身份给一个适合双方独立回答的开放问题和你自己的答案。只输出 JSON {"question":"问题","answer":"角色自己的答案"}。', signal));
         const question = typeof result?.question === 'string' ? result.question.trim() : '';
         const answer = typeof result?.answer === 'string' ? result.answer.trim() : '';
         if (!question || !answer) throw new Error('邮递员没有带回完整的问答，请重试');
-        if (!cancelledMail.current) await save({ ...createEntry('mail', question.slice(0, 140), answer.slice(0, 10000), 'them'), mailMode: 'postman' });
+        await save({ ...createEntry('mail', question.slice(0, 140), answer.slice(0, 10000), 'them'), mailMode: 'postman' }, undefined, signal);
       } else if (item) {
-        const reply = (await generate(`请以角色身份回复时光信箱的问题。先独立作答，再考虑是否回应信中正文。\n主题：${item.title}\n正文：${item.body}`)).trim();
+        const reply = (await generate(`请以角色身份回复时光信箱的问题。先独立作答，再考虑是否回应信中正文。\n主题：${item.title}\n正文：${item.body}`, signal)).trim();
         if (!reply) throw new Error('回信没有内容，请重试');
-        if (!cancelledMail.current) await change(current => ({
-          ...current, entries: current.entries.map(row => row.id === item.id && row.body === item.body && row.title === item.title
-            ? { ...row, reply } : row),
-        }));
+        await save({ ...item, reply }, item, signal);
       }
     } catch (error) {
-      if (!cancelledMail.current) {
+      if (!signal.aborted) {
         setFailedDelivery(delivery);
         throw error;
       }
     } finally {
+      mailRequest.current = undefined;
       setMailDelivery(undefined);
     }
   });
@@ -608,17 +644,14 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       }} /> 允许角色在私聊后悄悄留下心事
     </label></div></details>);
   const deliveryStatus = (mailDelivery || failedDelivery) && <div className="couple-actions couple-record-tools" role="status">
-    {mailDelivery ? <><span>信件正在寄送</span><button type="button" disabled={cancelledMail.current} onClick={() => {
-      cancelledMail.current = true;
-      abortGenerate?.();
-    }}>取消寄送</button></> : <button type="button" disabled={working || busy} onClick={() => deliverMail(failedDelivery!)}>重新寄送</button>}
+    {mailDelivery ? <><span>信件正在寄送</span><button type="button" onClick={() => mailRequest.current?.abort()}>取消寄送</button></> : <button type="button" disabled={working || busy} onClick={() => deliverMail(failedDelivery!)}>重新寄送</button>}
   </div>;
   const sceneTools = kind === 'timeline' ? <div className="couple-record-tools">
     <div className="couple-segments" aria-label="时间轴视图">
       <button type="button" aria-pressed={filter !== 'handbook'} onClick={() => setFilter('all')}>旅程</button>
       <button type="button" aria-pressed={filter === 'handbook'} onClick={() => setFilter('handbook')}>手账</button>
     </div>
-    {generateTimeline && <details><summary>从聊天补全回忆</summary><div className="couple-actions">
+    {generateTimeline && <details><summary>从聊天补全回忆</summary><p>也会参考已开放的日度总结。</p><div className="couple-actions">
       <label>指定日期 <input type="date" value={timelineDate} onChange={event => setTimelineDate(event.target.value)}/></label>
       <button type="button" disabled={working || busy || !timelineDate} onClick={() => backfillTimeline(timelineDate)}>补全当天</button>
       <button type="button" disabled={working || busy} onClick={() => backfillTimeline('*')}>批量补全近期</button>
@@ -650,14 +683,25 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   </div> : kind === 'mail' ? <div className="couple-record-tools">
     <div className="couple-actions"><button type="button" disabled={working || busy} onClick={() => deliverMail('postman')}>请时光邮递员投递问答</button></div>
     {deliveryStatus}
+    {bond.entries.some(row => row.kind === 'mail') && <details>
+      <summary>管理信件</summary>
+      <div className="couple-actions"><button type="button" disabled={working || busy} onClick={() => {
+        const ids = new Set(bond.entries.filter(row => row.kind === 'mail').map(row => row.id));
+        if (!window.confirm(`永久删除信箱里的 ${ids.size} 封信件？`)) return;
+        void run(async () => {
+          await change(current => ({ ...current, entries: current.entries.filter(row => row.kind !== 'mail' || !ids.has(row.id)) }));
+          setFailedDelivery(undefined);
+        });
+      }}>清空时光信箱</button></div>
+    </details>}
   </div> : undefined;
-  return <div className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
+  return <div ref={recordsView} className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
     {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
       filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length}
       diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs} tools={sceneTools}
-      onNew={() => setDraft(newEntry())} onAI={() => kind === 'mail' ? deliverMail('incoming') : void run(generated)} busy={working || busy}
-      onJump={id => { setActiveRecordId(id); setReplyDraft(undefined); document.querySelector('.couple-main')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+      onNew={() => { rememberListPosition(); draftSource.current = undefined; setDraft(newEntry()); }} onAI={() => kind === 'mail' ? deliverMail('incoming') : void run(generated)} busy={working || busy}
+      onJump={id => { rememberListPosition(); setActiveRecordId(id); setReplyDraft(undefined); }} />}
     {!draft && activeRecordId && <button type="button" className="couple-record-detail-back" onClick={() => { setActiveRecordId(undefined); setReplyDraft(undefined); }}>‹ 返回{recordNames[kind]}</button>}
     {error && <p role="alert" className="couple-error">{error}</p>}
     {draft && <form className={'couple-card couple-compose couple-compose-' + kind} onSubmit={event => {
@@ -666,7 +710,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         const title = draft.title.trim();
         if (!title) return;
         const record = { ...draft, title, body: draft.body.trim() };
-        await save(record);
+        await save(record, draftSource.current);
         if (kind === 'wish' && filter !== 'all' && (record.wishCategory ?? 'other') !== filter) setFilter('all');
         setDraft(undefined);
         setActiveRecordId(undefined);
@@ -727,28 +771,28 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
                 const position = { x: clamp((event.clientX - bounds.left) / bounds.width * 100), y: clamp((event.clientY - bounds.top) / bounds.height * 100) };
                 const stickerPositions = (item.stickers ?? []).map((_, i) => i === index ? position : item.stickerPositions?.[i] ??
                   { x: 12 + i % 6 * 14, y: 30 + Math.floor(i / 6) * 21 });
-                void run(() => save({ ...item, stickerPositions }));
+                void run(() => save({ ...item, stickerPositions }, item));
               }}>{sticker}</button>)}
           </div>}
           {item.reply && <p className="couple-reply">{names[item.side === 'me' ? 'them' : 'me']}回信 · {item.reply}</p>}
           {item.steps?.filter(step => step.text.trim()).map((step, index) => <label key={index}>
             <input type="checkbox" checked={step.done} disabled={working} onChange={event => {
               const done = event.target.checked;
-              void run(() => save({ ...item, steps: item.steps?.filter(value => value.text.trim()).map((value, i) => i === index ? { ...value, done } : value) }));
+              void run(() => save({ ...item, steps: item.steps?.filter(value => value.text.trim()).map((value, i) => i === index ? { ...value, done } : value) }, item));
             }} /> {step.text}
           </label>)}
           <div className="couple-actions">
-            {item.mailMode !== 'postman' && <button disabled={working} onClick={() => setDraft(item)}>编辑</button>}
-            {(kind === 'wish' || kind === 'hollow') && <button disabled={working} onClick={() => void run(() => save({ ...item, done: !item.done }))}>
+            {item.mailMode !== 'postman' && <button disabled={working} onClick={() => { draftSource.current = item; setDraft(item); }}>编辑</button>}
+            {(kind === 'wish' || kind === 'hollow') && <button disabled={working} onClick={() => void run(() => save({ ...item, done: !item.done }, item))}>
               {item.done ? '重新打开' : kind === 'wish' ? '标记完成' : '标记已解决'}
             </button>}
-            {kind === 'wish' && <button disabled={working} onClick={() => void run(() => save({ ...item, pinned: !item.pinned }))}>{item.pinned ? '取消置顶' : '置顶'}</button>}
-            {(kind === 'mail' || kind === 'diary' || kind === 'capsule') && <button disabled={working || busy} onClick={() => {
+            {kind === 'wish' && <button disabled={working} onClick={() => void run(() => save({ ...item, pinned: !item.pinned }, item))}>{item.pinned ? '取消置顶' : '置顶'}</button>}
+            {(kind === 'mail' || kind === 'diary' || kind === 'capsule') && !(item.mailMode === 'postman' && item.reply) && <button disabled={working || busy} onClick={() => {
               if (item.side === 'them') {
-                setReplyDraft({ id: item.id, text: item.reply ?? '' });
+                setReplyDraft({ id: item.id, text: item.reply ?? '', source: item });
               } else if (kind === 'mail') deliverMail(item.id);
-              else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }));
-            }}>{item.reply ? '重写回信' : '回信'}</button>}
+              else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }, item));
+            }}>{item.reply ? '重写回信' : item.mailMode === 'postman' ? '回答并揭晓' : '回信'}</button>}
             {(kind === 'mail' || kind === 'capsule') && share && (item.mailMode !== 'postman' || item.reply) && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
             <button disabled={working} onClick={() => {
               if (window.confirm('删除这条记录？')) void run(async () => {
@@ -764,12 +808,12 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
           event.preventDefault();
           const reply = replyDraft.text.trim();
           if (!reply) return;
-          void run(async () => { await save({ ...item, reply }); setReplyDraft(undefined); });
+          void run(async () => { await save({ ...replyDraft.source, reply }, replyDraft.source); setReplyDraft(undefined); });
         }}>
           <span>REPLY / {names.me}</span>
           <label>写给 {names.them}
             <textarea required maxLength={10000} value={replyDraft.text}
-              onChange={event => setReplyDraft({ id: item.id, text: event.target.value })}
+              onChange={event => setReplyDraft({ ...replyDraft, text: event.target.value })}
               placeholder="把想说的话写进这封回信……" />
           </label>
           <div className="couple-actions">
