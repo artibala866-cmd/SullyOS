@@ -315,7 +315,10 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
  if(kind==='diary') return <header className="couple-detail-diary"><span>DIARY / {entry.date}</span><h2>{entry.title}</h2><small>{names[entry.side]} · 写下这一页</small></header>;
  if(kind==='mail') return <header className="couple-detail-mail"><span>POSTMARK · {entry.date}</span><div className="couple-detail-mail-from"><small>FROM</small><strong>{names[entry.side]}</strong><small>TO</small><strong>{names[entry.side==='me'?'them':'me']}</strong></div><h2>{entry.title}</h2></header>;
  if(kind==='timeline') return <header className="couple-detail-timeline"><span>{entry.date.slice(5).replace('-',' / ')}</span><div><small>{entry.date.slice(0,4)} / MOMENT</small><h2>{entry.title}</h2></div></header>;
- if(kind==='wish') return <header className="couple-detail-wish"><div className="wish-detail-constellation" aria-hidden="true"><i/></div><span>{entry.done?'✧ 已点亮':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small>{(entry.wishCategory || entry.wishTag) &&
+ if(kind==='wish') return <header className="couple-detail-wish"><div className="wish-detail-constellation" aria-hidden="true"
+  style={{'--detail-wish-progress':(entry.done ? 100 : (entry.steps?.filter(step=>step.text.trim() && step.done).length ?? 0) / Math.max(1,(entry.steps??[]).filter(step=>step.text.trim()).length)*100)+'%'} as React.CSSProperties}>
+  <b className="wish-detail-progress"/><i/>
+</div><span>{entry.done?'✧ 已点亮':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small>{(entry.wishCategory || entry.wishTag) &&
    <small>{[entry.wishCategory && wishCategories[entry.wishCategory], entry.wishTag && wishTags[entry.wishTag]].filter(Boolean).join(' · ')}</small>}</header>;
  if(kind==='gift') return <header className="couple-detail-gift"><div className="couple-detail-gift-photo">{entry.image?<TokenImg value={entry.image} alt={entry.title}/>:<span>FOR YOU</span>}</div><div><small>GIFT / {entry.date}</small><h2>{entry.title}</h2><span>FROM {names[entry.side]}</span></div></header>;
  if(kind==='capsule') return <header className="couple-detail-capsule"><span className="couple-detail-capsule-stamp">◉</span><small>{entry.opened?'OPENED':'SEALED'} · {entry.date}</small><h2>{entry.opened||entry.openedEarly?entry.title:'一封写给未来的信'}</h2><p>寄给 {names[entry.side==='me'?'them':'me']} · {entry.unlockDate||'未设置日期'}</p></header>;
@@ -740,7 +743,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       {renderComposePaper()}
       <div className="couple-compose-buttons">
         <button className="couple-primary" disabled={working}>{({
-          timeline: '收藏这一刻', anniversary: '记住这一天', diary: '合上这页日记', wish: '贴上愿望纸',
+          timeline: '收藏这一刻', anniversary: '记住这一天', diary: '合上这页日记', wish: '放入愿望星图',
           gift: '收藏这份心意', mail: '把信寄出去', capsule: '封进时间胶囊', hollow: '收进我的树洞',
         } as Record<EntryKind, string>)[kind]}</button>
         <button type="button" onClick={() => setDraft(undefined)}>取消</button>
