@@ -925,6 +925,8 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   }, 30);
   const tools = ['手', '羽毛', '冰块', '绳子', '毛笔', '唇', '眼罩', '轻拍'];
   const props = [...tools, ...(bond.touchProps ?? [])];
+  const gestures = [["头发","摸摸头","像揉乱一缕发丝"],["脸颊","碰碰脸","靠近一点点"],["肩膀","拍拍肩","轻声回应"],["手","牵一下","把心意放进掌心"]] as const;
+
   const touch = (bodyPart: string) => run(async () => {
     const key = `${prop}:${bodyPart}`;
     const text = bond.touchLines?.[key] ?? await generate(
@@ -932,15 +934,94 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     );
     await change(current => reward({
       ...current, touches: current.touches + 1, touchLines: { ...current.touchLines, [key]: text },
-    }, `touch:${dayKey()}`, 5));
-    setReaction(text);
-    setVoice('');
-    if (bond.touches >= 3) setClosePose(true);
-  });
-  return <section className={'couple-touch-room' + (full ? ' couple-touch-full' : '')}>
-    <div className="couple-touch-heading"><span>TOUCH STUDIO</span><strong>给 TA 的一点点靠近</strong><p>轻点立绘，选择互动方式，等待真实回应。</p></div>
-    <div className="couple-actions">
-      <button onClick={() => setFull(!full)}>{full ? '退出全屏' : '全屏'}</button>
+    }, `t  return <section className={'couple-touch-room couple-touch-experience' + (full ? ' couple-touch-full' : '')}>
+    <div className="couple-touch-intro">
+      <div><span>JUST A LITTLE CLOSER</span><h2>靠近一点点</h2><p>不必先设置什么，轻触 TA 就好。</p></div>
+      <button type="button" className="couple-touch-focus" aria-pressed={full} onClick={() => setFull(!full)}>
+        {full ? '收起画面' : '沉浸画面'}
+      </button>
+    </div>
+    <div className={'couple-touch-stage' + (pressed ? ' couple-touch-stage-pressed' : '')}>
+      <span className="couple-touch-stage-glow" aria-hidden="true"/>
+      <span className="couple-touch-stage-whisper" aria-hidden="true">JUST YOU &amp; ME</span>
+      <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : '')}>
+      {displayImage ? <div className="couple-touch-image"><TokenImg value={displayImage} alt={char.name} draggable={false}
+        onLoad={event => { portraitImage.current = event.currentTarget; }}
+        onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
+        onPointerDown={event => {
+          startPoint.current = { x: event.clientX, y: event.clientY, rect: event.currentTarget.getBoundingClientRect() };
+          if (!busy && !calibration && displayImage) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setPressed(true);
+          }
+        }}
+        onPointerCancel={() => { startPoint.current = undefined; setPressed(false); }}
+        onLostPointerCapture={() => { startPoint.current = undefined; setPressed(false); }}
+        onPointerUp={event => {
+          setPressed(false);
+          const start = startPoint.current;
+          startPoint.current = undefined;
+          if (!displayImage || busy || !start || Math.hypot(start.x - event.clientX, start.y - event.clientY) > 12) return;
+          const rect = start.rect;
+          const x = (event.clientX - rect.left) / rect.width;
+          const y = (event.clientY - rect.top) / rect.height;
+          if (x < 0 || x > 1 || y < 0 || y > 1) return;
+          if (calibration) {
+            run(async () => {
+              await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, [calibration]: { x: x * 100, y: y * 100 } } }));
+              setCalibration(undefined);
+            });
+            return;
+          }
+          const part = resolveAvatarTouchTarget([], y, x).part;
+          touch(part === 'hair' ? '头发' : part === 'face' ? '脸颊' : avatarTouchPartLabel(part));
+        }} />
+        {portrait && !calibration && !pressed && displayImage === portrait && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
+        const point = bond.touchCalibration![part];
+        return <button key={part} type="button" className="couple-hotspot"
+          style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;
+      })}
+      </div> : <div className="couple-portrait-empty">
+        <HandHeart size={24} weight="duotone" aria-hidden />
+        <span>选一张立绘，或直接使用下方的部位按钮。</span>
+      </div>}
+    </div>
+    
+      <div className="couple-touch-response" aria-live="polite">
+        {reaction ? <>
+          <span>{char.name} 说</span>
+          <p>{reaction}</p>
+          {voice ? <audio src={voice} controls autoPlay /> : <button type="button" disabled={busy} onClick={() => run(async () => {
+            const { synthesizeSpeech } = await import('../utils/ttsRouter');
+            setVoice(await synthesizeSpeech(reaction, char, apiConfig));
+          })}>听听 TA 的声音 <span aria-hidden="true">▷</span></button>}
+        </> : <>
+          <span>THE LITTLE MOMENT</span>
+          <p>{displayImage ? '点一点画面，看看 TA 会有什么反应。' : '从这里开始，和 TA 说说心里的话。'}</p>
+        </>}
+      </div>
+    </div>
+    <div className="couple-touch-interaction">
+      <div className="couple-touch-interaction-head"><strong>想怎么靠近？</strong><span>轻轻的就好</span></div>
+      <div className="couple-touch-gesture-grid" role="group" aria-label="贴贴动作">
+        {gestures.map(([part, title, detail]) => <button key={part} type="button" disabled={busy || !!calibration}
+          onClick={() => touch(part)}>
+          <strong>{title}</strong><small>{detail}</small><span aria-hidden="true">↗</span>
+        </button>)}
+      </div>
+      <div className="couple-touch-tool-label"><span>换一种方式</span><small>向左滑动查看更多</small></div>
+      <div className="couple-touch-tools-scroll" role="group" aria-label="互动道具" tabIndex={0}>
+        {props.map((item, index) => {
+          const locked = index < tools.length && index > Math.floor(bond.touches / 4);
+          return <button key={item} type="button" aria-pressed={prop === item}
+            disabled={busy || locked} onClick={() => setProp(item)}>{item}{locked && <small>未解锁</small>}</button>;
+        })}
+      </div>
+    </div>
+    <details className="couple-touch-customization">
+      <summary><span><strong>布置我们的角落</strong><small>立绘、差分、音乐和触碰位置</small></span><span aria-hidden="true">⌄</span></summary>
+      <div className="couple-touch-custom-content">
+        <div className="couple-actions couple-touch-asset-actions">
       <button disabled={busy} onClick={() => run(async () => {
         const pose = window.prompt('想让角色用什么姿势？', '自然站立');
         if (pose === null) return;
@@ -1029,7 +1110,8 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
         <button disabled={busy} onClick={() => run(() => change(current => ({ ...current, touchBgm: undefined })))}>移除音乐</button>
       </div>}
     </details>
-    {portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
+    
+        {portrait && <label>触摸点校准<select value={calibration ?? ''} disabled={busy} onChange={event => setCalibration(event.target.value || undefined)}>
       <option value="">按立绘位置识别</option>{anchorZones.map(part => <option key={part} value={part}>校准{part}</option>)}
     </select></label>}
     {portrait && <div className="couple-actions"><button type="button" disabled={busy || pressed || closePose} onClick={() => run(async () => {
@@ -1039,69 +1121,18 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
       await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, ...anchors } }));
       setCalibration(undefined);
     })}>自动校准面部</button>{closePose && <button type="button" onClick={() => setClosePose(false)}>回到初始立绘</button>}</div>}
-    <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : '')}>
-      {displayImage ? <div className="couple-touch-image"><TokenImg value={displayImage} alt={char.name} draggable={false}
-        onLoad={event => { portraitImage.current = event.currentTarget; }}
-        onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
-        onPointerDown={event => {
-          startPoint.current = { x: event.clientX, y: event.clientY, rect: event.currentTarget.getBoundingClientRect() };
-          if (!busy && !calibration && portrait) {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setPressed(true);
-          }
-        }}
-        onPointerCancel={() => { startPoint.current = undefined; setPressed(false); }}
-        onLostPointerCapture={() => { startPoint.current = undefined; setPressed(false); }}
-        onPointerUp={event => {
-          setPressed(false);
-          const start = startPoint.current;
-          startPoint.current = undefined;
-          if (!portrait || busy || !start || Math.hypot(start.x - event.clientX, start.y - event.clientY) > 12) return;
-          const rect = start.rect;
-          const x = (event.clientX - rect.left) / rect.width;
-          const y = (event.clientY - rect.top) / rect.height;
-          if (x < 0 || x > 1 || y < 0 || y > 1) return;
-          if (calibration) {
-            run(async () => {
-              await change(current => ({ ...current, touchCalibration: { ...current.touchCalibration, [calibration]: { x: x * 100, y: y * 100 } } }));
-              setCalibration(undefined);
-            });
-            return;
-          }
-          const part = resolveAvatarTouchTarget([], y, x).part;
-          touch(part === 'hair' ? '头发' : part === 'face' ? '脸颊' : avatarTouchPartLabel(part));
-        }} />
-        {portrait && !calibration && !pressed && displayImage === portrait && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
-        const point = bond.touchCalibration![part];
-        return <button key={part} type="button" className="couple-hotspot"
-          style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;
-      })}
-      </div> : <div className="couple-portrait-empty">
-        <HandHeart size={24} weight="duotone" aria-hidden />
-        <span>选一张立绘，或直接使用下方的部位按钮。</span>
-      </div>}
-    </div>
-    {portrait && <small>{calibration ? `点一下立绘上的${calibration}` : '轻点立绘，或用下方部位按钮互动。'}</small>}
-    <div className="couple-actions">
-      {props.map((item, index) => <button key={item} aria-pressed={prop === item}
-        disabled={busy || index < tools.length && index > Math.floor(bond.touches / 4)} onClick={() => setProp(item)}>
-        {item}{index < tools.length && index > Math.floor(bond.touches / 4) ? ' · 未解锁' : ''}
-      </button>)}
-      <button disabled={busy} onClick={() => {
+    
+        <div className="couple-touch-custom-row"><button disabled={busy} onClick={() => {
         const name = window.prompt('自订道具名称')?.trim().slice(0, 35);
         if (!name || tools.includes(name)) return;
         run(() => change(current => ({ ...current, touchProps: [...new Set([...(current.touchProps ?? []), name])] })));
-      }}>自订道具</button>
-    </div>
-    {!calibration && <div className="couple-actions" aria-label="触碰部位">{zones.map(part =>
-      <button key={part} disabled={busy} onClick={() => touch(part)}>{part}</button>)}</div>}
-    {reaction && <><p aria-live="polite">{reaction}</p>
-      {voice ? <audio src={voice} controls autoPlay /> : <button disabled={busy} onClick={() => run(async () => {
-        const { synthesizeSpeech } = await import('../utils/ttsRouter');
-        setVoice(await synthesizeSpeech(reaction, char, apiConfig));
-      })}>播放角色语音</button>}</>}
-    <div className="couple-actions"><button disabled={busy || !Object.keys(bond.touchLines ?? {}).length} onClick={() => {
+      }}>自订道具</button></div>
+        <div className="couple-actions"><button disabled={busy || !Object.keys(bond.touchLines ?? {}).length} onClick={() => {
       run(() => change(current => ({ ...current, touchLines: {} })));
+      setReaction('');
+    }}>清空已生成台词</button></div>
+      </div>
+    </details>  run(() => change(current => ({ ...current, touchLines: {} })));
       setReaction('');
     }}>清空已生成台词</button></div>
   </section>;
