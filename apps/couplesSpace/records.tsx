@@ -214,7 +214,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   }
   if(kind==='timeline'){
     return <div className="couple-scene couple-scene-timeline">
-      <div className="couple-timeline-cover"><span>THE STORY SO FAR</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div>
+      <div className="couple-timeline-cover"><span aria-label="我们走过的时间">✦</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div>
         <button type="button" className="couple-timeline-ask" disabled={busy} onClick={onAI}>让 {names.them} 讲述 ↗</button>
       </div>
       {tools}
@@ -233,7 +233,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   if(kind==='wish'){
     const done=bond.entries.filter(row=>row.kind==='wish' && row.done).length;
     return <div className="couple-scene couple-scene-wish">
-      <div className="couple-wish-header"><div><span>OUR BUCKET LIST</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {totalRecords}</small></strong><span>已完成</span></div></div>
+      <div className="couple-wish-header"><div><span aria-hidden="true">✧</span><h2>想和你一起做的事</h2></div><div className="couple-wish-ratio"><strong>{done}<small> / {totalRecords}</small></strong><span>已完成</span></div></div>
       {totalRecords > 0 && <label className="couple-wish-filter">筛选愿望
         <select value={filter} onChange={event => onFilter(event.target.value)}>
           <option value="all">全部分类</option>
@@ -258,7 +258,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   }
   if(kind==='gift'){
     return <div className="couple-scene couple-scene-gift">
-      <div className="couple-gift-counter"><span>THE THOUGHTFUL THINGS</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
+      <div className="couple-gift-counter"><span aria-hidden="true">✧</span><strong>礼物收藏室</strong><small>{total} 份被认真收藏的心意</small></div>
       <div className="couple-gift-pedestal"><span className="couple-gift-pedestal-light"/>
         {rows.length ? <button type="button" className="couple-gift-pedestal-stage" aria-label={`查看礼物：${rows[0].title}`} onClick={()=>onJump(rows[0].id)}>
           {rows[0].image?<TokenImg value={rows[0].image} alt={rows[0].title}/>:<span className="couple-gift-display-box"><i/></span>}
@@ -279,7 +279,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   if(kind==='capsule'){
     const ready=bond.entries.filter(item=>item.kind==='capsule' && capsuleStatus(item,today)==='ready').length;
     return <div className="couple-scene couple-scene-capsule">
-      <div className="couple-capsule-vault"><span className="couple-capsule-top">DO NOT OPEN UNTIL</span>
+      <div className="couple-capsule-vault"><span className="couple-capsule-top" aria-hidden="true">⌛</span>
         <div className="couple-capsule-lock"><i/><strong>{ready}</strong><small>封可开启</small></div>
         <strong>寄给未来的我们</strong><span className="couple-capsule-foot">{totalRecords} 个时间约定</span>
         <button type="button" className="couple-capsule-new" disabled={busy} onClick={onNew}>＋ 放进一封给未来的信</button>
@@ -686,7 +686,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
       }} /></label>
       </div>
     </details>);
-  const hollowPrefs = (<details className="couple-hollow-pref-fold"><summary>心事设置 <span>⌄</span></summary><div className="couple-hollow-pref-interior"><label>
+  const hollowPrefs = (<details className="couple-hollow-pref-fold"><summary aria-label="树洞设置" title="树洞设置"><span aria-hidden="true">⚙</span></summary><div className="couple-hollow-pref-interior"><label>
       <input type="checkbox" checked={!!bond.hollowAuto} disabled={working} onChange={event => {
         const hollowAuto = event.target.checked;
         void run(() => change(current => ({ ...current, hollowAuto })));
