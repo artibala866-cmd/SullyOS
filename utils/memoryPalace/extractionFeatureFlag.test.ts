@@ -4,7 +4,8 @@ import type { Message } from '../../types';
 import { safeFetchJson } from '../safeApi';
 import { extractMemoriesFromBuffer } from './extraction';
 
-vi.mock('../safeApi', () => ({
+vi.mock('../safeApi', async (importOriginal) => ({
+    ...await importOriginal<typeof import('../safeApi')>(),
     safeFetchJson: vi.fn(),
 }));
 
@@ -68,6 +69,41 @@ describe('memory extraction smart-context compatibility gate', () => {
         expect(prompt).not.toContain('明确实体');
         expect(prompt).not.toContain('"entities"');
         expect(Object.prototype.hasOwnProperty.call(result.memories[0], 'entities')).toBe(false);
+    });
+
+    it('reports API errors instead of pretending a failed extraction is empty', async () => {
+        mockedSafeFetchJson.mockRejectedValueOnce(new Error('API Error 401: invalid credentials'));
+        await expect(extractMemoriesFromBuffer(
+            messages, 'char-extraction-flags', '测试角色', llmConfig, undefined, '用户',
+        )).rejects.toThrow('API Error 401');
+    });
+
+    it('rejects malformed summaries but permits a deliberate empty JSON array', async () => {
+        mockedSafeFetchJson.mockResolvedValueOnce({
+            choices: [{ message: { content: '这不是 JSON 总结' }, finish_reason: 'length' }],
+        } as any);
+        await expect(extractMemoriesFromBuffer(
+            messages, 'char-extraction-flags', '测试角色', llmConfig, undefined, '用户',
+        )).rejects.toThrow('无法解析为记忆 JSON');
+
+        mockedSafeFetchJson.mockResolvedValueOnce({
+            choices: [{ message: { content: '```json\\n[]\\n```' } }],
+        } as any);
+        const empty = await extractMemoriesFromBuffer(
+            messages, 'char-extraction-flags', '测试角色', llmConfig, undefined, '用户',
+        );
+        expect(empty.memories).toEqual([]);
+    });
+
+    it('accepts OpenAI-compatible text parts rather than only string message content', async () => {
+        const reply = extractionReply();
+        mockedSafeFetchJson.mockResolvedValueOnce({
+            choices: [{ message: { content: [{ type: 'text', text: reply.choices[0].message.content }] } }],
+        } as any);
+        const result = await extractMemoriesFromBuffer(
+            messages, 'char-extraction-flags', '测试角色', llmConfig, undefined, '用户',
+        );
+        expect(result.memories).toHaveLength(1);
     });
 
     it('adds and stores entities only after recallRouter is enabled', async () => {
