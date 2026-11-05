@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { DiaryEntry } from '../../types';
 import { DB } from '../../utils/db';
 import type { Bond, Entry, EntryKind, Side } from '../../utils/couplesSpace';
-import { capsuleDate, capsuleStatus, createEntry, dayKey, timelineTags, wishCategories, wishTags } from '../../utils/couplesSpace';
+import { capsuleDate, capsuleStatus, createEntry, dayKey, pickHollowPaper, timelineTags, wishCategories, wishTags } from '../../utils/couplesSpace';
 import { extractJson } from '../../utils/safeApi';
 import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
@@ -74,6 +74,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   const [hollowShaking, setHollowShaking] = useState(false);
   const [hollowEmpty, setHollowEmpty] = useState(false);
   const hollowShakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastHollowPaperId = useRef<string>();
   const hollowEmptyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (hollowShakeTimer.current !== null) clearTimeout(hollowShakeTimer.current);
@@ -85,11 +86,9 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     if (hollowEmptyTimer.current !== null) clearTimeout(hollowEmptyTimer.current);
     setHollowEmpty(false);
     setHollowShaking(true);
-    // Preserve the existing character-note draw preference; when there is no
-    // unread character note, draw from the owner's existing notes.
-    const unread = rows.filter(item => !item.done && item.side === 'them');
-    const pool = unread.length ? unread : rows;
-    const chosen = pool.length ? pool[Math.floor(Math.random() * pool.length)] : undefined;
+    // Draw an existing paper locally; never request a character reply here.
+    const chosen = pickHollowPaper(rows, lastHollowPaperId.current);
+    if (chosen) lastHollowPaperId.current = chosen.id;
     hollowShakeTimer.current = setTimeout(() => {
       hollowShakeTimer.current = null;
       setHollowShaking(false);
