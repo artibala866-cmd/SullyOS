@@ -8,7 +8,7 @@
 import type { Message } from '../../types';
 import type { MemoryEntity, MemoryNode, MemoryRoom } from './types';
 import type { LightLLMConfig } from './pipeline';
-import { safeFetchJson } from '../safeApi';
+import { safeFetchJson, extractContent } from '../safeApi';
 import { safeParseJsonArray } from './jsonUtils';
 import { buildSARMemoryBoundaryInstruction, formatMessageForPrompt } from '../messageFormat';
 import { readRecallRuntimeSnapshot } from './trace';
@@ -488,11 +488,20 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
             2, 180_000, { appName: '记忆宫殿', purpose: '记忆提取' }
         );
 
-        const reply = data.choices?.[0]?.message?.content || '';
+        // Different OpenAI-compatible providers may return content as text parts,
+        // or wrap a reasoning model's final answer in a non-string message field.
+        const reply = extractContent(data);
+        if (!reply) {
+            const finishReason = data?.choices?.[0]?.finish_reason;
+            throw new Error(`副 API 没有返回总结正文${finishReason ? `（finish_reason: ${finishReason}）` : ''}，请检查模型输出及额度`);
+        }
         const parsed = safeParseJsonArray(reply);
-
-        if (parsed.length === 0 && reply.trim().length > 0) {
-            console.warn(`🏰 [Extraction] LLM 返回了内容但 JSON 解析为空数组，可能格式异常。原始回复前200字: ${reply.slice(0, 200)}`);
+        // [] is valid when the conversation has no lasting memories.
+        // Malformed, truncated or non-JSON responses must be failures, not fake empty summaries.
+        const explicitlyEmpty = /^\\s*(?:```(?:json)?\\s*)?\\[\\s*\\](?:\\s*```)?\\s*$/i.test(reply);
+        if (parsed.length === 0 && !explicitlyEmpty) {
+            const finishReason = data?.choices?.[0]?.finish_reason;
+            throw new Error(`副 API 返回的总结无法解析为记忆 JSON${finishReason ? `（finish_reason: ${finishReason}）` : ''}，请检查模型输出格式或长度`);
         }
 
         console.log(`🏰 [Extraction] 缓冲区提取完成：从 ${messages.length} 条消息中提取 ${parsed.length} 条记忆`);
@@ -549,8 +558,9 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
         return { memories, crossTimeLinks, eventBoxHints, unpinIds, corrections };
 
     } catch (err: any) {
-        if (llmConfig.deferPlateMaintenance) throw err;
         console.error(`❌ [Extraction] 缓冲区提取失败 (${messages.length} 条消息):`, err.message);
-        return { memories: [], crossTimeLinks: [], eventBoxHints: [], unpinIds: [], corrections: [] };
+        // Bubble the failure to the batch coordinator. Returning [] here incorrectly marks
+        // a failed HTTP/JSON request as a successful empty extraction, losing retryability.
+        throw err;
     }
 }
