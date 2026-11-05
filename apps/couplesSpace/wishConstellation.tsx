@@ -17,18 +17,10 @@ type WishConstellationProps = {
   onOpen: (id: string) => void;
   onToggleDone: (entry: Entry) => void;
 };
+/* Only saved wishes become stars. Five widely spaced wishes per view keep titles legible on phones. */
 const STAR_POSITIONS = [
-  {x:72,y:121},{x:168,y:75},{x:298,y:146},{x:323,y:285},
-  {x:208,y:343},{x:76,y:329},{x:133,y:461},{x:298,y:439},
+  {x:88,y:112},{x:277,y:141},{x:160,y:255},{x:289,y:376},{x:86,y:413},
 ];
-/* Unlabelled ambient hearts express the space, never pretend to be saved wishes. */
-const quietHearts = [
-  {x:31,y:75,s:.45},{x:106,y:43,s:.34},{x:268,y:43,s:.48},{x:348,y:82,s:.32},
-  {x:363,y:206,s:.43},{x:237,y:184,s:.41},{x:128,y:220,s:.35},{x:43,y:248,s:.54},
-  {x:19,y:388,s:.39},{x:247,y:262,s:.53},{x:290,y:362,s:.32},{x:360,y:405,s:.48},
-  {x:234,y:470,s:.40},{x:64,y:470,s:.44},{x:202,y:120,s:.31},{x:154,y:385,s:.32},
-];
-const heartShape = 'M 0 -7 C -12 -22 -31 -8 -24 9 C -18 22 -5 26 0 32 C 5 26 18 22 24 9 C 31 -8 12 -22 0 -7 Z';
 const PAGE_SIZE = STAR_POSITIONS.length;
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 function stepCompletion(item: Entry) {
@@ -38,8 +30,8 @@ function stepCompletion(item: Entry) {
 function linesForStars(stars: Entry[]) {
   return stars.slice(1).map((item,i) => {
     const from=STAR_POSITIONS[i], to=STAR_POSITIONS[i+1];
-    const middleX=(from.x+to.x)/2+(i%2 ? -20 : 16);
-    const middleY=(from.y+to.y)/2-18;
+    const middleX=(from.x+to.x)/2;
+    const middleY=(from.y+to.y)/2+(i%2 ? -8 : 8);
     return {id:stars[i].id+'-'+item.id,lit:!!(stars[i].done&&item.done),
       path:`M ${from.x} ${from.y} Q ${middleX} ${middleY} ${to.x} ${to.y}`};
   });
@@ -100,7 +92,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
       
       <div className="wish-universe-heading-main"><h2>愿望清单</h2><div className="wish-universe-tally">
         <strong>{String(finished).padStart(2,'0')}</strong><span> / {String(allCount).padStart(2,'0')}</span></div></div>
-      <div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span><span>已实现 {finished} / {allCount}</span></div>
+      <div className="wish-universe-heading-bottom"><span>{names.me} <i>×</i> {names.them}</span><span>每一颗星，都是一个真实的愿望</span></div>
     </header>
 
     <div className="wish-universe-bar">
@@ -115,26 +107,6 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
     {view==='sky' ? <div className="wish-universe-field" onTouchStart={onTouchStart}
       onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       onTouchCancel={()=>{touch.current=null;setDrag(0);}}>
-      <svg className="wish-universe-heartspace" viewBox="0 0 380 520" preserveAspectRatio="none" aria-hidden="true">
-        <defs><linearGradient id="wish-thread" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f5f5f5" stopOpacity=".11"/>
-          <stop offset="43%" stopColor="#fafafa" stopOpacity=".60"/>
-          <stop offset="100%" stopColor="#f5f5f5" stopOpacity=".19"/>
-        </linearGradient></defs>
-        <g className="wish-universe-threads">
-          <path d="M31 75 Q 85 3 106 43 T202 120 T298 146 T363 206 T290 362 T360 405"/>
-          <path d="M43 248 Q 58 170 128 220 T247 262 T290 362 T234 470"/>
-          <path d="M19 388 Q 68 274 154 385 T234 470 T360 405"/>
-          <path d="M64 470 Q 35 375 76 329 T247 262 T237 184 T268 43"/>
-          
-        </g>
-        <g className="wish-universe-tiny-hearts">
-          {quietHearts.map((p,i)=><g key={i} transform={`translate(${p.x} ${p.y}) scale(${p.s})`}
-            style={{'--heart-delay':(i*-.39)+'s'} as React.CSSProperties}>
-            <path d={heartShape}/>
-          </g>)}
-        </g>
-      </svg>
       {stars.length>0 ? <div className={'wish-universe-plane'+(focused && stars.some(item=>item.id===focused.id)?' has-focus':'')} style={{transform:`translateX(${drag*.46}px)`}}>
         <svg className="wish-universe-connections" viewBox="0 0 380 500" preserveAspectRatio="none" aria-hidden="true">
           
@@ -150,21 +122,17 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
             disabled={busy} aria-pressed={selected} aria-label={item.title+'，'+(item.done?'已实现':'待实现')}
             onClick={()=>choose(item)}>
             <span className="wish-universe-star-field">
-              <svg className="wish-universe-heart-icon" viewBox="-31 -25 62 61" role="presentation">
-                <path className="wish-universe-heart-outline" d={heartShape}/>
-                <path className="wish-universe-heart-fill" d={heartShape}/>
-                <path className="wish-universe-heart-progress" d={heartShape} pathLength={100}
-                  style={{strokeDasharray:100,strokeDashoffset:100-stats.percent}}/>
-              </svg>
+              <span className="wish-universe-star-core" aria-hidden="true" />
+              <span className="wish-universe-star-ring" aria-hidden="true" />
             </span>
             <span className="wish-universe-star-title">{item.title}</span>
           </button>;
         })}
       </div> : <div className="wish-universe-empty">
-        <button type="button" className="wish-universe-first-star wish-universe-first-heart" disabled={busy} onClick={onNew} aria-label="许下第一个愿望">
-          <svg viewBox="-31 -25 62 61" aria-hidden="true"><path d={heartShape}/></svg>
+        <button type="button" className="wish-universe-first-star" disabled={busy} onClick={onNew} aria-label="许下第一个愿望">
+          <span className="wish-universe-first-core" aria-hidden="true"/>
         </button>
-        <div className="wish-universe-empty-hint">{filter==='all'?'轻触那颗心，留下第一个愿望':'这个星域还没有愿望'}</div>
+        <div className="wish-universe-empty-hint">{filter==='all'?'轻触光点，许下第一个愿望':'这个分类还没有愿望'}</div>
         {filter!=='all' && <button type="button" className="wish-universe-all" onClick={()=>onFilter('all')}>查看全部愿望</button>}
       </div>}
       {focused && stars.some(item=>item.id===focused.id) && <div className={'wish-universe-focus'+(focused.done?' is-done':'')} key={focused.id}>
