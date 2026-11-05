@@ -7,6 +7,7 @@ import { extractJson } from '../../utils/safeApi';
 import { processImage } from '../../utils/file';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import TokenImg from '../../components/os/TokenImg';
+import { TimelineCinema } from './timelineCinema';
 
 export const recordNames: Record<EntryKind, string> = {
   timeline: '牵绊时光', anniversary: '纪念日', diary: '交换日记', wish: '愿望清单',
@@ -211,24 +212,10 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
       </div>
     </div>;
   }
-  if(kind==='timeline'){
-    return <div className="couple-scene couple-scene-timeline">
-      <div className="couple-timeline-cover"><span aria-label="我们走过的时间">✦</span><strong>{names.me} <em>×</em> {names.them}</strong><p>一段关系的时间，不是数字，是有名字的瞬间。</p><div><b>{total}</b><span>个被珍藏的瞬间</span></div>
-        <button type="button" className="couple-timeline-ask" disabled={busy} onClick={onAI}>让 {names.them} 讲述 ↗</button>
-      </div>
-      {tools}
-      <div className={'couple-timeline-flow' + (filter === 'handbook' ? ' couple-timeline-handbook' : '')}><span className="couple-timeline-flow-label">{filter === 'handbook' ? 'HANDBOOK' : 'MOMENTS'} / {today.slice(0,4)}</span>
-        {rows.length ? rows.map((item,index)=><React.Fragment key={item.id}>
-          {filter === 'handbook' && rows[index - 1]?.date !== item.date && <time className="couple-timeline-day">{item.date}</time>}
-          <button type="button" onClick={()=>onJump(item.id)}><span className="couple-timeline-flow-date">{filter === 'handbook' ? item.time?.slice(0,5) || '·' : item.date.slice(5).replace('-','/')}</span><span className="couple-timeline-flow-dot"/><span><strong>{item.title}</strong><small>{[item.timelineTag, item.body || names[item.side]+' 记录'].filter(Boolean).join(' · ')}</small></span>{(item.images?.[0] || item.image) && <TokenImg value={(item.images?.[0] || item.image)!} alt="" />}</button>
-        </React.Fragment>)
-        : <div className="couple-timeline-first"><time>{bond.start}</time><span>故事从这一天开始</span></div>}
-        <button type="button" className="couple-timeline-add" disabled={busy} onClick={onNew}>
-          <span className="couple-timeline-flow-dot" aria-hidden="true"/>＋ 写下下一段故事
-        </button>
-      </div>
-    </div>;
-  }
+  if (kind === 'timeline') return <TimelineCinema
+    bond={bond} names={names} rows={rows} today={today} filter={filter}
+    busy={busy} tools={tools} onNew={onNew} onAI={onAI} onJump={onJump}
+  />;
   if(kind==='wish'){
     const done=bond.entries.filter(row=>row.kind==='wish' && row.done).length;
     return <div className="couple-scene couple-scene-wish">
