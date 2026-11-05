@@ -949,7 +949,7 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
     <div className={'couple-touch-stage' + (pressed ? ' couple-touch-stage-pressed' : '')}>
       <span className="couple-touch-stage-glow" aria-hidden="true"/>
       <span className="couple-touch-stage-whisper" aria-hidden="true">JUST YOU &amp; ME</span>
-      <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : '')}>
+      <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : displayImage ? ' couple-touch-avatar-only' : '')}>
       {displayImage ? <div className="couple-touch-image"><TokenImg value={displayImage} alt={char.name} draggable={false}
         onLoad={event => { portraitImage.current = event.currentTarget; }}
         onError={() => setFailedImages(current => [...new Set([...current, displayImage])])}
