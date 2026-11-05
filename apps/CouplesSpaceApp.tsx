@@ -978,7 +978,8 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
         }} />
         {portrait && !calibration && !pressed && displayImage === portrait && anchorZones.filter(part => bond.touchCalibration?.[part]).map(part => {
         const point = bond.touchCalibration![part];
-        return <button key={part} type="button" className="couple-hotspot"
+        return <button key={part} type="button" className="couple-hotspot" data-label={part}
+          aria-label={`触碰${part}`} title={`触碰${part}`}
           style={{ top: `${point.y}%`, left: `${point.x}%` }} disabled={busy} onClick={() => touch(part)}>{part}</button>;
       })}
       </div> : <div className="couple-portrait-empty">
@@ -1009,13 +1010,11 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
           <strong>{title}</strong><small>{detail}</small><span aria-hidden="true">↗</span>
         </button>)}
       </div>
-      <div className="couple-touch-tool-label"><span>换一种方式</span><small>向左滑动查看更多</small></div>
+      <div className="couple-touch-tool-label"><span>换一种方式</span><small>相处久了，还会发现新的互动</small></div>
       <div className="couple-touch-tools-scroll" role="group" aria-label="互动道具" tabIndex={0}>
-        {props.map((item, index) => {
-          const locked = index < tools.length && index > Math.floor(bond.touches / 4);
-          return <button key={item} type="button" aria-pressed={prop === item}
-            disabled={busy || locked} onClick={() => setProp(item)}>{item}{locked && <small>未解锁</small>}</button>;
-        })}
+        {props.filter((_, index) => index >= tools.length || index <= Math.floor(bond.touches / 4))
+          .map(item => <button key={item} type="button" aria-pressed={prop === item}
+            disabled={busy} onClick={() => setProp(item)}>{item}</button>)}
       </div>
     </div>
     <details className="couple-touch-customization">
