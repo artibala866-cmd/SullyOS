@@ -126,7 +126,7 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
           <path d="M43 248 Q 58 170 128 220 T194 262 T290 362 T234 470"/>
           <path d="M19 388 Q 68 274 154 385 T234 470 T360 405"/>
           <path d="M64 470 Q 35 375 76 329 T194 262 T237 184 T268 43"/>
-          <path d="M106 43 Q 173 117 202 120 T348 82"/>
+          
         </g>
         <g className="wish-universe-tiny-hearts">
           {quietHearts.map((p,i)=><g key={i} transform={`translate(${p.x} ${p.y}) scale(${p.s})`}
