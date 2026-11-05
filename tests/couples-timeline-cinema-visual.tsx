@@ -40,7 +40,7 @@ function App() {
     return ()=>clearTimeout(timer);
   },[bond]);
   return <div className="couple-app couple-content-mode" style={{height:'100dvh',minHeight:0}}>
-    <div className="couple-header"><button type="button" aria-label="返回">‹</button><h1>牵绊时光</h1><button aria-label="设置">⋯</button></div>
+    <div className="couple-header"><button type="button" aria-label="返回">‹</button><h1>情侣空间</h1><button aria-label="设置">⋯</button></div>
     <main className="couple-main"><BondRecords kind="timeline" bond={bond} names={{me:'简妹',them:'周树生'}}
       change={async update=>{setBond(current=>update(current));}}
       generate={async()=> '回忆是那些平常却值得记住的时刻。'}
