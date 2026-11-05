@@ -7,7 +7,7 @@
 .couple-content-mode .couple-records-wish{width:100%;max-width:620px;margin:auto;color:#e6e6e7;}
 .wish-universe{position:relative;isolation:isolate;overflow:hidden;min-height:max(645px,calc(100dvh - 58px));color:#ebebec;
   background:radial-gradient(ellipse 95% 50% at 69% 51%,#15161b 0%,#0c0d11 48%,#07080c 93%);
-  animation:wishStageReveal .65s ease-out both;}
+  animation:wishStageReveal .82s cubic-bezier(.21,.76,.18,1) both;}
 .wish-universe:before{content:"";pointer-events:none;position:absolute;inset:12% -25% 17% 22%;z-index:-1;
   background:radial-gradient(ellipse 40% 42% at 64% 45%,#d2d3e30b 0%,transparent 100%);filter:blur(30px);}
 .wish-universe-heading{position:absolute;z-index:7;top:26px;left:25px;right:25px;padding:0;}
@@ -99,7 +99,11 @@
 .wish-universe-partner span{margin-left:4px;}
 .wish-universe-actions:has(> .wish-universe-partner:only-child){justify-content:flex-start;}
 .couple-content-mode .wish-universe-actions>.wish-universe-partner:only-child{margin-left:0;text-align:left;}
-@keyframes wishStageReveal{from{opacity:.3}to{opacity:1}}
+/* A wish opens its own space: reveal the scene from the true first-wish point. */
+@keyframes wishStageReveal{
+ from{clip-path:circle(7px at 72% 46%);opacity:.42}
+ to{clip-path:circle(145vmax at 72% 46%);opacity:1}
+}
 @keyframes wishEclipseDrift{from{transform:translate3d(-5px,6px,0) rotate(-1deg);opacity:.78}to{transform:translate3d(7px,-8px,0) rotate(1deg);opacity:.97}}
 @keyframes wishStarBreathe{from{opacity:.72;box-shadow:0 0 9px #fffb,0 0 24px #ffffff45;}to{opacity:1;box-shadow:0 0 17px #fff,0 0 44px #ffffff87;}}
 @keyframes wishOrbitQuiet{from{opacity:.23;transform:scale(.94)}to{opacity:.75;transform:scale(1.08)}}
