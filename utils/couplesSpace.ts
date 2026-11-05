@@ -51,6 +51,17 @@ export function capsuleStatus(entry: Entry, today = dayKey()): CapsuleStatus {
   if (!entry.unlockDate) return 'sealed';
   return entry.unlockDate <= today ? 'ready' : 'sealed';
 }
+/** Draw a local private note; prefer an unread character note and avoid immediate repeats. */
+export function pickHollowPaper(entries: Entry[], previousId?: string, random = Math.random()): Entry | undefined {
+  const hiddenFromOthers = entries.filter(entry => entry.kind === 'hollow');
+  const unread = hiddenFromOthers.filter(entry => !entry.done && entry.side === 'them');
+  const pool = unread.length ? unread : hiddenFromOthers;
+  const choices = pool.length > 1 ? pool.filter(entry => entry.id !== previousId) : pool;
+  if (!choices.length) return undefined;
+  const index = Math.min(choices.length - 1, Math.floor(Math.max(0, random) * choices.length));
+  return choices[index];
+}
+
 export function capsuleDate(months: number, now = new Date()) {
   const date = new Date(now.getFullYear(), now.getMonth() + months, 1);
   const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
