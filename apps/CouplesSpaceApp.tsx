@@ -954,14 +954,14 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
   });
   return <section className={'couple-touch-room couple-touch-experience' + (full ? ' couple-touch-full' : '')}>
     <div className="couple-touch-intro">
-      <div><span>JUST A LITTLE CLOSER</span><h2>靠近一点点</h2><p>不必先设置什么，轻触 TA 就好。</p></div>
+      <div><span aria-hidden="true">♡</span><h2>靠近一点点</h2></div>
       <button type="button" className="couple-touch-focus" aria-pressed={full} onClick={() => setFull(!full)}>
         {full ? '收起画面' : '沉浸画面'}
       </button>
     </div>
     <div className={'couple-touch-stage' + (pressed ? ' couple-touch-stage-pressed' : '')}>
       <span className="couple-touch-stage-glow" aria-hidden="true"/>
-      <span className="couple-touch-stage-whisper" aria-hidden="true">JUST YOU &amp; ME</span>
+      <span className="couple-touch-stage-whisper" aria-hidden="true">✧</span>
       <div className={'couple-portrait couple-touch-frame' + (portrait ? ' couple-portrait-interactive' : displayImage ? ' couple-touch-avatar-only' : '')}>
       {displayImage ? <div className="couple-touch-image"><TokenImg value={displayImage} alt={char.name} draggable={false}
         onLoad={event => { portraitImage.current = event.currentTarget; }}
@@ -1018,20 +1018,20 @@ function TouchPanel({ bond, char, apiConfig, busy, run, change, generate, upload
             setVoice(await synthesizeSpeech(reaction, char, apiConfig));
           })}>听听 TA 的声音 <span aria-hidden="true">▷</span></button>}
         </> : <>
-          <span>THE LITTLE MOMENT</span>
-          <p>{displayImage ? '点一点画面，看看 TA 会有什么反应。' : '从这里开始，和 TA 说说心里的话。'}</p>
+          <span aria-hidden="true">✧</span>
+          <p>{displayImage ? '轻触 TA' : '轻触下方按钮'}</p>
         </>}
       </div>
     </div>
     <div className="couple-touch-interaction">
-      <div className="couple-touch-interaction-head"><strong>想怎么靠近？</strong><span>轻轻的就好</span></div>
+      <div className="couple-touch-interaction-head"><strong>♡</strong><span aria-hidden="true">✧</span></div>
       <div className="couple-touch-gesture-grid" role="group" aria-label="贴贴动作">
         {gestures.map(([part, title, detail]) => <button key={part} type="button" disabled={busy || !!calibration}
           onClick={() => touch(part, true)}>
           <strong>{title}</strong><small>{detail}</small><span aria-hidden="true">↗</span>
         </button>)}
       </div>
-      <div className="couple-touch-tool-label"><span>换一种方式</span><small>相处久了，还会发现新的互动</small></div>
+      <div className="couple-touch-tool-label"><span>✧</span></div>
       <div className="couple-touch-tools-scroll" role="group" aria-label="互动道具" tabIndex={0}>
         {props.filter((_, index) => index >= tools.length || index <= Math.floor(bond.touches / 4))
           .map(item => <button key={item} type="button" aria-pressed={prop === item}
