@@ -87,7 +87,7 @@ describe('memory extraction smart-context compatibility gate', () => {
         )).rejects.toThrow('无法解析为记忆 JSON');
 
         mockedSafeFetchJson.mockResolvedValueOnce({
-            choices: [{ message: { content: '```json\\n[]\\n```' } }],
+            choices: [{ message: { content: ['```json', '[]', '```'].join(String.fromCharCode(10)) } }],
         } as any);
         const empty = await extractMemoriesFromBuffer(
             messages, 'char-extraction-flags', '测试角色', llmConfig, undefined, '用户',
