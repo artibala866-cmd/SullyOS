@@ -1,158 +1,84 @@
-/* Wish Constellation — an astronomical space, deliberately unrelated to film/tickets.
-   The chart's tappable stars are saved wishes only.  Decorative dust is aria-hidden. */
-.couple-content-mode .couple-main:has(.couple-records-wish) {
-  padding:0 0 max(25px,env(safe-area-inset-bottom));
-  background:#06080e;color:#e8eaf2;
-}
-.couple-content-mode:has(.couple-records-wish) .couple-header {
-  background:#080a0f;border-bottom:1px solid #20232d;color:#f0f0f4;
-}
-.couple-content-mode:has(.couple-records-wish) .couple-header :is(h1,button,svg) {color:#f2f3f7;}
-.couple-content-mode .couple-records-wish {max-width:620px;margin:auto;color:#e9eaf0;}
-.wish-universe {position:relative;isolation:isolate;overflow:hidden;color:#e9eaf3;min-height:690px;
-  background:
-    radial-gradient(ellipse 88% 38% at 50% 41%,#34384749 0%,#1317222b 56%,transparent 92%),
-    radial-gradient(ellipse 60% 48% at 7% 65%,#8b8e9e11,transparent 78%),#06080e;
-  animation:wishUniverseArrive .75s ease-out both;}
-.wish-universe:before {content:"";position:absolute;z-index:-1;pointer-events:none;inset:-50% -25%;
-  background:repeating-radial-gradient(ellipse at 47% 53%,transparent 0 48px,#c9cdd806 49px 50px,transparent 51px 74px);
-  opacity:.32;}
-.wish-universe-heading {position:relative;z-index:3;padding:28px 25px 0;}
-.wish-universe-heading-overline {font-size:9px;letter-spacing:.24em;color:#979cab;}
-.wish-universe-heading-main {display:flex;align-items:end;justify-content:space-between;gap:12px;margin-top:7px;}
-.couple-content-mode .wish-universe-heading h2 {font-size:32px;font-weight:490;letter-spacing:.11em;line-height:1.36;color:#f4f4f8;text-shadow:0 0 26px #ffffff19;}
-.wish-universe-tally {display:flex;align-items:baseline;gap:2px;color:#999ba8;font-variant-numeric:tabular-nums;font-size:12px;padding-bottom:8px;}
-.wish-universe-tally strong {font-size:28px;font-family:Georgia,serif;font-weight:400;color:#dcdde7;line-height:1;}
-.wish-universe-heading-bottom {display:flex;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;
- border-top:1px solid #3f424c70;font-size:10px;letter-spacing:.07em;color:#9a9ca7;}
-.wish-universe-heading-bottom i {font-style:normal;color:#545865;margin-inline:6px;}
-.wish-universe-bar {position:relative;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:19px 24px 0;}
-.wish-universe-bar label {display:flex;align-items:center;gap:6px;color:#888d9d;font-size:10px;white-space:nowrap;min-width:0;}
-.couple-content-mode .wish-universe-bar select {width:auto;max-width:132px;min-width:95px;min-height:36px;margin:0;border-radius:100px;
-  border:1px solid #414554;background:#171922;color:#e4e5ed;font-size:10px;padding:7px 20px 7px 11px;color-scheme:dark;}
-.wish-universe-view {display:flex;gap:3px;align-items:center;border-bottom:1px solid #3f414a;}
-.couple-content-mode .wish-universe-view button {min-width:51px;min-height:34px;margin:0;border:0;border-bottom:1px solid transparent;
-  border-radius:0;background:transparent;color:#858894;font-size:11px;padding:8px 9px;}
-.couple-content-mode .wish-universe-view button[aria-pressed="true"] {border-bottom-color:#f5f6fb;color:#f6f6fa;background:transparent;}
-.wish-universe-field {position:relative;height:510px;max-height:70vh;min-height:480px;margin:0;isolation:isolate;overflow:hidden;touch-action:pan-y;}
-.wish-universe-nebula {position:absolute;inset:0;z-index:-1;pointer-events:none;
- background:
-   radial-gradient(ellipse 40% 22% at 49% 47%,#a9b0ca1e 0%,#73788c0e 50%,transparent 100%),
-   radial-gradient(ellipse 26% 42% at 39% 52%,#b0b5cd12,transparent 100%),
-   radial-gradient(ellipse 38% 27% at 64% 59%,#babed112,transparent 100%);
- filter:blur(13px);animation:wishNebulaBreath 12s ease-in-out infinite alternate;}
-.wish-universe-ambient {position:absolute;inset:0;pointer-events:none;z-index:0;}
-.wish-universe-ambient i {position:absolute;width:2px;height:2px;display:block;transform:translate(-50%,-50%);border-radius:50%;background:#bdc0d0;
- box-shadow:0 0 6px #dedfeb3a;animation:wishDustPulse 6s ease-in-out infinite alternate;}
-.wish-universe-ambient i:nth-child(3n) {animation-delay:-2.1s;}
-.wish-universe-ambient i:nth-child(5n) {animation-delay:-4s;width:1px;height:1px;}
-.wish-universe-gravity {position:absolute;top:8%;left:6%;right:6%;bottom:7%;pointer-events:none;z-index:0;
- transform:rotate(-23deg);}
-.wish-universe-gravity span {display:block;position:absolute;inset:14% 5%;border:1px solid #d4d8e013;border-radius:50%;}
-.wish-universe-gravity span:nth-child(2) {inset:24% -6%;transform:rotate(59deg);border-color:#b5b9ce0c;}
-.wish-universe-gravity span:nth-child(3) {inset:2% 22%;transform:rotate(-29deg);border-color:#f5f7ff0b;}
-.wish-universe-plane {position:relative;z-index:2;width:min(100%,490px);height:100%;margin:0 auto;transition:transform .14s ease-out;}
-.wish-universe-connections {position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;}
-.wish-universe-connections path {fill:none;stroke:#a4aab8;stroke-width:.68;stroke-opacity:.42;stroke-dasharray:2 7;
- transition:stroke-opacity .65s,stroke-width .65s;filter:drop-shadow(0 0 2px #f5f5ff37);}
-.wish-universe-connections path.is-lit {stroke:#f5f5fb;stroke-opacity:.85;stroke-width:1.4;stroke-dasharray:none;
- filter:drop-shadow(0 0 4px #f2f2ff91);animation:wishPathBrighten .8s ease-out;}
-.wish-universe-orbit {fill:none;stroke:#e7e9ff;stroke-width:.65;stroke-opacity:.12;stroke-dasharray:1 8;}
-.wish-universe-orbit.faint {stroke-opacity:.07;stroke-dasharray:3 9;}
-.couple-content-mode .wish-universe-star {position:absolute;z-index:3;display:flex;align-items:center;flex-direction:column;justify-content:center;
- transform:translate(-50%,-50%);min-height:78px;min-width:100px;max-width:124px;padding:8px 4px;border:0;border-radius:50%;background:transparent;
- color:#e5e6ef;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.couple-content-mode .wish-universe-star.is-focused {z-index:6;}
-.wish-universe-star-field {position:relative;display:grid;place-items:center;width:52px;height:52px;flex:0 0 52px;transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-.wish-universe-star.is-focused .wish-universe-star-field {transform:scale(1.48);}
-.wish-universe-star.is-done .wish-universe-star-field {transform:scale(1.07);}
-.wish-universe-star.is-done.is-focused .wish-universe-star-field {transform:scale(1.55);}
-.wish-universe-star-corona {position:absolute;width:42px;height:42px;border-radius:50%;border:1px solid #cbd0e23e;
- box-shadow:0 0 0 8px #dfe3f005,0 0 15px #d7d9eb14;opacity:.76;animation:wishStarBreathe 5s ease-in-out infinite alternate;
- animation-delay:var(--wish-delay,0s);}
-.wish-universe-star.is-done .wish-universe-star-corona {border-color:#f2f2ffbd;opacity:1;
- box-shadow:0 0 0 6px #dfe5fb16,0 0 0 16px #dfe5fb08,0 0 22px #e2e5ff9b,0 0 40px #e3e9ff28;}
-.wish-universe-star-core {position:absolute;width:7px;height:7px;border-radius:50%;background:#d2d5e0;transform:rotate(45deg);
- box-shadow:0 0 6px #e8e8f9b5,0 0 19px #edefff46;transition:all .5s;}
-.wish-universe-star.is-done .wish-universe-star-core {width:13px;height:13px;border-radius:2px;background:#fcfcff;
- box-shadow:0 0 9px #fff,0 0 24px #e8ecff,0 0 43px #eceeffd9;}
-.wish-universe-star-cross {position:absolute;width:26px;height:26px;opacity:.55;}
-.wish-universe-star-cross:before,.wish-universe-star-cross:after {content:"";position:absolute;background:#e8e9f6;}
-.wish-universe-star-cross:before {width:1px;height:100%;left:50%;top:0;transform:scaleY(.72);}
-.wish-universe-star-cross:after {height:1px;width:100%;left:0;top:50%;transform:scaleX(.72);}
-.wish-universe-star.is-done .wish-universe-star-cross {opacity:1;transform:scale(1.25);}
-.wish-universe-star-progress {position:absolute;width:53px;height:53px;border-radius:50%;opacity:.65;
- background:conic-gradient(#e7eaf6 0 var(--wish-progress),transparent var(--wish-progress) 100%);
- mask:radial-gradient(circle,transparent 0 24px,#000 24.5px 25.5px,transparent 26px);
- -webkit-mask:radial-gradient(circle,transparent 0 24px,#000 24.5px 25.5px,transparent 26px);}
-.wish-universe-star.is-done .wish-universe-star-progress {opacity:0;}
-.wish-universe-star-title {display:block;width:100%;padding-top:3px;font-size:10px;text-align:center;line-height:1.3;
- overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6d8e2;letter-spacing:.02em;text-shadow:0 1px 5px #000;}
-.wish-universe-star.is-focused .wish-universe-star-title {color:white;font-weight:600;}
-.wish-universe-star.is-newly-lit .wish-universe-star-corona:after {content:"";position:absolute;inset:-21px;border-radius:50%;border:1px solid #fff;
- animation:wishRealization .95s ease-out both;}
-.wish-universe-empty {position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.couple-content-mode .wish-universe-first-star {position:relative;width:242px;height:242px;min-height:242px;display:grid;place-items:center;
- border:0;border-radius:50%;padding:0;background:transparent;overflow:visible;color:#f1f2fb;}
-.wish-universe-first-star:before,.wish-universe-first-star:after {content:"";position:absolute;border-radius:50%;pointer-events:none;}
-.wish-universe-first-star:before {inset:17px;border:1px solid #e2e5ee38;box-shadow:0 0 0 21px #f5f5ff08,0 0 0 43px #f3f4ff04;
- transform:rotateX(64deg) rotate(-22deg);animation:wishEmptyOrbit 14s ease-in-out infinite alternate;}
-.wish-universe-first-star:after {inset:43px;border:1px solid #c6cbd72c;box-shadow:0 0 0 1px #e7e8f808,0 0 26px #f4f6ff16;}
-.wish-universe-first-orbit {position:absolute;inset:10%;border:1px solid #b6bfce22;border-radius:50%;transform:rotate(35deg) scaleY(.55);
- animation:wishEmptyOrbitAlt 16s ease-in-out infinite alternate;}
-.wish-universe-first-core {z-index:2;display:grid;place-items:center;font:88px/1 Georgia,serif;font-weight:100;color:#f4f4ff;
- text-shadow:0 0 8px #e9eaffbb,0 0 25px #dce0fd8d,0 0 70px #d5d9ef7a;animation:wishFirstLight 6s ease-in-out infinite alternate;}
-.wish-universe-empty-hint {position:absolute;bottom:49px;font-size:11px;letter-spacing:.11em;color:#aaaeba;text-align:center;}
-.couple-content-mode .wish-universe-all {position:absolute;bottom:10px;min-height:35px;border:0;background:transparent;color:#e6e8ef;font-size:11px;}
-.wish-universe-focus {position:absolute;z-index:9;bottom:38px;left:19px;right:19px;max-width:490px;margin:0 auto;
- padding:20px 20px 17px;background:linear-gradient(115deg,#11141ef2,#1a1e2bf4 48%,#0a0c13fa);color:#f1f1f5;
- border:0;border-top:1px solid #b5bad35c;border-radius:0 0 20px 20px;
- box-shadow:0 -15px 80px #0b0d1bd0,0 21px 43px #0008;backdrop-filter:blur(18px);animation:wishFocusReveal .44s cubic-bezier(.2,.7,.2,1) both;}
-.wish-universe-focus:before {content:"";position:absolute;width:90px;height:90px;right:5px;top:-36px;
- background:radial-gradient(circle,#edf0ff3d,transparent 72%);pointer-events:none;}
-.couple-content-mode .wish-universe-close {position:absolute;right:6px;top:1px;min-width:40px;min-height:40px;border:0;background:transparent;color:#bbc0ce;font-size:23px;}
-.wish-universe-focus-caption {display:block;color:#a8afbf;font-size:9px;letter-spacing:.16em;}
-.couple-content-mode .wish-universe-focus h3 {margin:8px 22px 8px 0;font-size:21px;line-height:1.4;font-weight:540;color:#fafaff;overflow-wrap:anywhere;}
-.couple-content-mode .wish-universe-focus p {margin:0 0 12px;color:#afb4c3;font-size:11px;line-height:1.65;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.wish-universe-focus-progress {display:flex;justify-content:space-between;gap:10px;padding-top:10px;border-top:1px solid #ffffff20;color:#aeb4c2;font-size:10px;}
-.wish-universe-focus-actions {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;}
-.couple-content-mode .wish-universe-focus-actions button {min-height:42px;border:1px solid #535a6b;border-radius:30px;background:#232836;color:#f4f5fa;font-size:11px;padding:8px;}
-.couple-content-mode .wish-universe-focus-actions button:last-child {background:#e8eaf2;border-color:#e8eaf2;color:#191c27;}
-.wish-universe-paging {position:absolute;z-index:3;bottom:10px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:17px;
- color:#a3a6b1;font:10px Georgia,serif;letter-spacing:.12em;}
-.couple-content-mode .wish-universe-paging button {border:0;background:transparent;color:#d2d4dd;font-size:20px;min-width:42px;min-height:30px;padding:0;}
-.wish-universe-paging:has(+ .wish-universe-focus) {opacity:.2;}
-.wish-universe-list {margin:21px 21px 5px;min-height:400px;display:flex;flex-direction:column;gap:0;animation:wishFocusReveal .3s ease-out;}
-.couple-content-mode .wish-universe-list button {display:flex;align-items:center;gap:13px;min-height:73px;padding:13px 2px;border:0;border-bottom:1px solid #343846;
- border-radius:0;background:transparent;color:#f1f2f7;text-align:left;}
-.wish-universe-list-dot {position:relative;width:28px;height:28px;flex:0 0 28px;border:1px solid #656b7c;border-radius:50%;display:grid;place-items:center;}
-.wish-universe-list-dot:after {content:"";width:6px;height:6px;border-radius:50%;background:#b7bbc9;box-shadow:0 0 8px #e2e7f1;}
-.wish-universe-list-dot.is-done {border-color:#e4e9ff;box-shadow:0 0 12px #e9edfa75;}
-.wish-universe-list-dot.is-done:after {background:#fff;box-shadow:0 0 12px #fff;}
-.wish-universe-list-body {display:grid;gap:7px;flex:1;min-width:0;}
-.wish-universe-list-body strong {font-size:13px;font-weight:520;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wish-universe-list-body small {font-size:10px;color:#9b9eae;}
-.wish-universe-list-progress {color:#bfc2ce;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;}
-.wish-universe-list>p {color:#a1a4b1;font-size:12px;margin:90px auto;}
-.wish-universe-actions {display:flex;align-items:center;justify-content:space-between;gap:9px;margin:0 23px 18px;padding:12px 0 0;border-top:1px solid #393e4a;}
-.couple-content-mode .wish-universe-new {min-height:43px;border:1px solid #e7e9f4;border-radius:99px;background:#f0f0f6;color:#10131c;
- padding:8px 17px;font-size:12px;white-space:nowrap;box-shadow:0 0 18px #ffffff14;}
-.wish-universe-new>span {font-size:18px;line-height:0;vertical-align:middle;margin-right:3px;}
-.couple-content-mode .wish-universe-partner {min-height:43px;min-width:0;border:0;border-radius:0;background:transparent;color:#c4c6d2;
- padding:8px 0;font-size:11px;text-align:right;line-height:1.4;}
-.wish-universe-partner span {margin-left:5px;font-size:15px;color:#daddf0;}
 
-/* Completing a real wish is the ONLY trigger for the bright flare. */
-@keyframes wishUniverseArrive {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes wishStarBreathe {from{transform:scale(.86);opacity:.4}to{transform:scale(1.09);opacity:.92}}
-@keyframes wishRealization {from{transform:scale(.42);opacity:1}to{transform:scale(2.7);opacity:0}}
-@keyframes wishPathBrighten {from{stroke-opacity:0;stroke-dashoffset:60}to{stroke-opacity:.85;stroke-dashoffset:0}}
-@keyframes wishNebulaBreath {from{opacity:.35;transform:scale(.92)}to{opacity:.8;transform:scale(1.11)}}
-@keyframes wishDustPulse {from{opacity:.22}to{opacity:.86}}
-@keyframes wishEmptyOrbit {to{transform:rotateX(65deg) rotate(33deg)}}
-@keyframes wishEmptyOrbitAlt {to{transform:rotate(-35deg) scaleY(.8)}}
-@keyframes wishFirstLight {from{transform:scale(.92);opacity:.72}to{transform:scale(1.12);opacity:1}}
-@keyframes wishFocusReveal {from{opacity:0;transform:translateY(30px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* Wish constellation: real wishes, real light. No background hearts or dummy connections. */
+.couple-content-mode .couple-main:has(.couple-records-wish){padding:0 0 max(20px,env(safe-area-inset-bottom));background:#08090c;color:#eee;}
+.couple-content-mode:has(.couple-records-wish) .couple-header{background:#08090c;border-bottom:1px solid #222328;color:#f0f0f0;}
+.couple-content-mode:has(.couple-records-wish) .couple-header :is(h1,button,svg){color:#f2f2f2;}
+.couple-content-mode .couple-records-wish{max-width:620px;margin:auto;color:#eaeaea;}
+.wish-universe{position:relative;isolation:isolate;overflow:hidden;min-height:670px;color:#ededee;background:radial-gradient(ellipse 72% 48% at 50% 49%,#1a1b20 0%,#0d0e12 55%,#08090c 100%);animation:wishArrive .5s ease-out both;}
+.wish-universe-heading{padding:23px 23px 0;position:relative;z-index:3;}
+.wish-universe-heading-main{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+.couple-content-mode .wish-universe-heading h2{margin:0;color:#f4f4f4;font-size:26px;font-weight:530;letter-spacing:.055em;line-height:1.4;text-shadow:none;}
+.wish-universe-tally{display:flex;align-items:baseline;gap:3px;font:12px Georgia,serif;font-variant-numeric:tabular-nums;color:#85868c;}
+.wish-universe-tally strong{font:24px Georgia,serif;color:#e9e9e9;}
+.wish-universe-heading-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:7px;font-size:11px;color:#88898d;letter-spacing:.02em;}
+.wish-universe-heading-bottom i{font-style:normal;margin:0 7px;color:#65666d;}
+.wish-universe-heading-bottom span:last-child{display:none;}
+.wish-universe-bar{position:relative;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:21px 23px 0;padding-bottom:8px;border-bottom:1px solid #24252b;}
+.wish-universe-bar label{display:flex;align-items:center;gap:10px;min-width:0;white-space:nowrap;color:#77787e;font-size:11px;}
+.couple-content-mode .wish-universe-bar select{max-width:112px;min-width:95px;min-height:33px;padding:6px 17px 6px 3px;margin:0;color:#dadade;border:0;border-radius:0;border-bottom:1px solid #4a4b52;background:transparent;font-size:11px;color-scheme:dark;}
+.wish-universe-view{display:flex;align-items:center;gap:15px;}
+.couple-content-mode .wish-universe-view button{margin:0;padding:7px 2px;min-height:34px;background:transparent;border:0;border-bottom:1px solid transparent;border-radius:0;font-size:11px;color:#7a7b83;}
+.couple-content-mode .wish-universe-view button[aria-pressed="true"]{color:#f5f5f5;border-bottom-color:#e8e8e8;background:transparent;}
+.wish-universe-field{position:relative;isolation:isolate;height:515px;max-height:none;overflow:hidden;touch-action:pan-y;}
+.wish-universe-plane{position:relative;z-index:2;width:100%;max-width:470px;height:100%;margin:0 auto;transition:transform .16s ease-out;}
+.wish-universe-connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.wish-universe-connections path{fill:none;stroke:#b7b8bc;stroke-width:.65;stroke-opacity:.22;stroke-dasharray:2 8;transition:stroke-opacity .6s,stroke-width .6s;}
+.wish-universe-connections path.is-lit{stroke:#dedee2;stroke-width:1.0;stroke-opacity:.45;stroke-dasharray:none;}
+.couple-content-mode .wish-universe-star{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:100px;max-width:112px;min-height:85px;padding:3px 2px;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;color:#d6d6d9;cursor:pointer;transform:translate(-50%,-50%);-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .35s,filter .35s;}
+.wish-universe-star-field{position:relative;display:grid;place-items:center;width:61px;height:62px;flex:none;transition:transform .4s;}
+.wish-universe-star-core{position:absolute;width:8px;height:8px;border-radius:50%;background:#d4d4d8;box-shadow:0 0 7px #ffffff73,0 0 17px #ffffff25;transition:width .35s,height .35s,background .35s,box-shadow .35s;}
+.wish-universe-star-ring{position:absolute;width:33px;height:33px;border-radius:50%;border:1px solid #dddddd33;transition:opacity .35s,border-color .35s,transform .35s;}
+.wish-universe-star.is-done .wish-universe-star-core{width:11px;height:11px;background:#fff;box-shadow:0 0 10px #fff9,0 0 26px #ffffff70;}
+.wish-universe-star.is-done .wish-universe-star-ring{border-color:#ffffff77;transform:scale(1.14);}
+.wish-universe-star-title{display:block;width:100%;padding:0 1px;margin-top:-2px;color:#b7b8bd;font-size:11px;font-weight:450;letter-spacing:0;line-height:1.45;text-align:center;text-shadow:0 1px 8px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wish-universe-star.is-done .wish-universe-star-title{color:#ededed;}
+.couple-content-mode .wish-universe-star:focus-visible{outline:1px solid #c8c8cf88;outline-offset:2px;border-radius:12px;}
+.wish-universe-plane.has-focus .wish-universe-star:not(.is-focused){opacity:.18;filter:blur(.7px);}
+.wish-universe-plane.has-focus .wish-universe-connections{opacity:.18;}
+.couple-content-mode .wish-universe-star.is-focused{z-index:5;transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px))) scale(1.18);}
+.wish-universe-star.is-focused .wish-universe-star-core{background:#fff;box-shadow:0 0 12px #ffffffc7,0 0 30px #ffffff61;}
+.wish-universe-star.is-focused .wish-universe-star-ring{border-color:#eeeeee9c;transform:scale(1.17);}
+.wish-universe-star.is-newly-lit .wish-universe-star-ring{animation:wishRealityRipple 1.2s ease-out both;}
+.wish-universe-star.is-newly-lit .wish-universe-star-core{animation:wishRealityCore 1s ease-out both;}
+.wish-universe-empty{position:absolute;inset:0;z-index:3;}
+.couple-content-mode .wish-universe-first-star{position:absolute;top:43%;left:50%;display:grid;place-items:center;transform:translate(-50%,-50%);width:102px;height:102px;min-width:102px;min-height:102px;padding:0;border:0!important;border-radius:50%;background:transparent!important;box-shadow:none!important;color:#fff;cursor:pointer;}
+.wish-universe-first-star:before{content:"";position:absolute;width:74px;height:74px;border:1px solid #ffffff29;border-radius:50%;box-shadow:0 0 0 21px #ffffff04;}
+.wish-universe-first-core{position:relative;display:block;width:12px;height:12px;border-radius:50%;background:#f6f6f6;box-shadow:0 0 12px #ffffff95,0 0 29px #ffffff45;animation:wishQuietPulse 5.5s ease-in-out infinite alternate;}
+.couple-content-mode .wish-universe-first-star:active .wish-universe-first-core{transform:scale(1.24);}
+.wish-universe-empty-hint{position:absolute;top:calc(43% + 67px);left:15px;right:15px;text-align:center;font-size:12px;color:#a4a4aa;line-height:1.6;letter-spacing:.02em;}
+.couple-content-mode .wish-universe-all{position:absolute;left:50%;top:calc(43% + 107px);transform:translateX(-50%);border:0;border-bottom:1px solid #777;background:transparent;border-radius:0;padding:6px 8px;color:#c6c6c8;font-size:11px;}
+.wish-universe-focus{position:absolute;z-index:8;left:18px;right:18px;bottom:15px;padding:19px 17px 15px;border:0;border-top:1px solid #77787f6e;border-radius:0;background:linear-gradient(180deg,#0c0d12df,#08090ced);backdrop-filter:blur(12px);box-shadow:0 -22px 44px #0006;animation:wishFocusRise .3s ease-out both;}
+.couple-content-mode .wish-universe-close{position:absolute;top:12px;right:12px;background:transparent;border:0;color:#d1d1d5;font-size:22px;line-height:1;min-width:32px;min-height:32px;}
+.wish-universe-focus-caption{font-size:10px;color:#a2a2a8;letter-spacing:.08em;}
+.couple-content-mode .wish-universe-focus h3{margin:8px 0 7px;color:#fff;font-size:20px;font-weight:520;line-height:1.4;}
+.couple-content-mode .wish-universe-focus p{margin:0;color:#b4b4b8;font-size:12px;line-height:1.65;max-width:95%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.wish-universe-focus-progress{display:flex;justify-content:space-between;gap:8px;padding-top:12px;margin-top:12px;border-top:1px solid #44454b69;color:#909197;font-size:11px;}
+.wish-universe-focus-actions{display:flex;gap:22px;margin-top:14px;}
+.couple-content-mode .wish-universe-focus-actions button{flex:1;padding:10px 3px;border:0;border-bottom:1px solid #8b8c91;border-radius:0;background:transparent;color:#e0e0e2;font-size:12px;}
+.couple-content-mode .wish-universe-focus-actions button:last-child{border-bottom-color:#ddd;color:#fff;}
+.wish-universe-paging{position:absolute;z-index:4;bottom:3px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:15px;color:#a5a5aa;font:11px Georgia,serif;}
+.couple-content-mode .wish-universe-paging button{background:transparent;border:0;color:#d0d0d3;font:21px Georgia,serif;min-width:36px;min-height:36px;}
+.wish-universe-field:has(.wish-universe-focus) .wish-universe-paging{opacity:0;pointer-events:none;}
+.wish-universe-list{min-height:420px;padding:15px 23px 10px;}
+.couple-content-mode .wish-universe-list button{display:flex;align-items:center;gap:15px;width:100%;min-height:69px;margin:0;padding:14px 2px;border:0;border-bottom:1px solid #292a30;border-radius:0;background:transparent;box-shadow:none;text-align:left;color:#e7e7e7;}
+.wish-universe-list-dot{width:7px;height:7px;border-radius:50%;background:#98999d;box-shadow:0 0 7px #ffffff35;flex:0 0 7px;}
+.wish-universe-list-dot.is-done{background:#fff;box-shadow:0 0 11px #fff9;}
+.wish-universe-list-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.wish-universe-list-body strong{color:#e7e7e9;font-size:13px;font-weight:540;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wish-universe-list-body small{color:#83848b;font-size:10px;}
+.wish-universe-list-progress{color:#aaaab0;font-size:11px;white-space:nowrap;}
+.wish-universe-list>p{color:#a2a2aa;font-size:12px;}
+.wish-universe-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 23px 20px;padding-top:13px;border-top:1px solid #292a2f;}
+.couple-content-mode .wish-universe-new{padding:9px 3px;margin:0;border:0;border-bottom:1px solid #98999f;border-radius:0;background:transparent;box-shadow:none;color:#f0f0f2;font-size:12px;}
+.wish-universe-new>span{font-size:16px;}
+.couple-content-mode .wish-universe-partner{padding:9px 1px;margin:0;border:0;border-radius:0;background:transparent;color:#b4b5ba;font-size:11px;}
+.wish-universe-partner span{margin-left:4px;}
+.wish-universe-actions:has(> .wish-universe-partner:only-child){justify-content:center;}
+@keyframes wishQuietPulse{from{opacity:.72;box-shadow:0 0 8px #ffffff75,0 0 21px #ffffff34;}to{opacity:1;box-shadow:0 0 13px #fff9,0 0 31px #ffffff56;}}
+@keyframes wishRealityRipple{0%{opacity:.2;transform:scale(.75)}45%{opacity:1;transform:scale(1.55)}100%{opacity:.78;transform:scale(1.14)}}
+@keyframes wishRealityCore{0%{transform:scale(.5);opacity:.5}45%{transform:scale(1.65);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes wishFocusRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes wishArrive{from{opacity:.35}to{opacity:1}}
 
 /* Saved wish detail = viewing one glowing star, not reading a white memo. */
 .couple-content-mode .couple-records-wish.couple-records-detail,.couple-content-mode .couple-records-wish.couple-records-editing {padding:17px 16px 30px;min-height:100%;}
@@ -169,10 +95,10 @@
 .wish-detail-constellation {position:relative;display:grid;place-items:center;margin-bottom:18px;width:112px;height:112px;
  border:1px solid #c7cbda30;border-radius:50%;box-shadow:0 0 0 19px #f4f4ff05,0 0 0 38px #f1f4ff05;}
 .wish-detail-constellation:before {content:"";position:absolute;inset:13px;border-radius:50%;border:1px solid #9fa6bd4c;}
-.wish-detail-constellation i {display:block;position:relative;width:12px;height:12px;background:#e2e5f0;border-radius:50%;
+.wish-detail-constellation i {display:block;position:relative;width:12px;height:12px;background:#eeeeee;border-radius:50%;
  box-shadow:0 0 14px #dee3fbb0,0 0 40px #dddff96b;}
 .couple-entry-completed .wish-detail-constellation {box-shadow:0 0 0 19px #eef3ff0f,0 0 0 38px #eef2ff06,0 0 52px #f6f6ff35;}
-.couple-entry-completed .wish-detail-constellation i {width:18px;height:18px;background:white;box-shadow:0 0 16px #fff,0 0 44px #e2e6ff,0 0 68px #dce1ff;}
+.couple-entry-completed .wish-detail-constellation i {width:18px;height:18px;background:white;box-shadow:0 0 16px #fff,0 0 44px #e2e6ff,0 0 68px #e7e7e7;}
 .couple-entry-completed .wish-detail-constellation:after {content:"";position:absolute;inset:-17px;border-radius:50%;border:1px solid #ebefff80;animation:wishRealization 1.15s ease-out both;}
 .couple-content-mode .couple-records-wish .couple-entry-wish>.couple-detail-body {margin:15px 0;padding:19px 18px;
  border:0;border-top:1px solid #414757;background:transparent;color:#d8dbe5;}
@@ -188,337 +114,69 @@
 
 /* Creating a wish = naming an unlit star. Preserve all original fields and checklist. */
 .couple-content-mode .couple-records-wish .couple-compose.couple-compose-wish {
- background:#10131e!important;border:1px solid #353b4a!important;border-radius:18px!important;box-shadow:0 16px 42px #0007!important;overflow:hidden;
+ background:#101115!important;border:1px solid #353b4a!important;border-radius:18px!important;box-shadow:0 16px 42px #0007!important;overflow:hidden;
 }
 .couple-content-mode .couple-records-wish .couple-edit-wish {position:relative;overflow:hidden;padding:26px 15px 15px;
- background:radial-gradient(ellipse at 50% 3%,#41485a44,#10131d 62%);}
+ background:radial-gradient(ellipse at 50% 3%,#40404744,#101115 62%);}
 .couple-content-mode .couple-records-wish .couple-edit-wish:before {content:"✧";display:grid;place-items:center;margin:3px auto 14px;
  width:90px;height:90px;border:1px solid #c0c7d83c;border-radius:50%;
- font:51px Georgia,serif;color:#f2f4ffcc;text-shadow:0 0 28px #e8ecff9b;box-shadow:0 0 0 15px #e5e6f008,0 0 30px #e8ecff18;}
+ font:51px Georgia,serif;color:#f2f4ffcc;text-shadow:0 0 28px #f3f3f39b;box-shadow:0 0 0 15px #e5e6f008,0 0 30px #f3f3f318;}
 .couple-content-mode .couple-records-wish .couple-edit-wish-paper {margin:0;padding:8px 4px 13px;background:transparent;
  border:0;border-radius:0;box-shadow:none;transform:none;}
 .couple-content-mode .couple-records-wish .couple-edit-wish-paper:before {display:none;}
 .couple-content-mode .couple-records-wish .couple-edit-wish-paper>span {font-size:10px;color:#9fa7b8;letter-spacing:.12em;margin:0 0 18px;}
 .couple-content-mode .couple-records-wish .couple-compose label {color:#c2c6d4;}
 .couple-content-mode .couple-records-wish .couple-compose :is(input:not([type=checkbox]),textarea,select) {
- background:#202533;color:#f2f3f9;border:1px solid #50586b;border-radius:8px;box-shadow:none;
+ background:#1b1c21;color:#f2f3f9;border:1px solid #50586b;border-radius:8px;box-shadow:none;
 }
 .couple-content-mode .couple-records-wish .couple-compose input::placeholder,.couple-content-mode .couple-records-wish .couple-compose textarea::placeholder {color:#9097a9;}
 .couple-content-mode .couple-records-wish .couple-compose .couple-edit-title input {font-size:17px;color:#fff;font-weight:530;}
 .couple-content-mode .couple-records-wish .couple-edit-wish-paper .couple-compose-checklist {padding:9px 0 13px;background:transparent;}
 .couple-content-mode .couple-records-wish .couple-compose-checklist>strong {font-size:12px;color:#e5e7f0;}
-.couple-content-mode .couple-records-wish .couple-compose-step {background:#1c202c;border:0;border-bottom:1px solid #4c5261;border-radius:0;}
+.couple-content-mode .couple-records-wish .couple-compose-step {background:#191a1e;border:0;border-bottom:1px solid #4c5261;border-radius:0;}
 .couple-content-mode .couple-records-wish .couple-compose-step .couple-compose-step-bullet {border-radius:50%;border-color:#a6adc0;color:#e4e5ed;}
 .couple-content-mode .couple-records-wish .couple-compose-step input {border:0!important;background:transparent!important;}
 .couple-content-mode .couple-records-wish .couple-compose-step button {background:transparent;border:0;color:#dfe1eb;}
 .couple-content-mode .couple-records-wish .couple-compose-step-add {color:#e6e8ee;border:1px dashed #71798b;background:#202432;}
 .couple-content-mode .couple-records-wish .couple-edit-wish-meta {grid-template-columns:1fr 1fr;gap:10px;padding:13px 4px 0;border-top:1px solid #3a4150;}
-.couple-content-mode .couple-records-wish .couple-compose-buttons {background:#151a25;border-top:1px solid #373d4a;box-shadow:none;}
+.couple-content-mode .couple-records-wish .couple-compose-buttons {background:#111216;border-top:1px solid #373d4a;box-shadow:none;}
 .couple-content-mode .couple-records-wish .couple-compose-buttons button:first-child {background:#f1f2f7;border-color:#f1f2f7;color:#151924;}
-.couple-content-mode .couple-records-wish .couple-compose-buttons button:last-child {background:#242a37;border:1px solid #5b6170;color:#e5e6ec;}
+.couple-content-mode .couple-records-wish .couple-compose-buttons button:last-child {background:#1b1c20;border:1px solid #5b6170;color:#e5e6ec;}
 
-/* The featured Wish portal has its own star field, never the timeline film art. */
-.couple-content-mode .couple-ios-spotlight-wish {position:relative;isolation:isolate;overflow:hidden;
- background:radial-gradient(ellipse at 64% 48%,#383b4a,#101217 75%);border-color:#444954;}
-.couple-content-mode .couple-ios-spotlight-wish:before {content:"";position:absolute;z-index:-1;top:-24px;right:20px;width:158px;height:158px;
- border:1px solid #f4f7ff31;border-radius:50%;box-shadow:0 0 0 25px #f4f7ff09,0 0 0 49px #f4f7ff05;}
-.couple-content-mode .couple-ios-spotlight-wish:after {content:"✧";position:absolute;right:81px;top:48px;
- color:#f4f6ffdf;font:45px Georgia,serif;text-shadow:0 0 17px #f3f4ffac,0 0 42px #f3f4ff8c;pointer-events:none;z-index:-1;}
-.couple-content-mode .couple-ios-spotlight-wish :is(.couple-ios-spotlight-overline,.couple-ios-spotlight-count) {color:#b4b8c5;}
-.couple-content-mode .couple-ios-spotlight-wish .couple-ios-spotlight-bottom strong {color:#fff;}
-.couple-content-mode .couple-ios-spotlight-wish .couple-ios-spotlight-bottom small {color:#d0d1dd;}
-.couple-content-mode .couple-ios-spotlight-wish svg {color:#f1f3fd;}
 
-@media(max-width:350px) {
- .wish-universe-heading {padding:24px 18px 0;}
- .couple-content-mode .wish-universe-heading h2 {font-size:28px;}
- .wish-universe-bar {margin:16px 17px 0;}
- .wish-universe-field {min-height:460px;height:475px;}
- .couple-content-mode .wish-universe-star {min-width:82px;max-width:95px;}
- .wish-universe-star-title {font-size:9px;}
- .wish-universe-actions {margin-inline:16px;}
- .couple-content-mode .wish-universe-new {padding-inline:12px;}
- .couple-content-mode .wish-universe-partner {font-size:10px;}
- .wish-universe-focus {left:12px;right:12px;padding:16px 15px;}
- .couple-content-mode .couple-records-wish .couple-edit-wish-meta {grid-template-columns:1fr 1fr;}
-}
-@media(prefers-reduced-motion:reduce) {
- .wish-universe,.wish-universe-nebula,.wish-universe-ambient i,.wish-universe-star-corona,
- .wish-universe-first-star:before,.wish-universe-first-orbit,.wish-universe-first-core,.wish-universe-focus,
- .wish-universe-star.is-newly-lit .wish-universe-star-corona:after,.couple-entry-completed .wish-detail-constellation:after
- {animation:none!important;}
- .wish-universe-plane,.wish-universe-star-field,.wish-universe-connections path {transition:none!important;}
-}
 
-/* Screenshot refinement: the chosen star travels inward, neighboring wishes fall quiet. */
-.wish-universe-star {transition:transform .52s cubic-bezier(.19,.83,.2,1),opacity .43s ease,filter .43s ease;}
-.wish-universe-plane.has-focus .wish-universe-star:not(.is-focused) {opacity:.17;filter:blur(.45px);}
-.wish-universe-plane.has-focus .wish-universe-connections {opacity:.25;transition:opacity .35s ease;}
-.couple-content-mode .wish-universe-star.is-focused {
-  transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px))) scale(1.18);
-  z-index:7;
-}
-.wish-universe-actions:has(> .wish-universe-partner:only-child) {justify-content:center;}
-.couple-content-mode .wish-universe-actions>.wish-universe-partner:only-child {text-align:center;}
+/* On the collection shelf, hint at the scene with three faint lights, never hearts. */
+.couple-content-mode .couple-ios-spotlight-wish{position:relative;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse 72% 95% at 72% 53%,#22242c,#111216 72%);border:1px solid #3c3e46;}
+.couple-content-mode .couple-ios-spotlight-wish:before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:radial-gradient(circle 2px at 58% 43%,#f3f3f3bb 75%,transparent 90%),radial-gradient(circle 3px at 73% 57%,#f3f3f3cc 70%,transparent 90%),radial-gradient(circle 1.5px at 85% 30%,#e6e6e6bb 70%,transparent 90%);filter:drop-shadow(0 0 6px #fff7);}
+.couple-content-mode .couple-ios-spotlight-wish:after{content:"";position:absolute;z-index:-1;right:29px;top:45px;width:154px;height:85px;border-top:1px solid #ffffff25;border-radius:50%;transform:rotate(-14deg);pointer-events:none;}
+.couple-content-mode .couple-ios-spotlight-wish :is(.couple-ios-spotlight-overline,.couple-ios-spotlight-count){color:#b5b5bb;}
+.couple-content-mode .couple-ios-spotlight-wish .couple-ios-spotlight-bottom strong{color:#fff;}
+.couple-content-mode .couple-ios-spotlight-wish .couple-ios-spotlight-bottom small{color:#c3c3ca;}
+.couple-content-mode .couple-ios-spotlight-wish svg{color:#f2f2f2;}
 
-/* The wish studio no longer reuses the editor card and stationery-paper metaphor. */
-.couple-content-mode .couple-records-wish .couple-compose.couple-compose-wish {
-  background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible;
+/* Editor / detail share the same small, literal point of light. */
+.couple-content-mode .couple-records-wish .couple-detail-wish{background:radial-gradient(ellipse 65% 55% at 50% 38%,#28282e4a,transparent 75%);}
+.couple-content-mode .couple-records-wish .couple-edit-wish{background:radial-gradient(ellipse at 50% 0%,#28282d44,#101115 60%);}
+.couple-content-mode .couple-records-wish .couple-edit-wish:before{content:"";display:block;width:11px;height:11px;margin:25px auto 34px;border:0;border-radius:50%;background:#ececec;box-shadow:0 0 0 27px #ffffff06,0 0 0 28px #ffffff20,0 0 20px #ffffff87;}
+.couple-content-mode .couple-records-wish .couple-compose.couple-compose-wish{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;}
+.couple-content-mode .couple-records-wish .couple-detail-wish .wish-detail-constellation{width:108px;height:108px;margin-bottom:9px;border:0;box-shadow:none;}
+.couple-content-mode .couple-records-wish .couple-detail-wish .wish-detail-constellation:before{inset:18px;border-color:#ffffff33;}
+.couple-content-mode .couple-records-wish .wish-detail-constellation svg{width:14px;height:14px;overflow:visible;}
+.couple-content-mode .couple-records-wish .wish-detail-constellation svg path{fill:#f4f4f4;stroke:none;transform:scale(.16);transform-origin:50% 50%;filter:drop-shadow(0 0 16px #ffffffb6);}
+.couple-entry-completed .wish-detail-constellation svg path{fill:#fff!important;filter:drop-shadow(0 0 20px #fff)!important;}
+.wish-detail-progress{display:none;}
+@media(max-width:350px){
+ .wish-universe-heading{padding:17px 17px 0;}
+ .couple-content-mode .wish-universe-heading h2{font-size:23px;}
+ .wish-universe-bar{margin:17px 17px 0;gap:6px;}
+ .wish-universe-view{gap:10px;}
+ .wish-universe-field{height:480px;}
+ .couple-content-mode .wish-universe-star{min-width:77px;max-width:88px;}
+ .wish-universe-star-title{font-size:10px;}
+ .wish-universe-actions{margin-inline:17px;}
+ .wish-universe-focus{left:11px;right:11px;}
+ .couple-content-mode .couple-records-wish .couple-edit-wish-meta{grid-template-columns:1fr;}
 }
-.couple-content-mode .couple-records-wish .couple-edit-wish {padding:25px 8px 20px;background:transparent;overflow:visible;}
-.couple-content-mode .couple-records-wish .couple-edit-wish:before {
-  width:105px;height:105px;margin-bottom:20px;
-  box-shadow:0 0 0 19px #e5e6f007,0 0 0 40px #e5e6f004,0 0 28px #f3f4ff23;
-}
-.couple-content-mode .couple-records-wish .couple-edit-wish-paper {padding-inline:3px;}
-.couple-content-mode .couple-records-wish .couple-compose-buttons {padding-inline:6px;background:#090c14;border-top-color:#3c4352;}
-
-/* Follow actual checked subgoals with a visible star orbit in detail. */
-.wish-detail-progress {position:absolute;inset:-6px;border-radius:50%;opacity:.9;
- background:conic-gradient(#e8ecff 0 var(--detail-wish-progress,0%),transparent var(--detail-wish-progress,0%) 100%);
- mask:radial-gradient(circle,transparent 0 60px,#000 60.5px 62px,transparent 63px);
- -webkit-mask:radial-gradient(circle,transparent 0 60px,#000 60.5px 62px,transparent 63px);
- filter:drop-shadow(0 0 3px #fff);}
-.couple-entry-completed .wish-detail-progress {opacity:1;}
 @media(prefers-reduced-motion:reduce){
- .wish-universe-star,.wish-universe-plane.has-focus .wish-universe-connections {transition:none!important;}
-}
-
-/* Connected-heart space — NOT a reskin of the film projector.
-   No oversized glyph, orbit circles, framed card, or template-style hero.
-   The 16 tiny background hearts are decorative; actionable hearts represent saved entries. */
-.couple-content-mode .wish-universe {
-  background:radial-gradient(ellipse 95% 65% at 53% 50%,#24252a 0%,#111218 38%,#08090d 74%,#06070a 100%);
-  min-height:600px;animation:wishUniverseArrive .42s ease-out both;
-}
-.wish-universe:before {display:none!important;}
-.wish-universe-heading {padding:16px 23px 0;}
-.wish-universe-heading-overline {display:none;}
-.wish-universe-heading-main {align-items:center;margin:0;gap:10px;}
-.couple-content-mode .wish-universe-heading h2 {
-  font-size:23px;line-height:1.4;letter-spacing:.065em;font-weight:520;
-  color:#f5f5f5;text-shadow:none;
-}
-.wish-universe-tally {padding:0;font:12px Georgia,serif;color:#878890;}
-.wish-universe-tally strong {font:19px Georgia,serif;color:#e5e5e6;}
-.wish-universe-heading-bottom {
-  margin:4px 0 0;padding:0;border:0;letter-spacing:.015em;font-size:10px;
-  color:#86878e;align-items:center;
-}
-.wish-universe-heading-bottom i {color:#55565d;}
-.wish-universe-bar {margin:15px 23px 0;padding:0 0 6px;gap:8px;align-items:center;}
-.wish-universe-bar label {font-size:10px;color:#94959b;}
-.couple-content-mode .wish-universe-bar select {
-  background:transparent;border:0;border-bottom:1px solid #55565b;
-  border-radius:0;max-width:110px;min-width:90px;min-height:32px;
-  padding:5px 17px 5px 5px;color:#e4e4e4;font-size:11px;
-}
-.wish-universe-view {border:0;gap:12px;}
-.couple-content-mode .wish-universe-view button {
-  background:transparent;min-width:36px;min-height:34px;padding:5px 2px;
-  color:#777981;font-size:11px;border-bottom:1px solid transparent;
-}
-.couple-content-mode .wish-universe-view button[aria-pressed="true"] {
-  border-bottom-color:#e9e9e9;color:#f7f7f7;
-}
-.wish-universe-field {
-  height:555px;min-height:520px;max-height:none;
-  margin:0;isolation:isolate;overflow:hidden;
-  background:radial-gradient(ellipse 40% 40% at 51% 52%,#f8f8f806,transparent 75%);
-  touch-action:pan-y;
-}
-.wish-universe-heartspace {
-  position:absolute;inset:0;width:100%;height:100%;overflow:visible;
-  pointer-events:none;z-index:0;
-  filter:drop-shadow(0 0 5px #ffffff15);
-}
-.wish-universe-threads path {
-  stroke:url(#wish-thread);stroke-width:1.05;fill:none;
-  stroke-linecap:round;opacity:.80;
-}
-.wish-universe-tiny-hearts g {animation:wishHeartDrift 7s ease-in-out infinite alternate;animation-delay:var(--heart-delay,0s);}
-.wish-universe-tiny-hearts path {
-  stroke:#dcdddf;stroke-width:2.15;fill:#eeeeef07;
-  filter:drop-shadow(0 0 4px #ffffff3e);opacity:.73;
-}
-.wish-universe-tiny-hearts g:nth-child(3n) path {stroke:#f9f9f9;opacity:.9;filter:drop-shadow(0 0 6px #ffffff59);}
-.wish-universe-tiny-hearts g:nth-child(4n) path {opacity:.38;}
-.wish-universe-plane {
-  position:relative;width:100%;max-width:490px;height:100%;z-index:2;
-  margin:0 auto;transition:transform .15s ease-out;
-}
-.wish-universe-connections {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.wish-universe-connections path {
-  stroke:#dedee1;stroke-width:1.0;stroke-opacity:.66;
-  stroke-dasharray:none;filter:drop-shadow(0 0 3px #ffffff29);
-  transition:stroke-opacity .32s,stroke-width .32s;
-}
-.wish-universe-connections path.is-lit {
-  stroke:#fff;stroke-opacity:1;stroke-width:1.8;
-  filter:drop-shadow(0 0 5px #ffffffc8);
-}
-.couple-content-mode .wish-universe-star {
-  min-width:80px;max-width:100px;min-height:79px;
-  padding:2px;justify-content:center;
-  border:0;background:transparent;border-radius:0;
-  color:#e9e9e9;animation:none;
-}
-.wish-universe-star-field {
-  position:relative;display:grid;place-items:center;width:54px;height:55px;
-  flex:0 0 55px;filter:drop-shadow(0 0 7px #ffffff20);
-  transition:transform .36s ease,filter .36s ease;
-}
-.wish-universe-heart-icon {display:block;width:39px;height:40px;overflow:visible;}
-.wish-universe-heart-outline {
-  stroke:#e5e5e5;stroke-width:2.1;fill:#fafafa08;
-  filter:drop-shadow(0 0 4px #e9e9e943);
-}
-.wish-universe-heart-fill {fill:#fff;opacity:0;stroke:none;transition:opacity .45s;}
-.wish-universe-heart-progress {
-  fill:none;stroke:#f7f7f7;stroke-width:3;stroke-linecap:round;
-  filter:drop-shadow(0 0 5px #ffffffcc);
-  transition:stroke-dashoffset .55s ease;
-}
-.wish-universe-star.is-done .wish-universe-heart-outline {stroke:#fff;stroke-width:2.7;}
-.wish-universe-star.is-done .wish-universe-heart-fill {
-  opacity:.91;filter:drop-shadow(0 0 8px #ffffff) drop-shadow(0 0 13px #fff9);
-}
-.wish-universe-star.is-done .wish-universe-star-field {filter:drop-shadow(0 0 11px #fff9);}
-.wish-universe-star.is-done.is-focused .wish-universe-star-field {transform:scale(1.26);}
-.wish-universe-star.is-focused .wish-universe-star-field {transform:scale(1.22);filter:drop-shadow(0 0 9px #fff7);}
-.wish-universe-star-title {
-  width:100%;padding:0;color:#bfc0c3;font-size:10px;
-  font-weight:400;line-height:1.3;letter-spacing:0;
-  text-shadow:0 2px 5px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.wish-universe-star.is-focused .wish-universe-star-title {color:#fff;}
-.wish-universe-star.is-newly-lit .wish-universe-heart-icon {
-  animation:wishHeartIgnite 1.05s cubic-bezier(.17,.84,.23,1) both;
-}
-.wish-universe-star.is-newly-lit .wish-universe-star-field:after {
-  content:"";position:absolute;inset:-12px;border:1px solid #fff;border-radius:50%;
-  opacity:0;animation:wishHeartRipple 1.05s ease-out both;pointer-events:none;
-}
-.wish-universe-empty {z-index:3;display:block;inset:0;}
-.couple-content-mode .wish-universe-first-star.wish-universe-first-heart {
-  position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
-  width:82px;height:80px;min-width:82px;min-height:80px;
-  padding:0;background:none;border:0;border-radius:0;overflow:visible;
-  color:#fff;display:grid;place-items:center;
-  filter:drop-shadow(0 0 10px #ffffff70);
-  transition:transform .25s ease;
-}
-.couple-content-mode .wish-universe-first-heart:before,
-.couple-content-mode .wish-universe-first-heart:after {content:none;display:none;}
-.couple-content-mode .wish-universe-first-heart svg {
-  width:46px;height:48px;overflow:visible;animation:wishHeartPulse 5s ease-in-out infinite;
-}
-.couple-content-mode .wish-universe-first-heart svg path {
-  stroke:#fafafa;stroke-width:2.3;fill:#ffffff13;filter:drop-shadow(0 0 7px #ffffff8a);
-}
-.couple-content-mode .wish-universe-first-heart:active {transform:translate(-50%,-50%) scale(1.14);}
-.wish-universe-empty-hint {
-  bottom:65px;left:0;right:0;
-  color:#a9a9ac;font-size:11px;letter-spacing:.03em;
-}
-.wish-universe-actions {
-  margin:0 23px 17px;padding-top:14px;border-top:1px solid #36373d;
-}
-.couple-content-mode .wish-universe-new {border-radius:0;border:0;border-bottom:1px solid #8a8b90;
-  padding:7px 3px;background:transparent;color:#f4f4f4;box-shadow:none;min-height:40px;}
-.couple-content-mode .wish-universe-partner {min-height:40px;font-size:11px;color:#b4b4bb;}
-.wish-universe-focus {
-  left:15px;right:15px;bottom:30px;padding:18px 14px 15px;
-  border-radius:0;border:0;border-top:1px solid #b1b2bd6e;
-  background:linear-gradient(180deg,#08090bdc,#06070aef 68%,#040506fc);
-  backdrop-filter:blur(13px);box-shadow:0 -20px 45px #0008;
-  animation:wishFocusReveal .34s ease-out both;
-}
-.wish-universe-focus:before {display:none;}
-.wish-universe-focus-caption {font-size:10px;letter-spacing:.05em;color:#b7b7be;}
-.couple-content-mode .wish-universe-focus h3 {font-size:20px;font-weight:520;margin:8px 0 7px;color:#fff;}
-.couple-content-mode .wish-universe-focus p {font-size:11px;color:#b4b5bd;}
-.wish-universe-focus-progress {border-top:1px solid #66677059;}
-.wish-universe-focus-actions {margin-top:12px;gap:15px;}
-.couple-content-mode .wish-universe-focus-actions button {
-  padding:8px 3px;border:0;border-bottom:1px solid #6d6e76;
-  border-radius:0;background:transparent;color:#d7d7da;font-size:11px;
-}
-.couple-content-mode .wish-universe-focus-actions button:last-child {
-  background:transparent;color:#fff;border-bottom-color:#eee;
-}
-.wish-universe-paging {bottom:5px;gap:12px;}
-.couple-content-mode .wish-universe-paging button {font:22px Georgia,serif;color:#e1e1e2;}
-/* The editor and detail no longer display the previous reused four-point icon. */
-.couple-content-mode .couple-records-wish .couple-edit-wish:before {
-  content:"♡";width:80px;height:75px;border:0;border-radius:0;
-  font:65px/1 Georgia,serif;margin:0 auto 18px;
-  text-shadow:0 0 13px #ffffffb8,0 0 36px #ffffff64;
-  box-shadow:none;color:#fff;
-}
-.couple-content-mode .couple-records-wish .wish-detail-constellation {
-  border:0;border-radius:0;box-shadow:none;margin-bottom:12px;width:105px;height:100px;
-}
-.couple-content-mode .couple-records-wish .wish-detail-constellation:before {display:none;}
-.wish-detail-constellation svg {height:75px;width:80px;overflow:visible;}
-.wish-detail-constellation svg path {stroke:#fff;stroke-width:2;fill:#ffffff18;filter:drop-shadow(0 0 10px #ffffff65);}
-.couple-entry-completed .wish-detail-constellation svg path {fill:#fff;filter:drop-shadow(0 0 17px #ffffffb8);}
-.wish-detail-progress {border-radius:0;opacity:0;}
-/* Home portal reads as a connected pair of little hearts rather than another emblem card. */
-.couple-content-mode .couple-ios-spotlight-wish:before {
-  width:155px;height:1px;right:18px;top:94px;border:0;border-radius:0;box-shadow:none;
-  transform:rotate(-19deg);background:linear-gradient(90deg,#ffffff14,#ffffffa8,#ffffff14);
-}
-.couple-content-mode .couple-ios-spotlight-wish:after {
-  content:"♡  ♡  ♡";right:33px;top:43px;font:30px Georgia,serif;
-  letter-spacing:8px;color:#fbfbfbcc;text-shadow:0 0 10px #fff7;
-}
-@keyframes wishHeartDrift {from{opacity:.62;filter:brightness(.82)}to{opacity:1;filter:brightness(1.2)}}
-@keyframes wishHeartPulse {from{transform:scale(.92);opacity:.75}to{transform:scale(1.12);opacity:1}}
-@keyframes wishHeartIgnite {0%{transform:scale(.7);opacity:.35}40%{transform:scale(1.5);opacity:1}100%{transform:scale(1);opacity:1}}
-@keyframes wishHeartRipple {0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(2.6)}}
-@media(max-width:350px) {
-  .wish-universe-heading {padding:12px 16px 0;}
-  .couple-content-mode .wish-universe-heading h2 {font-size:21px;}
-  .wish-universe-bar {margin:12px 16px 0;}
-  .wish-universe-field {height:500px;min-height:500px;}
-  .wish-universe-actions {margin-inline:16px;}
-  .wish-universe-focus {left:8px;right:8px;}
-  .couple-content-mode .wish-universe-star {min-width:67px;max-width:81px;}
-  .wish-universe-heart-icon {width:34px;height:36px;}
-  .wish-universe-star-title {font-size:9px;}
-}
-@media(prefers-reduced-motion:reduce) {
- .wish-universe-tiny-hearts g,.wish-universe-first-heart svg,
- .wish-universe-star.is-newly-lit .wish-universe-heart-icon,
- .wish-universe-star.is-newly-lit .wish-universe-star-field:after {animation:none!important;}
-}
-
-/* Final screenshot pass: fewer intersecting threads, deliberate light hierarchy. */
-.wish-universe-threads path:nth-child(1) {stroke-width:1.18;opacity:.91;}
-.wish-universe-threads path:nth-child(2) {stroke-width:1.32;opacity:.94;filter:drop-shadow(0 0 3px #ffffff53);}
-.wish-universe-threads path:nth-child(3) {stroke-width:1;opacity:.74;}
-.wish-universe-threads path:nth-child(4) {stroke-width:.82;opacity:.54;}
-.wish-universe-tiny-hearts g:nth-child(4n+2) path {
-  stroke:#fff;stroke-width:2.8;opacity:1;
-  filter:drop-shadow(0 0 7px #ffffffbf) drop-shadow(0 0 13px #ffffff45);
-}
-.wish-universe-tiny-hearts g:nth-child(4n+3) path {opacity:.75;}
-.couple-content-mode .couple-records-wish .couple-edit-wish:before {
-  content:"♡  ───  ♡  ───  ♡";
-  display:flex;align-items:center;justify-content:center;
-  width:100%;height:53px;max-width:100%;margin:0 auto 14px;
-  border:0;border-radius:0;box-shadow:none;
-  font:23px/1 Georgia,serif;letter-spacing:1px;color:#ececf1;
-  text-shadow:0 0 12px #ffffff77;
-}
-
-/* Mobile screenshot QA: never reveal the generic pressed-button rectangle behind a focused heart. */
-.couple-content-mode .wish-universe-star[aria-pressed="true"],
-.couple-content-mode .wish-universe-star:focus,
-.couple-content-mode .wish-universe-star:active {
-  background:transparent!important;border:0!important;box-shadow:none!important;
-}
-.couple-content-mode .wish-universe-star:focus-visible {
-  outline:1px solid #eeeeee7a;outline-offset:3px;border-radius:50%;
+ .wish-universe,.wish-universe-first-core,.wish-universe-star,.wish-universe-star-field,.wish-universe-star-core,.wish-universe-star-ring,.wish-universe-focus{animation:none!important;transition:none!important;}
 }
