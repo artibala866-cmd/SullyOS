@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('./db', () => ({ DB: {} }));
-import { DAY, type Bond, canWaterPlant, careForPlant, collectPlantDroplets, harvestPlant, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
+import { DAY, type Bond, canWaterPlant, careForPlant, collectPlantDroplets, harvestPlant, replantBond, rolePointStats, plantCareWait, plantStage, capsuleStatus, reward, exchangeCard, playCard, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, type Card } from './couplesSpace';
 
 const NOW = new Date(2026, 10, 5, 12).getTime();
 function bond(): Bond {
@@ -41,6 +41,27 @@ describe('couples garden cooldowns and activity state', () => {
     expect(harvested.entries).toMatchObject([{ kind: 'gift', side: 'them', body: '送你一束春天' }]);
     expect(harvested.plant).toMatchObject({ xp: 0, droplets: 0, partnerCare: 0 });
     expect(() => harvestPlant(harvested, 'me', '知夏', undefined, NOW)).toThrow();
+  });
+
+  it('changes the planting cycle and preserves collected gifts, care history and scores', () => {
+    const original = { ...bond(), flowers: [{ id: 'flower', name: '雏菊', from: 'them' as const, date: '2026-11-05' }] };
+    const first = careForPlant(original, 'water', 'them', NOW);
+    const replanted = replantBond(first, NOW);
+    expect(replanted.plant.cycleId).not.toBe(first.plant.cycleId);
+    expect(replanted.plant).toMatchObject({ xp: 0, droplets: 0, careCount: 1 });
+    expect(replanted.flowers).toEqual(original.flowers);
+    expect(replanted.points).toEqual(first.points);
+  });
+
+  it('tracks only newly earned and spent role points without rewriting a legacy balance', () => {
+    const legacy = { ...bond(), points: { me: 0, them: 70, shared: 0 } };
+    expect(rolePointStats(legacy)).toEqual({ earned: 0, spent: 0, refunded: 0 });
+    const earned = reward(legacy, 'conversation:test', 20, 'them');
+    expect(reward(earned, 'conversation:test', 20, 'them')).toBe(earned);
+    const card: Card = { id: 'qa', name: '测试', price: 35, icon: '♡', effect: '测试', charUse: true };
+    const bought = exchangeCard(earned, card, 'them');
+    expect(bought.points.them).toBe(55);
+    expect(rolePointStats(bought)).toEqual({ earned: 20, spent: 35, refunded: 0 });
   });
 
   it('tracks fertilizer separately and never attributes it to a watering record', () => {

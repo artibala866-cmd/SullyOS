@@ -108,9 +108,10 @@ export async function settleCouplesChat(
     if (current.hollowAuto && hollow && !entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey()))
       entries.push(createEntry('hollow', '未说出口的话', hollow, 'them'));
     const record = { ...current, entries };
-    const cared = shouldCare && current.plantAuto && result.water === true && canWaterPlant(current.plant)
+    const samePlant = current.plant.cycleId === updated.plant.cycleId;
+    const cared = shouldCare && samePlant && current.plantAuto && result.water === true && canWaterPlant(current.plant)
       ? careForPlant(record, 'water', 'them') : record;
-    const next = shouldHarvest && current.plantAuto && result.harvest === true &&
+    const next = shouldHarvest && samePlant && current.plantAuto && result.harvest === true &&
       current.plant.watered === updated.plant.watered && plantStage(cared.plant) === '开花'
       ? harvestPlant(cared, 'them', user.name, text(result.flowerScene)) : cared;
     const card = current.autoCards && note && cards.some(item => item.id === cardId) ? roleCards(current).find(item => item.id === cardId) : undefined;

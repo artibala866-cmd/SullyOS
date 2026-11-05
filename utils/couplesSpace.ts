@@ -26,12 +26,12 @@ export type PlayedCard = { id?: string; card: Card; side: Side; at: number; note
 export type Bond = {
   id: string; members: string[]; relation: Relation; status: 'draft' | 'pending' | 'declined' | 'open' | 'closed';
   start: string; cover?: string; zoom?: number; position?: number; entries: Entry[];
-  plant: { xp: number; watered: number; fertilized?: number; lastCaredAt?: number; lastSide?: Side; careCount: number; cycleWaters?: number; droplets?: number; partnerCare?: number };
+  plant: { xp: number; watered: number; fertilized?: number; lastCaredAt?: number; lastSide?: Side; careCount: number; cycleWaters?: number; cycleId?: string; droplets?: number; partnerCare?: number };
   touches: number; portrait?: string; touchPortraits?: Partial<Record<keyof typeof touchPortraitSlots, string>>; touchLines?: Record<string, string>; touchProps?: string[]; touchCalibration?: Record<string, { x: number; y: number }>;
   plantAuto?: boolean; touchBgm?: string;
   diaryAuto?: boolean; diaryStyle?: string; diaryContext?: boolean; hollowAuto?: boolean;
   disabledCards?: boolean; autoCards?: boolean; lastSceneTurn?: number; noCooldown?: boolean; hidden: string[]; cards: Card[]; bags: Record<Side, Record<string, number>>;
-  points: Record<Side | 'shared', number>; played: PlayedCard[]; claims: string[];
+  points: Record<Side | 'shared', number>; rolePointStats?: { earned: number; spent: number; refunded: number }; played: PlayedCard[]; claims: string[];
   pact?: { wish: string; spent: number; status: 'pending' | 'accepted' | 'declined' | 'done'; response?: string };
   gateMode?: 'open' | 'level' | 'pact';
   unlocks?: Record<string, { terms: string; response: string }>;
@@ -117,6 +117,13 @@ export function canWaterPlant(plant: Bond['plant'], now = Date.now()) {
 export const plantStage = (plant: Bond['plant'], now = Date.now()) =>
   now - plant.watered >= 3 * DAY ? '枯萎' : plant.xp >= 100 ? '开花' : plant.xp >= 55 ? '茂盛' : plant.xp >= 20 ? '嫩芽' : '种子';
 
+export const rolePointStats = (bond: Bond) => bond.rolePointStats ?? { earned: 0, spent: 0, refunded: 0 };
+
+export function replantBond(bond: Bond, now = Date.now()): Bond {
+  return { ...bond, plant: { ...bond.plant, xp: 0, watered: now, cycleId: crypto.randomUUID(),
+    cycleWaters: 0, lastSide: undefined, fertilized: undefined, droplets: 0, partnerCare: 0 } };
+}
+
 export function careForPlant(bond: Bond, action: 'water' | 'fertilize', side: Side, now = Date.now()): Bond {
   const { plant } = bond;
   if (plantStage(plant, now) === '枯萎') throw new Error('盆栽已经枯萎，请重新播种');
@@ -132,6 +139,7 @@ export function careForPlant(bond: Bond, action: 'water' | 'fertilize', side: Si
       partnerCare: (plant.partnerCare ?? 0) + Number(side === 'them'),
     },
     points: { ...bond.points, [side]: bond.points[side] + 8, shared: bond.points.shared + 10 },
+    ...(side === 'them' ? { rolePointStats: { ...rolePointStats(bond), earned: rolePointStats(bond).earned + 8 } } : {}),
   };
 }
 
@@ -150,9 +158,7 @@ export function harvestPlant(bond: Bond, from: Side, recipient: string, scene?: 
     ? '窗边多了一盆刚开好的花，旁边夹着一张留给你的手写小卡。'
     : `把一起养开的花送给 ${recipient}，给这段共同照料的日子留个纪念。`);
   return {
-    ...bond,
-    plant: { ...bond.plant, xp: 0, watered: now, cycleWaters: 0, lastSide: undefined,
-      fertilized: undefined, droplets: 0, partnerCare: 0 },
+    ...replantBond(bond, now),
     flowers: [...(bond.flowers ?? []), { id: crypto.randomUUID(), name, date, from, story }],
     entries: [...bond.entries, { ...createEntry('gift', name, story, from), date }],
   };
@@ -211,6 +217,7 @@ export function exchangeCard(bond: Bond, card: Card, side: Side): Bond {
   if (bond.points[side] < card.price) throw new Error('积分不足');
   return {
     ...bond, points: { ...bond.points, [side]: bond.points[side] - card.price },
+    ...(side === 'them' ? { rolePointStats: { ...rolePointStats(bond), spent: rolePointStats(bond).spent + card.price } } : {}),
     bags: { ...bond.bags, [side]: { ...bond.bags[side], [card.id]: (bond.bags[side][card.id] ?? 0) + 1 } },
   };
 }
@@ -228,4 +235,5 @@ export const reward = (bond: Bond, claim: string, amount: number, side: Side = '
   bond.claims.includes(claim) ? bond : {
     ...bond, claims: [...bond.claims, claim],
     points: { ...bond.points, [side]: bond.points[side] + amount, shared: bond.points.shared + amount },
+    ...(side === 'them' ? { rolePointStats: { ...rolePointStats(bond), earned: rolePointStats(bond).earned + amount } } : {}),
   };

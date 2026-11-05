@@ -310,7 +310,7 @@ export type Generate = (instruction: string) => Promise<string>;
 
 export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal, generateTimeline, backHandler }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
-  generate: Generate; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
+  generate: (instruction: string, signal?: AbortSignal) => Promise<string>; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
   notify?: (message: string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
   generateTimeline?: (instruction: string, date: string) => Promise<string>; backHandler?: React.MutableRefObject<(() => boolean) | undefined>;

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { cardMatchesRelation, exchangeCard, playCard, reward, shopCards, dayKey, relationNames, type Bond, type Card, type Side } from '../../utils/couplesSpace';
+import { cardMatchesRelation, exchangeCard, playCard, reward, rolePointStats, shopCards, dayKey, relationNames, type Bond, type Card, type Side } from '../../utils/couplesSpace';
 import type { ChangeBond, Generate } from './records';
 import { extractJson } from '../../utils/safeApi';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
@@ -71,6 +71,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       return {
         ...current, cards: current.cards.filter(item => item.id !== card.id), bags: { me: myBag, them: theirBag },
         points: { ...current.points, me: current.points.me + me * original.price, them: current.points.them + them * original.price },
+        ...(them ? { rolePointStats: { ...rolePointStats(current), refunded: rolePointStats(current).refunded + them * original.price } } : {}),
         played: current.played.filter(play => play.card.id !== card.id), hidden: current.hidden.filter(id => id !== card.id),
       };
     });
@@ -165,6 +166,11 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     {tab === 'bag' && <>
       {(['me', 'them'] as Side[]).map(side => <section key={side} className="couple-card">
         <h3>{side === 'me' ? '我的卡包' : `${partner}的卡包`}</h3>
+        {side === 'them' && <details className="couple-record-tools">
+          <summary>角色积分流水</summary>
+          <p>赚到 {rolePointStats(bond).earned} · 兑换支出 {rolePointStats(bond).spent} · 已退回 {rolePointStats(bond).refunded}</p>
+          <small>流水从此版本开始累计，历史余额仍显示在上方。</small>
+        </details>}
         {!Object.values(bond.bags[side]).some(Boolean) && <p className="couple-muted">卡包是空的。</p>}
         {cards.filter(card => bond.bags[side][card.id]).map(card => <div key={card.id} className="couple-split">
           <span>{card.icon} {card.name} × {bond.bags[side][card.id]}</span>

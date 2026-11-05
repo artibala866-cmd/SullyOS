@@ -11,7 +11,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, replantBond, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors, loadBondMilestoneSources } from '../utils/couplesGeneration';
@@ -744,14 +744,25 @@ export default function CouplesSpaceApp() {
               const result = extractJson(await generate('对方邀请你照顾两人种的盆栽。按角色决定是否浇水。仅输出 JSON {"water":true或false,"reply":"你的回应"}。'));
               if (typeof result?.water !== 'boolean') throw new Error('没有收到明确答复');
               if (result.water) {
-                await change(current => careForPlant(current, 'water', 'them'));
+                await change(current => {
+                  if (current.plant.cycleId !== bond.plant.cycleId) throw new Error('盆栽已换盆，请重新邀请照料');
+                  return careForPlant(current, 'water', 'them');
+                });
                 setPlantNow(Date.now());
               }
               addToast(typeof result.reply === 'string' ? result.reply : (result.water ? '角色帮你浇水了' : '角色暂时没有浇水'));
             })}>请 {names.them} 照料</button>}
-            {plantStageNow === '枯萎' && <button disabled={busy} onClick={() => void run(() => change(current => ({
-              ...current, plant: { ...current.plant, xp: 0, watered: Date.now(), cycleWaters: 0, lastSide: undefined, fertilized: undefined, droplets: 0, partnerCare: 0 },
-            })))}>重新播种</button>}
+            {plantStageNow === '枯萎' ? <button disabled={busy} onClick={() => void run(() => change(current => {
+              if (plantStage(current.plant) !== '枯萎') throw new Error('盆栽已经变化，请重新查看');
+              return replantBond(current);
+            }))}>重新播种</button> : bond.plant.xp > 0 && <button disabled={busy} onClick={() => {
+              if (!window.confirm('丢掉当前这盆花并重新播种？已经收藏的花和礼物会保留。')) return;
+              void run(() => change(current => {
+                if (current.plant.cycleId !== bond.plant.cycleId || current.plant.watered !== bond.plant.watered)
+                  throw new Error('盆栽已经变化，请重新查看');
+                return replantBond(current);
+              }));
+            }}>换盆重种</button>}
             {!!bond.plant.droplets && <button disabled={busy || plantStageNow === '枯萎'} onClick={() => void run(() => change(current => {
               if (plantStage(current.plant) === '枯萎') throw new Error('先重新播种，再收集水滴');
               return collectPlantDroplets(current);
