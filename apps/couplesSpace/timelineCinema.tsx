@@ -79,9 +79,10 @@ export function TimelineCinema({ bond, names, rows, today, filter, busy, tools, 
       </div>
     </div>
 
+    {rows.length > 0 && <>
     <div className="couple-cinema-reel-heading">
       <span>THE REEL <i/> {filter === 'handbook' ? '手账索引' : '轻触胶片切换回忆'}</span>
-      <button type="button" disabled={busy} onClick={onNew} aria-label="写下新回忆">＋</button>
+      {filter === 'handbook' && <button type="button" disabled={busy} onClick={onNew} aria-label="写下新回忆">＋</button>}
     </div>
     {filter === 'handbook' ? <div className="couple-cinema-index">
       {rows.map((item,index)=><React.Fragment key={item.id}>
@@ -111,6 +112,7 @@ export function TimelineCinema({ bond, names, rows, today, filter, busy, tools, 
         <span className="couple-cinema-perfs" aria-hidden="true"><i/><i/><i/><i/><i/></span>
       </button>
     </div>}
+    </>}
     <footer className="couple-cinema-controls">
       <button type="button" className="couple-cinema-narrate" disabled={busy} onClick={onAI}><span aria-hidden="true">◉</span> 听 {names.them} 讲述</button>
       <div className="couple-cinema-tools">{tools}</div>
