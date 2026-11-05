@@ -317,7 +317,7 @@ function CoupleDetailHeading({ kind, entry, names, avatarMe, avatarThem, today }
  if(kind==='timeline') return <header className="couple-detail-timeline"><span>{entry.date.slice(5).replace('-',' / ')}</span><div><small>{entry.date.slice(0,4)} / MOMENT</small><h2>{entry.title}</h2></div></header>;
  if(kind==='wish') return <header className="couple-detail-wish"><div className="wish-detail-constellation" aria-hidden="true"
   style={{'--detail-wish-progress':(entry.done ? 100 : (entry.steps?.filter(step=>step.text.trim() && step.done).length ?? 0) / Math.max(1,(entry.steps??[]).filter(step=>step.text.trim()).length)*100)+'%'} as React.CSSProperties}>
-  <b className="wish-detail-progress"/><i/>
+  <b className="wish-detail-progress"/><svg viewBox="-31 -25 62 61" aria-hidden="true"><path d="M 0 -7 C -12 -22 -31 -8 -24 9 C -18 22 -5 26 0 32 C 5 26 18 22 24 9 C 31 -8 12 -22 0 -7 Z"/></svg>
 </div><span>{entry.done?'✧ 已点亮':'○ 等待实现'}</span><h2>{entry.title}</h2><small>{names[entry.side]} 写下的心愿 · {entry.date}</small>{(entry.wishCategory || entry.wishTag) &&
    <small>{[entry.wishCategory && wishCategories[entry.wishCategory], entry.wishTag && wishTags[entry.wishTag]].filter(Boolean).join(' · ')}</small>}</header>;
  if(kind==='gift') return <header className="couple-detail-gift"><div className="couple-detail-gift-photo">{entry.image?<TokenImg value={entry.image} alt={entry.title}/>:<span>FOR YOU</span>}</div><div><small>GIFT / {entry.date}</small><h2>{entry.title}</h2><span>FROM {names[entry.side]}</span></div></header>;
