@@ -379,3 +379,12 @@
  .couple-cinema-v2-leader-loop,.couple-cinema-v2-photoless-iris {animation:none!important;}
  .couple-cinema-v2-mode-icon,.couple-content-mode .couple-cinema-v2-cell {transition:none!important;}
 }
+
+/* Film responds visibly to touch, rather than only animating after release. */
+.couple-cinema-v2-deck {
+  transform:translateX(var(--cinema-drag-x,0px)) rotateX(2deg) rotateY(var(--cinema-drag-angle,0deg));
+  transition:transform .12s ease-out,box-shadow .25s ease;
+}
+.couple-cinema-v2-scene:has(.couple-cinema-v2-deck:active) .couple-cinema-v2-deck {
+  box-shadow:0 31px 54px #000d,0 0 0 3px #ffffff0a;
+}
