@@ -24,7 +24,7 @@ const wishes:Entry[]=[
 ];
 function App(){
   const [bond,setBond]=useState<Bond>(()=>({...createBond(['wish-test-me','wish-test-other']),start:'2025-11-05',
-    entries:scene==='empty'?[]:scene==='many'?wishes:wishes.slice(0,7)}));
+    entries:(scene==='empty'||scene==='create-first')?[]:scene==='many'?wishes:wishes.slice(0,7)}));
   const [message,setMessage]=useState('');
   useEffect(()=>{
     const action=window.setTimeout(()=>{
@@ -32,6 +32,15 @@ function App(){
       if(scene==='focus' || scene==='detail' || scene==='complete') star?.click();
       if(scene==='list') document.querySelector<HTMLButtonElement>('.wish-universe-view button:last-child')?.click();
       if(scene==='editor') document.querySelector<HTMLButtonElement>('.wish-universe-new')?.click();
+      if(scene==='create-first') {
+        document.querySelector<HTMLButtonElement>('.wish-universe-first-star')?.click();
+        window.setTimeout(()=>{
+          const input=document.querySelector<HTMLInputElement>('.couple-compose-wish .couple-edit-title input');
+          const form=document.querySelector<HTMLFormElement>('.couple-compose-wish');
+          const nativeSetter=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')?.set;
+          if(input && form){nativeSetter?.call(input,'第一颗属于我们的星星');input.dispatchEvent(new Event('input',{bubbles:true}));form.requestSubmit();}
+        },400);
+      }
       if(scene==='many') document.querySelector<HTMLButtonElement>('.wish-universe-paging button:last-child')?.click();
       if(scene==='role') document.querySelector<HTMLButtonElement>('.wish-universe-partner')?.click();
       if(scene==='filtered') {
