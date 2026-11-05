@@ -498,7 +498,7 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
         const parsed = safeParseJsonArray(reply);
         // [] is valid when the conversation has no lasting memories.
         // Malformed, truncated or non-JSON responses must be failures, not fake empty summaries.
-        const explicitlyEmpty = /^\\s*(?:```(?:json)?\\s*)?\\[\\s*\\](?:\\s*```)?\\s*$/i.test(reply);
+        const explicitlyEmpty = reply.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim() === '[]';
         if (parsed.length === 0 && !explicitlyEmpty) {
             const finishReason = data?.choices?.[0]?.finish_reason;
             throw new Error(`副 API 返回的总结无法解析为记忆 JSON${finishReason ? `（finish_reason: ${finishReason}）` : ''}，请检查模型输出格式或长度`);
