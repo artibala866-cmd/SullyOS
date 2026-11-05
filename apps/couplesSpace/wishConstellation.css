@@ -512,3 +512,13 @@
   font:23px/1 Georgia,serif;letter-spacing:1px;color:#ececf1;
   text-shadow:0 0 12px #ffffff77;
 }
+
+/* Mobile screenshot QA: never reveal the generic pressed-button rectangle behind a focused heart. */
+.couple-content-mode .wish-universe-star[aria-pressed="true"],
+.couple-content-mode .wish-universe-star:focus,
+.couple-content-mode .wish-universe-star:active {
+  background:transparent!important;border:0!important;box-shadow:none!important;
+}
+.couple-content-mode .wish-universe-star:focus-visible {
+  outline:1px solid #eeeeee7a;outline-offset:3px;border-radius:50%;
+}
