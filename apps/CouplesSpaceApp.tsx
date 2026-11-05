@@ -443,7 +443,7 @@ export default function CouplesSpaceApp() {
     if (existingOrNew) setPair(existingOrNew.members);
   });
   const pairList = Object.values(spaces ?? {}).filter(item => item.members.length === 2);
-  const headerTitle = panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
+  const headerTitle = panel === 'timeline' ? '情侣空间' : panel ? labels[panel] : pairs ? '他们的空间' : pickerStep === 'orbit' ? '' : '情侣空间';
 
 
   const shelf = spaceShelves.find(section => section.id === activeShelf) ?? spaceShelves[0];
