@@ -1,84 +1,130 @@
 
-/* Wish constellation: real wishes, real light. No background hearts or dummy connections. */
-.couple-content-mode .couple-main:has(.couple-records-wish){padding:0 0 max(20px,env(safe-area-inset-bottom));background:#08090c;color:#eee;}
-.couple-content-mode:has(.couple-records-wish) .couple-header{background:#08090c;border-bottom:1px solid #222328;color:#f0f0f0;}
-.couple-content-mode:has(.couple-records-wish) .couple-header :is(h1,button,svg){color:#f2f2f2;}
-.couple-content-mode .couple-records-wish{max-width:620px;margin:auto;color:#eaeaea;}
-.wish-universe{position:relative;isolation:isolate;overflow:hidden;min-height:670px;color:#ededee;background:radial-gradient(ellipse 72% 48% at 50% 49%,#1a1b20 0%,#0d0e12 55%,#08090c 100%);animation:wishArrive .5s ease-out both;}
-.wish-universe-heading{padding:23px 23px 0;position:relative;z-index:3;}
-.wish-universe-heading-main{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
-.couple-content-mode .wish-universe-heading h2{margin:0;color:#f4f4f4;font-size:26px;font-weight:530;letter-spacing:.055em;line-height:1.4;text-shadow:none;}
-.wish-universe-tally{display:flex;align-items:baseline;gap:3px;font:12px Georgia,serif;font-variant-numeric:tabular-nums;color:#85868c;}
-.wish-universe-tally strong{font:24px Georgia,serif;color:#e9e9e9;}
-.wish-universe-heading-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:7px;font-size:11px;color:#88898d;letter-spacing:.02em;}
-.wish-universe-heading-bottom i{font-style:normal;margin:0 7px;color:#65666d;}
-.wish-universe-heading-bottom span:last-child{display:none;}
-.wish-universe-bar{position:relative;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:21px 23px 0;padding-bottom:8px;border-bottom:1px solid #24252b;}
-.wish-universe-bar label{display:flex;align-items:center;gap:10px;min-width:0;white-space:nowrap;color:#77787e;font-size:11px;}
-.couple-content-mode .wish-universe-bar select{max-width:112px;min-width:95px;min-height:33px;padding:6px 17px 6px 3px;margin:0;color:#dadade;border:0;border-radius:0;border-bottom:1px solid #4a4b52;background:transparent;font-size:11px;color-scheme:dark;}
-.wish-universe-view{display:flex;align-items:center;gap:15px;}
-.couple-content-mode .wish-universe-view button{margin:0;padding:7px 2px;min-height:34px;background:transparent;border:0;border-bottom:1px solid transparent;border-radius:0;font-size:11px;color:#7a7b83;}
-.couple-content-mode .wish-universe-view button[aria-pressed="true"]{color:#f5f5f5;border-bottom-color:#e8e8e8;background:transparent;}
-.wish-universe-field{position:relative;isolation:isolate;height:515px;max-height:none;overflow:hidden;touch-action:pan-y;}
-.wish-universe-plane{position:relative;z-index:2;width:100%;max-width:470px;height:100%;margin:0 auto;transition:transform .16s ease-out;}
+/* Wish world, an immersive celestial stage rather than a title/filter/list card.
+   Only persisted wishes draw points. Empty-stage light is scenery, never a fictitious wish. */
+.couple-content-mode .couple-main:has(.couple-records-wish){padding:0;background:#08090c;color:#eaeaea;}
+.couple-content-mode:has(.couple-records-wish) .couple-header{background:#08090c;border-bottom:1px solid #1a1a1f;color:#f1f1f1;}
+.couple-content-mode:has(.couple-records-wish) .couple-header :is(h1,button,svg){color:#f1f1f1;}
+.couple-content-mode .couple-records-wish{width:100%;max-width:620px;margin:auto;color:#e6e6e7;}
+.wish-universe{position:relative;isolation:isolate;overflow:hidden;min-height:max(645px,calc(100dvh - 58px));color:#ebebec;
+  background:radial-gradient(ellipse 95% 50% at 69% 51%,#15161b 0%,#0c0d11 48%,#07080c 93%);
+  animation:wishStageReveal .65s ease-out both;}
+.wish-universe:before{content:"";pointer-events:none;position:absolute;inset:12% -25% 17% 22%;z-index:-1;
+  background:radial-gradient(ellipse 40% 42% at 64% 45%,#d2d3e30b 0%,transparent 100%);filter:blur(30px);}
+.wish-universe-heading{position:absolute;z-index:7;top:26px;left:25px;right:25px;padding:0;}
+.wish-universe-heading-main{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;}
+.wish-universe-identity{display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0;}
+.couple-content-mode .wish-universe-heading h2{margin:0;color:#ededed;line-height:1.3;font-size:17px;font-weight:480;letter-spacing:.07em;text-shadow:none;}
+.wish-universe-heading-bottom{font-size:10px;color:#85868e;line-height:1.4;letter-spacing:.04em;}
+.wish-universe-heading-bottom i{font-style:normal;color:#686971;margin:0 8px;}
+.wish-universe-tally{display:flex;align-items:baseline;gap:4px;padding-top:3px;font:11px/1.3 Georgia,serif;font-variant-numeric:tabular-nums;color:#797982;}
+.wish-universe-tally strong{font:15px/1.3 Georgia,serif;font-weight:400;color:#c3c3c9;}
+.wish-universe-bar{position:absolute;z-index:9;left:25px;right:25px;bottom:94px;display:flex;align-items:center;justify-content:space-between;gap:13px;margin:0;padding:0;border:0;}
+.wish-universe-bar label{display:flex;gap:4px;align-items:center;min-width:0;white-space:nowrap;color:#7e7e85;font-size:10px;}
+.couple-content-mode .wish-universe-bar select{margin:0;padding:5px 18px 5px 3px;width:auto;max-width:115px;min-width:85px;min-height:32px;border:0;border-bottom:1px solid #55555d;border-radius:0;background:transparent;box-shadow:none;color:#d0d0d5;font-size:11px;color-scheme:dark;}
+.wish-universe-view{display:flex;gap:18px;align-items:center;}
+.couple-content-mode .wish-universe-view button{padding:6px 1px;min-width:33px;min-height:32px;border:0;border-bottom:1px solid transparent;border-radius:0;background:transparent;box-shadow:none;color:#81818a;font-size:11px;}
+.couple-content-mode .wish-universe-view button[aria-pressed="true"]{color:#e9e9ec;border-bottom-color:#e7e7eb;background:transparent;}
+.wish-universe-field{position:absolute;top:95px;bottom:144px;left:0;right:0;isolation:isolate;overflow:hidden;touch-action:pan-y;}
+.wish-universe-field:before{content:"";position:absolute;inset:7% -8% 8% 7%;pointer-events:none;opacity:.88;background:radial-gradient(ellipse 47% 43% at 59% 48%,#42434b24,transparent 93%);}
+.wish-universe-empty{position:absolute;inset:0;z-index:2;overflow:hidden;}
+.wish-universe-eclipse{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;opacity:.94;animation:wishEclipseDrift 15s ease-in-out infinite alternate;}
+.wish-universe-eclipse path{filter:drop-shadow(0 0 7px #ffffff18);}
+.couple-content-mode .wish-universe-first-star{position:absolute;left:72%;top:44%;display:grid;place-items:center;transform:translate(-50%,-50%);width:100px;height:100px;
+  min-width:100px;min-height:100px;padding:0;border:0!important;border-radius:50%;background:transparent!important;box-shadow:none!important;cursor:pointer;touch-action:manipulation;}
+.wish-universe-first-star:before{content:"";position:absolute;width:78px;height:78px;border:1px solid #ffffff26;border-radius:50%;opacity:.65;box-shadow:0 0 0 30px #ffffff03;}
+.wish-universe-first-star:after{content:"";position:absolute;width:50px;height:50px;border-radius:50%;border:1px solid #fefefe2e;opacity:.8;animation:wishOrbitQuiet 8s ease-in-out infinite alternate;}
+.wish-universe-first-core{position:relative;display:block;width:12px;height:12px;border-radius:50%;background:#fff;
+  box-shadow:0 0 13px #ffffffda,0 0 35px #ffffff75,0 0 65px #ffffff34;animation:wishStarBreathe 5s ease-in-out infinite alternate;}
+.couple-content-mode .wish-universe-first-star:active .wish-universe-first-core{transform:scale(1.3);}
+.wish-universe-empty-hint{position:absolute;left:51%;top:calc(44% + 73px);width:48%;max-width:190px;text-align:center;font-size:11px;line-height:1.6;
+  letter-spacing:.04em;color:#aeafb5;transform:translateX(-5%);}
+.couple-content-mode .wish-universe-all{position:absolute;top:calc(44% + 105px);left:71%;transform:translateX(-50%);padding:7px 3px;background:transparent;border:0;border-bottom:1px solid #666;border-radius:0;color:#b3b3b8;font-size:10px;}
+.wish-universe-plane{position:relative;width:100%;max-width:470px;height:100%;margin:0 auto;z-index:3;transition:transform .15s ease-out;}
 .wish-universe-connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
-.wish-universe-connections path{fill:none;stroke:#b7b8bc;stroke-width:.65;stroke-opacity:.22;stroke-dasharray:2 8;transition:stroke-opacity .6s,stroke-width .6s;}
-.wish-universe-connections path.is-lit{stroke:#dedee2;stroke-width:1.0;stroke-opacity:.45;stroke-dasharray:none;}
-.couple-content-mode .wish-universe-star{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:100px;max-width:112px;min-height:85px;padding:3px 2px;border:0!important;border-radius:0;background:transparent!important;box-shadow:none!important;color:#d6d6d9;cursor:pointer;transform:translate(-50%,-50%);-webkit-tap-highlight-color:transparent;transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .35s,filter .35s;}
-.wish-universe-star-field{position:relative;display:grid;place-items:center;width:61px;height:62px;flex:none;transition:transform .4s;}
-.wish-universe-star-core{position:absolute;width:8px;height:8px;border-radius:50%;background:#d4d4d8;box-shadow:0 0 7px #ffffff73,0 0 17px #ffffff25;transition:width .35s,height .35s,background .35s,box-shadow .35s;}
-.wish-universe-star-ring{position:absolute;width:33px;height:33px;border-radius:50%;border:1px solid #dddddd33;transition:opacity .35s,border-color .35s,transform .35s;}
-.wish-universe-star.is-done .wish-universe-star-core{width:11px;height:11px;background:#fff;box-shadow:0 0 10px #fff9,0 0 26px #ffffff70;}
-.wish-universe-star.is-done .wish-universe-star-ring{border-color:#ffffff77;transform:scale(1.14);}
-.wish-universe-star-title{display:block;width:100%;padding:0 1px;margin-top:-2px;color:#b7b8bd;font-size:11px;font-weight:450;letter-spacing:0;line-height:1.45;text-align:center;text-shadow:0 1px 8px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wish-universe-star.is-done .wish-universe-star-title{color:#ededed;}
-.couple-content-mode .wish-universe-star:focus-visible{outline:1px solid #c8c8cf88;outline-offset:2px;border-radius:12px;}
-.wish-universe-plane.has-focus .wish-universe-star:not(.is-focused){opacity:.18;filter:blur(.7px);}
-.wish-universe-plane.has-focus .wish-universe-connections{opacity:.18;}
-.couple-content-mode .wish-universe-star.is-focused{z-index:5;transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px))) scale(1.18);}
-.wish-universe-star.is-focused .wish-universe-star-core{background:#fff;box-shadow:0 0 12px #ffffffc7,0 0 30px #ffffff61;}
-.wish-universe-star.is-focused .wish-universe-star-ring{border-color:#eeeeee9c;transform:scale(1.17);}
-.wish-universe-star.is-newly-lit .wish-universe-star-ring{animation:wishRealityRipple 1.2s ease-out both;}
-.wish-universe-star.is-newly-lit .wish-universe-star-core{animation:wishRealityCore 1s ease-out both;}
-.wish-universe-empty{position:absolute;inset:0;z-index:3;}
-.couple-content-mode .wish-universe-first-star{position:absolute;top:43%;left:50%;display:grid;place-items:center;transform:translate(-50%,-50%);width:102px;height:102px;min-width:102px;min-height:102px;padding:0;border:0!important;border-radius:50%;background:transparent!important;box-shadow:none!important;color:#fff;cursor:pointer;}
-.wish-universe-first-star:before{content:"";position:absolute;width:74px;height:74px;border:1px solid #ffffff29;border-radius:50%;box-shadow:0 0 0 21px #ffffff04;}
-.wish-universe-first-core{position:relative;display:block;width:12px;height:12px;border-radius:50%;background:#f6f6f6;box-shadow:0 0 12px #ffffff95,0 0 29px #ffffff45;animation:wishQuietPulse 5.5s ease-in-out infinite alternate;}
-.couple-content-mode .wish-universe-first-star:active .wish-universe-first-core{transform:scale(1.24);}
-.wish-universe-empty-hint{position:absolute;top:calc(43% + 67px);left:15px;right:15px;text-align:center;font-size:12px;color:#a4a4aa;line-height:1.6;letter-spacing:.02em;}
-.couple-content-mode .wish-universe-all{position:absolute;left:50%;top:calc(43% + 107px);transform:translateX(-50%);border:0;border-bottom:1px solid #777;background:transparent;border-radius:0;padding:6px 8px;color:#c6c6c8;font-size:11px;}
-.wish-universe-focus{position:absolute;z-index:8;left:18px;right:18px;bottom:15px;padding:19px 17px 15px;border:0;border-top:1px solid #77787f6e;border-radius:0;background:linear-gradient(180deg,#0c0d12df,#08090ced);backdrop-filter:blur(12px);box-shadow:0 -22px 44px #0006;animation:wishFocusRise .3s ease-out both;}
-.couple-content-mode .wish-universe-close{position:absolute;top:12px;right:12px;background:transparent;border:0;color:#d1d1d5;font-size:22px;line-height:1;min-width:32px;min-height:32px;}
-.wish-universe-focus-caption{font-size:10px;color:#a2a2a8;letter-spacing:.08em;}
-.couple-content-mode .wish-universe-focus h3{margin:8px 0 7px;color:#fff;font-size:20px;font-weight:520;line-height:1.4;}
-.couple-content-mode .wish-universe-focus p{margin:0;color:#b4b4b8;font-size:12px;line-height:1.65;max-width:95%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.wish-universe-focus-progress{display:flex;justify-content:space-between;gap:8px;padding-top:12px;margin-top:12px;border-top:1px solid #44454b69;color:#909197;font-size:11px;}
-.wish-universe-focus-actions{display:flex;gap:22px;margin-top:14px;}
-.couple-content-mode .wish-universe-focus-actions button{flex:1;padding:10px 3px;border:0;border-bottom:1px solid #8b8c91;border-radius:0;background:transparent;color:#e0e0e2;font-size:12px;}
-.couple-content-mode .wish-universe-focus-actions button:last-child{border-bottom-color:#ddd;color:#fff;}
-.wish-universe-paging{position:absolute;z-index:4;bottom:3px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:15px;color:#a5a5aa;font:11px Georgia,serif;}
-.couple-content-mode .wish-universe-paging button{background:transparent;border:0;color:#d0d0d3;font:21px Georgia,serif;min-width:36px;min-height:36px;}
+.wish-universe-connections path{fill:none;stroke:#bbbcc7;stroke-width:.75;stroke-opacity:.33;stroke-dasharray:2 8;transition:stroke-opacity .5s,stroke-width .5s;}
+.wish-universe-connections path.is-lit{stroke:#e5e5e6;stroke-width:1;stroke-opacity:.56;stroke-dasharray:none;}
+.couple-content-mode .wish-universe-star{position:absolute;z-index:3;display:flex;align-items:center;flex-direction:column;justify-content:center;
+  transform:translate(-50%,-50%);min-height:80px;min-width:98px;max-width:115px;padding:2px 2px;
+  color:#dedee0;background:transparent!important;border:0!important;border-radius:0;box-shadow:none!important;cursor:pointer;
+  transition:transform .48s cubic-bezier(.19,.8,.2,1),opacity .35s,filter .35s;}
+.wish-universe-star-field{position:relative;display:grid;place-items:center;width:58px;height:61px;flex:none;transition:transform .35s;}
+.wish-universe-star-core{position:absolute;width:7px;height:7px;border-radius:50%;background:#d0d0d6;box-shadow:0 0 8px #ffffff8f,0 0 22px #ffffff40;transition:all .4s;}
+.wish-universe-star-ring{position:absolute;width:36px;height:36px;border:1px solid #dadbe04d;border-radius:50%;transition:transform .4s,border-color .4s;}
+.wish-universe-star-progress{position:absolute;width:42px;height:42px;border-radius:50%;
+  background:conic-gradient(#f9f9fa var(--wish-progress,0%),transparent 0);
+  mask:radial-gradient(circle,transparent 0 19px,#000 19.5px 20.5px,transparent 21px);
+  -webkit-mask:radial-gradient(circle,transparent 0 19px,#000 19.5px 20.5px,transparent 21px);opacity:.75;}
+.wish-universe-star-title{display:block;width:100%;margin-top:-3px;padding:0 2px;text-align:center;font-size:11px;font-weight:420;letter-spacing:.01em;
+  line-height:1.45;color:#c7c8cc;text-shadow:0 2px 7px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wish-universe-star.is-done .wish-universe-star-core{width:10px;height:10px;background:#fff;box-shadow:0 0 11px #fff,0 0 28px #ffffffa8;}
+.wish-universe-star.is-done .wish-universe-star-ring{border-color:#f0f0f0b1;transform:scale(1.12);}
+.wish-universe-star.is-done .wish-universe-star-title{color:#fff;}
+.wish-universe-plane.has-focus .wish-universe-star:not(.is-focused){opacity:.18;filter:blur(.5px);}
+.wish-universe-plane.has-focus .wish-universe-connections{opacity:.12;}
+.couple-content-mode .wish-universe-star.is-focused{transform:translate(calc(-50% + var(--wish-focus-x,0px)),calc(-50% + var(--wish-focus-y,0px))) scale(1.12);z-index:5;}
+.wish-universe-star.is-focused .wish-universe-star-ring{border-color:#f7f7f7bd;transform:scale(1.22);}
+.wish-universe-star.is-focused .wish-universe-star-core{background:white;box-shadow:0 0 12px #fff,0 0 30px #fff7;}
+.couple-content-mode .wish-universe-star:focus-visible,.couple-content-mode .wish-universe-first-star:focus-visible{outline:1px solid #ffffff75;outline-offset:1px;border-radius:50%;}
+.wish-universe-star.is-newly-lit .wish-universe-star-ring{animation:wishStarRealize 1.1s ease-out both;}
+.wish-universe-star.is-newly-lit .wish-universe-star-core{animation:wishStarBecome 1.1s ease-out both;}
+.wish-universe-focus{position:absolute;left:24px;right:24px;bottom:12px;z-index:8;padding:18px 4px 16px;
+  border:0;border-top:1px solid #74747b6a;border-radius:0;box-shadow:none;background:linear-gradient(180deg,#0b0c10ec,#08090cef 70%,#08090cf7);
+  backdrop-filter:blur(12px);animation:wishFocusSlide .38s ease-out both;}
+.couple-content-mode .wish-universe-close{position:absolute;right:0;top:12px;min-height:35px;min-width:35px;border:0;background:transparent;color:#dadade;font-size:23px;}
+.wish-universe-focus-caption{display:block;margin:0 0 6px;color:#8a8a94;font-size:10px;letter-spacing:.06em;}
+.couple-content-mode .wish-universe-focus h3{margin:0 0 7px;font-size:17px;font-weight:490;color:#f4f4f4;line-height:1.45;}
+.couple-content-mode .wish-universe-focus p{margin:0;max-width:91%;font-size:12px;color:#b7b7bc;line-height:1.65;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.wish-universe-focus-progress{display:flex;justify-content:space-between;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid #4a4a5261;color:#96969c;font-size:10px;}
+.wish-universe-focus-actions{display:flex;align-items:center;gap:22px;margin-top:12px;}
+.couple-content-mode .wish-universe-focus-actions button{flex:1;padding:8px 4px;background:transparent;border:0;border-bottom:1px solid #777780;border-radius:0;color:#dadadd;font-size:11px;}
+.couple-content-mode .wish-universe-focus-actions button:last-child{border-bottom-color:#eee;color:#f4f4f4;}
+.wish-universe-paging{position:absolute;left:0;right:0;bottom:2px;display:flex;align-items:center;justify-content:center;gap:18px;font:10px Georgia,serif;color:#aaaab1;}
+.couple-content-mode .wish-universe-paging button{min-height:33px;min-width:35px;padding:0;background:transparent;border:0;color:#dedee0;font:20px Georgia,serif;}
 .wish-universe-field:has(.wish-universe-focus) .wish-universe-paging{opacity:0;pointer-events:none;}
-.wish-universe-list{min-height:420px;padding:15px 23px 10px;}
-.couple-content-mode .wish-universe-list button{display:flex;align-items:center;gap:15px;width:100%;min-height:69px;margin:0;padding:14px 2px;border:0;border-bottom:1px solid #292a30;border-radius:0;background:transparent;box-shadow:none;text-align:left;color:#e7e7e7;}
-.wish-universe-list-dot{width:7px;height:7px;border-radius:50%;background:#98999d;box-shadow:0 0 7px #ffffff35;flex:0 0 7px;}
-.wish-universe-list-dot.is-done{background:#fff;box-shadow:0 0 11px #fff9;}
-.wish-universe-list-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
-.wish-universe-list-body strong{color:#e7e7e9;font-size:13px;font-weight:540;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wish-universe-list-body small{color:#83848b;font-size:10px;}
-.wish-universe-list-progress{color:#aaaab0;font-size:11px;white-space:nowrap;}
-.wish-universe-list>p{color:#a2a2aa;font-size:12px;}
-.wish-universe-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 23px 20px;padding-top:13px;border-top:1px solid #292a2f;}
-.couple-content-mode .wish-universe-new{padding:9px 3px;margin:0;border:0;border-bottom:1px solid #98999f;border-radius:0;background:transparent;box-shadow:none;color:#f0f0f2;font-size:12px;}
-.wish-universe-new>span{font-size:16px;}
-.couple-content-mode .wish-universe-partner{padding:9px 1px;margin:0;border:0;border-radius:0;background:transparent;color:#b4b5ba;font-size:11px;}
+.wish-universe-list{position:absolute;inset:114px 24px 144px;z-index:3;min-height:0;padding:0;overflow-y:auto;scrollbar-width:thin;}
+.couple-content-mode .wish-universe-list button{display:flex;align-items:center;gap:16px;width:100%;min-height:74px;margin:0;padding:16px 2px;
+  border:0;border-bottom:1px solid #26272d;border-radius:0;background:transparent;box-shadow:none;color:#e3e3e5;text-align:left;}
+.wish-universe-list-dot{width:7px;height:7px;flex:none;border-radius:50%;background:#a3a3ac;box-shadow:0 0 6px #ffffff3d;}
+.wish-universe-list-dot.is-done{background:white;box-shadow:0 0 11px #ffffffab;}
+.wish-universe-list-body{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;}
+.wish-universe-list-body strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e4e4e6;font-size:13px;font-weight:500;}
+.wish-universe-list-body small{font-size:10px;color:#858590;}
+.wish-universe-list-progress{white-space:nowrap;font-size:11px;color:#a2a2ab;}
+.wish-universe-list>p{text-align:center;margin:25vh 0 0;color:#a1a1aa;font-size:12px;}
+.wish-universe-actions{position:absolute;z-index:9;left:25px;right:25px;bottom:21px;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  height:49px;margin:0;padding:9px 0 0;border:0;border-top:1px solid #33343a;}
+.couple-content-mode .wish-universe-new{margin:0;padding:7px 2px;min-height:32px;background:transparent;border:0;border-radius:0;box-shadow:none;color:#eee;font-size:12px;}
+.wish-universe-new>span{font-size:17px;font-weight:300;vertical-align:-1px;}
+.couple-content-mode .wish-universe-partner{margin:0 0 0 auto;padding:7px 0;min-height:32px;background:transparent;border:0;border-radius:0;box-shadow:none;color:#b3b3ba;font-size:11px;}
 .wish-universe-partner span{margin-left:4px;}
-.wish-universe-actions:has(> .wish-universe-partner:only-child){justify-content:center;}
-@keyframes wishQuietPulse{from{opacity:.72;box-shadow:0 0 8px #ffffff75,0 0 21px #ffffff34;}to{opacity:1;box-shadow:0 0 13px #fff9,0 0 31px #ffffff56;}}
-@keyframes wishRealityRipple{0%{opacity:.2;transform:scale(.75)}45%{opacity:1;transform:scale(1.55)}100%{opacity:.78;transform:scale(1.14)}}
-@keyframes wishRealityCore{0%{transform:scale(.5);opacity:.5}45%{transform:scale(1.65);opacity:1}100%{transform:scale(1);opacity:1}}
-@keyframes wishFocusRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes wishArrive{from{opacity:.35}to{opacity:1}}
+.wish-universe-actions:has(> .wish-universe-partner:only-child){justify-content:flex-start;}
+.couple-content-mode .wish-universe-actions>.wish-universe-partner:only-child{margin-left:0;text-align:left;}
+@keyframes wishStageReveal{from{opacity:.3}to{opacity:1}}
+@keyframes wishEclipseDrift{from{transform:translate3d(-5px,6px,0) rotate(-1deg);opacity:.78}to{transform:translate3d(7px,-8px,0) rotate(1deg);opacity:.97}}
+@keyframes wishStarBreathe{from{opacity:.72;box-shadow:0 0 9px #fffb,0 0 24px #ffffff45;}to{opacity:1;box-shadow:0 0 17px #fff,0 0 44px #ffffff87;}}
+@keyframes wishOrbitQuiet{from{opacity:.23;transform:scale(.94)}to{opacity:.75;transform:scale(1.08)}}
+@keyframes wishStarRealize{0%{opacity:.2;transform:scale(.5)}45%{opacity:1;transform:scale(1.6)}100%{opacity:1;transform:scale(1.12)}}
+@keyframes wishStarBecome{0%{opacity:.4;transform:scale(.4)}45%{opacity:1;transform:scale(1.6)}100%{opacity:1;transform:scale(1)}}
+@keyframes wishFocusSlide{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:350px){
+ .wish-universe{min-height:max(590px,calc(100dvh - 55px));}
+ .wish-universe-heading{left:18px;right:18px;top:18px;}
+ .couple-content-mode .wish-universe-heading h2{font-size:16px;}
+ .wish-universe-bar{left:18px;right:18px;bottom:84px;}
+ .wish-universe-view{gap:12px;}
+ .wish-universe-field{top:76px;bottom:127px;}
+ .wish-universe-empty-hint{left:46%;width:52%;font-size:10px;}
+ .couple-content-mode .wish-universe-star{min-width:77px;max-width:88px;min-height:68px;}
+ .wish-universe-star-field{height:47px;width:49px;}
+ .wish-universe-star-title{font-size:10px;}
+ .wish-universe-focus{left:13px;right:13px;}
+ .wish-universe-actions{left:18px;right:18px;bottom:12px;}
+ .wish-universe-list{inset:92px 18px 133px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .wish-universe,.wish-universe-eclipse,.wish-universe-first-core,.wish-universe-first-star:after,.wish-universe-star,
+ .wish-universe-star-field,.wish-universe-star-core,.wish-universe-star-ring,.wish-universe-focus {animation:none!important;transition:none!important;}
+}
 
 /* Saved wish detail = viewing one glowing star, not reading a white memo. */
 .couple-content-mode .couple-records-wish.couple-records-detail,.couple-content-mode .couple-records-wish.couple-records-editing {padding:17px 16px 30px;min-height:100%;}
