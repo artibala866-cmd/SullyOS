@@ -1611,9 +1611,13 @@ export default function MemoryPalaceApp() {
             return;
         }
         const mpEmb = memoryPalaceConfig?.embedding;
-        const mpLLM = memoryPalaceConfig?.lightLLM;
-        if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM?.baseUrl || !mpLLM?.apiKey) {
-            addToast('请先在记忆宫殿设置中配置 Embedding + 副 API', 'error');
+        const savedLightLLM = memoryPalaceConfig?.lightLLM;
+        const mpLLM = savedLightLLM?.baseUrl && savedLightLLM?.apiKey && savedLightLLM?.model
+            ? savedLightLLM
+            : apiConfig;
+        if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpEmb?.model
+            || !mpLLM?.baseUrl || !mpLLM?.apiKey || !mpLLM?.model) {
+            addToast('请先配置 Embedding API，以及副 API 或主 API', 'error');
             return;
         }
 
@@ -1720,6 +1724,7 @@ export default function MemoryPalaceApp() {
             let accumulatedMemories = (target as any).memories ? [...(target as any).memories] : [];
             let latestHideBefore = (target as any).hideBeforeMessageId;
             let totalProcessed = 0;
+            let stoppedReason = '';
 
             for (let round = 1; round <= MAX_ROUNDS; round++) {
                 const curHwm = getMemoryPalaceHighWaterMark(charId);
@@ -1735,7 +1740,9 @@ export default function MemoryPalaceApp() {
 
                 // 软跳过：缓冲区没到阈值 / 热区还没被挤出 / 已有任务在跑 —— 不是 palace 失败
                 if (result?.skipReason) {
-                    if (result.skipReason !== 'lock') {
+                    if (result.skipReason === 'lock') {
+                        stoppedReason = '已有其它记忆任务正在运行';
+                    } else {
                         addToast('当前聊天不足以触发总结，请保持这个状态聊天~', 'info');
                     }
                     break;
@@ -1748,14 +1755,21 @@ export default function MemoryPalaceApp() {
 
                 const newHwm = getMemoryPalaceHighWaterMark(charId);
                 if (newHwm <= curHwm) {
-                    addToast('追平中断：palace 处理失败，请检查副 API 配置', 'error');
+                    const failedBatch = result?.batches?.find(batch => !batch.ok);
+                    stoppedReason = failedBatch
+                        ? `第 ${failedBatch.index}/${failedBatch.total} 批失败：${failedBatch.error || '副 API 返回异常'}`
+                        : '记忆没有成功入库或水位线未推进，请检查 API 调用记录与 Embedding 配置';
                     break;
                 }
                 totalProcessed += result?.processedMessages || 0;
             }
 
             updateCharacter(charId, { memories: accumulatedMemories, hideBeforeMessageId: latestHideBefore } as any);
-            addToast(`历史追平完成，处理了 ${totalProcessed} 条消息`, 'success');
+            if (stoppedReason) {
+                addToast(`历史追平中断：${stoppedReason}（已成功处理 ${totalProcessed} 条，未成功的原文保留）`, 'error');
+            } else if (totalProcessed > 0) {
+                addToast(`本次历史追平已处理 ${totalProcessed} 条消息`, 'success');
+            }
         } catch (e: any) {
             addToast(`追平失败：${e?.message || '未知错误'}（开关保持开启，后续会按常规进度处理）`, 'error');
         } finally {
@@ -1875,13 +1889,17 @@ export default function MemoryPalaceApp() {
             return;
         }
         const emb = memoryPalaceConfig.embedding;
-        const llm = memoryPalaceConfig.lightLLM;
-        if (!emb?.baseUrl || !emb?.apiKey) {
+        const savedLightLLM = memoryPalaceConfig.lightLLM;
+        // Keep the manual summarizer consistent with the documented primary-API fallback.
+        const llm = savedLightLLM?.baseUrl && savedLightLLM?.apiKey && savedLightLLM?.model
+            ? savedLightLLM
+            : apiConfig;
+        if (!emb?.baseUrl || !emb?.apiKey || !emb?.model) {
             addToast('请先配置 Embedding API', 'error');
             return;
         }
-        if (!llm?.baseUrl || !llm?.apiKey) {
-            addToast('请先配置副 API（用于 LLM 记忆提取）', 'error');
+        if (!llm?.baseUrl || !llm?.apiKey || !llm?.model) {
+            addToast('请先配置副 API 或主 API（用于记忆提取）', 'error');
             return;
         }
 
