@@ -25,7 +25,7 @@ const STAR_POSITIONS = [
 const quietHearts = [
   {x:31,y:75,s:.45},{x:106,y:43,s:.34},{x:268,y:43,s:.48},{x:348,y:82,s:.32},
   {x:363,y:206,s:.43},{x:237,y:184,s:.41},{x:128,y:220,s:.35},{x:43,y:248,s:.54},
-  {x:19,y:388,s:.39},{x:194,y:262,s:.58},{x:290,y:362,s:.32},{x:360,y:405,s:.48},
+  {x:19,y:388,s:.39},{x:247,y:262,s:.53},{x:290,y:362,s:.32},{x:360,y:405,s:.48},
   {x:234,y:470,s:.40},{x:64,y:470,s:.44},{x:202,y:120,s:.31},{x:154,y:385,s:.32},
 ];
 const heartShape = 'M 0 -7 C -12 -22 -31 -8 -24 9 C -18 22 -5 26 0 32 C 5 26 18 22 24 9 C 31 -8 12 -22 0 -7 Z';
@@ -123,9 +123,9 @@ export function WishConstellation({ bond, names, rows, allCount, filter, busy, f
         </linearGradient></defs>
         <g className="wish-universe-threads">
           <path d="M31 75 Q 85 3 106 43 T202 120 T298 146 T363 206 T290 362 T360 405"/>
-          <path d="M43 248 Q 58 170 128 220 T194 262 T290 362 T234 470"/>
+          <path d="M43 248 Q 58 170 128 220 T247 262 T290 362 T234 470"/>
           <path d="M19 388 Q 68 274 154 385 T234 470 T360 405"/>
-          <path d="M64 470 Q 35 375 76 329 T194 262 T237 184 T268 43"/>
+          <path d="M64 470 Q 35 375 76 329 T247 262 T237 184 T268 43"/>
           
         </g>
         <g className="wish-universe-tiny-hearts">
