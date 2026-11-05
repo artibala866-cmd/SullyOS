@@ -493,3 +493,22 @@
  .wish-universe-star.is-newly-lit .wish-universe-heart-icon,
  .wish-universe-star.is-newly-lit .wish-universe-star-field:after {animation:none!important;}
 }
+
+/* Final screenshot pass: fewer intersecting threads, deliberate light hierarchy. */
+.wish-universe-threads path:nth-child(1) {stroke-width:1.18;opacity:.91;}
+.wish-universe-threads path:nth-child(2) {stroke-width:1.32;opacity:.94;filter:drop-shadow(0 0 3px #ffffff53);}
+.wish-universe-threads path:nth-child(3) {stroke-width:1;opacity:.74;}
+.wish-universe-threads path:nth-child(4) {stroke-width:.82;opacity:.54;}
+.wish-universe-tiny-hearts g:nth-child(4n+2) path {
+  stroke:#fff;stroke-width:2.8;opacity:1;
+  filter:drop-shadow(0 0 7px #ffffffbf) drop-shadow(0 0 13px #ffffff45);
+}
+.wish-universe-tiny-hearts g:nth-child(4n+3) path {opacity:.75;}
+.couple-content-mode .couple-records-wish .couple-edit-wish:before {
+  content:"♡  ───  ♡  ───  ♡";
+  display:flex;align-items:center;justify-content:center;
+  width:100%;height:53px;max-width:100%;margin:0 auto 14px;
+  border:0;border-radius:0;box-shadow:none;
+  font:23px/1 Georgia,serif;letter-spacing:1px;color:#ececf1;
+  text-shadow:0 0 12px #ffffff77;
+}
