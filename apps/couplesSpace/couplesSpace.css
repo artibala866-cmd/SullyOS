@@ -2927,3 +2927,9 @@
   .couple-hollow-portal.is-shaking .couple-hollow-orbit-one,
   .couple-hollow-portal.is-shaking .couple-hollow-orbit-two {animation:none!important;transition:none!important;}
 }
+
+/* Portal interaction checks: never dim the vortex while its paper is flying; settings can wrap. */
+.couple-content-mode .couple-hollow-vortex:disabled{opacity:1!important;}
+.couple-content-mode .couple-hollow-interactions{flex-wrap:wrap;}
+.couple-content-mode .couple-hollow-pref-fold[open]{flex:0 0 100%;order:3;}
+.couple-content-mode .couple-hollow-pref-fold[open]>summary{width:100%;justify-content:flex-end;padding:0 17px;}
