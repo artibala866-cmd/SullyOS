@@ -64,6 +64,17 @@ jobs:
               --dump-dom "$url" > "/tmp/bond-ticket-$state-dom.txt" 2>/tmp/ticket-chrome.log
             grep -q 'data-ready="true"' "/tmp/bond-ticket-$state-dom.txt" || { tail -80 /tmp/ticket-vite.log; tail -40 /tmp/ticket-chrome.log; exit 1; }
             grep -q 'data-overflow="false"' "/tmp/bond-ticket-$state-dom.txt" || { echo "Horizontal overflow: $state"; exit 1; }
+            case "$state" in
+              exchange)
+                grep -q 'data-view="bag"' "/tmp/bond-ticket-$state-dom.txt" || { echo 'Exchange did not open the wallet'; exit 1; }
+                grep -q 'data-points="545"' "/tmp/bond-ticket-$state-dom.txt" || { echo 'Exchange did not deduct 35 points'; exit 1; };;
+              play)
+                grep -q 'data-played="1"' "/tmp/bond-ticket-$state-dom.txt" || { echo 'Card was not played'; exit 1; };;
+              editor)
+                grep -q 'data-editor="true"' "/tmp/bond-ticket-$state-dom.txt" || { echo 'Custom card editor not shown'; exit 1; };;
+              empty)
+                grep -q 'data-tickets="0"' "/tmp/bond-ticket-$state-dom.txt" || { echo 'Empty shelf contains tickets'; exit 1; };;
+            esac
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
               --window-size=430,940 --force-device-scale-factor=1 --virtual-time-budget=4200 \
               --screenshot="$GITHUB_WORKSPACE/bond-ticket-screenshots/$state.png" "$url"
@@ -76,7 +87,7 @@ jobs:
               --screenshot="$GITHUB_WORKSPACE/bond-ticket-screenshots/$state-320.png" "$url"
             test -s "bond-ticket-screenshots/$state-320.png"
           done
-          for state in shop bag; do
+          for state in shop next empty bag bag-empty tasks grand editor exchange play; do
             echo "TICKET_SCREENSHOT_BEGIN_$state"
             base64 -w 0 "bond-ticket-screenshots/$state.png"
             echo
