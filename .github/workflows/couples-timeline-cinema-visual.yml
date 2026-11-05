@@ -57,13 +57,22 @@ jobs:
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
           mkdir -p timeline-cinema-screenshots
-          for state in populated empty detail editor handbook; do
+          for state in populated empty detail editor handbook swipe-mode swipe-frame; do
             url="http://127.0.0.1:5173/tests/couples-timeline-cinema-visual.html?state=$state"
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
               --window-size=430,940 --force-device-scale-factor=1 \
               --virtual-time-budget=7000 --dump-dom "$url" > "/tmp/timeline-$state-dom.txt" 2>/tmp/timeline-chrome.log
             grep -q 'data-ready="true"' "/tmp/timeline-$state-dom.txt" || { tail -60 /tmp/timeline-vite.log; tail -40 /tmp/timeline-chrome.log; exit 1; }
             grep -q 'data-overflow="false"' "/tmp/timeline-$state-dom.txt" || { echo "Horizontal overflow in $state"; exit 1; }
+            if [[ "$state" == "handbook" || "$state" == "swipe-mode" ]]; then
+              grep -q 'data-handbook="true"' "/tmp/timeline-$state-dom.txt" || { echo "Handbook transition failed: $state"; exit 1; }
+            fi
+            if [[ "$state" == "empty" ]]; then
+              grep -q 'data-leader="true"' "/tmp/timeline-$state-dom.txt" || { echo 'Empty film leader missing'; exit 1; }
+            fi
+            if [[ "$state" == "swipe-frame" ]]; then
+              grep -Eq 'data-activeframe="02[[:space:]]*/[[:space:]]*04"' "/tmp/timeline-$state-dom.txt" || { echo 'Frame swipe failed'; exit 1; }
+            fi
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
               --window-size=430,940 --force-device-scale-factor=1 \
               --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/timeline-cinema-screenshots/$state.png" "$url"
