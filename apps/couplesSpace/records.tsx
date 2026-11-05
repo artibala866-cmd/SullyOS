@@ -61,14 +61,14 @@ type CoupleSceneProps = {
   kind: EntryKind; bond: Bond; names: Record<Side,string>; rows: Entry[]; today: string;
   onNew: () => void; onAI: () => void; busy: boolean; onJump: (id:string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
-  filter: string; onFilter: (filter: string) => void; totalRecords: number;
+  filter: string; onFilter: (filter: string) => void; totalRecords: number; focusRecordId?: string;
   diaryPrefs?: React.ReactNode; hollowPrefs?: React.ReactNode; tools?: React.ReactNode;
 };
 function SceneAvatar({ value, name }: { value?: string; name: string }) {
   return <span className="couple-scene-avatar">{value ? <TokenImg value={value} alt={name} /> : <span>{name.slice(0,1)}</span>}</span>;
 }
 function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump,
-  avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, diaryPrefs, hollowPrefs, tools }: CoupleSceneProps) {
+  avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, focusRecordId, diaryPrefs, hollowPrefs, tools }: CoupleSceneProps) {
   const [native, setNative] = useState<DiaryEntry[]>([]);
   const [journalPage, setJournalPage] = useState(0);
   // Purely local, user-triggered paper reveal; no API and no passive background activity.
@@ -213,7 +213,7 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
     </div>;
   }
   if (kind === 'timeline') return <TimelineCinema
-    bond={bond} names={names} rows={rows} today={today} filter={filter}
+    bond={bond} names={names} rows={rows} today={today} initialFocusId={focusRecordId} filter={filter}
     busy={busy} tools={tools} onNew={onNew} onAI={onAI} onJump={onJump}
   />;
   if(kind==='wish'){
@@ -364,6 +364,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   const listScrollTop = useRef(0);
   useEffect(() => () => mailRequest.current?.abort(), []);
   const [activeRecordId, setActiveRecordId] = useState<string>();
+  const [lastSavedRecordId, setLastSavedRecordId] = useState<string>();
   const today = useLocalDateKey();
   const capsules = bond.entries.filter(item => item.kind === 'capsule');
   const [error, setError] = useState('');
@@ -420,6 +421,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
         ? current.entries.map(item => item.id === entry.id ? entry : item)
         : [...current.entries, entry] };
     });
+    if (kind === 'timeline') setLastSavedRecordId(entry.id);
   };
   const rows = bond.entries.filter(item => item.kind === kind)
     .filter(item => {
@@ -733,7 +735,7 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
   return <div ref={recordsView} className={'couple-records couple-records-' + kind + (draft ? ' couple-records-editing' : '') + (activeRecordId ? ' couple-records-detail' : '')}>
     {!draft && !activeRecordId && <CoupleScene kind={kind} bond={bond} names={names} rows={rows} today={today}
       avatarMe={avatarMe} avatarThem={avatarThem} charId={charId} onNativeJournal={onNativeJournal}
-      filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length}
+      filter={filter} onFilter={setFilter} totalRecords={bond.entries.filter(item => item.kind === kind).length} focusRecordId={lastSavedRecordId}
       diaryPrefs={diaryPrefs} hollowPrefs={hollowPrefs} tools={sceneTools}
       onNew={() => { rememberListPosition(); draftSource.current = undefined; setDraft(newEntry()); }} onAI={() => kind === 'mail' ? deliverMail('incoming') : void run(generated)} busy={working || busy}
       onJump={id => { rememberListPosition(); setActiveRecordId(id); setReplyDraft(undefined); }} />}
