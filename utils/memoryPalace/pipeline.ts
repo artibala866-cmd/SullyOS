@@ -2240,7 +2240,7 @@ export async function processNewMessages(
         //       消息不会被重复处理，去重在这条路径上收益小、误伤大。
         const core = await extractAndStoreMemories(
             toProcess, charId, charName, embeddingConfig, llmConfig, userName, onProgress, true,
-            options.requireAllBatches === true,
+            options.requireAllBatches !== false,
         );
 
         if (core.memories.length === 0) {
@@ -2515,8 +2515,17 @@ export async function processMessageRange(
         // 提取 + 向量化（去重开启）
         const core = await extractAndStoreMemories(
             toProcess, charId, charName, embeddingConfig, llmConfig, userName, onProgress, false,
+            true, // Manual summary is atomic: a failed batch must never appear as a full success.
         );
 
+        const failedBatch = core.batches.find(batch => !batch.ok);
+        if (failedBatch) {
+            return {
+                stored: 0, skipped: 0, processedMessages: toProcess.length,
+                memories: [], batches: core.batches,
+                error: `第 ${failedBatch.index}/${failedBatch.total} 批总结失败：${failedBatch.error || '副 API 返回异常'}`,
+            };
+        }
         if (core.memories.length === 0) {
             return { stored: 0, skipped: 0, processedMessages: toProcess.length, memories: [], batches: core.batches, error: 'no_memories' };
         }
