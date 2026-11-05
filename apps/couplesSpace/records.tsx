@@ -70,6 +70,39 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   avatarMe, avatarThem, charId, onNativeJournal, filter, onFilter, totalRecords, diaryPrefs, hollowPrefs, tools }: CoupleSceneProps) {
   const [native, setNative] = useState<DiaryEntry[]>([]);
   const [journalPage, setJournalPage] = useState(0);
+  // Purely local, user-triggered paper reveal; no API and no passive background activity.
+  const [hollowShaking, setHollowShaking] = useState(false);
+  const [hollowEmpty, setHollowEmpty] = useState(false);
+  const hollowShakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hollowEmptyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (hollowShakeTimer.current !== null) clearTimeout(hollowShakeTimer.current);
+    if (hollowEmptyTimer.current !== null) clearTimeout(hollowEmptyTimer.current);
+  }, []);
+  const shakeHollow = () => {
+    if (busy || hollowShaking) return;
+    if (hollowShakeTimer.current !== null) clearTimeout(hollowShakeTimer.current);
+    if (hollowEmptyTimer.current !== null) clearTimeout(hollowEmptyTimer.current);
+    setHollowEmpty(false);
+    setHollowShaking(true);
+    // Preserve the existing character-note draw preference; when there is no
+    // unread character note, draw from the owner's existing notes.
+    const unread = rows.filter(item => !item.done && item.side === 'them');
+    const pool = unread.length ? unread : rows;
+    const chosen = pool.length ? pool[Math.floor(Math.random() * pool.length)] : undefined;
+    hollowShakeTimer.current = setTimeout(() => {
+      hollowShakeTimer.current = null;
+      setHollowShaking(false);
+      if (chosen) onJump(chosen.id);
+      else {
+        setHollowEmpty(true);
+        hollowEmptyTimer.current = setTimeout(() => {
+          setHollowEmpty(false);
+          hollowEmptyTimer.current = null;
+        }, 1800);
+      }
+    }, 1320);
+  };
   const [error, setError] = useState('');
   useEffect(() => {
     if (kind !== 'diary' || !charId) return;
@@ -263,26 +296,42 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
       </button>
     </div>;
   }
-  return <div className="couple-scene couple-scene-hollow">
-    <div className="couple-hollow-door"><span>KEEP BETWEEN US</span><div className="couple-hollow-keyhole" aria-hidden="true"><span className="couple-hollow-folded-note" /></div>
-      <strong>不必说出口的心事</strong>
-      <button type="button" className="couple-hollow-drop" disabled={busy} onClick={onNew}>
-        <span>＋</span> 投进一张只有你知道的便笺
-      </button><small>{totalRecords} 张便笺收在抽屉里</small>
+  return <div className="couple-scene couple-scene-hollow couple-hollow-immersive">
+    <div className={'couple-hollow-portal' + (hollowShaking ? ' is-shaking' : '') + (hollowEmpty ? ' is-empty' : '')}>
+      <div className="couple-hollow-orbit couple-hollow-orbit-one" aria-hidden="true"/>
+      <div className="couple-hollow-orbit couple-hollow-orbit-two" aria-hidden="true"/>
+      <div className="couple-hollow-orbit couple-hollow-orbit-three" aria-hidden="true"/>
+      <div className="couple-hollow-dust" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
+      <span className="couple-hollow-count" aria-label={`已收藏${totalRecords}张心事`}>{String(totalRecords).padStart(2,'0')}</span>
+      <button type="button" className="couple-hollow-vortex" disabled={busy || hollowShaking}
+        aria-label="摇一摇，从树洞里抽出一张纸条" title="摇一摇" onClick={shakeHollow}>
+        <span className="couple-hollow-vortex-depth" aria-hidden="true"/>
+        <span className="couple-hollow-vortex-paper" aria-hidden="true"><i/></span>
+        <span className="couple-hollow-vortex-sign" aria-hidden="true">↻</span>
+        <span className="couple-hollow-vortex-caption" aria-hidden="true">{hollowShaking ? '···' : hollowEmpty ? '∅' : '摇一摇'}</span>
+      </button>
+      <span className="couple-hollow-portal-caption" aria-hidden="true">✦</span>
     </div>
-    <div className="couple-hollow-drawer">
-      {rows.map(item=><button key={item.id} type="button" onClick={()=>onJump(item.id)}>
-        <span>密封便笺</span><strong>•••• ••••</strong><small>{item.date} · 点击打开</small>
+    <div className="couple-hollow-interactions">
+      <button type="button" className="couple-hollow-add" disabled={busy} aria-label="向树洞投入一张纸条" title="投入纸条" onClick={onNew}>
+        <span aria-hidden="true">＋</span><span>写一张</span>
+      </button>
+      <button type="button" className="couple-hollow-ask" disabled={busy} aria-label={`听听${names.them}的心事`} title={`听听${names.them}的心事`} onClick={onAI}>
+        <span aria-hidden="true">✧</span><span>听听 TA</span>
+      </button>
+      {hollowPrefs}
+    </div>
+    {rows.length > 0 && <div className="couple-hollow-notes" aria-label="收藏的心事纸条">
+      {rows.map((item,index) => <button type="button" key={item.id}
+        className={'couple-hollow-note-item couple-hollow-note-item-'+index%3}
+        aria-label={`打开${item.date}的心事纸条`} onClick={()=>onJump(item.id)}>
+        <span className="couple-hollow-note-fold" aria-hidden="true">✉</span>
+        <time>{item.date.slice(5)}</time>
       </button>)}
-      <div className="couple-hollow-drawer-footer">
-        <button type="button" disabled={busy} onClick={onAI}>听听 {names.them} 藏起的心事 ↗</button>
-        {rows.some(row => !row.done && row.side === 'them') && <button type="button" onClick={() => {
-          const pending = rows.filter(row => !row.done && row.side === 'them');
-          onJump(pending[Math.floor(Math.random() * pending.length)].id);
-        }}>摇一摇，抽张心事</button>}
-        {hollowPrefs}
-      </div>
-    </div>
+    </div>}
+    <span className="couple-hollow-screenreader" role="status" aria-live="polite">
+      {hollowEmpty ? '树洞里还没有纸条，可以先写一张。' : ''}
+    </span>
   </div>;
 }
 
