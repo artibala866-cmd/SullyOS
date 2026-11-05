@@ -140,3 +140,28 @@
  .couple-cinema,.couple-content-mode .couple-cinema-picture,.couple-cinema-typeset:before {animation:none!important;}
  .couple-content-mode .couple-cinema-frame {transition:none!important;}
 }
+
+/* The memory shelf previews the film world rather than a third generic silver card. */
+.couple-content-mode .couple-ios-spotlight-cinema {
+  position:relative;isolation:isolate;overflow:hidden;
+  background:linear-gradient(128deg,#191b21,#30323b 54%,#14161b);
+  border:1px solid #4e5057;box-shadow:0 12px 22px #00000012;
+}
+.couple-content-mode .couple-ios-spotlight-cinema::before {
+  content:"";position:absolute;width:230px;height:102px;right:-32px;top:13px;
+  border:12px dashed #73768255;border-left:0;border-right:0;border-radius:2px;
+  background:repeating-linear-gradient(90deg,#353740 0 31px,#22232b 31px 35px);
+  transform:rotate(-19deg);opacity:.55;z-index:-1;
+}
+.couple-content-mode .couple-ios-spotlight-cinema::after {
+  content:"✧";position:absolute;right:73px;top:31px;font:70px Georgia,serif;
+  color:#dfe0e737;text-shadow:0 0 24px #e1e2f12a;z-index:-1;
+}
+.couple-content-mode .couple-ios-spotlight-cinema .couple-ios-spotlight-overline {color:#afb2bf;}
+.couple-content-mode .couple-ios-spotlight-cinema .couple-ios-spotlight-bottom strong {color:#fff;}
+.couple-content-mode .couple-ios-spotlight-cinema .couple-ios-spotlight-bottom small {color:#c0c1ca;}
+.couple-content-mode .couple-ios-spotlight-cinema .couple-ios-spotlight-bottom svg {color:#f2f3f6;}
+.couple-content-mode .couple-ios-spotlight-cinema .couple-ios-spotlight-count {color:#c8cad4;}
+@media(prefers-reduced-motion:no-preference) {
+  .couple-content-mode .couple-ios-spotlight-cinema:active::after {transform:translateX(5px);transition:transform .2s ease;}
+}
