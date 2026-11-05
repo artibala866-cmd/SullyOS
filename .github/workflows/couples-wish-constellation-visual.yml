@@ -88,6 +88,19 @@ jobs:
               --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/wish-constellation-screenshots/$state.png" "$url"
             test -s "wish-constellation-screenshots/$state.png"
           done
+          # Narrow 320px screenshots catch cut-off titles, buttons and unwanted horizontal scroll.
+          for state in empty populated focus complete editor detail; do
+            url="http://127.0.0.1:5173/tests/couples-wish-constellation-visual.html?state=$state"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+              --window-size=320,710 --force-device-scale-factor=1 \
+              --virtual-time-budget=7000 --dump-dom "$url" > "/tmp/wish-$state-small-dom.txt" 2>/tmp/wish-chrome.log
+            grep -q 'data-ready="true"' "/tmp/wish-$state-small-dom.txt" || exit 1
+            grep -q 'data-overflow="false"' "/tmp/wish-$state-small-dom.txt" || { echo "320px horizontal overflow in $state"; exit 1; }
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size=320,710 --force-device-scale-factor=1 \
+              --virtual-time-budget=7000 --screenshot="$GITHUB_WORKSPACE/wish-constellation-screenshots/$state-320.png" "$url"
+            test -s "wish-constellation-screenshots/$state-320.png"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
