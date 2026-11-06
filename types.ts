@@ -2784,11 +2784,19 @@ export interface ChatBlockState {
   history?: ChatBlockEvent[];
 }
 
-/** 酒馆角色卡的默认/备选开场白；只作为可选剧情素材保存，不自动注入私聊。 */
+/** 酒馆专用开场，酒馆的 title/desc 注释只在此来源中解析。 */
 export interface TavernOpeningGreeting {
   id: string;
   title: string;
-  /** Optional Tavern <!-- desc: ... --> library summary, never spoken as scene text. */
+  /** Tavern <!-- desc: ... --> library summary, never spoken as scene text. */
+  description?: string;
+  content: string;
+}
+
+/** Link 原生独立开场。它来自 Link 的结构化字段，不执行任何酒馆格式转换。 */
+export interface LinkOpeningGreeting {
+  id: string;
+  title: string;
   description?: string;
   content: string;
 }
@@ -2804,8 +2812,10 @@ export interface CardImportOrigin {
 export interface CharacterProfile {
   /** Import identity is stored only with the live role; deletion releases it. */
   cardImportOrigin?: CardImportOrigin;
-  /** 导入的酒馆卡开场白，可在剧情中选择、编辑或删除。 */
+  /** 酒馆格式及旧版手写剧情开场素材，保留其已有数据兼容性。 */
   tavernGreetings?: TavernOpeningGreeting[];
+  /** Link 原生独立开场素材；和酒馆格式分别解析、存储，只在剧情选择器汇合。 */
+  linkGreetings?: LinkOpeningGreeting[];
   /** 旧版接话秒数，仅为备份兼容保留，不参与当前自动回复；后续迁移不得将旧存档当作新授权。 */
   realPersonReplyRhythm?: Partial<Record<
     'normal' | 'conversation' | 'occupied' | 'waiting',
