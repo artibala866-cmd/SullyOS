@@ -269,6 +269,10 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
     const [emojiDocumentReading, setEmojiDocumentReading] = useState(false);
+    const emojiImportReview = React.useMemo(
+        () => modalType === 'emoji-import' ? parseEmojiImportText(emojiImportText) : { entries: [], invalidLineNumbers: [] },
+        [modalType, emojiImportText]
+    );
     const [historySearch, setHistorySearch] = useState('');
     const longPressTimerRef = useRef<number | null>(null);
     const longPressTriggeredRef = useRef(false);
@@ -372,11 +376,28 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
             <Modal 
                 isOpen={modalType === 'emoji-import'} title="表情注入" onClose={() => setModalType('none')}
-                footer={<button onClick={onImportEmoji} disabled={emojiImportBusy || emojiDocumentReading} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : emojiDocumentReading ? '识别文件中…' : '添加至当前分类'}</button>}
+                footer={<button onClick={onImportEmoji} disabled={emojiImportBusy || emojiDocumentReading || emojiImportReview.entries.length === 0 || emojiImportReview.invalidLineNumbers.length > 0} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : emojiDocumentReading ? '识别文件中…' : '添加至当前分类'}</button>}
             >
                 <div className="space-y-3">
                     <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
                     <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} onReadingChange={setEmojiDocumentReading} />
+                    {emojiImportText.trim() && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <span className={emojiImportReview.invalidLineNumbers.length ? 'text-amber-600' : 'text-slate-500'}>
+                                已识别 {emojiImportReview.entries.length} 条
+                                {emojiImportReview.invalidLineNumbers.length > 0 &&
+                                    '，第 ' + emojiImportReview.invalidLineNumbers.slice(0, 5).join('、') +
+                                    (emojiImportReview.invalidLineNumbers.length > 5 ? ' 等' : '') + ' 行未识别'}
+                            </span>
+                            {emojiImportReview.entries.length > 0 && emojiImportReview.invalidLineNumbers.length > 0 && (
+                                <button type="button" disabled={emojiDocumentReading || emojiImportBusy}
+                                    className="text-[11px] font-semibold text-primary underline disabled:opacity-40"
+                                    onClick={() => setEmojiImportText(formatEmojiImportText(emojiImportReview.entries))}>
+                                    只保留已识别内容
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <textarea
                         value={emojiImportText}
                         onChange={e => setEmojiImportText(e.target.value)}
