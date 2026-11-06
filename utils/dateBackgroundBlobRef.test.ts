@@ -13,7 +13,8 @@ const personaSimSource = readFileSync(path.resolve(__dirname, '../apps/PersonaSi
 describe('见面背景的 blobref 读写路径', () => {
   it('上传后存的是令牌，不是 base64', () => {
     expect(settingsSource).toContain('const blob = await processImageToBlob(file, { skipCompression: true });');
-    expect(settingsSource).toContain('updateCharacter(char.id, { dateBackground: ref });');
+    expect(settingsSource).toContain("updateBackground(uploadTarget === 'bg' ? 'default' : targetSceneKey, ref)");
+    expect(settingsSource).toContain("if (key === 'default') updateCharacter(char.id, { dateBackground: value });");
     expect(settingsSource).not.toContain('updateCharacter(char.id, { dateBackground: base64 });');
   });
 
@@ -24,15 +25,24 @@ describe('见面背景的 blobref 读写路径', () => {
   });
 
   it('单独配置场景背景仍走原来的 blobref 存取和默认背景兜底', () => {
-    expect(settingsSource).toContain('updateScene(targetSceneKey, ref)');
+    expect(settingsSource).toContain("else updateScene(key, value)");
     expect(settingsSource).toContain('const backgrounds = { ...(char.dateSceneBackgrounds || {}) }');
     expect(settingsSource).toContain('|| char.dateBackground);');
     expect(settingsSource).toContain('<TokenImg value={image}');
     expect(settingsSource).not.toContain('<img src={image}');
   });
 
-  it('场景布置页的背景缩略图走 TokenImg，不是裸 <img>', () => {
-    expect(settingsSource).toContain('<TokenImg value={char.dateBackground}');
+  it('旧默认背景保留在统一场景网格，六个入口不重复、不显示英文与链接按钮', () => {
+    expect(settingsSource).toContain("{ key: 'default', label: '默认' }");
+    expect(settingsSource).toContain('...DATE_SCENES,');
+    expect(settingsSource).toContain("key === 'default' ? char.dateBackground : char.dateSceneBackgrounds?.[key]");
+    expect(settingsSource).toContain('<Section title="背景">');
+    expect(settingsSource).not.toContain('<Section title="背景 (Background)">');
+    expect(settingsSource).not.toContain('<Section title="基础场景背景">');
+    expect(settingsSource).not.toContain('>{label} <span');
+    expect(settingsSource).not.toContain('>链接</button>');
+    expect(settingsSource).not.toContain('预览默认背景');
+    expect(settingsSource).toContain('<TokenImg value={image}');
     expect(settingsSource).not.toContain('<img src={char.dateBackground}');
   });
 

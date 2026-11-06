@@ -16,6 +16,11 @@ import DateExtraEditor from './DateExtraEditor';
 
 // 标准情绪列表
 const REQUIRED_EMOTIONS = ['normal', 'happy', 'angry', 'sad', 'shy'];
+// The old dateBackground is the default slot; saved assets/backups need no migration.
+const BACKGROUND_SLOTS: { key: 'default' | DateSceneKey; label: string }[] = [
+    { key: 'default', label: '默认' },
+    ...DATE_SCENES,
+];
 const DEFAULT_SPRITE_CONFIG: SpriteConfig = { scale: 1, x: 0, y: 0 };
 
 interface DateSettingsProps {
@@ -77,6 +82,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     // 先在这里解析成能直接用的地址。非令牌值（旧 data: / 外链）原样透传。
     const [previewSceneKey, setPreviewSceneKey] = useState<DateSceneKey | ''>('');
     const dateBackgroundUrl = useBlobRefUrl((previewSceneKey && char.dateSceneBackgrounds?.[previewSceneKey]) || char.dateBackground);
+    useEffect(() => { setPreviewSceneKey(''); }, [char.id]);
 
     // 文风与叙事（即时生效：system prompt 每次请求重建，存上就影响下一条回复）
     const styleConfig = char.dateStyleConfig || {};
@@ -103,8 +109,6 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
     const [uploadTarget, setUploadTarget] = useState<'bg' | 'scene' | 'sprite' | 'skin-sprite'>('bg');
     const [targetSceneKey, setTargetSceneKey] = useState<DateSceneKey>('outdoor');
-    const [sceneUrlTarget, setSceneUrlTarget] = useState<DateSceneKey | null>(null);
-    const [sceneUrlInput, setSceneUrlInput] = useState('');
     const [targetEmotionKey, setTargetEmotionKey] = useState<string>('');
     const [tempSpriteConfig, setTempSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
     const [newEmotionName, setNewEmotionName] = useState<string>('');
@@ -147,10 +151,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         fileInputRef.current?.click();
     };
 
-    const triggerSceneUpload = (key: DateSceneKey) => {
-        setPreviewSceneKey(key);
-        setTargetSceneKey(key);
-        setUploadTarget('scene');
+    const triggerBackgroundUpload = (key: 'default' | DateSceneKey) => {
+        setPreviewSceneKey(key === 'default' ? '' : key);
+        if (key !== 'default') setTargetSceneKey(key);
+        setUploadTarget(key === 'default' ? 'bg' : 'scene');
         fileInputRef.current?.click();
     };
     const updateScene = (key: DateSceneKey, value?: string) => {
@@ -159,21 +163,9 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         else delete backgrounds[key];
         updateCharacter(char.id, { dateSceneBackgrounds: backgrounds });
     };
-    const saveSceneUrl = () => {
-        if (!sceneUrlTarget) return;
-        const url = sceneUrlInput.trim();
-        try {
-            const parsed = new URL(url);
-            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('protocol');
-        } catch {
-            addToast('请输入有效的 http/https 图片链接', 'error');
-            return;
-        }
-        updateScene(sceneUrlTarget, url);
-        setPreviewSceneKey(sceneUrlTarget);
-        setSceneUrlTarget(null);
-        setSceneUrlInput('');
-        addToast('场景背景链接已保存', 'success');
+    const updateBackground = (key: 'default' | DateSceneKey, value?: string) => {
+        if (key === 'default') updateCharacter(char.id, { dateBackground: value });
+        else updateScene(key, value);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,21 +173,11 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         if (!file) return;
 
         try {
-            if (uploadTarget === 'bg') {
-                // 背景改存 Blob：原画质不重绘，二进制进 blob_assets，字段只存 blobref 令牌
-                // （省 ~33% 空间、不占 JS 堆）。参考 apps/Appearance.tsx 的壁纸上传。
+            if (uploadTarget === 'bg' || uploadTarget === 'scene') {
                 const blob = await processImageToBlob(file, { skipCompression: true });
                 const ref = await putImageBlob(blob);
-                updateCharacter(char.id, { dateBackground: ref });
-                addToast('背景已更新', 'success');
-                return;
-            }
-
-            if (uploadTarget === 'scene') {
-                const blob = await processImageToBlob(file, { skipCompression: true });
-                const ref = await putImageBlob(blob);
-                updateScene(targetSceneKey, ref);
-                addToast('场景背景已保存', 'success');
+                updateBackground(uploadTarget === 'bg' ? 'default' : targetSceneKey, ref);
+                addToast('背景已保存', 'success');
                 return;
             }
             // 立绘也改存 Blob，字段里只留 blobref 令牌。压缩口径和以前一模一样：
@@ -346,22 +328,22 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         }}
                         />
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">预览 (Preview)</div>
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">预览</div>
             </div>}
 
             <div className="p-5 space-y-8">
                 <Section title="立绘位置调整">
                     <div className="space-y-6">
                         <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小缩放 (Scale)</span><span>{tempSpriteConfig.scale.toFixed(1)}x</span></div>
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小</span><span>{tempSpriteConfig.scale.toFixed(1)}x</span></div>
                             <input type="range" min="0.5" max="2.0" step="0.1" value={tempSpriteConfig.scale} onChange={e => setTempSpriteConfig({...tempSpriteConfig, scale: parseFloat(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                         <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>左右偏移 (X)</span><span>{tempSpriteConfig.x}%</span></div>
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>左右</span><span>{tempSpriteConfig.x}%</span></div>
                             <input type="range" min="-100" max="100" step="5" value={tempSpriteConfig.x} onChange={e => setTempSpriteConfig({...tempSpriteConfig, x: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                             <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>上下偏移 (Y)</span><span>{tempSpriteConfig.y}%</span></div>
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>上下</span><span>{tempSpriteConfig.y}%</span></div>
                             <input type="range" min="-50" max="50" step="5" value={tempSpriteConfig.y} onChange={e => setTempSpriteConfig({...tempSpriteConfig, y: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                     </div>
@@ -485,43 +467,30 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </Section>
 
-                <Section title="背景 (Background)">
-                    <div 
-                        onClick={() => triggerUpload('bg')}
-                        className="aspect-video bg-slate-200 rounded-xl overflow-hidden relative border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-primary group"
-                    >
-                        {char.dateBackground ? (
-                            <>
-                                <TokenImg value={char.dateBackground} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-xs font-bold">更换背景</span></div>
-                            </>
-                        ) : <span className="text-slate-400 text-xs">+ 上传背景图</span>}
-                    </div>
-                </Section>
-                
-                <Section title="基础场景背景">
-                    <p className="text-[11px] text-slate-400 mb-3">点击图片上传对应场景，或粘贴图床链接。角色只会在剧情切换地点时换背景，未配置的场景不会被调用。</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        {DATE_SCENES.map(({ key, label }) => {
-                            const image = char.dateSceneBackgrounds?.[key];
+                <Section title="背景">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                        {BACKGROUND_SLOTS.map(({ key, label }) => {
+                            const image = key === 'default' ? char.dateBackground : char.dateSceneBackgrounds?.[key];
+                            const selected = previewSceneKey === (key === 'default' ? '' : key);
                             return (
                                 <div key={key} data-date-scene={key} className="min-w-0">
-                                    <button type="button" aria-label={`上传${label}背景`} onClick={() => triggerSceneUpload(key)}
-                                        className={`relative aspect-video w-full rounded-xl border overflow-hidden flex items-center justify-center ${image ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-slate-100'}`}>
+                                    <button type="button" aria-label={`上传${label}背景`} onClick={() => triggerBackgroundUpload(key)}
+                                        className={`relative aspect-video w-full rounded-xl border overflow-hidden flex items-center justify-center ${selected ? 'ring-1 ring-slate-400 border-slate-300' : image ? 'border-slate-200' : 'border-dashed border-slate-300'} bg-slate-100`}>
                                         {image ? <TokenImg value={image} className="w-full h-full object-cover" /> : <span className="text-slate-300 text-2xl">+</span>}
                                     </button>
                                     <div className="flex items-center justify-between gap-1 pt-1">
-                                        <span className="text-[11px] font-bold text-slate-600">{label} <span className="text-slate-400 font-normal">{key}</span></span>
-                                        <div className="flex shrink-0 items-center gap-1">
-                                            <button type="button" className="text-[10px] text-slate-500 px-1 py-1" onClick={() => { setSceneUrlTarget(key); setSceneUrlInput(image?.startsWith('http') ? image : ''); }}>链接</button>
-                                            {image && <button type="button" className="text-[10px] text-slate-400 px-1 py-1" onClick={() => { updateScene(key); if (previewSceneKey === key) setPreviewSceneKey(''); }}>清除</button>}
-                                        </div>
+                                        <button type="button" className={`text-xs font-medium truncate py-1 ${selected ? 'text-slate-800' : 'text-slate-500'}`}
+                                            aria-pressed={selected} onClick={() => setPreviewSceneKey(key === 'default' ? '' : key)}>{label}</button>
+                                        {image && <button type="button" aria-label={`清除${label}背景`}
+                                            className="text-slate-400 text-lg px-1 py-0.5 leading-none" onClick={() => {
+                                                updateBackground(key);
+                                                if (selected && key !== 'default') setPreviewSceneKey('');
+                                            }}>×</button>}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                    <button type="button" className="mt-3 text-[11px] text-slate-400 underline underline-offset-2" onClick={() => setPreviewSceneKey('')}>预览默认背景</button>
                 </Section>
 
                 <Section title="基础情绪立绘">
@@ -542,10 +511,11 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             </div>
                         ))}
                     </div>
+                    <button type="button" onClick={() => { setUrlTargetSkinId(null); setShowUrlModal(true); }}
+                        className="mt-3 text-xs text-slate-400 px-1 py-1">从网址添加立绘</button>
                 </Section>
 
-                <Section title="自定义情绪 (Custom Emotions)">
-                    <p className="text-[11px] text-slate-400 mb-4">为该角色添加专属情绪，AI 会在见面时使用。每个角色的自定义情绪互相独立。</p>
+                <Section title="自定义情绪">
 
                     {/* Existing custom emotions grid */}
                     {customEmotions.length > 0 && (
@@ -584,7 +554,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             value={newEmotionName}
                             onChange={e => setNewEmotionName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') handleAddCustomEmotion(); }}
-                            placeholder="输入情绪名 (如 scared, excited...)"
+                            placeholder="添加表情名称"
                             className="flex-1 px-4 py-3 bg-slate-100 rounded-xl text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all"
                         />
                         <button
@@ -597,20 +567,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </Section>
 
-                {/* URL Upload for Default Sprites */}
-                <Section title="图床 URL 上传">
-                    <p className="text-[11px] text-slate-400 mb-3">直接粘贴图片 URL 作为默认立绘</p>
-                    <button
-                        onClick={() => { setUrlTargetSkinId(null); setShowUrlModal(true); }}
-                        className="w-full py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-200 transition-colors active:scale-95"
-                    >
-                        + 通过 URL 添加立绘
-                    </button>
-                </Section>
-
                 {/* Skin Sets System */}
-                <Section title="皮肤系统 (Skin Sets)">
-                    <p className="text-[11px] text-slate-400 mb-4">为角色创建多套立绘皮肤。切换皮肤后，AI 将使用对应皮肤的表情立绘。</p>
+                <Section title="皮肤系统">
 
                     {/* Active skin indicator */}
                     <div className="mb-4 flex items-center gap-2 text-xs">
@@ -699,19 +657,6 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
             {extraEditorOpen && <DateExtraEditor key={char.id} value={extraDraft} onChange={setExtraDraft}
                 onClose={() => { saveExtraDraft(); setExtraEditorOpen(false); }} />}
-
-            {sceneUrlTarget && (
-                <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setSceneUrlTarget(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-4 space-y-4" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-sm font-bold text-slate-700">配置{DATE_SCENES.find(item => item.key === sceneUrlTarget)?.label}背景链接</h3>
-                        <input aria-label="场景图片 URL" type="url" value={sceneUrlInput} onChange={e => setSceneUrlInput(e.target.value)} placeholder="https://example.com/background.jpg" className="w-full px-3 py-2.5 rounded-xl bg-slate-100 text-sm outline-none" />
-                        <div className="flex gap-2">
-                            <button type="button" onClick={() => setSceneUrlTarget(null)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-xs text-slate-600">取消</button>
-                            <button type="button" onClick={saveSceneUrl} className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-white">保存链接</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* URL Input Modal */}
             {showUrlModal && (
