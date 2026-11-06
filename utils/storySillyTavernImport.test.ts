@@ -25,6 +25,7 @@ const tavern = {
         { identifier: 'vars', name: '设置', role: 'system', content: '{{setvar::color::蓝色}}' },
         { identifier: 'user-rule', name: '变量规则', role: 'user', content: '天空：{{getvar::color}} {{// 注释}}' },
         { identifier: 'chat-depth', name: '聊天深度', role: 'system', content: '深层提示词', injection_position: 1, injection_depth: 1, injection_order: 100 },
+        { identifier: 'after-user', name: '历史之后', role: 'system', content: '尾部提醒', injection_position: 1, injection_depth: 0, injection_order: 10 },
         { identifier: 'outside', name: '尚未加入排序的提示词', role: 'system', enabled: true, content: '备用内容' },
     ],
     prompt_order: [
@@ -42,6 +43,7 @@ const tavern = {
             { identifier: 'user-rule', enabled: true },
             { identifier: 'chatHistory', enabled: true },
             { identifier: 'chat-depth', enabled: true },
+            { identifier: 'after-user', enabled: true },
         ] },
     ],
     assistant_prefill: '<scene>',
@@ -97,8 +99,8 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(texts).toContain('天空：蓝色');
         expect(texts).not.toContain('绝不能发送');
         expect(texts).not.toContain('备用内容');
-        expect(texts.indexOf('深层提示词')).toBeGreaterThan(texts.indexOf('第一条'));
-        expect(texts.indexOf('深层提示词')).toBeLessThan(texts.indexOf('第二条'));
+        expect(texts.indexOf('深层提示词')).toBeGreaterThan(texts.indexOf('第二条'));
+        expect(result.afterLatestUser).toEqual([{ role: 'system', content: '尾部提醒' }]);
         expect(result.assistantPrefill?.content).toBe('<scene>');
     });
 
