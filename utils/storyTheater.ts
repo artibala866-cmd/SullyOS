@@ -1,4 +1,4 @@
-import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningSceneText } from './tavernOpeningGreeting';
 import type {
     CharacterProfile,
     Message,
@@ -1577,7 +1577,15 @@ export const formatActorRecentMessages = (
 export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
     .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
     .sort((a, b) => a.timestamp - b.timestamp)
-    .map(message => ({ role: message.role as StoryApiRole, content: String(message.content || '') }));
+    .map(message => ({
+        role: message.role as StoryApiRole,
+        // Already-started stories may have saved a Tavern header as the first
+        // assistant floor before this adapter existed. Only sanitize that
+        // marked opening in AI context; never rewrite historical DB messages.
+        content: message.metadata?.theaterOpeningGreeting
+            ? tavernOpeningSceneText(String(message.content || ''))
+            : String(message.content || ''),
+    }));
 
 /** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
 export const getPendingStoryRetryInput = (messages: Message[]): string => {
