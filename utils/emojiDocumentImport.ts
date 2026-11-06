@@ -157,8 +157,8 @@ function rtfToText(rtf: string): string {
     };
     return rtf
         .replace(/\{\\\*\\[^{}]*\}/g, '')
+        .replace(/\\u(-?\d+)(?:\?|\\'[a-f0-9]{2})?/gi, (_all, digits: string) => String.fromCharCode((Number(digits) + 65536) % 65536))
         .replace(/(?:\\'[a-f0-9]{2})+/gi, decodeHex)
-        .replace(/\\u(-?\d+)\??/g, (_all, digits: string) => String.fromCharCode((Number(digits) + 65536) % 65536))
         .replace(/\\(?:par|line)\b\s?/g, '\n')
         .replace(/\\tab\b\s?/g, '\t')
         .replace(/\\[a-z]+\d*\s?/gi, '')
@@ -197,10 +197,21 @@ function jsonToText(value: unknown): JsonRows {
         if (isNamedEntry) {
             if (typeof name === 'string' && cleanName(name) && typeof url === 'string' && url.trim()) {
                 pushRow(cleanName(name) + '--' + url.trim());
-            } else if (typeof url === 'string' && /^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(url.trim())) {
+                return;
+            }
+            if (typeof url === 'string' && /^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(url.trim())) {
                 pushRow(url.trim()); // The document importer will derive the filename.
                 note('JSON 中有缺少名称的图片链接，已尝试自动命名：' + url.slice(0, 80));
-            } else {
+                return;
+            }
+            // A pack with a top-level "name" and nested "emojis" is a container,
+            // not an incomplete sticker. Keep traversing rather than dropping it.
+            const children = Object.values(obj).filter(v => v !== null && typeof v === 'object');
+            if (children.length) {
+                for (const child of children) visit(child, depth + 1, inEmojiMap);
+                return;
+            }
+            if (inEmojiMap || url !== undefined) {
                 note('JSON 中存在名称或图片链接缺失的记录：' + String(name ?? '未命名').slice(0, 60));
             }
             return;
