@@ -95,6 +95,9 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
         ? value.extensions.tavern_helper.scripts.filter((script: any) => script?.enabled === true).length : 0;
     if (regexCount || helperCount) warnings.push(`酒馆扩展中的 ${regexCount} 条启用正则和 ${helperCount} 个启用脚本不会执行；仅导入预设文字`);
+    if (prompts.some(prompt => prompt.enabled && /\{\{\s*setvar::/i.test(prompt.content))) {
+        warnings.push('已启用的 setvar 规则型正文会转为糯米机实际提示词；只有插件脚本才能实现的变量联动仍不执行');
+    }
     if (prompts.some(prompt => prompt.enabled && /\{\{(?!user\}\}|char\}\}|group\}\}|trim\}\}|setvar::|getvar::|\/\/)/i.test(prompt.content))) {
         warnings.push('部分酒馆专属动态宏尚无糯米机等价功能，原文保留供检查');
     }
