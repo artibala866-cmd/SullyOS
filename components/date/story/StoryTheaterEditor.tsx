@@ -72,6 +72,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         try {
             if (!onChangeGreeting) throw new Error('当前页面未连接开场白管理功能');
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
+            setRecentGreeting(current => current?.characterId === selectedGreeting.characterId && current.id === selectedGreeting.id
+                ? (content === null ? null : { ...current, content: content.trim() }) : current);
             // A started story keeps the original link for provenance, even when
             // its character-card source is deleted; only new drafts clear it.
             if (content === null && !maskLocked) { update('openingGreeting', undefined); setShowOpeningInIntro(false); }
@@ -152,7 +154,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const toggleCharacter = (char: CharacterProfile) => {
         // Once a first story floor exists, changing the cast corrupts its
         // immutable timeline, memory mirrors and selected opening provenance.
-        if (maskLocked) return;
+        if (maskLocked || createGreetingLock.current || greetingLock.current) return;
         setSaveError('');
         setDraft(current => {
         const adding = !current.characterIds.includes(char.id);
@@ -182,8 +184,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
         }
-        if (editingGreeting || confirmGreetingDelete) {
-            setSaveError('请先保存或取消当前开场白的修改／删除，再进入剧情。');
+        if (editingGreeting || confirmGreetingDelete || chooseGreetingActor) {
+            setSaveError('请先完成或取消当前开场白的编辑／收藏，再进入剧情。');
             return;
         }
         if (!draft.title.trim()) {
@@ -227,7 +229,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         <span className='text-[10px] font-bold text-slate-500'>{selectedGreeting && showOpeningInIntro ? '开场白 · 可编辑' : '剧情介绍 · 可选'}</span>
                         <div className='flex shrink-0 items-center gap-1.5'>
                         {selectedGreeting && <div className='flex shrink-0 gap-1 rounded-lg bg-slate-200 p-0.5' aria-label='编辑内容切换'>
-                            <button type='button' aria-pressed={!showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
+                            <button type='button' aria-pressed={!showOpeningInIntro} disabled={editingGreeting || greetingBusy || createGreetingBusy || confirmGreetingDelete}
                                 onClick={() => setShowOpeningInIntro(false)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${!showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>剧情介绍</button>
                             <button type='button' aria-pressed={showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
                                 onClick={() => setShowOpeningInIntro(true)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>开场白</button>
