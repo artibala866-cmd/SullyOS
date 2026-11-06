@@ -4,7 +4,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
-import { useMusic, musicSongKey } from '../context/MusicContext';
+import { useMusic } from '../context/MusicContext';
 import { findCharacterDateBgm } from '../utils/dateBgm';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, AppID } from '../types';
@@ -48,19 +48,20 @@ const DateApp: React.FC = () => {
     const { library: musicLibrary, playSong: playMusic, stopDateBgmIfCurrent } = useMusic();
     // Only the real Meet session starts BGM. Selecting a character / sensing is silent.
     // Never start an empty or unbound playlist, and never alter unrelated music on exit.
-    const activeBgmRef = useRef<{ encounterId: string; trackKeys: string[] } | null>(null);
+    const activeBgmRef = useRef<{ encounterId: string; ownerId: string } | null>(null);
     const startDateBgm = (target: CharacterProfile) => {
         const encounterId = encounterIdRef.current;
         if (activeBgmRef.current?.encounterId === encounterId) return;
         const list = findCharacterDateBgm(musicLibrary, target.id);
         if (!list) return;
-        activeBgmRef.current = { encounterId, trackKeys: list.songs.map(musicSongKey) };
-        void playMusic(list.songs[0], { replaceQueue: list.songs, startIdx: 0 }).catch(() => {});
+        const ownerId = encounterId || crypto.randomUUID();
+        activeBgmRef.current = { encounterId, ownerId };
+        void playMusic(list.songs[0], { replaceQueue: list.songs, startIdx: 0, dateBgmOwner: ownerId }).catch(() => {});
     };
     const stopDateBgm = () => {
         const active = activeBgmRef.current;
         activeBgmRef.current = null;
-        if (active) stopDateBgmIfCurrent(active.trackKeys);
+        if (active) stopDateBgmIfCurrent(active.ownerId);
     };
     const stopBgmOnUnmountRef = useRef(stopDateBgm);
     stopBgmOnUnmountRef.current = stopDateBgm;

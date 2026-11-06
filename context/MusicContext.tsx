@@ -573,9 +573,9 @@ interface MusicContextType {
   refreshProfile: () => Promise<void>;
 
   // 操作
-  playSong: (song: Song, opts?: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number }) => Promise<void>;
-  /** Stop only a Meet BGM request/track, leaving any manually changed music alone. */
-  stopDateBgmIfCurrent: (trackKeys: string[]) => void;
+  playSong: (song: Song, opts?: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; dateBgmOwner?: string }) => Promise<void>;
+  /** Stop only the current encounter's BGM, never a manually selected song. */
+  stopDateBgmIfCurrent: (ownerId: string) => void;
   togglePlay: () => void;
   nextSong: () => void;
   prevSong: () => void;
@@ -1165,7 +1165,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Invitation resolution can happen before playSong's declaration below.
   // The ref uses the one global MusicProvider player, never a second audio instance.
-  const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => Promise<void>>(async () => {});
+  const playSongRef = useRef<(song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean; dateBgmOwner?: string }) => Promise<void>>(async () => {});
   const resolvingTrackKeyRef = useRef<string | null>(null);
   const resumeInviteTrack = useCallback((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return;
@@ -1560,7 +1560,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           shouldRetryMusicMediaError(code, !!song.local, mediaRecoveryRef.current)) {
         mediaRecoveryRef.current = true;
         toast('播放链接加载失败，正在重新解析同一来源音源', 'info');
-        void playSongRef.current(song, { mediaRecovery: true }).catch(() =>
+        void playSongRef.current(song, { mediaRecovery: true, dateBgmOwner: dateBgmOwnerRef.current || undefined }).catch(() =>
           toast('音源恢复失败，请点击播放或换歌', 'error'));
         return;
       }
@@ -1589,11 +1589,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 每次切歌递增序号，阻止慢请求覆盖后一次点播。
   const playRequestSeq = useRef(0);
+  // Ownership is based on encounter identity, not music keys. Manually replaying
+  // the same track must never be stopped by Meet's unmount/exit cleanup.
+  const dateBgmOwnerRef = useRef<string | null>(null);
   const charSelectionSeqRef = useRef(0);
   // 播放单曲
-  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean; refreshUrl?: boolean; awaitPlayback?: boolean } = {}) => {
-    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false, refreshUrl = false, awaitPlayback = false } = opts;
+  const playSong = useCallback(async (song: Song, opts: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number; mediaRecovery?: boolean; refreshUrl?: boolean; awaitPlayback?: boolean; dateBgmOwner?: string } = {}) => {
+    const { alsoSetQueue = true, replaceQueue, startIdx, mediaRecovery = false, refreshUrl = false, awaitPlayback = false, dateBgmOwner } = opts;
     const requestId = ++playRequestSeq.current;
+    dateBgmOwnerRef.current = dateBgmOwner || null;
     resolvingTrackKeyRef.current = musicSongKey(song);
     mediaRecoveryRef.current = mediaRecovery;
     setPlaying(false);
@@ -1778,13 +1782,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
   }, [toast, commitQueue]);
-  playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => playSong(song, opts);
+  playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean; dateBgmOwner?: string }) => playSong(song, opts);
 
-  const stopDateBgmIfCurrent = useCallback((trackKeys: string[]) => {
-    const song = currentSongRef.current;
-    if (!song || !trackKeys.includes(musicSongKey(song))) return;
-    // Invalidate slow remote URL resolution too: exiting before the fetch finishes
-    // must not start audio after the Meet screen is gone.
+  const stopDateBgmIfCurrent = useCallback((ownerId: string) => {
+    if (!ownerId || dateBgmOwnerRef.current !== ownerId) return;
+    // Invalidate slow remote URL resolution too: no audio may start after exit.
+    dateBgmOwnerRef.current = null;
     ++playRequestSeq.current;
     resolvingTrackKeyRef.current = null;
     const audio = audioRef.current;
@@ -1811,14 +1814,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       n = (cur + 1) % q.length;
     }
-    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false });
+    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false, dateBgmOwner: dateBgmOwnerRef.current || undefined });
   }, [playSong]);
 
   const prevSong = useCallback(() => {
     const q = queueRef.current; if (!q.length) return;
     const cur = idxRef.current; if (cur < 0) return;
     const n = (cur - 1 + q.length) % q.length;
-    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false });
+    idxRef.current = n; setIdx(n); void playSong(q[n], { alsoSetQueue: false, dateBgmOwner: dateBgmOwnerRef.current || undefined });
   }, [playSong]);
 
   // 自动下一首（end 事件）— 通过 ref 转发，以免 useEffect([], []) 闭包陷阱
@@ -1843,7 +1846,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       paused: a.paused, resolving: false, allowPause,
     });
     if (action === 'resolve') {
-      if (song) void playSong(song, { alsoSetQueue: false, refreshUrl: badUrl });
+      if (song) void playSong(song, { alsoSetQueue: false, refreshUrl: badUrl, dateBgmOwner: dateBgmOwnerRef.current || undefined });
     } else if (action === 'play') {
       void a.play().catch(err => {
         if (err?.name !== 'AbortError') toast('音频暂时无法播放，请重试或切歌', 'error');

@@ -23,9 +23,13 @@ describe('Meet BGM wired into real music and encounter entry', () => {
     expect(date).not.toMatch(/const handleCharClick = [\s\S]*?\n\s*};\n[\s\S]*?startDateBgm\(c\)/);
   });
   it('stops only the active BGM; cancellation prevents slow remote playback after leaving', () => {
-    expect(context).toContain('if (!song || !trackKeys.includes(musicSongKey(song))) return;');
+    expect(context).toContain('if (!ownerId || dateBgmOwnerRef.current !== ownerId) return;');
+    expect(context).toContain('dateBgmOwnerRef.current = dateBgmOwner || null;');
+    expect(context).toContain('dateBgmOwner: dateBgmOwnerRef.current || undefined');
+    expect(date).toContain('dateBgmOwner: ownerId');
+    expect(context).not.toContain('trackKeys.includes(musicSongKey(song))');
     expect(context).toContain('++playRequestSeq.current;');
     expect(context).toContain("audio.removeAttribute('src')");
-    expect(date).toContain('stopDateBgmIfCurrent(active.trackKeys)');
+    expect(date).toContain('stopDateBgmIfCurrent(active.ownerId)');
   });
 });
