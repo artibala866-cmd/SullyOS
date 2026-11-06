@@ -613,6 +613,33 @@ export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string,
     return { id: makeStoryTheaterId(), name: document.name, sourceFileName, format: 'sullyos-story-preset', document, createdAt: now, updatedAt: now };
 };
 
+/** An import never changes existing presets or the stories referencing their IDs.
+ * Exact repeats select the saved record; edited/same-name files get a distinct
+ * name and a new ID instead of silently overwriting user customizations.
+ */
+export const resolveStoryPresetImport = (
+    imported: StoryTheaterPreset,
+    savedPresets: readonly StoryTheaterPreset[],
+): { preset: StoryTheaterPreset; duplicate: boolean } => {
+    const canonical = (document: StoryTheaterPresetDocument): string =>
+        JSON.stringify({ ...document, name: '', description: document.description || '' });
+    const fingerprint = canonical(imported.document);
+    const duplicate = savedPresets.find(saved => !saved.builtIn
+        && saved.sourceFileName === imported.sourceFileName
+        && canonical(saved.document) === fingerprint);
+    if (duplicate) return { preset: duplicate, duplicate: true };
+
+    const usedNames = new Set(savedPresets.map(preset => preset.name));
+    if (!usedNames.has(imported.name)) return { preset: imported, duplicate: false };
+    let suffix = 2;
+    while (usedNames.has(`${imported.name}（导入 ${suffix}）`)) suffix += 1;
+    const name = `${imported.name}（导入 ${suffix}）`;
+    return {
+        duplicate: false,
+        preset: { ...imported, name, document: { ...imported.document, name } },
+    };
+};
+
 export const createBlankStoryPreset = (name = '新剧情预设', now = Date.now()): StoryTheaterPreset => ({
     id: makeStoryTheaterId(), name, format: 'sullyos-story-preset', createdAt: now, updatedAt: now,
     document: {
