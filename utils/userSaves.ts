@@ -1,6 +1,6 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
-import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, scopedDatabaseName, type UserSaveRegistry } from './userSaveScope';
+import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
@@ -96,7 +96,7 @@ export function isUserSaveSwitching(): boolean { return switching; }
 /** Copy base resources in a single target transaction, then commit the tiny
  * active-id manifest. Failure never selects an uninitialized/half-written save.
  * Reload is deliberate: every component, queue and singleton gets a new lifetime. */
-export async function activateUserSave(targetId: string, create?: { name: string; profile: UserProfile }): Promise<void> {
+export async function activateUserSave(targetId: string, create?: { name: string; profile: UserProfile }, options?: { deleteCurrent?: boolean }): Promise<void> {
     if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
@@ -104,6 +104,7 @@ export async function activateUserSave(targetId: string, create?: { name: string
         const registry = readUserSaves();
         if (registry.activeId !== USER_SAVE_ID) throw new Error('身份已在其他页面切换，请刷新后重试');
         if (!nativeLocalStorage) throw new Error('本地存储不可用，无法保存身份');
+        if (options?.deleteCurrent && (targetId === USER_SAVE_ID || registry.saves.length < 2)) throw new Error('至少保留一个身份');
         if (targetId === USER_SAVE_ID) { switching = false; return; }
         if (create) {
             if (!/^[a-f0-9-]{36}$/.test(targetId) || registry.saves.some(s => s.id === targetId)) throw new Error('身份编号无效');
@@ -143,9 +144,14 @@ export async function activateUserSave(targetId: string, create?: { name: string
         });
         // Check for a concurrent tab again after the asynchronous preparation.
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== null && readUserSaves().activeId !== USER_SAVE_ID) throw new Error('其他页面已切换身份，请刷新');
-        const next: UserSaveRegistry = { activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
+        const next: UserSaveRegistry = { ...registry, activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
+        if (options?.deleteCurrent) {
+            next.saves = next.saves.filter(save => save.id !== USER_SAVE_ID);
+            next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now()}];
+        }
         nativeLocalStorage.setItem(USER_SAVES_KEY, JSON.stringify(next));
         target.close(); target = undefined;
+        returnToProfileAfterUserSaveSwitch(targetId);
         window.location.reload();
     } catch (error) {
         target?.close();
@@ -182,4 +188,14 @@ export function sharedStoreRows(name: string, rows: any[]): any[] {
     if (name !== 'pixel_home_layouts') return rows;
     return rows.map(({charId, roomId, furniture, wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY}) =>
         ({charId, roomId, furniture: (Array.isArray(furniture) ? furniture : []).map((item: any) => ({...item, placedBy: 'user'})), wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY, ambiance: '', lastUpdatedAt: 0, lastDecoratedBy: 'user'}));
+}
+
+/** Remove a visible identity only after the replacement save is ready. Retain
+ * its underlying database so neither late writers nor an accidental tap destroy
+ * private history. No character/worldbook deletion is involved. */
+export async function deleteCurrentUserSave(): Promise<void> {
+    const registry = readUserSaves();
+    const replacement = registry.saves.find(save => save.id !== USER_SAVE_ID);
+    if (!replacement) throw new Error('至少保留一个身份');
+    await activateUserSave(replacement.id, undefined, {deleteCurrent: true});
 }

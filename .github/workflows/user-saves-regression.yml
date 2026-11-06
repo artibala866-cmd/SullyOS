@@ -4,6 +4,8 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'apps/UserApp.tsx'
+      - 'context/OSContext.tsx'
+      - 'components/PhoneShell.tsx'
       - 'apps/Settings.tsx'
       - 'components/user/UserSaveSection.tsx'
       - 'utils/userSave*.ts'

@@ -3,7 +3,7 @@ import path from 'node:path';
 const root=process.cwd();
 const config=ts.readConfigFile(path.join(root,'tsconfig.json'),ts.sys.readFile);
 const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,root);
-const files=['utils/userSaveScope.ts','utils/userSaveBootstrap.ts','utils/userSaves.ts','utils/userSaves.test.ts','utils/userSaveBackup.ts','utils/userSaveBackup.test.ts','apps/Settings.tsx','components/user/UserSaveSection.tsx','apps/UserApp.tsx','utils/db.ts','utils/activeMsgRuntime.ts','utils/activeMsgStore.ts','utils/storageStats.ts','utils/memoryPalace/supabaseVector.ts','features/collaboration/store.ts','index.tsx','test/fixtures/user-saves.tsx'];
+const files=['components/PhoneShell.tsx','context/OSContext.tsx','utils/userSaveScope.ts','utils/userSaveBootstrap.ts','utils/userSaves.ts','utils/userSaves.test.ts','utils/userSaveBackup.ts','utils/userSaveBackup.test.ts','apps/Settings.tsx','components/user/UserSaveSection.tsx','apps/UserApp.tsx','utils/db.ts','utils/activeMsgRuntime.ts','utils/activeMsgStore.ts','utils/storageStats.ts','utils/memoryPalace/supabaseVector.ts','features/collaboration/store.ts','index.tsx','test/fixtures/user-saves.tsx'];
 const roots=[...files,'vite-env.d.ts','esm-sh.d.ts'].map(file=>path.join(root,file));
 const program=ts.createProgram(roots,parsed.options);
 const all=ts.getPreEmitDiagnostics(program);

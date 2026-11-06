@@ -17,4 +17,4 @@ if (USER_SAVE_ID === 'original' && !localStorage.getItem('qa-user-saves-seeded')
     localStorage.setItem('qa-user-saves-seeded','1');
 }
 function ReadyArchive() { const {isDataLoaded} = useOS(); return isDataLoaded ? new URLSearchParams(location.search).has('settings') ? <Settings/> : <UserApp/> : <p>正在读取档案…</p>; }
-createRoot(document.getElementById('root')!).render(<OSProvider><ReadyArchive/></OSProvider>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><OSProvider><ReadyArchive/></OSProvider></React.StrictMode>);

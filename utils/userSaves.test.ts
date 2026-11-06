@@ -107,3 +107,27 @@ it('remote memory reads, writes and deletes use the active identity namespace', 
     await remote.fetchRemoteByRoom(config,'char','living_room');
     expect(decodeURIComponent(fetcher.mock.calls[3][0])).toContain(`char_id=eq.user:${SECOND}:char`);
 });
+
+it('deleting an identity switches safely, removes only its visible entry and preserves its private database', async () => {
+    const {openDB}=await import('./db'); const db=await openDB();
+    await write(db,{characters:[{id:'c',name:'角色',avatar:'',description:'',systemPrompt:'',memories:[{summary:'原身份的记忆'}]}],messages:[{id:1,charId:'c',content:'原身份聊天'}]});
+    const scope=await import('./userSaveScope');
+    localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:'original',saves:[{id:'original',name:'原'},{id:SECOND,name:'另一个身份'}]}));
+    const {deleteCurrentUserSave}=await import('./userSaves');await deleteCurrentUserSave();
+    const registry=scope.readUserSaves();expect(registry.activeId).toBe(SECOND);expect(registry.saves.map(s=>s.id)).toEqual([SECOND]);expect(registry.deletedSaves?.[0].id).toBe('original');
+    expect((await rows(db,'messages'))[0].content).toBe('原身份聊天');const target=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(target,'messages')).toEqual([]);expect((await rows(target,'characters'))[0].name).toBe('角色');expect((await rows(target,'characters'))[0].memories).toEqual([]);target.close();db.close();
+});
+it('the last identity cannot be deleted',async()=>{
+    const {deleteCurrentUserSave}=await import('./userSaves');await expect(deleteCurrentUserSave()).rejects.toThrow('至少保留');expect(reload).not.toHaveBeenCalled();
+});
+
+it('the profile return marker is one-shot, target-bound and does not change a normal cold launch',async()=>{
+    const rawSession = new Map<string,string>();
+    const session = {getItem:(key:string)=>rawSession.get(key)??null,setItem:(key:string,value:string)=>rawSession.set(key,value),removeItem:(key:string)=>rawSession.delete(key)};
+    vi.stubGlobal('window',{localStorage,sessionStorage:session,location:{reload},addEventListener:vi.fn()});
+    const scope=await import('./userSaveScope');expect(scope.RETURN_TO_USER_PROFILE).toBe(false);
+    scope.returnToProfileAfterUserSaveSwitch(SECOND);
+    localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:SECOND,saves:[{id:SECOND,name:'新身份'}]}));vi.resetModules();
+    expect((await import('./userSaveScope')).RETURN_TO_USER_PROFILE).toBe(true);vi.resetModules();
+    expect((await import('./userSaveScope')).RETURN_TO_USER_PROFILE).toBe(false);
+});

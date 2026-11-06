@@ -16,19 +16,22 @@ const UserApp: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
     const [showFigures, setShowFigures] = useState(false);
+    const [avatarBusy, setAvatarBusy] = useState(false);
+    const [identityBusy, setIdentityBusy] = useState(false);
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
+        if (file && !identityBusy && !avatarBusy) {
+            setAvatarBusy(true);
             try {
                 const base64 = await processImage(file);
                 // 头像存令牌，二进制单独躺在 blob_assets 里（省掉 base64 那 ~33% 的膨胀）。
                 // 同一张图之前存过就复用它的令牌；转不动时原样还回这条 data URL，图不会丢。
-                updateUserProfile({ avatar: await migrateDataUrlToRef(base64) });
+                await updateUserProfile({ avatar: await migrateDataUrlToRef(base64) });
                 addToast('头像已更新', 'success');
             } catch (err: any) {
                 addToast(err.message, 'error');
-            }
+            } finally { setAvatarBusy(false); }
         }
     };
 
@@ -62,7 +65,7 @@ const UserApp: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 pb-10 pt-5 space-y-5">
+            <div data-testid="archive-scroll" className="flex-1 overflow-y-auto px-5 pb-10 pt-5 space-y-5">
                 {tab === 'life' && <LifeRecordPanel />}
                 {tab === 'profile' && <>
 
@@ -78,7 +81,8 @@ const UserApp: React.FC = () => {
                     {/* Avatar overlapping the banner */}
                     <div className="px-6 pb-6 -mt-12">
                         <div
-                            onClick={() => fileInputRef.current?.click()}
+                            data-testid="archive-avatar"
+                            onClick={() => { if (!identityBusy && !avatarBusy) fileInputRef.current?.click(); }}
                             className="relative w-24 h-24 rounded-full cursor-pointer group mx-auto"
                         >
                             <div className="w-full h-full rounded-full ring-4 ring-white bg-slate-100 overflow-hidden shadow-md">
@@ -92,22 +96,10 @@ const UserApp: React.FC = () => {
                                 </svg>
                             </div>
                         </div>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                        <input type="file" aria-label="更换档案头像" disabled={identityBusy || avatarBusy} ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
                         <p className="mt-2 text-center text-[10px] text-slate-400">整体头像：所有聊天的默认。想在某个角色那儿换一副面孔？下面「分角色聊天头像」里设。</p>
 
-                        {/* Name field */}
-                        <div className="mt-4">
-                            <label className="text-[11px] font-bold text-slate-400 tracking-widest block text-center mb-1">你的名字</label>
-                            <div className="relative">
-                                <input
-                                    value={userProfile.name}
-                                    onChange={(e) => updateUserProfile({ name: e.target.value })}
-                                    placeholder="点击输入名字"
-                                    className="w-full bg-slate-50 focus:bg-white border border-transparent focus:border-primary/30 rounded-2xl px-4 py-3 text-xl font-bold text-slate-800 text-center outline-none transition-all placeholder:text-slate-300 placeholder:font-normal"
-                                />
-                            </div>
-                        </div>
-                        <UserSaveSection />
+                        <UserSaveSection disabled={avatarBusy} onBusyChange={setIdentityBusy} />
                     </div>
                 </div>
 
@@ -130,8 +122,10 @@ const UserApp: React.FC = () => {
                     </div>
                     <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">这些信息会发送给 AI，以便它更好地了解你（例如：大学生、喜欢吃辣、性格内向）。</p>
                     <textarea
+                        aria-label="关于我 / 设定"
+                        disabled={identityBusy}
                         value={userProfile.bio}
-                        onChange={(e) => updateUserProfile({ bio: e.target.value })}
+                        onChange={(e) => { void updateUserProfile({ bio: e.target.value }).catch(error => addToast(error.message || '设定保存失败', 'error')); }}
                         className="w-full h-52 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-2xl px-4 py-3 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         placeholder="描述你自己..."
                     />

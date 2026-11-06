@@ -1,3 +1,4 @@
+import { RETURN_TO_USER_PROFILE } from '../utils/userSaveScope';
 import FirstUseGuide from './FirstUseGuide';
 import FeedbackInvitation from './FeedbackInvitation';
 import BeautyRepoInvitation from './share/BeautyRepoInvitation';
@@ -461,7 +462,7 @@ const PhoneShell: React.FC = () => {
   }, [statusBarMode]);
 
   // 冷启动「世界入场」是否已结束。结束前由 BootSequence 接管整屏（同时取代旧的黑屏 spinner）。
-  const [bootDone, setBootDone] = useState(false);
+  const [bootDone, setBootDone] = useState(RETURN_TO_USER_PROFILE);
   const bootAnimationEnabled = theme.bootAnimationEnabled !== false;
   useEffect(() => {
     // 本次启动一旦选择跳过，就记为已经完成；用户稍后重新打开开关时不在桌面中途补播。

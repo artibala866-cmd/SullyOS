@@ -1,3 +1,4 @@
+import { RETURN_TO_USER_PROFILE } from '../utils/userSaveScope';
 import { DAILY_SCHEDULE_SAVED_EVENT } from '../utils/scheduleChange';
 import { clearDeferredRealPersonContact, considerRealPersonContact, recheckRealPersonContacts, resumeRealPersonContact } from '../utils/realPersonContact';
 import { handleLocalBack } from '../utils/localBackHandlers';
@@ -408,7 +409,7 @@ interface OSContextType {
 
   // User Profile
   userProfile: UserProfile;
-  updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => void;
+  updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => Promise<void>;
 
   availableModels: string[];
   setAvailableModels: (models: string[]) => void;
@@ -893,10 +894,10 @@ export const OSPreviewProvider = OSContext.Provider;
 
 export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // ... (State declarations same as before) ...
-  const [activeApp, setActiveApp] = useState<AppID>(AppID.Launcher);
+  const [activeApp, setActiveApp] = useState<AppID>(RETURN_TO_USER_PROFILE ? AppID.User : AppID.Launcher);
   const [theme, setTheme] = useState<OSTheme>(defaultTheme);
   const [apiConfig, setApiConfig] = useState<APIConfig>(defaultApiConfig);
-  const [isLocked, setIsLocked] = useState(true);
+  const [isLocked, setIsLocked] = useState(!RETURN_TO_USER_PROFILE);
   
   const getRealTime = (): VirtualTime => {
       const now = new Date();
@@ -3455,16 +3456,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => {
-       setUserProfile(prev => {
-           const patch = typeof updates === 'function' ? updates(prev) : updates;
-           const next = { ...prev, ...patch };
-          // 用户资料是所有角色共享的素材（名字、人设直接烤进 fire_pack 模板），改完不打脏的话
-          // 角色到点还按旧名字叫你。仿表情库：逐个打脏，没开 2.0 的角色被 markDirty 的门筛掉。
-          DB.saveUserProfile(next).then(() => {
-              markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
-          });
-          return next;
-      });
+      // Compose rapid name/bio/avatar edits synchronously against the latest
+      // profile. Persistence belongs outside React's replayable state updater.
+      const prev = userProfileRef.current;
+      const patch = typeof updates === 'function' ? updates(prev) : updates;
+      const next = { ...prev, ...patch };
+      userProfileRef.current = next;
+      setUserProfile(next);
+      await DB.saveUserProfile(next);
+      markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
   };
   const addCustomTheme = async (theme: ChatTheme) => { setCustomThemes(prev => { const exists = prev.find(t => t.id === theme.id); if (exists) return prev.map(t => t.id === theme.id ? theme : t); return [...prev, theme]; }); await DB.saveTheme(theme); };
   const removeCustomTheme = async (id: string) => { setCustomThemes(prev => prev.filter(t => t.id !== id)); await DB.deleteTheme(id); };

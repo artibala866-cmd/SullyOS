@@ -3,8 +3,10 @@
 export const USER_SAVES_KEY = 'sully:user-saves:v1';
 export const DEFAULT_USER_SAVE = 'original';
 export interface UserSave { id: string; name: string }
-export interface UserSaveRegistry { activeId: string; saves: UserSave[] }
+export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deletedSaves?: (UserSave & { deletedAt: number })[] }
 export const nativeLocalStorage = typeof window === 'undefined' ? undefined : window.localStorage;
+export const nativeSessionStorage = typeof window === 'undefined' ? undefined : window.sessionStorage;
+const RETURN_KEY = 'sully:user-save-return-profile:v1';
 export function readUserSaves(): UserSaveRegistry {
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY);
     if (!raw) return { activeId: DEFAULT_USER_SAVE, saves: [{ id: DEFAULT_USER_SAVE, name: '原有身份' }] };
@@ -17,6 +19,13 @@ export function readUserSaves(): UserSaveRegistry {
 }
 // Never silently fall back to the original save if an index is corrupt.
 export const USER_SAVE_ID = readUserSaves().activeId;
+export const RETURN_TO_USER_PROFILE = (() => {
+    try { if (nativeSessionStorage?.getItem(RETURN_KEY) === USER_SAVE_ID) { nativeSessionStorage.removeItem(RETURN_KEY); return true; } } catch { /* private storage may be unavailable */ }
+    return false;
+})();
+export function returnToProfileAfterUserSaveSwitch(id: string): void {
+    try { nativeSessionStorage?.setItem(RETURN_KEY, id); } catch { /* the save itself remains valid */ }
+}
 export function scopedDatabaseName(name: string, id = USER_SAVE_ID): string {
     return id === DEFAULT_USER_SAVE ? name : `${name}__user_${id}`;
 }
