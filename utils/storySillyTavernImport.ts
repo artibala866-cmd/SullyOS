@@ -128,12 +128,30 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
 };
 
 /** SillyTavern's basic text-variable macros, without evaluating arbitrary code. */
-export const expandSillyTavernPromptText = (raw: string, variables: Map<string, string>): string => raw
+/** A rich XML rule hidden inside a setvar is prompt text, not executable JS.
+ * These are safe to place into the request if no active getvar consumes them.
+ */
+const isStandaloneTavernRule = (value: string): boolean => {
+    const match = /^\s*<([a-z][\w-]*)\b[^>]*>[\s\S]*<\/\1\s*>\s*$/i.exec(value);
+    return Boolean(match && /(?:^rule$|(?:rule|rules|instruction|instructions|guideline|guidelines|prompt|intimate)$)/i.test(match[1]));
+};
+
+export const expandSillyTavernPromptText = (
+    raw: string,
+    variables: Map<string, string>,
+    referencedVariables?: ReadonlySet<string>,
+): string => raw
     .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '')
     .replace(/(?:\r?\n)*\{\{\s*trim\s*\}\}(?:\r?\n)*/gi, '')
     .replace(/\{\{\s*setvar::([^{}:]+)::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
-        variables.set(key.trim(), value);
-        return '';
+        const name = key.trim();
+        variables.set(name, value);
+        // SillyTavern extensions may read this variable later. They cannot run in
+        // SullyOS, so standalone rich rule bodies must not silently disappear.
+        // A real enabled getvar still owns its injection site and avoids duplicates.
+        return referencedVariables && !referencedVariables.has(name) && isStandaloneTavernRule(value)
+            ? value.trim()
+            : '';
     })
     .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
 
