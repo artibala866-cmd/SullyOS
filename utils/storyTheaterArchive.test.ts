@@ -42,6 +42,23 @@ describe('story summary final channel', () => {
         expect(() => parseStoryArchiveSummary(completion('Paragraph 1: 31 chars\nStill too long'))).toThrow('推理过程');
         expect(parseStoryArchiveSummary(completion('他说「Let’s count together」，两人一起数星星。'))).toContain('数星星');
     });
+    it('does not send legacy Tavern title/desc header comments when summarizing an old opening', async () => {
+        const taggedOpening = {
+            ...messages[1],
+            content: '<!-- title:第一幕 -->\\n<!-- desc:雨夜。 -->\\n{{char}}走进车站。',
+            metadata: {
+                ...messages[1].metadata,
+                theaterOpeningGreeting: { characterId: 'actor', greetingId: 'legacy-opening' },
+            },
+        } as Message;
+        await generateStoryArchiveSummary(entry.title, [taggedOpening, messages[0]], api);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.messages[1].content).toContain('{{char}}走进车站');
+        expect(body.messages[1].content).not.toContain('<!-- title:');
+        expect(body.messages[1].content).not.toContain('<!-- desc:');
+        expect(taggedOpening.content).toContain('<!-- title:'); // source remains intact
+    });
+
     it('does not retry automatically and rejects upstream errors', async () => {
         fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: '服务不可用' } }), { status: 503 }));
         await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('服务不可用');
