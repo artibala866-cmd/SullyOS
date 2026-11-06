@@ -82,6 +82,24 @@ describe('私聊表情智能导入安全回归', () => {
         ]);
     });
 
+    it('同一张表情导入不同分类会另存，不会因为其他分类已有同名就消失', () => {
+        const first = { name: '开心', url: 'https://example.com/happy.gif', categoryId: 'cat-a' };
+        const targetCopy = planEmojiImport(
+            [{ name: '开心', url: first.url }],
+            [first],
+            'cat-b'
+        );
+        expect(targetCopy).toEqual({
+            additions: [{ name: '开心（2）', url: first.url }],
+            renamed: 1,
+            skipped: 0,
+        });
+        const second = { ...targetCopy.additions[0], categoryId: 'cat-b' };
+        const again = planEmojiImport([{ name: '开心', url: first.url }], [first, second], 'cat-b');
+        expect(again).toEqual({ additions: [], renamed: 0, skipped: 1 });
+        expect(planEmojiImport([{ name: '开心', url: first.url }], [first], 'cat-a').skipped).toBe(1);
+    });
+
     it('新批次内重复的名字和 URL 自动去重，同 URL 不同名字仍可独立存在', () => {
         const a = 'https://example.com/a.gif';
         expect(planEmojiImport([
