@@ -155,6 +155,15 @@ describe('表情文件导入（完全本地解析）', () => {
         expect(result.suspiciousLines.length).toBeGreaterThan(0);
     });
 
+    it('网页导出的 HTML 相对图片路径只有带原始 base 时才转换，避免误指向糯米机域名', async () => {
+        const good = '<html><head><base href="https://cdn.example.com/stickers/"></head><body><img alt="好耶" src="a.gif"/></body></html>';
+        expect((await importEmojiDocument(asFile('a.html', good))).entries).toEqual([
+            { name: '好耶', url: 'https://cdn.example.com/stickers/a.gif' },
+        ]);
+        const broken = '<html><body><img alt="好耶" src="/static/a.gif"/></body></html>';
+        await expect(importEmojiDocument(asFile('broken.html', broken))).rejects.toThrow('未找到');
+    });
+
     it('仅网址文件也可以导入，图片名称取自真实文件名，普通网页链接不会误导入', async () => {
         const result = await importEmojiDocument(asFile('裸链接.txt', [
             '表情包合集',
