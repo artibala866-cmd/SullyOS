@@ -11,6 +11,17 @@ export const isLegacyLinkOpening = (greeting: { id?: string } | null | undefined
     typeof greeting?.id === 'string' &&
     /^(?:babylink-opening-|link-opening:)/.test(greeting.id);
 
+/** Fingerprint only for local opening identity, never security or authorization. */
+const linkSceneFingerprint = (content: string): string => {
+    let a = 2166136261, b = 0x811c9dc7;
+    for (let index = 0; index < content.length; index++) {
+        const code = content.charCodeAt(index);
+        a = Math.imul(a ^ code, 16777619);
+        b = Math.imul(b ^ (code + (index & 255)), 16777619);
+    }
+    return [content.length, (a >>> 0).toString(16), (b >>> 0).toString(16)].join('-');
+};
+
 /**
  * Link and Tavern adapters remain separate. This is only a read-time adapter
  * for the common Story > Existing Opening selector, never an importer.
@@ -43,17 +54,29 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
 export function mergeLinkGreetings(
     existing: LinkOpeningGreeting[] = [], incoming: LinkOpeningGreeting[] = [],
 ): LinkOpeningGreeting[] {
-    const result = existing.filter(g => g && typeof g.content === 'string' && g.content.trim())
-        .map(g => ({ ...g }));
-    for (const row of incoming) {
+    const result: LinkOpeningGreeting[] = [];
+    for (const row of [...existing, ...incoming]) {
         if (!row || typeof row.content !== 'string' || !row.content.trim()) continue;
         const key = row.content.trim();
-        const byId = result.findIndex(old => old.id === row.id);
         const byBody = result.findIndex(old => old.content.trim() === key);
-        // Equal text cannot create a duplicate even when Link changes indices.
-        const index = byBody >= 0 ? byBody : byId;
-        if (index < 0) result.push({ ...row });
-        else result[index] = { ...row, id: result[index].id };
+        if (byBody >= 0) {
+            const previous = result[byBody];
+            // Keep the existing ID: stories already selecting an older Link
+            // opening must not lose their reference when it gets re-imported.
+            result[byBody] = { ...previous, ...row, id: previous.id };
+            continue;
+        }
+        const byId = result.findIndex(old => old.id === row.id);
+        if (byId >= 0 && row.id.startsWith('babylink-opening-text-')) {
+            // Defensive fallback for a fingerprint collision: never silently
+            // replace a different opening that a saved story might reference.
+            let suffix = 2;
+            let id = row.id + '-' + suffix;
+            while (result.some(old => old.id === id)) id = row.id + '-' + ++suffix;
+            result.push({ ...row, id });
+        } else if (byId >= 0) {
+            result[byId] = { ...row, id: result[byId].id };
+        } else result.push({ ...row });
     }
     return result;
 }
@@ -66,7 +89,9 @@ export function normalizeLinkOpeningEntries(raw: unknown, maxCount = 100): LinkO
     for (const [index, value] of raw.entries()) {
         const object = value && typeof value === 'object' && !Array.isArray(value)
             ? value as Record<string, unknown> : null;
-        const content = typeof value === 'string' ? value : object?.opening ?? object?.content;
+        const content = typeof value === 'string' ? value
+            : (typeof object?.opening === 'string' && object.opening.trim()
+                ? object.opening : object?.content ?? object?.opening);
         if (content == null || content === '') continue;
         if (typeof content !== 'string' || content.length > 200000)
             throw new Error('Link 第 ' + (index + 1) + ' 条开场白正文无效');
@@ -81,7 +106,12 @@ export function normalizeLinkOpeningEntries(raw: unknown, maxCount = 100): LinkO
         if (externalId != null && (typeof externalId !== 'string' || externalId.length > 128))
             throw new Error('Link 第 ' + (index + 1) + ' 条开场白 ID 无效');
         const opening: LinkOpeningGreeting = {
-            id: 'babylink-opening-' + (typeof externalId === 'string' && externalId.trim() ? externalId.trim() : index),
+            // Link may reorder its openings between exports. When it provides
+            // no stable source ID, derive one from the raw scene instead of the
+            // list index so re-import never changes a saved story's scene.
+            id: typeof externalId === 'string' && externalId.trim()
+                ? 'babylink-opening-source-' + externalId.trim()
+                : 'babylink-opening-text-' + linkSceneFingerprint(content.trim()),
             title: typeof title === 'string' && title.trim() ? title.trim() : 'Link 开场白 ' + (index + 1),
             ...(typeof description === 'string' && description.trim() ? { description: description.trim() } : {}),
             content,
