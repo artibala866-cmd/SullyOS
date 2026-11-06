@@ -17,6 +17,7 @@ const MARKERS: Record<string, StoryTheaterPresetPrompt['marker']> = {
 };
 
 const numeric = (value: unknown, fallback: number, min: number, max: number): number => {
+    if (value == null || value === '' || typeof value === 'boolean') return fallback;
     const n = Number(value);
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 };
@@ -84,9 +85,8 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
     for (const identifier of sourceById.keys()) if (!used.has(identifier)) append(identifier, false);
-    if (!prompts.some(prompt => prompt.enabled && (prompt.content.trim() || prompt.marker))) {
-        throw new Error('酒馆预设没有可启用的有效提示词');
-    }
+    // A fully disabled preset is still a valid editable import: do not silently turn
+    // anything on, and do not reject its user's archived prompt text.
 
     const warnings: string[] = [];
     const regexCount = Array.isArray(value.extensions?.regex_scripts)
