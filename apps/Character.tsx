@@ -2313,7 +2313,7 @@ ${isInitialGeneration ? `
                     <div className="min-w-0">
                         <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
                         {characters.some(char => char.name.trim() === pendingCard.character.name.trim()) &&
-                            <p className="text-xs text-neutral-500 mt-1">已存在 · 将增量更新原角色，不会重建聊天与记忆</p>
+                            <p className="text-xs text-neutral-500 mt-1">已存在 · 将增量更新原角色，不会重建聊天与记忆</p>}
                         <p className="text-xs text-neutral-500 mt-1">人设：{pendingCard.character.description || pendingCard.character.systemPrompt || pendingCard.character.worldview ? '已识别' : '仅有角色姓名'}</p>
                     </div>
                 </div>
