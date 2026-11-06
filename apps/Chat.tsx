@@ -12,6 +12,7 @@ import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellati
 import { stopInstantChat, supersedeStaleAutoInstantReply } from '../utils/amsgInstantChat';
 import {resolvePsycheAppearance} from '../utils/psycheAppearance';
 import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
+import { parseEmojiImportText } from '../utils/emojiImport';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
 import BlobRefStyle, { isWeixinBaiyuCss } from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
@@ -2684,27 +2685,27 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     const handleImportEmoji = async () => {
         if (!emojiImportText.trim()) return;
-        const lines = emojiImportText.split('\n');
+        const { entries, invalidLineNumbers } = parseEmojiImportText(emojiImportText);
+        if (entries.length === 0) {
+            addToast('未识别到表情包，请检查名称和图片链接格式', 'error');
+            return;
+        }
         const targetCatId = activeCategory === 'default' ? undefined : activeCategory;
-
-        for (const line of lines) {
-            const parts = line.split('--');
-            if (parts.length >= 2) {
-                const name = parts[0].trim();
-                const url = parts.slice(1).join('--').trim();
-                if (name && url) {
-                    // 粘进来的可能是 data: 图（复制粘贴的图片），也可能是图床外链。
-                    // 前者转成令牌只留二进制，后者是别人服务器上的地址，原样存。
-                    const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
-                    await DB.saveEmoji(name, stored, targetCatId);
-                }
-            }
+        for (const { name, url } of entries) {
+            // 解析器统一识别并规范为「名称--链接」，存储仍沿用原来的表情库结构。
+            // 粘贴的 data: 图片转成令牌；网络图片直接保留原链接。
+            const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
+            await DB.saveEmoji(name, stored, targetCatId);
         }
         await loadEmojiData();
         markEmojiLibraryChanged();
         setModalType('none');
         setEmojiImportText('');
-        addToast('表情包导入成功', 'success');
+        addToast(
+            '成功导入 ' + entries.length + ' 个表情包' +
+                (invalidLineNumbers.length ? '，跳过 ' + invalidLineNumbers.length + ' 行无法识别的内容' : ''),
+            'success'
+        );
     };
 
     const handleRenameCategory = async () => {

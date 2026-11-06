@@ -6,6 +6,7 @@ import ChatInputArea from '../components/chat/ChatInputArea';
 import type { Emoji } from '../types';
 import { DB } from './db';
 import { dataUrlToBlob, putImageBlob } from './blobRef';
+import { parseEmojiImportText, formatEmojiImportText } from './emojiImport';
 import { EMOJI_THUMBNAIL_CACHE_LIMIT } from './useEmojiThumbnailCache';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -208,5 +209,56 @@ describe('表情面板的记录身份与图片复用', () => {
         expect(buttons.map(b => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
         clickLabel('删除选中的表情');
         expect(onPanelAction).toHaveBeenLastCalledWith('delete-emoji-req', [emojis[1]]);
+    });
+});
+
+
+describe('私聊表情包智能导入格式识别', () => {
+    it('支持中文冒号、英文冒号、链接在前和旧版双横杠混合批量导入', () => {
+        const input = [
+            '占有欲：https://files.catbox.moe/a.jpeg',
+            '记仇:http://files.catbox.moe/b.gif',
+            'https://files.catbox.moe/c.png 小狗 开心',
+            '害羞--https://files.catbox.moe/d.jpg',
+        ].join('\n');
+        const parsed = parseEmojiImportText(input);
+        expect(parsed.invalidLineNumbers).toEqual([]);
+        expect(parsed.entries).toEqual([
+            { name: '占有欲', url: 'https://files.catbox.moe/a.jpeg' },
+            { name: '记仇', url: 'http://files.catbox.moe/b.gif' },
+            { name: '小狗 开心', url: 'https://files.catbox.moe/c.png' },
+            { name: '害羞', url: 'https://files.catbox.moe/d.jpg' },
+        ]);
+        expect(formatEmojiImportText(parsed.entries)).toBe([
+            '占有欲--https://files.catbox.moe/a.jpeg',
+            '记仇--http://files.catbox.moe/b.gif',
+            '小狗 开心--https://files.catbox.moe/c.png',
+            '害羞--https://files.catbox.moe/d.jpg',
+        ].join('\n'));
+    });
+
+    it('可保留 URL 参数和双横杠，以及旧版内嵌 data 图片', () => {
+        const parsed = parseEmojiImportText([
+            '萌： https://example.com/a--b.gif?x=1:2&y=3',
+            '  https://example.com/abc.gif?q=1&lang=zh　开心　',
+            '本地图--data:image/png;base64,iVBORw0KGgo=',
+        ].join('\n'));
+        expect(parsed.invalidLineNumbers).toEqual([]);
+        expect(parsed.entries).toEqual([
+            { name: '萌', url: 'https://example.com/a--b.gif?x=1:2&y=3' },
+            { name: '开心', url: 'https://example.com/abc.gif?q=1&lang=zh' },
+            { name: '本地图', url: 'data:image/png;base64,iVBORw0KGgo=' },
+        ]);
+    });
+
+    it('兼容 Windows 换行，过滤空行，未识别的内容不会伪装成成功导入', () => {
+        const parsed = parseEmojiImportText('\uFEFF花花：http://example.com/f.png\r\n\r\n仅有名字\r\nhttp://example.com/no-name.png\r\n开心: http://example.com/h.jpg');
+        expect(parsed.entries).toEqual([
+            { name: '花花', url: 'http://example.com/f.png' },
+            { name: '开心', url: 'http://example.com/h.jpg' },
+        ]);
+        expect(parsed.invalidLineNumbers).toEqual([3, 4]);
+        expect(parseEmojiImportText('乱码\n无链接').entries).toEqual([]);
+        expect(parseEmojiImportText(' -- \n: https://example.com/a.png').entries).toEqual([]);
     });
 });

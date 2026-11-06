@@ -15,6 +15,7 @@ import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatCon
 import { trackEvent } from '../../utils/analytics';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../utils/voiceLanguage';
 import { chatMessageFuzzyMatchesKeyword } from '../../utils/chatMessageSearch';
+import { parseEmojiImportText, formatEmojiImportText } from '../../utils/emojiImport';
 
 interface ChatModalsProps {
     imageCharacterId?: string;
@@ -371,8 +372,20 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<button onClick={onImportEmoji} className="w-full py-4 bg-primary text-white font-bold rounded-2xl">添加至当前分类</button>}
             >
                 <div className="space-y-3">
-                    <p className="text-xs text-slate-400">表情将导入到你当前选中的分类。</p>
-                    <textarea value={emojiImportText} onChange={e => setEmojiImportText(e.target.value)} placeholder="Name--URL (每行一个)" className="w-full h-40 bg-slate-100 rounded-2xl p-4 resize-none" />
+                    <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
+                    <textarea
+                        value={emojiImportText}
+                        onChange={e => setEmojiImportText(e.target.value)}
+                        onBlur={() => {
+                            const parsed = parseEmojiImportText(emojiImportText);
+                            // 只有全部内容可识别时才自动转换，避免丢失未完成或异常的输入行。
+                            if (parsed.entries.length && parsed.invalidLineNumbers.length === 0) {
+                                setEmojiImportText(formatEmojiImportText(parsed.entries));
+                            }
+                        }}
+                        placeholder={'名称--https://...\n名称：https://...\n名称:http://...\nhttps://... 名称'}
+                        className="w-full h-40 bg-slate-100 rounded-2xl p-4 resize-none"
+                    />
                 </div>
             </Modal>
 
