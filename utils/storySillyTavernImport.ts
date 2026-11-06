@@ -112,6 +112,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         name: fallbackName,
         description: '从酒馆 Chat Completion 预设适配；原有提示词、开关及顺序已保留。',
         sourceFormat: 'sillytavern',
+        ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         importWarnings: warnings,
         generation: {
             temperature: numeric(value.temperature, 0.9, 0, 2),
@@ -134,3 +135,17 @@ export const expandSillyTavernPromptText = (raw: string, variables: Map<string, 
         return '';
     })
     .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
+
+/** Preserve roles and message order while matching Tavern's system-message squashing. */
+export const squashAdjacentSystemMessages = <T extends { role: string; content: string }>(items: T[]): T[] => {
+    const result: T[] = [];
+    for (const item of items) {
+        const last = result[result.length - 1];
+        if (item.role === 'system' && last?.role === 'system') {
+            result[result.length - 1] = { ...last, content: `${last.content}\n\n${item.content}` };
+        } else {
+            result.push(item);
+        }
+    }
+    return result;
+};
