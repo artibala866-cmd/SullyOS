@@ -215,4 +215,47 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(field().value).toBe('失败时必须保留的文字');
         expect((host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement).value).toBe('');
     });
+    it('收藏后改回我先写，正文恢复到介绍栏，收藏仍留在已有开场', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const create=vi.fn(async (_id:string,_title:string,content:string)=>({id:'recover-one',title:'恢复用开场',content}));
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),title:'恢复检查',characterIds:[actor.id]},
+            characters:[{...actor,tavernGreetings:[]}],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),onCreateGreeting:create,
+        })));
+        await typeInto(field(),'刚写下来的重要正文');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        await click('我先写');
+        expect(field().value).toBe('刚写下来的重要正文');
+        expect(field().getAttribute('data-story-opening-editor')).toBeNull();
+        expect(host!.querySelector('select[aria-label="选择已有开场"]')?.textContent).toContain('恢复用开场');
+        expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it('删除刚收藏的开场仍保留原稿；多人更换参与者关闭过期的归属选择', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const other={...actor,id:'second-actor',name:'第二角色',tavernGreetings:[]};
+        const create=vi.fn(async (_id:string,_title:string,content:string)=>({id:'recover-delete',title:'用户开场',content}));
+        const change=vi.fn(async (_id:string,_g:string,_c:string|null)=>{});
+        const props={initial:{...createStoryTheaterDraft(),characterIds:[actor.id,other.id]},
+            characters:[{...actor,tavernGreetings:[]},other],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+            onCreateGreeting:create,onChangeGreeting:change};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,props)));
+        await typeInto(field(),'多人写的正文');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        expect(host!.querySelector('[data-story-opening-target]')).not.toBeNull();
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="第二角色"]')!.click());
+        expect(host!.querySelector('[data-story-opening-target]')).toBeNull();
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        expect(create).toHaveBeenCalledTimes(1);
+        await click('删除');
+        await click('确认删除');
+        expect(change).toHaveBeenCalledWith(actor.id,'recover-delete',null);
+        expect(field().value).toBe('多人写的正文');
+        expect(field().getAttribute('data-story-opening-editor')).toBeNull();
+    });
+
 });
