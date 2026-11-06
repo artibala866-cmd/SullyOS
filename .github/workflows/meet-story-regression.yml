@@ -188,15 +188,21 @@ jobs:
               grep -o 'id="meet-landscape-report"[^<]*' "${prefix}.html" | tail -c 1300 || true
             done
           done
-          url='http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=input'
-          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
-            --dump-dom "$url" > output/meet-landscape/portrait.html 2> output/meet-landscape/portrait.log
-          grep -q 'data-meet-landscape-ready="true"' output/meet-landscape/portrait.html
-          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
-            --screenshot=output/meet-landscape/portrait.png "$url" >/dev/null 2>&1
-          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 portrait; do
+          for scenario in input keyboard zoom; do
+            url="http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=${scenario}"
+            prefix="output/meet-landscape/portrait-${scenario}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+              --dump-dom "$url" > "${prefix}.html" 2> "${prefix}.log"
+            if ! grep -q 'data-meet-landscape-ready="true"' "${prefix}.html"; then
+              grep -o 'id="meet-landscape-report"[^<]*' "${prefix}.html" | tail -c 2500 || true
+              exit 1
+            fi
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+              --screenshot="${prefix}.png" "$url" >/dev/null 2>&1
+          done
+          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 portrait-input portrait-keyboard portrait-zoom; do
             echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_BEGIN"
             base64 -w0 "output/meet-landscape/${frame}.png"
             echo
