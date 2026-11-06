@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../components/date/date-session-landscape.css', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../components/date/DateSession.tsx', import.meta.url), 'utf8');
 describe('Meet landscape layout regression', () => {
-  it('landscape only, protects portrait and the configured sprite transforms', () => {
+  it('protects both rotations, viewport keyboard and configured sprite transforms', () => {
     expect(css).toContain('(orientation: landscape) and (max-height: 760px)');
     expect(css).toContain('.date-session-sprite-stage');
     expect(css).toContain('.date-session-dialogue-card');
@@ -18,5 +18,11 @@ describe('Meet landscape layout regression', () => {
     expect(app).toContain("'--date-landscape-fit-scale'");
     expect(css).toContain('scale: var(--date-landscape-fit-scale, 1)');
     expect(css).toContain('.date-session-dialogue-card > div:first-child');
+    expect(css).toContain('(orientation: portrait) and (max-width: 800px)');
+    expect(css).toContain('date-session-sprite-zoomed');
+    expect(css).toContain('.date-settings-sprite-preview');
+    expect(css).toContain('aspect-ratio: 9 / 19.5');
+    expect(app).toContain('window.visualViewport');
+    expect(app).toContain('ref={sessionRootRef}');
   });
 });
