@@ -33,7 +33,7 @@ describe('Meet landscape layout regression', () => {
     expect(css).toContain('height: var(--date-scene-height)');
     expect(css).toContain('top: calc(var(--date-visible-height) - 34px)');
     expect(css).toContain('scale: var(--date-landscape-fit-scale, 1)');
-    expect(app).toContain("'--date-landscape-keyboard-fit-scale'");
+    expect(app).not.toContain("'--date-landscape-keyboard-fit-scale'");
     expect(app).not.toContain('root.style.maxHeight = `${Math.max(0, visibleBottom - bounds.top)}px`');
   });
 });
