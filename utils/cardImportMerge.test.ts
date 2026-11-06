@@ -85,6 +85,26 @@ describe('incremental character-card imports', () => {
         expect(plan.result).toMatchObject({ createdIds: [], booksAdded: 0, booksUpdated: 1 });
     });
 
+    it('does not rename a character or lose its original identity during a lore-only source rename', () => {
+        const role: CharacterProfile = char('role', {
+            name: '旧角色名', cardImportOrigin: {
+                source: 'tavern', externalId: 'stable-identity', originalName: '旧角色名',
+            },
+        });
+        const renamedOrigin = { source: 'tavern' as const, externalId: 'stable-identity', originalName: '新版角色名' };
+        const worldbookOnly = card('discard', renamedOrigin, { name: '新版角色名' },
+            [lore('new-world')], role.id);
+        const changed = mergeCardImports([role], [], [worldbookOnly]);
+        expect(changed.characters[0].name).toBe('旧角色名');
+        expect(changed.characters[0].cardImportOrigin?.originalName).toBe('旧角色名');
+        const persona = card('discard2', renamedOrigin, {
+            name: '新版角色名', description: '新资料', systemPrompt: '新版性格',
+        }, [], role.id);
+        const updated = mergeCardImports(changed.characters, changed.worldbooks, [persona]);
+        expect(updated.characters[0].name).toBe('新版角色名');
+        expect(updated.characters[0].cardImportOrigin?.originalName).toBe('新版角色名');
+    });
+
     it('keeps newly added modules and skips empty incoming fields, without erasing existing modules', () => {
         const original = char('role', { worldview: '原来的世界背景', cardImportOrigin: source });
         const plan = mergeCardImports([original], [], [
