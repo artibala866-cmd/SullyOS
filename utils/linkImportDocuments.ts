@@ -1,0 +1,96 @@
+/**
+ * LINK 1.1.10's AddFriend import accepts TXT/DOC/DOCX as independent persona
+ * documents (not Tavern cards). No API call or interpreted script is involved.
+ * Word text is extracted, not rendered as untrusted HTML in the app.
+ */
+const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
+const MAX_DOCUMENT_TEXT = 2_000_000;
+const CFB_SIGNATURE = [0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1];
+const begins = (bytes: Uint8Array, sig: number[]) => sig.every((x,i)=>bytes[i]===x);
+
+const decodeBytes = (bytes: Uint8Array): string => {
+    if (begins(bytes,[0xef,0xbb,0xbf])) return new TextDecoder('utf-8').decode(bytes.subarray(3));
+    if (begins(bytes,[0xff,0xfe])) return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+    if (begins(bytes,[0xfe,0xff])) return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+    const head=bytes.subarray(0,Math.min(bytes.length,4096));
+    let odd=0,even=0;
+    for(let i=0;i<head.length;i++) if(head[i]===0) i%2?odd++:even++;
+    if(odd>head.length/8&&odd>even*3) return new TextDecoder('utf-16le').decode(bytes);
+    if(even>head.length/8&&even>odd*3) return new TextDecoder('utf-16be').decode(bytes);
+    try { return new TextDecoder('utf-8',{fatal:true}).decode(bytes); }
+    catch {
+        try { return new TextDecoder('gb18030',{fatal:true}).decode(bytes); }
+        catch { return new TextDecoder('windows-1252').decode(bytes); }
+    }
+};
+const unescapeXml = (s:string) => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,(all,token:string)=>{
+    const t=token.toLowerCase();
+    const common:Record<string,string>={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+    if(common[t]!==undefined)return common[t];
+    const n=t.startsWith('#x')?parseInt(t.slice(2),16):parseInt(t.slice(1),10);
+    return Number.isFinite(n)&&n>0&&n<=0x10ffff?String.fromCodePoint(n):all;
+});
+export const docxXmlToText = (xml:string):string => {
+    const paragraphs:string[]=[];
+    for(const match of xml.matchAll(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/gi)){
+        const parts:string[]=[];
+        const tokens=/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:(?:br|cr)\b[^>]*\/>/gi;
+        for(const token of match[0].matchAll(tokens))
+            parts.push(token[1]!==undefined?unescapeXml(token[1]):/^<w:tab/i.test(token[0])?'\t':'\n');
+        paragraphs.push(parts.join(''));
+    }
+    return paragraphs.join('\n').trim();
+};
+const readDocx = async (buffer:ArrayBuffer):Promise<string> => {
+    const JSZip=(await import('jszip')).default;
+    let archive:InstanceType<typeof JSZip>;
+    try { archive=await JSZip.loadAsync(buffer); }
+    catch { throw new Error('DOCX 文件损坏，无法安全解压'); }
+    const file=archive.file('word/document.xml');
+    if(!file) throw new Error('DOCX 中没有 Word 正文，请检查文件格式');
+    if((file as any)._data?.uncompressedSize>MAX_DOCUMENT_TEXT*4)throw new Error('Word 文档正文过大');
+    const xml=await file.async('string');
+    if(xml.length>MAX_DOCUMENT_TEXT*4) throw new Error('Word 文档正文过大');
+    return docxXmlToText(xml);
+};
+const removeHtmlFormatting=(html:string):string=>unescapeXml(html
+    .replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi,'')
+    .replace(/<br\b[^>]*\/?>|<\/(?:p|div|li|tr|h[1-6])>/gi,'\n')
+    .replace(/<[^>]*>/g,'')).trim();
+const parseRtf=(source:string):string=>source
+    .replace(/\{\\\*(?:[^{}]|\{[^{}]*\})*\}/g,'')
+    .replace(/\\u(-?\d+)\??/g,(_all,n:string)=>String.fromCharCode((parseInt(n,10)+65536)%65536))
+    .replace(/\\(?:par|line)\b\s?/g,'\n').replace(/\\tab\b\s?/g,'\t')
+    .replace(/\\'[a-f0-9]{2}/gi,'')
+    .replace(/\\[a-z]+\d* ?/gi,'')
+    .replace(/\\([{}\\])/g,'$1').replace(/[{}]/g,'').trim();
+
+export const isLinkPersonaDocument=(file:Pick<File,'name'|'type'>):boolean=>
+    /\.(?:txt|text|doc|docx)$/i.test(file.name)||
+    /^(?:text\/plain|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/i.test(file.type||'');
+
+/**
+ * Reads source bytes; never uses .text() alone because Chinese TXT may be GBK.
+ * Old binary DOC needs a CFB parser. Avoid returning garbled garbage as persona.
+ */
+export const readLinkPersonaDocument=async(file:File):Promise<string>=>{
+    if(file.size<=0||file.size>MAX_DOCUMENT_BYTES)throw new Error('角色文档为空或超过 25 MB');
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    const name=file.name.toLowerCase();
+    let text:string;
+    if(name.endsWith('.docx')||begins(bytes,[0x50,0x4b,0x03,0x04])){
+        text=await readDocx(bytes.buffer);
+    }else if(begins(bytes,CFB_SIGNATURE)){
+        throw new Error('旧版二进制 DOC 暂不支持直接提取，请在 Word/WPS 中另存为 DOCX 或 TXT 后导入；不会把乱码写进人设');
+    }else{
+        const decoded=decodeBytes(bytes).replace(/^\uFEFF/,'');
+        text=/^\s*\{\\rtf\d/i.test(decoded)?parseRtf(decoded)
+            :/<(?:html|body|p|div)\b/i.test(decoded)&&/\.(?:doc|htm|html)$/i.test(name)
+                ?removeHtmlFormatting(decoded):decoded;
+    }
+    text=text.replace(/\r\n?/g,'\n').trim();
+    if(!text)throw new Error('角色文档中没有可读取的正文');
+    if(text.length>MAX_DOCUMENT_TEXT)throw new Error('角色文档正文超过 200 万字符，请拆分后导入');
+    if(text.includes('\u0000'))throw new Error('角色文档包含异常二进制内容，拒绝导入乱码');
+    return text;
+};
