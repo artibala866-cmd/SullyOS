@@ -31,7 +31,8 @@ async function mount() {
 async function unmount() { if (root) await act(async () => root!.unmount()); root = null; host?.remove(); host = null; }
 afterEach(async () => { await unmount(); vi.clearAllMocks(); });
 async function tap(text: string) {
-    const button = [...host!.querySelectorAll('button')].find(el => el.textContent?.trim() === text);
+    const button = [...host!.querySelectorAll('button')].find(el =>
+        el.getAttribute('aria-label') === text || el.textContent?.trim() === text);
     expect(button, `missing clickable control ${text}`).toBeTruthy();
     await act(async () => button!.click());
 }

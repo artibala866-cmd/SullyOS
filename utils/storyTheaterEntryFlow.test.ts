@@ -33,7 +33,8 @@ async function render(
     })));
 }
 async function clickButton(text: string) {
-    const button = [...host!.querySelectorAll('button')].find(button => button.textContent?.trim() === text);
+    const button = [...host!.querySelectorAll('button')].find(button =>
+        button.getAttribute('aria-label') === text || button.textContent?.trim() === text);
     expect(button, text).toBeTruthy();
     await act(async () => button!.click());
 }
@@ -193,8 +194,8 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
             openingGreetingInitialized: true,
         }, [actor, actorB], save, undefined, true);
         const buttons = [...host!.querySelectorAll('button')];
-        const first = buttons.find(button => button.textContent?.trim() === '角色甲');
-        const second = buttons.find(button => button.textContent?.trim() === '角色乙');
+        const first = buttons.find(button => button.getAttribute('aria-label') === '角色甲');
+        const second = buttons.find(button => button.getAttribute('aria-label') === '角色乙');
         expect(first?.disabled).toBe(true);
         expect(second?.disabled).toBe(true);
         await act(async () => { first!.click(); second!.click(); });
