@@ -5,7 +5,7 @@ import {
 } from './emojiImport';
 
 /** Browser-side document import; no uploads or AI/API calls. */
-export const EMOJI_DOCUMENT_FILE_ACCEPT = '.txt,.text,.md,.markdown,.csv,.tsv,.json,.html,.htm,.rtf,.docx,.pdf';
+export const EMOJI_DOCUMENT_FILE_ACCEPT = '.txt,.text,.md,.markdown,.csv,.tsv,.json,.html,.htm,.rtf,.doc,.docx,.pdf';
 export const EMOJI_DOCUMENT_MAX_BYTES = 16 * 1024 * 1024;
 const MAX_DOCUMENT_TEXT_LENGTH = 2_000_000;
 const MAX_IMPORT_ENTRIES = 3000;
@@ -105,7 +105,7 @@ async function readDocx(bytes: ArrayBuffer): Promise<string> {
     }
     const doc = zip.file('word/document.xml');
     if (!doc) throw new Error('Word 文件缺少正文内容，请另存为 .docx 后再试');
-    if (doc._data && (doc as any)._data.uncompressedSize > MAX_DOCUMENT_TEXT_LENGTH * 2) {
+    if ((doc as any)._data?.uncompressedSize > MAX_DOCUMENT_TEXT_LENGTH * 2) {
         throw new Error('Word 正文过大，请拆分文件后再导入');
     }
     const xml = await doc.async('string');
