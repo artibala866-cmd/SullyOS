@@ -744,6 +744,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         historyMessages,
                         currentInput: modelInput,
                         modelName: apiConfig.model,
+                        continueRequested: isContinueTurn,
                         slots: {
                             actors: actorContext,
                             persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
@@ -755,6 +756,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     });
                     const payloadBeforeTurn = [
                     ...compiled.messages,
+                    ...(compiled.continueNudge ? [compiled.continueNudge] : []),
                     ...(promptEntry.writesToCharacterMemory ? [{ role: 'system' as const, content: REAL_COMPANION_MEMORY_GUARD }] : []),
                     ...(backstageAftermathReminder ? [{ role: 'system' as const, content: backstageAftermathReminder }] : []),
                     ...(miniTheaterReminder ? [{ role: 'system' as const, content: miniTheaterReminder }] : []),
