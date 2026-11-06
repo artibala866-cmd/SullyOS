@@ -1,4 +1,5 @@
 import {meetingAppearance} from '../../utils/meetingAppearance';
+import './date-session-landscape.css';
 import MeetingAppearanceControl from './MeetingAppearanceControl';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -319,15 +320,16 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 {previewOpen ? '收起场景预览' : '展开场景预览'}
             </button>
             {/* Live Preview Area */}
-            {previewOpen && <div className="h-64 bg-black relative overflow-hidden shrink-0 border-b border-slate-200">
+            {previewOpen && <div className="date-session-root date-settings-sprite-preview bg-black relative overflow-hidden shrink-0 border-b border-slate-200">
                 {readingAppearance.id!=='none'&&<div className="absolute inset-0 z-10 px-8 py-6 font-serif leading-8" style={{background:readingAppearance.background,color:readingAppearance.ink}}><small className="text-xs opacity-50">{readingAppearance.name} · 阅读预览</small><p className="mt-4">窗边的灯亮了，书页上留下了一小片暖色。</p><p>“今天读到哪里了？”</p><p>他把书签夹好，慢慢合上书。</p></div>}
                     <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: dateBackgroundUrl ? `url("${dateBackgroundUrl}")` : 'none' }}></div>
-                    <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
+                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none overflow-hidden ${tempSpriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
                         <TokenImg
                         value={currentSpriteImg}
-                        className="max-h-[90%] object-contain transition-transform"
+                        className="max-h-full max-w-full object-contain transition-transform origin-bottom"
                         style={{ 
-                            transform: `translate(${tempSpriteConfig.x}%, ${tempSpriteConfig.y}%) scale(${tempSpriteConfig.scale})`
+                            transform: `translate(${tempSpriteConfig.x}%, ${tempSpriteConfig.y}%) scale(${tempSpriteConfig.scale})`,
+                            '--date-landscape-fit-scale': String(1 / Math.max(1, tempSpriteConfig.scale))
                         }}
                         />
                     </div>
