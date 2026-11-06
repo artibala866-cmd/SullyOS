@@ -1580,6 +1580,23 @@ export const DB = {
     });
   },
 
+  /**
+   * 智能批量导入：整批原子写入，且使用 add 而非 put，禁止覆盖现有同名表情。
+   * 跨标签页有同名并发冲突时事务整体回滚，避免导入一半留下残缺分类。
+   */
+  saveEmojisBatch: async (emojis: Emoji[]): Promise<void> => {
+    if (emojis.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_EMOJIS, 'readwrite');
+      const store = tx.objectStore(STORE_EMOJIS);
+      for (const emoji of emojis) store.add(emoji);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('表情包批量保存失败'));
+      tx.onabort = () => reject(tx.error || new Error('表情包批量保存已撤销'));
+    });
+  },
+
   deleteEmoji: async (name: string): Promise<void> => {
     const db = await openDB();
     const transaction = db.transaction(STORE_EMOJIS, 'readwrite');

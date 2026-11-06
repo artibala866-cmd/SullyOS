@@ -12,7 +12,7 @@ import { publishReplyDisplay, stopReplyRuns } from '../utils/chatReplyCancellati
 import { stopInstantChat, supersedeStaleAutoInstantReply } from '../utils/amsgInstantChat';
 import {resolvePsycheAppearance} from '../utils/psycheAppearance';
 import { startsNewMessageGroup } from '../utils/chatMessageGrouping';
-import { parseEmojiImportText } from '../utils/emojiImport';
+import { parseEmojiImportText, planEmojiImport } from '../utils/emojiImport';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
 import BlobRefStyle, { isWeixinBaiyuCss } from '../components/chat/BlobRefStyle';
 import CharacterPhone from '../components/chat/CharacterPhone';
@@ -359,6 +359,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [transferAmt, setTransferAmt] = useState('');
     const [transferNote, setTransferNote] = useState('');
     const [emojiImportText, setEmojiImportText] = useState('');
+    const [emojiImportBusy, setEmojiImportBusy] = useState(false);
+    const emojiImportInFlightRef = useRef(false);
     const [settingsContextLimit, setSettingsContextLimit] = useState(500);
     const [settingsContextRangeMode, setSettingsContextRangeMode] = useState<ContextRangeMode>('manual');
     const [settingsHideSysLogs, setSettingsHideSysLogs] = useState(false);
@@ -2684,28 +2686,54 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     const handleImportEmoji = async () => {
-        if (!emojiImportText.trim()) return;
+        // ref 负责同步拦住同一帧内的双击，state 控制现有按钮的 loading 文案。
+        if (emojiImportInFlightRef.current || !emojiImportText.trim()) return;
         const { entries, invalidLineNumbers } = parseEmojiImportText(emojiImportText);
+        if (invalidLineNumbers.length > 0) {
+            const sample = invalidLineNumbers.slice(0, 5).join('、');
+            addToast('第 ' + sample + ' 行' + (invalidLineNumbers.length > 5 ? '等' : '') + '格式无法识别，请修正后再导入', 'error');
+            return; // 不清空输入，避免跳过的表情永久丢失。
+        }
         if (entries.length === 0) {
             addToast('未识别到表情包，请检查名称和图片链接格式', 'error');
             return;
         }
-        const targetCatId = activeCategory === 'default' ? undefined : activeCategory;
-        for (const { name, url } of entries) {
-            // 解析器统一识别并规范为「名称--链接」，存储仍沿用原来的表情库结构。
-            // 粘贴的 data: 图片转成令牌；网络图片直接保留原链接。
-            const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
-            await DB.saveEmoji(name, stored, targetCatId);
+        emojiImportInFlightRef.current = true;
+        setEmojiImportBusy(true);
+        try {
+            // 表情 name 是全局唯一主键，既要保护其他分类，也要防止重复导入。
+            const existing = await DB.getEmojis();
+            const { additions, skipped, renamed } = planEmojiImport(entries, existing);
+            if (additions.length === 0) {
+                addToast('这些表情包已经导入过了，没有重复添加', 'info');
+                return;
+            }
+            const targetCatId = activeCategory === 'default' ? undefined : activeCategory;
+            const prepared = [];
+            for (const { name, url } of additions) {
+                const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
+                prepared.push({ name, url: stored, categoryId: targetCatId });
+            }
+            // 一个事务写入整个批次；若配额不足、另一标签页抢占名字，全部回滚。
+            await DB.saveEmojisBatch(prepared);
+            await loadEmojiData();
+            markEmojiLibraryChanged();
+            setModalType('none');
+            setEmojiImportText('');
+            addToast(
+                '成功导入 ' + prepared.length + ' 张' +
+                    (renamed ? '，重名另存 ' + renamed + ' 张' : '') +
+                    (skipped ? '，跳过重复 ' + skipped + ' 张' : ''),
+                'success'
+            );
+        } catch (error) {
+            console.error('智能导入表情包失败', error);
+            // 出错时保留文本，避免重新寻找/复制几十条表情数据。
+            addToast('表情包导入失败，未覆盖原有表情，请重试', 'error');
+        } finally {
+            emojiImportInFlightRef.current = false;
+            setEmojiImportBusy(false);
         }
-        await loadEmojiData();
-        markEmojiLibraryChanged();
-        setModalType('none');
-        setEmojiImportText('');
-        addToast(
-            '成功导入 ' + entries.length + ' 个表情包' +
-                (invalidLineNumbers.length ? '，跳过 ' + invalidLineNumbers.length + ' 行无法识别的内容' : ''),
-            'success'
-        );
     };
 
     const handleRenameCategory = async () => {
@@ -4211,7 +4239,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 modalType={modalType} setModalType={setModalType}
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
                 transferNote={transferNote} setTransferNote={setTransferNote}
-                emojiImportText={emojiImportText} setEmojiImportText={setEmojiImportText}
+                emojiImportText={emojiImportText} setEmojiImportText={setEmojiImportText} emojiImportBusy={emojiImportBusy}
                 settingsContextLimit={settingsContextLimit} setSettingsContextLimit={setSettingsContextLimit}
                 settingsContextRangeMode={settingsContextRangeMode} setSettingsContextRangeMode={setSettingsContextRangeMode}
                 settingsHideSysLogs={settingsHideSysLogs} setSettingsHideSysLogs={setSettingsHideSysLogs}
