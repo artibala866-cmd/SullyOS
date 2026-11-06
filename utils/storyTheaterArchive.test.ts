@@ -45,7 +45,7 @@ describe('story summary final channel', () => {
     it('does not send legacy Tavern title/desc header comments when summarizing an old opening', async () => {
         const taggedOpening = {
             ...messages[1],
-            content: '<!-- title:第一幕 -->\\n<!-- desc:雨夜。 -->\\n{{char}}走进车站。',
+            content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
             metadata: {
                 ...messages[1].metadata,
                 theaterOpeningGreeting: { characterId: 'actor', greetingId: 'legacy-opening' },
