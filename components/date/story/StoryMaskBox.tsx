@@ -19,18 +19,37 @@ interface Props {
 const StoryMaskBox: React.FC<Props> = ({ user, characters, masks, selected, onSelect, onSave, onDelete, onBack, locked = false }) => {
     const [draft, setDraft] = useState<StoryTheaterMask | null>(null);
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [maskError, setMaskError] = useState('');
     const imageInput = useRef<HTMLInputElement>(null);
     const patch = (updates: Partial<StoryTheaterMask>) => setDraft(current => current ? { ...current, ...updates, updatedAt: Date.now() } : current);
 
     const save = async () => {
         if (!draft?.name.trim()) return;
         setSaving(true);
+        setMaskError('');
         try {
             const next = { ...draft, name: draft.name.trim(), description: draft.description.trim(), updatedAt: Date.now() };
             await onSave(next);
             onSelect({ type: 'custom', id: next.id });
             setDraft(next);
+        } catch (error) {
+            setMaskError(error instanceof Error ? error.message : '原创人物保存失败，请重试');
         } finally { setSaving(false); }
+    };
+
+    const removeMask = async (mask: StoryTheaterMask) => {
+        if (deleting || saving) return;
+        setDeleting(true);
+        setMaskError('');
+        try {
+            await onDelete(mask);
+            if (selected.type === 'custom' && selected.id === mask.id) onSelect({ type: 'user' });
+            setDraft(null);
+        } catch (error) {
+            // A saved story may still depend on this mask; keep the editing state.
+            setMaskError(error instanceof Error ? error.message : '原创人物删除失败，原数据已保留');
+        } finally { setDeleting(false); }
     };
 
     return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
@@ -49,6 +68,7 @@ const StoryMaskBox: React.FC<Props> = ({ user, characters, masks, selected, onSe
                     <h2 className='mt-1 text-2xl font-serif font-semibold'>这一条故事里，你是谁？</h2>
                     <p className='mt-2 text-[11px] leading-5 text-slate-500'>箱中身份只改变本剧情里由你执笔的人物，不会修改你的档案或神经链接。</p>
                     {locked && <div className='mt-4 py-3 border-y border-amber-200 text-[11px] text-amber-700'>剧情已经开始，当前身份不可更换。</div>}
+                    {maskError && <p role='alert' className='mt-3 text-xs text-rose-600'>{maskError}</p>}
                 </section>
 
                 <section className='mt-7'>
@@ -72,7 +92,7 @@ const StoryMaskBox: React.FC<Props> = ({ user, characters, masks, selected, onSe
                 </section>
 
                 {draft && <section className='mt-8 pt-6 border-t border-slate-200'>
-                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.2em] uppercase font-bold text-violet-500'>Custom mask</div><h2 className='text-lg font-semibold'>{masks.some(mask => mask.id === draft.id) ? '编辑原创人物' : '新建原创人物'}</h2></div>{masks.some(mask => mask.id === draft.id) && <button onClick={async () => { await onDelete(draft); if (selected.type === 'custom' && selected.id === draft.id) onSelect({ type: 'user' }); setDraft(null); }} className='w-9 h-9 rounded-full grid place-items-center text-rose-500'><Trash size={17} /></button>}</div>
+                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.2em] uppercase font-bold text-violet-500'>Custom mask</div><h2 className='text-lg font-semibold'>{masks.some(mask => mask.id === draft.id) ? '编辑原创人物' : '新建原创人物'}</h2></div>{masks.some(mask => mask.id === draft.id) && <button disabled={deleting || saving || locked} onClick={() => { void removeMask(draft); }} className='w-9 h-9 rounded-full grid place-items-center text-rose-500 disabled:opacity-30'><Trash size={17} /></button>}</div>
                     <div className='mt-4 grid grid-cols-[72px_1fr] gap-4 items-start'>
                         <button onClick={() => imageInput.current?.click()} className='w-[72px] h-[72px] rounded-full overflow-hidden bg-white border border-slate-200 grid place-items-center'>{draft.avatar ? <TokenImg value={draft.avatar} alt='' className='w-full h-full object-cover' /> : <UserCircle size={36} className='text-slate-300' />}</button>
                         <div className='space-y-3'><input value={draft.name} onChange={event => patch({ name: event.target.value })} placeholder='人物名字' className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm outline-none' /><input value={draft.description} onChange={event => patch({ description: event.target.value })} placeholder='身份、外貌、与其他人的关系' className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs outline-none' /></div>
@@ -80,7 +100,7 @@ const StoryMaskBox: React.FC<Props> = ({ user, characters, masks, selected, onSe
                     <input ref={imageInput} type='file' accept='image/*' className='hidden' onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (!file) return; const reader = new FileReader(); reader.onload = () => patch({ avatar: String(reader.result || '') }); reader.readAsDataURL(file); }} />
                     <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>核心性格与行动边界</span><textarea value={draft.coreInstruction || ''} onChange={event => patch({ coreInstruction: event.target.value })} className='mt-1 w-full min-h-28 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='这个人通常怎样判断、说话和行动？' /></label>
                     <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>所属世界观</span><textarea value={draft.worldview || ''} onChange={event => patch({ worldview: event.target.value })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='时代、身份背景、特殊规则……' /></label>
-                    <button onClick={save} disabled={saving || !draft.name.trim()} className='mt-5 w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-30'><FloppyDisk size={15} />{saving ? '保存中' : '保存并佩戴'}</button>
+                    <button onClick={save} disabled={saving || deleting || !draft.name.trim()} className='mt-5 w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-30'><FloppyDisk size={15} />{saving ? '保存中' : '保存并佩戴'}</button>
                 </section>}
             </div>
         </main>
