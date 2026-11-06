@@ -24,8 +24,13 @@ const numeric = (value: unknown, fallback: number, min: number, max: number): nu
 };
 
 const text = (value: unknown): string => typeof value === 'string' ? value : '';
-const role = (value: unknown): StoryTheaterPresetPrompt['role'] =>
-    value === 'user' ? 'user' : value === 'assistant' ? 'assistant' : 'system';
+const role = (value: unknown): StoryTheaterPresetPrompt['role'] => {
+    // OpenAI's newer developer role has the same priority class as system in
+    // this story API; unsupported roles cannot be silently rewritten.
+    if (value == null || value === 'system' || value === 'developer') return 'system';
+    if (value === 'user' || value === 'assistant') return value;
+    throw new Error(`酒馆预设使用了无法映射的消息角色「${String(value)}」，请检查原文件`);
+};
 
 export const isSillyTavernChatPreset = (value: any): boolean =>
     !!value && Array.isArray(value.prompts) && value.prompts.length > 0
@@ -56,9 +61,13 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     }
     const sourceById = new Map<string, any>();
     for (const item of value.prompts) {
-        if (item && typeof item.identifier === 'string' && !sourceById.has(item.identifier)) {
-            sourceById.set(item.identifier, item);
+        if (!item || typeof item.identifier !== 'string' || !item.identifier.trim()) {
+            throw new Error('酒馆预设存在缺少 identifier 的提示词；为避免遗漏原文已取消导入');
         }
+        if (sourceById.has(item.identifier)) {
+            throw new Error(`酒馆预设的提示词标识「${item.identifier}」重复；无法安全判断排序和开关，未覆盖任何数据`);
+        }
+        sourceById.set(item.identifier, item);
     }
 
     const prompts: StoryTheaterPresetPrompt[] = [];
@@ -89,13 +98,37 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
             };
         }
         prompts.push(next);
+        if (mappedMarker && content.trim()) {
+            // A non-empty marker also contains authored text. The slot must
+            // remain dynamic AND its content must not disappear at runtime.
+            // Preserve the authored text as an adjacent independent prompt.
+            prompts.push({
+                id: `st-${identifier}-content`, name: `${next.name} · 附加正文`,
+                enabled: active, role: next.role, content,
+            });
+        }
     };
 
+    const seenOrderIds = new Set<string>();
     for (const item of orderGroup.order) {
-        if (typeof item?.identifier === 'string') {
-            // The order entry controls activation in SillyTavern; respect explicit false.
-            append(item.identifier, item.enabled === true);
+        if (typeof item?.identifier !== 'string') {
+            throw new Error('酒馆排序表包含没有 identifier 的条目，无法安全导入');
         }
+        if (seenOrderIds.has(item.identifier)) {
+            throw new Error(`酒馆排序表重复引用「${item.identifier}」，无法判断最终发送位置`);
+        }
+        seenOrderIds.add(item.identifier);
+        const source = sourceById.get(item.identifier);
+        if (!source) {
+            if (item.enabled === true) throw new Error(`启用的提示词「${item.identifier}」缺少正文定义，为避免遗漏已取消导入`);
+            continue;
+        }
+        // Older order tables can omit enabled: use the prompt's own explicit
+        // flag, instead of silently disabling the whole preset.
+        const active = item.enabled === undefined
+            ? source.enabled !== false
+            : item.enabled === true || item.enabled === 1 || item.enabled === 'true';
+        append(item.identifier, active);
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
     for (const identifier of sourceById.keys()) if (!used.has(identifier)) append(identifier, false);
