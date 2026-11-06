@@ -49,7 +49,7 @@ export default function EmojiDocumentFilePicker({
         setError(false);
         setStatus('正在读取文件并识别表情包…');
         try {
-            let count = 0, ignored = 0, successFiles = 0, generated = 0, totalChars = 0;
+            let count = 0, ignored = 0, successFiles = 0, generated = 0, totalChars = 0, httpCount = 0, noExtensionCount = 0;
             const normalized: string[] = [];
             const failed: string[] = [];
             const suspicious: string[] = [];
@@ -64,6 +64,11 @@ export default function EmojiDocumentFilePicker({
                     count += result.entries.length;
                     ignored += result.ignoredLines;
                     generated += result.generatedNames || 0;
+                    for (const item of result.entries) {
+                        if (/^http:\/\//i.test(item.url)) httpCount++;
+                        if (/^https?:\/\//i.test(item.url) &&
+                            !/\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]|$)/i.test(item.url)) noExtensionCount++;
+                    }
                     totalChars += result.text.length;
                     successFiles++;
                     normalized.push(result.text);
@@ -79,7 +84,10 @@ export default function EmojiDocumentFilePicker({
             if (operationRef.current !== id) return;
             // Keep recognized files even if one file is corrupt; never silently drop failed ones.
             if (normalized.length) onAppendText(normalized.join('\n'));
-            setReviewNotes([...failed, ...suspicious]);
+            const advisories: string[] = [];
+            if (httpCount) advisories.push(httpCount + ' 条图片使用 http://，在 HTTPS 测试站可能被浏览器阻止显示');
+            if (noExtensionCount) advisories.push(noExtensionCount + ' 条地址不含常见图片扩展名，可能是有效直链，也可能是网页，请导入后抽查');
+            setReviewNotes([...failed, ...suspicious, ...advisories]);
             setError(failed.length > 0 || suspicious.length > 0);
             if (successFiles) {
                 setStatus(
@@ -136,7 +144,7 @@ export default function EmojiDocumentFilePicker({
             )}
             {reviewNotes.length > 0 && (
                 <details className="text-[11px] text-slate-500">
-                    <summary className="cursor-pointer font-semibold">查看失败文件 / 可能遗漏的链接（{reviewNotes.length} 条）</summary>
+                    <summary className="cursor-pointer font-semibold">查看失败文件、遗漏链接及图片地址提醒（{reviewNotes.length} 条）</summary>
                     <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto break-all rounded-xl bg-slate-50 p-2">
                         {reviewNotes.map((note, index) => <li key={index}>{note}</li>)}
                     </ul>
