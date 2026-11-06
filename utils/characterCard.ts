@@ -23,6 +23,7 @@ export const CARD_STRIPPED_FIELDS = [
   'embeddingConfig',
   'proactiveConfig',
   'activeMsg2Config',
+  'cardImportOrigin', // 导入身份属于本机，绝不把来源记录输出到分享卡
 
   // 2) 美化
   'embeddedTheme',           // CharacterExportData 上的内嵌主题（导入侧一并剥离）
