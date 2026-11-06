@@ -26,6 +26,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [editingGreeting, setEditingGreeting] = useState(false);
+    const [showOpeningInIntro, setShowOpeningInIntro] = useState(!!initial.openingGreeting);
     const saveLock = useRef(false);
     const greetingLock = useRef(false);
     const [greetingText, setGreetingText] = useState('');
@@ -151,7 +152,43 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             <section>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>01 / Story</div>
                 <label className='block mt-2'><span className='text-[10px] font-bold text-slate-500'>标题 · 必填</span><input ref={titleInput} value={draft.title} onChange={event => { setSaveError(''); update('title', event.target.value); }} placeholder='剧情名称' className='mt-1 w-full bg-transparent text-3xl font-serif font-semibold outline-none placeholder:text-slate-300' /></label>
-                <label className='block mt-5'><span className='text-[10px] font-bold text-slate-500'>剧情介绍 · 可选</span><textarea value={draft.premise} onChange={event => update('premise', event.target.value)} placeholder='不填写也能直接开场；也可以写地点、冲突或必须守住的设定……' className='mt-2 w-full min-h-28 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none' /></label>
+                <div className='mt-5'>
+                    <div className='flex items-center justify-between gap-2'>
+                        <span className='text-[10px] font-bold text-slate-500'>{selectedGreeting && showOpeningInIntro ? '开场白 · 可编辑' : '剧情介绍 · 可选'}</span>
+                        {selectedGreeting && <div className='flex shrink-0 gap-1 rounded-lg bg-slate-200 p-0.5' aria-label='编辑内容切换'>
+                            <button type='button' aria-pressed={!showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
+                                onClick={() => setShowOpeningInIntro(false)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${!showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>剧情介绍</button>
+                            <button type='button' aria-pressed={showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
+                                onClick={() => setShowOpeningInIntro(true)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>开场白</button>
+                        </div>}
+                    </div>
+                    <textarea ref={greetingTextarea} data-story-opening-editor={selectedGreeting && showOpeningInIntro ? 'true' : undefined}
+                        aria-label={selectedGreeting && showOpeningInIntro ? '编辑开场内容' : '剧情介绍'}
+                        value={selectedGreeting && showOpeningInIntro ? (editingGreeting ? greetingText : selectedGreeting.content) : draft.premise}
+                        onChange={event => {
+                            if (selectedGreeting && showOpeningInIntro) {
+                                setEditingGreeting(true);
+                                setGreetingText(event.target.value);
+                                setConfirmGreetingDelete(false);
+                                setGreetingError('');
+                            } else update('premise', event.target.value);
+                        }}
+                        disabled={!!selectedGreeting && showOpeningInIntro && (greetingBusy || confirmGreetingDelete)}
+                        maxLength={selectedGreeting && showOpeningInIntro ? 200000 : undefined}
+                        placeholder={selectedGreeting && showOpeningInIntro ? '在这里修改选中的开场白……' : '不填写也能直接开场；也可以写地点、冲突或必须守住的设定……'}
+                        rows={4} className='mt-2 block w-full min-h-28 max-h-64 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none disabled:opacity-60' />
+                    {selectedGreeting && showOpeningInIntro && <div className='mt-2 flex justify-end gap-4'>
+                        {editingGreeting ? <>
+                            <button type='button' disabled={greetingBusy} onClick={() => { setEditingGreeting(false); setGreetingText(''); setGreetingError(''); }} className='text-xs text-slate-500'>取消</button>
+                            <button type='button' disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button>
+                        </> : <>
+                            <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); greetingTextarea.current?.focus(); }} className='text-xs font-semibold text-violet-700'>修改</button>
+                            <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
+                        </>}
+                    </div>}
+                    {selectedGreeting && showOpeningInIntro && confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从角色的开场库删除？已写出的剧情不会改变。</p><div className='mt-2 flex justify-end gap-3'><button type='button' onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button type='button' disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
+                    {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
+                </div>
                 <div className='mt-5' data-story-opening-settings='true'>
                     <div className='text-[10px] font-bold text-slate-500'>谁先落笔</div>
                     <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
@@ -173,6 +210,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                                 updatedAt: Date.now(),
                             }));
                             setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
+                            setShowOpeningInIntro(!!selected);
                         }}
                         className='mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs disabled:opacity-60'>
                         <option value=''>{actors.length === 0 ? '先选择参与角色'
@@ -185,35 +223,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}
                         {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
                     </div>}
-                    {selectedGreeting && <div className='mt-3 border-t border-slate-100 pt-3'>
-                        <textarea
-                            ref={greetingTextarea}
-                            data-story-opening-editor='true'
-                            aria-label='编辑开场内容'
-                            value={editingGreeting ? greetingText : selectedGreeting.content}
-                            onChange={event => {
-                                setEditingGreeting(true);
-                                setGreetingText(event.target.value);
-                                setConfirmGreetingDelete(false);
-                                setGreetingError('');
-                            }}
-                            disabled={greetingBusy || confirmGreetingDelete}
-                            maxLength={200000}
-                            rows={3}
-                            className='block w-full max-h-40 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-6 resize-y outline-none disabled:opacity-60'
-                        />
-                        <div className='mt-2 flex justify-end gap-4'>
-                            {editingGreeting ? <>
-                                <button type='button' disabled={greetingBusy} onClick={() => { setEditingGreeting(false); setGreetingText(''); setGreetingError(''); }} className='text-xs text-slate-500'>取消</button>
-                                <button type='button' disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button>
-                            </> : <>
-                                <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); greetingTextarea.current?.focus(); }} className='text-xs font-semibold text-violet-700'>修改</button>
-                                <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
-                            </>}
-                        </div>
-                        {confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从角色的开场库删除？已写出的剧情不会改变。</p><div className='mt-2 flex justify-end gap-3'><button type='button' onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button type='button' disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
-                    </div>}
-                    {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
                 </div>
                     {!selectedGreeting && <p className='mt-2 text-[10px] text-slate-400'>{storyFirst
                         ? '进入后点推进，让故事写下第一幕。'
