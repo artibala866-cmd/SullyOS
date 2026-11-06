@@ -1141,6 +1141,12 @@ export const compileStoryPreset = (input: {
     const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
     const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
     const firstEnabledCharacterIndex = document.prompts.findIndex(prompt => prompt.enabled && prompt.marker === 'characters');
+    const formatTavernSlot = (value: string, template: string | undefined, placeholder: string): string => {
+        if (!importedFromTavern || !template?.trim() || !value.trim()) return value;
+        if (!template.includes(placeholder)) return value;
+        return template.split(placeholder).join(value);
+    };
+    const formatWorldBefore = (value: string): string => formatTavernSlot(value, document.tavernFormats?.worldInfo, '{0}');
     const shouldBackfillWorldBefore = worldBeforePrompts.length === 0 && Boolean(slots.worldBefore.trim());
     const shouldMoveWorldBeforeAheadOfCharacters = Boolean(
         enabledWorldBeforePrompt
@@ -1167,7 +1173,7 @@ export const compileStoryPreset = (input: {
             pushPromptMessage(
                 messages,
                 enabledWorldBeforePrompt?.role || 'system',
-                macroReplace(slots.worldBefore, userName, characterNames),
+                macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames),
             );
             injectedMarkers.add('world_before');
         }
@@ -1181,14 +1187,25 @@ export const compileStoryPreset = (input: {
             if (separateTavernCardSlot) {
                 raw = prompt.id === 'st-charDescription'
                     ? slots.tavernDescription!
-                    : slots.tavernPersonality!;
+                    : formatTavernSlot(slots.tavernPersonality!, document.tavernFormats?.personality, '{{personality}}');
             } else if (prompt.marker === 'history' && input.historyMessages) {
+                if (importedFromTavern && document.tavernFormats?.newChat?.trim()) {
+                    pushPromptMessage(messages, 'system', macroReplace(expandImported(document.tavernFormats.newChat), userName, characterNames));
+                }
                 historyStart = messages.length;
                 historyLength = input.historyMessages.length;
                 messages.push(...input.historyMessages);
                 continue;
             } else {
                 raw = slotForMarker(prompt.marker, slots);
+                if (prompt.marker === 'world_before' || prompt.marker === 'world_after') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.worldInfo, '{0}');
+                } else if (prompt.marker === 'scenario') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.scenario, '{{scenario}}');
+                } else if (prompt.marker === 'examples' && raw.trim() && importedFromTavern
+                    && document.tavernFormats?.newExampleChat?.trim()) {
+                    raw = `${document.tavernFormats.newExampleChat}\n${raw}`;
+                }
             }
         }
         raw = expandImported(raw);
@@ -1207,7 +1224,7 @@ export const compileStoryPreset = (input: {
 
     // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
     if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
-        messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames).trim() });
+        messages.unshift({ role: 'system', content: macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames).trim() });
         if (historyStart !== null) historyStart += 1;
     }
 
