@@ -116,14 +116,9 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
   }, [kind, charId]);
   const total = rows.length;
   if (kind === 'anniversary') {
-    // Keep the real bond and saved dates: this is a visual redesign, not a new record model.
-    const source: { id: string; title: string; date: string; body: string; image?: string }[] = [
-      { id: 'start', title: '我们的起点', date: bond.start, body: '' },
-      ...rows.map(item => ({ id: item.id, title: item.title, date: item.date, body: item.body, image: item.image })),
-    ];
-    const nearest = source.map(item => ({ ...item, delta: upcomingDate(item.date, today) ?? 9999 }))
-      .sort((a, b) => a.delta - b.delta)[0];
-    const elapsed = elapsedDate(bond.start, today);
+    const source = [ { id:'start', title:'我们的起点', date:bond.start },...rows.map(r=>({id:r.id,title:r.title,date:r.date})) ];
+    const nearest = source.map(r=>({...r,delta:upcomingDate(r.date,today) ?? 9999})).sort((a,b)=>a.delta-b.delta)[0];
+    const elapsed = elapsedDate(bond.start,today);
     return <div className="couple-scene couple-scene-anniversary">
       <div className="couple-anniversary-hero">
         <div className="couple-anniversary-kicker"><span>SINCE {bond.start}</span><span>纪念日</span></div>
@@ -131,43 +126,24 @@ function CoupleScene({ kind, bond, names, rows, today, onNew, onAI, busy, onJump
         <div className="couple-anniversary-time"><span>我们已经相伴</span><strong>{elapsed.toLocaleString('zh-CN')}</strong><em>天</em></div>
         <div className="couple-anniversary-names">{names.me} <span>&</span> {names.them}</div>
       </div>
-      <section className="couple-anniversary-upcoming" aria-label="下一次纪念日">
-        <div className="couple-anniversary-upcoming-copy">
-          <span className="couple-anniversary-upcoming-label">NEXT DATE</span>
-          <strong>{nearest?.title ?? '属于我们的日子'}</strong>
-          <span className="couple-anniversary-upcoming-date">{nearest?.date.slice(5, 7)}.{nearest?.date.slice(8, 10)}</span>
-        </div>
-        <div className="couple-anniversary-upcoming-count"><strong>{nearest?.delta ?? '—'}</strong><small>天后</small></div>
-      </section>
-      <section className="couple-anniversary-ledger" aria-label="纪念日期">
-        <div className="couple-anniversary-ledger-head">
-          <div><span className="couple-anniversary-ledger-index">OUR DATES / {String(source.length).padStart(2, '0')}</span><h3>纪念日期</h3></div>
-          <small>{source.length} 个日子</small>
-        </div>
-        <div className="couple-anniversary-story-list">
-          {source.map(item => <button type="button" key={item.id}
-            className={'couple-anniversary-story' + (item.id === 'start' ? ' is-origin' : '')}
-            disabled={item.id === 'start'} onClick={() => item.id !== 'start' && onJump(item.id)}>
-            <span className="couple-anniversary-story-date"><strong>{item.date.slice(5, 7)}.{item.date.slice(8, 10)}</strong><small>{item.date.slice(0, 4)}</small></span>
-            <span className="couple-anniversary-story-copy">
-              <span>{item.id === 'start' ? 'FIRST DAY' : item.date}</span>
-              <strong>{item.title}</strong>
-              <small>{item.id === 'start' ? names.me + ' + ' + names.them : item.body.trim().slice(0, 36) || item.date}</small>
-            </span>
-            <span className={'couple-anniversary-story-media' + (item.id === 'start' ? ' is-pair' : !item.image ? ' is-empty' : '')}>
-              {item.id === 'start'
-                ? <><SceneAvatar value={avatarMe} name={names.me}/><SceneAvatar value={avatarThem} name={names.them}/></>
-                : item.image ? <TokenImg value={item.image} alt=""/> : null}
-            </span>
-          </button>)}
-          <button type="button" className="couple-anniversary-add" disabled={busy} onClick={onNew}>
-            <span className="couple-anniversary-add-plus" aria-hidden="true">＋</span>
-            <span>记住另一个特别的日子</span><span aria-hidden="true">↗</span>
-          </button>
-        </div>
-      </section>
+      <div className="couple-anniversary-next">
+        <div><span>下一次值得期待</span><strong>{nearest?.title ?? '属于我们的日子'}</strong></div>
+        <div className="couple-anniversary-countdown"><strong>{nearest?.delta ?? '—'}</strong><small>天后</small></div>
+      </div>
+      <div className="couple-anniversary-calendar">
+        <div className="couple-anniversary-calendar-head"><strong>纪念日期</strong><small>{source.length} 个日子</small></div>
+        {source.map(item => <button key={item.id} type="button" disabled={item.id==='start'}
+          onClick={()=>item.id!=='start' && onJump(item.id)}>
+          <span className="couple-anniversary-calendar-date"><b>{item.date.slice(8,10)}</b><small>{item.date.slice(5,7)}月</small></span>
+          <span>{item.title}<small>{item.date}</small></span>
+          <span className="couple-anniversary-calendar-chevron">{item.id==='start' ? '始' : '›'}</span>
+        </button>)}
+        <button type="button" className="couple-anniversary-invite" disabled={busy} onClick={onNew}>
+          <span aria-hidden="true">＋</span> 记住另一个特别的日子
+        </button>
+      </div>
       <button type="button" className="couple-anniversary-ask" disabled={busy} onClick={onAI}>
-        让 {names.them} 回忆属于你们的日子 <span aria-hidden="true">↗</span>
+        让 {names.them} 回忆属于你们的日子 <span>↗</span>
       </button>
     </div>;
   }
