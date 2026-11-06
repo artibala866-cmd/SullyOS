@@ -105,6 +105,22 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         await clickButton('保存并进入');
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
     });
+    it('未保存的开场白修改不会被“保存并进入”静默丢弃', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-first', title: '默认开场白', content: '旧内容' },
+        ] };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '改写首幕', characterIds: [actor.id],
+            openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' },
+        }, [greetingActor], save, async () => {});
+        await clickButton('修改');
+        await clickButton('保存并进入');
+        expect(save).not.toHaveBeenCalled();
+        expect(host!.querySelector('[role=alert]')?.textContent).toContain('请先保存或取消');
+        await clickButton('取消');
+        await clickButton('保存并进入');
+        expect(save).toHaveBeenCalledTimes(1);
+    });
     it('删除原卡素材不会清掉已有剧情的历史开场白关联', async () => {
         const greetingActor = { ...actor, tavernGreetings: [
             { id: 'tavern-first', title: '默认开场白', content: '下雨了' },

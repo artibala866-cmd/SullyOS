@@ -103,6 +103,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
         }
+        if (editingGreeting || confirmGreetingDelete) {
+            setSaveError('请先保存或取消当前开场白的修改／删除，再进入剧情。');
+            return;
+        }
         if (!draft.title.trim()) {
             setSaveError('请先填写剧情标题；剧情介绍、记忆与预设开关都不是创建必填项。');
             titleInput.current?.focus();
@@ -156,7 +160,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     <div className='text-[9px] tracking-[.2em] uppercase font-bold text-violet-500'>Tavern opening</div>
                     <div className='mt-1 text-sm font-semibold'>选择酒馆卡开场白</div>
                     <p className='mt-1 text-[10px] leading-5 text-slate-500'>选中后作为剧情第一幕，后续从这里续写。不选择则沿用原开场方式。</p>
-                    <select aria-label='选择酒馆卡开场白' disabled={maskLocked || (greetingChoices.length === 0 && !draft.openingGreeting)}
+                    <select aria-label='选择酒馆卡开场白' disabled={maskLocked || editingGreeting || confirmGreetingDelete
+                            || (greetingChoices.length === 0 && !draft.openingGreeting)}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
