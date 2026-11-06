@@ -267,7 +267,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
             masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
             onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),onCreateGreeting:create,
         })));
-        await typeInto(field(),'<!-- desc:\\n一段很长的故事背景。\\n-->\\n雨后初见的那天。');
+        await typeInto(field(),'<!-- desc:\n一段很长的故事背景。\n-->\n雨后初见的那天。');
         await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
         expect(create).toHaveBeenCalledTimes(1);
         expect(create.mock.calls[0][1]).toBe('雨后初见的那天。');
