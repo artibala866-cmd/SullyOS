@@ -31,7 +31,7 @@ import { exportHome3DLocal, importHome3DLocal, HOME3D_LOCAL_KEYS } from './home3
 import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgStore';
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
-import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from './musicLibrary';
+import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup, preserveDateBgmFromLegacyBackup } from './musicLibrary';
 import { findPendingMusicInvite } from './musicInviteStatus';
 import { appendCharPlaylistSong, type CharSongTarget } from './charMusicPlaylist';
 import type { CharPlaylistSong, CharMusicProfile } from '../types';
@@ -4210,7 +4210,9 @@ export const DB = {
   ): Promise<void> => {
       // Invalid music data must fail before anything in the main database is replaced.
       const guestMusic = data.guestMusicLibrary === undefined
-          ? undefined : validateGuestMusicLibraryBackup(data.guestMusicLibrary);
+          ? undefined : preserveDateBgmFromLegacyBackup(
+              validateGuestMusicLibraryBackup(data.guestMusicLibrary), loadGuestMusicLibrary()
+          );
       const db = await openDB();
       invalidateStoryTimelineRepair(db);
       // Revoke existing alarms while their original role names are still available.

@@ -27,6 +27,10 @@ describe('正式音乐备份调用链', () => {
     expect(mirrorRefresh).toBeLessThan(success);
   });
 
+  it('旧档不带 BGM 字段时保留本机见面 BGM，明确空列表按新档恢复', () => {
+    expect(db).toContain('preserveDateBgmFromLegacyBackup(');
+    expect(os).toContain('preserveDateBgmFromLegacyBackup(');
+  });
   it('通用 DB 导出导入对等，旧备份不清现有库', () => {
     expect(db).toContain('guestMusicLibrary: loadGuestMusicLibrary()');
     expect(db).toContain('guestMusicRestoredByCaller');

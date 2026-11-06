@@ -122,7 +122,7 @@ import { isEmotionEvalSkipped } from '../utils/devDebug';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror, snapshotLocalStorageMirror } from '../utils/lsMirror';
-import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup } from '../utils/musicLibrary';
+import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup, preserveDateBgmFromLegacyBackup } from '../utils/musicLibrary';
 import { cleanupInstantPushLegacyData } from '../utils/instantPushLegacyCleanup';
 // 备份用：把存在 localStorage 的本机配置随导出一起带走（键名须与 importFullData 对齐）
 import { exportWorldHomeLocal } from '../utils/worldHome/localBackup';
@@ -4859,7 +4859,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 在写主库之前校验音乐库，坏歌单不能等到数据库被替换后才报错。
           // 字段缺省是旧备份：保留本机音乐库；新备份含空数组则恢复为空库。
           const guestMusicToRestore = data.guestMusicLibrary === undefined
-              ? undefined : validateGuestMusicLibraryBackup(data.guestMusicLibrary);
+              ? undefined : preserveDateBgmFromLegacyBackup(
+                  validateGuestMusicLibraryBackup(data.guestMusicLibrary), loadGuestMusicLibrary()
+              );
 
           // 在 importFullData 为释放内存逐项清空 data 字段前冻结“这是否是主历史替换”。
           // 新版 media_only 明确不动 SAR；旧备份没有 mode 时，只要带 characters/messages

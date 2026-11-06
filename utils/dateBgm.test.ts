@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Song } from '../context/MusicContext';
-import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup, musicKey } from './musicLibrary';
+import { loadGuestMusicLibrary, persistGuestMusicLibrary, validateGuestMusicLibraryBackup, preserveDateBgmFromLegacyBackup, musicKey } from './musicLibrary';
 import {
   findCharacterDateBgm, createDateBgmList, renameDateBgmList, deleteDateBgmList, bindDateBgmCharacter,
   addDateBgmSong, removeDateBgmSong, moveDateBgmSong, dateBgmLists,
@@ -76,6 +76,10 @@ describe('dedicated Meet BGM binding and playback gate', () => {
     const backup = validateGuestMusicLibraryBackup(loadGuestMusicLibrary());
     expect(backup.dateBgmPlaylists?.[0].characterIds).toEqual(['char-11']);
     expect(validateGuestMusicLibraryBackup(blank()).dateBgmPlaylists).toBeUndefined();
+    expect(preserveDateBgmFromLegacyBackup(validateGuestMusicLibraryBackup(blank()), lib).dateBgmPlaylists)
+      .toEqual(lib.dateBgmPlaylists);
+    expect(preserveDateBgmFromLegacyBackup(validateGuestMusicLibraryBackup({ ...blank(), dateBgmPlaylists: [] }), lib).dateBgmPlaylists)
+      .toEqual([]);
     expect(() => validateGuestMusicLibraryBackup({ ...lib, dateBgmPlaylists: [{ ...lib.dateBgmPlaylists![0], songs: [undefined] }] })).toThrow(/BGM/);
   });
 });

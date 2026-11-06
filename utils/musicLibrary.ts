@@ -150,6 +150,14 @@ export const validateGuestMusicLibraryBackup = (value: unknown): GuestMusicLibra
   };
 };
 
+/** Old backups predate Meet BGM; keep existing BGM when that field is absent.
+ * Explicit [] in a new backup still means clear the saved BGM playlists. */
+export const preserveDateBgmFromLegacyBackup = (
+  incoming: GuestMusicLibrary, current: GuestMusicLibrary,
+): GuestMusicLibrary => incoming.dateBgmPlaylists === undefined && current.dateBgmPlaylists !== undefined
+  ? { ...incoming, dateBgmPlaylists: current.dateBgmPlaylists }
+  : incoming;
+
 export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
   try {
     const saved = localStorage.getItem(LIBRARY_KEY);
