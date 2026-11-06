@@ -58,15 +58,19 @@ export function mergeLinkGreetings(
     // stories may still reference either of them. Only dedupe incoming rows.
     const result: LinkOpeningGreeting[] = existing.filter(g =>
         g && typeof g.content === 'string' && g.content.trim()).map(g => ({ ...g }));
+    const existingCount = result.length;
     for (const row of incoming) {
         if (!row || typeof row.content !== 'string' || !row.content.trim()) continue;
         const key = row.content.trim();
         const byBody = result.findIndex(old => old.content.trim() === key);
         if (byBody >= 0) {
-            const previous = result[byBody];
-            // Keep the existing ID: stories already selecting an older Link
-            // opening must not lose their reference when it gets re-imported.
-            result[byBody] = { ...previous, ...row, id: previous.id };
+            // Within a single share, keep the first title/description of two
+            // identical scenes. Across imports, update metadata in place while
+            // preserving the ID already referenced by saved stories.
+            if (byBody < existingCount) {
+                const previous = result[byBody];
+                result[byBody] = { ...previous, ...row, id: previous.id };
+            }
             continue;
         }
         const byId = result.findIndex(old => old.id === row.id);
