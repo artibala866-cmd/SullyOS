@@ -600,7 +600,15 @@ export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string,
         ? normalizeDocument(data, fileBase)
         : isSillyTavernChatPreset(data)
             ? normalizeDocument(convertSillyTavernChatPreset(data, fileBase), fileBase)
-            : (() => { throw new Error('只接受糯米机剧情预设或酒馆 Chat Completion 预设'); })();
+            : (() => {
+                const looksLikeTextCompletionTemplate = data && typeof data === 'object'
+                    && (typeof data.input_sequence === 'string' || typeof data.output_sequence === 'string'
+                        || typeof data.story_string === 'string');
+                if (looksLikeTextCompletionTemplate) {
+                    throw new Error('这是酒馆 Instruct／Context 文本补全模板，不是 Chat Completion 预设；为避免错误套用已拒绝导入，原文件不会被修改');
+                }
+                throw new Error('只接受糯米机剧情预设或酒馆 Chat Completion 预设');
+            })();
     return { id: makeStoryTheaterId(), name: document.name, sourceFileName, format: 'sullyos-story-preset', document, createdAt: now, updatedAt: now };
 };
 
