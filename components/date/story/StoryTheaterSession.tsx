@@ -1,6 +1,7 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
+import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -754,7 +755,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         // user-last APIs, place it immediately before the user instead.
                         assembled.splice(promptEntry.forceUserLastMessage ? pendingIndex : pendingIndex + 1, 0, ...compiled.afterLatestUser);
                     }
-                    return assembled;
+                    return effectivePreset.document.sourceFormat === 'sillytavern' && effectivePreset.document.squashSystemMessages
+                        ? squashAdjacentSystemMessages(assembled)
+                        : assembled;
 
                     },
             });
