@@ -447,6 +447,17 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(output).toBe('ACD {{pick::红::蓝}}');
     });
 
+    it('不会把酒馆 Instruct 和 Context 文本补全模板伪装成 Chat Completion 成功导入', () => {
+        expect(() => parseStoryTheaterPreset(JSON.stringify({
+            input_sequence: '### Instruction:', output_sequence: '### Response:',
+            system_sequence: '### System:',
+        }), 'Instruct.json')).toThrow('文本补全模板');
+        expect(() => parseStoryTheaterPreset(JSON.stringify({
+            story_string: '{{#if description}}{{description}}{{/if}}',
+            chat_start: '---',
+        }), 'Context.json')).toThrow('文本补全模板');
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
