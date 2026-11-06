@@ -250,7 +250,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
             ] }],
         };
         const imported = parseStoryTheaterPreset(JSON.stringify(rich), '变量引用.json');
-        const messages = compileStoryPreset({ preset: imported, slots, userName: '小雨',
+        const messages = compileStoryPreset({ preset: imported, slots: { ...slots, worldBefore: '' }, userName: '小雨',
             characterNames: ['阿蓝'] }).messages.map(msg => msg.content);
         expect(messages).toEqual(['本轮启用：<rule>跟随上下文自然推进</rule>']);
     });
