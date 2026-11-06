@@ -98,7 +98,7 @@ export interface ResolvedStoryTheaterMask {
     characterId?: string;
 }
 
-export type StoryDisplayBlockKind = 'story' | 'scene' | 'backstage' | 'worldline' | 'debts' | 'theater' | 'choices' | 'affinity' | 'other';
+export type StoryDisplayBlockKind = 'story' | 'scene' | 'backstage' | 'worldline' | 'debts' | 'theater' | 'choices' | 'affinity' | 'thinking' | 'tavern-extra' | 'other';
 export interface StoryDisplayBlock {
     kind: StoryDisplayBlockKind;
     title?: string;
@@ -1449,10 +1449,12 @@ const formatTaggedStoryFragment = (fragment: string): string => {
 };
 
 /** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
-export const parseStoryDisplayBlocks = (content: string): StoryDisplayBlock[] => {
+export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
     const source = String(content || '');
     const blocks: StoryDisplayBlock[] = [];
-    const topLevel = /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    const topLevel = fromTavern
+        ? /<(thinking|content|details|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let cursor = 0;
     let match: RegExpExecArray | null;
     const push = (kind: StoryDisplayBlockKind, text: string, title?: string) => {
@@ -1473,7 +1475,28 @@ export const parseStoryDisplayBlocks = (content: string): StoryDisplayBlock[] =>
     };
     while ((match = topLevel.exec(source)) !== null) {
         if (match.index > cursor) push('story', source.slice(cursor, match.index));
-        const meta = DISPLAY_BLOCK_META[match[1].toLowerCase()] || { kind: 'other' as const };
+        const sourceTag = match[1].toLowerCase();
+        if (fromTavern && sourceTag === 'thinking') {
+            push('thinking', match[2], '思考过程');
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'content') {
+            push('story', match[2]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'details') {
+            const opening = match[0].slice(0, match[0].indexOf('>') + 1);
+            const title = /data-info\s*=\s*["']archive["']/i.test(opening) ? '剧情摘要'
+                : /data-fate\s*=\s*["']destiny["']/i.test(opening) ? '剧情选项'
+                : /data-fate\s*=\s*["']side_theater["']/i.test(opening) ? '小剧场附录'
+                : '酒馆附录';
+            push('tavern-extra', match[2], title);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        const meta = DISPLAY_BLOCK_META[sourceTag] || { kind: 'other' as const };
         if (meta.kind === 'theater') {
             pushTheater(match[2], meta.title);
         } else {
