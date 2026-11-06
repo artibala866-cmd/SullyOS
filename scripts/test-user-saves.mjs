@@ -11,11 +11,30 @@ await context.addInitScript(()=>{localStorage.setItem('sullyos_disclaimer_accept
 const inspect=()=>page.evaluate(async()=>{
  const {openDB}=await import('/utils/db.ts'),{USER_SAVE_ID,readUserSaves}=await import('/utils/userSaveScope.ts');const db=await openDB();
  const rows=name=>new Promise((resolve,reject)=>{const req=db.transaction(name).objectStore(name).getAll();req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
- return {id:USER_SAVE_ID,registry:readUserSaves(),profile:(await rows('user_profile'))[0],messages:await rows('messages'),chars:await rows('characters'),books:await rows('worldbooks'),bank:await rows('bank_data'),life:await rows('life_records'),plans:await rows('med_plans'),lifeSettings:await rows('life_record_settings'),transactions:await rows('bank_transactions'),hwm:localStorage.getItem('palace_hwm_qa-save-char')};
+ return {id:USER_SAVE_ID,registry:readUserSaves(),profile:(await rows('user_profile'))[0],messages:await rows('messages'),chars:await rows('characters'),blobIds:(await rows('blob_assets')).map(row=>row.id),books:await rows('worldbooks'),bank:await rows('bank_data'),life:await rows('life_records'),plans:await rows('med_plans'),lifeSettings:await rows('life_record_settings'),transactions:await rows('bank_transactions'),hwm:localStorage.getItem('palace_hwm_qa-save-char')};
 });
 const ready=()=>page.getByLabel('你的名字',{exact:true}).waitFor();
 async function switchTo(id){await Promise.all([page.waitForEvent('framenavigated'),page.getByLabel('切换身份',{exact:true}).selectOption(id)]);await ready();assert.equal((await inspect()).id,id);}
 async function shot(name){if(!name.endsWith('844') && !name.startsWith('backup')) await page.getByTestId('archive-scroll').evaluate(el=>el.scrollTop=0);await page.waitForTimeout(400);await page.screenshot({path:out+'/'+name+'.png'});}
+async function checkDesktop(name,damage=false){
+ await page.goto(origin+'/test/fixtures/user-saves.html?desktop=1');
+ if(damage){
+  await page.getByRole('img',{name:'照片 1',exact:true}).waitFor();
+  await page.evaluate(async()=>{const {DB}=await import('/utils/db.ts');for(const id of ['b_qa_theme_photo','b_qa_asset_photo','b_qa_deco'])await DB.deleteBlobAsset(id);});
+  await page.reload();
+ }
+ for(const alt of ['照片 1','照片 2','照片 3','照片 4','角色资料背景照片','拍立得照片']){
+  const img=page.getByRole('img',{name:alt,exact:true});await img.scrollIntoViewIfNeeded();
+  await page.waitForFunction(alt=>{const el=[...document.querySelectorAll('img')].find(img=>img.alt===alt);return el?.complete&&el.naturalWidth>0;},alt);
+  if(alt==='照片 1'||alt==='拍立得照片')await page.screenshot({path:out+'/desktop-'+name+'-'+(alt==='照片 1'?'film':'photo')+'.png'});
+ }
+ const deco=page.locator('.launcher-page img[alt=""]').first();await deco.scrollIntoViewIfNeeded();
+ await page.waitForFunction(()=>{const el=document.querySelector('.launcher-page img[alt=""]');return el?.complete&&el.naturalWidth>0;});
+ await page.screenshot({path:out+'/desktop-'+name+'-decoration.png'});
+ const state=await inspect();for(const id of ['b_qa_theme_photo','b_qa_asset_photo','b_qa_deco'])assert(state.blobIds.includes(id));assert(!state.blobIds.includes('b_qa_private_pic')||state.id==='original');
+ await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
+}
+
 async function checkStandaloneWardrobe(blank){
  await page.goto(origin+'/chibi-wardrobe.html');await page.getByText('CHIBI 工坊',{exact:true}).waitFor();
  await page.waitForFunction(()=>localStorage.getItem('chibi-wardrobe-studio-draft-v1')!==null);
@@ -73,12 +92,12 @@ try{
  assert(shape.sameField);assert(!shape.extraText);assert.equal(await page.getByRole('button',{name:'切换身份',exact:true}).count(),0);
  await shot('name-picker-390');
  const originProfile=(await inspect()).profile;
- await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
+ await checkDesktop('original');await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
  await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'新建身份',exact:true}).click()]);await ready();
  const fresh=await inspect();assert.notEqual(fresh.id,'original');assert.equal(fresh.profile.name,'新身份');assert.equal(fresh.profile.bio,'');assert.equal(fresh.messages.length,0);assert.equal(fresh.hwm,null);assert(fresh.books.some(w=>w.id==='qa-save-world'));assert.deepEqual(fresh.chars.find(c=>c.id==='qa-save-char').memories,[]);
  assert.notEqual(fresh.profile.avatar,originProfile.avatar);
  for(const key of ['life','plans','lifeSettings','transactions','bank'])assert.deepEqual(fresh[key],[],key+' starts empty');
- await checkStandaloneWardrobe(true);await checkCabinet(true);await checkLife(true,true);
+ await checkDesktop('new');await checkDesktop('repaired',true);await checkStandaloneWardrobe(true);await checkCabinet(true);await checkLife(true,true);
  for(const key of ['perCharAvatars','imageAppearance','imageReference','imageLockEnabled','wardrobeOutfits','chibiStudio','vrState']) assert.equal(fresh.profile[key],undefined,key+' must not inherit');
  await page.getByTestId('archive-avatar').locator('img').waitFor();await page.waitForFunction(()=>{const img=document.querySelector('[data-testid=archive-avatar] img');return img?.complete&&img.naturalWidth>0;});
  assert.notEqual(await page.getByTestId('archive-avatar').locator('img').getAttribute('src'),originProfile.avatar);
@@ -111,5 +130,5 @@ try{
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
  await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');assert.deepEqual(errors,[]);
- console.log('PASS: standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
+ console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}

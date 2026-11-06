@@ -1,6 +1,6 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
-import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, type UserSaveRegistry } from './userSaveScope';
+import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
@@ -92,6 +92,52 @@ export function referencedBlobs(db: IDBDatabase, data: unknown[]): Promise<any[]
     });
 }
 let switching = false;
+/** Some desktop images/CSS live only inside shared preferences, not assets rows. */
+export function sharedAppearancePreferences(): string[] {
+    const result: string[] = [];
+    if (nativeLocalStorage) for (let i = 0; i < nativeLocalStorage.length; i++) {
+        const key = nativeLocalStorage.key(i)!;
+        if (isSharedPreference(key)) result.push(nativeLocalStorage.getItem(key) ?? '');
+    }
+    return result;
+}
+/** Heal saves created by older releases without asking the user to reimport.
+ * Only explicit references from shared appearance are eligible, never private
+ * avatars, chat media, galleries or the rest of another save's blob store. */
+export async function repairSharedAppearanceBlobs(db: IDBDatabase, appearanceAssets?: {id: string; data: unknown}[]): Promise<void> {
+    const assets = (appearanceAssets ?? await all(db, 'assets')).filter(row => isSharedAsset(row.id));
+    const refs = [...new Set(Array.from(JSON.stringify([assets, sharedAppearancePreferences()]).matchAll(/blobref:([a-zA-Z0-9_-]+)/g), m => m[0]))];
+    if (!refs.length) return;
+    const present = new Set((await referencedBlobs(db, refs)).map(row => `blobref:${row.id}`));
+    const missing = new Set(refs.filter(ref => !present.has(ref)));
+    const recovered: any[] = [];
+    const registry = readUserSaves();
+    const donors = [...registry.saves, ...(Array.isArray(registry.deletedSaves) ? registry.deletedSaves : [])];
+    for (const save of donors) {
+        if (!/^(original|[a-f0-9-]{36})$/.test(save?.id ?? '')) continue;
+        const name = scopedDatabaseName('AetherOS_Data', save.id);
+        if (!missing.size || name === db.name) continue;
+        const donor = await new Promise<IDBDatabase | null>((resolve, reject) => {
+            const req = indexedDB.open(name); let absent = false, blocked = false;
+            req.onupgradeneeded = () => { absent = true; req.transaction!.abort(); };
+            req.onerror = () => absent ? resolve(null) : reject(req.error);
+            req.onblocked = () => { blocked = true; resolve(null); };
+            req.onsuccess = () => { if (blocked) req.result.close(); else resolve(req.result); };
+        });
+        if (!donor) continue;
+        try {
+            if (!donor.objectStoreNames.contains('blob_assets')) continue;
+            for (const row of await referencedBlobs(donor, [...missing])) {
+                recovered.push(row); missing.delete(`blobref:${row.id}`);
+            }
+        } finally { donor.close(); }
+    }
+    if (recovered.length) await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('blob_assets', 'readwrite');
+        for (const row of recovered) tx.objectStore('blob_assets').put(row);
+        tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+}
 export function isUserSaveSwitching(): boolean { return switching; }
 /** A user's face/body is identity data, not the phone's shared decoration.
  * No source profile is accepted here: '+' always opens a blank identity. */
@@ -121,8 +167,9 @@ export async function activateUserSave(targetId: string, create?: { name: string
         const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
         const bases = characters.map(baseCharacter);
         const sharedAssets = assets.filter(row => isSharedAsset(row.id));
+        await repairSharedAppearanceBlobs(source, sharedAssets);
         const newProfile = create ? freshUserProfile(create.name) : undefined;
-        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources]);
+        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, ...sharedAppearancePreferences()]);
         target = await openTarget(source, targetId);
         const previous = await all(target, 'characters');
         const previousAssets = await all(target, 'assets');

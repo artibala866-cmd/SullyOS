@@ -1100,9 +1100,9 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                           {idx === 2 && theme.desktopDecorations && theme.desktopDecorations.length > 0 && (
                             <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
                               {theme.desktopDecorations.map(deco => (
-                                <img
+                                <TokenImg
                                   key={deco.id}
-                                  src={deco.content}
+                                  value={deco.content}
                                   alt=""
                                   loading="lazy"
                                   className="absolute w-16 h-16 object-contain select-none"

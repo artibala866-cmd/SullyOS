@@ -1518,6 +1518,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         try {
             const assets = await DB.getAllAssets();
+            // Reuse this read and heal missing media before resolving theme tokens.
+            try {
+                const { openDB } = await import('../utils/db');
+                const { repairSharedAppearanceBlobs } = await import('../utils/userSaves');
+                await repairSharedAppearanceBlobs(await openDB(), assets);
+            } catch (error) { console.warn('[user-saves] 桌面图片恢复失败', error); }
             const assetMap: Record<string, string> = {};
             if (Array.isArray(assets)) {
                 assets.forEach(a => assetMap[a.id] = a.data);

@@ -68,6 +68,24 @@ describe('user 身份存档隔离', () => {
         const b=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(b,'user_profile')).toEqual([bProfile]);
         expect((await rows(b,'worldbooks'))[0].name).toBe('基础世界书');b.close();
     });
+    it('copies theme-only and CSS image bytes, and repairs an existing broken save without private media', async () => {
+        const {openDB}=await import('./db');const source=await openDB();
+        const theme={launcherWidgets:{film1:'blobref:theme-photo'},chatChromeCustomCss:'background:url("blobref:css-photo")'};
+        localStorage.setItem('os_theme',JSON.stringify(theme));
+        await write(source,{blob_assets:[{id:'theme-photo',blob:'desktop bytes'},{id:'css-photo',blob:'CSS bytes'},{id:'private-face',blob:'private avatar'},{id:'private-chat',blob:'private chat'}],user_profile:[{id:'me',name:'A',bio:'private',avatar:'blobref:private-face'}]});
+        const {activateUserSave}=await import('./userSaves');await activateUserSave(SECOND,{name:'B'});
+        const target=await open(`AetherOS_Data__user_${SECOND}`);
+        expect((await rows(target,'blob_assets')).map(r=>r.id).sort()).toEqual(['css-photo','theme-photo']);
+        await new Promise<void>((resolve,reject)=>{const tx=target.transaction('blob_assets','readwrite');tx.objectStore('blob_assets').clear();tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error);});
+        // Simulate a save damaged by the previous release. Even a soft-deleted
+        // original identity remains a valid donor for these shared image IDs.
+        localStorage.setItem('sully:user-saves:v1',JSON.stringify({activeId:SECOND,saves:[{id:SECOND,name:'B'}],deletedSaves:[{id:'original',name:'A',deletedAt:1}]}));
+        source.close();vi.resetModules();
+        const {repairSharedAppearanceBlobs}=await import('./userSaves');await repairSharedAppearanceBlobs(target);
+        expect((await rows(target,'blob_assets')).map(r=>r.id).sort()).toEqual(['css-photo','theme-photo']);
+        expect((await rows(target,'user_profile'))[0].name).toBe('B');
+        expect(localStorage.getItem('os_theme')).toBe(JSON.stringify(theme));target.close();
+    });
     it('isolates unknown local data, waterlines, enumeration, deletion and clear, preserving appearance', async () => {
         const { createSaveStorage, USER_SAVES_KEY } = await import('./userSaveScope');
         const a = createSaveStorage(localStorage, 'original'), b = createSaveStorage(localStorage, SECOND);

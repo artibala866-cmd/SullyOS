@@ -1446,7 +1446,7 @@ const Appearance: React.FC = () => {
                                     opacity: deco.opacity, zIndex: deco.zIndex,
                                 }}
                                 onClick={() => setEditingDecoId(editingDecoId === deco.id ? null : deco.id)}>
-                                <img src={deco.content} className="w-16 h-16 object-contain pointer-events-none select-none" draggable={false} />
+                                <TokenImg value={deco.content} className="w-16 h-16 object-contain pointer-events-none select-none" draggable={false} />
                             </div>
                         ))}
                         {decorations.length === 0 && (
@@ -1488,7 +1488,7 @@ const Appearance: React.FC = () => {
                                             {items.map(preset => (
                                                 <button key={preset.name} onClick={() => { addDecoration(preset.content, 'preset'); trackEvent('添加桌面装饰贴纸', { 贴纸: preset.name, 分类: preset.category }); }}
                                                     className="w-14 h-14 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-0.5 hover:border-neutral-300 hover:shadow-sm active:scale-90 transition-all group">
-                                                    <img src={preset.content} className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
+                                                    <TokenImg value={preset.content} className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
                                                     <span className="text-[8px] text-slate-400">{preset.name}</span>
                                                 </button>
                                             ))}
@@ -1508,7 +1508,7 @@ const Appearance: React.FC = () => {
                                     {/* Decoration header row */}
                                     <div className="flex items-center gap-2 p-2.5 cursor-pointer" onClick={() => setEditingDecoId(editingDecoId === deco.id ? null : deco.id)}>
                                         <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                                            <img src={deco.content} className="w-8 h-8 object-contain" style={{ transform: deco.flip ? 'scaleX(-1)' : undefined }} />
+                                            <TokenImg value={deco.content} className="w-8 h-8 object-contain" style={{ transform: deco.flip ? 'scaleX(-1)' : undefined }} />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-xs font-bold text-slate-600">装饰 #{idx + 1}</div>

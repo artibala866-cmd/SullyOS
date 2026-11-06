@@ -4,6 +4,8 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'apps/UserApp.tsx'
+      - 'apps/Launcher.tsx'
+      - 'apps/Appearance.tsx'
       - 'experiments/chibi/wardrobe.tsx'
       - 'experiments/chibi/main.tsx'
       - 'context/OSContext.tsx'
