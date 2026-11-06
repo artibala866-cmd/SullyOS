@@ -5,6 +5,7 @@ import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
 import { decodeBabyLinkPng, type PreparedBabyLinkBundle } from './babyLinkCard';
 import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 
 const MAX_JSON = 6 * 1024 * 1024;
 const MAX_PNG = 32 * 1024 * 1024;
@@ -237,8 +238,35 @@ const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
                 typeof greeting.content !== 'string' || greeting.content.length > MAX_ENTRY_TEXT ||
                 identifiers.has(greeting.id)) throw new Error(`原生角色卡第 ${index + 1} 条开场白无效`);
             identifiers.add(greeting.id);
-            return adaptTavernOpeningGreeting({ id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content, ...(typeof greeting.description === 'string' ? { description: greeting.description } : {}) });
+            const normalized = { id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content, ...(typeof greeting.description === 'string' ? { description: greeting.description } : {}) };
+            return isLegacyLinkOpening(normalized) ? normalized : adaptTavernOpeningGreeting(normalized);
         }).filter(greeting => greeting.content.trim());
+    }
+    // Native Sully exports may contain already imported Link scenes. Validate
+    // and preserve them in their own storage instead of treating them as Tavern.
+    if (safe.linkGreetings != null) {
+        if (!Array.isArray(safe.linkGreetings) || safe.linkGreetings.length > MAX_GREETING_COUNT)
+            throw new Error('原生角色卡 Link 开场白结构无效');
+        const ids = new Set<string>();
+        fields.linkGreetings = safe.linkGreetings.map((row, index) => {
+            if (!object(row) || typeof row.id !== 'string' || !row.id.trim() ||
+                typeof row.content !== 'string' || !row.content.trim() ||
+                row.content.length > MAX_ENTRY_TEXT || ids.has(row.id))
+                throw new Error(`原生 Link 开场白第 ${index + 1} 条结构无效`);
+            ids.add(row.id);
+            return {
+                id: row.id, title: text(row.title) || `Link 开场白 ${index + 1}`,
+                ...(typeof row.description === 'string' ? { description: row.description } : {}),
+                content: row.content,
+            };
+        });
+    }
+    if (fields.tavernGreetings?.length) {
+        const oldLink = fields.tavernGreetings.filter(isLegacyLinkOpening);
+        if (oldLink.length) {
+            fields.linkGreetings = mergeLinkGreetings(fields.linkGreetings || [], oldLink);
+            fields.tavernGreetings = fields.tavernGreetings.filter(row => !isLegacyLinkOpening(row));
+        }
     }
     return {
         source: 'sully', character: {
