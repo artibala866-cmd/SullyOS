@@ -121,7 +121,7 @@ jobs:
           done
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$browser"
-          for scenario in filled empty clear; do
+          for scenario in filled empty clear upload top; do
             url="http://127.0.0.1:5194/test/fixtures/date-settings-visual.html?scenario=${scenario}"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=9000 --dump-dom "$url" > "output/meet-scenes/${scenario}.html" 2> "output/meet-scenes/${scenario}-browser.log"
             grep -q 'data-date-settings-ready="true"' "output/meet-scenes/${scenario}.html" || {
@@ -133,11 +133,13 @@ jobs:
             test -s "output/meet-scenes/${scenario}-390.png"
             grep 'date-settings-browser-report' "output/meet-scenes/${scenario}.html" | sed 's/<[^>]*>//g' | cut -c 1-1000 || true
           done
-          echo 'MEET_SCENE_SCREENSHOT_BASE64_BEGIN'
-          base64 -w0 output/meet-scenes/filled-390.png
-          echo
-          echo 'MEET_SCENE_SCREENSHOT_BASE64_END'
-          echo 'PASS: three real Meet settings browser screenshots (populated, empty, clear action) with six visible scene slots'
+          for scenario in filled empty clear upload top; do
+            echo "MEET_SCENE_SCREENSHOT_${scenario}_BASE64_BEGIN"
+            base64 -w0 "output/meet-scenes/${scenario}-390.png"
+            echo
+            echo "MEET_SCENE_SCREENSHOT_${scenario}_BASE64_END"
+          done
+          echo 'PASS: five real Meet settings browser screenshots (filled, empty, clear, two real uploads, top) with six scene slots'
       - name: Attach browser screenshot and computed style report
         if: always()
         uses: actions/upload-artifact@v4

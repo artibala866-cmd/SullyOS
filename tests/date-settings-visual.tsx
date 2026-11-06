@@ -64,28 +64,66 @@ function check() {
   }
   const advance = () => {
     const rect = settings.getBoundingClientRect();
-    settings.scrollIntoView({ block: 'start', behavior: 'instant' });
+    if (scenario !== 'top') settings.scrollIntoView({ block: 'start', behavior: 'instant' });
     const scroller = host.querySelector<HTMLElement>('[data-testid="date-settings-scroll"]');
-    if (scroller) scroller.scrollTop = Math.max(0, scroller.scrollTop - 12);
+    if (scroller && scenario !== 'top') scroller.scrollTop = Math.max(0, scroller.scrollTop - 12);
     const gridBounds = slots.map(s => s.getBoundingClientRect());
     const fit = document.documentElement.scrollWidth <= innerWidth && gridBounds.every(r => r.width >= 130 && r.left >= -1 && r.right <= innerWidth + 1);
-    const clearOk = scenario !== 'clear' || (!charMirror.dateBackground && !!charMirror.dateSceneBackgrounds?.bedroom);
-    const imagesOk = scenario === 'empty' ? pictureCount === 0 : pictureCount === 4;
+    const clearOk = scenario !== 'clear' ||
+      (!charMirror.dateBackground && !slots[0].querySelector('img') && !!charMirror.dateSceneBackgrounds?.bedroom);
+    const uploadOk = scenario !== 'upload' || (
+      !!charMirror.dateSceneBackgrounds?.bathroom?.startsWith('blobref:') &&
+      !!charMirror.dateSceneBackgrounds?.work?.startsWith('blobref:') &&
+      !!charMirror.dateSceneBackgrounds?.bedroom &&
+      !!slots[3].querySelector('img') && !!slots[5].querySelector('img')
+    );
+    const imagesOk = scenario === 'empty' ? pictureCount === 0 : scenario === 'upload' ? pictureCount === 6 : pictureCount === 4;
     const labelsOk = realLabels.join('|') === '默认|室外|卧室|浴室|厨房|工作';
-    const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk,
+    const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk, uploadOk,
       defaultOriginallyPresent: scenario === 'empty' ? !original : original.startsWith('data:image/svg+xml'),
       noExtraSections, clearOk,
       scrollbarWidth: scroller?.clientWidth, viewport: [innerWidth,innerHeight],
       sceneRects: gridBounds.map(r=>[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]),
       sectionY: Math.round(rect.y) };
     const success = JSON.stringify(keys) === JSON.stringify(expected) &&
-      labelsOk && fit && imagesOk && noExtraSections && clearOk && report.defaultOriginallyPresent;
+      labelsOk && fit && imagesOk && noExtraSections && clearOk && uploadOk && report.defaultOriginallyPresent;
     document.body.dataset.dateSettingsReady = String(success);
     let output = document.getElementById('date-settings-browser-report');
     if (!output) { output = document.createElement('output'); output.id = 'date-settings-browser-report'; output.hidden = true; document.body.append(output); }
     output.textContent = JSON.stringify(report);
   };
-  setTimeout(advance, 400);
+  if (scenario === 'upload') {
+    // Exercise the real image-upload handler + IndexedDB blob storage, not merely mocked state.
+    void (async () => {
+      try {
+        const upload = async (key: string) => {
+          const button = settings.querySelector<HTMLButtonElement>(`[data-date-scene="${key}"] button[aria-label^="上传"]`);
+          if (!button) throw Error('missing upload button: ' + key);
+          button.click();
+          await new Promise(resolve => setTimeout(resolve, 75));
+          const input = document.querySelector<HTMLInputElement>('input[type="file"][accept="image/*"]');
+          if (!input) throw Error('missing file input');
+          const text = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="gray"/></svg>';
+          const dt = new DataTransfer();
+          dt.items.add(new File([text], `${key}.svg`, { type: 'image/svg+xml' }));
+          input.files = dt.files;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise(resolve => setTimeout(resolve, 300));
+        };
+        await upload('bathroom');
+        await upload('work');
+        await new Promise(resolve => setTimeout(resolve, 850));
+        advance();
+      } catch (error) {
+        document.body.dataset.dateSettingsReady = 'false';
+        const output = document.createElement('output');
+        output.id = 'date-settings-browser-error'; output.textContent = String(error);
+        document.body.append(output);
+      }
+    })();
+  } else {
+    setTimeout(advance, 400);
+  }
   return true;
 }
 const started = Date.now();
