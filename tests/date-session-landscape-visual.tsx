@@ -28,7 +28,7 @@ const char = {
   avatar: sprite,
   sprites: { normal: sprite },
   dateBackground: background,
-  spriteConfig: { scale: 1, x: 0, y: 0 },
+  spriteConfig: { scale: scenario === 'zoom' ? 2.2 : 1, x: 0, y: 0 },
   dateAppearance: { preset: 'none' },
 } as any;
 const props = {

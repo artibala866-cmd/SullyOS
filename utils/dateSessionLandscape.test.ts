@@ -15,5 +15,8 @@ describe('Meet landscape layout regression', () => {
     expect(app).toContain('date-session-observe');
     expect(app).toContain('date-session-typing-indicator');
     expect(app).toContain('spriteConfig.scale');
+    expect(app).toContain("'--date-landscape-fit-scale'");
+    expect(css).toContain('scale: var(--date-landscape-fit-scale, 1)');
+    expect(css).toContain('.date-session-dialogue-card > div:first-child');
   });
 });
