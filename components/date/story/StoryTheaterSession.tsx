@@ -509,7 +509,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const blocks: string[] = [];
         for (const actor of actors) {
             if (!entry.carryCharacterMemory) {
-                blocks.push(buildBareTheaterActorContext(actor));
+                blocks.push(buildBareTheaterActorContext(actor, effectivePreset.document.sourceFormat === 'sillytavern'));
                 continue;
             }
             const limit = Math.max(0, Math.min(500, entry.characterContextLimits[actor.id] ?? 100));
@@ -529,7 +529,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, mask.name)}`.trim());
         }
         return blocks.join('\n\n---\n\n');
-    }, [actors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, effectivePreset.document.sourceFormat, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || !mask.characterId) return '';
