@@ -97,6 +97,37 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(field().value).toBe('重新写的介绍');
     });
 
+    it('已经导入过的酒馆注释开场自动适配标题简介，编辑框和保存正文不带 HTML 元数据', async () => {
+        host = document.createElement('div');
+        document.body.append(host);
+        root = createRoot(host);
+        const oldBody = '<!-- title: 开场白6 -->\\n<!-- desc: 车站雨夜，时隔一年重逢。 -->\\n\\n{{char}}推开门。';
+        const storedActor = {
+            ...actor, tavernGreetings: [{ id: 'legacy-six', title: '备选开场白 6', content: oldBody }],
+        };
+        const saveGreeting = vi.fn(async (_actor: string, _id: string, _content: string | null) => {});
+        const initial = {
+            ...createStoryTheaterDraft(), title: '雨夜重逢', premise: '另一段剧情介绍',
+            characterIds: [storedActor.id], openingMode: 'assistant' as const,
+            openingGreeting: { characterId: storedActor.id, greetingId: 'legacy-six' },
+        };
+        const props = {
+            initial, characters: [storedActor], user: { name: '用户' } as any,
+            masks: [], maskLocked: false, presets: [BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel: vi.fn(), onSave: vi.fn(), onImportPreset: async () => null,
+            onEditPreset: vi.fn(), onOpenMaskBox: vi.fn(), onChangeGreeting: saveGreeting,
+        };
+        await act(async () => { root!.render(React.createElement(StoryTheaterEditor, props)); });
+        expect(field().value).toBe('{{char}}推开门。');
+        const selector = host!.querySelector('select[aria-label="选择已有开场"]')!;
+        expect(selector.textContent).toContain('开场白6');
+        expect(selector.textContent).toContain('车站雨夜，时隔一年重逢');
+        expect(field().value).not.toContain('<!--');
+        await typeInto(field(), '{{char}}把伞递给你。');
+        await click('保存修改');
+        expect(saveGreeting).toHaveBeenCalledWith(storedActor.id, 'legacy-six', '{{char}}把伞递给你。');
+    });
+
     it('手写内容点书签保存后自动出现在已有开场，同一段不重复进入剧情介绍', async () => {
         host = document.createElement('div');
         document.body.append(host);
