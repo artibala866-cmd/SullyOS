@@ -736,10 +736,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     compiled = compileStoryPreset({
                         preset: effectivePreset, userName: promptIdentityName, characterNames: actors.map(actor => actor.name),
                         historyMessages,
+                        currentInput: modelInput,
                         slots: {
                             actors: actorContext,
                             persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
                             scenario, worldBefore: slots.before, worldAfter: slots.after, history: '',
+                            tavernDescription: actors.map(actor => `### ${actor.name}\n${actor.description || ''}`).join('\n\n'),
+                            tavernPersonality: actors.map(actor => `### ${actor.name}\n${actor.systemPrompt || ''}\n${actor.worldview || ''}`).join('\n\n'),
                         },
                     });
                     const payloadBeforeTurn = [
