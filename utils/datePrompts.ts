@@ -599,7 +599,7 @@ const buildVNModeBlock = (char: CharacterProfile, userName: string): string => {
 前端解析器基于**换行符**来分割气泡。
 1. **禁止混写**: 严禁在同一行里既写动作又写带引号的台词。
 2. **情绪标签**: **每一行都必须以** \`[emotion]\` **开头**，表示该行的表情立绘。逐行结合台词、动作和上下文选择最贴切的表情，细微情绪也要体现；[normal] 用于确实平静或中性的状态，不是默认占位符。已有笑意、低落、恼意或羞赧时，应从可用标签中选对应表情，不要把明确情绪全标成 [normal]。同一情绪延续时，相邻行可以重复标签；情绪发生变化时及时切换，不为了凑标签种类制造情绪。仅限使用以下情绪: ${dateEmotions.join(', ')}。不要使用任何不在此列表中的标签。
-${sceneBlock}3. **格式**: 台词用双引号 **"..."**，动作/叙述直接写（不加引号）。
+${sceneBlock}${sceneChoices ? '4' : '3'}. **格式**: 台词用双引号 **"..."**，动作/叙述直接写（不加引号）。
 ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : ''}
 
 ${preset.block}
@@ -703,6 +703,10 @@ export const DatePrompts = {
             : '参考 [最近记录]（注意消息来源标签：[聊天]是文字聊天、[约会]是面对面、[通话]是语音通话），沿用其中的剧情时间、地点、事件与情绪状态。时间推进以剧情明确内容为准。选择开场方式只决定谁主动靠近，不表示关系或话题重新开始，也不强制续接上一句话。';
 
         const invite = input.openingMode === 'invite';
+        const peekScenes = configuredDateScenes(char.dateSceneBackgrounds).map(item => `${item.key}=${item.label}`).join('、');
+        const peekSceneHint = peekScenes
+            ? `当现场确实对应已配图的场景（${peekScenes}）时，请在开场正文前单独输出一行 [scene:英文键]（例如 [scene:bedroom]），以便显示正确背景。若开启观测协议，先输出 OBSERVE 观测块，再输出场景标记，最后是正文。地点不吻合不标记、没配图的场景不输出；不要为了切背景而搬动人物。`
+            : '';
         const peekInstructions = `
 ### 场景：感知 (Sense Presence)
 ${dateTimeOn ? `当前时间: ${timeStr}\n时间上下文: ${gapHint}\n` : ''}
@@ -715,7 +719,8 @@ ${invite ? '描写角色自己的到来、动作与必要的开场台词，停�
 ### 逻辑检查
 1. **上下文连贯性**: ${continuityRule}
 2. **状态一致性**: ${gapHint.includes('天') ? '如果间隔了很多天，可能在发呆、忙碌或者有点落寞。' : '根据最近的聊天内容和情绪来决定当前状态。如果刚聊完，角色的状态应该与聊天内容相呼应。'}
-3. **描写风格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「观测协议」输出观测块，再开始描写内容（描写本身不要加任何前缀）。' : '不要输出任何前缀，直接输出描写内容。'}
+3. **描写风格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「观测协议」输出观测块，再开始描写内容。' : '直接输出描写内容。'}${peekSceneHint ? ' 除已配置场景标签外不要输出其他前缀。' : ' 不要输出任何前缀。'}
+${peekSceneHint ? `4. **场景背景切换**: ${peekSceneHint}\n` : ''}
 ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlock(char)}` : ''}`;
 
         return {

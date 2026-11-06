@@ -479,6 +479,21 @@ describe('见面里的世界书', () => {
 });
 
 describe('DatePrompts.buildPeekPayload', async () => {
+    it('开场与观测协议遵循已配场景换景，未配置不附加标签指令', async () => {
+        for (const enabled of [false, true]) {
+            const char = makeChar({ dateSceneBackgrounds: { bedroom: 'blobref:bed', outdoor: 'https://example.com/outdoor.png' }, dateObserve: { enabled } });
+            const { messages } = await DatePrompts.buildPeekPayload({ char, userProfile: user, allMsgs: [makeMsg()], emojis: [] });
+            const prompt = lastUserOf(messages).content as string;
+            expect(prompt).toContain('bedroom=卧室');
+            expect(prompt).toContain('outdoor=室外');
+            expect(prompt).not.toContain('bathroom=浴室');
+            expect(prompt).toContain('[scene:bedroom]');
+            if (enabled) expect(prompt).toContain('先输出 OBSERVE 观测块，再输出场景标记');
+        }
+        const none = await DatePrompts.buildPeekPayload({ char: makeChar(), userProfile: user, allMsgs: [makeMsg()], emojis: [] });
+        expect(lastUserOf(none.messages).content).not.toContain('场景背景切换');
+    });
+
     it('让他靠近读取同一份上下文与世界书，只改变开场发起者，保留用户自主权', async () => {
         const char = makeChar({ mountedWorldbooks: [{
             id: 'place', title: '常去的店', content: '在街角书店见面', category: '地点', constant: true,

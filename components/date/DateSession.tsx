@@ -892,7 +892,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             {/* Background Layer */}
             <div 
                 className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ${isNovelMode ? 'blur-xl opacity-30' : 'opacity-80'}`} 
-                style={{ backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : 'none' }}
+                style={{ backgroundImage: bgImageUrl ? `url("${bgImageUrl.replace(/"/g, '%22')}")` : 'none' }}
             ></div>
 
             {/* Menu Layer — 继续按钮单独在左；菜单 / 输入上下叠在最右列。

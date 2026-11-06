@@ -18,9 +18,17 @@ describe('见面背景的 blobref 读写路径', () => {
   });
 
   it('场景布置页的预览底图先用 useBlobRefUrl 解析再拼进 CSS url()', () => {
-    expect(settingsSource).toContain('const dateBackgroundUrl = useBlobRefUrl(char.dateBackground);');
+    expect(settingsSource).toContain('const dateBackgroundUrl = useBlobRefUrl((previewSceneKey && char.dateSceneBackgrounds?.[previewSceneKey]) || char.dateBackground);');
     expect(settingsSource).toContain('backgroundImage: dateBackgroundUrl ?');
     expect(settingsSource).not.toContain('url(${char.dateBackground})');
+  });
+
+  it('单独配置场景背景仍走原来的 blobref 存取和默认背景兜底', () => {
+    expect(settingsSource).toContain('updateScene(targetSceneKey, ref)');
+    expect(settingsSource).toContain('const backgrounds = { ...(char.dateSceneBackgrounds || {}) }');
+    expect(settingsSource).toContain('|| char.dateBackground);');
+    expect(settingsSource).toContain('<TokenImg value={image}');
+    expect(settingsSource).not.toContain('<img src={image}');
   });
 
   it('场景布置页的背景缩略图走 TokenImg，不是裸 <img>', () => {
