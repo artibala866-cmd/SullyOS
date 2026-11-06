@@ -5,6 +5,7 @@ import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
 import { decodeBabyLinkPng, normalizeBabyLinkShare, type PreparedBabyLinkBundle } from './babyLinkCard';
 import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { isLinkPersonaDocument, readLinkPersonaDocument } from './linkImportDocuments';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 
 const MAX_JSON = 6 * 1024 * 1024;
@@ -36,7 +37,7 @@ const stableScenario = (scenario: string, warnings: string[]): string => {
 
 /** Strictly normalized, inert data. Nothing here can execute Tavern scripts or API calls. */
 export interface PreparedCharacterCard {
-    source: 'sully' | 'tavern-v1' | 'tavern-v2' | 'tavern-v3' | 'babylink-character';
+    source: 'sully' | 'tavern-v1' | 'tavern-v2' | 'tavern-v3' | 'babylink-character' | 'document';
     character: Partial<CharacterProfile> & Pick<CharacterProfile, 'name' | 'description' | 'systemPrompt'>;
     worldbooks: Worldbook[];
     avatarFile: File | null;
@@ -433,6 +434,21 @@ const decodeMetadata = (encoded: string): unknown => {
 export const readCharacterCardFile = async (file: File): Promise<PreparedCardImport> => {
     if (file.size === 0 || file.size > MAX_PNG) throw new Error('角色卡文件为空或超过 32 MB');
     const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    if (!isPng(signature) && isLinkPersonaDocument(file)) {
+        const persona = await readLinkPersonaDocument(file);
+        const name = file.name.replace(/\.(?:txt|text|doc|docx)$/i, '').trim();
+        if (!name || name.length > 160) throw new Error('文档文件名无法作为角色姓名，请先重命名');
+        return {
+            source: 'document',
+            character: {
+                name, avatar: '', description: persona.slice(0, 260),
+                systemPrompt: '【导入人物原始文档】\n' + persona,
+                worldview: '',
+            },
+            worldbooks: [], avatarFile: null,
+            warnings: ['本次导入的是完整人设文档，不包含独立开场白或世界书；不会从正文中猜测并自动拆分模块。'],
+        };
+    }
     if (!isPng(signature)) {
         if (file.size > MAX_JSON) throw new Error('JSON 角色卡超过 6 MB');
         let raw: unknown;
