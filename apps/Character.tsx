@@ -2351,7 +2351,7 @@ ${isInitialGeneration ? `
                         <span className="flex flex-col gap-1 min-w-0">
                             <span className="text-sm font-semibold break-words">{card.character.name}</span>
                             {characters.some(char => char.name.trim() === card.character.name.trim()) &&
-                                <span className="text-xs text-neutral-500">已存在 · 将更新原角色，不会新增副本</span>}
+                                <span className="text-xs text-neutral-500">发现同名角色 · 将核对身份并增量更新，不会直接复制</span>}
                             <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
                             <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
                             {card.imageProfile && <span className="text-xs text-neutral-600">生图：{card.imageProfile.reference
@@ -2375,7 +2375,7 @@ ${isInitialGeneration ? `
                     <div className="min-w-0">
                         <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
                         {characters.some(char => char.name.trim() === pendingCard.character.name.trim()) &&
-                            <p className="text-xs text-neutral-500 mt-1">已存在 · 将增量更新原角色，不会重建聊天与记忆</p>}
+                            <p className="text-xs text-neutral-500 mt-1">发现同名角色 · 将核对身份，匹配后增量更新并保留聊天记忆</p>}
                         <p className="text-xs text-neutral-500 mt-1">人设：{pendingCard.character.description || pendingCard.character.systemPrompt || pendingCard.character.worldview ? '已识别' : '仅有角色姓名'}</p>
                     </div>
                 </div>
