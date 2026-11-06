@@ -62,9 +62,42 @@ try {
        return {cleaned:!area?.value.includes('无效格式'),saveEnabled:save?.disabled===false,rows:(area?.value||'').split('\\n').length};
      })()`);
      console.log('EMOJI_DOCUMENT_CLEANUP '+c.name+' '+JSON.stringify(after));
-     if(!after?.cleaned || !after?.saveEnabled || after?.rows!==3) errors.push(c.name+': cleanup did not unlock saving: '+JSON.stringify(after));
+     if(!after?.cleaned || !after?.saveEnabled || after?.rows!==5) errors.push(c.name+': cleanup did not unlock saving: '+JSON.stringify(after));
      const cleanedSnap=await cmd('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
      writeFileSync(join(dir,c.name+'-cleaned.png'),Buffer.from(cleanedSnap.data,'base64'));
+     // Save via the actual modal button and write to real browser IndexedDB.
+     const saved=await run(`(async()=>{
+       [...document.querySelectorAll('button')].find(x=>x.textContent?.includes('添加至当前分类'))?.click();
+       for(let i=0;i<100;i++){
+         if(document.body.dataset.emojiStored)break;
+         await new Promise(r=>setTimeout(r,60));
+       }
+       return document.body.dataset.emojiStored ? JSON.parse(document.body.dataset.emojiStored) : null;
+     })()`);
+     console.log('EMOJI_DOCUMENT_SAVED '+c.name+' '+JSON.stringify(saved));
+     if(!saved || saved.count!==5 || !saved.categories.includes('qa-emoji-cat') ||
+        !saved.names.includes('Wordhappy') || !saved.names.includes('PDFhappy'))
+       errors.push(c.name+': IndexedDB save missing rows '+JSON.stringify(saved));
+     // Re-open the browser document (equivalent to leaving and re-entering chat).
+     await cmd('Page.reload',{ignoreCache:false});
+     let reopened=null;
+     for(let tries=0;tries<60;tries++){
+       try{
+         reopened=await run(`(async()=>{
+           const mod=await import('/utils/db.ts');
+           const all=await mod.DB.getEmojis();
+           return all.filter(e=>e.categoryId==='qa-emoji-cat').map(e=>({name:e.name,url:e.url}));
+         })()`);
+         if(Array.isArray(reopened)&&reopened.length===5)break;
+       }catch{}
+       await sleep(90);
+     }
+     console.log('EMOJI_DOCUMENT_REOPEN '+c.name+' '+JSON.stringify(reopened));
+     if(!Array.isArray(reopened)||reopened.length!==5||
+         !reopened.some(e=>e.name==='Wordhappy'&&e.url==='https://example.com/word.gif')||
+         !reopened.some(e=>e.name==='PDFhappy'&&e.url==='https://example.com/pdf.png'))
+       errors.push(c.name+': saved entries lost after navigation '+JSON.stringify(reopened));
+
    }
  }
  ws.close();
