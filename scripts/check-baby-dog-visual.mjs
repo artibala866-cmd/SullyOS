@@ -88,10 +88,10 @@ const inspectExpression = `(() => {
     mirrored: dog.dataset.mirrored === 'true',
     actualMirror: getComputedStyle(document.querySelector('.sully-lineart-flip')).transform,
     replacementVisible: !!svg,
-    closedEyes: svg?.querySelectorAll('g path').length ?? 0,
-    tongueShapes: document.querySelectorAll('.sully-lineart-tongue path').length,
+    closedEyes: Number(svg?.getAttribute('data-eye-count') || 0),
+    tongueShapes: document.querySelectorAll('.sully-lineart-tongue[data-textured="true"]').length,
     originalLipIntact: !!canvas && rgba[(330 * 512 + 263) * 4 + 3] >= 0,
-    stickerOutline: document.querySelectorAll('.sully-lineart-sticker ellipse').length,
+    stickerOutline: document.querySelectorAll('.sully-lineart-sticker[data-textured="true"]').length,
     stickerTransform: document.querySelector('.sully-lineart-sticker') ?
       getComputedStyle(document.querySelector('.sully-lineart-sticker')).transform : 'none',
     label: label.textContent,
@@ -139,8 +139,8 @@ try {
 
       const blink1 = await waitForState(page, s => s.expression === 'blink',
         'first squint with open mouth');
-      assert(blink1.replacementVisible && blink1.closedEyes === 2 && blink1.tongueShapes === 1 && blink1.stickerOutline === 1,
-        'Blink frame must hide only two original dots, retain original lip, and add one tongue + one sticker');
+      assert(blink1.replacementVisible && blink1.closedEyes === 2 && blink1.tongueShapes === 0 && blink1.stickerOutline === 1,
+        'Blink must replace only the eyes with rough ink, without a premature tongue');
       await page.shot('baby-dog-' + variant + '-blink.png');
 
       const openAgain = await waitForState(page,
@@ -155,13 +155,11 @@ try {
       assert(shout.closedEyes === 2 && shout.tongueShapes === 1);
       await page.shot('baby-dog-' + variant + '-squint.png');
 
-      const mirrored = await waitForState(page,
-        s => s.expression === 'squint' && s.mirrored,
-        'whole puppy mirrors horizontally');
-      const flipped = await waitForState(page,
-        s => s.mirrored && s.actualMirror.startsWith('matrix(-1'),
-        'visible CSS horizontal flip after its transition', 1800);
-      await page.shot('baby-dog-' + variant + '-flipped.png');
+      const tongue = await waitForState(page,
+        s => s.expression === 'tongue' && !s.mirrored,
+        'tongue-only beat with original eye dots');
+      assert(tongue.closedEyes === 0 && tongue.tongueShapes === 1 && !tongue.replacementVisible);
+      await page.shot('baby-dog-' + variant + '-tongue.png');
 
       const resumed = await waitForState(page,
         s => s.expression === 'normal' && !s.mirrored && !s.replacementVisible,
@@ -186,7 +184,7 @@ try {
       const small = await page.evaluate(inspectExpression);
       assert(small?.noOverflow && small.width <= 180, '320px overflow');
       await page.shot('baby-dog-' + variant + '-small.png');
-      console.log('PASS 8s reference timeline', variant, {first, blink1, shout, flipped, final, small});
+      console.log('PASS 3.9s rhythmic timeline', variant, {first, blink1, shout, tongue, final, small});
     } finally {
       page.socket.close();
     }
@@ -206,7 +204,7 @@ try {
       if (text.includes('已进入桌面')) { ended = true; break; }
       await pause(100);
     }
-    assert(ended, 'Data-ready boot must auto-exit after full 8s reference sequence');
+    assert(ended, 'Data-ready boot must auto-exit after 3.9s rhythmic sequence');
     console.log('PASS boot data-ready auto exit');
   } finally { automatic.socket.close(); }
 

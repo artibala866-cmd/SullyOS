@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
 import OriginalDogLineart from './OriginalDogLineart';
-import { getBabyDogFrame } from '../../utils/babyDogBootTimeline';
+import { BABY_DOG_DURATION_MS, getBabyDogFrame } from '../../utils/babyDogBootTimeline';
 
 // 纯白开屏：提取用户上传的宝宝狗原稿线条，参考视频做轻柔放大和五官动画。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
@@ -28,9 +28,10 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
   }, []);
   const reduced = useMemo(() => prefersReducedMotion(), []);
   const cinematic = firstThisSession && !reduced;
-  // 参考视频约 8.18 秒：先缩放、表情，再左右翻转、复原。轻触仍可跳过。
-  const HOLD = reduced ? 360 : 8200;
-  const EXIT = cinematic ? 380 : 220;
+  // 普通宝宝狗首屏 3.9 秒，重复进入只保留快速亮相；节日海报保留原停留时长。
+  // 数据未就绪仍等待数据，轻触跳过及低动态偏好继续有效。
+  const HOLD = showPoster ? 8200 : reduced ? 360 : cinematic ? BABY_DOG_DURATION_MS : 950;
+  const EXIT = cinematic ? 260 : 180;
   const [phase, setPhase] = useState<'enter' | 'exit'>('enter');
   const [videoFrame, setVideoFrame] = useState(() => getBabyDogFrame(0));
   const previousFrameRef = useRef(videoFrame);
