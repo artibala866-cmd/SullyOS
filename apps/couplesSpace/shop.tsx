@@ -85,6 +85,12 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
   const [issuedCardId, setIssuedCardId] = useState<string | null>(null);
   const [stampPreview, setStampPreview] = useState<Card | null>(null);
   const swipeX = useRef<number | null>(null);
+  const roomRef = useRef<HTMLDivElement | null>(null);
+  const scrollToCounter = () => roomRef.current?.closest('.couple-main')?.scrollTo({ top: 0, behavior: 'auto' });
+  const openArea = (next: keyof typeof tabs) => {
+    setTab(next); setDraft(undefined); setIssuedCardId(null); setActiveIndex(0); setBagIndex(0);
+    scrollToCounter();
+  };
   const activeCard = visibleCards[Math.min(activeIndex, Math.max(visibleCards.length - 1, 0))];
   const bagCards = cards.filter(card => (bond.bags[bagOwner][card.id] ?? 0) > 0);
   const selectedBagIndex = issuedCardId && bagOwner === 'me'
@@ -114,6 +120,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
       setBagIndex(0);
       setIssuedCardId(card.id);
       setTab('bag');
+      scrollToCounter();
       notify?.('已收入卡包');
     } finally { setCardMotion('none'); }
   });
@@ -160,7 +167,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     });
   };
 
-  return <div className="bond-ticket-room bond-ticket-room-v2" data-shop-view={tab}>
+  return <div ref={roomRef} className="bond-ticket-room bond-ticket-room-v2" data-shop-view={tab}>
     <div className="bond-ticket-top" aria-label="羁绊积分">
       <div className="bond-ticket-ledger">
         <div className="bond-ticket-ledger-main"><span>可用积分</span><strong>{bond.points.me}</strong></div>
@@ -173,8 +180,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     <nav className="bond-ticket-tabs" aria-label="羁绊商店区域">
       {Object.entries(tabs).map(([key,label])=>
         <button type="button" key={key} disabled={working||busy} aria-pressed={tab===key}
-          onClick={() => {setTab(key as keyof typeof tabs);setDraft(undefined);setActiveIndex(0);setBagIndex(0);setIssuedCardId(null);}}>
-          <span className="bond-ticket-tab-mark" aria-hidden="true">{({shop:'⌑',bag:'▣',tasks:'✓',grand:'✧'} as Record<string,string>)[key]}</span>
+          onClick={() => openArea(key as keyof typeof tabs)}>
           {label}
         </button>)}
     </nav>
@@ -268,8 +274,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
                 </div>
               </div>
               <div className="bond-ticket-tear-tab">
-                <span className="bond-ticket-tear-mark" aria-hidden="true">✳</span>
-                <span className="bond-ticket-tear-word">专属兑换券</span>
+                <span className="bond-ticket-tear-word">心意票根</span>
                 {manage?<div className="bond-ticket-pass-actions">
                   <button type="button" disabled={working||busy}
                     onClick={()=>apply(current=>({...current,hidden:current.hidden.includes(activeCard.id)
@@ -293,13 +298,13 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <div className="bond-ticket-navigator">
               <button type="button" aria-label="上一张卡券" disabled={working||busy||activeIndex<=0}
                 onClick={()=>shopMove(-1)}><span aria-hidden="true">‹</span></button>
-              <div className="bond-machine-dial" style={{'--ticket-turn':(activeIndex*24)+'deg','--ticket-counterturn':(-activeIndex*24)+'deg'} as React.CSSProperties} aria-hidden="true">
-                <div className="bond-machine-dial-inner"><span>{String(activeIndex+1).padStart(2,'0')}</span></div>
+              <div className="bond-machine-dial" aria-label={'第'+(activeIndex+1)+'张，共'+visibleCards.length+'张'}>
+                <span>{String(activeIndex+1).padStart(2,'0')}</span><i>/</i><span>{String(visibleCards.length).padStart(2,'0')}</span>
               </div>
               <button type="button" aria-label="下一张卡券" disabled={working||busy||activeIndex>=visibleCards.length-1}
                 onClick={()=>shopMove(1)}><span aria-hidden="true">›</span></button>
             </div>
-            <div className="bond-machine-footer" aria-hidden="true"><span>←</span><span>左右换券</span><span>→</span></div>
+            <div className="bond-machine-footer" aria-hidden="true"><span className="bond-machine-progress" style={{width:((activeIndex+1)/Math.max(1,visibleCards.length)*100)+'%'}} /></div>
           </div>
         </div>
       </div>:<div className="bond-ticket-empty">
@@ -321,7 +326,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
         <div className="bond-ticket-wallet-stitched" aria-hidden="true"/>
         {activeBagCard ? <div className="bond-ticket-wallet-contents">
           <div className="bond-ticket-wallet-pass" key={activeBagCard.id} data-stamped={stampedId===activeBagCard.id}>
-            <div className="bond-ticket-wallet-pass-head"><span>PRIVATE PASS</span><span>{activeBagCard.icon || '✧'}</span></div>
+            <div className="bond-ticket-wallet-pass-head"><span>羁绊收藏券</span><span>{activeBagCard.icon || '✧'}</span></div>
             <strong>{activeBagCard.name}</strong><p>{activeBagCard.effect}</p>
             <div className="bond-ticket-wallet-pass-rule" aria-hidden="true" />
             <div className="bond-ticket-wallet-pass-foot"><span>{stampedId===activeBagCard.id ? '已使用' : '库存 × '+(bond.bags[bagOwner][activeBagCard.id]??0)}</span>
@@ -338,8 +343,9 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             {bagCards.map((card,i)=><button key={card.id} type="button" aria-pressed={i===selectedBagIndex} onClick={()=>{setIssuedCardId(null);setBagIndex(i);}} title={card.name}>
               <span>{card.icon || '✧'}</span><small>{card.name}</small></button>)}
           </div>
-        </div> : <div className="bond-ticket-wallet-empty"><span aria-hidden="true">⌑</span><p>还没有收藏的票券</p>
-          <button type="button" onClick={() => { setTab('shop');setActiveIndex(0); }}>去选一张 ↗</button></div>}
+        </div> : <div className="bond-ticket-wallet-empty">
+          <div className="bond-ticket-wallet-blank" aria-hidden="true"><span>NO. 00</span><b>尚未收藏</b><i>✧</i></div>
+          <button type="button" onClick={() => openArea('shop')}>去选一张券 ↗</button></div>}
       </div>
       {bagOwner==='them' && <details className="bond-ticket-details">
         <summary>角色积分流水</summary><p>赚到 {rolePointStats(bond).earned} · 兑换支出 {rolePointStats(bond).spent} · 退回 {rolePointStats(bond).refunded}</p>
@@ -352,6 +358,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
 
     {tab === 'tasks' && <section className="bond-ticket-tasks">
       <header className="bond-ticket-section-head"><small>盖章领取</small><h3>今日任务票</h3></header>
+      <div className="bond-ticket-task-book">
       {[
         {id:'care:'+today,text:'今天照料盆栽',ready:bond.plant.careCount > 0 && [bond.plant.lastCaredAt??0,bond.plant.cycleWaters?bond.plant.watered:0,bond.plant.fertilized??0].some(t=>t>0&&dayKey(new Date(t))===today),amount:25},
         {id:'moment:'+today,text:'记录今天的牵绊时光',ready:bond.entries.some(item=>item.kind==='timeline'&&item.side==='me'&&item.date===today),amount:35},
@@ -364,11 +371,12 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
           aria-label={'领取'+task.text+'奖励'} onClick={()=>apply(current=>reward(current,task.id,task.amount))}>
           {bond.claims.includes(task.id)?'已盖章':task.ready?'盖章领取':'未完成'}</button>
       </article>)}
+      </div>
     </section>}
 
     {tab === 'grand' && <section className="bond-ticket-grand">
       <div className="bond-ticket-seal" aria-hidden="true">✧</div>
-      <span className="bond-ticket-grand-series">ONLY FOR US</span>
+      <span className="bond-ticket-grand-series">仅属于我们</span>
       <h3>终极大奖</h3>
       <p className="bond-ticket-grand-count"><strong>{bond.points.shared}</strong> / 3000</p>
       <div className="bond-ticket-grand-progress"><i style={{width:(Math.min(bond.points.shared/3000,1)*100)+'%'}} /></div>
