@@ -2318,6 +2318,17 @@ export interface StoryTheaterPresetDocument {
     sourceFormat?: 'sillytavern';
     /** 酒馆预设的合并连续 system 消息开关；原生预设默认不启用。 */
     squashSystemMessages?: boolean;
+    /** Chat Completion format templates are evaluated at runtime, not import time. */
+    tavernFormats?: {
+        worldInfo?: string;
+        scenario?: string;
+        personality?: string;
+        newChat?: string;
+        newExampleChat?: string;
+        continueNudge?: string;
+    };
+    /** Original scalar options from the source preset; preserved but not executed. */
+    tavernOptions?: Record<string, string | number | boolean | null>;
     importWarnings?: string[];
 }
 
