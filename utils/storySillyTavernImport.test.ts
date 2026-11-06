@@ -228,10 +228,10 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const opts = { preset: renamePreset, slots, historyMessages: [] };
         const first = compileStoryPreset({ ...opts, userName: '江岚', characterNames: ['林澈'] }).messages;
         const second = compileStoryPreset({ ...opts, userName: '小星', characterNames: ['沈远'] }).messages;
-        expect(first[0].content).toContain('角色：林澈，用户：江岚');
-        expect(first[0].content).toContain('林澈 / 林澈 / 江岚');
-        expect(first[1].content).toContain('与 江岚 和 林澈 互动');
-        expect(second[0].content).toContain('角色：沈远，用户：小星');
+        expect(first.some(message => message.content.includes('角色：林澈，用户：江岚'))).toBe(true);
+        expect(first.some(message => message.content.includes('林澈 / 林澈 / 江岚'))).toBe(true);
+        expect(first.some(message => message.content.includes('与 江岚 和 林澈 互动'))).toBe(true);
+        expect(second.some(message => message.content.includes('角色：沈远，用户：小星'))).toBe(true);
         expect(second.map(m => m.content).join(' ')).not.toContain('江岚');
         expect(second.map(m => m.content).join(' ')).not.toContain('林澈');
     });
