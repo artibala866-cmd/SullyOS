@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, DownloadSimple, LockSimple, UploadSimple, UserCircle } from '@phosphor-icons/react';
+import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
-import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, UserProfile } from '../../../types';
+import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile } from '../../../types';
 import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
@@ -17,11 +17,12 @@ interface Props {
     onEditPreset: (preset: StoryTheaterPreset, draft: StoryTheaterEntry) => void;
     onOpenMaskBox: (draft: StoryTheaterEntry) => void;
     onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>;
+    onCreateGreeting?: (characterId: string, title: string, content: string) => Promise<TavernOpeningGreeting>;
 }
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -33,19 +34,32 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const [greetingBusy, setGreetingBusy] = useState(false);
     const [greetingError, setGreetingError] = useState('');
     const [confirmGreetingDelete, setConfirmGreetingDelete] = useState(false);
+    const [createGreetingBusy, setCreateGreetingBusy] = useState(false);
+    const [createGreetingError, setCreateGreetingError] = useState('');
+    const [chooseGreetingActor, setChooseGreetingActor] = useState(false);
+    const [createTargetActor, setCreateTargetActor] = useState('');
+    const [recentGreeting, setRecentGreeting] = useState<(TavernOpeningGreeting & { characterId: string; characterName: string }) | null>(null);
+    const createGreetingLock = useRef(false);
     const fileInput = useRef<HTMLInputElement>(null);
     const titleInput = useRef<HTMLInputElement>(null);
     const greetingTextarea = useRef<HTMLTextAreaElement>(null);
     const castSection = useRef<HTMLElement>(null);
     const actors = useMemo(() => characters.filter(char => draft.characterIds.includes(char.id)), [characters, draft.characterIds]);
     const resolvedMask = useMemo(() => resolveStoryTheaterMask(draft.mask, user, characters, masks), [characters, draft.mask, masks, user]);
-    const greetingChoices = useMemo(() => actors.flatMap(actor =>
-        (Array.isArray(actor.tavernGreetings) ? actor.tavernGreetings : [])
-            .filter(greeting => greeting && typeof greeting.id === 'string'
-                && typeof greeting.title === 'string' && typeof greeting.content === 'string'
-                && greeting.content.trim())
-            .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...greeting })),
-    ), [actors]);
+    const greetingChoices = useMemo(() => {
+        const all = actors.flatMap(actor =>
+            (Array.isArray(actor.tavernGreetings) ? actor.tavernGreetings : [])
+                .filter(greeting => greeting && typeof greeting.id === 'string'
+                    && typeof greeting.title === 'string' && typeof greeting.content === 'string'
+                    && greeting.content.trim())
+                .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...greeting })),
+        );
+        if (recentGreeting && actors.some(actor => actor.id === recentGreeting.characterId)
+            && !all.some(item => item.characterId === recentGreeting.characterId && item.id === recentGreeting.id)) {
+            all.push(recentGreeting);
+        }
+        return all;
+    }, [actors, recentGreeting]);
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
     const storyFirst = !!draft.openingGreeting || draft.openingMode === 'assistant';
@@ -60,12 +74,68 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
             // A started story keeps the original link for provenance, even when
             // its character-card source is deleted; only new drafts clear it.
-            if (content === null && !maskLocked) update('openingGreeting', undefined);
+            if (content === null && !maskLocked) { update('openingGreeting', undefined); setShowOpeningInIntro(false); }
             setEditingGreeting(false);
             setConfirmGreetingDelete(false);
         } catch (error) {
             setGreetingError(error instanceof Error ? error.message : '开场白保存失败');
         } finally { greetingLock.current = false; setGreetingBusy(false); }
+    };
+    const createCustomGreeting = async (targetCharacterId?: string) => {
+        if (createGreetingLock.current || editingGreeting || confirmGreetingDelete || maskLocked) return;
+        const content = draft.premise.trim();
+        if (!content) {
+            setCreateGreetingError('先填写开场内容');
+            greetingTextarea.current?.focus();
+            return;
+        }
+        if (content.length > 200000) {
+            setCreateGreetingError('开场内容不能超过 20 万字');
+            return;
+        }
+        if (!actors.length) {
+            setCreateGreetingError('请先选择参与角色');
+            castSection.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+        if (actors.length > 1 && !targetCharacterId) {
+            setCreateTargetActor(actors[0].id);
+            setChooseGreetingActor(true);
+            setCreateGreetingError('');
+            return;
+        }
+        const actor = actors.find(item => item.id === (targetCharacterId || actors[0].id));
+        if (!actor) {
+            setCreateGreetingError('目标角色已变化，请重新选择');
+            return;
+        }
+        createGreetingLock.current = true;
+        setCreateGreetingBusy(true);
+        setCreateGreetingError('');
+        try {
+            if (!onCreateGreeting) throw new Error('开场库暂时不可用');
+            const firstLine = content.split(/\r?\n/).map(line => line.trim()).find(Boolean) || '';
+            const commentTitle = content.match(/<!--\s*title\s*[:：]\s*(.*?)\s*-->/i)?.[1]?.trim();
+            const title = (commentTitle || firstLine.replace(/^<!--.*?-->\s*/, '') || draft.title.trim() || '自定义开场').slice(0, 30);
+            const created = await onCreateGreeting(actor.id, title, content);
+            setRecentGreeting({ ...created, characterId: actor.id, characterName: actor.name });
+            setDraft(current => ({
+                ...current,
+                premise: current.premise.trim() === content ? '' : current.premise,
+                openingMode: 'assistant',
+                openingGreeting: { characterId: actor.id, greetingId: created.id },
+                updatedAt: Date.now(),
+            }));
+            setShowOpeningInIntro(true);
+            setChooseGreetingActor(false);
+            setCreateTargetActor('');
+            setSaveError('');
+        } catch (error) {
+            setCreateGreetingError(error instanceof Error ? error.message : '保存开场失败，请重试');
+        } finally {
+            createGreetingLock.current = false;
+            setCreateGreetingBusy(false);
+        }
     };
     const memoryParticipants = useMemo(() => {
         const participantIds = new Set(draft.characterIds);
@@ -108,7 +178,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     }, [actors, books, draft, effectivePreset, resolvedMask]);
     const save = async () => {
         if (saveLock.current) return;
-        if (greetingLock.current) {
+        if (greetingLock.current || createGreetingLock.current) {
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
         }
