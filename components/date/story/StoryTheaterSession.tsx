@@ -707,7 +707,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const history = current.filter(message => message.id !== userMessageId && message.id !== rerollTarget?.id);
-            const visibleHistory = history.filter(message => !mirrorArchived(message, promptEntry));
+            const visibleHistory = history.filter(message => !mirrorArchived(message, promptEntry))
+                .map(message => message.metadata?.theaterOpeningGreeting
+                    ? { ...message, content: tavernOpeningSceneText(message.content) }
+                    : message);
 
             const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
                 buildActorContexts(modelText),
