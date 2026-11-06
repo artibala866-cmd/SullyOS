@@ -365,8 +365,8 @@
     height: 25px;
   }
   .date-session-root.date-session-keyboard-open .date-session-dialogue-position {
-    inset: 27px max(8px, env(safe-area-inset-right, 0px)) auto auto;
-    width: min(41%, 480px);
+    inset: 27px max(136px, 18%) auto auto;
+    width: min(21%, 220px);
     max-height: none;
     align-items: stretch;
   }
