@@ -44,6 +44,25 @@ describe('剧情重写上下文和保存', () => {
         expect((await DB.getMessageById(foreignId))?.content).toBe('旧回复');
         expect((await DB.getMessageById(old.id))?.content).toBe('旧回复');
     });
+    it('已选的卡片开场首幕不可被普通 AI 重写覆盖，其他回复仍可重写', async () => {
+        const theaterId = 'reroll-fixed-opening';
+        const id = await DB.saveStoryTheaterTurn({
+            charId: `story-theater:${theaterId}`, role: 'assistant', type: 'text',
+            content: '原角色卡开场，不应被重新生成',
+            timestamp: 1770000000000,
+            metadata: { source: 'story_theater', theaterId,
+                theaterOpeningGreeting: { characterId: 'role-a', greetingId: 'opening-a' } },
+        }, () => []);
+        const original = (await DB.getMessageById(id))!;
+        await expect(replaceStoryTheaterReply(original, '错误的新开场', {}))
+            .rejects.toThrow('不能重新生成');
+        expect((await DB.getMessageById(id))?.content).toBe(original.content);
+        // A stale caller without the metadata cannot bypass the stored protection.
+        const stale = { ...original, metadata: { ...original.metadata, theaterOpeningGreeting: undefined } };
+        await expect(replaceStoryTheaterReply(stale, '错误的新开场', {}))
+            .rejects.toThrow('已被修改');
+        expect((await DB.getMessageById(id))?.content).toBe(original.content);
+    });
     it('任意镜像在请求期间被编辑，整个事务回滚保留用户修改和原正文', async () => {
         const old = await seed('reroll-conflict');
         const mirrorId = Number((old.metadata?.theaterMirrorIds as Record<string, number>)[old.charId + '-actor']);

@@ -17,6 +17,9 @@ export async function replaceStoryTheaterReply(original: Message, content: strin
         || !original.metadata.theaterId || original.charId !== `story-theater:${original.metadata.theaterId}`) {
         throw new Error('当前消息不是有效的剧情正文，拒绝修改角色记录');
     }
+    if (original.metadata.theaterOpeningGreeting) {
+        throw new Error('选定的开场内容不能重新生成；如需修改，请编辑这一层');
+    }
     const mirrorEntries = Object.entries((original.metadata.theaterMirrorIds || {}) as Record<string, number>);
     const expectedById = new Map<number, string>();
     for (const [charId, id] of mirrorEntries) {
@@ -47,7 +50,8 @@ export async function replaceStoryTheaterReply(original: Message, content: strin
                         && current?.metadata?.source === 'story_theater_memory'
                         && current?.metadata?.theaterId === original.metadata?.theaterId
                         && current?.metadata?.theaterCentralId === original.id;
-                if (!current || !validIdentity || current.content !== original.content) {
+                if (!current || !validIdentity || current.content !== original.content
+                    || (id === original.id && !!current.metadata?.theaterOpeningGreeting)) {
                     failure = new Error('剧情正文或角色镜像已被修改、删除或引用错误，已保留原数据，请刷新后重试');
                     transaction.abort();
                     return;
