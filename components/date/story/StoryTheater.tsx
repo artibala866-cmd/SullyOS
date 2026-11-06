@@ -12,7 +12,6 @@ import {
     downloadStoryPreset,
     normalizeStoryTheater,
     resolveStoryOpeningGreeting,
-    createStoryTheaterMirrorMessage,
     storyTheaterMemoryRecipientIds,
     parseStoryTheaterPreset,
     dedupeTheaterWorldbooks,
@@ -28,6 +27,7 @@ import StoryVectorMemoryPanel from './StoryVectorMemoryPanel';
 import StoryArchivePanel from './StoryArchivePanel';
 import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheaterTheme';
 import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
+import { deleteUnusedStoryMask, saveStoryWithOpening } from '../../../utils/storyTheaterPersistence';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -78,29 +78,12 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         const identity = resolveStoryTheaterMask(normalized.mask, userProfile, characters, masks).name;
         const opening = resolveStoryOpeningGreeting(normalized, characters, identity);
         if (normalized.openingGreeting && !opening) throw new Error('所选开场白已不存在，或角色已移出剧情，请重新选择');
-        await DB.saveStoryTheater(normalized);
-        if (opening) {
-            const oldMessages = await DB.getMessagesByCharId(storyTheaterThreadId(normalized.id), true);
-            // 只在空白剧情插入一次；修改或删除素材不会改写已有历史。
-            if (!oldMessages.some(message => message.metadata?.source === 'story_theater')) {
-                const now = Date.now();
-                const recipients = new Set(storyTheaterMemoryRecipientIds(normalized));
-                await DB.saveStoryTheaterTurn(
-                    {
-                        charId: storyTheaterThreadId(normalized.id), role: 'assistant', type: 'text',
-                        content: opening.content, timestamp: now,
-                        metadata: { source: 'story_theater', theaterId: normalized.id,
-                            theaterOpeningGreeting: { characterId: opening.characterId, greetingId: opening.greetingId } },
-                    },
-                    centralId => normalized.writesToCharacterMemory
-                        ? characters.filter(character => recipients.has(character.id)).map(character =>
-                            createStoryTheaterMirrorMessage(normalized, character.id, {
-                                id: centralId, role: 'assistant', content: opening.content, timestamp: now,
-                            }))
-                        : [],
-                );
-            }
+        const requiredRecipients = storyTheaterMemoryRecipientIds(normalized);
+        const availableRecipients = requiredRecipients.filter(id => characters.some(character => character.id === id));
+        if (normalized.writesToCharacterMemory && requiredRecipients.length !== availableRecipients.length) {
+            throw new Error('有参与角色已不存在，无法安全保存角色记忆；请重新选择角色');
         }
+        await saveStoryWithOpening(normalized, opening, availableRecipients);
         setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
         setActiveEntry(normalized);
         setView('session');
@@ -157,10 +140,17 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     }, [addToast]);
 
     const deleteMask = useCallback(async (mask: StoryTheaterMask) => {
-        await DB.deleteStoryTheaterMask(mask.id);
+        // The saved-story reference check and deletion must share a transaction.
+        // Otherwise a deleted mask silently changes the identity of an old story.
+        await deleteUnusedStoryMask(mask.id);
         setMasks(current => current.filter(item => item.id !== mask.id));
         if (activeEntry?.mask?.type === 'custom' && activeEntry.mask.id === mask.id) {
-            setActiveEntry({ ...activeEntry, mask: { type: 'user' }, updatedAt: Date.now() });
+            // Only an unsaved draft can still reference this mask after the
+            // transactional check; do not manufacture an unsaved replacement for
+            // an already-started story.
+            setActiveEntry(current => current?.mask?.type === 'custom' && current.mask.id === mask.id
+                ? { ...current, mask: { type: 'user' }, updatedAt: Date.now() }
+                : current);
         }
         addToast('原创身份已移出面具箱', 'info');
     }, [activeEntry, addToast]);
