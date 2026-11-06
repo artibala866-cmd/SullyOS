@@ -131,6 +131,7 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
         expect(first[0].content).toContain('旅行者在旧桥边等用户');
         await unmount();
         await mount();
+        await act(async()=>{await new Promise(resolve=>setTimeout(resolve,40));});
         const card=[...host!.querySelectorAll('button')].find(b=>b.querySelector('h3')?.textContent?.trim()==='用户自写首幕原子检查');
         expect(card).toBeTruthy();
         await act(async()=>card!.click());
