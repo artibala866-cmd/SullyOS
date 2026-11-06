@@ -61,18 +61,34 @@ it('原表情导入对话框中额外提供独立文件按钮，识别后追加�
     expect(container.querySelector('[role="status"]')?.textContent).toContain('忽略 1 行');
 });
 
-it('多文件中有损坏格式时不写入半批内容，允许再次选择文件', async () => {
+it('多文件中某个文件损坏时保留其余成功内容，并明确列出失败文件', async () => {
     vi.mocked(importEmojiDocument)
         .mockResolvedValueOnce({
             name: 'a.txt', entries: [{ name: 'A', url: 'https://example.com/a.png' }],
-            text: 'A--https://example.com/a.png', ignoredLines: 0,
+            text: 'A--https://example.com/a.png', ignoredLines: 0, suspiciousLines: [],
         })
         .mockRejectedValueOnce(new Error('PDF 没有可提取的文字'));
     await render();
     await pickFiles([new File(['a'], 'a.txt'), new File(['b'], 'b.pdf')]);
-    expect(append).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="status"]')?.textContent).toContain('PDF 没有可提取的文字');
+    expect(append).toHaveBeenCalledWith('A--https://example.com/a.png');
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('1/2 个文件');
+    expect(container.querySelector('details')?.textContent).toContain('b.pdf');
+    expect(container.querySelector('details')?.textContent).toContain('PDF 没有可提取的文字');
     expect(container.querySelector('button')?.hasAttribute('disabled')).toBe(false);
+});
+
+it('含有网址但未识别的文档，会显示具体可排查的漏项示例', async () => {
+    vi.mocked(importEmojiDocument).mockResolvedValueOnce({
+        name: '混合.docx',
+        entries: [{ name: '开心', url: 'https://example.com/a.png' }],
+        text: '开心--https://example.com/a.png',
+        ignoredLines: 2,
+        suspiciousLines: ['https://example.com/orphan.png'],
+    });
+    await render();
+    await pickFiles([new File(['a'], '混合.docx')]);
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('含链接但未识别');
+    expect(container.querySelector('details')?.textContent).toContain('orphan.png');
 });
 
 it('关闭入口后不让前一次异步文件读取改写正在使用的表情库', async () => {
