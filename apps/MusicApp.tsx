@@ -407,7 +407,7 @@ const MusicApp: React.FC = () => {
       </div>
       <SearchBar value={keyword} onChange={setKeyword} onSearch={doSearch} searching={searching} />
       </>}
-      <div className="flex gap-1 px-4 pt-1 pb-2 relative z-10 overflow-x-auto text-[12px] shizuku-scrollbar" role="tablist" aria-label="音乐分类">
+      <div className="music-category-tabs flex gap-1 px-4 pt-1 pb-2 relative z-10 overflow-x-auto text-[12px]" role="tablist" aria-label="音乐分类">
         {([
           ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
           ['dateBgm', '见面 BGM'], ['history', '播放历史'],

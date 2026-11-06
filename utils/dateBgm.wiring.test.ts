@@ -14,6 +14,9 @@ describe('Meet BGM wired into real music and encounter entry', () => {
     expect(music).toContain('加入见面 BGM');
     expect(panel).toContain('onAdd(active.id, song)');
     expect(panel).toContain('checked={checked}');
+    expect(panel).toContain('return <React.Fragment key={pl.id}><button');
+    expect(panel).toContain('{chosen && active && <section');
+    expect(music).toContain('music-category-tabs');
   });
   it('starts only at encounter session entry and silently skips unconfigured playlists', () => {
     expect(date).toContain('const list = findCharacterDateBgm(musicLibrary, target.id);');

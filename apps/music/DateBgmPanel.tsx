@@ -64,7 +64,6 @@ export const DateBgmPanel: React.FC<Props> = ({
         style={{ background: '#e8e7e5', color: C.text }}><MusicNotes size={24} weight="light" /></div>
       <div className="flex-1">
         <h2 className="font-semibold text-[17px] tracking-[-0.03em]" style={{ color: C.text }}>见面背景音</h2>
-        <p className="text-[11px] leading-5 mt-1" style={{ color: C.muted }}>独立的剧情歌单 · 绑定角色后，正式进入见面自动播放</p>
       </div>
       <span className="text-[11px] shrink-0" style={{ color: C.muted }}>{lists.length} 个歌单</span>
     </header>
@@ -83,7 +82,6 @@ export const DateBgmPanel: React.FC<Props> = ({
       style={{ border: '1px dashed #d8d7d5', color: C.muted }}>
       <MusicNotes size={28} className="mx-auto" weight="thin" />
       <p className="text-[13px]">还没有见面专属歌单</p>
-      <p className="text-[11px]">新建后选择角色，再放入喜欢的音乐</p>
     </div>}
 
     {lists.length > 0 && <div className="space-y-2">
@@ -91,7 +89,7 @@ export const DateBgmPanel: React.FC<Props> = ({
         const chosen = activeId === pl.id;
         const isPlaying = !!current && playing && pl.songs.some(s => sameMusic(s, current));
         const boundNames = characters.filter(c => pl.characterIds.includes(c.id)).map(c => c.name);
-        return <button key={pl.id} type="button" aria-expanded={chosen}
+        return <React.Fragment key={pl.id}><button type="button" aria-expanded={chosen}
           aria-label={`配置见面 BGM 歌单《${pl.name}》`} onClick={() => { setActiveId(chosen ? null : pl.id); setAdding(false); setEditingName(null); setConfirmDelete(null); setCharQuery(''); }}
           className="music-tap w-full flex items-center gap-3 px-3 py-3 rounded-[18px] text-left"
           style={{ background: chosen ? '#eae9e7' : '#fff', border: chosen ? '1px solid #a8a7a3' : '1px solid #ebebe9' }}>
@@ -105,11 +103,8 @@ export const DateBgmPanel: React.FC<Props> = ({
             <p className="text-[11px] mt-1 truncate" style={{ color: C.muted }}>{pl.songs.length} 首 · {boundNames.length ? boundNames.join('、') : '尚未绑定角色'}</p>
           </div>
           {chosen ? <CaretUp size={18} color={C.muted} /> : <CaretDown size={18} color={C.muted} />}
-        </button>;
-      })}
-    </div>}
-
-    {active && <section className="rounded-[20px] p-4 space-y-5" style={{ background: '#fff', border: '1px solid #ecebe8' }}>
+        </button>
+        {chosen && active && <section className="rounded-[20px] p-4 space-y-5" style={{ background: '#fff', border: '1px solid #ecebe8' }}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[13px] font-semibold truncate" style={{ color: C.text }}>歌单设置 · {active.name}</h3>
         <div className="flex gap-1 shrink-0">
@@ -140,7 +135,7 @@ export const DateBgmPanel: React.FC<Props> = ({
         <div className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: C.text }}>
           <UserCircle size={18} /> 绑定见面角色 <span className="font-normal" style={{ color: C.muted }}>· 可多选</span>
         </div>
-        <p className="text-[11px] leading-5" style={{ color: C.muted }}>这里使用「见面」中的同一批角色。一个角色仅绑定一份 BGM 歌单，改绑会自动解除旧绑定。</p>
+        <p className="text-[11px] leading-5" style={{ color: C.muted }}>每个角色只绑定一个歌单</p>
         <input type="search" aria-label="搜索绑定的见面角色" placeholder="查找角色…"
           value={charQuery} onChange={e => setCharQuery(e.target.value)}
           className="w-full rounded-xl bg-neutral-100 px-3 py-2.5 outline-none text-xs" />
@@ -166,7 +161,7 @@ export const DateBgmPanel: React.FC<Props> = ({
           <button type="button" className="music-tap text-[11px] px-3 py-2 rounded-full" style={{ background: C.soft }}
             onClick={() => { setAdding(x => !x); setTrackQuery(''); }}>{adding ? '收起选曲' : '+ 添加音乐'}</button>
         </div>
-        {!active.songs.length && <p className="text-[11px] py-4 text-center" style={{ color: C.muted }}>尚未选音乐，见面时保持原样，不会自动播放或报错。</p>}
+        {!active.songs.length && <p className="text-[11px] py-4 text-center" style={{ color: C.muted }}>未添加歌曲</p>}
         {active.songs.map((song, i) => <div key={musicKey(song)} className="flex items-center gap-2 py-2 border-b border-neutral-100">
           <button type="button" className="music-tap flex-1 min-w-0 text-left" onClick={() => onPlay(song, active.songs, i)}>
             <span className="text-[12px] font-medium truncate block" style={{ color: C.text }}>{i + 1}. {song.name}</span>
@@ -195,5 +190,9 @@ export const DateBgmPanel: React.FC<Props> = ({
         </div>}
       </div>
     </section>}
+        </React.Fragment>;
+      })}
+    </div>}
+
   </div>;
 };

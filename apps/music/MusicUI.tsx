@@ -35,6 +35,8 @@ const injectStyles = () => {
 @keyframes music-panel-arrive{from{opacity:.55;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes music-equalizer{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 .music-panel-enter{animation:music-panel-arrive .18s ease-out both}
+.music-category-tabs{scrollbar-width:none;-ms-overflow-style:none}
+.music-category-tabs::-webkit-scrollbar{display:none}
 .music-tap{touch-action:manipulation;transition:background-color .15s ease,color .15s ease,opacity .15s ease}
 .music-editorial-shell{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Noto Sans SC",sans-serif;color:#171717}
 .music-editorial-shell ::selection{background:#171717;color:#fff}

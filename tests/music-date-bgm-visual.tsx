@@ -103,10 +103,11 @@ const run=async()=>{
     click(findButton('夜色'),'choose song');
     await wait(160);
   }
-  // Capture the actual tab scroll position showing the selected playlist configuration.
+  // Keep the chosen card visible while showing the detail immediately below it.
   const expanded=host.querySelector<HTMLElement>('section');
-  if(expanded && scenario!=='empty'){
-    expanded.scrollIntoView({block:'start',behavior:'instant'});
+  const selectedCard=host.querySelector<HTMLButtonElement>('button[aria-label^="配置见面 BGM 歌单"][aria-expanded="true"]');
+  if(selectedCard && scenario!=='empty'){
+    selectedCard.scrollIntoView({block:'start',behavior:'instant'});
     await wait(130);
   }
   const panel=host.querySelector<HTMLElement>('[data-music-date-bgm]');
@@ -124,12 +125,13 @@ const run=async()=>{
     addSection:!!addSection,overflow,
     box:[Math.round(box.width),Math.round(box.height)],
     panel:[Math.round(rect?.left||0),Math.round(rect?.width||0)],
+    detailFollowsSelectedCard:!!selectedCard && selectedCard.nextElementSibling===expanded,
     text:panel?.textContent?.slice(0,350)||'',
   };
   const pass=report.hasPanel&&report.tabActive==='见面 BGM'&&!overflow
     &&(scenario==='empty'?report.cards===0&&report.text.includes('还没有见面专属歌单')
-      :scenario==='create'?report.cards===1&&report.boundFirst.includes('meet-one')&&report.songCount===1
-      :scenario==='many'?report.cards===6&&report.expanded:report.cards===2&&report.expanded);
+      :scenario==='create'?report.cards===1&&report.boundFirst.includes('meet-one')&&report.songCount===1&&report.detailFollowsSelectedCard
+      :scenario==='many'?report.cards===6&&report.expanded&&report.detailFollowsSelectedCard:report.cards===2&&report.expanded&&report.detailFollowsSelectedCard);
   document.body.dataset.meetBgmReady=String(pass);
   const output=document.createElement('output');output.id='meet-bgm-visual-report';output.hidden=true;
   output.textContent=JSON.stringify(report);document.body.append(output);
