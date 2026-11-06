@@ -1,0 +1,87 @@
+name: Anniversary monochrome mobile screenshot QA
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/couplesSpace/records.tsx'
+      - 'apps/couplesSpace/anniversaryAesthetic.css'
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'tests/couples-anniversary-visual.*'
+      - '.github/workflows/couples-anniversary-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couple-anniversary-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate couple records and production bundle
+        run: |
+          pnpm exec vitest run utils/couplesSpace.test.ts
+          pnpm exec vite build
+      - name: Type-check affected components
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false >/tmp/anniv-tsc.log 2>&1 || true
+          grep -E '^(apps/couplesSpace/records\.tsx|tests/couples-anniversary-visual\.tsx)[(]' /tmp/anniv-tsc.log >/tmp/anniv-target-errors.txt || true
+          if test -s /tmp/anniv-target-errors.txt; then cat /tmp/anniv-target-errors.txt; exit 1; fi
+      - name: Install Chinese fonts and Chrome
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Screenshot real anniversary component at mobile sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/anniv-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 65); do
+            if curl -fsS http://127.0.0.1:5173/tests/couples-anniversary-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          mkdir -p anniversary-screenshots
+          for size in 320x740 390x844 430x940; do
+            width="${size%x*}"; height="${size#*x}"
+            for state in empty populated long editor detail no-avatar; do
+              url="http://127.0.0.1:5173/tests/couples-anniversary-visual.html?state=$state"
+              "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+                --window-size="$width,$height" --force-device-scale-factor=1 \
+                --virtual-time-budget=4500 --dump-dom "$url" >"/tmp/anniv-$size-$state.html" 2>/tmp/anniv-chrome.log
+              grep -q 'data-ready="true"' "/tmp/anniv-$size-$state.html" || { tail -40 /tmp/anniv-vite.log; exit 1; }
+              grep -q 'data-overflow="false"' "/tmp/anniv-$size-$state.html" || { echo "Horizontal overflow: $size $state"; exit 1; }
+              if [[ "$state" == "editor" ]]; then
+                grep -q 'data-editor="true"' "/tmp/anniv-$size-$state.html" || { echo "Editor not opened: $size"; exit 1; }
+              fi
+              if [[ "$state" == "detail" ]]; then
+                grep -q 'data-detail="true"' "/tmp/anniv-$size-$state.html" || { echo "Detail not opened: $size"; exit 1; }
+              fi
+              "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+                --window-size="$width,$height" --force-device-scale-factor=1 --virtual-time-budget=4500 \
+                --screenshot="$GITHUB_WORKSPACE/anniversary-screenshots/$size-$state.png" "$url"
+              test -s "anniversary-screenshots/$size-$state.png"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: anniversary-mobile-screenshots
+          path: anniversary-screenshots/
+          if-no-files-found: warn
+          retention-days: 14
