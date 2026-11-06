@@ -180,8 +180,16 @@ function splitDelimitedRow(line: string, delimiter: string): string[] {
     return fields;
 }
 
-const isValidPair = (name: string, url: string): EmojiImportEntry | null =>
-    parseEmojiImportLine(name + '--' + url);
+const isValidPair = (name: string, url: string): EmojiImportEntry | null => {
+    const label = name.trim();
+    const target = url.trim();
+    if (!label || !target || label.length > 200) return null;
+    // Validate the URL independently. Parsing "label--name：URL" as a whole
+    // previously treated a document heading as part of the sticker name.
+    const probe = parseEmojiImportLine('__emoji_url_probe__--' + target);
+    return probe?.name === '__emoji_url_probe__' && probe.url === target
+        ? { name: label, url: target } : null;
+};
 
 function readCandidate(line: string): EmojiImportEntry | null {
     const trimmed = line.trim()
