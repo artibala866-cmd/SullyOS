@@ -87,6 +87,12 @@ jobs:
               --screenshot="$GITHUB_WORKSPACE/bond-ticket-screenshots/$state-320.png" "$url"
             test -s "bond-ticket-screenshots/$state-320.png"
           done
+          for state in shop bag; do
+            echo "TICKET_SCREENSHOT_BEGIN_${state}_320"
+            base64 -w 0 "bond-ticket-screenshots/${state}-320.png"
+            echo
+            echo "TICKET_SCREENSHOT_END_${state}_320"
+          done
           for state in shop next empty bag bag-empty tasks grand editor exchange play; do
             echo "TICKET_SCREENSHOT_BEGIN_$state"
             base64 -w 0 "bond-ticket-screenshots/$state.png"
