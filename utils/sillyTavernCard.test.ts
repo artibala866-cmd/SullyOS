@@ -340,7 +340,9 @@ describe('Deep audit: real-world card compatibility', () => {
             [{ content: '这里提到词条7，也有次要词' }])).toBe(true);
         expect(isWorldbookEntryActive(result.worldbooks[7],
             [{ content: '这里没有对应触发词' }])).toBe(false);
-        expect(JSON.stringify(result.character)).not.toContain('必须被忽略');
+        expect(result.character.tavernGreetings?.[0]?.content).toBe('必须被忽略的开场白');
+        expect(result.character.systemPrompt).not.toContain('必须被忽略');
+        expect(JSON.stringify(result.character)).not.toContain('必须被忽略的酒馆系统指令');
         expect(JSON.stringify(result.character)).not.toContain('不准导入');
         expect(result.warnings.length).toBeLessThan(7);
     });
