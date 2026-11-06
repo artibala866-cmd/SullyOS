@@ -102,6 +102,8 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     if (value.top_k > 0 || value.top_a > 0 || value.min_p > 0 || (typeof value.repetition_penalty === 'number' && value.repetition_penalty !== 1)) {
         warnings.push('top_k / top_a / min_p / repetition_penalty 等模型采样字段无原生等价参数，未强制应用');
     }
+    if (Number(value.openai_max_tokens) > 32000) warnings.push('酒馆最大输出 tokens 超过糯米机当前 32000 上限，已按原生范围适配');
+    if (prompts.some(prompt => prompt.enabled && prompt.marker === 'examples')) warnings.push('对话示例占位已保留；当前剧情角色资料没有独立示例字段时，该槽位不发送内容');
     if (prompts.some(prompt => prompt.marker === 'characters')) warnings.push('酒馆角色描述与性格槽位合并使用糯米机的完整角色资料，避免重复发送');
 
     return {
