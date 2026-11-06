@@ -11,6 +11,9 @@ import {
     createStoryTheaterDraft,
     downloadStoryPreset,
     normalizeStoryTheater,
+    resolveStoryOpeningGreeting,
+    createStoryTheaterMirrorMessage,
+    storyTheaterMemoryRecipientIds,
     parseStoryTheaterPreset,
     dedupeTheaterWorldbooks,
     resolveStoryTheaterMask,
@@ -34,7 +37,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, userProfile, addToast, remoteVectorConfig } = useOS();
+    const { characters, userProfile, addToast, remoteVectorConfig, updateCharacter } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -72,11 +75,49 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const saveEntry = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
+        const identity = resolveStoryTheaterMask(normalized.mask, userProfile, characters, masks).name;
+        const opening = resolveStoryOpeningGreeting(normalized, characters, identity);
+        if (normalized.openingGreeting && !opening) throw new Error('所选开场白已不存在，或角色已移出剧情，请重新选择');
         await DB.saveStoryTheater(normalized);
+        if (opening) {
+            const oldMessages = await DB.getMessagesByCharId(storyTheaterThreadId(normalized.id), true);
+            // 只在空白剧情插入一次；修改或删除素材不会改写已有历史。
+            if (!oldMessages.some(message => message.metadata?.source === 'story_theater')) {
+                const now = Date.now();
+                const recipients = new Set(storyTheaterMemoryRecipientIds(normalized));
+                await DB.saveStoryTheaterTurn(
+                    {
+                        charId: storyTheaterThreadId(normalized.id), role: 'assistant', type: 'text',
+                        content: opening.content, timestamp: now,
+                        metadata: { source: 'story_theater', theaterId: normalized.id,
+                            theaterOpeningGreeting: { characterId: opening.characterId, greetingId: opening.greetingId } },
+                    },
+                    centralId => normalized.writesToCharacterMemory
+                        ? characters.filter(character => recipients.has(character.id)).map(character =>
+                            createStoryTheaterMirrorMessage(normalized, character.id, {
+                                id: centralId, role: 'assistant', content: opening.content, timestamp: now,
+                            }))
+                        : [],
+                );
+            }
+        }
         setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
         setActiveEntry(normalized);
         setView('session');
-    }, []);
+    }, [characters, masks, userProfile]);
+
+    const changeGreeting = useCallback(async (characterId: string, greetingId: string, content: string | null) => {
+        const latest = await DB.getCharacter(characterId);
+        if (!latest) throw new Error('角色已不存在，无法修改开场白');
+        const greetings = latest.tavernGreetings || [];
+        if (!greetings.some(greeting => greeting.id === greetingId)) throw new Error('开场白已不存在，请重新选择');
+        if (content !== null && (!content.trim() || content.length > 200000)) throw new Error('开场白正文不能为空或超过 20 万字');
+        const next = content === null
+            ? greetings.filter(greeting => greeting.id !== greetingId)
+            : greetings.map(greeting => greeting.id === greetingId ? { ...greeting, content: content.trim() } : greeting);
+        await DB.saveCharacter({ ...latest, tavernGreetings: next });
+        updateCharacter(characterId, { tavernGreetings: next });
+    }, [updateCharacter]);
 
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
@@ -212,6 +253,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         presets={presets}
         onCancel={() => setView(entries.some(item => item.id === activeEntry.id) ? 'session' : 'list')}
         onSave={saveEntry}
+        onChangeGreeting={changeGreeting}
         onImportPreset={importPreset}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}

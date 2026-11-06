@@ -1,4 +1,4 @@
-import type { CharacterProfile, Worldbook } from '../types';
+import type { CharacterProfile, TavernOpeningGreeting, Worldbook } from '../types';
 import type { CharacterImageProfile } from './characterImageProfile';
 import { stripSensitiveCardFields } from './characterCard';
 import { isPng, pngHasShare, readShareText } from './pngShare';
@@ -55,6 +55,24 @@ const normalizeMacros = (value: string, warnings: string[]): string => {
             warnings.push('部分酒馆专属变量无法解析，已转为普通说明文本');
         }
         return '[未兼容变量：' + macro.trim().slice(0, 60) + ']';
+    });
+};
+
+const MAX_GREETING_COUNT = 100;
+const normalizeTavernGreetings = (data: Record<string, any>, warnings: string[]): TavernOpeningGreeting[] => {
+    if (data.first_mes != null && typeof data.first_mes !== 'string') throw new Error('酒馆卡默认开场白格式无效');
+    if (data.alternate_greetings != null && !Array.isArray(data.alternate_greetings)) throw new Error('酒馆卡备选开场白格式无效');
+    const alternatives: unknown[] = data.alternate_greetings || [];
+    if (alternatives.length > MAX_GREETING_COUNT - 1) throw new Error('酒馆卡开场白超过 100 条');
+    const entries = [
+        { id: 'tavern-first', title: '默认开场白', content: data.first_mes },
+        ...alternatives.map((content, index) => ({ id: `tavern-alt-${index + 1}`, title: `备选开场白 ${index + 1}`, content })),
+    ];
+    return entries.flatMap(entry => {
+        if (entry.content != null && typeof entry.content !== 'string') throw new Error(`${entry.title}不是有效文本`);
+        const value = text(entry.content);
+        if (value.length > MAX_ENTRY_TEXT) throw new Error(`${entry.title}超过文本长度限制`);
+        return value ? [{ id: entry.id, title: entry.title, content: normalizeMacros(value, warnings) }] : [];
     });
 };
 
@@ -199,6 +217,17 @@ const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
         } as Worldbook;
     });
     const { mountedWorldbooks: _discardMounts, id: _discardId, ...fields } = safe;
+    if (safe.tavernGreetings != null) {
+        if (!Array.isArray(safe.tavernGreetings) || safe.tavernGreetings.length > MAX_GREETING_COUNT) throw new Error('原生角色卡开场白结构无效');
+        const identifiers = new Set<string>();
+        fields.tavernGreetings = safe.tavernGreetings.map((greeting, index) => {
+            if (!object(greeting) || typeof greeting.id !== 'string' || !greeting.id.trim() ||
+                typeof greeting.content !== 'string' || greeting.content.length > MAX_ENTRY_TEXT ||
+                identifiers.has(greeting.id)) throw new Error(`原生角色卡第 ${index + 1} 条开场白无效`);
+            identifiers.add(greeting.id);
+            return { id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content };
+        }).filter(greeting => greeting.content.trim());
+    }
     return {
         source: 'sully', character: {
             ...fields, name, description: text(safe.description), systemPrompt: text(safe.systemPrompt),
@@ -251,6 +280,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     ].filter(Boolean).join('\n\n');
     const book = data.character_book;
     const worldbooks = normalizeWorldbooks(book, name, warnings);
+    const tavernGreetings = normalizeTavernGreetings(data, warnings);
     if (!description.trim() && !personality && !worldview && worldbooks.length === 0) {
         throw new Error('角色卡只有姓名，没有可导入的人设或世界书');
     }
@@ -259,7 +289,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     }
     return {
         source,
-        character: { name, avatar: safeInlineAvatar(data.avatar), description, systemPrompt, worldview },
+        character: { name, avatar: safeInlineAvatar(data.avatar), description, systemPrompt, worldview, tavernGreetings },
         worldbooks, avatarFile: null, warnings: [...new Set(warnings)],
     };
 };

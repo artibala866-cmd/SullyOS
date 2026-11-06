@@ -2248,6 +2248,8 @@ export interface StoryTheaterEntry {
     id: string;
     title: string;
     premise: string;
+    /** 剧情首次开始时选用的酒馆卡开场白；只保存角色与开场白 ID，不修改其它剧情。 */
+    openingGreeting?: { characterId: string; greetingId: string };
     /** 谁写下本剧情第一段：用户当前身份或模型故事正文。 */
     openingMode?: 'user' | 'assistant';
     /** 本剧情中用户执笔的身份；缺省时使用真实用户档案。 */
@@ -2760,7 +2762,16 @@ export interface ChatBlockState {
   history?: ChatBlockEvent[];
 }
 
+/** 酒馆角色卡的默认/备选开场白；只作为可选剧情素材保存，不自动注入私聊。 */
+export interface TavernOpeningGreeting {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export interface CharacterProfile {
+  /** 导入的酒馆卡开场白，可在剧情中选择、编辑或删除。 */
+  tavernGreetings?: TavernOpeningGreeting[];
   /** 旧版接话秒数，仅为备份兼容保留，不参与当前自动回复；后续迁移不得将旧存档当作新授权。 */
   realPersonReplyRhythm?: Partial<Record<
     'normal' | 'conversation' | 'occupied' | 'waiting',

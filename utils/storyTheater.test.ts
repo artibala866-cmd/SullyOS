@@ -40,6 +40,7 @@ import {
     RELATIONSHIP_TEXTURE_GUIDE,
     resolveStoryPresetDocument,
     resolveStoryTheaterMask,
+    resolveStoryOpeningGreeting,
     selectStoryArchiveBatch,
     storyTheaterMemoryRecipientIds,
     formatActorRecentMessages,
@@ -713,5 +714,28 @@ describe('本轮关系备注', () => {
         expect(reconciled).toContain('<c_to_u_score>71</c_to_u_score>');
         expect(reconciled).toContain('<u_to_c_score>80</u_to_c_score>');
         expect(reconciled).toContain('<u_to_c_delta>+0</u_to_c_delta>');
+    });
+});
+
+describe('剧情首幕与酒馆开场白绑定', () => {
+    const actor = { id: 'actor-1', name: '林澈', tavernGreetings: [
+        { id: 'tavern-first', title: '默认开场白', content: '{{char}}在雨里等{{user}}。' },
+        { id: 'tavern-alt-1', title: '备选开场白 1', content: '备用场景' },
+    ] } as CharacterProfile;
+    it('只选参与角色的指定开场白，替换角色与用户宏', () => {
+        const entry = { ...createStoryTheaterDraft(1), characterIds: [actor.id],
+            openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' } };
+        expect(resolveStoryOpeningGreeting(entry, [actor], '阿宁')).toEqual({
+            characterId: actor.id, greetingId: 'tavern-first', content: '林澈在雨里等阿宁。',
+        });
+        expect(resolveStoryOpeningGreeting({ ...entry, openingGreeting: { characterId: actor.id, greetingId: 'tavern-alt-1' } }, [actor], '阿宁')?.content).toBe('备用场景');
+    });
+    it('无选项、已删除开场白或演员退出剧情时不把开场白混入其它剧情', () => {
+        const entry = { ...createStoryTheaterDraft(1), characterIds: [actor.id],
+            openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' } };
+        expect(resolveStoryOpeningGreeting(entry, [], '阿宁')).toBeNull();
+        expect(resolveStoryOpeningGreeting({ ...entry, openingGreeting: { characterId: actor.id, greetingId: 'missing' } }, [actor], '阿宁')).toBeNull();
+        expect(resolveStoryOpeningGreeting({ ...entry, characterIds: [] }, [actor], '阿宁')).toBeNull();
+        expect(normalizeStoryTheater({ ...entry, characterIds: [] }).openingGreeting).toBeUndefined();
     });
 });

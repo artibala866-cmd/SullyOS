@@ -207,6 +207,11 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         title: String(entry.title || '未命名剧情'),
         premise: String(entry.premise || ''),
         openingMode: entry.openingMode === 'assistant' ? 'assistant' : 'user',
+        openingGreeting: entry.openingGreeting && typeof entry.openingGreeting.characterId === 'string'
+            && typeof entry.openingGreeting.greetingId === 'string'
+            && Array.isArray(entry.characterIds) && entry.characterIds.includes(entry.openingGreeting.characterId)
+            ? { characterId: entry.openingGreeting.characterId, greetingId: entry.openingGreeting.greetingId }
+            : undefined,
         mask: entry.writesToCharacterMemory ? { type: 'user' } : entry.mask?.type === 'character' && entry.mask.id
             ? { type: 'character', id: entry.mask.id }
             : entry.mask?.type === 'custom' && entry.mask.id
@@ -701,6 +706,24 @@ const macroReplace = (text: string, userName: string, characterNames: string[]):
     .replace(/\{\{user\}\}/gi, userName || '你')
     .replace(/\{\{char\}\}/gi, characterNames.join('、') || '角色')
     .replace(/\{\{group\}\}/gi, characterNames.join('、') || '角色');
+
+/** 仅在尚无剧情正文时使用：把选中的酒馆开场白转成真实的首条角色消息。 */
+export const resolveStoryOpeningGreeting = (
+    entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
+    characters: CharacterProfile[],
+    identityName: string,
+): { characterId: string; greetingId: string; content: string } | null => {
+    const selection = entry.openingGreeting;
+    if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
+    const actor = characters.find(character => character.id === selection.characterId);
+    const greeting = actor?.tavernGreetings?.find(item => item.id === selection.greetingId);
+    if (!actor || !greeting?.content?.trim()) return null;
+    return {
+        characterId: actor.id,
+        greetingId: greeting.id,
+        content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
+    };
+};
 
 export const STORY_MINI_THEATER_PROMPT_IDS = [
     'nmj-v3-theater-ai',
