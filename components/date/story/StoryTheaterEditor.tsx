@@ -3,6 +3,7 @@ import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGa
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile } from '../../../types';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
+import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
 import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
@@ -39,7 +40,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const [createGreetingError, setCreateGreetingError] = useState('');
     const [chooseGreetingActor, setChooseGreetingActor] = useState(false);
     const [createTargetActor, setCreateTargetActor] = useState('');
-    const [recentGreeting, setRecentGreeting] = useState<(TavernOpeningGreeting & { characterId: string; characterName: string }) | null>(null);
+    const [recentGreeting, setRecentGreeting] = useState<(StoryOpeningChoice & { characterId: string; characterName: string }) | null>(null);
     const createGreetingLock = useRef(false);
     // Keep the authored scene recoverable if the user changes their mind after
     // bookmarking it. Persisted stories still store the scene only once.
@@ -52,12 +53,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const resolvedMask = useMemo(() => resolveStoryTheaterMask(draft.mask, user, characters, masks), [characters, draft.mask, masks, user]);
     const greetingChoices = useMemo(() => {
         const all = actors.flatMap(actor =>
-            (Array.isArray(actor.tavernGreetings) ? actor.tavernGreetings : [])
-                .filter(greeting => greeting && typeof greeting.id === 'string'
-                    && typeof greeting.title === 'string' && typeof greeting.content === 'string'
-                    && greeting.content.trim())
-                .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...adaptTavernOpeningGreeting(greeting) }))
-                .filter(greeting => greeting.content.trim()),
+            listCharacterStoryOpenings(actor).map(greeting => ({
+                characterId: actor.id, characterName: actor.name, ...greeting,
+            })),
         );
         if (recentGreeting && actors.some(actor => actor.id === recentGreeting.characterId)) {
             const index = all.findIndex(item => item.characterId === recentGreeting.characterId && item.id === recentGreeting.id);
@@ -69,10 +67,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     useEffect(() => {
         if (!recentGreeting) return;
         const actor = actors.find(item => item.id === recentGreeting.characterId);
-        const fresh = actor?.tavernGreetings?.find(item => item.id === recentGreeting.id);
+        const fresh = actor ? listCharacterStoryOpenings(actor)
+            .find(item => item.id === recentGreeting.id) : undefined;
         // Stop overriding the canonical character card as soon as the OS
         // state catches up with the already-committed IndexedDB write.
-        if (fresh && adaptTavernOpeningGreeting(fresh).content === recentGreeting.content) {
+        if (fresh && fresh.content === recentGreeting.content) {
             setRecentGreeting(null);
         }
     }, [actors, recentGreeting]);
@@ -158,7 +157,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             const title = (adapted.title || firstLine || draft.title.trim() || '自定义开场').slice(0, 30);
             const created = await onCreateGreeting(actor.id, title, content);
             promotedPremise.current = { characterId: actor.id, greetingId: created.id, content: created.content };
-            setRecentGreeting({ ...created, characterId: actor.id, characterName: actor.name });
+            setRecentGreeting({ ...created, source: 'custom', characterId: actor.id, characterName: actor.name });
             setDraft(current => ({
                 ...current,
                 premise: current.premise.trim() === content ? '' : current.premise,
@@ -371,7 +370,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         <option value=''>{actors.length === 0 ? '先选择参与角色'
                             : greetingChoices.length === 0 ? '暂无可选开场'
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
-                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
+                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>[{item.source === 'link' ? 'Link' : item.source === 'custom' ? '自定义' : '酒馆'}] {item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
                     </select>
                     {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>也可在上方写好正文，点书签存为开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
