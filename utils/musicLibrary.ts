@@ -13,10 +13,20 @@ export interface LocalMusicPlaylist {
   createdAt: number;
   updatedAt: number;
 }
+export interface DateBgmPlaylist {
+  id: string;
+  name: string;
+  songs: Song[];
+  characterIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
 export interface PlayedMusic { song: Song; playedAt: number; }
 export interface GuestMusicLibrary {
   likes: Song[];
   playlists: LocalMusicPlaylist[];
+  /** Independent Meet BGM playlists; missing on old library backups. */
+  dateBgmPlaylists?: DateBgmPlaylist[];
   history: PlayedMusic[];
 }
 
@@ -118,12 +128,24 @@ export const validateGuestMusicLibraryBackup = (value: unknown): GuestMusicLibra
       p.songs.length <= 500 && p.songs.every(checkSong) &&
       Number.isFinite(p.createdAt) && Number.isFinite(p.updatedAt)
   )) throw new Error('备份中的本地歌单信息损坏');
+  if (record.dateBgmPlaylists !== undefined && (
+      !Array.isArray(record.dateBgmPlaylists) || record.dateBgmPlaylists.length > 80 ||
+      !record.dateBgmPlaylists.every((p: any) =>
+        p && typeof p.id === 'string' && !!p.id &&
+        typeof p.name === 'string' && !!p.name.trim() &&
+        Array.isArray(p.characterIds) && p.characterIds.length <= 200 &&
+        p.characterIds.every((id: unknown) => typeof id === 'string' && !!id) &&
+        new Set(p.characterIds).size === p.characterIds.length &&
+        Array.isArray(p.songs) && p.songs.length <= 500 && p.songs.every(checkSong) &&
+        Number.isFinite(p.createdAt) && Number.isFinite(p.updatedAt))
+  )) throw new Error('备份中的见面 BGM 歌单信息损坏');
   if (!record.history.every((h: any) =>
       h && checkSong(h.song) && Number.isFinite(h.playedAt)
   )) throw new Error('备份中的播放历史信息损坏');
   return {
     likes: record.likes,
     playlists: record.playlists as LocalMusicPlaylist[],
+    ...(record.dateBgmPlaylists !== undefined ? { dateBgmPlaylists: record.dateBgmPlaylists as DateBgmPlaylist[] } : {}),
     history: record.history as PlayedMusic[],
   };
 };
@@ -136,6 +158,11 @@ export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
       if (value && typeof value === 'object') return {
         likes: Array.isArray(value.likes) ? value.likes.filter(validSong).slice(0, 1000) : [],
         playlists: Array.isArray(value.playlists) ? value.playlists.filter((p: any) => p && typeof p.id === 'string' && Array.isArray(p.songs)).map((p: any) => ({ ...p, songs: p.songs.filter(validSong) })).slice(0, 80) : [],
+        ...(Array.isArray(value.dateBgmPlaylists) ? { dateBgmPlaylists: value.dateBgmPlaylists
+          .filter((p: any) => p && typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.songs) && Array.isArray(p.characterIds))
+          .map((p: any) => ({ ...p, songs: p.songs.filter(validSong).slice(0, 500),
+            characterIds: [...new Set<string>(p.characterIds.filter((id: unknown) => typeof id === 'string' && !!id))].slice(0, 200) }))
+          .slice(0, 80) } : {}),
         history: Array.isArray(value.history) ? value.history.filter((r: any) => r && validSong(r.song) && Number.isFinite(r.playedAt)).slice(0, 150) : [],
       };
     }
@@ -153,7 +180,9 @@ export const loadGuestMusicLibrary = (): GuestMusicLibrary => {
  * Never silently truncate user-created playlists on persistence. */
 export const persistGuestMusicLibrary = (library: GuestMusicLibrary): boolean => {
   if (library.likes.length > 1000 || library.playlists.length > 80 ||
-      library.history.length > 150 || library.playlists.some(p => p.songs.length > 500)) return false;
+      library.history.length > 150 || library.playlists.some(p => p.songs.length > 500) ||
+      (library.dateBgmPlaylists?.length || 0) > 80 ||
+      library.dateBgmPlaylists?.some(p => p.songs.length > 500 || p.characterIds.length > 200)) return false;
   try {
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
     return true;

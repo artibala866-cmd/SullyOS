@@ -14,6 +14,7 @@ import React, {
 import { cachedCall as _cachedCall, invalidate as _invalidateCache, clearAll as _clearAllCache } from '../utils/musicCache';
 import { actualMusicQualityLabel, gdMusicBitrate, guestMusicErrorText, readTencentLyrics, retryGuestMusicOnce, neteaseGuestCircuit, validateNeteaseGuestStatus } from '../utils/musicSourceHealth';
 import { getGuestMusicCover } from '../utils/musicArtwork';
+import { createDateBgmList, renameDateBgmList, deleteDateBgmList, bindDateBgmCharacter, addDateBgmSong, removeDateBgmSong, moveDateBgmSong } from '../utils/dateBgm';
 import { DB } from '../utils/db';
 import type { CharPlaylistSong } from '../types';
 import { findPendingMusicInvite, canJoinMusicWithoutPendingInvite, announceMusicInviteDbChanged, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId, MUSIC_LISTEN_SESSION_CHANGED_KEY, announceMusicListenSessionChanged } from '../utils/musicInviteStatus';
@@ -588,6 +589,13 @@ interface MusicContextType {
   addSongToPlaylist: (id: string, song: Song) => boolean;
   removeSongFromPlaylist: (id: string, key: string) => void;
   movePlaylistSong: (id: string, from: number, to: number) => void;
+  createDateBgmPlaylist: (name: string) => boolean;
+  renameDateBgmPlaylist: (id: string, name: string) => boolean;
+  deleteDateBgmPlaylist: (id: string) => boolean;
+  bindDateBgmCharacter: (id: string, charId: string, enabled: boolean) => boolean;
+  addSongToDateBgm: (id: string, song: Song) => boolean;
+  removeSongFromDateBgm: (id: string, key: string) => boolean;
+  moveDateBgmTrack: (id: string, from: number, to: number) => boolean;
   addToQueue: (song: Song) => void;
   moveQueueSong: (from: number, to: number) => void;
   removeQueueSong: (index: number) => void;
@@ -911,6 +919,38 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ...p, songs, updatedAt: Date.now() };
     }) }));
   }, [updateLibrary]);
+
+  // 独立见面 BGM 歌单；沿用本地音乐库的原子保存和备份机制。
+  const createDateBgmPlaylist = useCallback((name: string): boolean => {
+    if (!name.trim()) return false;
+    const id = `date-bgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return updateLibrary(old => createDateBgmList(old, name, id, Date.now()) ?? old);
+  }, [updateLibrary]);
+  const renameDateBgmPlaylist = useCallback((id: string, name: string): boolean =>
+    updateLibrary(old => renameDateBgmList(old, id, name) ?? old), [updateLibrary]);
+  const deleteDateBgmPlaylist = useCallback((id: string): boolean =>
+    updateLibrary(old => deleteDateBgmList(old, id) ?? old), [updateLibrary]);
+  const setDateBgmBinding = useCallback((id: string, charId: string, enabled: boolean): boolean => {
+    const list = (libraryRef.current.dateBgmPlaylists || []).find(p => p.id === id);
+    if (!list) return false;
+    if (enabled && list.characterIds.includes(charId)) return true;
+    if (enabled && list.characterIds.length >= 200) {
+      toast('这个见面 BGM 歌单绑定角色已达上限', 'error');
+      return false;
+    }
+    return updateLibrary(old => bindDateBgmCharacter(old, id, charId, enabled) ?? old);
+  }, [toast, updateLibrary]);
+  const addSongToDateBgm = useCallback((id: string, song: Song): boolean => {
+    const list = (libraryRef.current.dateBgmPlaylists || []).find(p => p.id === id);
+    if (!list) return false;
+    if (list.songs.some(s => sameMusic(s, song))) return true;
+    if (list.songs.length >= 500) { toast('这个见面 BGM 歌单已满', 'error'); return false; }
+    return updateLibrary(old => addDateBgmSong(old, id, song) ?? old);
+  }, [toast, updateLibrary]);
+  const removeSongFromDateBgm = useCallback((id: string, key: string): boolean =>
+    updateLibrary(old => removeDateBgmSong(old, id, key) ?? old), [updateLibrary]);
+  const moveDateBgmTrack = useCallback((id: string, from: number, to: number): boolean =>
+    updateLibrary(old => moveDateBgmSong(old, id, from, to) ?? old), [updateLibrary]);
 
   // 喜欢列表
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set());
@@ -1994,6 +2034,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     cfg, setCfg, effectiveWorkerUrl,
     library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
+    createDateBgmPlaylist, renameDateBgmPlaylist, deleteDateBgmPlaylist, bindDateBgmCharacter: setDateBgmBinding,
+    addSongToDateBgm, removeSongFromDateBgm, moveDateBgmTrack,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     queue, setQueue, idx, current,
     playing, progress, duration, loadingSong, actualQualityLabel, lyricMessage,
