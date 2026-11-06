@@ -20,8 +20,28 @@ export async function saveStoryWithOpening(
     recipientIds: string[],
 ): Promise<void> {
     if (!opening) {
-        await DB.saveStoryTheater(entry);
-        return;
+        // Even a story without a greeting must not revive a deleted custom mask.
+        if (entry.mask?.type !== 'custom') {
+            await DB.saveStoryTheater(entry);
+            return;
+        }
+        const db = await openDB();
+        const tx = db.transaction(['story_theaters', 'story_theater_masks'], 'readwrite');
+        return new Promise<void>((resolve, reject) => {
+            let failure: unknown;
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(failure || tx.error || new Error('剧情保存失败'));
+            tx.onabort = () => reject(failure || tx.error || new Error('剧情保存已取消'));
+            const request = tx.objectStore('story_theater_masks').get(entry.mask!.type === 'custom' ? entry.mask!.id : '');
+            request.onsuccess = () => {
+                if (!request.result) {
+                    failure = new Error('剧情使用的原创身份已不存在，请重新选择身份');
+                    try { tx.abort(); } catch { /* already aborted */ }
+                    return;
+                }
+                tx.objectStore('story_theaters').put(entry);
+            };
+        });
     }
     if (!opening.content.trim() || !entry.characterIds.includes(opening.characterId)) {
         throw new Error('所选剧情开场白已失效，请重新选择');
@@ -31,14 +51,14 @@ export async function saveStoryWithOpening(
         throw new Error('真实陪伴剧情没有可写入记忆的角色，请重新选择参与角色');
     }
     const db = await openDB();
-    for (const store of ['story_theaters', 'messages', 'assets']) {
+    for (const store of ['story_theaters', 'messages', 'assets', 'story_theater_masks']) {
         if (!db.objectStoreNames.contains(store)) {
             throw new Error('剧情本地数据库尚未完成升级，请关闭旧标签页后重试，切勿清空数据');
         }
     }
     const threadId = storyTheaterThreadId(entry.id);
     return new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(['story_theaters', 'messages', 'assets'], 'readwrite');
+        const tx = db.transaction(['story_theaters', 'messages', 'assets', 'story_theater_masks'], 'readwrite');
         const stories = tx.objectStore('story_theaters');
         const messages = tx.objectStore('messages');
         const assets = tx.objectStore('assets');
@@ -72,8 +92,9 @@ export async function saveStoryWithOpening(
             };
         };
 
-        const request = messages.index('charId').getAll(IDBKeyRange.only(threadId));
-        request.onsuccess = () => {
+        const saveOpening = () => {
+            const request = messages.index('charId').getAll(IDBKeyRange.only(threadId));
+            request.onsuccess = () => {
             try {
                 const existing = (request.result as Message[]).some(
                     message => message.metadata?.source === 'story_theater',
@@ -129,7 +150,20 @@ export async function saveStoryWithOpening(
                     } catch (error) { abort(error); }
                 };
             } catch (error) { abort(error); }
+            };
         };
+        if (entry.mask?.type === 'custom') {
+            const maskRequest = tx.objectStore('story_theater_masks').get(entry.mask.id);
+            maskRequest.onsuccess = () => {
+                if (!maskRequest.result) {
+                    abort(new Error('剧情使用的原创身份已不存在，请重新选择身份'));
+                    return;
+                }
+                saveOpening();
+            };
+        } else {
+            saveOpening();
+        }
     });
 }
 
