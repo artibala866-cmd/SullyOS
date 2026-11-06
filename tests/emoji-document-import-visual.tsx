@@ -51,7 +51,7 @@ async function exercise() {
             if(input)break;
             await new Promise(r=>setTimeout(r,60));
         }
-        if(!input)throw new Error('The actual emoji file chooser did not render');
+        if(!input)throw new Error('The actual emoji file chooser did not render; errors=' + JSON.stringify(observations) + '; DOM=' + (document.body?.innerText || '').slice(0,1300));
         const file=new File([
             '来源说明：示例文档\n',
             '开心：https://example.com/a.gif\n',
