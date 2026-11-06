@@ -318,6 +318,45 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(messages).toEqual(['本轮启用：<rule>跟随上下文自然推进</rule>']);
     });
 
+    it('纯文本 Chat Completion 缺少 prompt_order 仍保留开关与文本', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'intro', role: 'system', content: '<instructions>只按当前背景续写</instructions>' },
+                { identifier: 'off', role: 'system', enabled: false, content: '明确关闭的旧规则' },
+                { identifier: 'notes', role: 'assistant', content: '无需名称宏的纯文字' },
+            ],
+        }), '纯文本预设.json');
+        expect(imported.document.prompts.map(prompt => prompt.enabled)).toEqual([true, false, true]);
+        expect(imported.document.importWarnings?.join('')).toContain('没有 prompt_order');
+        const content = compileStoryPreset({ preset: imported, slots: { ...slots, worldBefore: '' },
+            userName: '用户', characterNames: ['角色'] }).messages.map(m => m.content).join('\n');
+        expect(content).toContain('<instructions>只按当前背景续写</instructions>');
+        expect(content).toContain('无需名称宏的纯文字');
+        expect(content).not.toContain('明确关闭的旧规则');
+    });
+
+    it('识别没有 marker:true 的标准空白占位和字符串型聊天深度', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'charDescription', role: 'system', content: '' },
+                { identifier: 'chatHistory', role: 'system', content: '' },
+                { identifier: 'scenario', role: 'system', content: '自定义原文，不是占位' },
+                { identifier: 'deep', role: 'user', content: '历史内指令', injection_position: '1', injection_depth: 1 },
+            ],
+            prompt_order: [{ character_id: 100000, order: ['charDescription', 'chatHistory', 'scenario', 'deep']
+                .map(identifier => ({ identifier, enabled: true })) }],
+        }), '旧版预设.json');
+        expect(imported.document.prompts[0].marker).toBe('characters');
+        expect(imported.document.prompts[1].marker).toBe('history');
+        expect(imported.document.prompts[2].marker).toBeUndefined();
+        expect(imported.document.prompts[3].injection?.depth).toBe(1);
+        const result = compileStoryPreset({ preset: imported, slots: { ...slots, worldBefore: '' },
+            historyMessages: [{ role: 'user', content: '旧输入' }],
+            userName: '用户', characterNames: ['角色'] });
+        expect(result.messages.some(m => m.content === '自定义原文，不是占位')).toBe(true);
+        expect(result.messages.some(m => m.content === '全部角色卡')).toBe(true);
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
