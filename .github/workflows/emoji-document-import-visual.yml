@@ -1,0 +1,57 @@
+name: Emoji document import real mobile screenshots
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - .github/workflows/emoji-document-import-visual.yml
+      - tests/emoji-document-import-visual.*
+      - scripts/emoji-document-import-visual.mjs
+      - components/chat/EmojiDocumentFilePicker.tsx
+      - components/chat/ChatModals.tsx
+      - utils/emojiDocumentImport.ts
+      - utils/emojiImport.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-dialog-mobile-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chinese fonts and Chromium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Actual ChatModals with file upload in 320px, 390px and landscape
+        shell: bash
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/emoji-docs-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/emoji-document-import-visual.html'
+          for i in $(seq 1 80); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          node scripts/emoji-document-import-visual.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: actual-chat-emoji-document-import-mobile-screenshots
+          path: emoji-document-visual-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
