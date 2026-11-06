@@ -311,7 +311,7 @@
 /* Keyboard overlays only the usable controls, not the entire visual-novel
    stage. Its dimensions are measured in DateSession against visualViewport.
    This deliberately overrides the normal landscape 'height: 100%' shrink. */
-.date-session-root.date-session-keyboard-open .date-session-sprite-stage {
+.date-session-root.date-session-keyboard-open > .date-session-sprite-stage {
   top: 0;
   bottom: auto;
   height: var(--date-scene-height);
@@ -337,7 +337,7 @@
 /* Landscape phone keyboard: show a correctly sized *crop of the character*,
    not a miniature of the whole character. The 3 compact rows fit above IME. */
 @media (orientation: landscape) and (min-width: 600px) and (max-height: 760px) {
-  .date-session-root.date-session-keyboard-open .date-session-sprite-stage {
+  .date-session-root.date-session-keyboard-open > .date-session-sprite-stage {
     inset: 0 auto auto max(0px, env(safe-area-inset-left, 0px));
     width: 56%;
     height: var(--date-scene-height);
@@ -345,7 +345,7 @@
     justify-content: center;
     padding-top: 3px;
   }
-  .date-session-root.date-session-keyboard-open .date-session-sprite-stage > img {
+  .date-session-root.date-session-keyboard-open > .date-session-sprite-stage > img {
     max-height: 96%;
     max-width: 100%;
   }
