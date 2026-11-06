@@ -357,6 +357,19 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
         assistantPrefill: String(value.assistantPrefill || ''),
         ...(value.sourceFormat === 'sillytavern' ? { sourceFormat: 'sillytavern' as const } : {}),
         ...(value.squashSystemMessages === true ? { squashSystemMessages: true } : {}),
+        ...(value.sourceFormat === 'sillytavern' && value.tavernFormats && typeof value.tavernFormats === 'object'
+            ? { tavernFormats: Object.fromEntries(
+                ['worldInfo', 'scenario', 'personality', 'newChat', 'newExampleChat', 'continueNudge']
+                    .filter(key => typeof value.tavernFormats[key] === 'string')
+                    .map(key => [key, String(value.tavernFormats[key]).slice(0, 65536)]),
+            ) } : {}),
+        ...(value.sourceFormat === 'sillytavern' && value.tavernOptions && typeof value.tavernOptions === 'object'
+            && !Array.isArray(value.tavernOptions) ? { tavernOptions: Object.fromEntries(
+                Object.entries(value.tavernOptions)
+                    .filter(([key, option]) => key !== 'extensions' && key !== 'prompts' && key !== 'prompt_order'
+                        && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
+                        && (typeof option !== 'string' || option.length <= 65536)),
+            ) } : {}),
         ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
     };
 };
