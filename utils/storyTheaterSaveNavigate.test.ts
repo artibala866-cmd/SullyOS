@@ -6,10 +6,10 @@ import { DB } from './db';
 import StoryTheater from '../components/date/story/StoryTheater';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-const actor = { id: 'full-flow-actor', name: '旅行者', avatar: '', mountedWorldbooks: [], memories: [], systemPrompt: '普通角色' };
+const actor = { id: 'full-flow-actor', name: '旅行者', avatar: '', mountedWorldbooks: [], memories: [], systemPrompt: '普通角色', tavernGreetings: [] as { id: string; title: string; content: string }[] };
 const toast = vi.fn();
 vi.mock('../context/OSContext', () => ({
-    useOS: () => ({ characters: [actor], userProfile: { name: '用户' }, addToast: toast, remoteVectorConfig: {} }),
+    useOS: () => ({ characters: [actor], userProfile: { name: '用户' }, addToast: toast, remoteVectorConfig: {}, updateCharacter: (_id: string, changes: any) => Object.assign(actor, changes) }),
 }));
 vi.mock('../components/os/TokenImg', () => ({ default: () => null }));
 vi.mock('../components/date/story/StoryTheaterTheme', () => ({
@@ -47,6 +47,37 @@ async function setTitle(title: string) {
     expect(input.value).toBe(title);
 }
 describe('见面剧情从点击到真实数据库持久化，再次进入的完整闭环', () => {
+    it('自写开场不依赖导入，落入角色数据库后重启仍可作为已有开场选择', async () => {
+        actor.tavernGreetings = [];
+        await DB.saveCharacter(actor as any);
+        await mount();
+        const create = host!.querySelector('button[aria-label="新建剧情"]') as HTMLButtonElement;
+        await act(async () => create.click());
+        await setTitle('用户自己写开场');
+        await tap('旅行者');
+        const textarea = host!.querySelector('textarea[aria-label="剧情介绍"]') as HTMLTextAreaElement;
+        expect(textarea).toBeTruthy();
+        await act(async () => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+            setter.call(textarea, '雨后的小巷里，有人正等着我。');
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        const bookmark = host!.querySelector<HTMLButtonElement>('button[aria-label="收藏为可选开场"]')!;
+        expect(bookmark?.disabled).toBe(false);
+        await act(async () => bookmark.click());
+        const persisted = await DB.getCharacter(actor.id);
+        expect(persisted?.tavernGreetings?.length).toBe(1);
+        expect(persisted?.tavernGreetings?.[0].content).toBe('雨后的小巷里，有人正等着我。');
+        expect((host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement).value)
+            .toBe(`${actor.id}::${persisted!.tavernGreetings![0].id}`);
+        await unmount();
+        await mount();
+        await act(async () => (host!.querySelector('button[aria-label="新建剧情"]') as HTMLButtonElement).click());
+        await tap('旅行者');
+        const choice = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        expect(choice.textContent).toContain('雨后的小巷里');
+        expect(choice.querySelector('option[value$="' + persisted!.tavernGreetings![0].id + '"]')).toBeTruthy();
+    });
     it('不要求隐藏开关，填写标题和选择角色后进入会话，退出重启仍能打开原剧情', async () => {
         await mount();
         const newStory = host!.querySelector('button[aria-label="新建剧情"]') as HTMLButtonElement;
