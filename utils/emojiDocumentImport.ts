@@ -228,7 +228,8 @@ export function reuniteWrappedImageUrls(text: string): string {
         const previous = merged[merged.length - 1] || '';
         const endsWithLink = /https?:\/\/\S+$/i.test(previous);
         const alreadyComplete = /https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(previous);
-        const nextIsUrlTail = /^(?:[.?&#/]\S+|[^\s]+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?)$/i.test(current);
+        const nextIsUrlTail = /^(?:[.?&#/]\S+|[^\s]+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?)$/i.test(current)
+            || (previous.endsWith('.') && /^(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(current));
         if (endsWithLink && !alreadyComplete && nextIsUrlTail) {
             merged[merged.length - 1] = previous + current;
         } else merged.push(part);
