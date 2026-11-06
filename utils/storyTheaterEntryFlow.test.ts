@@ -178,6 +178,43 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(save).toHaveBeenCalledTimes(1);
         await act(async () => { release(); await gate; });
     });
+    it('剧情已开场后不再允许增删参与角色，避免破坏开场关联与历史', async () => {
+        const actorB = { ...actor, id: 'entry-flow-b', name: '角色乙' };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({
+            ...createStoryTheaterDraft(), title: '已开场剧情', characterIds: [actor.id],
+            openingMode: 'assistant', openingGreeting: { characterId: actor.id, greetingId: 'first' },
+            openingGreetingInitialized: true,
+        }, [actor, actorB], save, undefined, true);
+        const buttons = [...host!.querySelectorAll('button')];
+        const first = buttons.find(button => button.textContent?.trim() === '角色甲');
+        const second = buttons.find(button => button.textContent?.trim() === '角色乙');
+        expect(first?.disabled).toBe(true);
+        expect(second?.disabled).toBe(true);
+        await act(async () => { first!.click(); second!.click(); });
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].characterIds).toEqual([actor.id]);
+        expect(save.mock.calls[0][0].openingGreeting).toEqual({
+            characterId: actor.id, greetingId: 'first',
+        });
+    });
+    it('编辑器里移除提供开场白的角色时，清理悬空引用且不重复开场', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'first', title: '开场一', content: '晚风吹过' },
+        ] };
+        const actorB = { ...actor, id: 'entry-flow-b2', name: '角色乙' };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({
+            ...createStoryTheaterDraft(), title: '移除开场角色',
+            characterIds: [actor.id, actorB.id], openingMode: 'assistant',
+            openingGreeting: { characterId: actor.id, greetingId: 'first' },
+        }, [greetingActor, actorB], save);
+        await clickButton('角色甲');
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].characterIds).toEqual([actorB.id]);
+        expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+        expect(save.mock.calls[0][0].openingMode).toBe('assistant');
+    });
     it('没有任何角色时，不丢草稿，明确告知必须先建立角色', async () => {
         await render({ ...createStoryTheaterDraft(), title: '无角色' }, []);
         await clickButton('保存并进入');
