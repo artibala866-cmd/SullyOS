@@ -328,7 +328,6 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         }}
                         />
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">预览</div>
             </div>}
 
             <div className="p-5 space-y-8">
@@ -386,8 +385,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
                 <ObserveSettings char={char} />
 
-                <Section title="文风与叙事 (Writing Style)">
-                    <p className="text-[11px] text-slate-400 mt-1 mb-4">调整见面时 AI 的写作风格与叙事人称，修改后从下一条回复开始生效。</p>
+                <Section title="文风与叙事">
 
                     {/* 写作风格 */}
                     <div className="mb-5">
@@ -463,8 +461,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         <button type="button" aria-label="展开自定义补充" onClick={() => setExtraEditorOpen(true)}
                             className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-white text-xs font-semibold text-primary shadow-sm">↗ 展开</button>
                         </div>
-                        <p className="text-[10px] text-slate-300 mt-1">点别处会自动保存；这段会照原样用上，比上面的风格优先。</p>
-                    </div>
+                        </div>
                 </Section>
 
                 <Section title="背景">
@@ -624,7 +621,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                             onClick={() => { setUrlTargetSkinId(skin.id); setShowUrlModal(true); }}
                                             className="w-full py-2 bg-slate-50 text-slate-500 text-[11px] font-medium rounded-lg hover:bg-slate-100 transition-colors"
                                         >
-                                            + 通过 URL 添加立绘到此皮肤
+                                            从网址添加立绘
                                         </button>
                                     </div>
                                 )}
@@ -663,7 +660,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowUrlModal(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-700 text-sm">通过 URL 添加立绘</h3>
+                            <h3 className="font-bold text-slate-700 text-sm">添加立绘</h3>
                             <p className="text-[11px] text-slate-400 mt-1">{urlTargetSkinId ? `目标: ${skinSets.find(s => s.id === urlTargetSkinId)?.name}` : '目标: 默认立绘'}</p>
                         </div>
                         <div className="p-4 space-y-3">
