@@ -458,6 +458,27 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         }), 'Context.json')).toThrow('文本补全模板');
     });
 
+    it('酒馆 Continue Nudge 仅在继续时进入请求，多角色使用 group chat header', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [{ identifier: 'chatHistory', role: 'system', marker: true }],
+            prompt_order: [{ character_id: 100001, order: [{ identifier: 'chatHistory', enabled: true }] }],
+            new_chat_prompt: '[单人开始]',
+            new_group_chat_prompt: '[多人：{{group}}]',
+            continue_nudge_prompt: '[继续 {{user}} 与 {{char}} 的故事，不重复之前回复]',
+        }), '继续规则.json');
+        const values = { preset: imported, slots: { ...slots, worldBefore: '' },
+            userName: '江岚', characterNames: ['林澈', '温璃'],
+            historyMessages: [{ role: 'user' as const, content: '上一轮输入' }] };
+        const normal = compileStoryPreset(values);
+        expect(normal.messages.map(m => m.content)).toContain('[多人：林澈、温璃]');
+        expect(normal.continueNudge).toBeUndefined();
+        const continued = compileStoryPreset({ ...values, continueRequested: true });
+        expect(continued.continueNudge).toEqual({
+            role: 'system',
+            content: '[继续 江岚 与 林澈、温璃 的故事，不重复之前回复]',
+        });
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
