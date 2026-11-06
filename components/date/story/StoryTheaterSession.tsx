@@ -1,7 +1,7 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
-import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
+import { normalizeSillyTavernStoryOutput, squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -775,7 +775,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 setContextTokensExact(true);
             });
             const prefill = compiled.assistantPrefill?.content || '';
-            const rawContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
+            const fullContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
+            const rawContent = effectivePreset.document.sourceFormat === 'sillytavern'
+                ? normalizeSillyTavernStoryOutput(fullContent)
+                : fullContent;
+            if (!rawContent) throw new Error('模型只返回了思考区，没有可保存的剧情正文；请重试或调整预设');
             // 关系绝对值要承接最近一轮，即使那轮刚被折叠进事件盒，也不能回退到 50。
             const previousAssistantContent = [...history].reverse().find(message => message.role === 'assistant')?.content || '';
             const content = affinityEnabled
