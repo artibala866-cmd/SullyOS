@@ -25,6 +25,7 @@ export async function saveStoryWithOpening(
             await DB.saveStoryTheater(entry);
             return;
         }
+        const customMaskId = entry.mask.id;
         const db = await openDB();
         const tx = db.transaction(['story_theaters', 'story_theater_masks'], 'readwrite');
         return new Promise<void>((resolve, reject) => {
@@ -32,7 +33,7 @@ export async function saveStoryWithOpening(
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(failure || tx.error || new Error('剧情保存失败'));
             tx.onabort = () => reject(failure || tx.error || new Error('剧情保存已取消'));
-            const request = tx.objectStore('story_theater_masks').get(entry.mask!.type === 'custom' ? entry.mask!.id : '');
+            const request = tx.objectStore('story_theater_masks').get(customMaskId);
             request.onsuccess = () => {
                 if (!request.result) {
                     failure = new Error('剧情使用的原创身份已不存在，请重新选择身份');
