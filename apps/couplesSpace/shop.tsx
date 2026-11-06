@@ -252,7 +252,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
           if(Math.abs(dx)>42)shopMove(dx<0?1:-1);}}>
         <div className="bond-machine-housing">
           <div className="bond-machine-head">
-            <div className="bond-machine-head-copy"><strong>心意兑换所</strong></div>
+            <div className="bond-machine-head-copy"><strong>心意兑换所</strong><span aria-hidden="true">✳</span></div>
             <span className="bond-machine-number">{String(activeIndex+1).padStart(2,'0')}<i> / </i>{String(visibleCards.length).padStart(2,'0')}</span>
           </div>
           <div className="bond-machine-mouth" aria-hidden="true"><span /></div>
@@ -260,7 +260,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <article key={activeCard.id} className="bond-ticket-pass" aria-label={activeCard.name+'，'+activeCard.price+'积分'}>
               <div className="bond-ticket-paper">
                 <div className="bond-ticket-paper-firstline">
-                  <span>票券 {String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◇</span>
+                  <span>NO. {String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◈</span>
                 </div>
                 <div className="bond-ticket-paper-main">
                   <span className="bond-ticket-paper-icon" aria-hidden="true">{activeCard.icon||'✧'}</span>
@@ -274,7 +274,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
                 </div>
               </div>
               <div className="bond-ticket-tear-tab">
-                <span className="bond-ticket-tear-word">心意票根</span>
+                <span className="bond-ticket-tear-word">心意票根 <small>· {String(activeIndex+1).padStart(2,'0')}</small></span>
                 {manage?<div className="bond-ticket-pass-actions">
                   <button type="button" disabled={working||busy}
                     onClick={()=>apply(current=>({...current,hidden:current.hidden.includes(activeCard.id)
@@ -357,7 +357,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     </section>}
 
     {tab === 'tasks' && <section className="bond-ticket-tasks">
-      <header className="bond-ticket-section-head"><small>盖章领取</small><h3>今日任务票</h3></header>
+      <header className="bond-ticket-section-head"><small>领取凭证</small><h3>今日任务票</h3></header>
       <div className="bond-ticket-task-book">
       {[
         {id:'care:'+today,text:'今天照料盆栽',ready:bond.plant.careCount > 0 && [bond.plant.lastCaredAt??0,bond.plant.cycleWaters?bond.plant.watered:0,bond.plant.fertilized??0].some(t=>t>0&&dayKey(new Date(t))===today),amount:25},
