@@ -158,18 +158,6 @@ export const expandSillyTavernPromptText = (
     })
     .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
 
-/** Remove the visible reasoning wrapper requested by some Tavern presets.
- * Only the imported-story response pipeline invokes this; do not touch archived
- * native story replies or modify the narrative / <content> / appendix markup.
- */
-export const normalizeSillyTavernStoryOutput = (value: string): string => {
-    const withoutClosedThinking = String(value || '')
-        .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking\s*>/gi, '');
-    // Some compatible endpoints omit the opening tag but emit the closing one.
-    const withoutOrphanedPrefix = withoutClosedThinking.replace(/^[\s\S]*?<\/thinking\s*>/i, '');
-    return withoutOrphanedPrefix.trim();
-};
-
 /** Preserve roles and message order while matching Tavern's system-message squashing. */
 export const squashAdjacentSystemMessages = (items: StoryApiMessage[]): StoryApiMessage[] => {
     const result: StoryApiMessage[] = [];
