@@ -25,7 +25,9 @@
 
 /* Portrait is not a scaled-up landscape screen. Reserve separate, small
    non-overlapping areas for reading, typing and the device's keyboard. */
-@media (orientation: portrait) and (max-width: 800px) {
+/* Narrow portrait phones must stay in portrait layout even when the soft
+   keyboard shrinks the CSS viewport below its width. */
+@media (orientation: portrait) and (max-width: 800px), (max-width: 599px) {
   .date-session-root .date-session-controls {
     padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 0 0;
   }
@@ -86,7 +88,7 @@
 }
 /* A phone rotated sideways must keep the sprite at left and a truly compact
    readable conversation at right. Avoid an oversized, full-width dialogue. */
-@media (orientation: landscape) and (max-height: 760px) {
+@media (orientation: landscape) and (max-height: 760px) and (min-width: 600px) {
   .date-session-root .date-session-sprite-stage {
     inset: auto auto 0 max(0px, env(safe-area-inset-left, 0px));
     width: 56%;
@@ -194,7 +196,7 @@
     padding-right: max(20px, env(safe-area-inset-right, 0px));
   }
 }
-@media (orientation: landscape) and (max-height: 410px) {
+@media (orientation: landscape) and (max-height: 410px) and (min-width: 600px) {
   .date-session-root .date-session-dialogue-position { bottom: 8px; }
   .date-session-root.date-session-input-open .date-session-dialogue-position { bottom: 66px; }
   .date-session-root .date-session-dialogue-card {
@@ -218,7 +220,7 @@
   width: min(100%, calc(50dvh * 9 / 19.5));
   margin-inline: auto;
 }
-@media (orientation: landscape) and (max-height: 760px) {
+@media (orientation: landscape) and (max-height: 760px) and (min-width: 600px) {
   .date-settings-sprite-preview {
     aspect-ratio: 19.5 / 9;
     width: min(100%, calc(68dvh * 19.5 / 9));
