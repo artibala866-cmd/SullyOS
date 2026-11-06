@@ -2330,7 +2330,10 @@ ${isInitialGeneration ? `
                                         ({ ...current, [key]: event.target.checked }))}
                                     className="h-4 w-4 accent-neutral-800" />
                             </span>
-                            <span className="text-[10px] text-neutral-500">{enabled ? amount : '无可导入内容'}</span>
+                            <span className="text-[10px] text-neutral-500">{enabled ? amount :
+                                key === 'greetings' && pendingCard?.source === 'babylink' &&
+                                selectedCardPreviews.some(card => card.linkOpeningPayloadOmitted)
+                                    ? '分享图未携带' : '无可导入内容'}</span>
                         </label>;
                     })}
                 </div>
