@@ -3122,6 +3122,11 @@ export const DB = {
       const db = await openDB();
       const transaction = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
       transaction.objectStore(STORE_STORY_THEATER_PRESETS).delete(id);
+      return new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('剧情预设删除失败'));
+          transaction.onabort = () => reject(transaction.error || new Error('剧情预设删除已取消'));
+      });
   },
 
   getStoryTheaterMasks: async (): Promise<StoryTheaterMask[]> => {
@@ -3149,6 +3154,11 @@ export const DB = {
       const db = await openDB();
       const transaction = db.transaction(STORE_STORY_THEATER_MASKS, 'readwrite');
       transaction.objectStore(STORE_STORY_THEATER_MASKS).delete(id);
+      return new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error || new Error('剧情面具删除失败'));
+          transaction.onabort = () => reject(transaction.error || new Error('剧情面具删除已取消'));
+      });
   },
 
   getAllNovels: async (): Promise<NovelBook[]> => {
