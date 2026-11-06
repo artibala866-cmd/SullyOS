@@ -3,7 +3,7 @@ import { readShareFile } from '../../../utils/pngShare';
 import { Archive, ArrowLeft, Database, DownloadSimple, FilmSlate, Plus, SpinnerGap, Trash, UploadSimple, UsersThree, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
-import type { StoryTheaterEntry, StoryTheaterMask, StoryTheaterMaskSelection, StoryTheaterPreset } from '../../../types';
+import type { StoryTheaterEntry, StoryTheaterMask, StoryTheaterMaskSelection, StoryTheaterPreset, TavernOpeningGreeting } from '../../../types';
 import { DB } from '../../../utils/db';
 import {
     BUILTIN_NIGHT_SCREENING_PRESET,
@@ -119,6 +119,26 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             : greetings.map(greeting => greeting.id === greetingId ? { ...greeting, content: content.trim() } : greeting);
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
         updateCharacter(characterId, { tavernGreetings: next });
+    }, [updateCharacter]);
+
+    const createGreeting = useCallback(async (characterId: string, title: string, content: string): Promise<TavernOpeningGreeting> => {
+        const body = content.trim();
+        if (!body || body.length > 200000) throw new Error('开场白内容不能为空或超过 20 万字');
+        const latest = await DB.getCharacter(characterId);
+        if (!latest) throw new Error('参与角色已不存在，请重新选择');
+        const greetings = Array.isArray(latest.tavernGreetings) ? latest.tavernGreetings : [];
+        // Reusing an identical opening prevents accidental duplicate entries when tapping twice.
+        const existing = greetings.find(greeting => greeting.content.trim() === body);
+        if (existing) return existing;
+        const greeting: TavernOpeningGreeting = {
+            id: `story-custom-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`}`,
+            title: title.trim().slice(0, 60) || body.split(/\r?\n/).find(line => line.trim())?.trim().slice(0, 30) || '自定义开场',
+            content: body,
+        };
+        const next = [...greetings, greeting];
+        await DB.saveCharacter({ ...latest, tavernGreetings: next });
+        updateCharacter(characterId, { tavernGreetings: next });
+        return greeting;
     }, [updateCharacter]);
 
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
@@ -266,6 +286,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onCancel={() => setView(entries.some(item => item.id === activeEntry.id) ? 'session' : 'list')}
         onSave={saveEntry}
         onChangeGreeting={changeGreeting}
+        onCreateGreeting={createGreeting}
         onImportPreset={importPreset}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
