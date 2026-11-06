@@ -14,6 +14,8 @@ import {
 import { confirmExportSafety } from '../utils/exportGuard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
+import { parseLinkWorldbookJson } from '../utils/linkWorldbookImport';
+import { readLinkPersonaDocument } from '../utils/linkImportDocuments';
 import { trackEvent } from '../utils/analytics';
 
 const WorldbookApp: React.FC = () => {
@@ -199,58 +201,51 @@ const WorldbookApp: React.FC = () => {
         const file = event.target.files?.[0];
         if (!file) return;
         try {
+            if (!file.size || file.size > 32 * 1024 * 1024) throw new Error('世界书文件为空或超过 32 MB');
             const extension = file.name.split('.').pop()?.toLowerCase();
             const category = file.name.replace(/\.(json|png|txt|docx|doc)$/i, '').trim() || '导入世界书';
             let imported: Worldbook[];
-            if (extension === 'txt' || extension === 'docx') {
-                let text: string;
-                if (extension === 'txt') {
-                    text = await file.text();
-                } else {
-                    const JSZip = (await import('jszip')).default;
-                    const archive = await JSZip.loadAsync(await file.arrayBuffer());
-                    const xml = await archive.file('word/document.xml')?.async('string');
-                    if (!xml) throw new Error('Word 文档中没有可读取的正文');
-                    const doc = new DOMParser().parseFromString(xml, 'application/xml');
-                    if (doc.querySelector('parsererror')) throw new Error('Word 文档格式无效');
-                    const paragraphs = Array.from(doc.getElementsByTagName('w:p'));
-                    text = paragraphs.map(p => Array.from(p.getElementsByTagName('w:t')).map(t => t.textContent || '').join('')).join('\n');
-                }
-                if (!text.trim()) throw new Error('文件内容为空，无法导入世界书');
+            let warnings: string[] = [];
+            if (['txt','doc','docx'].includes(extension || '')) {
+                // BabyLink allows document text as a whole lorebook. The same
+                // encoding and Word parser is reused by character document import.
+                const text = await readLinkPersonaDocument(file);
                 const now = Date.now();
                 imported = [{
-                    id: `wb-${now}-${Math.random().toString(36).slice(2, 8)}`,
-                    title: category,
-                    content: text.trim(),
-                    category,
-                    createdAt: now,
-                    updatedAt: now,
-                    key: [],
-                    keysecondary: [],
-                    constant: true,
-                    selective: false,
-                    selectiveLogic: 0,
-                    order: 100,
-                    position: 1,
-                    disable: false,
-                    probability: 100,
-                    useProbability: false,
-                    depth: 4,
-                    role: null,
-                    scanDepth: null,
-                    caseSensitive: null,
-                    matchWholeWords: null,
-                    sourceUid: 0,
+                    id: 'wb-'+now+'-'+Math.random().toString(36).slice(2, 8),
+                    title: category, content: text, category, createdAt: now, updatedAt: now,
+                    key: [], keysecondary: [], constant: true, selective: false,
+                    selectiveLogic: 0, order: 100, position: 1, disable: false,
+                    probability: 100, useProbability: false, depth: 4, role: null,
+                    scanDepth: null, caseSensitive: null, matchWholeWords: null, sourceUid: 0,
                 }];
-            } else if (extension === 'doc') {
-                throw new Error('旧版 .doc 暂不支持，请另存为 .docx 后导入');
             } else {
                 const source = await readShareFile(file, 'worldbook');
-                imported = parseStandardWorldbook(await source.text(), category);
+                const rawText = await source.text();
+                let raw: unknown;
+                try { raw = JSON.parse(rawText); }
+                catch { throw new Error('世界书 JSON 文件无效或已损坏'); }
+                const link = parseLinkWorldbookJson(raw, category);
+                imported = link.recognized ? link.books : parseStandardWorldbook(rawText, category);
+                warnings = link.warnings;
             }
-            for (const book of imported) await addWorldbook(book);
-            addToast(`已导入 ${imported.length} 条世界书条目`, 'success');
-            setExpandedCategory(category);
+            // Repeated imports of the same Link/Tavern/book document never
+            // duplicate existing data, and must not overwrite hand-edited lore.
+            const fingerprint = (book: Pick<Worldbook, 'category'|'title'|'content'>) =>
+                JSON.stringify([book.category.trim(),book.title.trim(),book.content.trim()]);
+            const keys = new Set(worldbooks.map(fingerprint));
+            const unique = imported.filter(book => {
+                const key = fingerprint(book);
+                if (keys.has(key)) return false;
+                keys.add(key);
+                return true;
+            });
+            for (const book of unique) await addWorldbook(book);
+            addToast(unique.length
+                ? '已导入 '+unique.length+' 条世界书'+(imported.length>unique.length?'，跳过 '+(imported.length-unique.length)+' 条重复':'')
+                : '世界书内容均已存在，未重复导入', 'success');
+            if (warnings.length) addToast(warnings.join('；'), 'info');
+            if (unique.length) setExpandedCategory(unique[0].category || category);
         } catch (error: any) {
             addToast(error?.message || '世界书导入失败', 'error');
         } finally {
