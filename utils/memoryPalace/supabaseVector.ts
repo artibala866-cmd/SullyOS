@@ -1,3 +1,4 @@
+import { USER_SAVE_ID, DEFAULT_USER_SAVE } from '../userSaveScope';
 /**
  * Memory Palace — Supabase pgvector 远程向量存储
  *
@@ -8,6 +9,10 @@
  */
 
 import type { RemoteVectorConfig, MemoryNode } from './types';
+
+const remotePrefix = USER_SAVE_ID === DEFAULT_USER_SAVE ? '' : `user:${USER_SAVE_ID}:`;
+export const remoteSaveId = (id: string): string => remotePrefix + id;
+const localSaveId = (id: string): string => remotePrefix && id.startsWith(remotePrefix) ? id.slice(remotePrefix.length) : id;
 
 // ─── 初始化 SQL（用户需在 Supabase SQL Editor 运行一次） ──
 
@@ -216,8 +221,8 @@ export async function upsertVector(
     try {
         const vecArray = vectorToWireArray(vector);
         const body = {
-            memory_id: memoryId,
-            char_id: charId,
+            memory_id: remoteSaveId(memoryId),
+            char_id: remoteSaveId(charId),
             content: node.content,
             vector: `[${vecArray.join(',')}]`,
             dimensions,
@@ -273,8 +278,8 @@ export async function upsertVectorBatch(
         const body = items.map(item => {
             const vecArray = vectorToWireArray(item.vector);
             return {
-                memory_id: item.memoryId,
-                char_id: item.charId,
+                memory_id: remoteSaveId(item.memoryId),
+                char_id: remoteSaveId(item.charId),
                 content: item.node.content,
                 vector: `[${vecArray.join(',')}]`,
                 dimensions: item.dimensions,
@@ -353,7 +358,7 @@ export async function searchVectors(
         headers: headers(config),
         body: JSON.stringify({
             query_embedding: `[${vecArray.join(',')}]`,
-            match_char_id: charId,
+            match_char_id: remoteSaveId(charId),
             match_threshold: threshold,
             match_count: topK,
         }),
@@ -365,7 +370,7 @@ export async function searchVectors(
 
     const data = await res.json();
     return (data || []).map((row: any) => ({
-        memoryId: row.memory_id,
+        memoryId: localSaveId(row.memory_id),
         content: row.content,
         similarity: row.similarity,
         room: row.room,
@@ -402,7 +407,7 @@ export async function fetchRemoteByRoom(
     try {
         const params = new URLSearchParams({
             select: 'memory_id,char_id,content,room,importance,tags,mood,valence,arousal,created_at,last_accessed_at,access_count,pinned_until,source_id,origin,archived,is_summary,event_box_id',
-            char_id: `eq.${charId}`,
+            char_id: `eq.${remoteSaveId(charId)}`,
             room: `eq.${room}`,
             archived: 'eq.false',
             order: 'importance.desc,last_accessed_at.desc',
@@ -414,8 +419,8 @@ export async function fetchRemoteByRoom(
         if (!res.ok) return [];
         const rows = await res.json();
         return (rows || []).map((row: any): MemoryNode => ({
-            id: row.memory_id,
-            charId: row.char_id,
+            id: localSaveId(row.memory_id),
+            charId: localSaveId(row.char_id),
             content: row.content || '',
             room: row.room,
             tags: row.tags || [],
@@ -451,7 +456,7 @@ export async function bulkSetArchived(
     if (memoryIds.length === 0) return true;
     try {
         // PostgREST `in.(...)` filter
-        const idList = memoryIds.map(id => encodeURIComponent(id)).join(',');
+        const idList = memoryIds.map(id => encodeURIComponent(remoteSaveId(id))).join(',');
         const res = await fetch(restUrl(config, `/memory_vectors?memory_id=in.(${idList})`), {
             method: 'PATCH',
             headers: {
@@ -481,7 +486,7 @@ export async function bulkSetRoom(
 ): Promise<boolean> {
     if (memoryIds.length === 0) return true;
     try {
-        const idList = memoryIds.map(id => encodeURIComponent(id)).join(',');
+        const idList = memoryIds.map(id => encodeURIComponent(remoteSaveId(id))).join(',');
         const res = await fetch(restUrl(config, `/memory_vectors?memory_id=in.(${idList})`), {
             method: 'PATCH',
             headers: {
@@ -501,7 +506,7 @@ export async function bulkSetRoom(
  */
 export async function deleteVector(config: RemoteVectorConfig, memoryId: string): Promise<boolean> {
     try {
-        const res = await fetch(restUrl(config, `/memory_vectors?memory_id=eq.${encodeURIComponent(memoryId)}`), {
+        const res = await fetch(restUrl(config, `/memory_vectors?memory_id=eq.${encodeURIComponent(remoteSaveId(memoryId))}`), {
             method: 'DELETE',
             headers: headers(config),
         });
@@ -516,7 +521,7 @@ export async function deleteVector(config: RemoteVectorConfig, memoryId: string)
  */
 export async function getVectorCount(config: RemoteVectorConfig, charId?: string): Promise<number> {
     try {
-        const filter = charId ? `&char_id=eq.${encodeURIComponent(charId)}` : '';
+        const filter = charId ? `&char_id=eq.${encodeURIComponent(remoteSaveId(charId))}` : remotePrefix ? `&char_id=like.${encodeURIComponent(remotePrefix)}*` : '&char_id=not.like.user:*';
         const res = await fetch(restUrl(config, `/memory_vectors?select=memory_id${filter}`), {
             method: 'HEAD',
             headers: {

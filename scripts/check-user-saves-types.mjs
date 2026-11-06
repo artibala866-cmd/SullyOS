@@ -1,0 +1,13 @@
+import ts from 'typescript';
+import path from 'node:path';
+const root=process.cwd();
+const config=ts.readConfigFile(path.join(root,'tsconfig.json'),ts.sys.readFile);
+const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,root);
+const files=['utils/userSaveScope.ts','utils/userSaveBootstrap.ts','utils/userSaves.ts','utils/userSaves.test.ts','components/user/UserSaveSection.tsx','apps/UserApp.tsx','utils/db.ts','utils/activeMsgRuntime.ts','utils/activeMsgStore.ts','utils/storageStats.ts','utils/memoryPalace/supabaseVector.ts','features/collaboration/store.ts','index.tsx','test/fixtures/user-saves.tsx'];
+const roots=[...files,'vite-env.d.ts','esm-sh.d.ts'].map(file=>path.join(root,file));
+const program=ts.createProgram(roots,parsed.options);
+const all=ts.getPreEmitDiagnostics(program);
+const errors=all.filter(d=>!d.file||files.includes(path.relative(root,d.file.fileName)));
+console.log(ts.formatDiagnosticsWithColorAndContext(errors,{getCanonicalFileName:file=>file,getCurrentDirectory:()=>root,getNewLine:()=> '\n'}));
+console.log(`${files.length} changed/new TypeScript files: ${errors.length} errors. Existing diagnostics outside this scope: ${all.length-errors.length}.`);
+process.exitCode=errors.length?1:0;

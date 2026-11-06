@@ -1,0 +1,66 @@
+name: User identity saves regression and screenshots
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/UserApp.tsx'
+      - 'components/user/UserSaveSection.tsx'
+      - 'utils/userSave*.ts'
+      - 'utils/db.ts'
+      - 'utils/memoryPalace/supabaseVector.ts'
+      - 'scripts/test-user-saves.mjs'
+      - 'scripts/check-user-saves-types.mjs'
+      - 'test/fixtures/user-saves.*'
+      - '.github/workflows/user-saves-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: user-saves-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Storage and existing backup regressions
+        run: pnpm exec vitest run utils/userSaves.test.ts utils/db.test.ts utils/backupRoundtrip.test.ts utils/lsMirror.test.ts utils/collaborationStore.test.ts utils/collaborationWiring.test.ts utils/storageStats.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts
+      - name: Check changed TypeScript files
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: node scripts/check-user-saves-types.mjs
+      - name: Install browser tooling outside the source package
+        run: |
+          mkdir -p /tmp/user-save-browser
+          pnpm --dir /tmp/user-save-browser add playwright@1.56.1
+          pnpm --dir /tmp/user-save-browser exec playwright install --with-deps chromium
+          sudo apt-get install -y -qq fonts-noto-cjk
+      - name: Real archive A/B/A/B and mobile screenshots
+        shell: bash
+        env:
+          USER_SAVE_PLAYWRIGHT: /tmp/user-save-browser/node_modules/playwright/index.mjs
+          USER_SAVE_SHOTS: output/user-saves
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5192 --strictPort >/tmp/user-save-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          node scripts/test-user-saves.mjs
+      - name: Production build
+        run: pnpm build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: user-saves-real-archive-screenshots
+          path: output/user-saves/*.png
+          if-no-files-found: ignore
+          retention-days: 7

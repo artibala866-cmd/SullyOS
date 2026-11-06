@@ -1,3 +1,4 @@
+import { scopedDatabaseName, USER_SAVE_ID, DEFAULT_USER_SAVE } from './userSaveScope';
 /**
  * 本机存储用量统计
  *
@@ -476,9 +477,9 @@ const DATABASE_CATEGORY: Record<string, StorageCategoryKey> = {
 };
 
 /** 浏览器不给枚举库列表时的兜底名单（主库单独走 openDB，不在这里）。 */
-const FALLBACK_DATABASE_NAMES = ['ActiveMsg'];
+const FALLBACK_DATABASE_NAMES = [scopedDatabaseName('ActiveMsg')];
 
-const MAIN_DATABASE_NAME = 'AetherOS_Data';
+const MAIN_DATABASE_NAME = scopedDatabaseName('AetherOS_Data');
 
 async function listDatabaseNames(): Promise<string[]> {
     if (typeof indexedDB === 'undefined') return [];
@@ -486,7 +487,8 @@ async function listDatabaseNames(): Promise<string[]> {
     if (typeof anyIdb.databases !== 'function') return [...FALLBACK_DATABASE_NAMES];
     try {
         const list = await anyIdb.databases();
-        return list.map(d => d.name).filter((n): n is string => !!n);
+        return list.map(d => d.name).filter((n): n is string => !!n).filter(name =>
+            USER_SAVE_ID === DEFAULT_USER_SAVE ? !name.includes('__user_') : name.endsWith('__user_' + USER_SAVE_ID));
     } catch {
         return [...FALLBACK_DATABASE_NAMES];
     }

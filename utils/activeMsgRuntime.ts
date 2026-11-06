@@ -1,3 +1,4 @@
+import { USER_SAVE_ID, DEFAULT_USER_SAVE, scopedDatabaseName } from './userSaveScope';
 import { AMSG_RECONNECT_QUIET_MS } from './amsgFireSchedule';
 import { isRealPersonUserStatement } from './realPersonReplyTurn';
 import { isRetiredAutonomyDelivery } from './amsgRetiredAutonomy';
@@ -2675,7 +2676,7 @@ const readInstantChatFailReason = async (
 // 一次覆盖写就覆盖了全部任务——包括角色自排的那些客户端不知道的任务。
 
 export const PUSH_SUBSCRIPTION_CHANGED_KV_ID = 'push_subscription_changed_v1';
-const ACTIVE_MSG_DB_NAME = 'ActiveMsg';
+const ACTIVE_MSG_DB_NAME = scopedDatabaseName('ActiveMsg');
 const ACTIVE_MSG_KV_STORE = 'kv';
 
 /**
@@ -2770,6 +2771,7 @@ const handleDeepLink = () => {
 
 export const ActiveMsgRuntime = {
   async init() {
+    if (USER_SAVE_ID !== DEFAULT_USER_SAVE) return;
     if (initialized) return;
     initialized = true;
 

@@ -1,3 +1,4 @@
+import { scopedDatabaseName } from '../../utils/userSaveScope';
 import type {
   CollaborationAssetRecord,
   CollaborationCategory,
@@ -22,7 +23,7 @@ let databasePromise: Promise<IDBDatabase> | null = null;
 const openCollaborationDatabase = (): Promise<IDBDatabase> => {
   if (databasePromise) return databasePromise;
   const pending = new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(scopedDatabaseName(DB_NAME), DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_SESSIONS)) {

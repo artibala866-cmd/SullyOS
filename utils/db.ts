@@ -1,3 +1,4 @@
+import { scopedDatabaseName } from './userSaveScope';
 import { readLocalCursor } from './localRead';
 import { reportDatabaseFailure } from './databaseHealth';
 import { associateDatabaseOpen, beginDatabaseOpen, recordDatabaseOpen } from './databaseOpenDiagnostics';
@@ -37,7 +38,7 @@ import { findPendingMusicInvite } from './musicInviteStatus';
 import { appendCharPlaylistSong, type CharSongTarget } from './charMusicPlaylist';
 import type { CharPlaylistSong, CharMusicProfile } from '../types';
 
-const DB_NAME = 'AetherOS_Data';
+const DB_NAME = scopedDatabaseName('AetherOS_Data');
 // v67：两条并行线各自用掉了 v65/v66（A线: blob_assets + 生活记录；B线: room_plates 门牌 + digest_reports 消化日志），
 // 合并后统一推到 67——建表全部走幂等的 if(!contains)，任一侧的 v66 老库升级时都会补齐缺的那组表。
 // v68：character_groups 角色分组（神经链接"文件夹"，见 types.ts CharacterGroup）。

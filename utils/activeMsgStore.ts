@@ -1,10 +1,11 @@
+import { scopedDatabaseName } from './userSaveScope';
 import {
   ActiveMsg2GlobalConfig,
   ActiveMsg2InboxMessage,
   Amsg2ExpiredNoticeRecord,
 } from '../types';
 
-const DB_NAME = 'ActiveMsg';
+const DB_NAME = scopedDatabaseName('ActiveMsg');
 // MUST be kept in sync with worker/sw-keep-alive.ts:ACTIVE_MSG_DB_VERSION.
 // IMPORTANT: once a client opens v2, downgrade to a v1 codebase will fail to open this DB.
 const DB_VERSION = 2;

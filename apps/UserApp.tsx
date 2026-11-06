@@ -1,4 +1,5 @@
 
+import UserSaveSection from '../components/user/UserSaveSection';
 import React, { useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { processImage } from '../utils/file';
@@ -64,6 +65,8 @@ const UserApp: React.FC = () => {
             <div className="flex-1 overflow-y-auto px-5 pb-10 pt-5 space-y-5">
                 {tab === 'life' && <LifeRecordPanel />}
                 {tab === 'profile' && <>
+
+                <UserSaveSection />
 
                 {/* Profile name card */}
                 <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(76, 76, 76,0.25)] border border-slate-100 overflow-hidden">
