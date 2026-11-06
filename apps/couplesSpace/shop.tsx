@@ -169,7 +169,6 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
           <span>{partner} <b>{bond.points.them}</b></span>
         </div>
       </div>
-      <div className="bond-ticket-serial" aria-hidden="true"><span>✳</span><small>NO. TWO</small></div>
     </div>
     <nav className="bond-ticket-tabs" aria-label="羁绊商店区域">
       {Object.entries(tabs).map(([key,label])=>
@@ -247,8 +246,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
           if(Math.abs(dx)>42)shopMove(dx<0?1:-1);}}>
         <div className="bond-machine-housing">
           <div className="bond-machine-head">
-            <span className="bond-machine-twin-symbol" aria-hidden="true">◒ <i>◓</i></span>
-            <div className="bond-machine-head-copy"><small>FOR THE TWO OF US</small><strong>心意兑换所</strong></div>
+            <div className="bond-machine-head-copy"><strong>心意兑换所</strong></div>
             <span className="bond-machine-number">{String(activeIndex+1).padStart(2,'0')}<i> / </i>{String(visibleCards.length).padStart(2,'0')}</span>
           </div>
           <div className="bond-machine-mouth" aria-hidden="true"><span /></div>
@@ -256,7 +254,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <article key={activeCard.id} className="bond-ticket-pass" aria-label={activeCard.name+'，'+activeCard.price+'积分'}>
               <div className="bond-ticket-paper">
                 <div className="bond-ticket-paper-firstline">
-                  <span>NO.{String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◇</span>
+                  <span>票券 {String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◇</span>
                 </div>
                 <div className="bond-ticket-paper-main">
                   <span className="bond-ticket-paper-icon" aria-hidden="true">{activeCard.icon||'✧'}</span>
@@ -295,13 +293,13 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <div className="bond-ticket-navigator">
               <button type="button" aria-label="上一张卡券" disabled={working||busy||activeIndex<=0}
                 onClick={()=>shopMove(-1)}><span aria-hidden="true">‹</span></button>
-              <div className="bond-machine-dial" aria-hidden="true">
+              <div className="bond-machine-dial" style={{'--ticket-turn':(activeIndex*24)+'deg'} as React.CSSProperties} aria-hidden="true">
                 <div className="bond-machine-dial-inner"><span>{String(activeIndex+1).padStart(2,'0')}</span></div>
               </div>
               <button type="button" aria-label="下一张卡券" disabled={working||busy||activeIndex>=visibleCards.length-1}
                 onClick={()=>shopMove(1)}><span aria-hidden="true">›</span></button>
             </div>
-            <div className="bond-machine-footer" aria-hidden="true"><span>←</span><span>滑动切换票券</span><span>→</span></div>
+            <div className="bond-machine-footer" aria-hidden="true"><span>←</span><span>左右换券</span><span>→</span></div>
           </div>
         </div>
       </div>:<div className="bond-ticket-empty">
