@@ -49,3 +49,7 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
 /** Use the same text identity for legacy and newly normalized imports. */
 export const tavernOpeningBodyKey = (greeting: TavernOpeningGreeting): string =>
     adaptTavernOpeningGreeting(greeting).content.trim();
+
+/** Runtime-only compatibility for story messages already written before the adapter. */
+export const tavernOpeningSceneText = (content: string): string =>
+    adaptTavernOpeningGreeting({ id: '', title: '', content }).content;
