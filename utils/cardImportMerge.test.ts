@@ -28,8 +28,8 @@ describe('incremental character-card imports', () => {
         const original = char('original', {
             mountedWorldbooks: [toMountedWorldbook(oldBook)],
             cardImportOrigin: source,
-            memories: [{ id: 'memory-1', content: '共同经历' }] as CharacterProfile['memories'],
-            groupId: 'local-group', dialogueApi: { enabled: false } as CharacterProfile['dialogueApi'],
+            memories: [{ id: 'memory-1', content: '共同经历' }] as unknown as CharacterProfile['memories'],
+            groupId: 'local-group', dialogueApi: { enabled: false } as unknown as CharacterProfile['dialogueApi'],
             tavernGreetings: [{ id: 'tavern-first', title: '默认开场白', content: '早安' }],
         });
         const incoming = card('never-use-this-id', source, {
