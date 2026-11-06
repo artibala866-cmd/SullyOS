@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { collectEmojiDocumentRows, docxXmlToEmojiText, importEmojiDocument } from './emojiDocumentImport';
+import { collectEmojiDocumentRows, docxXmlToEmojiText, importEmojiDocument, reuniteWrappedImageUrls } from './emojiDocumentImport';
 import { extractPdfEmojiLines } from './pdfText';
 
 vi.mock('./pdfText', () => ({ extractPdfEmojiLines: vi.fn() }));
@@ -124,6 +124,34 @@ describe('表情文件导入（完全本地解析）', () => {
                 { name: '委屈', url: 'https://example.com/b.gif' },
             ],
             ignoredLines: 1,
+            suspiciousLines: [],
         });
     });
+    it('PDF 链接被排版断成两行时能重新拼接；残余无法匹配的网址会列入提醒', () => {
+        const source = [
+            '开心：https://files.catbox.moe/',
+            '6j9ltv.jpeg',
+            '委屈--https://example.com/a.',
+            'png?token=2',
+            '没有名字的网址：https://',
+            '没有名字的网址 https://example.com/orphan.webp',
+        ].join('\n');
+        const merged = reuniteWrappedImageUrls(source);
+        const rows = collectEmojiDocumentRows(merged);
+        expect(rows.entries).toContainEqual({ name: '开心', url: 'https://files.catbox.moe/6j9ltv.jpeg' });
+        expect(rows.entries).toContainEqual({ name: '委屈', url: 'https://example.com/a.png?token=2' });
+    });
+
+    it('手机文件管理器只有 MIME 没有文件扩展名时仍可导入 PDF 或 Word', async () => {
+        vi.mocked(extractPdfEmojiLines).mockResolvedValueOnce('开心--https://example.com/a.jpg');
+        const file = { ...asFile('content', new ArrayBuffer(2)), type: 'application/pdf' } as File;
+        expect((await importEmojiDocument(file)).entries).toHaveLength(1);
+    });
+
+    it('没有匹配上的网址不会被假装为成功，且可以查阅示例', () => {
+        const result = collectEmojiDocumentRows('说明\nhttps://example.com/orphan.png\n可爱--https://example.com/ok.png\n备用网址：https://');
+        expect(result.entries).toContainEqual({ name: '可爱', url: 'https://example.com/ok.png' });
+        expect(result.suspiciousLines.length).toBeGreaterThan(0);
+    });
+
 });
