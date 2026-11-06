@@ -118,10 +118,22 @@ async function readDocx(bytes: ArrayBuffer): Promise<string> {
 
 function htmlToText(html: string): string {
     const imgRows: string[] = [];
+    const base = /<base\b[^>]*\bhref=["'](https?:\/\/[^"']+)["']/i.exec(html)?.[1];
     for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
         const src = /\b(?:src|data-src)=["']([^"']+)["']/i.exec(tag[0])?.[1];
         const alt = /\b(?:alt|title)=["']([^"']+)["']/i.exec(tag[0])?.[1];
-        if (src && alt) imgRows.push(decodeEntities(alt) + '--' + decodeEntities(src));
+        if (!src || !alt) continue;
+        let link = decodeEntities(src);
+        if (!/^https?:\/\//i.test(link) && !/^data:image\//i.test(link)) {
+            // Saved web pages often contain relative /images/a.png. Those paths
+            // point to the *wrong origin* when reinterpreted inside SullyOS.
+            if (!base) continue;
+            try { link = new URL(link, decodeEntities(base)).href; }
+            catch { continue; }
+        }
+        if (/^https?:\/\//i.test(link) || /^data:image\//i.test(link)) {
+            imgRows.push(decodeEntities(alt) + '--' + link);
+        }
     }
     const withoutCode = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
     const withNewlines = withoutCode
