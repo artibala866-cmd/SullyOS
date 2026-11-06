@@ -206,9 +206,11 @@ function jsonToText(value: unknown): JsonRows {
             }
             // A pack with a top-level "name" and nested "emojis" is a container,
             // not an incomplete sticker. Keep traversing rather than dropping it.
-            const children = Object.values(obj).filter(v => v !== null && typeof v === 'object');
+            const children = Object.entries(obj).filter(([, v]) => v !== null && typeof v === 'object');
             if (children.length) {
-                for (const child of children) visit(child, depth + 1, inEmojiMap);
+                for (const [key, child] of children) {
+                    visit(child, depth + 1, inEmojiMap || /^(?:emojis?|stickers?|expressions?|表情包?|贴图|图片列表|表情列表)$/i.test(key));
+                }
                 return;
             }
             if (inEmojiMap || url !== undefined || ['url','src','imageUrl','image','link','图片链接','图片地址'].some(key => Object.prototype.hasOwnProperty.call(obj, key))) {
@@ -216,14 +218,21 @@ function jsonToText(value: unknown): JsonRows {
             }
             return;
         }
-        for (const [key, item] of Object.entries(obj)) {
+        // A flat { "开心": "https://...png" } is a sticker dictionary.
+        // But arbitrary character-card metadata containing avatar/cover URLs
+        // must never be imported as emoji merely because the URL ends in .png.
+        const elements = Object.entries(obj);
+        const metaKey = /^(?:avatar|cover|icon|logo|thumbnail|background|banner|profile|homepage|website|repository|角色头像|封面|头像|背景)$/i;
+        const isFlatStickerMap = elements.length > 0 && elements.every(([key, item]) =>
+            !metaKey.test(key) && typeof item === 'string' &&
+            (/^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(item.trim())
+                || /^data:image\//i.test(item)));
+        for (const [key, item] of elements) {
             const nextIsEmojiMap = inEmojiMap || /^(?:emojis?|stickers?|expressions?|表情包?|贴图|图片列表|表情列表)$/i.test(key);
             if (typeof item === 'string' && (/^https?:\/\//i.test(item) || /^data:image\//i.test(item))) {
-                // Generic metadata links such as homepage/repository must not
-                // become fake stickers. In known emoji maps, names are keys.
-                const likelyImage = /^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(item.trim())
-                    || /^data:image\//i.test(item);
-                if (nextIsEmojiMap || likelyImage) pushRow(cleanName(key) + '--' + item.trim());
+                if ((inEmojiMap || isFlatStickerMap) && !metaKey.test(key)) {
+                    pushRow(cleanName(key) + '--' + item.trim());
+                }
             } else {
                 visit(item, depth + 1, nextIsEmojiMap);
             }
