@@ -98,12 +98,19 @@ function check() {
     (scenario === 'zoom' ? dialogue.bottom <= rect(host)!.bottom + 2 :
       !!input && input.w > 140 && input.x >= 0 && input.bottom <= rect(host)!.bottom + 2 &&
       dialogue.bottom + 2 <= input.y);
-  const responsiveOk = smallLandscape
+  const shortKeyboard = scenario === 'keyboard' && innerWidth < 600 && innerHeight <= 430;
+  const compactKeyboardFits = !shortKeyboard || (
+    !!spriteBox && !!dialogue && !!controlsRect && !!input &&
+    spriteBox.y >= -2 && !intersects(spriteBox, dialogue) &&
+    !intersects(controlsRect, dialogue) && !intersects(controlsRect, input) &&
+    dialogue.bottom + 2 <= input.y
+  );
+  const responsiveOk = (smallLandscape
     ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits && nameVisible)
-    : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true);
+    : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true)) && compactKeyboardFits;
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
     spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
-    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, errors };
+    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);
   let output = document.getElementById('meet-landscape-report');
