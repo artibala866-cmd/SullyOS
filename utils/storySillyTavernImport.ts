@@ -147,7 +147,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         tavernOptions: Object.fromEntries(Object.entries(value)
             .filter(([key, option]) => !['prompts', 'prompt_order', 'extensions'].includes(key)
                 && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
-                && (typeof option !== 'string' || option.length <= 65536))),
+                && (typeof option !== 'string' || option.length <= 65536))) as Record<string, string | number | boolean | null>,
         importWarnings: warnings,
         generation: {
             temperature: numeric(value.temperature, 0.9, 0, 2),
