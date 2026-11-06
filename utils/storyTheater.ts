@@ -61,6 +61,24 @@ export const prepareStoryGenerationSettings = (
     return compatible;
 };
 
+/** Validate the story's global API before saving a pending user turn.
+ * Story theater is a multi-character director: it intentionally does not
+ * borrow a single actor's private-chat API configuration.
+ */
+export const assertStoryApiConfigured = (api: { baseUrl?: string; model?: string }): void => {
+    const baseUrl = String(api.baseUrl || '').trim();
+    if (!baseUrl) throw new Error('剧情使用全局主 API，请先在设置中填写主 API 地址');
+    if (!String(api.model || '').trim()) throw new Error('剧情使用全局主 API，请先在设置中选择主 API 模型');
+    try {
+        const url = new URL(baseUrl);
+        if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+            throw new Error('invalid protocol');
+        }
+    } catch {
+        throw new Error('剧情主 API 地址无效，请填写完整的 http:// 或 https:// API 地址');
+    }
+};
+
 export interface StoryAffinityInput {
     characterId?: string;
     characterName?: string;
