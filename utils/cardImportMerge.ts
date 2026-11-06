@@ -118,6 +118,12 @@ const matchedMountedBook = (
     }
     const identical = mounted.filter(row => bookSignature(row) === bookSignature(incoming));
     if (identical.length === 1) return identical[0];
+    // A role imported once from Tavern and then from Link may carry the same
+    // lore under differently named folders. Keep only one copy of identical
+    // titled content, rather than making a second mounted instruction.
+    const crossFormat = mounted.filter(row => row.title.trim() === incoming.title.trim() &&
+        row.content.trim() === incoming.content.trim());
+    if (crossFormat.length === 1) return crossFormat[0];
     const sameText = mounted.filter(row =>
         row.content.trim() === incoming.content.trim() && row.category === incoming.category);
     if (sameText.length === 1) return sameText[0];
