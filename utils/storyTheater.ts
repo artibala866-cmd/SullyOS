@@ -352,6 +352,7 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
         prompts,
         assistantPrefill: String(value.assistantPrefill || ''),
         ...(value.sourceFormat === 'sillytavern' ? { sourceFormat: 'sillytavern' as const } : {}),
+        ...(value.squashSystemMessages === true ? { squashSystemMessages: true } : {}),
         ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
     };
 };
