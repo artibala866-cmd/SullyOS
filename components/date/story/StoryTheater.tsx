@@ -56,9 +56,14 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const reload = useCallback(async () => {
         const [storedEntries, storedPresets, storedMasks] = await Promise.all([DB.getStoryTheaters(), DB.getStoryTheaterPresets(), DB.getStoryTheaterMasks()]);
         setEntries(storedEntries.map(normalizeStoryTheater).sort((a, b) => b.updatedAt - a.updatedAt));
-        setCustomPresets(storedPresets.filter(preset => !preset.builtIn).sort((a, b) => b.updatedAt - a.updatedAt));
+        const readable = storedPresets.filter(preset => preset && typeof preset.id === 'string'
+            && typeof preset.name === 'string' && Array.isArray(preset.document?.prompts));
+        if (readable.length !== storedPresets.length) {
+            addToast(`发现 ${storedPresets.length - readable.length} 条旧剧情预设记录不完整，暂不显示，原数据未删除`, 'info');
+        }
+        setCustomPresets(readable.filter(preset => !preset.builtIn).sort((a, b) => b.updatedAt - a.updatedAt));
         setMasks(storedMasks.sort((a, b) => b.updatedAt - a.updatedAt));
-    }, []);
+    }, [addToast]);
 
     useEffect(() => { void reload().catch(error => addToast(error instanceof Error ? `剧情列表读取失败：${error.message}` : '剧情列表读取失败，请检查本地存储', 'error')); }, [reload, addToast]);
 
