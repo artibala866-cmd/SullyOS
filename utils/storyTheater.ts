@@ -1136,8 +1136,14 @@ export const compileStoryPreset = (input: {
         && slots.worldBefore.trim(),
     );
 
-    // 糯米机原生 Prompt Manager 按数组顺序送出；同一个 marker 只注入一次，
-    // 角色资料始终使用一份完整的沙盒上下文。
+    // Native presets inject a character marker once. Imported Tavern presets
+    // can carry two distinct, independently switchable card slots: description
+    // and personality. Split only when both are active AND both source values
+    // are available; otherwise keep the complete actor context intact.
+    const splitCharacterSlots = importedFromTavern
+        && Boolean(slots.tavernDescription?.trim() && slots.tavernPersonality?.trim())
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charDescription')
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charPersonality');
     const injectedMarkers = new Set<string>();
     for (let index = 0; index < document.prompts.length; index += 1) {
         const prompt = document.prompts[index];
@@ -1155,15 +1161,22 @@ export const compileStoryPreset = (input: {
         if (!prompt.enabled || prompt.section) continue;
         let raw = prompt.content;
         if (prompt.marker) {
-            if (injectedMarkers.has(prompt.marker)) continue;
+            const separateTavernCardSlot = splitCharacterSlots && prompt.marker === 'characters'
+                && (prompt.id === 'st-charDescription' || prompt.id === 'st-charPersonality');
+            if (injectedMarkers.has(prompt.marker) && !separateTavernCardSlot) continue;
             injectedMarkers.add(prompt.marker);
-            if (prompt.marker === 'history' && input.historyMessages) {
+            if (separateTavernCardSlot) {
+                raw = prompt.id === 'st-charDescription'
+                    ? slots.tavernDescription!
+                    : slots.tavernPersonality!;
+            } else if (prompt.marker === 'history' && input.historyMessages) {
                 historyStart = messages.length;
                 historyLength = input.historyMessages.length;
                 messages.push(...input.historyMessages);
                 continue;
+            } else {
+                raw = slotForMarker(prompt.marker, slots);
             }
-            raw = slotForMarker(prompt.marker, slots);
         }
         raw = expandImported(raw);
         if (!raw.trim()) continue;
