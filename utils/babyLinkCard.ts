@@ -1,6 +1,7 @@
 import type { CharacterProfile, Worldbook } from '../types';
 import type { PreparedCharacterCard } from './sillyTavernCard';
 import type { CharacterImageProfile } from './characterImageProfile';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
 
 /**
  * BabyLink 1.1.10 APK: StImportUnlockModal-NAd1Rh6X.js uses RGB LSBs in
@@ -247,14 +248,22 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
                     isObject(rawOpening) ? rawOpening.opening ?? rawOpening.content : null;
                 if (typeof rawText !== 'string' || !rawText.trim()) continue;
                 const content = optionalText(rawText, '开场白', 200000);
-                if (tavernGreetings.some(item => item.content === content)) continue;
                 const rawTitle = isObject(rawOpening) && typeof rawOpening.title === 'string'
                     ? optionalText(rawOpening.title, '开场白标题', 160) : '';
-                tavernGreetings.push({
+                const rawDescription = isObject(rawOpening) && typeof (rawOpening.description ?? rawOpening.desc) === 'string'
+                    ? optionalText(rawOpening.description ?? rawOpening.desc, '开场白简介', 4000) : '';
+                // Link can carry Tavern-formatted opening scenes. Share the same
+                // metadata adapter used by the story editor and older cards:
+                // remove only leading title/desc comments, never body HTML.
+                const opening = adaptTavernOpeningGreeting({
                     id: 'babylink-opening-' + openingIndex,
                     title: rawTitle || '开场白 ' + (openingIndex + 1),
+                    ...(rawDescription ? { description: rawDescription } : {}),
                     content,
                 });
+                const sceneKey = tavernOpeningBodyKey(opening);
+                if (!sceneKey || tavernGreetings.some(item => tavernOpeningBodyKey(item) === sceneKey)) continue;
+                tavernGreetings.push(opening);
             }
         }
         // The entire unabridged persona belongs in the actual AI context field.
