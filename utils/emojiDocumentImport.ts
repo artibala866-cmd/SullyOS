@@ -38,15 +38,13 @@ function decodePlainText(bytes: ArrayBuffer): string {
     const a = new Uint8Array(bytes);
     if (a[0] === 0xff && a[1] === 0xfe) return new TextDecoder('utf-16le').decode(a.subarray(2));
     if (a[0] === 0xfe && a[1] === 0xff) return new TextDecoder('utf-16be').decode(a.subarray(2));
-    const utf8 = new TextDecoder('utf-8').decode(a);
-    // Some shared Chinese TXT files are GB18030. Only fall back if UTF-8 is clearly broken.
-    if ((utf8.match(/\uFFFD/g) || []).length >= 3) {
-        try {
-            const chinese = new TextDecoder('gb18030', { fatal: true }).decode(a);
-            if (chinese && !chinese.includes('\uFFFD')) return chinese.replace(/^\uFEFF/, '');
-        } catch { /* Keep the UTF-8 decoded text if legacy encoding is unavailable. */ }
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(a).replace(/^\uFEFF/, '');
+    } catch {
+        // Some shared Chinese TXT files were saved as GB18030/GBK.
+        try { return new TextDecoder('gb18030', { fatal: true }).decode(a).replace(/^\uFEFF/, ''); }
+        catch { return new TextDecoder('utf-8').decode(a).replace(/^\uFEFF/, ''); }
     }
-    return utf8.replace(/^\uFEFF/, '');
 }
 
 const xmlText = (fragment: string): string => {
