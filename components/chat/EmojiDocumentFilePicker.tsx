@@ -49,7 +49,7 @@ export default function EmojiDocumentFilePicker({
         setError(false);
         setStatus('正在读取文件并识别表情包…');
         try {
-            let count = 0, ignored = 0, successFiles = 0;
+            let count = 0, ignored = 0, successFiles = 0, generated = 0, totalChars = 0;
             const normalized: string[] = [];
             const failed: string[] = [];
             const suspicious: string[] = [];
@@ -57,12 +57,14 @@ export default function EmojiDocumentFilePicker({
                 try {
                     const result = await importEmojiDocument(file);
                     if (operationRef.current !== id) return;
-                    if (count + result.entries.length > 3000) {
-                        failed.push(file.name + '：超过一次 3000 张的上限，请拆分文件');
+                    if (count + result.entries.length > 3000 || totalChars + result.text.length > 1_800_000) {
+                        failed.push(file.name + '：超过批量条数或文本长度上限，请拆分文件');
                         continue;
                     }
                     count += result.entries.length;
                     ignored += result.ignoredLines;
+                    generated += result.generatedNames || 0;
+                    totalChars += result.text.length;
                     successFiles++;
                     normalized.push(result.text);
                     for (const row of result.suspiciousLines || []) {
@@ -83,6 +85,7 @@ export default function EmojiDocumentFilePicker({
                 setStatus(
                     '已识别 ' + successFiles + '/' + files.length + ' 个文件，共 ' + count + ' 条表情' +
                     (ignored ? '；忽略 ' + ignored + ' 行非表情文字' : '') +
+                    (generated ? '；' + generated + ' 条无名称链接按文件名命名' : '') +
                     (failed.length ? '；另有 ' + failed.length + ' 个文件失败' : '') +
                     (suspicious.length ? '；有 ' + suspicious.length + ' 行含链接但未识别' : '') +
                     '。结果已添加到下方预览框，尚未保存。'
