@@ -35,10 +35,12 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     if (!isSillyTavernChatPreset(value)) throw new Error('无法识别为酒馆 Chat Completion 预设');
 
     const orderGroups = value.prompt_order.filter((group: any) => Array.isArray(group?.order));
+    const populated = orderGroups.filter((group: any) => group.order.length > 0);
+    const eligibleOrderGroups = populated.length ? populated : orderGroups;
     // 100001 / 100000 are the SillyTavern default character-order configurations.
-    const orderGroup = orderGroups.find((group: any) => group.character_id === 100001)
-        || orderGroups.find((group: any) => group.character_id === 100000)
-        || orderGroups[0];
+    const orderGroup = eligibleOrderGroups.find((group: any) => group.character_id === 100001)
+        || eligibleOrderGroups.find((group: any) => group.character_id === 100000)
+        || eligibleOrderGroups[0];
     const sourceById = new Map<string, any>();
     for (const item of value.prompts) {
         if (item && typeof item.identifier === 'string' && !sourceById.has(item.identifier)) {
@@ -55,9 +57,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         const isMarker = source.marker === true;
         const mappedMarker = isMarker ? MARKERS[identifier] : undefined;
         const content = text(source.content);
-        // Unrecognized empty system placeholders cannot be represented by the story runtime.
-        // Keep meaningful text even when the source mistakenly flags it as a marker.
-        if (isMarker && !mappedMarker && !content.trim()) return;
+        // Preserve unknown marker entries for lossless editing/export; do not execute them.
         const next: StoryTheaterPresetPrompt = {
             id: `st-${identifier}`,
             name: text(source.name).trim() || identifier,
@@ -98,6 +98,10 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         warnings.push('部分酒馆专属动态宏尚无糯米机等价功能，原文保留供检查');
     }
     if (orderGroups.length > 1) warnings.push('多个角色排序表只采用酒馆默认排序表');
+    if (prompts.some(prompt => prompt.enabled && !prompt.marker && !prompt.content.trim())) warnings.push('空白或未知酒馆占位条目已保留，不会误当作可执行指令');
+    if (value.top_k > 0 || value.top_a > 0 || value.min_p > 0 || (typeof value.repetition_penalty === 'number' && value.repetition_penalty !== 1)) {
+        warnings.push('top_k / top_a / min_p / repetition_penalty 等模型采样字段无原生等价参数，未强制应用');
+    }
     if (prompts.some(prompt => prompt.marker === 'characters')) warnings.push('酒馆角色描述与性格槽位合并使用糯米机的完整角色资料，避免重复发送');
 
     return {
