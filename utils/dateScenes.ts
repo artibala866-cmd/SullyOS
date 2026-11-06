@@ -13,9 +13,10 @@ export const configuredDateScenes = (backgrounds?: DateSceneBackgrounds) =>
 /** 抽出独立的 [scene:xxx] 控制标签；不动 [happy] 或 [v:calm]。 */
 export function extractDateSceneTag(line: string): { rest: string; scene?: DateSceneKey } {
     let scene: DateSceneKey | undefined;
-    const rest = line.replace(/\[scene:\s*([a-z]+)\s*\]/gi, (match, value: string) => {
+    const rest = line.replace(/\[scene:\s*([a-z0-9_-]+)\s*\]/gi, (_match, value: string) => {
         const key = value.toLowerCase();
-        if (!DATE_SCENES.some(item => item.key === key)) return match;
+        // 不认识的控制标签也不应泄漏进台词/旁白，但绝不能触发换景。
+        if (!DATE_SCENES.some(item => item.key === key)) return '';
         scene = key as DateSceneKey;
         return '';
     });

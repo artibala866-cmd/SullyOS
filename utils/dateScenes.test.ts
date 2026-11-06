@@ -12,6 +12,8 @@ describe('date scene switch protocol', () => {
         expect(extractDateSceneTag('[scene:OUTDOOR][normal] 开门')).toEqual({ scene: 'outdoor', rest: '[normal] 开门' });
         expect(extractDateSceneTag('[happy][scene:kitchen] "开饭啦"')).toEqual({ scene: 'kitchen', rest: '[happy] "开饭啦"' });
         expect(extractDateSceneTag('[v:calm] [happy] "嗨"')).toEqual({ scene: undefined, rest: '[v:calm] [happy] "嗨"' });
-        expect(extractDateSceneTag('[scene:unknown] 不更换')).toEqual({ scene: undefined, rest: '[scene:unknown] 不更换' });
+        expect(extractDateSceneTag('[scene:unknown] 不更换')).toEqual({ scene: undefined, rest: '不更换' });
+        expect(extractDateSceneTag('[scene:office]')).toEqual({ scene: undefined, rest: '' });
+        expect(extractDateSceneTag('[scene:bad_name] [happy] 晚安')).toEqual({ scene: undefined, rest: '[happy] 晚安' });
     });
 });
