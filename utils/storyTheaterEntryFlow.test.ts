@@ -178,6 +178,12 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(save).toHaveBeenCalledTimes(1);
         await act(async () => { release(); await gate; });
     });
+    it('没有角色头像时显示简洁的文字替代，避免手机截图出现坏图标', async () => {
+        await render({ ...createStoryTheaterDraft(), title: '没有头像', characterIds: [actor.id] });
+        const actorButton = [...host!.querySelectorAll('button')].find(button => button.textContent?.includes('角色甲'))!;
+        expect(actorButton.querySelector('img')).toBeNull();
+        expect(actorButton.querySelector('[aria-hidden="true"]')?.textContent).toBe('角');
+    });
     it('剧情已开场后不再允许增删参与角色，避免破坏开场关联与历史', async () => {
         const actorB = { ...actor, id: 'entry-flow-b', name: '角色乙' };
         const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
