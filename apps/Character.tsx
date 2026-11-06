@@ -2354,6 +2354,7 @@ ${isInitialGeneration ? `
                                 <span className="text-xs text-neutral-500">发现同名角色 · 将核对身份并增量更新，不会直接复制</span>}
                             <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
                             <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
+                            <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '分享包未携带（原角色可能已有）' : (card.character.tavernGreetings?.length || 0) + ' 条'}</span>
                             {card.imageProfile && <span className="text-xs text-neutral-600">生图：{card.imageProfile.reference
                                 ? (card.imageProfile.referenceEnabled === false ? '参考图已识别（原卡关闭）'
                                     : card.imageProfile.referenceMode === 'composition' ? '构图参考图已识别' : '锁脸参考图已识别')
@@ -2361,6 +2362,7 @@ ${isInitialGeneration ? `
                         </span>
                     </label>)}
                 </div>
+                {pendingCard.cards.some(card => card.linkOpeningPayloadOmitted) && <p className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3 leading-relaxed">这份 Link 分享图片未携带部分角色的独立开场白数据，不能据此判断 Link 原角色没有开场白。此次导入不会删除糯米机中已有的开场白，也不会从人设中的“开场白锚点”猜测、捏造正文。</p>}
                 {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">
                     {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
                 </div>}
