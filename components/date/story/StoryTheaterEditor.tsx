@@ -34,6 +34,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const [confirmGreetingDelete, setConfirmGreetingDelete] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
     const titleInput = useRef<HTMLInputElement>(null);
+    const greetingTextarea = useRef<HTMLTextAreaElement>(null);
     const castSection = useRef<HTMLElement>(null);
     const actors = useMemo(() => characters.filter(char => draft.characterIds.includes(char.id)), [characters, draft.characterIds]);
     const resolvedMask = useMemo(() => resolveStoryTheaterMask(draft.mask, user, characters, masks), [characters, draft.mask, masks, user]);
@@ -185,17 +186,31 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
                     </div>}
                     {selectedGreeting && <div className='mt-3 border-t border-slate-100 pt-3'>
-                        {editingGreeting ? <div className='space-y-2'>
-                            <textarea aria-label='编辑开场内容' value={greetingText} onChange={event => setGreetingText(event.target.value)} maxLength={200000} rows={6} className='w-full rounded-xl border border-slate-200 bg-stone-50 p-3 text-xs leading-6 resize-y outline-none' />
-                            <div className='flex justify-end gap-3'><button disabled={greetingBusy} onClick={() => setEditingGreeting(false)} className='text-xs text-slate-500'>取消</button><button disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button></div>
-                        </div> : <>
-                            <p className='max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-6 text-slate-600'>{selectedGreeting.content}</p>
-                            <div className='mt-3 flex justify-end gap-4'>
-                                <button disabled={greetingBusy} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); setConfirmGreetingDelete(false); }} className='text-xs font-semibold text-violet-700'>修改</button>
-                                <button disabled={greetingBusy} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
-                            </div>
-                            {confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从角色的开场库删除？已写出的剧情不会改变。</p><div className='mt-2 flex justify-end gap-3'><button onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
-                        </>}
+                        <textarea
+                            ref={greetingTextarea}
+                            aria-label='编辑开场内容'
+                            value={editingGreeting ? greetingText : selectedGreeting.content}
+                            onChange={event => {
+                                setEditingGreeting(true);
+                                setGreetingText(event.target.value);
+                                setConfirmGreetingDelete(false);
+                                setGreetingError('');
+                            }}
+                            disabled={greetingBusy || confirmGreetingDelete}
+                            maxLength={200000}
+                            rows={3}
+                            className='block w-full max-h-40 rounded-xl border border-slate-200 bg-white p-3 text-xs leading-6 resize-y outline-none disabled:opacity-60'
+                        />
+                        <div className='mt-2 flex justify-end gap-4'>
+                            {editingGreeting ? <>
+                                <button type='button' disabled={greetingBusy} onClick={() => { setEditingGreeting(false); setGreetingText(''); setGreetingError(''); }} className='text-xs text-slate-500'>取消</button>
+                                <button type='button' disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button>
+                            </> : <>
+                                <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); greetingTextarea.current?.focus(); }} className='text-xs font-semibold text-violet-700'>修改</button>
+                                <button type='button' disabled={greetingBusy || confirmGreetingDelete} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
+                            </>}
+                        </div>
+                        {confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从角色的开场库删除？已写出的剧情不会改变。</p><div className='mt-2 flex justify-end gap-3'><button type='button' onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button type='button' disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
                     </div>}
                     {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
                 </div>
