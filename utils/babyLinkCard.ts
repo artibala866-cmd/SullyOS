@@ -179,6 +179,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             const now = Date.now();
             books.push({
                 id: uniqueId('wb'),
+                cardImportKey: 'babylink:' + bookId + ':' + (entryId || String(n)),
                 title: title || '条目 ' + (n + 1),
                 content,
                 category: 'BabyLink · ' + bookTitle,
@@ -248,7 +249,8 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         const character: PreparedCharacterCard['character'] = {
             name, avatar, description: summary, systemPrompt: prompt, worldview: '',
         };
-        return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [] };
+        return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [],
+            sourceIdentity: optionalText(value.id, '角色 ID', 256) || undefined };
     });
     return { source: 'babylink', cards, warnings };
 }
