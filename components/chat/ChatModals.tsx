@@ -237,7 +237,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     modalType, setModalType, compactHome=false,
     transferAmt, setTransferAmt,
     transferNote, setTransferNote,
-    emojiImportText, setEmojiImportText,
+    emojiImportText, setEmojiImportText, emojiImportBusy = false,
     settingsContextLimit, setSettingsContextLimit,
     settingsContextRangeMode, setSettingsContextRangeMode,
     settingsHideSysLogs, setSettingsHideSysLogs,
@@ -370,7 +370,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
             <Modal 
                 isOpen={modalType === 'emoji-import'} title="表情注入" onClose={() => setModalType('none')}
-                footer={<button onClick={onImportEmoji} disabled={props.emojiImportBusy} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{props.emojiImportBusy ? '正在导入…' : '添加至当前分类'}</button>}
+                footer={<button onClick={onImportEmoji} disabled={emojiImportBusy} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : '添加至当前分类'}</button>}
             >
                 <div className="space-y-3">
                     <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
