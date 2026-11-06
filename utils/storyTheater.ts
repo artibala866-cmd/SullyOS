@@ -1094,6 +1094,7 @@ export const compileStoryPreset = (input: {
     slots: StoryPromptSlots;
     historyMessages?: StoryApiMessage[];
     currentInput?: string;
+    modelName?: string;
     userName: string;
     characterNames: string[];
 }): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[] } => {
@@ -1135,6 +1136,8 @@ export const compileStoryPreset = (input: {
             lastUserMessage: lastUserMessage?.content,
             lastCharMessage: lastCharMessage?.content,
             input: input.currentInput,
+            model: input.modelName,
+            variables,
         })
         : value;
 
