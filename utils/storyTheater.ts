@@ -1,4 +1,5 @@
 import { adaptTavernOpeningGreeting, tavernOpeningSceneText } from './tavernOpeningGreeting';
+import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
     CharacterProfile,
     Message,
@@ -776,7 +777,10 @@ const macroReplace = (text: string, userName: string, characterNames: string[]):
         }[name.toUpperCase()] ?? raw));
 };
 
-/** 仅在尚无剧情正文时使用：把选中的酒馆开场白转成真实的首条角色消息。 */
+/** Both native Link and Tavern stored openings enter only the Story first floor,
+ * never the private chat prompt or dialogue history. Each format was normalized
+ * by its own importer before reaching this common story-only selector.
+ */
 export const resolveStoryOpeningGreeting = (
     entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
     characters: CharacterProfile[],
@@ -785,15 +789,13 @@ export const resolveStoryOpeningGreeting = (
     const selection = entry.openingGreeting;
     if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
     const actor = characters.find(character => character.id === selection.characterId);
-    const greeting = Array.isArray(actor?.tavernGreetings)
-        ? actor.tavernGreetings.find(item => item?.id === selection.greetingId) : undefined;
-    if (!actor || typeof greeting?.content !== 'string') return null;
-    const adapted = adaptTavernOpeningGreeting(greeting);
-    if (!adapted.content.trim()) return null;
+    if (!actor) return null;
+    const greeting = listCharacterStoryOpenings(actor).find(item => item.id === selection.greetingId);
+    if (!greeting?.content.trim()) return null;
     return {
         characterId: actor.id,
         greetingId: greeting.id,
-        content: macroReplace(adapted.content.trim(), identityName, [actor.name]),
+        content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
     };
 };
 
