@@ -309,6 +309,10 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         if (typeof data[key] === 'string' && data[key].length > MAX_JSON) throw new Error('角色人设正文过大');
     }
     const warnings: string[] = [];
+    const embeddedRegex = data.extensions?.regex_scripts ?? data.regex_scripts;
+    if (Array.isArray(embeddedRegex) && embeddedRegex.length) {
+        warnings.push('酒馆角色卡携带局部正则脚本；糯米机没有等价执行器，已跳过脚本执行。请在导入后核对正文特殊标记的显示效果。');
+    }
     const nick = text(data.nickname);
     const description = normalizeMacros(text(data.description), warnings) +
         (nick && nick !== name ? '\n【角色昵称】' + normalizeMacros(nick, warnings) : '');
