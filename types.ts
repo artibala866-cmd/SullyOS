@@ -2316,6 +2316,8 @@ export interface StoryTheaterPresetDocument {
     assistantPrefill?: string;
     /** 仅允许白名单酒馆文本宏解释，不执行扩展插件的代码。 */
     sourceFormat?: 'sillytavern';
+    /** 酒馆预设的合并连续 system 消息开关；原生预设默认不启用。 */
+    squashSystemMessages?: boolean;
     importWarnings?: string[];
 }
 
