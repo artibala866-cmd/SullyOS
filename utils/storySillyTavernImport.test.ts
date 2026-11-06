@@ -479,6 +479,28 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         });
     });
 
+    it('lastMessage/lastUserMessage 绑定本轮真实输入，Continue 不把调度词假装为用户历史', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [{ identifier: 'status', role: 'system',
+                content: '末句：{{lastMessage}}｜用户：{{lastUserMessage}}｜角色：{{lastCharMessage}}' }],
+            prompt_order: [{ character_id: 100001,
+                order: [{ identifier: 'status', enabled: true }] }],
+        }), '聊天宏.json');
+        const historyMessages = [
+            { role: 'user' as const, content: '较早输入' },
+            { role: 'assistant' as const, content: '上一轮角色回复' },
+        ];
+        const input = { preset: imported, slots: { ...slots, worldBefore: '' },
+            userName: '用户', characterNames: ['角色'], historyMessages };
+        const current = compileStoryPreset({ ...input, currentInput: '刚刚说的话',
+            currentInputIsNewUserMessage: true }).messages.map(m => m.content).join('\n');
+        expect(current).toContain('末句：刚刚说的话｜用户：刚刚说的话｜角色：上一轮角色回复');
+        const continuation = compileStoryPreset({ ...input, currentInput: '系统内部继续命令',
+            currentInputIsNewUserMessage: false }).messages.map(m => m.content).join('\n');
+        expect(continuation).toContain('末句：上一轮角色回复｜用户：较早输入｜角色：上一轮角色回复');
+        expect(continuation).not.toContain('系统内部继续命令');
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
