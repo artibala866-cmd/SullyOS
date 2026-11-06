@@ -201,6 +201,33 @@ export const expandSillyTavernContextMacros = (
         .replace(/\{\{\s*noop\s*\}\}/gi, '');
 };
 
+/** Scoped to imported Tavern stories: the app's generic extractContent() strips
+ * <thinking> blocks by design. Keep their original markup in Tavern story
+ * messages instead, and support providers returning reasoning in a separate
+ * OpenAI-compatible field. The native chat API parser remains untouched.
+ */
+export const extractSillyTavernStoryContent = (data: any): string => {
+    const message = data?.choices?.[0]?.message;
+    const asText = (input: unknown): string => {
+        if (typeof input === 'string') return input;
+        if (!Array.isArray(input)) return '';
+        return input.map(part => {
+            if (typeof part === 'string') return part;
+            if (!part || typeof part !== 'object') return '';
+            const item = part as Record<string, unknown>;
+            if (item.type === 'thinking' && typeof item.thinking === 'string') {
+                return `<thinking>${item.thinking}</thinking>`;
+            }
+            return typeof item.text === 'string' ? item.text
+                : typeof item.content === 'string' ? item.content : '';
+        }).join('');
+    };
+    const content = asText(message?.content);
+    const separateThinking = asText(message?.reasoning_content ?? message?.reasoning ?? message?.thinking);
+    if (!separateThinking || /<(?:thinking|think|thought)\b/i.test(content)) return content.trim();
+    return `<thinking>${separateThinking}</thinking>\n${content}`.trim();
+};
+
 /** Preserve roles and message order while matching Tavern's system-message squashing. */
 export const squashAdjacentSystemMessages = (items: StoryApiMessage[]): StoryApiMessage[] => {
     const result: StoryApiMessage[] = [];
