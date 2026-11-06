@@ -17,6 +17,17 @@ const sprite = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xm
 </svg>`);
 const background = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560"><rect width="1000" height="560" fill="#8b8985"/><rect y="370" width="1000" height="190" fill="#595954"/><rect x="80" y="70" width="240" height="220" fill="#bab7ab"/><rect x="700" y="70" width="200" height="260" fill="#5b514a"/><path d="M0 350 Q400 260 1000 350" fill="none" stroke="#d7d0c2" stroke-width="12"/></svg>`);
 const scenario = new URLSearchParams(location.search).get('scenario') || 'dialogue';
+const simulatedLandscapeKeyboard = scenario.startsWith('landscapeKeyboard');
+let mockViewport: (EventTarget & { height: number; width: number; offsetTop: number; offsetLeft: number; scale: number }) | null = null;
+if (simulatedLandscapeKeyboard) {
+  // Match Android: the visual viewport shrinks, but CSS layout viewport stays.
+  const viewport = Object.assign(new EventTarget(), {
+    height: window.innerHeight, width: window.innerWidth,
+    offsetTop: 0, offsetLeft: 0, scale: 1,
+  });
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+  mockViewport = viewport;
+}
 const host = document.getElementById('visual')!;
 // Emulate the Android visual viewport shrinking when the soft keyboard appears.
 if (scenario === 'keyboard') host.style.height = `${Math.min(innerHeight, Math.max(180, Math.round(innerHeight * .58)))}px`;
@@ -30,7 +41,7 @@ const char = {
   avatar: sprite,
   sprites: { normal: sprite },
   dateBackground: background,
-  spriteConfig: { scale: scenario === 'zoom' ? 2.2 : 1, x: 0, y: 0 },
+  spriteConfig: { scale: scenario === 'zoom' || scenario === 'landscapeKeyboardZoom' ? 2.2 : 1, x: 0, y: 0 },
   dateAppearance: { preset: 'none' },
 } as any;
 const props = {
@@ -57,11 +68,51 @@ const intersects = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) =>
   !!(a && b && a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y);
 
 let prepared = false;
+let originalSpriteHeight = 0;
+let keyboardShown = false;
+function showSimulatedKeyboard() {
+  if (!mockViewport) return;
+  mockViewport.height = Math.min(105, Math.round(innerHeight * .36));
+  mockViewport.dispatchEvent(new Event('resize'));
+  if (!document.getElementById('mock-android-keyboard')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'mock-android-keyboard';
+    overlay.style.cssText = 'position:fixed;left:0;right:0;top:' + mockViewport.height +
+      'px;bottom:0;z-index:10000;background:#e3e6ed;border-top:4px solid #bbc2d0;' +
+      'display:flex;align-items:flex-start;justify-content:center;color:#4b5563;font:16px sans-serif;padding-top:20px';
+    overlay.textContent = 'Android soft keyboard (simulated visual viewport)';
+    document.body.append(overlay);
+  }
+  keyboardShown = true;
+}
+function hideSimulatedKeyboard() {
+  if (!mockViewport) return;
+  mockViewport.height = innerHeight;
+  mockViewport.dispatchEvent(new Event('resize'));
+  document.getElementById('mock-android-keyboard')?.remove();
+  keyboardShown = false;
+}
 function check() {
   const stage = host.querySelector('.date-session-root');
   if (!stage) return false;
   if (!prepared) {
     prepared = true;
+    originalSpriteHeight = host.querySelector('.date-session-sprite-stage img')?.getBoundingClientRect().height || 0;
+    if (simulatedLandscapeKeyboard) {
+      host.querySelector<HTMLButtonElement>('button[aria-label="展示输入框"]')?.click();
+      setTimeout(() => {
+        const textarea = host.querySelector<HTMLTextAreaElement>('.date-session-input-text');
+        textarea?.focus();
+        showSimulatedKeyboard();
+        if (scenario === 'landscapeKeyboardRestore' || scenario === 'landscapeKeyboardMenu') {
+          setTimeout(() => {
+            if (scenario === 'landscapeKeyboardMenu') host.querySelector<HTMLButtonElement>('button[aria-label="打开见面菜单"]')?.click();
+            hideSimulatedKeyboard();
+            if (scenario === 'landscapeKeyboardRestore') textarea?.blur();
+          }, 180);
+        }
+      }, 70);
+    }
     if (scenario === 'input' || scenario === 'keyboard') host.querySelector<HTMLButtonElement>('button[aria-label="展示输入框"]')?.click();
     if (scenario === 'menu') host.querySelector<HTMLButtonElement>('button[aria-label="打开见面菜单"]')?.click();
     if (scenario === 'reading') {
@@ -105,12 +156,28 @@ function check() {
     !intersects(controlsRect, dialogue) && !intersects(controlsRect, input) &&
     dialogue.bottom + 2 <= input.y
   );
+  const keyboardActive = simulatedLandscapeKeyboard && keyboardShown;
+  const viewportHeight = mockViewport?.height || innerHeight;
+  const keyboardSceneStable = !keyboardActive || (
+    !!spriteBox && !!input && !!dialogue && !!controlsRect &&
+    !!stage && stage.classList.contains('date-session-keyboard-open') &&
+    spriteBox.h >= Math.max(100, originalSpriteHeight * .8) &&
+    spriteBox.y >= -2 &&
+    dialogue.y >= controlsRect.bottom - 3 &&
+    dialogue.bottom + 2 <= input.y &&
+    input.bottom <= viewportHeight + 2 &&
+    !intersects(spriteBox, dialogue) &&
+    !intersects(spriteBox, input)
+  );
+  const keyboardRestored = scenario !== 'landscapeKeyboardRestore' ||
+    (!keyboardShown && !stage.classList.contains('date-session-keyboard-open') &&
+      !!spriteBox && spriteBox.h >= originalSpriteHeight * .8);
   const responsiveOk = (smallLandscape
     ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits && nameVisible)
-    : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true)) && compactKeyboardFits;
+    : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true)) && compactKeyboardFits && keyboardSceneStable && keyboardRestored;
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
     spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
-    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, errors };
+    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, keyboardActive, keyboardSceneStable, keyboardRestored, originalSpriteHeight, visibleHeight: viewportHeight, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);
   let output = document.getElementById('meet-landscape-report');
