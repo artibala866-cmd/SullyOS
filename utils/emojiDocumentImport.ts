@@ -13,10 +13,12 @@ export interface EmojiDocumentResult {
     entries: EmojiImportEntry[];
     text: string;
     ignoredLines: number;
+    /** URL-looking lines omitted from recognition; show these to help users find missing stickers. */
+    suspiciousLines: string[];
     name: string;
 }
 
-type ReadableFile = Pick<File, 'name' | 'size' | 'arrayBuffer'>;
+type ReadableFile = Pick<File, 'name' | 'size' | 'arrayBuffer'> & { type?: string };
 
 const decodeEntities = (s: string): string => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (_match, value: string) => {
     const token = value.toLowerCase();
@@ -217,16 +219,34 @@ function readCandidate(line: string): EmojiImportEntry | null {
     return null;
 }
 
+/** PDF and word processing software may wrap the URL itself over visual lines. */
+export function reuniteWrappedImageUrls(text: string): string {
+    const lines = text.split(/\r\n|\r|\n/);
+    const merged: string[] = [];
+    for (const part of lines) {
+        const current = part.trim();
+        const previous = merged[merged.length - 1] || '';
+        const endsWithLink = /https?:\/\/\S+$/i.test(previous);
+        const alreadyComplete = /https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(previous);
+        const nextIsUrlTail = /^(?:[.?&#/]\S+|[^\s]+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?)$/i.test(current);
+        if (endsWithLink && !alreadyComplete && nextIsUrlTail) {
+            merged[merged.length - 1] = previous + current;
+        } else merged.push(part);
+    }
+    return merged.join('\n');
+}
+
 function bareImageUrl(line: string): string | null {
     const candidate = line.trim();
     return isValidPair('image', candidate) ? candidate : null;
 }
 
-/** Extract rows from documents without treating headings and prose as failed imports. */
-export function collectEmojiDocumentRows(text: string): { entries: EmojiImportEntry[]; ignoredLines: number } {
+/** Extract rows without treating headings and prose as failed imports. */
+export function collectEmojiDocumentRows(text: string): { entries: EmojiImportEntry[]; ignoredLines: number; suspiciousLines: string[] } {
     const lines = text.split(/\r\n|\r|\n/);
     const entries: EmojiImportEntry[] = [];
     let ignoredLines = 0;
+    const suspiciousLines: string[] = [];
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -246,14 +266,30 @@ export function collectEmojiDocumentRows(text: string): { entries: EmojiImportEn
             if (pair) { entries.push(pair); i++; continue; }
         }
         ignoredLines++;
+        if (suspiciousLines.length < 8 && /https?:\/\/|data:image\/|blobref:/i.test(line)) suspiciousLines.push(line.slice(0,160));
     }
     if (entries.length > MAX_IMPORT_ENTRIES) throw new Error('识别到的表情超过 3000 条，请分批导入');
-    return { entries, ignoredLines };
+    return { entries, ignoredLines, suspiciousLines };
 }
 
 export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocumentResult> {
     const name = file.name || '未命名文件';
-    const extension = /\.([a-z0-9]+)$/i.exec(name)?.[1]?.toLowerCase() || '';
+    const suffix = /\.([a-z0-9]+)$/i.exec(name)?.[1]?.toLowerCase() || '';
+    // Android document providers may return generic names (or no extension).
+    // Prefer the explicit suffix; use MIME only when the file name gives no type.
+    const mimeType = (file.type || '').toLowerCase().split(';')[0];
+    const extension = suffix || ({
+        'application/pdf': 'pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+        'application/msword': 'doc',
+        'text/plain': 'txt',
+        'text/csv': 'csv',
+        'text/markdown': 'md',
+        'application/json': 'json',
+        'text/html': 'html',
+        'application/rtf': 'rtf',
+        'text/rtf': 'rtf',
+    } as Record<string, string>)[mimeType] || '';
     if (extension === 'doc') throw new Error('旧版 Word .doc 暂无法可靠解析，请用 Word 另存为 .docx 后再导入');
     if (!['txt', 'text', 'md', 'markdown', 'csv', 'tsv', 'json', 'html', 'htm', 'rtf', 'docx', 'pdf'].includes(extension)) {
         throw new Error('不支持此文件类型，请选择 TXT、Word DOCX、PDF、CSV、Markdown、JSON 或 HTML');
@@ -264,7 +300,7 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
     if (extension === 'pdf') {
         // Keep the heavy PDF worker out of the private-chat initial bundle.
         const { extractPdfEmojiLines } = await import('./pdfText');
-        content = await extractPdfEmojiLines(bytes, 80);
+        content = reuniteWrappedImageUrls(await extractPdfEmojiLines(bytes, 80));
         if (!content.trim()) throw new Error('PDF 没有可提取的文字，可能是扫描图片；请先转为可选中文本');
     } else if (extension === 'docx') {
         content = await readDocx(bytes);
@@ -280,7 +316,7 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
         } else content = plain;
     }
     if (content.length > MAX_DOCUMENT_TEXT_LENGTH) throw new Error('文档正文过大，请拆分后重试');
-    const { entries, ignoredLines } = collectEmojiDocumentRows(content);
+    const { entries, ignoredLines, suspiciousLines } = collectEmojiDocumentRows(content);
     if (!entries.length) throw new Error('未找到「表情名称＋图片链接」，请检查文档是否包含在线表情包地址');
-    return { name, entries, text: formatEmojiImportText(entries), ignoredLines };
+    return { name, entries, text: formatEmojiImportText(entries), ignoredLines, suspiciousLines };
 }
