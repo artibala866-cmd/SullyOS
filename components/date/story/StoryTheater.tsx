@@ -28,6 +28,7 @@ import StoryArchivePanel from './StoryArchivePanel';
 import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheaterTheme';
 import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
 import { deleteUnusedStoryMask, saveStoryWithOpening } from '../../../utils/storyTheaterPersistence';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from '../../../utils/tavernOpeningGreeting';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -116,7 +117,15 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         if (content !== null && (!content.trim() || content.length > 200000)) throw new Error('开场白正文不能为空或超过 20 万字');
         const next = content === null
             ? greetings.filter(greeting => greeting.id !== greetingId)
-            : greetings.map(greeting => greeting.id === greetingId ? { ...greeting, content: content.trim() } : greeting);
+            : greetings.map(greeting => {
+                if (greeting.id !== greetingId) return greeting;
+                // Older imported cards keep title/desc inside raw HTML comments.
+                // Preserve that metadata as structured fields when the user edits.
+                const previous = adaptTavernOpeningGreeting(greeting);
+                const updated = adaptTavernOpeningGreeting({ ...previous, content: content.trim() });
+                if (!updated.content.trim()) throw new Error('开场白正文不能只包含标题或简介');
+                return updated;
+            });
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
         updateCharacter(characterId, { tavernGreetings: next });
     }, [updateCharacter]);
@@ -127,14 +136,16 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         const latest = await DB.getCharacter(characterId);
         if (!latest) throw new Error('参与角色已不存在，请重新选择');
         const greetings = Array.isArray(latest.tavernGreetings) ? latest.tavernGreetings : [];
-        // Reusing an identical opening prevents accidental duplicate entries when tapping twice.
-        const existing = greetings.find(greeting => greeting.content.trim() === body);
-        if (existing) return existing;
-        const greeting: TavernOpeningGreeting = {
+        const greeting: TavernOpeningGreeting = adaptTavernOpeningGreeting({
             id: `story-custom-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`}`,
             title: title.trim().slice(0, 60) || body.split(/\r?\n/).find(line => line.trim())?.trim().slice(0, 30) || '自定义开场',
             content: body,
-        };
+        });
+        if (!greeting.content.trim()) throw new Error('开场白正文不能只包含标题或简介');
+        // A legacy raw metadata header and a clean new opening are identical
+        // when they resolve to the same scene. Keep the original stable ID.
+        const existing = greetings.find(item => tavernOpeningBodyKey(item) === tavernOpeningBodyKey(greeting));
+        if (existing) return adaptTavernOpeningGreeting(existing);
         const next = [...greetings, greeting];
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
         updateCharacter(characterId, { tavernGreetings: next });
