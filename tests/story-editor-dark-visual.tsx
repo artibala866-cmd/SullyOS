@@ -25,8 +25,8 @@ root.render(React.createElement('div',{className:`story-theme ${light?'story-the
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
     })));
 if(scenario==='editing')setTimeout(()=>{
-    const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
-    [...(opening?.querySelectorAll('button')||[])].find(button=>button.textContent?.trim()==='修改')?.click();
+    const editor=document.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
+    [...(editor?.parentElement?.querySelectorAll('button')||[])].find(button=>button.textContent?.trim()==='修改')?.click();
 },750);
 const target=(element:Element|null)=>{
     if(!element)return {exists:false,color:'',background:''};
@@ -38,7 +38,7 @@ const validate=()=>{
     const card=document.querySelector<HTMLElement>('.story-memory-live-card');
     const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
     const openingSelect=opening?.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]');
-    const openingEditor=opening?.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
+    const openingEditor=document.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
@@ -57,9 +57,10 @@ const validate=()=>{
             && (['selected','editing'].includes(scenario)
                 ? openingSelect?.value===`${actor.id}::tavern-first`
                     && openingEditor?.value==='雨夜的钟声响起，故事从这里开始。'
-                    && opening?.querySelectorAll('textarea[data-story-opening-editor="true"]').length===1
+                    && document.querySelectorAll('textarea[data-story-opening-editor="true"]').length===1
+                    && !opening?.querySelector('textarea') // no extra preview/editor below the selector
                     && ![...(opening?.querySelectorAll('p')||[])].some(p=>p.textContent?.includes('雨夜的钟声响起'))
-                    && (scenario!=='editing' || !![...(opening?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='保存修改'))
+                    && (scenario!=='editing' || !![...(openingEditor?.parentElement?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='保存修改'))
                 : !openingEditor && !opening?.textContent?.includes('雨夜的钟声响起'))
             && (scenario==='manual'
                 ? !openingSelect?.hasAttribute('disabled') && openingSelect?.querySelector('option')?.textContent==='选择已有开场'
@@ -81,7 +82,7 @@ const validate=()=>{
     };
     const focus = new URLSearchParams(location.search).get('focus');
     if (focus === 'memory') card.scrollIntoView({block:'center',behavior:'instant'});
-    if (focus === 'opening') opening.scrollIntoView({block:'center',behavior:'instant'});
+    if (focus === 'opening') (openingEditor || opening).scrollIntoView({block:'center',behavior:'instant'});
     if (focus === 'bottom') buttons[1].scrollIntoView({block:'center',behavior:'instant'});
     document.body.dataset.storyGrayReady=String(report.success);
     const output=document.createElement('output');output.id='story-gray-browser-report';output.hidden=true;
