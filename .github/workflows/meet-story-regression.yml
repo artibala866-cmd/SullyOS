@@ -125,6 +125,18 @@ jobs:
               > "output/meet-story/light-${scenario}-screenshot.log" 2>&1
             test -s "output/meet-story/story-editor-light-${scenario}-390.png"
           done
+          # Regression: imported Tavern preset uses the original preset section, not an extra panel.
+          tavernurl="${url}?scenario=tavern&focus=preset"
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --dump-dom "$tavernurl" > output/meet-story/tavern-import-dom.html \
+            2> output/meet-story/tavern-import-chrome.log
+          grep -q 'data-story-gray-ready="true"' output/meet-story/tavern-import-dom.html
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --screenshot=output/meet-story/story-editor-tavern-import-390.png "$tavernurl" \
+            > output/meet-story/tavern-import-screenshot.log 2>&1
+          test -s output/meet-story/story-editor-tavern-import-390.png
           echo 'PASS: dark and light story editor, mobile viewport, manual/auto/prewritten opening, no duplicate cast options'
       - name: Screenshot and inspect actual Meet scene settings at mobile width
         shell: bash
