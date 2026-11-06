@@ -39,8 +39,11 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
         seen.add(raw.id);
     };
     // Native Link entries win over a shadow copy from pre-migration storage.
-    for (const greeting of character.linkGreetings || []) add(greeting, 'link');
-    for (const greeting of character.tavernGreetings || []) {
+    // Malformed optional fields from older backups must not crash Story setup.
+    const links = Array.isArray(character.linkGreetings) ? character.linkGreetings : [];
+    const tavern = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
+    for (const greeting of links) add(greeting, 'link');
+    for (const greeting of tavern) {
         if (isLegacyLinkOpening(greeting)) add(greeting, 'link');
         else {
             const source: StoryOpeningSource = greeting.id.startsWith('story-custom-') ? 'custom' : 'tavern';
