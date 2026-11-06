@@ -36,6 +36,10 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   const files=[new File([valid('第一份')],'第一份.json',{type:'application/json'}),
    new File(['{broken'],'损坏.json',{type:'application/json'}),
    new File([valid('第二份')],'第二份.json',{type:'application/json'})];
+  // jsdom's File shim lacks Blob.text() on some runner versions; browsers have it.
+  [valid('第一份'), '{broken', valid('第二份')].forEach((raw,i)=>{
+   Object.defineProperty(files[i],'text',{configurable:true,value:async()=>raw});
+  });
   Object.defineProperty(picker!,'files',{configurable:true,value:files});
   await act(async()=>{picker!.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(onImport).toHaveBeenCalledTimes(3);
