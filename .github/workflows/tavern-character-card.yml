@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/tavern-tsc.log 2>&1 || true
-          grep -E '^(apps/Character.tsx|components/character/CharacterImagePanel.tsx|utils/(cardImportMerge(\\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
+          grep -E '^(apps/Character.tsx|components/character/CharacterImagePanel.tsx|utils/(cardImportMerge(\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
           if [ -s /tmp/tavern-errors.log ]; then
             cat /tmp/tavern-errors.log
             exit 1
