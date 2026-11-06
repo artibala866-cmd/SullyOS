@@ -1244,9 +1244,10 @@ export const buildStoryWorldbookScanMessages = (
     ];
 };
 
-export const buildBareTheaterActorContext = (char: CharacterProfile): string => [
+export const buildBareTheaterActorContext = (char: CharacterProfile, includeDescription = false): string => [
     `### 剧情角色：${char.name}`,
     `- 名字：${char.name}`,
+    ...(includeDescription && char.description?.trim() ? [`- 角色描述：\n${char.description.trim()}`] : []),
     `- 核心指令：\n${char.systemPrompt || '无额外核心指令'}`,
     char.worldview?.trim() ? `- 世界观：\n${char.worldview.trim()}` : '',
 ].filter(Boolean).join('\n');
