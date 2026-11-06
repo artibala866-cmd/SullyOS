@@ -149,7 +149,7 @@ export const expandSillyTavernPromptText = (
 ): string => raw
     .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '')
     .replace(/(?:\r?\n)*\{\{\s*trim\s*\}\}(?:\r?\n)*/gi, '')
-    .replace(/\{\{\s*setvar::([^{}:]+)::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
+    .replace(/\{\{\s*setvar\s*::\s*([^{}:]+?)\s*::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
         const name = key.trim();
         variables.set(name, value);
         // SillyTavern extensions may read this variable later. They cannot run in
@@ -159,7 +159,7 @@ export const expandSillyTavernPromptText = (
             ? value.trim()
             : '';
     })
-    .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
+    .replace(/\{\{\s*getvar(?:\s*::\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
 
 /** Resolve supported Tavern card/persona/history macros against the actual story
  * runtime. Unsupported syntax is preserved literally for editing instead of
