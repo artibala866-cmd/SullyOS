@@ -1489,7 +1489,7 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
     const source = String(content || '');
     const blocks: StoryDisplayBlock[] = [];
     const topLevel = fromTavern
-        ? /<(thinking|content|details|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        ? /<(thinking|think|thought|content|details|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
         : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let cursor = 0;
     let match: RegExpExecArray | null;
@@ -1512,7 +1512,7 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
     while ((match = topLevel.exec(source)) !== null) {
         if (match.index > cursor) push('story', source.slice(cursor, match.index));
         const sourceTag = match[1].toLowerCase();
-        if (fromTavern && sourceTag === 'thinking') {
+        if (fromTavern && ['thinking', 'think', 'thought'].includes(sourceTag)) {
             push('thinking', match[2], '思考过程');
             cursor = match.index + match[0].length;
             continue;
