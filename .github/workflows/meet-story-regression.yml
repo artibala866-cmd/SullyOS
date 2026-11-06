@@ -14,6 +14,10 @@ on:
       - 'tests/date-settings-visual.tsx'
       - 'test/fixtures/date-settings-visual.html'
       - 'components/date/DateSession.tsx'
+      - 'components/date/date-session-landscape.css'
+      - 'tests/date-session-landscape-visual.tsx'
+      - 'test/fixtures/date-session-landscape-visual.html'
+      - 'utils/dateSessionLandscape.test.ts'
       - 'utils/dateScenes*.ts'
       - 'utils/datePrompts*.ts'
       - 'utils/dateBackgroundBlobRef.test.ts'
@@ -48,7 +52,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Test story creation, persistence, archives, backups and timeline compatibility
         run: |
-          pnpm exec vitest run utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts
+          pnpm exec vitest run utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/dateSessionLandscape.test.ts utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts
       - name: Check meet and database TypeScript diagnostics
         shell: bash
         run: |
@@ -153,6 +157,52 @@ jobs:
             echo "MEET_SCENE_SCREENSHOT_${scenario}_BASE64_END"
           done
           echo 'PASS: five real Meet settings browser screenshots (filled, empty, clear, two real uploads, top) with six scene slots'
+      - name: Screenshot real Meet conversation in phone landscape, input, menu and portrait
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/meet-landscape
+          pnpm exec vite --host 127.0.0.1 --port 5195 --strictPort > output/meet-landscape/vite.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl -fsSL http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html > /dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for scenario in dialogue input menu reading; do
+            for viewport in 844x390 740x360; do
+              width="${viewport%x*}"; height="${viewport#*x}"
+              url="http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=${scenario}"
+              prefix="output/meet-landscape/${scenario}-${viewport}"
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --window-size="${width},${height}" --force-device-scale-factor=1 \
+                --virtual-time-budget=8000 --dump-dom "$url" > "${prefix}.html" 2> "${prefix}.log"
+              if ! grep -q 'data-meet-landscape-ready="true"' "${prefix}.html"; then
+                grep -o 'id="meet-landscape-report"[^<]*' "${prefix}.html" | tail -c 2500 || true
+                tail -n 35 "${prefix}.log"
+                exit 1
+              fi
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --window-size="${width},${height}" --force-device-scale-factor=1 \
+                --virtual-time-budget=8000 --screenshot="${prefix}.png" "$url" >/dev/null 2>&1
+              test -s "${prefix}.png"
+              grep -o 'id="meet-landscape-report"[^<]*' "${prefix}.html" | tail -c 1300 || true
+            done
+          done
+          url='http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=input'
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --dump-dom "$url" > output/meet-landscape/portrait.html 2> output/meet-landscape/portrait.log
+          grep -q 'data-meet-landscape-ready="true"' output/meet-landscape/portrait.html
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --screenshot=output/meet-landscape/portrait.png "$url" >/dev/null 2>&1
+          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 portrait; do
+            echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_BEGIN"
+            base64 -w0 "output/meet-landscape/${frame}.png"
+            echo
+            echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_END"
+          done
+          echo 'PASS: Meet responsive layout verified in real Chromium for small landscape and portrait'
       - name: Attach browser screenshot and computed style report
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,4 +211,5 @@ jobs:
           path: |
             output/meet-story/
             output/meet-scenes/
+            output/meet-landscape/
           if-no-files-found: ignore
