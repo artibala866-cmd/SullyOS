@@ -199,7 +199,10 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
     if (!standardEntries.length) return [];
     // Use SullyOS's own canonical importer, then the normal mounted-worldbook format.
     return parseStandardWorldbook(JSON.stringify({ entries: standardEntries }), charName + ' 的世界书')
-        .map((entry, index) => ({ ...entry, cardImportKey: 'tavern:' + String(entries[index] && (entries[index] as any).uid ?? (entries[index] as any)?.id ?? index) }));
+        .map((entry, index) => {
+            const externalUid = entries[index] as Record<string, any>;
+            return { ...entry, cardImportKey: 'tavern:' + String(externalUid?.uid ?? externalUid?.id ?? index) };
+        });
 };
 
 const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
