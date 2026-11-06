@@ -1,5 +1,5 @@
 import CharacterImagePanel from '../components/character/CharacterImagePanel';
-import { clearCharacterImageProfile, writeCharacterImageProfile } from '../utils/characterImageProfile';
+import { clearCharacterImageProfile, readCharacterImageProfile, writeCharacterImageProfile } from '../utils/characterImageProfile';
 import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
@@ -9,7 +9,7 @@ import { loadCharacterContextMessages, DEFAULT_MANUAL_CONTEXT_LIMIT, CONTEXT_RAN
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
-import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment } from '../types';
+import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment, type CardImportOrigin } from '../types';
 import { SlidersHorizontal, SpeakerHigh, Books, BookOpen } from '@phosphor-icons/react';
 import Modal from '../components/os/Modal';
 import { processImage, processImageToBlob } from '../utils/file';
@@ -40,6 +40,7 @@ import { toMountedWorldbook } from '../utils/worldbook';
 import { stripSensitiveCardFields } from '../utils/characterCard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readCharacterCardFile, type PreparedCardImport, type PreparedCharacterCard } from '../utils/sillyTavernCard';
+import { cardContentFingerprint, findCardImportTarget } from '../utils/cardImportMerge';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
@@ -1187,79 +1188,121 @@ ${isInitialGeneration ? `
       }
   };
 
+  const cardOrigin = (prepared: PreparedCharacterCard): CardImportOrigin => ({
+      source: prepared.source === 'babylink-character' ? 'babylink'
+          : prepared.source === 'sully' ? 'sully' : 'tavern',
+      externalId: prepared.sourceIdentity,
+      originalName: prepared.character.name,
+  });
+
   const confirmCardImport = async () => {
       if (!pendingCard || savingCard) return;
       const chosen: PreparedCharacterCard[] = pendingCard.source === 'babylink'
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard];
-      if (chosen.length === 0) { addToast('请至少选择一个角色', 'error'); return; }
+      if (!chosen.length) { addToast('请至少选择一个角色', 'error'); return; }
       setSavingCard(true);
       const createdAvatars: string[] = [];
-      const stagedImageProfiles: string[] = [];
+      const stagedImageProfiles: Array<{ id: string; previous: ReturnType<typeof readCharacterImageProfile> | null }> = [];
       let databaseCommitted = false;
       try {
-          const charactersToSave: CharacterProfile[] = [];
-          const booksToSave = new Map<string, typeof chosen[number]['worldbooks'][number]>();
+          // The live DB is the identity authority, never a permanent file-history
+          // registry or an orphaned worldbook left by a deleted role.
+          const existingCharacters = await DB.getAllCharacters();
+          const imports = [];
           for (const prepared of chosen) {
-              const newId = 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              const origin = cardOrigin(prepared);
+              const target = findCardImportTarget(existingCharacters, origin, prepared.character.name);
+              const targetId = target?.id || null;
+              const newId = targetId || 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
                   ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+              const fields = { ...prepared.character };
               let avatar = prepared.character.avatar || '';
               if (prepared.avatarFile) {
-                  avatar = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
-                  createdAvatars.push(avatar);
+                  const bytes = new Uint8Array(await prepared.avatarFile.arrayBuffer());
+                  origin.avatarFingerprint = cardContentFingerprint(bytes);
+                  if (!target || target.cardImportOrigin?.avatarFingerprint !== origin.avatarFingerprint) {
+                      avatar = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
+                      createdAvatars.push(avatar);
+                  } else avatar = target.avatar;
               } else if (avatar.startsWith('data:image/')) {
-                  // Store every new image through the existing Blob mechanism, with rollback on failure.
-                  const sourceImage = await (await fetch(avatar)).blob();
-                  const imageFile = new File([sourceImage], 'imported-avatar.png', { type: sourceImage.type });
-                  avatar = await putImageBlob(await processImageToBlob(imageFile, { maxWidth: 900 }));
-                  createdAvatars.push(avatar);
-              }
+                  origin.avatarFingerprint = cardContentFingerprint(avatar);
+                  if (!target || target.cardImportOrigin?.avatarFingerprint !== origin.avatarFingerprint) {
+                      const sourceImage = await (await fetch(avatar)).blob();
+                      const imageFile = new File([sourceImage], 'imported-avatar.png', { type: sourceImage.type });
+                      avatar = await putImageBlob(await processImageToBlob(imageFile, { maxWidth: 900 }));
+                      createdAvatars.push(avatar);
+                  } else avatar = target.avatar;
+              } else if (target) avatar = target.avatar;
+              fields.avatar = avatar;
+
               if (prepared.source === 'babylink-character' && prepared.imageProfile) {
-                  // BabyLink is a phone card: migrate face-lock and wardrobe into
-                  // Sully's existing per-character image settings, not the AI persona.
                   const incoming = prepared.imageProfile;
-                  let reference = incoming.reference || '';
-                  if (reference.startsWith('data:image/')) {
-                      reference = await putImageBlob(dataUrlToBlob(reference));
-                      createdAvatars.push(reference);
+                  origin.imageFingerprint = cardContentFingerprint(JSON.stringify(incoming));
+                  if (!target || target.cardImportOrigin?.imageFingerprint !== origin.imageFingerprint) {
+                      let reference = incoming.reference || '';
+                      if (reference.startsWith('data:image/')) {
+                          reference = await putImageBlob(dataUrlToBlob(reference));
+                          createdAvatars.push(reference);
+                      }
+                      // Preserve existing local-only options absent from a partial
+                      // Link card; restore previous settings if the transaction aborts.
+                      const previous = target ? readCharacterImageProfile(newId) : null;
+                      const merged = previous
+                          ? { ...previous, ...Object.fromEntries(Object.entries(incoming).filter(([, value]) =>
+                              value !== undefined && value !== null && value !== '')) }
+                          : incoming;
+                      writeCharacterImageProfile(newId, { ...merged, reference: reference || previous?.reference || '' });
+                      stagedImageProfiles.push({ id: newId, previous });
                   }
-                  // Stage this *before* the IndexedDB batch commit. An unavailable
-                  // localStorage must abort the import, not silently lose face lock.
-                  writeCharacterImageProfile(newId, { ...incoming, reference });
-                  stagedImageProfiles.push(newId);
               }
               const mounted = prepared.worldbooks.map(toMountedWorldbook);
-              for (const book of prepared.worldbooks) booksToSave.set(book.id, book);
-              charactersToSave.push({
-                  ...prepared.character,
-                  id: newId, avatar, name: prepared.character.name,
-                  description: prepared.character.description, systemPrompt: prepared.character.systemPrompt,
-                  memories: [], refinedMemories: {}, activeMemoryMonths: [], mountedWorldbooks: mounted,
-                  contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
-                  contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
-                  contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
-                  emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
-              } as CharacterProfile);
+              imports.push({
+                  expectedTargetId: targetId,
+                  origin,
+                  fields,
+                  worldbooks: prepared.worldbooks,
+                  character: {
+                      ...prepared.character, id: newId, avatar,
+                      name: prepared.character.name,
+                      description: prepared.character.description,
+                      systemPrompt: prepared.character.systemPrompt,
+                      cardImportOrigin: origin,
+                      memories: [], refinedMemories: {}, activeMemoryMonths: [],
+                      mountedWorldbooks: mounted,
+                      contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
+                      contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
+                      contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
+                      emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
+                  } as CharacterProfile,
+              });
           }
-          const libraryBooks = [...booksToSave.values()];
-          await DB.importCharacterCardsAtomic(charactersToSave, libraryBooks);
+          const result = await DB.importCharacterCardsSmartAtomic(imports);
           databaseCommitted = true;
-          const [saved, library] = await Promise.all([
-              Promise.all(charactersToSave.map(char => DB.getCharacter(char.id))),
-              DB.getAllWorldbooks(),
-          ]);
-          if (saved.some((char, index) => !char || char.mountedWorldbooks?.length !== charactersToSave[index].mountedWorldbooks?.length) ||
-              libraryBooks.some(book => !library.some(row => row.id === book.id))) {
-              throw new Error('保存事务已提交，但读取校验失败，请检查角色与世界书后再操作');
+          // Confirm committed roles really exist before claiming success.
+          const saved = await Promise.all(imports.map(item =>
+              DB.getCharacter(item.expectedTargetId || item.character.id)));
+          if (saved.some(char => !char)) {
+              throw new Error('数据库保存已提交，但部分角色读取校验失败，请检查角色列表');
           }
           setPendingCard(null);
           trackEvent('导入角色卡');
-          addToast('已导入 ' + charactersToSave.length + ' 个角色，世界书 ' + libraryBooks.length + ' 条', 'success');
+          const summary = [
+              result.createdIds.length ? '新增 ' + result.createdIds.length + ' 个角色' : '',
+              result.updatedIds.length ? '更新 ' + result.updatedIds.length + ' 个角色' : '',
+              result.unchangedIds.length ? '未变化 ' + result.unchangedIds.length + ' 个角色' : '',
+              result.booksAdded ? '新增世界书 ' + result.booksAdded + ' 条' : '',
+              result.booksUpdated ? '更新世界书 ' + result.booksUpdated + ' 条' : '',
+          ].filter(Boolean).join(' · ');
+          addToast(summary || '已检查，没有需要重复导入的内容', 'success');
           window.setTimeout(() => window.location.reload(), 450);
       } catch (error: any) {
           if (!databaseCommitted) {
-              for (const id of stagedImageProfiles) {
-                  try { clearCharacterImageProfile(id); } catch {}
+              for (const { id, previous } of stagedImageProfiles.reverse()) {
+                  try {
+                      if (previous) writeCharacterImageProfile(id, previous);
+                      else clearCharacterImageProfile(id);
+                  } catch {}
               }
               for (const token of createdAvatars) {
                   try { await deleteBlobRef(token); } catch {}
