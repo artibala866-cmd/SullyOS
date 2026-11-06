@@ -139,9 +139,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         setCreateGreetingError('');
         try {
             if (!onCreateGreeting) throw new Error('开场库暂时不可用');
-            const firstLine = content.split(/\r?\n/).map(line => line.trim()).find(Boolean) || '';
-            const commentTitle = content.match(/<!--\s*title\s*[:：]\s*(.*?)\s*-->/i)?.[1]?.trim();
-            const title = (commentTitle || firstLine.replace(/^<!--.*?-->\s*/, '') || draft.title.trim() || '自定义开场').slice(0, 30);
+            // Use the same metadata adapter as imports; a multiline desc header
+            // must not accidentally become the library title.
+            const adapted = adaptTavernOpeningGreeting({ id: '', title: '', content });
+            const firstLine = adapted.content.split(/\r?\n/).map(line => line.trim()).find(Boolean) || '';
+            const title = (adapted.title || firstLine || draft.title.trim() || '自定义开场').slice(0, 30);
             const created = await onCreateGreeting(actor.id, title, content);
             promotedPremise.current = { characterId: actor.id, greetingId: created.id, content: created.content };
             setRecentGreeting({ ...created, characterId: actor.id, characterName: actor.name });
