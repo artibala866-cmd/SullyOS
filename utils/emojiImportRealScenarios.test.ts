@@ -51,7 +51,7 @@ describe('真实文件到数据库的全链路场景', () => {
     });
     it('角色卡 JSON 的头像封面不能被误当表情，而表情映射的无扩展名直链仍保留', async () => {
         const data = {
-            name: '示例角色', avatar: 'https://example.com/avatar.png',
+            name: '示例角色', url: 'https://example.com/character.png', avatar: 'https://example.com/avatar.png',
             metadata: { icon: 'https://example.com/icon.png', homepage: 'https://example.com' },
             emojis: { '想你': 'https://example.com/image?id=123', '害羞': 'https://example.com/shy.gif' },
         };
