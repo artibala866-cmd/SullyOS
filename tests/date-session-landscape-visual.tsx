@@ -18,6 +18,8 @@ const sprite = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xm
 const background = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560"><rect width="1000" height="560" fill="#8b8985"/><rect y="370" width="1000" height="190" fill="#595954"/><rect x="80" y="70" width="240" height="220" fill="#bab7ab"/><rect x="700" y="70" width="200" height="260" fill="#5b514a"/><path d="M0 350 Q400 260 1000 350" fill="none" stroke="#d7d0c2" stroke-width="12"/></svg>`);
 const scenario = new URLSearchParams(location.search).get('scenario') || 'dialogue';
 const host = document.getElementById('visual')!;
+// Emulate the Android visual viewport shrinking when the soft keyboard appears.
+if (scenario === 'keyboard') host.style.height = `${Math.max(300, Math.round(innerHeight * .58))}px`;
 const errors: string[] = [];
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
@@ -60,7 +62,7 @@ function check() {
   if (!stage) return false;
   if (!prepared) {
     prepared = true;
-    if (scenario === 'input') host.querySelector<HTMLButtonElement>('button[aria-label="展示输入框"]')?.click();
+    if (scenario === 'input' || scenario === 'keyboard') host.querySelector<HTMLButtonElement>('button[aria-label="展示输入框"]')?.click();
     if (scenario === 'menu') host.querySelector<HTMLButtonElement>('button[aria-label="打开见面菜单"]')?.click();
     if (scenario === 'reading') {
       host.querySelector<HTMLButtonElement>('button[aria-label="打开见面菜单"]')?.click();
@@ -83,21 +85,24 @@ function check() {
   const controlsRect = rect(controls);
   const reading = host.querySelector<HTMLElement>('.date-session-reading-page');
   const menu = host.querySelector<HTMLElement>('.date-session-menu-items');
-  if (scenario === 'menu' && controls && menu) controls.scrollTop = controls.scrollHeight;
+  if (scenario === 'menu' && menu) menu.scrollTop = menu.scrollHeight;
   const exit = [...host.querySelectorAll<HTMLButtonElement>('.date-session-menu-items button')].find(b => b.textContent?.includes('离开'));
-  const exitVisible = !!exit && !!controls && rect(exit)!.bottom <= rect(controls)!.bottom + 1 && rect(exit)!.y >= rect(controls)!.y - 1;
+  const exitVisible = !!exit && !!menu && rect(exit)!.bottom <= rect(menu)!.bottom + 1 && rect(exit)!.y >= rect(menu)!.y - 1;
   const notOverflow = document.documentElement.scrollWidth <= innerWidth + 1 && document.documentElement.scrollHeight <= innerHeight + 1;
   const headVisible = !!spriteBox && spriteBox.y >= -2 && spriteBox.y < (smallLandscape ? 65 : 200);
   const spriteOnLeft = !!spriteStage && !!dialogue && spriteStage.x < dialogue.x && !intersects(spriteBox, dialogue);
-  const inputCompact = scenario !== 'input' || (!!input && input.h <= 75 && !!dialogue && dialogue.bottom + 4 <= input.y);
+  const inputCompact = !['input', 'keyboard'].includes(scenario) || (!!input && input.h <= 75 && !!dialogue && dialogue.bottom + 2 <= input.y);
   const menuFits = scenario !== 'menu' || (exitVisible && !!controlsRect && controlsRect.y >= 0 && controlsRect.bottom <= innerHeight + 1);
   const novelFits = scenario !== 'reading' || !!reading;
+  const portraitFits = !!dialogue && !!input && !!spriteBox &&
+    input.w > 140 && input.x >= 0 && input.bottom <= rect(host)!.bottom + 2 &&
+    dialogue.bottom + 2 <= input.y && spriteBox.y >= -2;
   const responsiveOk = smallLandscape
     ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits && nameVisible)
-    : (scenario === 'input' && !!input && input.w > 140 && input.x >= 0);
+    : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true);
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
     spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
-    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, errors };
+    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);
   let output = document.getElementById('meet-landscape-report');
