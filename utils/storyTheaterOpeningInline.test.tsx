@@ -104,7 +104,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         const create = vi.fn(async (_actorId: string, _title: string, content: string) => ({
             id: 'custom-1', title: '自拟开场', content,
         }));
-        const onSave = vi.fn(async () => {});
+        const onSave = vi.fn(async (_entry: any) => {});
         const props = {
             initial: { ...createStoryTheaterDraft(), title: '自拟剧情', characterIds: [actor.id] },
             characters: [{ ...actor, tavernGreetings: [] }], user: { name: '用户' } as any,
