@@ -351,7 +351,7 @@
     /* Full-size stage stays stable; a moderate top-anchored face crop fits
        within the keyboard's remaining ~100px without becoming a tiny figure. */
     transform-origin: center top;
-    scale: var(--date-landscape-keyboard-fit-scale, .65);
+    scale: var(--date-landscape-fit-scale, 1);
   }
   .date-session-root.date-session-keyboard-open .date-session-controls {
     padding: 1px max(6px, env(safe-area-inset-right, 0px)) 0 0;
