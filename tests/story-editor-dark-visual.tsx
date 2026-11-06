@@ -2,7 +2,7 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import {STORY_THEME_CSS} from '../components/date/story/StoryTheaterTheme';
-import {BUILTIN_NIGHT_SCREENING_PRESET,createStoryTheaterDraft} from '../utils/storyTheater';
+import {BUILTIN_NIGHT_SCREENING_PRESET,createStoryTheaterDraft,parseStoryTheaterPreset} from '../utils/storyTheater';
 
 // This fixture renders the *real editor* and the *real story stylesheet* in Chrome.
 // No imitation white-card HTML is used; only fake non-sensitive user data is supplied.
@@ -12,16 +12,29 @@ const theme=document.createElement('style');theme.textContent=STORY_THEME_CSS;do
 const params=new URLSearchParams(location.search);
 const light=params.get('mode')==='light';
 const scenario=params.get('scenario')||'selected';
+const tavernPreset=parseStoryTheaterPreset(JSON.stringify({
+    prompts:[
+        {identifier:'main',name:'酒馆叙事规则',role:'system',content:'用 {{char}} 与 {{user}} 推进剧情'},
+        {identifier:'charDescription',name:'酒馆角色资料',role:'system',marker:true},
+        {identifier:'chatHistory',name:'酒馆历史',role:'system',marker:true},
+        {identifier:'disabled-rule',name:'原本关闭的规则',role:'system',content:'保持关闭'},
+    ],
+    prompt_order:[{character_id:100001,order:[
+        {identifier:'main',enabled:true},{identifier:'charDescription',enabled:true},
+        {identifier:'chatHistory',enabled:true},{identifier:'disabled-rule',enabled:false},
+    ]}],
+}), '酒馆视觉测试.json', 1);
 const actor={id:'visual-char',name:'故事角色',avatar:'',memories:[],mountedWorldbooks:[],systemPrompt:'一个角色',
     tavernGreetings:[{id:'tavern-first',title:'默认开场白',content:'雨夜的钟声响起，故事从这里开始。'}]} as any;
 const characters=scenario==='empty'?[{...actor,tavernGreetings:[]}]:[actor];
 const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验收',characterIds:scenario==='unselected'?[]:[actor.id],writesToCharacterMemory:true,carryCharacterMemory:true,
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
+    ...(scenario==='tavern'?{presetId:tavernPreset.id}:{}),
     openingGreeting:['selected','editing'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}:undefined};
 root.render(React.createElement('div',{className:`story-theme ${light?'story-theme-light':'story-theme-dark'} story-decor-plain h-full w-full`},
     React.createElement(StoryTheaterEditor,{
         initial:entry,characters,user:{name:'用户'} as any,masks:[],maskLocked:false,
-        presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave:async()=>{},
+        presets:scenario==='tavern'?[tavernPreset,BUILTIN_NIGHT_SCREENING_PRESET]:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave:async()=>{},
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
     })));
 if(scenario==='editing')setTimeout(()=>{
@@ -41,6 +54,10 @@ const validate=()=>{
     const openingEditor=document.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
+    const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
+    const tavernVisible=!!presetSection?.querySelector('select')?.textContent?.includes('酒馆视觉测试')
+        && !presetSection?.textContent?.includes('已适配酒馆预设')
+        && !presetSection?.querySelector('.border-amber-200');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
     const values={top:target(buttons[0]),bottom:target(buttons[1]),card:target(card),
         text:target(card.querySelector('.text-amber-700')),heading:target(card.querySelector('.text-amber-800'))};
@@ -52,7 +69,8 @@ const validate=()=>{
         openingIntegrated:openingSelect!==null
             && cast?.querySelector('select[aria-label="选择已有开场"]')===null
             && !document.body.textContent?.includes('Tavern opening') && !document.body.textContent?.includes('酒馆卡'),
-        success:openingSelect!==null
+        success:(scenario!=='tavern'||tavernVisible)
+            && openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
             && (['selected','editing'].includes(scenario)
                 ? openingSelect?.value===`${actor.id}::tavern-first`
@@ -84,6 +102,7 @@ const validate=()=>{
     if (focus === 'memory') card.scrollIntoView({block:'center',behavior:'instant'});
     if (focus === 'opening') (openingEditor || opening).scrollIntoView({block:'center',behavior:'instant'});
     if (focus === 'bottom') buttons[1].scrollIntoView({block:'center',behavior:'instant'});
+    if (focus === 'preset') presetSection?.scrollIntoView({block:'start',behavior:'instant'});
     document.body.dataset.storyGrayReady=String(report.success);
     const output=document.createElement('output');output.id='story-gray-browser-report';output.hidden=true;
     output.textContent=JSON.stringify(report);document.body.append(output);
