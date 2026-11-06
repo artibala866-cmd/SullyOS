@@ -30,7 +30,7 @@ const customContent='黄昏的车站里，我推开了那扇门。';
 const customGreeting={id:'custom-written',title:'黄昏车站',content:customContent};
 const legacyScene='{{char}}在夜色中走近。';
 const legacyGreeting={id:'tavern-first',title:'备选开场白 6',content:'<!-- title: 开场白6 -->\n<!-- desc: 车站雨夜。 -->\n\n'+legacyScene};
-const characters=scenario==='empty'||scenario==='customReady'
+const characters=scenario==='empty'||scenario==='customReady'||scenario==='customRecovered'
     ? [{...actor,tavernGreetings:[]}]
     : scenario==='customSaved'
     ? [{...actor,tavernGreetings:[customGreeting]}]
@@ -41,7 +41,7 @@ const characters=scenario==='empty'||scenario==='customReady'
     : [actor];
 const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验收',
     characterIds:scenario==='unselected'?[]:scenario==='customMulti'?[actor.id,'visual-second']:[actor.id],
-    premise:scenario==='customReady'||scenario==='customMulti'?customContent:'',
+    premise:['customReady','customMulti','customRecovered'].includes(scenario)?customContent:'',
     writesToCharacterMemory:true,carryCharacterMemory:true,
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
     ...(scenario==='tavern'?{presetId:tavernPreset.id}:{}),
@@ -52,7 +52,14 @@ root.render(React.createElement('div',{className:`story-theme ${light?'story-the
         initial:entry,characters,user:{name:'用户'} as any,masks:[],maskLocked:false,
         presets:scenario==='tavern'?[tavernPreset,BUILTIN_NIGHT_SCREENING_PRESET]:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave:async()=>{},
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
+        onCreateGreeting:async (_id:string,_title:string,content:string)=>({...customGreeting,content}),
     })));
+if(scenario==='customRecovered')setTimeout(()=>{
+    document.querySelector<HTMLButtonElement>('button[data-story-opening-save="true"]')?.click();
+    setTimeout(()=>{
+        [...document.querySelectorAll<HTMLButtonElement>('[data-story-opening-settings] button')].find(x=>x.textContent?.trim()==='我先写')?.click();
+    },130);
+},600);
 if(scenario==='customMulti')setTimeout(()=>{
     document.querySelector<HTMLButtonElement>('button[data-story-opening-save="true"]')?.click();
 },750);
@@ -103,9 +110,10 @@ const validate=()=>{
                     && ![...(opening?.querySelectorAll('p')||[])].some(p=>p.textContent?.includes('雨夜的钟声响起'))
                     && (scenario!=='editing' || !![...(openingEditor?.parentElement?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='保存修改'))
                 : !openingEditor && !opening?.textContent?.includes('雨夜的钟声响起'))
-            && (scenario==='customReady'||scenario==='customMulti'
+            && (['customReady','customMulti','customRecovered'].includes(scenario)
                 ? premiseEditor?.value===customContent && !!bookmark && !bookmark.disabled
                     && (scenario!=='customMulti' || !!document.querySelector('[data-story-opening-target="true"]'))
+                    && (scenario!=='customRecovered' || (openingSelect?.value==='' && openingSelect?.textContent?.includes('黄昏车站')))
                 : true)
             && (scenario==='manual'
                 ? !openingSelect?.hasAttribute('disabled') && openingSelect?.querySelector('option')?.textContent==='选择已有开场'
