@@ -1,7 +1,7 @@
 import type { CharacterProfile, Worldbook } from '../types';
 import type { PreparedCharacterCard } from './sillyTavernCard';
 import type { CharacterImageProfile } from './characterImageProfile';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
+import { normalizeLinkOpeningEntries } from './linkStoryOpenings';
 
 /**
  * BabyLink 1.1.10 APK: StImportUnlockModal-NAd1Rh6X.js uses RGB LSBs in
@@ -238,37 +238,10 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
                 books.push(book); seen.add(book.id);
             }
         }
-        // Link openings are optional, user-selectable greetings. Never blend
-        // an opening scene into the stable persona or silently execute scripts.
-        const tavernGreetings: NonNullable<PreparedCharacterCard['character']['tavernGreetings']> = [];
-        if (value.openings != null && !Array.isArray(value.openings)) {
-            throw new Error('Link 分享包独立开场白字段类型错误，已中止以防误导入');
-        }
-        if (Array.isArray(value.openings)) {
-            if (value.openings.length > 100) throw new Error('BabyLink 开场白超过 100 条');
-            for (const [openingIndex, rawOpening] of value.openings.entries()) {
-                const rawText = typeof rawOpening === 'string' ? rawOpening :
-                    isObject(rawOpening) ? rawOpening.opening ?? rawOpening.content : null;
-                if (typeof rawText !== 'string' || !rawText.trim()) continue;
-                const content = optionalText(rawText, '开场白', 200000);
-                const rawTitle = isObject(rawOpening) && typeof rawOpening.title === 'string'
-                    ? optionalText(rawOpening.title, '开场白标题', 160) : '';
-                const rawDescription = isObject(rawOpening) && typeof (rawOpening.description ?? rawOpening.desc) === 'string'
-                    ? optionalText(rawOpening.description ?? rawOpening.desc, '开场白简介', 4000) : '';
-                // Link can carry Tavern-formatted opening scenes. Share the same
-                // metadata adapter used by the story editor and older cards:
-                // remove only leading title/desc comments, never body HTML.
-                const opening = adaptTavernOpeningGreeting({
-                    id: 'babylink-opening-' + openingIndex,
-                    title: rawTitle || '开场白 ' + (openingIndex + 1),
-                    ...(rawDescription ? { description: rawDescription } : {}),
-                    content,
-                });
-                const sceneKey = tavernOpeningBodyKey(opening);
-                if (!sceneKey || tavernGreetings.some(item => tavernOpeningBodyKey(item) === sceneKey)) continue;
-                tavernGreetings.push(opening);
-            }
-        }
+        // Link owns its own native scene data. Do not apply Tavern HTML macro,
+        // title-comment, creator-note or chat-first-message parsing here.
+        // Missing openings in V1 PNG means NOT EXPORTED, not "none in the Link app".
+        const linkGreetings = normalizeLinkOpeningEntries(value.openings);
         // The entire unabridged persona belongs in the actual AI context field.
         const prompt = [
             persona ? '【角色稳定人设】\n' + persona : '',
@@ -280,7 +253,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             .filter(Boolean).join(' · ').slice(0, 260);
         const character: PreparedCharacterCard['character'] = {
             name, avatar, description: summary, systemPrompt: prompt, worldview: '',
-            tavernGreetings,
+            linkGreetings,
         };
         return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [],
             linkOpeningPayloadOmitted: value.openings == null,
