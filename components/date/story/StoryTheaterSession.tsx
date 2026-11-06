@@ -749,6 +749,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     const assembled = appendStoryUserTurn(payloadBeforeTurn, modelInput, compiled.assistantPrefill, promptEntry.forceUserLastMessage === true);
                     const pendingIndex = compiled.assistantPrefill && !promptEntry.forceUserLastMessage ? assembled.length - 2 : assembled.length - 1;
                     assembled[pendingIndex] = pendingTurn;
+                    if (compiled.afterLatestUser?.length) {
+                        // Depth 0 follows the current user turn in SillyTavern. For strict
+                        // user-last APIs, place it immediately before the user instead.
+                        assembled.splice(promptEntry.forceUserLastMessage ? pendingIndex : pendingIndex + 1, 0, ...compiled.afterLatestUser);
+                    }
                     return assembled;
 
                     },
