@@ -44,6 +44,8 @@ export interface PreparedCharacterCard {
     warnings: string[];
     /** Stable source ID when the card actually provides one (name is the legacy fallback). */
     sourceIdentity?: string;
+    /** The Link V1 PNG omitted a standalone opening-data field; not proof the source role has no opening. */
+    linkOpeningPayloadOmitted?: boolean;
 }
 
 export type PreparedCardImport = PreparedCharacterCard | PreparedBabyLinkBundle;
