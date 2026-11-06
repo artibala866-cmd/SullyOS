@@ -28,12 +28,16 @@ const actor={id:'visual-char',name:'故事角色',avatar:'',memories:[],mountedW
     tavernGreetings:[{id:'tavern-first',title:'默认开场白',content:'雨夜的钟声响起，故事从这里开始。'}]} as any;
 const customContent='黄昏的车站里，我推开了那扇门。';
 const customGreeting={id:'custom-written',title:'黄昏车站',content:customContent};
+const legacyScene='{{char}}在夜色中走近。';
+const legacyGreeting={id:'tavern-first',title:'备选开场白 6',content:'<!-- title: 开场白6 -->\n<!-- desc: 车站雨夜。 -->\n\n'+legacyScene};
 const characters=scenario==='empty'||scenario==='customReady'
     ? [{...actor,tavernGreetings:[]}]
     : scenario==='customSaved'
     ? [{...actor,tavernGreetings:[customGreeting]}]
     : scenario==='customMulti'
     ? [{...actor,tavernGreetings:[]},{...actor,id:'visual-second',name:'第二角色',tavernGreetings:[]}]
+    : scenario==='legacy'
+    ? [{...actor,tavernGreetings:[legacyGreeting]}]
     : [actor];
 const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验收',
     characterIds:scenario==='unselected'?[]:scenario==='customMulti'?[actor.id,'visual-second']:[actor.id],
@@ -41,7 +45,7 @@ const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验
     writesToCharacterMemory:true,carryCharacterMemory:true,
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
     ...(scenario==='tavern'?{presetId:tavernPreset.id}:{}),
-    openingGreeting:['selected','editing'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}
+    openingGreeting:['selected','editing','legacy'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}
         :scenario==='customSaved'?{characterId:actor.id,greetingId:customGreeting.id}:undefined};
 root.render(React.createElement('div',{className:`story-theme ${light?'story-theme-light':'story-theme-dark'} story-decor-plain h-full w-full`},
     React.createElement(StoryTheaterEditor,{
@@ -90,9 +94,10 @@ const validate=()=>{
         success:(scenario!=='tavern'||tavernVisible)
             && openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
-            && (['selected','editing','customSaved'].includes(scenario)
+            && (['selected','editing','customSaved','legacy'].includes(scenario)
                 ? openingSelect?.value===`${actor.id}::${scenario==='customSaved'?customGreeting.id:'tavern-first'}`
-                    && openingEditor?.value===(scenario==='customSaved'?customContent:'雨夜的钟声响起，故事从这里开始。')
+                    && openingEditor?.value===(scenario==='customSaved'?customContent:scenario==='legacy'?legacyScene:'雨夜的钟声响起，故事从这里开始。')
+                    && (scenario!=='legacy' || (openingSelect?.textContent?.includes('开场白6') && openingSelect?.textContent?.includes('车站雨夜') && !openingEditor?.value.includes('<!--')))
                     && document.querySelectorAll('textarea[data-story-opening-editor="true"]').length===1
                     && !opening?.querySelector('textarea') // no extra preview/editor below the selector
                     && ![...(opening?.querySelectorAll('p')||[])].some(p=>p.textContent?.includes('雨夜的钟声响起'))
