@@ -11,6 +11,8 @@ on:
       - 'context/MusicContext.tsx'
       - 'utils/dateBgm*.ts'
       - 'components/date/DateSettings.tsx'
+      - 'tests/date-settings-visual.tsx'
+      - 'test/fixtures/date-settings-visual.html'
       - 'components/date/DateSession.tsx'
       - 'utils/dateScenes*.ts'
       - 'utils/datePrompts*.ts'
@@ -107,10 +109,41 @@ jobs:
             test -s "output/meet-story/story-editor-${focus}-390.png"
           done
           echo 'PASS: real story editor rendered in Chromium, mobile viewport, top/bottom actions, gray panel and readable text verified'
+      - name: Screenshot and inspect actual Meet scene settings at mobile width
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/meet-scenes
+          pnpm exec vite --host 127.0.0.1 --port 5194 --strictPort > output/meet-scenes/vite.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsSL http://127.0.0.1:5194/test/fixtures/date-settings-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser"
+          for scenario in filled empty clear; do
+            url="http://127.0.0.1:5194/test/fixtures/date-settings-visual.html?scenario=${scenario}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=9000 --dump-dom "$url" > "output/meet-scenes/${scenario}.html" 2> "output/meet-scenes/${scenario}-browser.log"
+            grep -q 'data-date-settings-ready="true"' "output/meet-scenes/${scenario}.html" || {
+              grep 'date-settings-browser-report' "output/meet-scenes/${scenario}.html" | tail -c 2500 || true
+              tail -n 35 "output/meet-scenes/${scenario}-browser.log"
+              exit 1
+            }
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=9000 --screenshot="output/meet-scenes/${scenario}-390.png" "$url" > /dev/null 2>&1
+            test -s "output/meet-scenes/${scenario}-390.png"
+            grep 'date-settings-browser-report' "output/meet-scenes/${scenario}.html" | sed 's/<[^>]*>//g' | cut -c 1-1000 || true
+          done
+          echo 'MEET_SCENE_SCREENSHOT_BASE64_BEGIN'
+          base64 -w0 output/meet-scenes/filled-390.png
+          echo
+          echo 'MEET_SCENE_SCREENSHOT_BASE64_END'
+          echo 'PASS: three real Meet settings browser screenshots (populated, empty, clear action) with six visible scene slots'
       - name: Attach browser screenshot and computed style report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: meet-story-mobile-visual
-          path: output/meet-story/
+          path: |
+            output/meet-story/
+            output/meet-scenes/
           if-no-files-found: ignore
