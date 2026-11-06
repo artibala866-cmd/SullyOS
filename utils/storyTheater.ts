@@ -629,7 +629,7 @@ export const resolveStoryPresetImport = (
         && canonical(saved.document) === fingerprint);
     if (duplicate) return { preset: duplicate, duplicate: true };
 
-    const usedNames = new Set(savedPresets.map(preset => preset.name));
+    const usedNames = new Set(savedPresets.filter(preset => preset && typeof preset.name === 'string').map(preset => preset.name));
     if (!usedNames.has(imported.name)) return { preset: imported, duplicate: false };
     let suffix = 2;
     while (usedNames.has(`${imported.name}（导入 ${suffix}）`)) suffix += 1;
