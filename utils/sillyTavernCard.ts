@@ -3,7 +3,7 @@ import type { CharacterImageProfile } from './characterImageProfile';
 import { stripSensitiveCardFields } from './characterCard';
 import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
-import { decodeBabyLinkPng, type PreparedBabyLinkBundle } from './babyLinkCard';
+import { decodeBabyLinkPng, normalizeBabyLinkShare, type PreparedBabyLinkBundle } from './babyLinkCard';
 import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 
@@ -438,6 +438,10 @@ export const readCharacterCardFile = async (file: File): Promise<PreparedCardImp
         let raw: unknown;
         try { raw = JSON.parse(decoder.decode(await file.arrayBuffer())); }
         catch { throw new Error('角色卡 JSON 无效或编码损坏'); }
+        // Some Link apps export the exact V1 payload as JSON instead of
+        // embedding its bytes in a lossless PNG. Run the SAME bounded parser.
+        if (object(raw) && raw.magic === 'LINK_CHARACTER_SHARE_PNG_V1')
+            return normalizeBabyLinkShare(raw);
         return normalizeCharacterCard(raw);
     }
     // pngHasShare also checks the complete PNG signature, chunks, CRC and image data.
