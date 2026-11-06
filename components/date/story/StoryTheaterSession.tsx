@@ -743,6 +743,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         preset: effectivePreset, userName: promptIdentityName, characterNames: actors.map(actor => actor.name),
                         historyMessages,
                         currentInput: modelInput,
+                        currentInputIsNewUserMessage: !isContinueTurn && !assistantOpening,
                         modelName: apiConfig.model,
                         continueRequested: isContinueTurn,
                         slots: {
