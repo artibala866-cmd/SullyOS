@@ -97,13 +97,17 @@ async function run(){
       modalScroll:content?content.scrollHeight-content.clientHeight:0,
       footerVisible:!!footerBox&&footerBox.bottom<=windowHeight+2&&footerBox.y>=0,
       modalVisible:!!modalDialog&&!!modal&&!!footerBox,
+      // A Link V1 PNG without an openings payload must not be described as a
+      // character with no opening; the app may store it outside the export.
+      omissionExplained:source!=='link'||Boolean(modal?.textContent?.includes('分享图未携带')
+          &&modal?.textContent?.includes('不能据此判断')),
       allCheckedDefault:source==='link'?states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked:
           states.every(x=>x.checked),
       amountString:(modal?.textContent||'').match(/世界书\s*13\s*条|世界书\s*0\s*条/)?.[0]||'',
       errors:observed.filter(v=>!v.startsWith('toast:')),
     };
     (document.body.dataset as any).cardImportVisualReady=String(
-      layout.modalVisible&&layout.allCheckedDefault&&layout.footerVisible&&
+      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.footerVisible&&
       layout.overflowX<=2&&states.every(x=>x.present)&&
       (source==='link'?states[1].disabled&&states[2].disabled:states.every(x=>!x.disabled))&&
       !layout.errors.length
