@@ -1,5 +1,4 @@
-import JSZip from 'jszip';
-import { extractPdfEmojiLines } from './pdfText';
+import type JSZip from 'jszip';
 import {
     formatEmojiImportText, parseEmojiImportLine, type EmojiImportEntry,
 } from './emojiImport';
@@ -98,7 +97,7 @@ export function docxXmlToEmojiText(documentXml: string, relationshipsXml = ''): 
 
 async function readDocx(bytes: ArrayBuffer): Promise<string> {
     let zip: JSZip;
-    try { zip = await JSZip.loadAsync(bytes); } catch {
+    try { zip = await (await import('jszip')).default.loadAsync(bytes); } catch {
         throw new Error('Word 文件无法解压，请确认是有效的 .docx 文件');
     }
     const doc = zip.file('word/document.xml');
@@ -263,6 +262,8 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
     const bytes = await file.arrayBuffer();
     let content = '';
     if (extension === 'pdf') {
+        // Keep the heavy PDF worker out of the private-chat initial bundle.
+        const { extractPdfEmojiLines } = await import('./pdfText');
         content = await extractPdfEmojiLines(bytes, 80);
         if (!content.trim()) throw new Error('PDF 没有可提取的文字，可能是扫描图片；请先转为可选中文本');
     } else if (extension === 'docx') {
