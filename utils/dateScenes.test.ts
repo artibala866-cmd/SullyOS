@@ -8,9 +8,9 @@ describe('date scene switch protocol', () => {
         expect(configuredDateScenes()).toEqual([]);
     });
     it('hides control tags only in opening preview, keeping dialogue and blank lines readable', () => {
-        expect(stripDateSceneTagsForDisplay('[scene:bedroom]\\n他正在看书。\\n\\n[scene:work] 转身走向书桌'))
-            .toBe('他正在看书。\\n\\n转身走向书桌');
-        expect(stripDateSceneTagsForDisplay('[scene:unknown]\\n你好')).toBe('你好');
+        expect(stripDateSceneTagsForDisplay('[scene:bedroom]\n他正在看书。\n\n[scene:work] 转身走向书桌'))
+            .toBe('他正在看书。\n\n转身走向书桌');
+        expect(stripDateSceneTagsForDisplay('[scene:unknown]\n你好')).toBe('你好');
         expect(stripDateSceneTagsForDisplay('普通台词')).toBe('普通台词');
     });
     it('recognizes standalone and inline scene tags, independent from portrait and voice', () => {
