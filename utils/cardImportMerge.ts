@@ -1,6 +1,7 @@
 import type { CardImportOrigin, CharacterProfile, MountedWorldbook, TavernOpeningGreeting, Worldbook } from '../types';
 import { toMountedWorldbook } from './worldbook';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
+import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 
 /**
  * Card identity lives on the character, not in a permanent import registry.
@@ -75,7 +76,7 @@ const nonBlank = (value: unknown): boolean =>
 
 /** A character's chats, memories, UI and local preferences never come from an imported update. */
 const PRIVATE_FIELDS = new Set([
-    'id', 'cardImportOrigin', 'mountedWorldbooks', 'avatar', 'name', 'tavernGreetings',
+    'id', 'cardImportOrigin', 'mountedWorldbooks', 'avatar', 'name', 'tavernGreetings', 'linkGreetings',
     'memories', 'refinedMemories', 'activeMemoryMonths', 'impression', 'guidebookInsights',
     'chatBlock', 'groupId', 'dialogueApi', 'activeMsg2Config', 'proactiveConfig',
     'emotionConfig', 'embeddingConfig', 'phoneState', 'home3D', 'savedDateState',
@@ -194,6 +195,11 @@ export function mergeCardImports(
             // First import must also dedupe identical opening text, not just re-imports.
             next.tavernGreetings = mergeCardGreetings([], next.tavernGreetings);
         }
+        if (!target && next.linkGreetings?.length) {
+            // Link is a distinct native format, never pass its scenes through
+            // the Tavern HTML-comment adapter.
+            next.linkGreetings = mergeLinkGreetings([], next.linkGreetings);
+        }
         if (target) {
             for (const [key, value] of Object.entries(item.fields)) {
                 if (PRIVATE_FIELDS.has(key) || !nonBlank(value)) continue;
@@ -211,7 +217,23 @@ export function mergeCardImports(
                 next.avatar = item.fields.avatar;
             }
             if (item.fields.tavernGreetings?.length) {
-                next.tavernGreetings = mergeCardGreetings(target.tavernGreetings, item.fields.tavernGreetings);
+                // Preserve any old Link entries mixed into this legacy field
+                // without running Tavern's title/desc rules over their body.
+                const all = target.tavernGreetings || [];
+                next.tavernGreetings = [
+                    ...mergeCardGreetings(all.filter(g => !isLegacyLinkOpening(g)), item.fields.tavernGreetings),
+                    ...all.filter(isLegacyLinkOpening),
+                ];
+            }
+            if (item.fields.linkGreetings?.length) {
+                // Migrate pre-separation Link entries in place (same greeting IDs)
+                // only when an actual Link openings payload was imported.
+                const legacy = (target.tavernGreetings || []).filter(isLegacyLinkOpening);
+                next.linkGreetings = mergeLinkGreetings(
+                    [...(target.linkGreetings || []), ...legacy],
+                    item.fields.linkGreetings,
+                );
+                if (legacy.length) next.tavernGreetings = (target.tavernGreetings || []).filter(g => !isLegacyLinkOpening(g));
             }
         }
         next.cardImportOrigin = {
