@@ -216,7 +216,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         const persona = optionalText(value.description, '完整人设');
         const imageProfile = normalizeBabyLinkImageProfile(value.imageProfile, warnings);
         const sourceAvatar = optionalText(value.avatar, '角色头像', 3_000_000);
-        // Do not import external platform asset IDs, scripts, credentials, openings or regex.
+        // Do not import external platform asset IDs, scripts, credentials or regex.
         const avatar = /^(?:data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+)$/i.test(sourceAvatar)
             ? sourceAvatar : '';
         if (sourceAvatar && !avatar && !warnings.includes('部分 BabyLink 私有头像路径无法跨应用读取，已忽略')) {
@@ -237,6 +237,26 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
                 books.push(book); seen.add(book.id);
             }
         }
+        // Link openings are optional, user-selectable greetings. Never blend
+        // an opening scene into the stable persona or silently execute scripts.
+        const tavernGreetings: NonNullable<PreparedCharacterCard['character']['tavernGreetings']> = [];
+        if (Array.isArray(value.openings)) {
+            if (value.openings.length > 100) throw new Error('BabyLink 开场白超过 100 条');
+            for (const [openingIndex, rawOpening] of value.openings.entries()) {
+                const rawText = typeof rawOpening === 'string' ? rawOpening :
+                    isObject(rawOpening) ? rawOpening.opening ?? rawOpening.content : null;
+                if (typeof rawText !== 'string' || !rawText.trim()) continue;
+                const content = optionalText(rawText, '开场白', 200000);
+                if (tavernGreetings.some(item => item.content === content)) continue;
+                const rawTitle = isObject(rawOpening) && typeof rawOpening.title === 'string'
+                    ? optionalText(rawOpening.title, '开场白标题', 160) : '';
+                tavernGreetings.push({
+                    id: 'babylink-opening-' + openingIndex,
+                    title: rawTitle || '开场白 ' + (openingIndex + 1),
+                    content,
+                });
+            }
+        }
         // The entire unabridged persona belongs in the actual AI context field.
         const prompt = [
             persona ? '【角色稳定人设】\n' + persona : '',
@@ -248,6 +268,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             .filter(Boolean).join(' · ').slice(0, 260);
         const character: PreparedCharacterCard['character'] = {
             name, avatar, description: summary, systemPrompt: prompt, worldview: '',
+            tavernGreetings,
         };
         return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [],
             sourceIdentity: optionalText(value.id, '角色 ID', 256) || undefined };
