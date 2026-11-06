@@ -146,13 +146,14 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(select.disabled).toBe(true);
         expect(select.options[0].text).toBe('暂无可选开场');
     });
-    it('角色没有导入的开场时入口也不会消失，说明旧卡需要重新导入', async () => {
+    it('角色没有导入开场时仍可手写并收藏，入口不消失', async () => {
         await render({ ...createStoryTheaterDraft(), title: '空开场', characterIds: [actor.id] }, [actor]);
         const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
         expect(select).toBeTruthy();
         expect(select.disabled).toBe(true);
         expect(select.options[0].text).toBe('暂无可选开场');
-        expect(host!.textContent).toContain('重新导入原卡');
+        expect(host!.textContent).toContain('点书签存为开场');
+        expect(host!.querySelector('button[aria-label="收藏为可选开场"]')).toBeTruthy();
         await clickButton('故事先写');
         expect(select.disabled).toBe(true);
         expect(select.options[0].text).toBe('暂无可选开场');
