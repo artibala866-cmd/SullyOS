@@ -29,7 +29,7 @@ interface ChatModalsProps {
     transferNote: string;
     setTransferNote: (v: string) => void;
     emojiImportText: string;
-    setEmojiImportText: (v: string) => void;
+    setEmojiImportText: React.Dispatch<React.SetStateAction<string>>;
     emojiImportBusy?: boolean;
     settingsContextLimit: number;
     setSettingsContextLimit: (v: number) => void;
@@ -375,7 +375,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             >
                 <div className="space-y-3">
                     <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
-                    <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} currentText={emojiImportText} onTextReady={setEmojiImportText} />
+                    <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} />
                     <textarea
                         value={emojiImportText}
                         onChange={e => setEmojiImportText(e.target.value)}
