@@ -48,10 +48,16 @@ export const selectCardImportSections = (
     card: PreparedCharacterCard,
     selected: CardImportSections,
 ): { fields: Partial<CharacterProfile>; worldbooks: PreparedCharacterCard['worldbooks'] } => {
-    const fields: Partial<CharacterProfile> = selected.persona
-        ? { ...card.character }
-        : { name: card.character.name };
-    if (!selected.greetings) delete fields.tavernGreetings;
-    else if (!selected.persona) fields.tavernGreetings = card.character.tavernGreetings;
+    const fields: Partial<CharacterProfile> = { name: card.character.name };
+    if (selected.persona) {
+        // Explicit allowlist: "only import persona" must never import a native
+        // card's unrelated runtime state (voice, cloud tasks, phone data,
+        // local preferences, memories, scripts etc.) by object spreading.
+        for (const key of ['description','systemPrompt','worldview','avatar'] as const) {
+            const value = card.character[key];
+            if (value !== undefined) fields[key] = value;
+        }
+    }
+    if (selected.greetings) fields.tavernGreetings = card.character.tavernGreetings;
     return { fields, worldbooks: selected.worldbooks ? card.worldbooks : [] };
 };
