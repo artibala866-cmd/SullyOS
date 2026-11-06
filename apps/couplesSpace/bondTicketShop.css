@@ -77,13 +77,13 @@
 .bond-ticket-tear-tab::before,.bond-ticket-tear-tab::after {content:"";position:absolute;top:-7px;width:13px;height:13px;background:#e8e5df;border-radius:50%;z-index:4}
 .bond-ticket-tear-tab::before {left:-7px}.bond-ticket-tear-tab::after {right:-7px}
 .bond-ticket-tear-word {font-size:11px;color:#d5d1c8;letter-spacing:.1em}
-.couple-content-mode .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;
+.couple-content-mode .bond-ticket-room .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;
   min-height:41px;min-width:116px;padding:8px 14px;background:#f6f4ef;color:#232323;border:1px solid #f6f4ef;
   border-radius:1px;font-size:12px;font-weight:700}
 .bond-ticket-buy b {font-size:18px;font-weight:400;line-height:1}
-.couple-content-mode .bond-ticket-buy:disabled {background:#a9a69f;color:#383634;border-color:#a9a69f;opacity:.75}
-.couple-content-mode .bond-ticket-pass-actions {display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:end}
-.couple-content-mode .bond-ticket-pass-actions button {color:#f7f4ed;border:1px solid #88847e;min-height:35px;padding:6px 8px;font-size:11px}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy:disabled {background:#a9a69f;color:#383634;border-color:#a9a69f;opacity:.75}
+.couple-content-mode .bond-ticket-room .bond-ticket-pass-actions {display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:end}
+.couple-content-mode .bond-ticket-room .bond-ticket-pass-actions button {color:#f7f4ed;border:1px solid #88847e;min-height:35px;padding:6px 8px;font-size:11px}
 .bond-machine-lower {padding:20px 15px 0}
 .bond-machine-lower-rule {display:none}
 .bond-ticket-navigator {display:flex;justify-content:space-between;align-items:center;max-width:280px;margin:0 auto}
@@ -276,7 +276,7 @@
   .bond-ticket-paper {min-height:234px}
   .bond-machine-housing {min-height:438px}
   .bond-ticket-tear-tab {padding-inline:12px}
-  .couple-content-mode .bond-ticket-buy {min-width:102px;padding-inline:10px}
+  .couple-content-mode .bond-ticket-room .bond-ticket-buy {min-width:102px;padding-inline:10px}
   .bond-ticket-paper-price strong {font-size:25px}
   .bond-ticket-task {grid-template-columns:29px minmax(0,1fr) 57px;gap:5px}
   .couple-content-mode .bond-ticket-task button {min-width:55px;width:55px;height:55px;min-height:55px;font-size:9px}
