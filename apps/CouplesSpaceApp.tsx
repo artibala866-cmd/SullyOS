@@ -19,7 +19,6 @@ import './couplesSpace/couplesSpace.css';
 import './couplesSpace/timelineCinema.css';
 import './couplesSpace/wishConstellation.css';
 import './couplesSpace/bondTicketShop.css';
-import './couplesSpace/anniversaryAesthetic.css';
 
 type Panel = EntryKind | 'settings' | 'shop' | 'achievements' | 'plant' | 'touch';
 const labels = { ...recordNames, settings: '空间设置', shop: '羁绊商店', achievements: '成就墙', plant: '同频阳台', touch: '专属贴贴' };
