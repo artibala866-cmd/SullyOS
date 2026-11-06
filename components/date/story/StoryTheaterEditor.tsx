@@ -186,8 +186,12 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
         }
-        if (editingGreeting || confirmGreetingDelete || chooseGreetingActor) {
-            setSaveError('请先完成或取消当前开场白的编辑／收藏，再进入剧情。');
+        if (editingGreeting || confirmGreetingDelete) {
+            setSaveError('请先保存或取消当前开场白的修改／删除，再进入剧情。');
+            return;
+        }
+        if (chooseGreetingActor) {
+            setSaveError('请先完成或取消开场白收藏，再进入剧情。');
             return;
         }
         if (!draft.title.trim()) {
