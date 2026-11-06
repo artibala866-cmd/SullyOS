@@ -11,7 +11,7 @@ const source=query.get('source')||'tavern';
 const observed: string[]=[];
 addEventListener('error',e=>observed.push(e.message));
 addEventListener('unhandledrejection',e=>observed.push(String(e.reason)));
-const role={id:'fixture-original',name:source==='link'?'车恩熙':'谢嬴',
+const role={id:'fixture-original',name:source.startsWith('link')?'车恩熙':'谢嬴',
  avatar:'',description:'原有简介',systemPrompt:'原有稳定人设',memories:[],
  mountedWorldbooks:[],tavernGreetings:[]} as any;
 const os={
@@ -39,7 +39,11 @@ const v3={
 async function makeLinkPng():Promise<File>{
   const payload=JSON.stringify({magic:'LINK_CHARACTER_SHARE_PNG_V1',version:1,
     characters:[{name:'车恩熙',description:'这里是用于截图回归的角色背景，不包含真实角色卡内容。',signature:'',
-      nickname:'车恩熙',avatar:'',localWorldBookIds:[]}],worldBooks:[]});
+      nickname:'车恩熙',avatar:'',localWorldBookIds:[],
+      ...(source==='link-openings'?{openings:[
+        {id:'native-one',title:'车站相遇',description:'Link 原生场景',opening:'{{char}}在车站等{{user}}。'},
+        {id:'native-two',title:'午夜回信',content:'<!-- Link 正文注释 -->\\n她拆开信封。'},
+      ]}:{})}],worldBooks:[]});
   const stream=new Blob([payload]).stream().pipeThrough(new CompressionStream('gzip'));
   const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
   const packed=new Uint8Array(4+compressed.length);
@@ -72,7 +76,7 @@ async function run(){
      setTimeout(poll,80);
    };poll();
   });
-  const file=source==='link'?await makeLinkPng():
+  const file=source.startsWith('link')?await makeLinkPng():
     new File([JSON.stringify(v3)],'tavern-qa.json',{type:'application/json'});
   const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;
   input.dispatchEvent(new Event('change',{bubbles:true}));
@@ -101,15 +105,23 @@ async function run(){
       // character with no opening; the app may store it outside the export.
       omissionExplained:source!=='link'||Boolean(modal?.textContent?.includes('分享图未携带')
           &&modal?.textContent?.includes('不能据此判断')),
+      linkOpeningsRecognized:source!=='link-openings'||Boolean(
+        modal?.textContent?.includes('独立开场白：2 条') &&
+        modal?.textContent?.includes('车站相遇') &&
+        modal?.textContent?.includes('午夜回信') &&
+        modal?.textContent?.includes('开场白') &&
+        modal?.textContent?.includes('2 条')),
       allCheckedDefault:source==='link'?states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked:
+          source==='link-openings'?states[0]?.checked&&!states[1]?.checked&&states[2]?.checked:
           states.every(x=>x.checked),
       amountString:(modal?.textContent||'').match(/世界书\s*13\s*条|世界书\s*0\s*条/)?.[0]||'',
       errors:observed.filter(v=>!v.startsWith('toast:')),
     };
     (document.body.dataset as any).cardImportVisualReady=String(
-      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.footerVisible&&
+      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.linkOpeningsRecognized&&layout.footerVisible&&
       layout.overflowX<=2&&states.every(x=>x.present)&&
-      (source==='link'?states[1].disabled&&states[2].disabled:states.every(x=>!x.disabled))&&
+      (source==='link'?states[1].disabled&&states[2].disabled:
+        source==='link-openings'?states[1].disabled&&!states[2].disabled:states.every(x=>!x.disabled))&&
       !layout.errors.length
     );
     const report=document.getElementById('qa-report')!;report.textContent=JSON.stringify(layout);
