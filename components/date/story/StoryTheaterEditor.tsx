@@ -55,7 +55,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         try {
             if (!onChangeGreeting) throw new Error('当前页面未连接开场白管理功能');
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
-            if (content === null) update('openingGreeting', undefined);
+            // A started story keeps the original link for provenance, even when
+            // its character-card source is deleted; only new drafts clear it.
+            if (content === null && !maskLocked) update('openingGreeting', undefined);
             setEditingGreeting(false);
             setConfirmGreetingDelete(false);
         } catch (error) {

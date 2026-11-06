@@ -20,12 +20,13 @@ async function render(
     initial: StoryTheaterEntry, characters = [actor],
     save: (entry: StoryTheaterEntry) => Promise<void> = async () => {},
     onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>,
+    maskLocked = false,
 ) {
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
     await act(async () => root!.render(React.createElement(StoryTheaterEditor, {
-        initial, characters, user: { name: '用户' } as any, masks: [], maskLocked: false,
+        initial, characters, user: { name: '用户' } as any, masks: [], maskLocked,
         presets: [BUILTIN_NIGHT_SCREENING_PRESET], onCancel: () => {}, onSave: save,
         onImportPreset: async () => null, onEditPreset: () => {}, onOpenMaskBox: () => {},
         onChangeGreeting,
@@ -103,6 +104,23 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         await clickButton('清除失效选择');
         await clickButton('保存并进入');
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('删除原卡素材不会清掉已有剧情的历史开场白关联', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-first', title: '默认开场白', content: '下雨了' },
+        ] };
+        const edit = vi.fn(async () => {});
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '旧剧情', characterIds: [actor.id],
+            openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' },
+        }, [greetingActor], save, edit, true);
+        await clickButton('删除');
+        await clickButton('确认删除');
+        expect(edit).toHaveBeenCalledWith(actor.id, 'tavern-first', null);
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].openingGreeting).toEqual({
+            characterId: actor.id, greetingId: 'tavern-first',
+        });
     });
     it('连续双击保存只执行一次异步写入', async () => {
         let release!: () => void;

@@ -251,8 +251,11 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     } else if (!('spec' in raw) && !('data' in raw) &&
         typeof raw.name === 'string' &&
         // Bare name+description is commonly ordinary app JSON, not a verified V1 card.
-        ['description','personality','scenario','first_mes','mes_example']
-            .filter(key => typeof raw[key] === 'string').length >= 2) {
+        (['description','personality','scenario','first_mes','mes_example']
+            .filter(key => typeof raw[key] === 'string').length >= 2
+            || (typeof raw.first_mes === 'string' && !!raw.first_mes.trim())
+            || (Array.isArray(raw.alternate_greetings)
+                && raw.alternate_greetings.some((value: unknown) => typeof value === 'string' && value.trim())))) {
         source = 'tavern-v1';
         data = raw;
     } else {

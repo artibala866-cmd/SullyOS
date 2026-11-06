@@ -107,6 +107,7 @@ describe('SillyTavern card normalization', () => {
     });
     it('accepts cards containing only a greeting without inventing a system persona', () => {
         for (const card of [
+            { name: '只带开场的 V1', first_mes: '雨夜开场' },
             v2({ description: '', personality: '', scenario: '', first_mes: '雨夜开场' }),
             v3({ description: '', personality: '', scenario: '', first_mes: '雨夜开场' }),
         ]) {

@@ -78,8 +78,12 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         const identity = resolveStoryTheaterMask(normalized.mask, userProfile, characters, masks).name;
         // Existing first-floor text remains the source of truth even if the imported
         // greeting is later changed or removed from the character card.
-        const rows = await DB.getMessagesByCharId(storyTheaterThreadId(normalized.id), true);
-        const hasStarted = rows.some(message => message.metadata?.source === 'story_theater');
+        // A one-row indexed lookup is enough; long stories may have thousands of floors.
+        const started = await DB.getRecentMessagesWithCount(
+            storyTheaterThreadId(normalized.id), 1,
+            message => message.metadata?.source === 'story_theater',
+        );
+        const hasStarted = started.messages.length > 0;
         const persistedActor = !hasStarted && normalized.openingGreeting
             ? await DB.getCharacter(normalized.openingGreeting.characterId) : undefined;
         const opening = hasStarted ? null : resolveStoryOpeningGreeting(
