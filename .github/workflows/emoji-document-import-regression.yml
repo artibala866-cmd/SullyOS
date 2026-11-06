@@ -1,0 +1,40 @@
+name: Private chat emoji document import regression
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - .github/workflows/emoji-document-import-regression.yml
+      - components/chat/EmojiDocumentFilePicker.tsx
+      - components/chat/ChatModals.tsx
+      - apps/Chat.tsx
+      - utils/emojiDocumentImport.ts
+      - utils/emojiDocumentImport.test.ts
+      - utils/emojiDocumentPicker.test.ts
+      - utils/emojiImport.ts
+      - utils/emojiImport.test.ts
+      - utils/pdfText.ts
+      - utils/pdfText.test.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Test text, Word, PDF, UI, and database rollback
+        run: pnpm exec vitest run utils/emojiImport.test.ts utils/emojiDocumentImport.test.ts utils/emojiDocumentPicker.test.ts utils/pdfText.test.ts utils/chatInputEmojis.test.ts
+      - name: Verify production bundle imports
+        run: pnpm run build
