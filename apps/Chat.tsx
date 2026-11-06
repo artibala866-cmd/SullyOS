@@ -2704,12 +2704,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         try {
             // 表情 name 是全局唯一主键，既要保护其他分类，也要防止重复导入。
             const existing = await DB.getEmojis();
-            const { additions, skipped, renamed } = planEmojiImport(entries, existing);
+            const targetCatId = activeCategory === 'default' ? undefined : activeCategory;
+            const { additions, skipped, renamed } = planEmojiImport(entries, existing, targetCatId);
             if (additions.length === 0) {
                 addToast('这些表情包已经导入过了，没有重复添加', 'info');
                 return;
             }
-            const targetCatId = activeCategory === 'default' ? undefined : activeCategory;
             const prepared = [];
             for (const { name, url } of additions) {
                 const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
