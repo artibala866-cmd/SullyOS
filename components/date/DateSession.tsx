@@ -231,7 +231,9 @@ const DateSession: React.FC<DateSessionProps> = ({
                 const isEditing = !!active && root.contains(active)
                     && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement);
                 const keyboardInset = Math.max(0, scene.height - visibleHeight);
-                const hasKeyboard = isEditing && keyboardInset >= 80;
+                const hasKeyboard = keyboardInset >= 80 && (isEditing || root.classList.contains('date-session-keyboard-open'));
+                // Keep this layout until Android reports the keyboard fully closed;
+                // focusout often precedes visualViewport.resize by several frames.
                 if (!hasKeyboard) {
                     // Refresh after the keyboard closes, including orientation changes.
                     scene.height = Math.max(bounds.height, visibleHeight);
