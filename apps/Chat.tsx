@@ -4251,6 +4251,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
                 transferNote={transferNote} setTransferNote={setTransferNote}
                 emojiImportText={emojiImportText} setEmojiImportText={setEmojiImportText} emojiImportBusy={emojiImportBusy}
+                emojiImportCategoryName={activeCategory === 'default' ? '默认分类' : categories.find(c => c.id === activeCategory)?.name || '当前分类'}
                 settingsContextLimit={settingsContextLimit} setSettingsContextLimit={setSettingsContextLimit}
                 settingsContextRangeMode={settingsContextRangeMode} setSettingsContextRangeMode={setSettingsContextRangeMode}
                 settingsHideSysLogs={settingsHideSysLogs} setSettingsHideSysLogs={setSettingsHideSysLogs}
