@@ -2,5 +2,11 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>见面场景布置真实组件截图验收</title>
 <script src="/vendor/tailwind-3.4.17.js"></script>
+<script>
+  // Match the real monochrome Tailwind palette and primary button utilities.
+  const shades = {50:'#fafafa',100:'#f5f5f5',200:'#e5e5e5',300:'#d4d4d4',400:'#a3a3a3',500:'#737373',600:'#525252',700:'#404040',800:'#262626',900:'#171717',950:'#0a0a0a'};
+  const palette = Object.fromEntries(['red','orange','amber','yellow','lime','green','emerald','teal','cyan','sky','blue','indigo','violet','purple','fuchsia','pink','rose','slate','zinc','stone'].map(k=>[k,shades]));
+  tailwind.config={theme:{extend:{colors:{...palette,primary:'hsl(0,0%,38%)','primary-light':'hsl(0,0%,92%)'}}}};
+</script>
 <style>html,body,#visual{height:100%;width:100%;overflow:hidden;margin:0;background:#f8fafc}*,*::before,*::after{box-sizing:border-box}</style>
 </head><body><div id="visual"></div><script type="module" src="/tests/date-settings-visual.tsx"></script></body></html>

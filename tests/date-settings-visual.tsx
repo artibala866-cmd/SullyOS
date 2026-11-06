@@ -95,7 +95,10 @@ function check() {
     const expectedImages = scenario === 'empty' ? 0 : scenario === 'clear' ? 3 : scenario === 'upload' ? 6 : 4;
     const imagesOk = pictureCount === expectedImages;
     const labelsOk = realLabels.join('|') === '默认|室外|卧室|浴室|厨房|工作';
-    const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk, uploadOk,
+    const saveButton = [...host.querySelectorAll<HTMLButtonElement>('button')].find(b => b.textContent?.includes('保存当前布置'));
+    const saveBg = saveButton ? getComputedStyle(saveButton).backgroundColor : '';
+    const saveVisible = !!saveButton && saveBg !== 'rgba(0, 0, 0, 0)' && saveBg !== 'rgb(255, 255, 255)';
+    const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk, uploadOk, saveVisible, saveBg,
       debugEvents, storedScenes: Object.fromEntries(Object.entries(charMirror.dateSceneBackgrounds || {}).map(([k, v]) => [k, String(v).slice(0, 30)])),
       defaultOriginallyPresent: scenario === 'empty' ? !original : original.startsWith('data:image/svg+xml'),
       noExtraSections, clearOk,
@@ -103,7 +106,7 @@ function check() {
       sceneRects: gridBounds.map(r=>[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]),
       sectionY: Math.round(rect.y) };
     const success = JSON.stringify(keys) === JSON.stringify(expected) &&
-      labelsOk && fit && imagesOk && noExtraSections && clearOk && uploadOk && report.defaultOriginallyPresent;
+      labelsOk && fit && imagesOk && noExtraSections && clearOk && uploadOk && saveVisible && report.defaultOriginallyPresent;
     document.body.dataset.dateSettingsReady = String(success);
     let output = document.getElementById('date-settings-browser-report');
     if (!output) { output = document.createElement('output'); output.id = 'date-settings-browser-report'; output.hidden = true; document.body.append(output); }
