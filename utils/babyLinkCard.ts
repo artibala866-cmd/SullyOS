@@ -264,6 +264,10 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             linkOpeningPayloadOmitted: value.openings == null,
             sourceIdentity: optionalText(value.id, '角色 ID', 256) || undefined };
     });
+    if (raw.characters.some(value => isObject(value) &&
+        Array.isArray(value.textRegexRules) && value.textRegexRules.length > 0)) {
+        warnings.push('Link 分享包含角色局部正则规则；糯米机尚无等价正则引擎，因此本次不会执行或假装导入这些规则。人物、世界书和开场白仍可正常导入。');
+    }
     return { source: 'babylink', cards, warnings };
 }
 
