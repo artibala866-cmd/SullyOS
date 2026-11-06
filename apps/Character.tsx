@@ -1211,7 +1211,8 @@ ${isInitialGeneration ? `
 
   const cardOrigin = (prepared: PreparedCharacterCard): CardImportOrigin => ({
       source: prepared.source === 'babylink-character' ? 'babylink'
-          : prepared.source === 'sully' ? 'sully' : 'tavern',
+          : prepared.source === 'sully' ? 'sully'
+          : prepared.source === 'document' ? 'document' : 'tavern',
       externalId: prepared.sourceIdentity,
       originalName: prepared.character.name,
   });
@@ -1368,7 +1369,7 @@ ${isInitialGeneration ? `
                         <ToolButton label="关闭" title="关闭" onClick={closeApp}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                         </ToolButton>
-                        <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportCard} />
+                        <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,.txt,.text,.doc,.docx,application/json,image/png,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleImportCard} />
                    </div>
                </div>
                <div className="flex-1 overflow-y-auto px-5 pt-5 pb-20 no-scrollbar flex flex-col gap-3">
