@@ -105,6 +105,17 @@ describe('SillyTavern card normalization', () => {
         expect(nativeCard.character.tavernGreetings).toEqual(result.character.tavernGreetings);
         expect(() => normalizeCharacterCard(v3({ alternate_greetings: [42] }))).toThrow('有效文本');
     });
+    it('accepts cards containing only a greeting without inventing a system persona', () => {
+        for (const card of [
+            v2({ description: '', personality: '', scenario: '', first_mes: '雨夜开场' }),
+            v3({ description: '', personality: '', scenario: '', first_mes: '雨夜开场' }),
+        ]) {
+            const prepared = normalizeCharacterCard(card);
+            expect(prepared.character.tavernGreetings?.[0]?.content).toBe('雨夜开场');
+            expect(prepared.character.systemPrompt).toBe('');
+            expect(prepared.worldbooks).toEqual([]);
+        }
+    });
     it('recognizes V3 data and preserves character macro compatibility', () => {
         const result = normalizeCharacterCard(v3({ personality: '{{char}} 保护 <user>；{{random::A::B}}' }));
         expect(result.source).toBe('tavern-v3');

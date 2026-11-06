@@ -16,7 +16,11 @@ afterEach(async () => {
     host?.remove();
     root = null; host = null;
 });
-async function render(initial: StoryTheaterEntry, characters = [actor], save: (entry: StoryTheaterEntry) => Promise<void> = async () => {}) {
+async function render(
+    initial: StoryTheaterEntry, characters = [actor],
+    save: (entry: StoryTheaterEntry) => Promise<void> = async () => {},
+    onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>,
+) {
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -24,6 +28,7 @@ async function render(initial: StoryTheaterEntry, characters = [actor], save: (e
         initial, characters, user: { name: '用户' } as any, masks: [], maskLocked: false,
         presets: [BUILTIN_NIGHT_SCREENING_PRESET], onCancel: () => {}, onSave: save,
         onImportPreset: async () => null, onEditPreset: () => {}, onOpenMaskBox: () => {},
+        onChangeGreeting,
     })));
 }
 async function clickButton(text: string) {
@@ -68,6 +73,46 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         await clickButton('保存并进入');
         expect(save).toHaveBeenCalledTimes(2);
         expect((await DB.getStoryTheaters()).find(story => story.title === '我保存的剧情')?.characterIds).toEqual([actor.id]);
+    });
+    it('选择再取消酒馆开场白，不会暗中切换“我先写”的开场方式', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-first', title: '默认开场白', content: '{{char}}已经开场' },
+        ] };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '开场选择', characterIds: [actor.id] }, [greetingActor], save);
+        const select = host!.querySelector('select[aria-label="选择酒馆卡开场白"]') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        await act(async () => {
+            select.value = `${actor.id}::tavern-first`;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await act(async () => {
+            select.value = '';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await clickButton('保存并进入');
+        expect(save).toHaveBeenCalledTimes(1);
+        expect(save.mock.calls[0][0]).toMatchObject({ openingMode: 'user' });
+        expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('开场白原文已删除且没有其它候选时能清理残留关联', async () => {
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '丢失的开场', characterIds: [actor.id],
+            openingGreeting: { characterId: actor.id, greetingId: 'missing' } }, [actor], save);
+        expect(host!.textContent).toContain('原开场白已失效');
+        await clickButton('清除失效选择');
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('连续双击保存只执行一次异步写入', async () => {
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => { await gate; });
+        await render({ ...createStoryTheaterDraft(), title: '防止连点', characterIds: [actor.id] }, [actor], save);
+        const button = [...host!.querySelectorAll('button')].find(b => b.textContent?.trim() === '保存并进入')!;
+        await act(async () => { button.click(); button.click(); });
+        expect(save).toHaveBeenCalledTimes(1);
+        await act(async () => { release(); await gate; });
     });
     it('没有任何角色时，不丢草稿，明确告知必须先建立角色', async () => {
         await render({ ...createStoryTheaterDraft(), title: '无角色' }, []);

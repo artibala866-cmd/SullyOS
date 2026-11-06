@@ -734,6 +734,8 @@ describe('剧情首幕与酒馆开场白绑定', () => {
         const entry = { ...createStoryTheaterDraft(1), characterIds: [actor.id],
             openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' } };
         expect(resolveStoryOpeningGreeting(entry, [], '阿宁')).toBeNull();
+        expect(resolveStoryOpeningGreeting(entry,
+            [{ ...actor, tavernGreetings: {} } as unknown as typeof actor], '阿宁')).toBeNull();
         expect(resolveStoryOpeningGreeting({ ...entry, openingGreeting: { characterId: actor.id, greetingId: 'missing' } }, [actor], '阿宁')).toBeNull();
         expect(resolveStoryOpeningGreeting({ ...entry, characterIds: [] }, [actor], '阿宁')).toBeNull();
         expect(normalizeStoryTheater({ ...entry, characterIds: [] }).openingGreeting).toBeUndefined();

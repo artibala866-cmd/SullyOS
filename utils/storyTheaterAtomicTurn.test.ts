@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Message } from '../types';
 import { DB } from './db';
+import { saveStoryWithOpening } from './storyTheaterPersistence';
 import { createStoryTheaterDraft, createStoryTheaterMirrorMessage, storyTheaterThreadId } from './storyTheater';
 
 const scenario = (suffix: string) => ({
@@ -66,5 +67,59 @@ describe('见面剧情中央正文与角色镜像同事务保存', () => {
         const saved=await DB.getMessageById(id);
         expect(saved?.metadata).toMatchObject({source:'story_theater',theaterId:e.id});
         expect(saved?.metadata?.theaterMirrorIds).toBeUndefined();
+    });
+});
+
+describe('酒馆开场白与剧情首幕原子保存', () => {
+    const intro = { characterId: 'intro-a', greetingId: 'tavern-first', content: '雨夜里，两人第一次相遇。' };
+    const draft = (suffix: string, real = false) => ({
+        ...createStoryTheaterDraft(), id: `greeting-atomic-${suffix}`, title: '雨夜',
+        openingGreeting: { characterId: intro.characterId, greetingId: intro.greetingId },
+        characterIds: real ? ['intro-a', 'intro-b'] : ['intro-a'],
+        writesToCharacterMemory: real,
+    });
+    it('两个保存并发只能写入一次开场，之后编辑标题也不会重复首幕', async () => {
+        const entry = draft('parallel');
+        await Promise.all([saveStoryWithOpening(entry, intro, []), saveStoryWithOpening(entry, intro, [])]);
+        expect((await DB.getStoryTheaters()).filter(row => row.id === entry.id)).toHaveLength(1);
+        const history = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+        expect(history.filter(row => row.metadata?.source === 'story_theater')).toHaveLength(1);
+        expect(history[0]).toMatchObject({ role: 'assistant', content: intro.content, metadata: {
+            source: 'story_theater', theaterOpeningGreeting: {
+                characterId: 'intro-a', greetingId: 'tavern-first',
+            },
+        } });
+        await saveStoryWithOpening({ ...entry, title: '新标题' }, intro, []);
+        expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true))).toHaveLength(1);
+    });
+    it('真实陪伴的开场白和两个角色镜像一起保存', async () => {
+        const entry = draft('mirror', true);
+        await saveStoryWithOpening(entry, intro, ['intro-a', 'intro-b']);
+        const center = (await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true))[0];
+        expect(Object.keys(center.metadata?.theaterMirrorIds || {}).sort()).toEqual(['intro-a', 'intro-b']);
+        for (const charId of ['intro-a','intro-b']) {
+            const mirror = await DB.getMessageById(center.metadata.theaterMirrorIds[charId]);
+            expect(mirror).toMatchObject({ charId, content: intro.content, metadata: {
+                source: 'story_theater_memory', theaterCentralId: center.id, theaterId: entry.id,
+            } });
+        }
+    });
+    it('第二个角色镜像失败则剧情、正文和所有镜像同时回滚', async () => {
+        const entry = draft('rollback', true);
+        const add = IDBObjectStore.prototype.add;
+        const spy = vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function(this: IDBObjectStore, ...args: Parameters<IDBObjectStore['add']>) {
+            if (this.name === 'messages' && (args[0] as Message).charId === 'intro-b')
+                throw new Error('模拟开场白镜像故障');
+            return add.apply(this, args);
+        });
+        try {
+            await expect(saveStoryWithOpening(entry, intro, ['intro-a', 'intro-b']))
+                .rejects.toThrow('模拟开场白镜像故障');
+        } finally { spy.mockRestore(); }
+        expect((await DB.getStoryTheaters()).some(row => row.id === entry.id)).toBe(false);
+        for (const charId of [storyTheaterThreadId(entry.id), 'intro-a', 'intro-b']) {
+            expect((await DB.getMessagesByCharId(charId, true))
+                .filter(row => row.metadata?.theaterId === entry.id)).toHaveLength(0);
+        }
     });
 });
