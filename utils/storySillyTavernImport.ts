@@ -225,7 +225,9 @@ export const extractSillyTavernStoryContent = (data: any): string => {
     const content = asText(message?.content);
     const separateThinking = asText(message?.reasoning_content ?? message?.reasoning ?? message?.thinking);
     if (!separateThinking || /<(?:thinking|think|thought)\b/i.test(content)) return content.trim();
-    return `<thinking>${separateThinking}</thinking>\n${content}`.trim();
+    const formattedThinking = /^<(?:thinking|think|thought)\b/i.test(separateThinking.trim())
+        ? separateThinking : `<thinking>${separateThinking}</thinking>`;
+    return `${formattedThinking}\n${content}`.trim();
 };
 
 /** Preserve roles and message order while matching Tavern's system-message squashing. */
