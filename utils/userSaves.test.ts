@@ -21,6 +21,53 @@ async function open(name: string): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => { const req = indexedDB.open(name); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
 }
 describe('user 身份存档隔离', () => {
+    it('starts every private store and all identity fields fresh, then preserves edited A/B profiles on return', async () => {
+        const { openDB } = await import('./db'); const source = await openDB();
+        const { SHARED_STORES, freshUserProfile, activateUserSave } = await import('./userSaves');
+        const special = new Set(['characters', 'assets', 'blob_assets', 'user_profile', ...SHARED_STORES]);
+        const privateStores = Array.from(source.objectStoreNames).filter(name => !special.has(name));
+        // Seed every private store from the real schema, including future stores;
+        // a fresh identity must not acquire any of these records.
+        for (const name of privateStores) {
+            await new Promise<void>((resolve, reject) => {
+                const tx = source.transaction(name, 'readwrite'), store = tx.objectStore(name);
+                const value: any = { privateSentinel: 'A-private' };
+                const paths = typeof store.keyPath === 'string' ? [store.keyPath] : store.keyPath ?? [];
+                for (const path of paths) {
+                    const parts = path.split('.'); let node = value;
+                    for (const part of parts.slice(0, -1)) node = node[part] ??= {};
+                    node[parts.at(-1)!] = 'private-record';
+                }
+                if (store.keyPath) store.put(value); else store.put(value, 'private-record');
+                tx.oncomplete = () => resolve(); tx.onabort = tx.onerror = () => reject(tx.error);
+            });
+        }
+        expect(privateStores.length).toBeGreaterThan(25);
+        const originalProfile = {id:'me',name:'原身份',bio:'原设定',avatar:'blobref:private-face',perCharAvatars:{c:'blobref:private-chat-face'},
+            imageAppearance:'原外貌',imageReference:'blobref:private-ref',imageLockEnabled:true,wardrobeOutfits:[{id:'private-outfit'}],
+            chibiStudio:{userChibi:{img:'blobref:private-body'}},vrState:{enabled:true,chibi:{img:'blobref:private-vr'},activity:'旧活动'}};
+        await write(source, {user_profile:[originalProfile],worldbooks:[{id:'w',name:'基础世界书'}],
+            characters:[{id:'c',name:'基础角色',avatar:'blobref:card-face',systemPrompt:'人设',memories:[{summary:'A记忆'}],
+                phoneState:{records:['A手机']},socialProfile:{handle:'A生成账号'},savedDateState:{scene:'A剧情'},activeMsg2Config:{enabled:true},
+                home3D:{version:1,activeRoomId:'r',rooms:[],records:['A生活'],petLife:{events:['A宠物']},romanticPairs:[['u','c']]}}],
+            assets:[{id:'wallpaper',data:'blobref:decoration'},{id:'private-runtime',data:'A私密'}],
+            blob_assets:['private-face','private-chat-face','private-ref','private-body','private-vr','card-face','decoration'].map(id=>({id,blob:id}))});
+        await activateUserSave(SECOND,{name:'新身份'});
+        const target=await open(`AetherOS_Data__user_${SECOND}`);
+        expect(await rows(target,'user_profile')).toEqual([{id:'me',...freshUserProfile('新身份')}]);
+        for(const name of privateStores) {expect(await rows(target,name),name).toEqual([]);expect((await rows(source,name))[0].privateSentinel,name).toBe('A-private');}
+        expect((await rows(target,'blob_assets')).map(r=>r.id).sort()).toEqual(['card-face','decoration']);
+        const [char]=await rows(target,'characters');
+        for(const key of ['phoneState','socialProfile','savedDateState','activeMsg2Config'])expect(char[key],key).toBeUndefined();
+        expect(char.home3D.records).toBeUndefined();expect(char.home3D.petLife).toBeUndefined();expect(char.home3D.romanticPairs).toBeUndefined();
+        const bProfile={id:'me',name:'B改名',bio:'B设定',avatar:'blobref:b-face',perCharAvatars:{c:'blobref:b-chat-face'},imageAppearance:'B外貌',imageReference:'blobref:b-ref',imageLockEnabled:true};
+        await write(target,{user_profile:[bProfile]});source.close();target.close();
+        vi.resetModules();await (await import('./userSaves')).activateUserSave('original');
+        const a=await open('AetherOS_Data');expect(await rows(a,'user_profile')).toEqual([originalProfile]);a.close();
+        vi.resetModules();await (await import('./userSaves')).activateUserSave(SECOND);
+        const b=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(b,'user_profile')).toEqual([bProfile]);
+        expect((await rows(b,'worldbooks'))[0].name).toBe('基础世界书');b.close();
+    });
     it('isolates unknown local data, waterlines, enumeration, deletion and clear, preserving appearance', async () => {
         const { createSaveStorage, USER_SAVES_KEY } = await import('./userSaveScope');
         const a = createSaveStorage(localStorage, 'original'), b = createSaveStorage(localStorage, SECOND);
@@ -46,7 +93,7 @@ describe('user 身份存档隔离', () => {
             assets: [{ id: 'wallpaper', data: 'blobref:background' }, { id: 'palace_hwm_c1', data: '123' }],
             blob_assets: [{ id: 'avatar', blob: 'avatar-bytes' }, { id: 'background', blob: 'bg-bytes' }, { id: 'private-chat-image', blob: 'private' }] });
         const { activateUserSave, readUserSaves } = await import('./userSaves');
-        await activateUserSave(SECOND, { name: '校园线', profile: { name: '旧身份', avatar: 'blobref:avatar', bio: '旧设定', vrState: { enabled: true, activity: '旧状态' } } });
+        await activateUserSave(SECOND, { name: '校园线' });
         expect(reload).toHaveBeenCalledOnce(); expect(readUserSaves().activeId).toBe(SECOND);
         const target = await open(`AetherOS_Data__user_${SECOND}`);
         const [saved] = await rows(target, 'characters');
@@ -57,7 +104,7 @@ describe('user 身份存档隔离', () => {
         expect((await rows(target, 'pixel_home_layouts'))[0]).toMatchObject({charId:'c1',wallColor:'#fff',ambiance:'',lastUpdatedAt:0,lastDecoratedBy:'user'});
         expect(await rows(target, 'worldbooks')).toEqual([{ id: 'w1', name: '已有世界书' }]);
         expect((await rows(target, 'blob_assets')).map(r => r.id).sort()).toEqual(['avatar', 'background']);
-        expect((await rows(target, 'user_profile'))[0]).toMatchObject({ name: '校园线', bio: '', avatar: 'blobref:avatar' });
+        expect((await rows(target, 'user_profile'))[0]).toEqual({ id: 'me', ...(await import('./userSaves')).freshUserProfile('校园线') });
         expect((await rows(source, 'messages'))[0].content).toBe('旧私聊');
         target.close(); source.close();
     });
@@ -81,14 +128,14 @@ describe('user 身份存档隔离', () => {
             if (this.transaction.db.name.includes(SECOND) && this.name === 'characters') { this.transaction.abort(); throw new DOMException('quota', 'QuotaExceededError'); }
             return real.apply(this, args as any);
         });
-        await expect(activateUserSave(SECOND, {name:'测试',profile:{name:'',avatar:'',bio:''}})).rejects.toThrow(); spy.mockRestore();
+        await expect(activateUserSave(SECOND, {name:'测试'})).rejects.toThrow(); spy.mockRestore();
         expect(readUserSaves().activeId).toBe('original'); expect(reload).not.toHaveBeenCalled();
         expect((await rows(db, 'messages'))[0].content).toBe('原记录'); db.close();
     });
     it('invalid registry fails closed, and a stale page cannot activate another identity', async () => {
         const { USER_SAVES_KEY } = await import('./userSaveScope'); const { activateUserSave } = await import('./userSaves');
         localStorage.setItem(USER_SAVES_KEY, JSON.stringify({activeId:SECOND,saves:[{id:SECOND,name:'另一个页面'}]}));
-        await expect(activateUserSave(THIRD,{name:'新',profile:{name:'',avatar:'',bio:''}})).rejects.toThrow('其他页面');
+        await expect(activateUserSave(THIRD,{name:'新'})).rejects.toThrow('其他页面');
         expect(reload).not.toHaveBeenCalled();
     });
 });

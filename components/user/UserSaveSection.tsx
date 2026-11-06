@@ -45,7 +45,7 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
         const used = new Set(readUserSaves().saves.map(save => save.name));
         let name = '新身份', index = 2;
         while (used.has(name)) name = `新身份 ${index++}`;
-        void run(() => activateUserSave(newUserSaveId(), {name, profile:profileRef.current}));
+        void run(() => activateUserSave(newUserSaveId(), {name}));
     };
     const remove = () => {
         if (registry.saves.length < 2 || busyRef.current || disabled) return;

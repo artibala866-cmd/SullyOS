@@ -93,10 +93,16 @@ export function referencedBlobs(db: IDBDatabase, data: unknown[]): Promise<any[]
 }
 let switching = false;
 export function isUserSaveSwitching(): boolean { return switching; }
+/** A user's face/body is identity data, not the phone's shared decoration.
+ * No source profile is accepted here: '+' always opens a blank identity. */
+export function freshUserProfile(name: string): UserProfile {
+    const avatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" fill="#f1f5f9"/><circle cx="64" cy="46" r="22" fill="#cbd5e1"/><ellipse cx="64" cy="115" rx="43" ry="38" fill="#cbd5e1"/></svg>');
+    return { name: name.trim(), avatar, bio: '' };
+}
 /** Copy base resources in a single target transaction, then commit the tiny
  * active-id manifest. Failure never selects an uninitialized/half-written save.
  * Reload is deliberate: every component, queue and singleton gets a new lifetime. */
-export async function activateUserSave(targetId: string, create?: { name: string; profile: UserProfile }, options?: { deleteCurrent?: boolean }): Promise<void> {
+export async function activateUserSave(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean }): Promise<void> {
     if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
@@ -115,14 +121,8 @@ export async function activateUserSave(targetId: string, create?: { name: string
         const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
         const bases = characters.map(baseCharacter);
         const sharedAssets = assets.filter(row => isSharedAsset(row.id));
-        const userVisuals: UserProfile | undefined = create ? {
-            name: create.name.trim(), bio: '', avatar: create.profile.avatar,
-            wardrobeOutfits: create.profile.wardrobeOutfits, chibiStudio: create.profile.chibiStudio,
-            imageAppearance: create.profile.imageAppearance, imageReference: create.profile.imageReference,
-            imageLockEnabled: create.profile.imageLockEnabled, perCharAvatars: create.profile.perCharAvatars,
-            vrState: create.profile.vrState?.chibi ? { enabled: false, chibi: create.profile.vrState.chibi } : undefined,
-        } : undefined;
-        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, userVisuals]);
+        const newProfile = create ? freshUserProfile(create.name) : undefined;
+        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources]);
         target = await openTarget(source, targetId);
         const previous = await all(target, 'characters');
         const previousAssets = await all(target, 'assets');
@@ -139,7 +139,7 @@ export async function activateUserSave(targetId: string, create?: { name: string
             for (const row of previousAssets) if (isSharedAsset(row.id)) assetStore.delete(row.id);
             for (const row of sharedAssets) assetStore.put(row);
             for (const row of blobs) tx.objectStore('blob_assets').put(row);
-            if (userVisuals) tx.objectStore('user_profile').put({ ...userVisuals, id: 'me' });
+            if (newProfile) tx.objectStore('user_profile').put({ ...newProfile, id: 'me' });
             tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('身份存档保存失败'));
         });
         // Check for a concurrent tab again after the asynchronous preparation.
