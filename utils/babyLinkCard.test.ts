@@ -82,7 +82,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(bundle.cards[0].worldbooks).toHaveLength(0);
         expect(profile.systemPrompt).not.toContain('不许进入人格');
         expect(profile.linkGreetings).toEqual([
-            { id: 'babylink-opening-0', title: '开场', content: '不许进入人格' },
+            { id: expect.stringMatching(/^babylink-opening-text-/), title: '开场', content: '不许进入人格' },
         ]);
         const serialized = JSON.stringify(bundle);
         for (const forbidden of ['不要导入', '过滤种子', 'SECRET', 'high']) {
@@ -106,11 +106,11 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(card.character.tavernGreetings).toBeUndefined();
         expect(card.character.linkGreetings).toHaveLength(2);
         expect(card.character.linkGreetings?.[0]).toEqual({
-            id: 'babylink-opening-scene-1', title: '雨夜相逢',
+            id: 'babylink-opening-source-scene-1', title: '雨夜相逢',
             description: '在屋檐下等候', content: scene,
         });
         expect(card.character.linkGreetings?.[1]).toMatchObject({
-            id: 'babylink-opening-scene-2', title: '第二幕',
+            id: 'babylink-opening-source-scene-2', title: '第二幕',
             content: '她在窗边等候。',
         });
         const actor = { ...card.character, id: 'actor', memories: [], mountedWorldbooks: [] } as CharacterProfile;
