@@ -743,6 +743,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         preset: effectivePreset, userName: promptIdentityName, characterNames: actors.map(actor => actor.name),
                         historyMessages,
                         currentInput: modelInput,
+                        modelName: apiConfig.model,
                         slots: {
                             actors: actorContext,
                             persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
