@@ -41,6 +41,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const [createTargetActor, setCreateTargetActor] = useState('');
     const [recentGreeting, setRecentGreeting] = useState<(TavernOpeningGreeting & { characterId: string; characterName: string }) | null>(null);
     const createGreetingLock = useRef(false);
+    // Keep the authored scene recoverable if the user changes their mind after
+    // bookmarking it. Persisted stories still store the scene only once.
+    const promotedPremise = useRef<{ characterId: string; greetingId: string; content: string } | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
     const titleInput = useRef<HTMLInputElement>(null);
     const greetingTextarea = useRef<HTMLTextAreaElement>(null);
@@ -78,7 +81,25 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 ? (content === null ? null : { ...current, content: content.trim() }) : current);
             // A started story keeps the original link for provenance, even when
             // its character-card source is deleted; only new drafts clear it.
-            if (content === null && !maskLocked) { update('openingGreeting', undefined); setShowOpeningInIntro(false); }
+            if (content === null && !maskLocked) {
+                setDraft(current => {
+                    const promoted = promotedPremise.current;
+                    const restore = promoted?.characterId === current.openingGreeting?.characterId
+                        && promoted.greetingId === current.openingGreeting?.greetingId
+                        && !current.premise.trim();
+                    return {
+                        ...current,
+                        premise: restore ? promoted.content : current.premise,
+                        openingGreeting: undefined,
+                        updatedAt: Date.now(),
+                    };
+                });
+                setShowOpeningInIntro(false);
+                setChooseGreetingActor(false);
+            } else if (content !== null && promotedPremise.current?.characterId === selectedGreeting.characterId
+                && promotedPremise.current?.greetingId === selectedGreeting.id) {
+                promotedPremise.current.content = content.trim();
+            }
             setEditingGreeting(false);
             setConfirmGreetingDelete(false);
         } catch (error) {
@@ -122,6 +143,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             const commentTitle = content.match(/<!--\s*title\s*[:：]\s*(.*?)\s*-->/i)?.[1]?.trim();
             const title = (commentTitle || firstLine.replace(/^<!--.*?-->\s*/, '') || draft.title.trim() || '自定义开场').slice(0, 30);
             const created = await onCreateGreeting(actor.id, title, content);
+            promotedPremise.current = { characterId: actor.id, greetingId: created.id, content: created.content };
             setRecentGreeting({ ...created, characterId: actor.id, characterName: actor.name });
             setDraft(current => ({
                 ...current,
@@ -158,6 +180,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         // immutable timeline, memory mirrors and selected opening provenance.
         if (maskLocked || createGreetingLock.current || greetingLock.current) return;
         setSaveError('');
+        // A pending target selection is no longer trustworthy once cast changes.
+        setChooseGreetingActor(false);
+        setCreateTargetActor('');
+        setCreateGreetingError('');
         setDraft(current => {
         const adding = !current.characterIds.includes(char.id);
         const characterIds = adding ? [...current.characterIds, char.id] : current.characterIds.filter(id => id !== char.id);
@@ -288,7 +314,17 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     <div className='text-[10px] font-bold text-slate-500'>谁先落笔</div>
                     <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
                         <button type='button' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete}
-                            onClick={() => { setShowOpeningInIntro(false); setChooseGreetingActor(false); setDraft(current => ({ ...current, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() })); }}
+                            onClick={() => {
+                                setShowOpeningInIntro(false);
+                                setChooseGreetingActor(false);
+                                setDraft(current => {
+                                    const promoted = promotedPremise.current;
+                                    const restore = promoted?.characterId === current.openingGreeting?.characterId
+                                        && promoted.greetingId === current.openingGreeting?.greetingId
+                                        && !current.premise.trim();
+                                    return { ...current, premise: restore ? promoted.content : current.premise, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() };
+                                });
+                            }}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${!storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button>
                         <button type='button' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete}
                             onClick={() => update('openingMode', 'assistant')}
@@ -296,14 +332,24 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     </div>
                     <div className='mt-3'>
                     <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
-                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || greetingChoices.length === 0}
+                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor || greetingChoices.length === 0}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
-                            setDraft(current => ({ ...current, openingMode: selected ? 'assistant' : current.openingMode,
-                                openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
-                                updatedAt: Date.now(),
-                            }));
+                            setDraft(current => {
+                                const promoted = promotedPremise.current;
+                                const restore = !selected && !current.premise.trim()
+                                    && promoted?.characterId === current.openingGreeting?.characterId
+                                    && promoted.greetingId === current.openingGreeting?.greetingId;
+                                return {
+                                    ...current,
+                                    premise: restore ? promoted.content : current.premise,
+                                    openingMode: selected ? 'assistant' : current.openingMode,
+                                    openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
+                                    updatedAt: Date.now(),
+                                };
+                            });
+                            setChooseGreetingActor(false);
                             setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
                             setShowOpeningInIntro(!!selected);
                         }}
