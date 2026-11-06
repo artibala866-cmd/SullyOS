@@ -268,6 +268,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
+    const [emojiDocumentReading, setEmojiDocumentReading] = useState(false);
     const [historySearch, setHistorySearch] = useState('');
     const longPressTimerRef = useRef<number | null>(null);
     const longPressTriggeredRef = useRef(false);
@@ -371,11 +372,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
             <Modal 
                 isOpen={modalType === 'emoji-import'} title="表情注入" onClose={() => setModalType('none')}
-                footer={<button onClick={onImportEmoji} disabled={emojiImportBusy} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : '添加至当前分类'}</button>}
+                footer={<button onClick={onImportEmoji} disabled={emojiImportBusy || emojiDocumentReading} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : emojiDocumentReading ? '识别文件中…' : '添加至当前分类'}</button>}
             >
                 <div className="space-y-3">
                     <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
-                    <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} />
+                    <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} onReadingChange={setEmojiDocumentReading} />
                     <textarea
                         value={emojiImportText}
                         onChange={e => setEmojiImportText(e.target.value)}
