@@ -1103,9 +1103,10 @@ export const compileStoryPreset = (input: {
     historyMessages?: StoryApiMessage[];
     currentInput?: string;
     modelName?: string;
+    continueRequested?: boolean;
     userName: string;
     characterNames: string[];
-}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[] } => {
+}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[]; continueNudge?: StoryApiMessage } => {
     const { preset, slots, userName, characterNames } = input;
     const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
     const messages: StoryApiMessage[] = [];
@@ -1200,8 +1201,11 @@ export const compileStoryPreset = (input: {
                     ? slots.tavernDescription!
                     : formatTavernSlot(slots.tavernPersonality!, document.tavernFormats?.personality, '{{personality}}');
             } else if (prompt.marker === 'history' && input.historyMessages) {
-                if (importedFromTavern && document.tavernFormats?.newChat?.trim()) {
-                    pushPromptMessage(messages, 'system', macroReplace(expandImported(document.tavernFormats.newChat), userName, characterNames));
+                const newGroupHeader = characterNames.length > 1 && typeof document.tavernOptions?.new_group_chat_prompt === 'string'
+                    ? document.tavernOptions.new_group_chat_prompt : '';
+                const chatHeader = newGroupHeader || document.tavernFormats?.newChat || '';
+                if (importedFromTavern && chatHeader.trim()) {
+                    pushPromptMessage(messages, 'system', macroReplace(expandImported(chatHeader), userName, characterNames));
                 }
                 historyStart = messages.length;
                 historyLength = input.historyMessages.length;
@@ -1260,6 +1264,12 @@ export const compileStoryPreset = (input: {
 
     const prefill = expandImported(String(document.assistantPrefill || '')).trim();
     const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames) } : undefined;
+    const requestedContinue = importedFromTavern && input.continueRequested
+        ? expandImported(document.tavernFormats?.continueNudge || '').trim()
+        : '';
+    const continueNudge = requestedContinue
+        ? { role: 'system' as const, content: macroReplace(requestedContinue, userName, characterNames) }
+        : undefined;
 
     return {
         messages,
@@ -1271,6 +1281,7 @@ export const compileStoryPreset = (input: {
             max_tokens: document.generation.maxTokens,
         },
         assistantPrefill,
+        ...(continueNudge ? { continueNudge } : {}),
         ...(afterLatestUser.length ? { afterLatestUser } : {}),
     };
 };
