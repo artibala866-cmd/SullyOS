@@ -165,6 +165,59 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(three.cards[1].character.systemPrompt).toContain('开场白锚点');
     });
 
+    it('distinguishes absent Link V1 opening data from an original character without an opening', () => {
+        const parsed = normalizeBabyLinkShare(share([
+            char('千语冰', [], { openings: undefined }),
+            char('何谈爱', ['local'], {
+                openings: undefined,
+                description: '【剧情阶段与开场白锚点】\\n【当前激活阶段 = Phase 3】',
+            }),
+            char('关以悔', [], { openings: undefined }),
+        ], [book('local', true, [
+            entry('春城', { activation: 'constant' }),
+            entry('春不渡高中', { activation: 'constant' }),
+        ])]));
+        expect(parsed.cards).toHaveLength(3);
+        expect(parsed.cards.map(card => card.linkOpeningPayloadOmitted)).toEqual([true, true, true]);
+        expect(parsed.cards.map(card => card.character.tavernGreetings?.length)).toEqual([0, 0, 0]);
+        expect(parsed.cards.map(card => card.worldbooks.length)).toEqual([0, 2, 0]);
+        expect(parsed.cards[1].character.systemPrompt).toContain('开场白锚点');
+        expect(parsed.cards[1].character.tavernGreetings).toEqual([]);
+
+        // The PNG does not carry this source-side opening. Updating a previously
+        // imported character must not overwrite the locally saved one.
+        const existing = {
+            id: 'existing-link-role', name: '何谈爱', description: '旧简介',
+            systemPrompt: '原设定', avatar: '', mountedWorldbooks: [], memories: [],
+            tavernGreetings: [{ id: 'existing-opening', title: '原有开场白', content: '原本的开场正文' }],
+        } as CharacterProfile;
+        const incoming = parsed.cards[1];
+        const merged = mergeCardImports([existing], [], [{
+            character: { ...existing, ...incoming.character, id: 'ignored-new-id' },
+            origin: { source: 'babylink', originalName: '何谈爱' },
+            fields: { name: '何谈爱', description: incoming.character.description,
+                systemPrompt: incoming.character.systemPrompt },
+            worldbooks: incoming.worldbooks,
+            expectedTargetId: existing.id,
+        }]);
+        expect(merged.characters.find(c => c.id === existing.id)?.tavernGreetings).toEqual(existing.tavernGreetings);
+    });
+
+    it('treats an actual exported Link openings array differently from a missing payload', () => {
+        const exportedEmpty = normalizeBabyLinkShare(share([
+            char('甲', [], { openings: [] }),
+        ], []));
+        expect(exportedEmpty.cards[0].linkOpeningPayloadOmitted).toBe(false);
+        const exportedOne = normalizeBabyLinkShare(share([
+            char('乙', [], { openings: [{ title: '见面', opening: '我们在这里相遇。' }] }),
+        ], []));
+        expect(exportedOne.cards[0].linkOpeningPayloadOmitted).toBe(false);
+        expect(exportedOne.cards[0].character.tavernGreetings).toHaveLength(1);
+        expect(() => normalizeBabyLinkShare(share([
+            char('丙', [], { openings: { title: '格式不正确' } }),
+        ], []))).toThrow('类型错误');
+    });
+
     it('preserves both enable levels, keyword order, probability and case sensitivity', () => {
         const bundle = normalizeBabyLinkShare(share([char('甲', ['one', 'off'])], [
             book('one', true, [
