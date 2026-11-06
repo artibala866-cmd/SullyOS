@@ -91,6 +91,7 @@ export const toMountedWorldbook = (book: Worldbook): MountedWorldbook => ({
     caseSensitive: book.caseSensitive,
     matchWholeWords: book.matchWholeWords,
     sourceUid: book.sourceUid,
+    cardImportKey: book.cardImportKey,
 });
 
 /**
