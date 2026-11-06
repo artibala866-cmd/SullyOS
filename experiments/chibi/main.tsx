@@ -1,3 +1,4 @@
+import '../../utils/userSaveBootstrap';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Puppet, type Motion } from './Puppet';

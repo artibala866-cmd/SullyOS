@@ -16,6 +16,14 @@ const inspect=()=>page.evaluate(async()=>{
 const ready=()=>page.getByLabel('你的名字',{exact:true}).waitFor();
 async function switchTo(id){await Promise.all([page.waitForEvent('framenavigated'),page.getByLabel('切换身份',{exact:true}).selectOption(id)]);await ready();assert.equal((await inspect()).id,id);}
 async function shot(name){if(!name.endsWith('844') && !name.startsWith('backup')) await page.getByTestId('archive-scroll').evaluate(el=>el.scrollTop=0);await page.waitForTimeout(400);await page.screenshot({path:out+'/'+name+'.png'});}
+async function checkStandaloneWardrobe(blank){
+ await page.goto(origin+'/chibi-wardrobe.html');await page.getByText('CHIBI 工坊',{exact:true}).waitFor();
+ await page.waitForFunction(()=>localStorage.getItem('chibi-wardrobe-studio-draft-v1')!==null);
+ const marker=await page.evaluate(()=>JSON.parse(localStorage.getItem('chibi-wardrobe-studio-draft-v1')).qaSaveMarker);
+ assert.equal(marker,blank?undefined:'A-only','standalone wardrobe must use the active save, not raw original drafts');
+ await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
+}
+
 async function checkCabinet(blank){
  await page.getByRole('button',{name:/我的手办柜/}).click();
  await page.getByRole('button',{name:blank?'开始捏 3D 形象':'编辑 3D 形象',exact:true}).waitFor();
@@ -65,12 +73,12 @@ try{
  assert(shape.sameField);assert(!shape.extraText);assert.equal(await page.getByRole('button',{name:'切换身份',exact:true}).count(),0);
  await shot('name-picker-390');
  const originProfile=(await inspect()).profile;
- await checkCabinet(false);await checkLife(false);
+ await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
  await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'新建身份',exact:true}).click()]);await ready();
  const fresh=await inspect();assert.notEqual(fresh.id,'original');assert.equal(fresh.profile.name,'新身份');assert.equal(fresh.profile.bio,'');assert.equal(fresh.messages.length,0);assert.equal(fresh.hwm,null);assert(fresh.books.some(w=>w.id==='qa-save-world'));assert.deepEqual(fresh.chars.find(c=>c.id==='qa-save-char').memories,[]);
  assert.notEqual(fresh.profile.avatar,originProfile.avatar);
  for(const key of ['life','plans','lifeSettings','transactions','bank'])assert.deepEqual(fresh[key],[],key+' starts empty');
- await checkCabinet(true);await checkLife(true,true);
+ await checkStandaloneWardrobe(true);await checkCabinet(true);await checkLife(true,true);
  for(const key of ['perCharAvatars','imageAppearance','imageReference','imageLockEnabled','wardrobeOutfits','chibiStudio','vrState']) assert.equal(fresh.profile[key],undefined,key+' must not inherit');
  await page.getByTestId('archive-avatar').locator('img').waitFor();await page.waitForFunction(()=>{const img=document.querySelector('[data-testid=archive-avatar] img');return img?.complete&&img.naturalWidth>0;});
  assert.notEqual(await page.getByTestId('archive-avatar').locator('img').getAttribute('src'),originProfile.avatar);
@@ -103,5 +111,5 @@ try{
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
  await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');assert.deepEqual(errors,[]);
- console.log('PASS: cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
+ console.log('PASS: standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}

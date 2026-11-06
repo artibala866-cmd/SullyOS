@@ -1,3 +1,4 @@
+import '../../utils/userSaveBootstrap';
 import builtinParts from '../../public/like520/parts/manifest.json';
 import {selectHomeFigurePart} from '../../utils/homeFigureParts';
 import React,{useEffect,useMemo,useRef,useState} from 'react';

@@ -18,6 +18,7 @@ if (USER_SAVE_ID === 'original' && !localStorage.getItem('qa-user-saves-seeded')
     for(const record of [{id:'qa-period-a',module:'period',kind:'start',payload:{}},{id:'qa-med-taken-a',module:'med',kind:'taken',payload:{name:'A档测试药盒',planId:'qa-med-a'}},{id:'qa-exercise-a',module:'exercise',kind:'session',payload:{activity:'A档慢跑',duration:'30分钟'}}] as const) await DB.saveLifeRecord({...record,date,timestamp:now,recordedBy:'user',reviewStatus:'confirmed'});
     await DB.saveBankState({config:{dailyBudget:150,currencySymbol:'¥'},shop:{},goals:[{id:'qa-goal-a',name:'A档储蓄目标',targetAmount:1000,currentAmount:400,icon:'',isCompleted:false}],todaySpent:123.4,lastLoginDate:date} as any);
     await DB.saveTransaction({id:'qa-expense-a',amount:123.4,category:'food',note:'A档独立账单',timestamp:now,dateStr:date});
+    localStorage.setItem('chibi-wardrobe-studio-draft-v1',JSON.stringify({layers:{},extras:[],bodyShape:'blank',wardrobeStyle:'normal',qaSaveMarker:'A-only'}));
     localStorage.setItem('palace_hwm_qa-save-char','321');
     localStorage.setItem('vr_sar_simulations_v1',JSON.stringify({runs:[{id:'old-story',title:'原剧情'}]}));
     localStorage.setItem('qa-user-saves-seeded','1');
