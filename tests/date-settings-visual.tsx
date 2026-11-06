@@ -69,7 +69,6 @@ function check() {
   const keys = slots.map(slot => slot.dataset.dateScene);
   const realLabels = slots.map(slot => slot.querySelector('button[aria-pressed]')?.textContent?.trim());
   const original = slots[0].querySelector('img')?.getAttribute('src') || '';
-  const pictureCount = slots.filter(slot => !!slot.querySelector('img')).length;
   const noExtraSections = [...document.querySelectorAll('summary')]
     .filter(el => el.textContent?.trim() === '背景' || el.textContent?.includes('基础场景背景')).length === 1;
   if (scenario === 'clear') {
@@ -91,7 +90,10 @@ function check() {
       !!charMirror.dateSceneBackgrounds?.bedroom &&
       !!slots[3].querySelector('img') && !!slots[5].querySelector('img')
     );
-    const imagesOk = scenario === 'empty' ? pictureCount === 0 : scenario === 'upload' ? pictureCount === 6 : pictureCount === 4;
+    // Compute after async uploads / React render, not from the pre-upload snapshot.
+    const pictureCount = slots.filter(slot => !!slot.querySelector('img')).length;
+    const expectedImages = scenario === 'empty' ? 0 : scenario === 'clear' ? 3 : scenario === 'upload' ? 6 : 4;
+    const imagesOk = pictureCount === expectedImages;
     const labelsOk = realLabels.join('|') === '默认|室外|卧室|浴室|厨房|工作';
     const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk, uploadOk,
       debugEvents, storedScenes: Object.fromEntries(Object.entries(charMirror.dateSceneBackgrounds || {}).map(([k, v]) => [k, String(v).slice(0, 30)])),
