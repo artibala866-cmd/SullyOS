@@ -49,6 +49,19 @@ describe('真实文件到数据库的全链路场景', () => {
         expect(result.suspiciousLines.join(' ')).toContain('缺链接');
         expect(result.suspiciousLines.join(' ')).toContain('空链接');
     });
+    it('角色卡 JSON 的头像封面不能被误当表情，而表情映射的无扩展名直链仍保留', async () => {
+        const data = {
+            name: '示例角色', avatar: 'https://example.com/avatar.png',
+            metadata: { icon: 'https://example.com/icon.png', homepage: 'https://example.com' },
+            emojis: { '想你': 'https://example.com/image?id=123', '害羞': 'https://example.com/shy.gif' },
+        };
+        const rows = await importEmojiDocument(asFile('卡片.json', JSON.stringify(data)));
+        expect(rows.entries).toEqual([
+            { name: '想你', url: 'https://example.com/image?id=123' },
+            { name: '害羞', url: 'https://example.com/shy.gif' },
+        ]);
+        expect(rows.entries.some(e => /avatar|icon/i.test(e.name))).toBe(false);
+    });
     it('RTF 的 GBK 字节与 Unicode 反向兼容码不会丢名字或重复', async () => {
         const a = await importEmojiDocument(asFile('GBK.rtf', "{\\rtf1\\ansi\\ansicpg936 \\'b1\\'ed\\'c7\\'e9--https://example.com/a.gif\\par}"));
         const b = await importEmojiDocument(asFile('Unicode.rtf', "{\\rtf1\\ansi \\u20320?--https://example.com/u.png\\par}"));
