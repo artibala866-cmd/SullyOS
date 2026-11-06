@@ -307,3 +307,123 @@
     font-size: 11px;
   }
 }
+
+/* Keyboard overlays only the usable controls, not the entire visual-novel
+   stage. Its dimensions are measured in DateSession against visualViewport.
+   This deliberately overrides the normal landscape 'height: 100%' shrink. */
+.date-session-root.date-session-keyboard-open .date-session-sprite-stage {
+  top: 0;
+  bottom: auto;
+  height: var(--date-scene-height);
+  align-items: flex-start;
+  padding-top: 5px;
+}
+.date-session-root.date-session-keyboard-open .date-session-input-layer {
+  top: calc(var(--date-visible-height) - 66px);
+  bottom: auto;
+}
+.date-session-root.date-session-keyboard-open .date-session-dialogue-position {
+  top: max(55px, calc(var(--date-visible-height) - 174px));
+  bottom: auto;
+  max-height: min(108px, calc(var(--date-visible-height) - 142px));
+}
+.date-session-root.date-session-keyboard-open .date-session-dialogue-card {
+  max-height: 100%;
+  overflow-y: auto;
+}
+.date-session-root.date-session-keyboard-open .date-session-menu-items {
+  max-height: max(48px, calc(var(--date-visible-height) - 110px));
+}
+/* Landscape phone keyboard: show a correctly sized *crop of the character*,
+   not a miniature of the whole character. The 3 compact rows fit above IME. */
+@media (orientation: landscape) and (min-width: 600px) and (max-height: 760px) {
+  .date-session-root.date-session-keyboard-open .date-session-sprite-stage {
+    inset: 0 auto auto max(0px, env(safe-area-inset-left, 0px));
+    width: 56%;
+    height: var(--date-scene-height);
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 3px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-sprite-stage > img {
+    max-height: 96%;
+    max-width: 100%;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-controls {
+    padding: 1px max(6px, env(safe-area-inset-right, 0px)) 0 0;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-controls > div:first-child {
+    gap: 5px;
+    align-items: center;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-controls > div:first-child > div {
+    flex-direction: row;
+    gap: 5px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-controls > div:first-child button {
+    width: 25px;
+    height: 25px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-position {
+    inset: 27px max(8px, env(safe-area-inset-right, 0px)) auto auto;
+    width: min(41%, 480px);
+    max-height: none;
+    align-items: stretch;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-card {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    height: clamp(10px, calc(var(--date-visible-height) - 61px), 22px);
+    min-height: 0;
+    max-height: none;
+    padding: 1px 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 8px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-card > div:first-child {
+    position: static;
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-card > div:first-child > div:first-child {
+    font-size: 9px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-input-layer {
+    inset: auto max(8px, env(safe-area-inset-right, 0px)) auto auto;
+    top: calc(var(--date-visible-height) - 34px);
+    width: min(41%, 480px);
+  }
+  .date-session-root.date-session-keyboard-open .date-session-input-box {
+    padding: 2px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-input-text,
+  .date-session-root.date-session-keyboard-open .date-session-send-button {
+    height: 29px;
+    min-height: 29px;
+    font-size: 11px;
+    padding: 0 5px;
+  }
+  .date-session-root.date-session-keyboard-open .date-session-menu-items {
+    max-height: max(20px, calc(var(--date-visible-height) - 31px));
+  }
+  .date-session-root.date-session-keyboard-open .date-session-typing-indicator {
+    bottom: calc(100% + 2px);
+  }
+}
