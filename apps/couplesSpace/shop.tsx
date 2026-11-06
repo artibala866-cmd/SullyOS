@@ -375,6 +375,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     </section>}
 
     {tab === 'grand' && <section className="bond-ticket-grand">
+      <div className="bond-ticket-grand-letter">
       <div className="bond-ticket-seal" aria-hidden="true">✧</div>
       <span className="bond-ticket-grand-series">仅属于我们</span>
       <h3>终极大奖</h3>
@@ -395,6 +396,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             });
           }}>兑换大奖 ↗</button></div>}
       <details className="bond-ticket-grand-rules"><summary>兑换规则</summary><p>累计 3000 共同积分后可使用全部积分兑换愿望。若对方婉拒，将退回本次所花积分的一半。</p></details>
+      </div>
     </section>}
 
     <details className="bond-ticket-options">
