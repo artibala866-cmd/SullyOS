@@ -2777,6 +2777,8 @@ export interface ChatBlockState {
 export interface TavernOpeningGreeting {
   id: string;
   title: string;
+  /** Optional Tavern <!-- desc: ... --> library summary, never spoken as scene text. */
+  description?: string;
   content: string;
 }
 
