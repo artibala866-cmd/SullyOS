@@ -482,7 +482,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                         <button type="button" className={`text-xs font-medium truncate py-1 ${selected ? 'text-slate-800' : 'text-slate-500'}`}
                                             aria-pressed={selected} onClick={() => setPreviewSceneKey(key === 'default' ? '' : key)}>{label}</button>
                                         {image && <button type="button" aria-label={`清除${label}背景`}
-                                            className="text-slate-400 text-lg px-1 py-0.5 leading-none" onClick={() => {
+                                            className="text-slate-400 text-lg w-8 h-8 shrink-0 rounded-lg flex items-center justify-center" onClick={() => {
                                                 updateBackground(key);
                                                 if (selected && key !== 'default') setPreviewSceneKey('');
                                             }}>×</button>}
