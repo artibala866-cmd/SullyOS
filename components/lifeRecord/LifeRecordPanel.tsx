@@ -231,6 +231,7 @@ const ModuleTab: React.FC<{
     return (
         <button
             {...longPress}
+            aria-label={theme.cn}
             onClick={onSelect}
             className="flex-1 select-none touch-manipulation flex flex-col items-center gap-1 pt-2.5 pb-2 rounded-[4px] transition-all active:scale-[0.97]"
             style={active ? {
@@ -664,7 +665,7 @@ const LifeRecordPanel: React.FC = () => {
                             <span className="flex items-baseline gap-1">
                                 <input
                                     type="number"
-                                    defaultValue={settings?.cycleLength || DEFAULT_CYCLE_LENGTH}
+                                    aria-label="平均周期天数" defaultValue={settings?.cycleLength || DEFAULT_CYCLE_LENGTH}
                                     onBlur={(e) => handleCycleChange(e.target.value)}
                                     className="w-12 text-center bg-transparent outline-none text-sm font-bold"
                                     style={{ fontFamily: SERIF, color: THEMES.period.accent, borderBottom: `1px solid ${THEMES.period.soft}` }}
@@ -937,7 +938,7 @@ const LifeRecordPanel: React.FC = () => {
                             <span className="text-[10px]" style={{ color: FADE, fontFamily: SERIF }}>每周目标次数（0 = 不设）</span>
                             <input
                                 type="number" min={0} max={21}
-                                defaultValue={weekGoal}
+                                aria-label="每周锻炼目标" defaultValue={weekGoal}
                                 onBlur={async (e) => {
                                     const n = parseInt(e.target.value, 10);
                                     if (!isNaN(n) && n >= 0 && n <= 21 && n !== weekGoal) await saveSettings({ exerciseWeeklyGoal: n });

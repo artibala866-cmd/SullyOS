@@ -1,7 +1,7 @@
 import {createLocalId} from '../../utils/localId.js';
 import {homelyPaletteStyle} from '../os/homelyPalette';
 import './homeFigureEditor.css';
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {useOS} from '../../context/OSContext';
 const HomeFigureEditor = React.lazy(() => import('./HomeFigureEditor'));
 import {UserCircle} from '@phosphor-icons/react';
@@ -11,9 +11,11 @@ import {homeFigureSeed} from '../../utils/homeFigureSeed';
 import {CreatorIframe, isSullyChar} from './CreatorIframe';
 import {selectedHairAssets} from '../../apps/room3d/chibi/types';
 import {defaultFace} from '../../apps/room3d/chibi/faceAppearance';
+import {beginUserSaveOperation} from '../../utils/userSaves';
 
 export default function HomeFigureStudio({charId, onClose, startEditing = false}: {charId?: string; onClose: () => void; startEditing?: boolean | 'chibi'}) {
-    const {theme, characters, userProfile, updateCharacter, updateUserProfile} = useOS();
+    const {theme, characters, userProfile, updateCharacter, updateUserProfile, addToast} = useOS();
+    const savingRef = useRef(false);
     const char = characters.find(c => c.id === charId);
     const [editing, setEditing] = useState<'source' | 'home' | 'chibi' | null>(startEditing === 'chibi' ? 'chibi' : startEditing ? 'source' : null);
     const [chibiDraftKey, setChibiDraftKey] = useState(() => `home_chibi_${charId ?? 'user'}_${createLocalId()}`);
@@ -33,10 +35,18 @@ export default function HomeFigureStudio({charId, onClose, startEditing = false}
         setChibiDraftKey(`home_chibi_${charId ?? 'user'}_${createLocalId()}`);
         setEditing('chibi');
     };
-    const saveFigure = (update: (current?: HomeFigureSlot) => HomeFigureSlot) => {
-        if (char) updateCharacter(char.id, prev => ({chibiStudio: {...prev.chibiStudio, home3D: update(prev.chibiStudio?.home3D)}}));
-        else updateUserProfile(prev => ({chibiStudio: {...prev.chibiStudio, home3D: update(prev.chibiStudio?.home3D)}}));
-        closeEditor();
+    const saveFigure = async (update: (current?: HomeFigureSlot) => HomeFigureSlot) => {
+        if (savingRef.current) return;
+        savingRef.current = true;
+        let release: (() => void) | undefined;
+        try {
+            release = beginUserSaveOperation('保存手办形象');
+            if (char) updateCharacter(char.id, prev => ({chibiStudio: {...prev.chibiStudio, home3D: update(prev.chibiStudio?.home3D)}}));
+            else await updateUserProfile(prev => ({chibiStudio: {...prev.chibiStudio, home3D: update(prev.chibiStudio?.home3D)}}));
+            closeEditor();
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : '手办保存失败，请重试', 'error');
+        } finally { release?.(); savingRef.current = false; }
     };
     const studioStyle = {...homelyPaletteStyle(theme?.homelyPalette), paddingTop: 'var(--chrome-top)', paddingBottom: 'var(--safe-bottom)'};
     const isSully = !!char && isSullyChar(char);

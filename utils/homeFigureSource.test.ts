@@ -3,11 +3,11 @@ import React,{act} from 'react';
 import {createRoot} from 'react-dom/client';
 import {afterEach,expect,it,vi} from 'vitest';
 import HomeFigureStudio from '../components/character/HomeFigureStudio';
-const mocks=vi.hoisted(()=>({editor:vi.fn(),chibi:vi.fn(),save:vi.fn(),userSave:vi.fn()}));
+const mocks=vi.hoisted(()=>({editor:vi.fn(),chibi:vi.fn(),save:vi.fn(),userSave:vi.fn(),toast:vi.fn(),close:vi.fn()}));
 vi.mock('../context/OSContext',()=>({useOS:()=>({
  characters:[{id:'c',name:'Sully',chibiStudio:{home3D:{state:{selected:{eyes:'home'}},hair:{layers:{},extras:[]}},room:{state:{selected:{eyes:'old-room'}}},like520:{state:{selected:{eyes:'old-event'}}}}}],
  userProfile:{name:'用户',chibiStudio:{home3D:{state:{selected:{eyes:'user-home'}},hair:{layers:{},extras:[]}},userChibi:{state:{selected:{eyes:'old-user'}}}}},
- updateCharacter:mocks.save,updateUserProfile:mocks.userSave
+ updateCharacter:mocks.save,updateUserProfile:mocks.userSave,addToast:mocks.toast
 })}));
 vi.mock('../components/os/TokenImg',()=>({default:()=>null}));
 vi.mock('../components/character/HomeFigureEditor',()=>({default:(props:any)=>{mocks.editor(props);return React.createElement('button',{onClick:props.onClose},'取消编辑');}}));
@@ -18,7 +18,7 @@ vi.mock('../components/character/CreatorIframe',()=>({
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 const host=document.createElement('div');document.body.appendChild(host);let root:ReturnType<typeof createRoot>|undefined;
 afterEach(()=>{if(root)act(()=>root!.unmount());root=undefined;vi.clearAllMocks();vi.unstubAllGlobals();host.innerHTML='';});
-async function render(charId?:string,startEditing:boolean|'chibi'=true){root=createRoot(host);await act(async()=>root!.render(React.createElement(HomeFigureStudio,{charId,startEditing,onClose:vi.fn()})));}
+async function render(charId?:string,startEditing:boolean|'chibi'=true){root=createRoot(host);await act(async()=>root!.render(React.createElement(HomeFigureStudio,{charId,startEditing,onClose:mocks.close})));}
 async function click(label:string){await act(async()=>{const button=[...host.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')===label||b.textContent===label);if(!button)throw Error('Missing button '+label);button.click();});}
 it('legacy room and event figures cannot be chosen as a 3D source',async()=>{
  await render('c');for(const label of ['小小窝','特别时光','彼方'])expect(host.textContent).not.toContain(label);
@@ -60,3 +60,14 @@ it('the direct character Q entry saves back to home3D and preserves 3D adjustmen
   chibiStudio:{room,home3D:{state,img:'data:image/png;base64,AAA',hair:{...hair,assets:{fronthair:'fronthair_03'}}}}
  });
 });
+
+ it('user figure save waits for persistence before closing and keeps the editor open on failure',async()=>{
+ let resolve!:()=>void;const pending=new Promise<void>(r=>{resolve=r});mocks.userSave.mockReturnValueOnce(pending);
+ await render(undefined,'chibi');const editor=mocks.chibi.mock.lastCall![0];let saved:Promise<void>;
+ await act(async()=>{saved=editor.onConfirm({state:{selected:{eyes:'eyes_02'}},transparentDataUrl:'data:image/png;base64,AAA'});});
+ expect(mocks.close).not.toHaveBeenCalled();
+ await act(async()=>{resolve();await saved!;});expect(mocks.close).toHaveBeenCalledOnce();
+ mocks.close.mockClear();mocks.userSave.mockRejectedValueOnce(new Error('quota-test'));
+ await act(async()=>{await editor.onConfirm({state:{selected:{eyes:'eyes_03'}},transparentDataUrl:'data:image/png;base64,BBB'});});
+ expect(mocks.close).not.toHaveBeenCalled();expect(mocks.toast).toHaveBeenCalledWith('quota-test','error');
+ });

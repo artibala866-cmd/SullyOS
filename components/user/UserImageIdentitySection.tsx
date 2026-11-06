@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
 import { putImageBlob } from '../../utils/blobRef';
+import { beginUserSaveOperation } from '../../utils/userSaves';
 
 /**
  * User identity for image generation is independent from the app avatar.
@@ -33,11 +34,13 @@ export default function UserImageIdentitySection() {
         const revision = ++uploadRevision.current;
         setBusy(true);
         setStatus('');
+        let release: (() => void) | undefined;
         try {
+            release = beginUserSaveOperation('保存锁脸参考图');
             // Store the bytes separately from the profile JSON; preserve face detail.
             const token = await putImageBlob(file);
             if (revision !== uploadRevision.current) return;
-            updateUserProfile({ imageReference: token, imageLockEnabled: true });
+            await updateUserProfile({ imageReference: token, imageLockEnabled: true });
             setStatus('user 锁脸参考图已保存');
             addToast('user 锁脸参考图已更新', 'success');
         } catch (error) {
@@ -45,6 +48,7 @@ export default function UserImageIdentitySection() {
                 setStatus('图片保存失败：' + (error instanceof Error ? error.message : String(error)));
             }
         } finally {
+            release?.();
             if (revision === uploadRevision.current) setBusy(false);
         }
     };
@@ -71,7 +75,7 @@ export default function UserImageIdentitySection() {
                     onChange={e => setAppearanceDraft(e.target.value)}
                     onBlur={() => {
                         if (appearanceDraft !== (userProfile.imageAppearance || '')) {
-                            updateUserProfile({ imageAppearance: appearanceDraft });
+                            void updateUserProfile({ imageAppearance: appearanceDraft }).catch(error => addToast(error.message || '外貌描述保存失败', 'error'));
                         }
                     }}
                     placeholder="例如：黑色长发、棕色眼睛、脸型与五官特征。不要写固定服装和背景。"
@@ -85,17 +89,20 @@ export default function UserImageIdentitySection() {
             </label>
             {reference && <div className="space-y-2">
                 <TokenImg value={reference} alt="user 锁脸参考图" className="max-h-48 w-auto max-w-full rounded-xl object-contain border border-slate-100" />
-                <button type="button" className="text-xs text-slate-500 underline" onClick={() => {
+                <button type="button" className="text-xs text-slate-500 underline" disabled={busy} onClick={async () => {
                     uploadRevision.current += 1;
-                    updateUserProfile({ imageReference: '', imageLockEnabled: false });
-                    setBusy(false);
-                    setStatus('已移除 user 锁脸参考图');
+                    try {
+                        await updateUserProfile({ imageReference: '', imageLockEnabled: false });
+                        setStatus('已移除 user 锁脸参考图');
+                    } catch (error) {
+                        setStatus('移除失败：' + (error instanceof Error ? error.message : String(error)));
+                    }
                 }}>移除参考图</button>
             </div>}
             <label className="flex items-center gap-3 text-xs text-slate-600">
                 <input type="checkbox" className="accent-primary w-4 h-4" checked={!!userProfile.imageLockEnabled && !!reference}
-                    disabled={!reference}
-                    onChange={event => updateUserProfile({ imageLockEnabled: event.target.checked })} />
+                    disabled={busy || !reference}
+                    onChange={event => { void updateUserProfile({ imageLockEnabled: event.target.checked }).catch(error => addToast(error.message || '锁脸设置保存失败', 'error')); }} />
                 允许私聊 AI 发图时使用我的锁脸参考图
             </label>
             <p className="text-[11px] text-slate-400 leading-relaxed">

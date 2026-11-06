@@ -3,6 +3,7 @@ import { useOS } from '../../context/OSContext';
 import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
+import { beginUserSaveOperation } from '../../utils/userSaves';
 
 /**
  * 档案 App「分角色聊天头像」：给每个角色的私聊单独设置「你」的头像。
@@ -53,10 +54,21 @@ const PerCharAvatarPicker: React.FC = () => {
         setPage(clamped);
     };
 
-    const setOverride = (charId: string, avatar: string | undefined) => {
-        const next = { ...overrides };
-        if (avatar) next[charId] = avatar; else delete next[charId];
-        updateUserProfile({ perCharAvatars: next });
+    const saveOverride = async (charId: string, load: () => Promise<string | undefined>): Promise<boolean> => {
+        let release: (() => void) | undefined;
+        try {
+            release = beginUserSaveOperation('保存分角色头像');
+            const avatar = await load();
+            await updateUserProfile(prev => {
+                const next = { ...prev.perCharAvatars };
+                if (avatar) next[charId] = avatar; else delete next[charId];
+                return { perCharAvatars: next };
+            });
+            return true;
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : '头像保存失败，请重试', 'error');
+            return false;
+        } finally { release?.(); }
     };
 
     const editingChar = editingId ? characters.find(c => c.id === editingId) : null;
@@ -70,29 +82,24 @@ const PerCharAvatarPicker: React.FC = () => {
         setUrlDraft(cur && isValidHttpImageUrl(cur) ? cur : '');
     };
 
-    const applyUrl = () => {
+    const applyUrl = async () => {
         if (!editingId) return;
         const url = urlDraft.trim();
         if (!isValidHttpImageUrl(url)) {
             addToast('URL 无效，请填写 http(s) 图片直链', 'error');
             return;
         }
-        setOverride(editingId, url);
-        addToast('已设置该角色的聊天头像', 'success');
+        if (await saveOverride(editingId, async () => url)) addToast('已设置该角色的聊天头像', 'success');
     };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file || !editingId) return;
-        try {
-            const base64 = await processImage(file);
-            // 本地上传的图存令牌（图床外链那条路不经过这里，原样存字符串即可）
-            setOverride(editingId, await migrateDataUrlToRef(base64));
+        const saved = await saveOverride(editingId, async () => migrateDataUrlToRef(await processImage(file)));
+        if (saved) {
             setUrlDraft('');
             addToast('已设置该角色的聊天头像', 'success');
-        } catch (err: any) {
-            addToast(err.message, 'error');
         }
     };
 
@@ -236,7 +243,7 @@ const PerCharAvatarPicker: React.FC = () => {
                             </button>
                             {editingOverride && (
                                 <button
-                                    onClick={() => { setOverride(editingChar.id, undefined); setUrlDraft(''); addToast('已恢复整体头像', 'success'); }}
+                                    onClick={async () => { if (await saveOverride(editingChar.id, async () => undefined)) { setUrlDraft(''); addToast('已恢复整体头像', 'success'); } }}
                                     className="flex-1 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-bold text-neutral-500 active:scale-[0.98] transition-transform">
                                     恢复整体头像
                                 </button>

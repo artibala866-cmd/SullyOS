@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { CharacterProfile } from '../../types';
 import { DB } from '../../utils/db';
+import { userSaveStoragePrefix } from '../../utils/userSaveScope';
 import { creatorPartToBlobRefs, loadCreatorPartsForRender } from '../../utils/creatorPartsBlob';
 
 export interface ChibiResult {
@@ -70,6 +71,7 @@ export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, pr
             type: 'like520_init',
             payload: {
                 ...p,
+                saveStoragePrefix: userSaveStoragePrefix(),
                 isSully: !!p.isSully,
                 extraItems: extraItemsRef.current,
                 safeBottomPx,

@@ -51,9 +51,13 @@ export function isSharedPreference(key: string): boolean {
     return SHARED_PREFERENCES.has(key) || /^(sully[-_]beauty[-_]|sully[-_]decoration[-_]|sully[-_]appearance[-_]|sully_character_phone_appearance_v1:)/.test(key);
 }
 const STORAGE_PREFIX = 'sully:save-data:';
+/** Static iframe editors must use the same physical keys as the host facade. */
+export function userSaveStoragePrefix(id = USER_SAVE_ID): string {
+    return id === DEFAULT_USER_SAVE ? '' : `${STORAGE_PREFIX}${id}:`;
+}
 export function createSaveStorage(raw: Storage, id: string, shared = true): Storage {
     const prefix = `${STORAGE_PREFIX}${id}:`;
-    const map = (key: string) => shared && isSharedPreference(key) ? key : id === DEFAULT_USER_SAVE ? key : prefix + key;
+    const map = (key: string) => shared && isSharedPreference(key) ? key : userSaveStoragePrefix(id) + key;
     const keys = () => {
         const result: string[] = [];
         for (let i = 0; i < raw.length; i++) {
