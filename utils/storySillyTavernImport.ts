@@ -211,6 +211,9 @@ export const expandSillyTavernContextMacros = (
         lastUserMessage?: string;
         lastCharMessage?: string;
         input?: string;
+        model?: string;
+        variables?: ReadonlyMap<string, string>;
+        now?: Date;
     },
 ): string => {
     const aliases: Record<string, string | undefined> = {
@@ -224,15 +227,75 @@ export const expandSillyTavernContextMacros = (
         lastusermessage: values.lastUserMessage,
         lastcharmessage: values.lastCharMessage,
         input: values.input,
+        model: values.model,
     };
-    return raw
+    const now = values.now ?? new Date();
+    const datePart = (number: number) => String(number).padStart(2, '0');
+    const localDate = `${now.getFullYear()}-${datePart(now.getMonth() + 1)}-${datePart(now.getDate())}`;
+    const localTime = `${datePart(now.getHours())}:${datePart(now.getMinutes())}`;
+    const dates: Record<string, string> = {
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString(),
+        weekday: now.toLocaleDateString(undefined, { weekday: 'long' }),
+        isodate: localDate,
+        isotime: localTime,
+    };
+    const conditionalValue = (rawCondition: string): boolean | undefined => {
+        const condition = rawCondition.trim();
+        const negated = condition.startsWith('!');
+        const name = negated ? condition.slice(1).trim() : condition;
+        const key = name.toLowerCase();
+        const scalar = key === 'true' || key === 'false' || key === 'off' || key === 'on'
+            || key === 'yes' || key === 'no' || key === '0' || key === '1' ? key
+            : name.startsWith('.') ? values.variables?.get(name.slice(1)) : aliases[key];
+        if (scalar === undefined) return undefined;
+        const active = !['', 'false', 'off', 'no', '0'].includes(String(scalar).trim().toLowerCase());
+        return negated ? !active : active;
+    };
+    const expandConditionals = (source: string): string => {
+        let result = source;
+        // Process innermost pairs first; leave unknown conditions UNCHANGED so
+        // future macro syntax is never silently discarded from imported prompts.
+        for (let pass = 0; pass < 64; pass++) {
+            const tags = [...result.matchAll(/\{\{\s*(#?if(?:\s*::\s*|\s+)[^{}]+|else|\/if)\s*\}\}/gi)];
+            const stack: Array<{ tag: RegExpMatchArray; elseTag?: RegExpMatchArray }> = [];
+            let changed = false;
+            for (const tag of tags) {
+                const directive = tag[1].trim();
+                if (/^#?if(?:\s|::)/i.test(directive)) {
+                    stack.push({ tag });
+                } else if (/^else$/i.test(directive)) {
+                    if (stack.length) stack[stack.length - 1].elseTag = tag;
+                } else if (/^\/if$/i.test(directive) && stack.length) {
+                    const start = stack.pop()!;
+                    const condition = start.tag[1].replace(/^#?if(?:\s*::\s*|\s+)/i, '');
+                    const yes = conditionalValue(condition);
+                    if (yes === undefined) continue;
+                    const headEnd = start.tag.index! + start.tag[0].length;
+                    const elseStart = start.elseTag?.index ?? tag.index!;
+                    const elseEnd = start.elseTag ? start.elseTag.index! + start.elseTag[0].length : tag.index!;
+                    const body = yes ? result.slice(headEnd, elseStart)
+                        : result.slice(elseEnd, tag.index!);
+                    result = result.slice(0, start.tag.index!) + body + result.slice(tag.index! + tag[0].length);
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) break;
+        }
+        return result;
+    };
+    const resolved = raw
         .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|input)\s*\}\}/gi,
             (original, key: string) => aliases[key.toLowerCase()] ?? original)
         .replace(/\{\{\s*newline(?:\s*::\s*(\d+))?\s*\}\}/gi,
             (_original, count?: string) => '\n'.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
         .replace(/\{\{\s*space(?:\s*::\s*(\d+))?\s*\}\}/gi,
             (_original, count?: string) => ' '.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
-        .replace(/\{\{\s*noop\s*\}\}/gi, '');
+        .replace(/\{\{\s*noop\s*\}\}/gi, '')
+        .replace(/\{\{\s*(date|time|weekday|isodate|isotime)\s*\}\}/gi,
+            (original, key: string) => dates[key.toLowerCase()] ?? original);
+    return expandConditionals(resolved);
 };
 
 /** Scoped to imported Tavern stories: the app's generic extractContent() strips
