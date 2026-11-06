@@ -103,4 +103,38 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
         expect(host!.querySelector('[data-testid="saved-story-session"]')?.textContent).toContain('真正保存的雨夜');
         expect((await DB.getStoryTheaters()).find(item => item.id === saved!.id)?.title).toBe('真正保存的雨夜');
     });
+    it('自写收藏的开场进入剧情只生成一条首幕，再进入也不重复', async () => {
+        actor.tavernGreetings=[];
+        await DB.saveCharacter(actor as any);
+        await mount();
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="新建剧情"]')!.click());
+        await setTitle('用户自写首幕原子检查');
+        await tap('旅行者');
+        const textarea=host!.querySelector<HTMLTextAreaElement>('textarea[aria-label="剧情介绍"]')!;
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(textarea,'{{char}}在旧桥边等{{user}}。');
+            textarea.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+        await tap('收藏为可选开场');
+        expect(host!.querySelector<HTMLTextAreaElement>('textarea[aria-label="编辑开场内容"]')?.value).toBe('{{char}}在旧桥边等{{user}}。');
+        await tap('保存并进入');
+        await act(async()=>{await new Promise(resolve=>setTimeout(resolve,80));});
+        const entries=await DB.getStoryTheaters();
+        const saved=entries.find(row=>row.title==='用户自写首幕原子检查');
+        expect(saved).toBeTruthy();
+        expect(saved?.premise).toBe('');
+        const all=await DB.getMessagesByCharId(`story-theater:${saved!.id}`,true);
+        const first=all.filter(row=>row.metadata?.source==='story_theater');
+        expect(first).toHaveLength(1);
+        expect(first[0].content).toContain('旅行者在旧桥边等用户');
+        await unmount();
+        await mount();
+        const card=[...host!.querySelectorAll('button')].find(b=>b.querySelector('h3')?.textContent?.trim()==='用户自写首幕原子检查');
+        expect(card).toBeTruthy();
+        await act(async()=>card!.click());
+        const after=(await DB.getMessagesByCharId(`story-theater:${saved!.id}`,true))
+            .filter(row=>row.metadata?.source==='story_theater');
+        expect(after).toHaveLength(1);
+    });
+
 });
