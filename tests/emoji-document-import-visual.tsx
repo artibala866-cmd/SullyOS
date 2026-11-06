@@ -22,7 +22,7 @@ function Fixture() {
         contextSuiteAnyEnabled: false,
         contextSuiteAllEnabled: false,
         editContent: '', newCategoryName: '', newEmojiName: '',
-        activeCharacter: null, messages: [], allHistoryMessages: [],
+        activeCharacter: {id:'synthetic-test-char',name:'浏览器截图角色',autoArchiveEnabled:false}, messages: [], allHistoryMessages: [],
         allCharacters: [], apiPresets: [], selectedCategory: null,
         scheduleData: null,
         onTransfer: () => {}, onSaveSettings: () => {},
