@@ -19,6 +19,9 @@ export interface EmojiImportPlan {
 
 /** 校验可由现有图片渲染链路消费的引用；不进行跨域网络探测。 */
 function isImageReference(url: string): boolean {
+    // 旧版表情也支持本站绝对资源路径和已存在的 BlobRef 图片令牌。
+    if (/^\/(?!\/)[^\s]+$/.test(url)) return true;
+    if (/^blobref:[a-z0-9_-]+$/i.test(url)) return true;
     if (/^data:image\/[a-z0-9.+-]+(?:;[^,\s]*)?,\S+$/i.test(url)) return true;
     if (!/^https?:\/\//i.test(url) || /\s/.test(url)) return false;
     try {
