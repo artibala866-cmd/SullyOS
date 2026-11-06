@@ -19,7 +19,7 @@ const background = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<sv
 const scenario = new URLSearchParams(location.search).get('scenario') || 'dialogue';
 const host = document.getElementById('visual')!;
 // Emulate the Android visual viewport shrinking when the soft keyboard appears.
-if (scenario === 'keyboard') host.style.height = `${Math.max(300, Math.round(innerHeight * .58))}px`;
+if (scenario === 'keyboard') host.style.height = `${Math.min(innerHeight, Math.max(180, Math.round(innerHeight * .58)))}px`;
 const errors: string[] = [];
 window.addEventListener('error', e => errors.push(e.message));
 window.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
@@ -73,7 +73,7 @@ function check() {
     setTimeout(check, 420);
     return true;
   }
-  const smallLandscape = innerWidth > innerHeight && innerHeight <= 760;
+  const smallLandscape = innerWidth >= 600 && innerWidth > innerHeight && innerHeight <= 760;
   const portrait = !smallLandscape;
   const spriteBox = rect(host.querySelector('.date-session-sprite-stage img'));
   const spriteStage = rect(host.querySelector('.date-session-sprite-stage'));
