@@ -24,12 +24,22 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
    catch{return null;}
   });
   const onSave=vi.fn(async()=>{});
-  await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
-   initial:{...createStoryTheaterDraft(),title:'批量导入后写剧情',characterIds:[char.id]},
-   characters:[char],user:{name:'用户'} as any,masks:[],maskLocked:false,
-   presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave,
-   onImportPreset:onImport,onEditPreset:()=>{},onOpenMaskBox:()=>{},
-  })));
+  // Mirror the parent state update from StoryTheater: the editor must receive
+  // each newly imported preset as a new props value before final selection.
+  const Wrapper=()=>{
+   const [presets,setPresets]=React.useState([BUILTIN_NIGHT_SCREENING_PRESET]);
+   return React.createElement(StoryTheaterEditor,{
+    initial:{...createStoryTheaterDraft(),title:'批量导入后写剧情',characterIds:[char.id]},
+    characters:[char],user:{name:'用户'} as any,masks:[],maskLocked:false,
+    presets,onCancel:()=>{},onSave,
+    onImportPreset:async file=>{
+     const imported=await onImport(file);
+     if(imported)setPresets(current=>[imported,...current]);
+     return imported;
+    },onEditPreset:()=>{},onOpenMaskBox:()=>{},
+   });
+  };
+  await act(async()=>root!.render(React.createElement(Wrapper)));
   const picker=host!.querySelector<HTMLInputElement>('input[type=file]');
   expect(picker?.multiple).toBe(true);
   expect(picker?.accept).toContain('.json');
