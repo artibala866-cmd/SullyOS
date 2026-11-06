@@ -68,6 +68,27 @@ describe('character import section selection', () => {
         });
         expect(hasCardImportSelection(effective)).toBe(false);
     });
+    it('persona-only input cannot import native phone settings or legacy private fields', () => {
+        const native = {
+            ...tavernFixture(),
+            character: {
+                ...tavernFixture().character,
+                memories: [{ id: 'private' }],
+                phoneState: { privateData: true },
+                voiceProfile: { voiceId: 'unwanted' },
+                activeMsg2Config: { enabled: true },
+                chatBackground: 'private-image',
+            } as any,
+        };
+        const result = selectCardImportSections(native, {
+            persona: true, worldbooks: false, greetings: false,
+        });
+        expect(Object.keys(result.fields).sort()).toEqual([
+            'avatar','description','name','systemPrompt','worldview',
+        ]);
+        expect(result.worldbooks).toEqual([]);
+    });
+
     it('selecting lore only preserves existing persona and greetings and adds 13 books once', () => {
         const role = createRole('示例酒馆角色');
         const first = tavernFixture();
