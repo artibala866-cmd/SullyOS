@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile } from '../../../types';
@@ -59,11 +59,22 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...adaptTavernOpeningGreeting(greeting) }))
                 .filter(greeting => greeting.content.trim()),
         );
-        if (recentGreeting && actors.some(actor => actor.id === recentGreeting.characterId)
-            && !all.some(item => item.characterId === recentGreeting.characterId && item.id === recentGreeting.id)) {
-            all.push(recentGreeting);
+        if (recentGreeting && actors.some(actor => actor.id === recentGreeting.characterId)) {
+            const index = all.findIndex(item => item.characterId === recentGreeting.characterId && item.id === recentGreeting.id);
+            if (index >= 0) all[index] = recentGreeting;
+            else all.push(recentGreeting);
         }
         return all;
+    }, [actors, recentGreeting]);
+    useEffect(() => {
+        if (!recentGreeting) return;
+        const actor = actors.find(item => item.id === recentGreeting.characterId);
+        const fresh = actor?.tavernGreetings?.find(item => item.id === recentGreeting.id);
+        // Stop overriding the canonical character card as soon as the OS
+        // state catches up with the already-committed IndexedDB write.
+        if (fresh && adaptTavernOpeningGreeting(fresh).content === recentGreeting.content) {
+            setRecentGreeting(null);
+        }
     }, [actors, recentGreeting]);
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
@@ -77,8 +88,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         try {
             if (!onChangeGreeting) throw new Error('当前页面未连接开场白管理功能');
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
-            setRecentGreeting(current => current?.characterId === selectedGreeting.characterId && current.id === selectedGreeting.id
-                ? (content === null ? null : { ...current, content: content.trim() }) : current);
+            setRecentGreeting(current => content === null
+                ? (current?.characterId === selectedGreeting.characterId && current.id === selectedGreeting.id ? null : current)
+                : { ...selectedGreeting, content: content.trim() });
             // A started story keeps the original link for provenance, even when
             // its character-card source is deleted; only new drafts clear it.
             if (content === null && !maskLocked) {
