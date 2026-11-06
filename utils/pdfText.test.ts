@@ -3,8 +3,28 @@ import {
     extractPdfDocumentText,
     isPdfFile,
     pdfItemsToText,
+    pdfItemsToVisualLines,
     type PdfDocumentLike,
 } from './pdfText';
+
+describe('表情包 PDF 视觉行提取', () => {
+    it('保留每条视觉行，避免把多个表情揉成一段正文', () => {
+        const rows = pdfItemsToVisualLines([
+            { str: '开心--https://example.com/a.gif', hasEOL: true, transform: [10,0,0,10,30,700], height: 10 },
+            { str: '生气：https://example.com/b.png', hasEOL: true, transform: [10,0,0,10,30,685], height: 10 },
+        ]);
+        expect(rows).toEqual([
+            '开心--https://example.com/a.gif',
+            '生气：https://example.com/b.png',
+        ]);
+    });
+    it('视觉坐标换行在缺少 hasEOL 标记时也不会串行', () => {
+        expect(pdfItemsToVisualLines([
+            { str: '害羞', transform: [10,0,0,10,30,700], height: 10 },
+            { str: 'https://example.com/a.gif', transform: [10,0,0,10,30,675], height: 10 },
+        ])).toEqual(['害羞', 'https://example.com/a.gif']);
+    });
+});
 
 describe('PDF 文本提取', () => {
     it('同时识别 MIME 和扩展名', () => {
