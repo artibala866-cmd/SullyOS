@@ -191,6 +191,12 @@ function jsonToText(value: unknown): JsonRows {
         if (Array.isArray(node)) { for (const item of node) visit(item, depth + 1, inEmojiMap); return; }
         if (typeof node !== 'object') return;
         const obj = node as Record<string, unknown>;
+        const nestedPacks = Object.entries(obj).filter(([key, val]) =>
+            /^(?:emojis?|stickers?|expressions?|表情包?|贴图|图片列表|表情列表)$/i.test(key) && val !== null && typeof val === 'object');
+        if (nestedPacks.length) {
+            for (const [, value] of nestedPacks) visit(value, depth + 1, true);
+            return;
+        }
         const name = obj.name ?? obj.title ?? obj.label ?? obj.表情名称 ?? obj.表情包名称;
         const url = obj.url ?? obj.src ?? obj.imageUrl ?? obj.image ?? obj.link ?? obj.图片链接 ?? obj.图片地址;
         const isNamedEntry = name !== undefined || url !== undefined;
