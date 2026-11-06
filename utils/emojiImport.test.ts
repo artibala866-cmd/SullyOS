@@ -1,3 +1,4 @@
+import { DB } from './db';
 import { describe, expect, it } from 'vitest';
 import { formatEmojiImportText, parseEmojiImportLine, parseEmojiImportText, planEmojiImport } from './emojiImport';
 
@@ -87,5 +88,31 @@ describe('私聊表情智能导入安全回归', () => {
             skipped: 1,
             renamed: 1,
         });
+    });
+});
+
+
+describe('表情批量写入原子性与跨分类保护', () => {
+    it('表情批量事务遇到冲突时整批回滚，老名称的图片与分类均不受影响', async () => {
+        const oldName = 'emoji-import-atomic-existing';
+        const firstName = 'emoji-import-atomic-first';
+        await DB.saveEmoji(oldName, 'https://example.com/original.gif', 'cat-original');
+        await expect(DB.saveEmojisBatch([
+            { name: firstName, url: 'https://example.com/new.gif', categoryId: 'cat-target' },
+            { name: oldName, url: 'https://example.com/overwrite.gif', categoryId: 'cat-target' },
+        ])).rejects.toBeTruthy();
+        const afterFailed = await DB.getEmojis();
+        expect(afterFailed.find(e => e.name === oldName)).toEqual({
+            name: oldName, url: 'https://example.com/original.gif', categoryId: 'cat-original',
+        });
+        expect(afterFailed.find(e => e.name === firstName)).toBeUndefined();
+
+        await DB.saveEmojisBatch([
+            { name: firstName, url: 'https://example.com/new.gif', categoryId: 'cat-target' },
+            { name: 'emoji-import-atomic-second', url: 'https://example.com/2.gif', categoryId: 'cat-target' },
+        ]);
+        const saved = await DB.getEmojis();
+        expect(saved.filter(e => e.name.startsWith('emoji-import-atomic-'))).toHaveLength(3);
+        expect(saved.find(e => e.name === firstName)?.categoryId).toBe('cat-target');
     });
 });
