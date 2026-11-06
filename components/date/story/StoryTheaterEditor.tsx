@@ -225,12 +225,21 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='mt-5'>
                     <div className='flex items-center justify-between gap-2'>
                         <span className='text-[10px] font-bold text-slate-500'>{selectedGreeting && showOpeningInIntro ? '开场白 · 可编辑' : '剧情介绍 · 可选'}</span>
+                        <div className='flex shrink-0 items-center gap-1.5'>
                         {selectedGreeting && <div className='flex shrink-0 gap-1 rounded-lg bg-slate-200 p-0.5' aria-label='编辑内容切换'>
                             <button type='button' aria-pressed={!showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
                                 onClick={() => setShowOpeningInIntro(false)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${!showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>剧情介绍</button>
                             <button type='button' aria-pressed={showOpeningInIntro} disabled={editingGreeting || greetingBusy || confirmGreetingDelete}
                                 onClick={() => setShowOpeningInIntro(true)} className={`rounded-md px-2 py-1 text-[10px] disabled:opacity-50 ${showOpeningInIntro ? 'bg-white font-semibold text-slate-800' : 'text-slate-500'}`}>开场白</button>
                         </div>}
+                        {(!selectedGreeting || !showOpeningInIntro) && <button type='button' data-story-opening-save='true'
+                            aria-label='收藏为可选开场' title='存入已有开场'
+                            disabled={createGreetingBusy || maskLocked || editingGreeting || confirmGreetingDelete || !draft.premise.trim()}
+                            onClick={() => void createCustomGreeting()}
+                            className='grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 active:scale-95 disabled:opacity-35'>
+                            {createGreetingBusy ? <SpinnerGap size={17} className='animate-spin' /> : <BookmarkSimple size={17} />}
+                        </button>}
+                        </div>
                     </div>
                     <textarea ref={greetingTextarea} data-story-opening-editor={selectedGreeting && showOpeningInIntro ? 'true' : undefined}
                         aria-label={selectedGreeting && showOpeningInIntro ? '编辑开场内容' : '剧情介绍'}
@@ -241,12 +250,20 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                                 setGreetingText(event.target.value);
                                 setConfirmGreetingDelete(false);
                                 setGreetingError('');
-                            } else update('premise', event.target.value);
+                            } else { setCreateGreetingError(''); update('premise', event.target.value); }
                         }}
-                        disabled={!!selectedGreeting && showOpeningInIntro && (greetingBusy || confirmGreetingDelete)}
+                        disabled={createGreetingBusy || (!!selectedGreeting && showOpeningInIntro && (greetingBusy || confirmGreetingDelete))}
                         maxLength={selectedGreeting && showOpeningInIntro ? 200000 : undefined}
                         placeholder={selectedGreeting && showOpeningInIntro ? '在这里修改选中的开场白……' : '不填写也能直接开场；也可以写地点、冲突或必须守住的设定……'}
                         rows={4} className='mt-2 block w-full min-h-28 max-h-64 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none disabled:opacity-60' />
+                    {chooseGreetingActor && !showOpeningInIntro && <div data-story-opening-target='true' className='mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm'>
+                        <span className='shrink-0 text-[10px] text-slate-500'>存给</span>
+                        <select aria-label='开场归属角色' value={createTargetActor} onChange={event => setCreateTargetActor(event.target.value)} disabled={createGreetingBusy}
+                            className='min-w-0 flex-1 bg-transparent text-xs outline-none'>{actors.map(actor => <option key={actor.id} value={actor.id}>{actor.name}</option>)}</select>
+                        <button type='button' aria-label='确认收藏开场' disabled={createGreetingBusy} onClick={() => void createCustomGreeting(createTargetActor)} className='grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-white'><Check size={16}/></button>
+                        <button type='button' aria-label='取消收藏开场' disabled={createGreetingBusy} onClick={() => setChooseGreetingActor(false)} className='grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500'><X size={16}/></button>
+                    </div>}
+                    {createGreetingError && <p role='alert' className='mt-2 text-[10px] text-rose-600'>{createGreetingError}</p>}
                     {selectedGreeting && showOpeningInIntro && <div className='mt-2 flex justify-end gap-4'>
                         {editingGreeting ? <>
                             <button type='button' disabled={greetingBusy} onClick={() => { setEditingGreeting(false); setGreetingText(''); setGreetingError(''); }} className='text-xs text-slate-500'>取消</button>
@@ -262,16 +279,16 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='mt-5' data-story-opening-settings='true'>
                     <div className='text-[10px] font-bold text-slate-500'>谁先落笔</div>
                     <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
-                        <button type='button' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
-                            onClick={() => setDraft(current => ({ ...current, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() }))}
+                        <button type='button' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete}
+                            onClick={() => { setShowOpeningInIntro(false); setChooseGreetingActor(false); setDraft(current => ({ ...current, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() })); }}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${!storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button>
-                        <button type='button' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
+                        <button type='button' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete}
                             onClick={() => update('openingMode', 'assistant')}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>故事先写</button>
                     </div>
                     <div className='mt-3'>
                     <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
-                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete || greetingChoices.length === 0}
+                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || greetingChoices.length === 0}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
@@ -288,7 +305,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
                         {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}</option>)}
                     </select>
-                    {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>旧版导入的角色需要重新导入原卡才能读取开场。</p>}
+                    {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>也可在上方写好正文，点书签存为开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
                         {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}
                         {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
