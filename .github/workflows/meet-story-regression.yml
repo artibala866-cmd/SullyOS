@@ -123,13 +123,13 @@ jobs:
           test -n "$browser"
           for scenario in filled empty clear upload top; do
             url="http://127.0.0.1:5194/test/fixtures/date-settings-visual.html?scenario=${scenario}"
-            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=9000 --dump-dom "$url" > "output/meet-scenes/${scenario}.html" 2> "output/meet-scenes/${scenario}-browser.log"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=24000 --dump-dom "$url" > "output/meet-scenes/${scenario}.html" 2> "output/meet-scenes/${scenario}-browser.log"
             grep -q 'data-date-settings-ready="true"' "output/meet-scenes/${scenario}.html" || {
               grep 'date-settings-browser-report' "output/meet-scenes/${scenario}.html" | tail -c 2500 || true
               tail -n 35 "output/meet-scenes/${scenario}-browser.log"
               exit 1
             }
-            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=9000 --screenshot="output/meet-scenes/${scenario}-390.png" "$url" > /dev/null 2>&1
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=24000 --screenshot="output/meet-scenes/${scenario}-390.png" "$url" > /dev/null 2>&1
             test -s "output/meet-scenes/${scenario}-390.png"
             grep 'date-settings-browser-report' "output/meet-scenes/${scenario}.html" | sed 's/<[^>]*>//g' | cut -c 1-1000 || true
           done

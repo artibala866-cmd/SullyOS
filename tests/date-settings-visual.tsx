@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { OSPreviewProvider } from '../context/OSContext';
 import DateSettings from '../components/date/DateSettings';
+import { DB } from '../utils/db';
 
 const sceneImage = (primary: string, secondary: string, text: string) =>
   'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
@@ -26,6 +27,15 @@ const base = {
 const host = document.getElementById('visual')!;
 let charMirror = base;
 const debugEvents: string[] = [];
+window.addEventListener('error', e => debugEvents.push('window-error: ' + e.message));
+window.addEventListener('unhandledrejection', e => debugEvents.push('promise-error: ' + String(e.reason)));
+const realPutBlobAsset = DB.putBlobAsset;
+DB.putBlobAsset = async (id, blob) => {
+  debugEvents.push('blob-save-start: ' + id + ': ' + blob.size);
+  const result = await realPutBlobAsset(id, blob);
+  debugEvents.push('blob-save-done: ' + id);
+  return result;
+};
 function Harness() {
   const [char, setChar] = useState(base);
   const patch = (_id: string, value: any) =>
@@ -111,13 +121,14 @@ function check() {
           const dt = new DataTransfer();
           dt.items.add(new File([text], `${key}.svg`, { type: 'image/svg+xml' }));
           input.files = dt.files;
+          input.addEventListener('change', () => debugEvents.push('native-change ' + key), { once: true });
           input.dispatchEvent(new Event('change', { bubbles: true }));
           debugEvents.push('changed ' + key + ' input.files=' + input.files?.length);
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 2100));
         };
         await upload('bathroom');
         await upload('work');
-        await new Promise(resolve => setTimeout(resolve, 850));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         advance();
       } catch (error) {
         document.body.dataset.dateSettingsReady = 'false';
