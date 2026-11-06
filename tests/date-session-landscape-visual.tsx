@@ -71,6 +71,7 @@ let prepared = false;
 let originalSpriteHeight = 0;
 let keyboardShown = false;
 let keyboardSyncAttempts = 0;
+let restoreSyncAttempts = 0;
 function showSimulatedKeyboard() {
   if (!mockViewport) return;
   mockViewport.height = Math.min(105, Math.round(innerHeight * .36));
@@ -91,6 +92,7 @@ function hideSimulatedKeyboard() {
   if (!mockViewport) return;
   mockViewport.height = innerHeight;
   mockViewport.dispatchEvent(new Event('resize'));
+  window.dispatchEvent(new Event('resize'));
   document.getElementById('mock-android-keyboard')?.remove();
   keyboardShown = false;
 }
@@ -167,6 +169,13 @@ function check() {
     setTimeout(check, 140);
     return true;
   }
+  if (simulatedLandscapeKeyboard && !keyboardShown &&
+      (scenario === 'landscapeKeyboardRestore' || scenario === 'landscapeKeyboardMenu') &&
+      stage.classList.contains('date-session-keyboard-open') && restoreSyncAttempts++ < 12) {
+    mockViewport?.dispatchEvent(new Event('resize'));
+    setTimeout(check, 140);
+    return true;
+  }
   const keyboardSceneStable = !keyboardActive || (
     !!spriteBox && !!input && !!dialogue && !!controlsRect &&
     !!stage && stage.classList.contains('date-session-keyboard-open') &&
@@ -186,7 +195,7 @@ function check() {
     : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true)) && compactKeyboardFits && keyboardSceneStable && keyboardRestored;
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
     spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
-    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, keyboardActive, keyboardSceneStable, keyboardRestored, originalSpriteHeight, visibleHeight: viewportHeight, focusTag: document.activeElement?.tagName, rootKeyboardClass: stage.classList.contains('date-session-keyboard-open'), keyboardSyncAttempts, errors };
+    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, keyboardActive, keyboardSceneStable, keyboardRestored, originalSpriteHeight, visibleHeight: viewportHeight, focusTag: document.activeElement?.tagName, rootKeyboardClass: stage.classList.contains('date-session-keyboard-open'), keyboardSyncAttempts, restoreSyncAttempts, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);
   let output = document.getElementById('meet-landscape-report');
