@@ -15,6 +15,25 @@ vi.mock('../context/OSContext', () => ({
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('date scene playback', () => {
+    it('direct Meet with no opening stays silent and uses the old default background', async () => {
+        const host = document.createElement('div');
+        document.body.append(host);
+        const root = createRoot(host);
+        try {
+            await act(async () => root.render(React.createElement(DateSession, {
+                char: { id: 'direct-visit', name: '角色', dateBackground: 'https://example.com/default.jpg', sprites: { normal: 'https://example.com/normal.png' } },
+                userProfile: { name: '用户' }, messages: [], peekStatus: '',
+                onSendMessage: async () => '', onReroll: async () => '',
+                onExit: vi.fn(), onEditMessage: vi.fn(), onDeleteMessage: vi.fn(),
+                onDeleteMessages: async () => {}, onSettings: vi.fn(),
+            } as any)));
+            expect(host.textContent).not.toContain('Waiting for connection');
+            expect((host.querySelector('.bg-cover.bg-center') as HTMLElement)?.style.backgroundImage).toContain('default.jpg');
+        } finally {
+            await act(async () => root.unmount());
+            host.remove();
+        }
+    });
     it('switches background on opening and advancing lines, but ignores an unconfigured scene', async () => {
         const host = document.createElement('div');
         document.body.append(host);

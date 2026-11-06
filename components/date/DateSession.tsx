@@ -590,7 +590,8 @@ const DateSession: React.FC<DateSessionProps> = ({
             setCurrentSpriteKey(initialSprite.key);
             
             // Parse Peek Status as opening — 先剥出观测块（开了 OBSERVE 才有）
-            const startText = peekStatus || "Waiting for connection...";
+            // Direct Meet has no generated opening: leave the dialogue blank, not an English placeholder.
+            const startText = peekStatus || '';
             const { observation: peekObs, rest: peekRest } = extractObservation(startText, { lenient: observeEnabled, custom: char.dateObserve?.custom });
             if (hasObservation(peekObs)) setObservation(peekObs);
             const items = parseDialogue(peekRest, 'normal');
