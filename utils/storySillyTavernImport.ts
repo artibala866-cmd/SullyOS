@@ -286,7 +286,7 @@ export const expandSillyTavernContextMacros = (
         return result;
     };
     const resolved = raw
-        .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|input)\s*\}\}/gi,
+        .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|input|model)\s*\}\}/gi,
             (original, key: string) => aliases[key.toLowerCase()] ?? original)
         .replace(/\{\{\s*newline(?:\s*::\s*(\d+))?\s*\}\}/gi,
             (_original, count?: string) => '\n'.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
