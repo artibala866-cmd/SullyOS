@@ -97,11 +97,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 setDraft(current => {
                     const promoted = promotedPremise.current;
                     const restore = promoted?.characterId === current.openingGreeting?.characterId
-                        && promoted.greetingId === current.openingGreeting?.greetingId
+                        && promoted?.greetingId === current.openingGreeting?.greetingId
                         && !current.premise.trim();
                     return {
                         ...current,
-                        premise: restore ? promoted.content : current.premise,
+                        premise: restore && promoted ? promoted.content : current.premise,
                         openingGreeting: undefined,
                         updatedAt: Date.now(),
                     };
@@ -334,9 +334,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                                 setDraft(current => {
                                     const promoted = promotedPremise.current;
                                     const restore = promoted?.characterId === current.openingGreeting?.characterId
-                                        && promoted.greetingId === current.openingGreeting?.greetingId
+                                        && promoted?.greetingId === current.openingGreeting?.greetingId
                                         && !current.premise.trim();
-                                    return { ...current, premise: restore ? promoted.content : current.premise, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() };
+                                    return { ...current, premise: restore && promoted ? promoted.content : current.premise, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() };
                                 });
                             }}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${!storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button>
@@ -354,10 +354,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                                 const promoted = promotedPremise.current;
                                 const restore = !selected && !current.premise.trim()
                                     && promoted?.characterId === current.openingGreeting?.characterId
-                                    && promoted.greetingId === current.openingGreeting?.greetingId;
+                                    && promoted?.greetingId === current.openingGreeting?.greetingId;
                                 return {
                                     ...current,
-                                    premise: restore ? promoted.content : current.premise,
+                                    premise: restore && promoted ? promoted.content : current.premise,
                                     openingMode: selected ? 'assistant' : current.openingMode,
                                     openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
                                     updatedAt: Date.now(),
