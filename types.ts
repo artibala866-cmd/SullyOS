@@ -1129,6 +1129,8 @@ export interface WorldbookEntryConfig {
     caseSensitive?: boolean | null;
     matchWholeWords?: boolean | null;
     sourceUid?: number;
+    /** Stable key of an imported Tavern/Link worldbook entry. Not a local binding ID. */
+    cardImportKey?: string;
 }
 
 export interface MountedWorldbook extends WorldbookEntryConfig {
@@ -2771,7 +2773,17 @@ export interface TavernOpeningGreeting {
   content: string;
 }
 
+export interface CardImportOrigin {
+  source: 'tavern' | 'babylink' | 'sully';
+  externalId?: string;
+  originalName: string;
+  avatarFingerprint?: string;
+  imageFingerprint?: string;
+}
+
 export interface CharacterProfile {
+  /** Import identity is stored only with the live role; deletion releases it. */
+  cardImportOrigin?: CardImportOrigin;
   /** 导入的酒馆卡开场白，可在剧情中选择、编辑或删除。 */
   tavernGreetings?: TavernOpeningGreeting[];
   /** 旧版接话秒数，仅为备份兼容保留，不参与当前自动回复；后续迁移不得将旧存档当作新授权。 */
