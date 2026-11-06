@@ -1097,7 +1097,7 @@ export const compileStoryPreset = (input: {
             document.assistantPrefill || '',
         ];
         for (const value of enabledContents) {
-            for (const match of value.matchAll(/\{\{\s*getvar::([^{}]+)\}\}/gi)) {
+            for (const match of value.matchAll(/\{\{\s*getvar(?:\s*::\s*|\s+)([^{}]+?)\s*\}\}/gi)) {
                 referencedVariables.add(match[1].trim());
             }
         }
