@@ -1,298 +1,282 @@
 
-/* Coupled ticket station · single visual language, 2026-11-06.
-   One shared system: warm monochrome paper, ink-black ticket stubs,
-   linear perforations and short physical transitions. No legacy V1/V2 cascade. */
+/* COUPLES TICKET ATELIER
+   One intentional visual language: ink, paper, tear, print, slip.
+   All four sections share materials, not a generic card template. */
 .couple-content-mode .bond-ticket-room {
-  --ticket-bg:#f4f2ee;--ticket-paper:#fffefa;--ticket-ink:#242421;--ticket-grey:#797670;
-  --ticket-rule:#cecbc3;--ticket-dark:#252524;
-  position:relative;isolation:isolate;box-sizing:border-box;
-  margin:-15px -16px -24px;padding:13px 17px max(35px,env(safe-area-inset-bottom));
-  min-height:calc(100% + 39px);overflow:hidden;background:var(--ticket-bg);color:var(--ticket-ink);
+  --paper:#fffefa;--ink:#20201f;--quiet:#7b7771;--edge:#d4d0c8;--desk:#f5f3ef;
+  position:relative;isolation:isolate;margin:-15px -16px -24px;
+  min-height:calc(100% + 39px);padding:13px 17px max(38px,env(safe-area-inset-bottom));
+  overflow-x:hidden;background:var(--desk);color:var(--ink);
 }
-.couple-content-mode .bond-ticket-room *, .couple-content-mode .bond-ticket-room *::before,
+.couple-content-mode .bond-ticket-room *,
+.couple-content-mode .bond-ticket-room *::before,
 .couple-content-mode .bond-ticket-room *::after {box-sizing:border-box}
 .couple-content-mode .bond-ticket-room button {
-  min-width:0;min-height:36px;border:0;border-radius:0;box-shadow:none;
-  background:transparent;color:var(--ticket-ink);font:inherit;font-size:12px;
-  cursor:pointer;touch-action:manipulation;
+  min-width:0;min-height:36px;padding:6px 8px;background:transparent;border:0;border-radius:0;box-shadow:none;
+  font:inherit;font-size:12px;color:var(--ink);cursor:pointer;touch-action:manipulation;
 }
-.couple-content-mode .bond-ticket-room button:disabled {opacity:.47;cursor:default}
-.couple-content-mode .bond-ticket-room button:focus-visible {outline:2px solid #222;outline-offset:3px}
-.bond-ticket-top {padding:4px 1px 19px;min-height:83px;display:flex;align-items:center}
-.bond-ticket-ledger {display:flex;align-items:center;justify-content:space-between;width:100%;gap:14px}
-.bond-ticket-ledger-main {display:flex;align-items:baseline;gap:12px;min-width:0}
-.bond-ticket-ledger-main>span {font-size:11px;color:#75716b;white-space:nowrap}
-.bond-ticket-ledger-main>strong {font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:39px;letter-spacing:-.055em;line-height:1.05;font-variant-numeric:tabular-nums}
-.bond-ticket-ledger-other {display:grid;gap:4px;text-align:right;border-left:1px solid #d0ccc5;padding-left:15px}
-.bond-ticket-ledger-other>span {font-size:10px;color:#807d76;white-space:nowrap}
-.bond-ticket-ledger-other b {font-size:12px;color:#3d3b37;font-weight:600;font-variant-numeric:tabular-nums}
-.bond-ticket-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ticket-rule);border-bottom:1px solid var(--ticket-rule);margin:0 0 9px}
-.couple-content-mode .bond-ticket-tabs button {position:relative;min-height:47px;padding:9px 3px;font-size:13px;letter-spacing:.035em;color:#96928b;text-align:center;background:transparent}
-.couple-content-mode .bond-ticket-tabs button[aria-pressed="true"] {color:var(--ticket-ink);font-weight:700;background:transparent}
-.bond-ticket-tabs button[aria-pressed="true"]::after {content:"";position:absolute;bottom:-1px;left:calc(50% - 18px);width:36px;height:2px;background:var(--ticket-ink)}
-.bond-ticket-alert {margin:8px 0!important;padding:9px 11px!important;border-radius:2px!important;font-size:12px!important}
-.bond-ticket-controls {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:49px;padding:0 2px;margin-bottom:8px}
-.bond-ticket-shelves {display:flex;align-items:center;gap:21px;max-width:calc(100% - 84px);min-width:0;overflow-x:auto;scrollbar-width:none}
+.couple-content-mode .bond-ticket-room button:disabled {cursor:default;opacity:.47}
+.couple-content-mode .bond-ticket-room button:focus-visible {outline:2px solid #262626;outline-offset:3px}
+.bond-ticket-top {padding:3px 2px 16px;min-height:79px;display:flex;align-items:center}
+.bond-ticket-ledger {display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
+.bond-ticket-ledger-main {display:flex;align-items:baseline;gap:11px;min-width:0}
+.bond-ticket-ledger-main>span {font-size:11px;color:#74716b;white-space:nowrap}
+.bond-ticket-ledger-main>strong {font-family:Georgia,serif;font-weight:400;font-size:38px;line-height:1.1;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.bond-ticket-ledger-other {display:grid;gap:4px;text-align:right;border-left:1px solid #d2cec7;padding-left:12px}
+.bond-ticket-ledger-other>span {font-size:10px;color:#77736d;white-space:nowrap}
+.bond-ticket-ledger-other b {font-size:12px;color:#383632;font-weight:650;font-variant-numeric:tabular-nums}
+.bond-ticket-tabs {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 6px;border-top:1px solid var(--edge);border-bottom:1px solid var(--edge)}
+.couple-content-mode .bond-ticket-tabs button {position:relative;padding:8px 2px;min-height:47px;text-align:center;letter-spacing:.025em;font-size:13px;color:#9a958e}
+.couple-content-mode .bond-ticket-tabs button[aria-pressed="true"] {background:transparent;font-weight:700;color:#282724}
+.bond-ticket-tabs button[aria-pressed="true"]::after {content:"";position:absolute;bottom:-1px;left:50%;width:34px;height:2px;transform:translateX(-50%);background:#292827}
+.bond-ticket-alert {margin:7px 0!important;padding:9px 12px!important;border-radius:2px!important;font-size:12px!important}
+.bond-ticket-controls {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:53px;margin:0 0 5px;padding:0 3px}
+.bond-ticket-shelves {display:flex;align-items:center;gap:20px;max-width:calc(100% - 86px);overflow-x:auto;scrollbar-width:none}
 .bond-ticket-shelves::-webkit-scrollbar {display:none}
-.couple-content-mode .bond-ticket-shelves button {flex:0 0 auto;min-height:35px;padding:6px 0;white-space:nowrap;font-size:12px;color:#8b877f}
-.couple-content-mode .bond-ticket-shelves button[aria-pressed="true"] {font-weight:650;color:#2b2a28;border-bottom:1px solid #333}
-.bond-ticket-utilities {display:flex;gap:7px}
-.couple-content-mode .bond-ticket-utilities button {width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border:1px solid #d1cdc5;border-radius:50%;font-size:21px;display:grid;place-items:center;line-height:1;color:#373531}
-.couple-content-mode .bond-ticket-utilities button[aria-pressed="true"] {color:#fff;background:#2b2b2b}
-.bond-ticket-manage-note {display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;padding:7px 12px;background:#e7e4dd;border-left:2px solid #242424;font-size:11px;color:#5a5752}
-.couple-content-mode .bond-ticket-manage-note button {font-size:11px;text-decoration:underline;padding:5px}
-/* Shop: paper emerges from a *small* exchange rail; the paper, not the machine, dominates. */
-.bond-ticket-showcase {margin:0;touch-action:pan-y}
-.bond-machine-housing {position:relative;min-height:454px;padding:0 0 14px;overflow:hidden;
-  background:linear-gradient(to bottom,#272726 0px,#272726 116px,#eae7e1 116px,#eae7e1 100%);
-  border:1px solid #d4d0c8;border-radius:6px;box-shadow:0 9px 19px #3633300c}
-.bond-machine-head {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:59px;padding:15px 17px 8px}
-.bond-machine-head-copy strong {font-size:13px;letter-spacing:.055em;color:#faf9f4;font-weight:600}
-.bond-machine-number {color:#d4d2ca;font-size:13px;letter-spacing:.075em;white-space:nowrap;font-variant-numeric:tabular-nums}
-.bond-machine-number i {font-style:normal;color:#8f8e86;font-size:11px}
-.bond-machine-mouth {position:relative;width:calc(100% - 36px);height:8px;margin:0 auto;background:#0e0e0e;border:1px solid #474742;border-radius:20px;box-shadow:inset 0 2px 4px #0009,0 1px 0 #ffffff2a}
-.bond-machine-mouth span {position:absolute;top:2px;left:6%;height:1px;width:24%;background:#ffffff38}
-.bond-ticket-stack {position:relative;z-index:2;margin:18px auto 0;width:calc(100% - 24px);max-width:388px;perspective:900px}
-.couple-content-mode .bond-ticket-pass {display:flex;flex-direction:column;position:relative;margin:0;min-height:303px;
-  background:#fefdfa;border:1px solid #d5d0c7;border-radius:2px;overflow:hidden;
-  box-shadow:4px 6px 0 #c8c4bc,0 15px 23px #2b282517;
-  transform:rotate(-1.2deg);transform-origin:50% 35%;animation:bondTicketSlide .44s cubic-bezier(.16,.83,.28,1) both}
-.couple-content-mode .bond-ticket-pass::before {content:"";position:absolute;right:7px;top:8px;bottom:8px;width:1px;border-right:1px solid #e7e4de;pointer-events:none;z-index:3}
-.bond-ticket-paper {display:flex;flex-direction:column;flex:1;position:relative;min-height:249px;padding:19px 24px 16px;
-  color:#262521;background:linear-gradient(125deg,#fffefa 0%,#f7f5f0 100%);overflow:hidden}
-.bond-ticket-paper-firstline {display:flex;justify-content:space-between;align-items:start;gap:10px;color:#8b8780;font-size:10px;letter-spacing:.13em}
-.bond-ticket-paper-firstline span:last-child {font-size:15px;color:#b4afa5}
-.bond-ticket-paper-main {display:flex;flex:1;flex-direction:column;justify-content:center;gap:8px;min-height:0;padding:15px 0 18px}
-.bond-ticket-paper-icon {font-size:28px;line-height:1;color:#6b6861;filter:grayscale(1)}
-.couple-content-mode .bond-ticket-paper-main h3 {font-size:clamp(26px,7vw,35px);line-height:1.2;font-weight:740;letter-spacing:.035em;color:#262521;margin:0;overflow-wrap:anywhere}
+.couple-content-mode .bond-ticket-shelves button {flex-shrink:0;min-height:34px;padding:5px 0;white-space:nowrap;font-size:12px;color:#89857f}
+.couple-content-mode .bond-ticket-shelves button[aria-pressed="true"] {background:transparent;color:#222;font-weight:700;border-bottom:1px solid #222}
+.bond-ticket-utilities {display:flex;align-items:center;gap:7px}
+.couple-content-mode .bond-ticket-utilities button {width:35px;min-width:35px;height:35px;min-height:35px;padding:0;border:1px solid #ccc7bf;border-radius:50%;font-size:21px;display:grid;place-items:center;line-height:1}
+.couple-content-mode .bond-ticket-utilities button[aria-pressed="true"] {background:#242423;color:#fff}
+.bond-ticket-manage-note {display:flex;justify-content:space-between;align-items:center;background:#ece9e3;margin-bottom:10px;padding:7px 11px;border-left:2px solid #242424;font-size:11px}
+/* The machine is only a print rail, not a huge black 3-D rectangle. */
+.bond-ticket-showcase {position:relative;touch-action:pan-y;margin:0}
+.bond-machine-housing {position:relative;min-height:510px;overflow:visible;padding:0 0 18px;
+  background:linear-gradient(180deg,#e8e4dd 0%,#f0ede7 65%,#ebe8e1 100%);
+  border-radius:2px;border:1px solid #e1ddd5}
+.bond-machine-housing::before {content:"";position:absolute;top:0;left:0;right:0;height:99px;background:#282826;pointer-events:none}
+.bond-machine-head {position:relative;display:flex;align-items:center;justify-content:space-between;min-height:62px;padding:17px 19px 11px;gap:8px}
+.bond-machine-head-copy {display:flex;align-items:center;gap:9px}
+.bond-machine-head-copy strong {font-size:13px;letter-spacing:.07em;font-weight:650;color:#f8f6f0}
+.bond-machine-head-copy>span {font-size:12px;color:#aca79e}
+.bond-machine-number {color:#ece9e1;font-size:12px;letter-spacing:.07em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bond-machine-number i {font-style:normal;color:#99938a}
+.bond-machine-mouth {position:relative;height:8px;margin:0 18px;border-radius:4px;border:1px solid #5c5a54;background:#0a0a09;box-shadow:inset 0 2px 3px #0009}
+.bond-machine-mouth span {position:absolute;top:2px;left:9%;height:1px;width:30%;background:#aaa59a5c}
+.bond-ticket-stack {position:relative;margin:17px auto 0;width:calc(100% - 32px);max-width:368px;perspective:800px}
+.bond-ticket-stack::before {content:"";position:absolute;inset:10px -4px -6px 5px;background:#d3cfc6;transform:rotate(1.35deg);box-shadow:2px 5px 10px #211f1d10}
+.couple-content-mode .bond-ticket-pass {position:relative;display:flex;flex-direction:column;min-height:356px;margin:0;border-radius:1px;
+  border:1px solid #cbc5ba;overflow:hidden;background:#fdfbf7;
+  box-shadow:0 14px 22px #14131225,3px 4px 0 #c2bdb4;
+  transform:rotate(-1.1deg);animation:ticketSlide .5s cubic-bezier(.14,.78,.28,1) both}
+.bond-ticket-paper {position:relative;flex:1;display:flex;flex-direction:column;min-height:284px;padding:24px 24px 16px;background:linear-gradient(120deg,#fffefa,#f6f3ec);color:#242320}
+.bond-ticket-paper-firstline {display:flex;justify-content:space-between;align-items:start;gap:8px;color:#958e84;font-size:10px;letter-spacing:.13em}
+.bond-ticket-paper-firstline>span:last-child {font-size:16px;line-height:1;color:#b2a99c}
+.bond-ticket-paper-main {display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-height:0;padding:19px 0 20px}
+.bond-ticket-paper-icon {font-size:33px;line-height:1;color:#5e5a53;filter:grayscale(1)}
+.couple-content-mode .bond-ticket-paper-main h3 {font-size:clamp(30px,8vw,39px);font-weight:750;line-height:1.17;letter-spacing:.03em;color:#24231f;margin:0;overflow-wrap:anywhere}
 .couple-content-mode .bond-ticket-paper-main p {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
-  font-size:12px;line-height:1.65;color:#76716a;margin:0;overflow-wrap:anywhere}
-.bond-ticket-paper-tear {height:1px;border-top:1px dashed #b6b1a8;flex:0 0 auto}
-.bond-ticket-paper-price {display:flex;justify-content:space-between;align-items:flex-end;gap:8px;padding-top:12px}
-.bond-ticket-paper-price strong {font-family:Georgia,'Times New Roman',serif;font-weight:400;color:#272624;font-size:29px;line-height:1;font-variant-numeric:tabular-nums}
-.bond-ticket-paper-price strong small {font-family:inherit;font-size:10px;font-weight:500;color:#858078;margin-left:6px}
-.bond-ticket-paper-price>span {font-size:10px;color:#7c7770;white-space:nowrap;padding-bottom:3px}
-.bond-ticket-tear-tab {position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;
-  padding:7px 16px 7px 23px;background:#272726;color:#f5f3ee;border-top:1px dashed #b3aea2}
-.bond-ticket-tear-tab::before,.bond-ticket-tear-tab::after {content:"";position:absolute;top:-7px;width:13px;height:13px;background:#e8e5df;border-radius:50%;z-index:4}
-.bond-ticket-tear-tab::before {left:-7px}.bond-ticket-tear-tab::after {right:-7px}
-.bond-ticket-tear-word {font-size:11px;color:#d5d1c8;letter-spacing:.1em}
-.couple-content-mode .bond-ticket-room .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;
-  min-height:41px;min-width:116px;padding:8px 14px;background:#f6f4ef;color:#232323;border:1px solid #f6f4ef;
-  border-radius:1px;font-size:12px;font-weight:700}
-.bond-ticket-buy b {font-size:18px;font-weight:400;line-height:1}
-.couple-content-mode .bond-ticket-room .bond-ticket-buy:disabled {background:#a9a69f;color:#383634;border-color:#a9a69f;opacity:.75}
-.couple-content-mode .bond-ticket-room .bond-ticket-pass-actions {display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:end}
-.couple-content-mode .bond-ticket-room .bond-ticket-pass-actions button {color:#f7f4ed;border:1px solid #88847e;min-height:35px;padding:6px 8px;font-size:11px}
-.bond-machine-lower {padding:20px 15px 0}
+  font-size:12px;line-height:1.65;color:#79746c;margin:0;overflow-wrap:anywhere}
+.bond-ticket-paper-tear {height:1px;border-top:1px dashed #b5afa6}
+.bond-ticket-paper-price {display:flex;justify-content:space-between;align-items:end;gap:9px;padding-top:13px}
+.bond-ticket-paper-price strong {color:#2d2a27;font-family:Georgia,serif;font-size:31px;font-weight:400;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bond-ticket-paper-price strong small {font-family:inherit;font-size:10px;font-weight:550;color:#979085;margin-left:5px}
+.bond-ticket-paper-price>span {font-size:10px;color:#8a837a;white-space:nowrap;padding-bottom:3px}
+.bond-ticket-tear-tab {position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:70px;padding:11px 17px 12px 21px;
+  background:#282827;color:#efede8;border-top:1px dashed #aaa49a}
+.bond-ticket-tear-tab::before,.bond-ticket-tear-tab::after {content:"";position:absolute;width:16px;height:16px;top:-9px;background:#ebe7df;border-radius:50%;z-index:2}
+.bond-ticket-tear-tab::before {left:-8px}.bond-ticket-tear-tab::after {right:-8px}
+.bond-ticket-tear-word {font-size:11px;color:#e0ddd6;letter-spacing:.13em;white-space:nowrap}
+.bond-ticket-tear-word small {font-size:9px;letter-spacing:0;color:#b2aba2}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy {display:flex;align-items:center;justify-content:center;gap:7px;
+  background:#faf8f2;color:#20201f;border:1px solid #faf8f2;border-radius:2px;min-height:43px;min-width:116px;
+  font-weight:700;font-size:13px;padding:8px 15px;box-shadow:2px 3px 0 #07070750}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy b {font-size:19px;font-weight:400;line-height:1}
+.couple-content-mode .bond-ticket-room .bond-ticket-buy:disabled {color:#363531;background:#9c9992;border-color:#9c9992;opacity:.8;box-shadow:none}
+.couple-content-mode .bond-ticket-pass-actions {display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.couple-content-mode .bond-ticket-pass-actions button {border:1px solid #9f9a92;color:#f8f6ee;min-height:37px;font-size:11px;padding:6px 8px}
+.bond-machine-lower {padding:21px 12px 0}
 .bond-machine-lower-rule {display:none}
-.bond-ticket-navigator {display:flex;justify-content:space-between;align-items:center;max-width:280px;margin:0 auto}
-.couple-content-mode .bond-ticket-navigator button {display:grid;place-items:center;width:45px;height:42px;min-height:42px;padding:0;
-  background:#f8f6f1;border:1px solid #d0ccc4;border-radius:2px;color:#282724}
-.bond-ticket-navigator button span {font-family:Georgia,serif;font-size:27px;line-height:1;transform:translateY(-2px)}
-.bond-machine-dial {display:flex;justify-content:center;align-items:baseline;gap:11px;font-family:Georgia,serif;color:#2b2926;
-  font-size:21px;font-variant-numeric:tabular-nums}
-.bond-machine-dial i {font-size:13px;font-style:normal;color:#a8a399}
-.bond-machine-dial span:last-child {color:#9b968c}
-.bond-machine-footer {height:2px;max-width:230px;margin:17px auto 0;background:#ccc8be;position:relative;overflow:hidden}
-.bond-machine-footer .bond-machine-progress {display:block;background:#2a2927;height:100%;transition:width .34s ease}
-.bond-ticket-stack[data-motion="issuing"] .bond-ticket-pass {animation:bondTicketIssue .52s cubic-bezier(.25,.65,.35,1) both}
-@keyframes bondTicketSlide {0%{opacity:.35;transform:translateY(-55px) rotate(-.3deg) scale(.975)}100%{opacity:1;transform:translateY(0) rotate(-1.2deg) scale(1)}}
-@keyframes bondTicketIssue {0%{opacity:1;transform:translateY(0) rotate(-1.2deg)}100%{opacity:0;transform:translateY(158px) rotate(2deg) scale(.94)}}
-/* Empty shelf is an unprinted blank ticket, not another black loading panel. */
-.bond-ticket-empty {min-height:410px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:17px;background:#eae7e1}
-.bond-ticket-empty-cut {position:relative;width:210px;height:157px;display:grid;place-items:center;
-  background:#fffefa;border:1px dashed #c7c2b9;color:#a29c92;font-size:37px;transform:rotate(-3deg);box-shadow:6px 7px 0 #d7d2ca}
-.bond-ticket-empty-cut::after {content:"";position:absolute;left:18px;right:18px;bottom:35px;border-top:1px dashed #c7c2ba}
-.bond-ticket-empty strong {font-size:13px;font-weight:600;color:#484640}
-.couple-content-mode .bond-ticket-empty button {border-bottom:1px solid #333;padding:9px 4px}
-.bond-ticket-manage-note+.bond-ticket-showcase {margin-top:8px}
-/* Wallet: the same white ticket is visible in a *paper sleeve*, with a shallow graphite lip. */
-.bond-ticket-wallet {padding:17px 0 4px}
-.bond-ticket-wallet-top {display:flex;align-items:end;justify-content:space-between;gap:10px;margin:0 3px 19px}
-.bond-ticket-wallet-top small,.bond-ticket-section-head small {font-size:10px;letter-spacing:.08em;color:#938e85}
-.couple-content-mode .bond-ticket-wallet-top h3,.couple-content-mode .bond-ticket-section-head h3 {
-  font-size:24px;line-height:1.25;font-weight:700;margin:6px 0 0;color:#292824}
-.bond-ticket-wallet-switch {display:flex;align-items:center;gap:1px;padding:2px;border:1px solid #d1cdc6}
-.couple-content-mode .bond-ticket-wallet-switch button {min-height:31px;padding:6px 12px;font-size:11px;color:#89857c}
-.couple-content-mode .bond-ticket-wallet-switch button[aria-pressed="true"] {color:#fff;background:#292827}
-.bond-ticket-wallet-pocket {position:relative;min-height:419px;padding:23px 15px 24px;overflow:hidden;
-  background:linear-gradient(140deg,#eeece6,#e5e1da);border:1px solid #d0cbc2;border-radius:4px}
-.bond-ticket-wallet-pocket::before {content:"";position:absolute;top:0;left:15px;right:15px;height:6px;background:repeating-linear-gradient(90deg,#ccc7be 0 12px,transparent 12px 22px);opacity:.6}
-.bond-ticket-wallet-pocket::after {content:"";position:absolute;left:0;right:0;bottom:0;height:142px;
-  background:linear-gradient(175deg,#373634,#242424);border-top:1px solid #5d5953;box-shadow:0 -8px 16px #28262110;pointer-events:none}
-.bond-ticket-wallet-stitched {position:absolute;bottom:132px;left:15px;right:15px;height:1px;border-top:1px dashed #918d84;z-index:3}
+.bond-ticket-navigator {display:flex;justify-content:space-between;align-items:center;max-width:265px;margin:0 auto}
+.couple-content-mode .bond-ticket-navigator button {display:grid;place-items:center;width:43px;height:43px;min-height:43px;padding:0;border:1px solid #c4beb5;background:#fdfbf7;color:#35322c;border-radius:2px}
+.bond-ticket-navigator button span {font:28px Georgia,serif;line-height:1;transform:translateY(-2px)}
+.bond-machine-dial {display:flex;gap:12px;align-items:baseline;font:22px Georgia,serif;color:#252421;font-variant-numeric:tabular-nums}
+.bond-machine-dial i {font:12px Georgia,serif;color:#aaa399}.bond-machine-dial span:last-child {color:#969087}
+.bond-machine-footer {height:2px;background:#d0cac0;position:relative;max-width:224px;margin:17px auto 0;overflow:hidden}
+.bond-machine-progress {height:100%;display:block;background:#292826;transition:width .32s ease}
+.bond-ticket-stack[data-motion="issuing"] .bond-ticket-pass {animation:ticketIssue .52s ease-in both}
+@keyframes ticketSlide {from{opacity:.2;transform:translateY(-49px) rotate(0) scale(.96)}to{opacity:1;transform:translateY(0) rotate(-1.1deg) scale(1)}}
+@keyframes ticketIssue {from{opacity:1;transform:translateY(0) rotate(-1.1deg)}to{opacity:0;transform:translateY(170px) rotate(1deg) scale(.9)}}
+/* Blank stock is the empty state. */
+.bond-ticket-empty {min-height:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:#e9e5dd}
+.bond-ticket-empty-cut {position:relative;display:grid;place-items:center;width:210px;height:165px;
+  background:#fefcf7;color:#aaa397;font-size:33px;border:1px dashed #c2bcb2;box-shadow:6px 8px 0 #cfc9bf;transform:rotate(-3deg)}
+.bond-ticket-empty-cut::before {content:"";position:absolute;left:18px;right:18px;bottom:37px;border-top:1px dashed #bdb6ac}
+.bond-ticket-empty strong {font-size:13px;font-weight:600;color:#514d46}
+.couple-content-mode .bond-ticket-empty button {border-bottom:1px solid #37342f;padding:9px 3px}
+/* Wallet: a tactile paper slipcase with a narrow, not giant, charcoal pocket. */
+.bond-ticket-wallet {padding:15px 0 0}
+.bond-ticket-wallet-top {display:flex;align-items:end;justify-content:space-between;gap:9px;margin:0 2px 19px}
+.bond-ticket-wallet-top small,.bond-ticket-section-head small {font-size:10px;letter-spacing:.09em;color:#938d83}
+.couple-content-mode .bond-ticket-wallet-top h3,.couple-content-mode .bond-ticket-section-head h3 {margin:4px 0 0;font-size:25px;line-height:1.24;font-weight:720;color:#252421}
+.bond-ticket-wallet-switch {display:flex;gap:1px;padding:2px;border:1px solid #d3cdc3}
+.couple-content-mode .bond-ticket-wallet-switch button {padding:6px 12px;min-height:31px;font-size:11px;color:#8c867e}
+.couple-content-mode .bond-ticket-wallet-switch button[aria-pressed="true"] {background:#282827;color:#fff}
+.bond-ticket-wallet-pocket {position:relative;padding:27px 15px 23px;min-height:421px;overflow:hidden;border:1px solid #cfc9be;background:#e9e5dc}
+.bond-ticket-wallet-pocket::before {content:"";position:absolute;top:0;left:14px;right:14px;height:7px;background:repeating-linear-gradient(90deg,#bdb7ad 0 12px,transparent 12px 20px);opacity:.45}
+.bond-ticket-wallet-pocket::after {content:"";position:absolute;left:0;right:0;top:281px;height:85px;background:linear-gradient(#41403d,#242422);box-shadow:0 -6px 11px #29262123;pointer-events:none}
+.bond-ticket-wallet-stitched {position:absolute;top:354px;left:18px;right:18px;z-index:5;border-top:1px dashed #959089;pointer-events:none}
 .bond-ticket-wallet-contents {position:relative;z-index:3}
-.bond-ticket-wallet-pass {position:relative;display:flex;flex-direction:column;min-height:267px;max-width:348px;margin:0 auto;
-  padding:21px 24px 19px 28px;background:linear-gradient(132deg,#fffefa,#f4f1ea);border:1px solid #c9c4bb;
-  box-shadow:5px 8px 0 #aba69d,0 10px 21px #24232120;transform:rotate(-1deg);animation:bondTicketPull .42s ease both}
-.bond-ticket-wallet-pass::before {content:"";position:absolute;left:0;top:0;bottom:0;width:9px;background:#272726}
-.bond-ticket-wallet-pass-head {display:flex;justify-content:space-between;gap:12px;align-items:start}
-.bond-ticket-wallet-pass-head span:first-child {font-size:10px;color:#8c877f;letter-spacing:.12em}
-.bond-ticket-wallet-pass-head span:last-child {font-size:26px;color:#56524b;filter:grayscale(1)}
-.bond-ticket-wallet-pass>strong {font-size:29px;line-height:1.22;margin:19px 0 0;font-weight:700;overflow-wrap:anywhere}
+.bond-ticket-wallet-pass {position:relative;display:flex;flex-direction:column;min-height:271px;max-width:340px;margin:0 auto;padding:21px 24px 19px 29px;
+  background:linear-gradient(115deg,#fffefa,#f4f1ea);border:1px solid #c6c0b6;box-shadow:5px 7px 0 #b7b0a5,0 13px 22px #13120f25;
+  transform:rotate(-1.3deg);animation:walletPull .45s cubic-bezier(.18,.81,.34,1) both}
+.bond-ticket-wallet-pass::before {content:"";position:absolute;top:0;bottom:0;left:0;width:9px;background:#252422}
+.bond-ticket-wallet-pass-head {display:flex;justify-content:space-between;align-items:start;gap:12px}
+.bond-ticket-wallet-pass-head>span:first-child {font-size:10px;color:#928b81;letter-spacing:.1em}
+.bond-ticket-wallet-pass-head>span:last-child {font-size:26px;filter:grayscale(1);color:#555047}
+.bond-ticket-wallet-pass>strong {margin:22px 0 0;font-size:30px;line-height:1.2;color:#242321;font-weight:720;overflow-wrap:anywhere}
 .couple-content-mode .bond-ticket-wallet-pass>p {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
   font-size:12px;line-height:1.6;color:#77716a;margin:10px 0 auto;overflow-wrap:anywhere}
-.bond-ticket-wallet-pass-rule {border-top:1px dashed #beb8ae;margin:18px 0 13px}
+.bond-ticket-wallet-pass-rule {border-top:1px dashed #b6afa4;margin:18px 0 14px}
 .bond-ticket-wallet-pass-foot {display:flex;align-items:center;justify-content:space-between;gap:10px}
-.bond-ticket-wallet-pass-foot>span {color:#77726a;font-size:11px}
-.couple-content-mode .bond-ticket-wallet-pass-foot button {min-height:39px;padding:7px 15px;background:#282827;color:#faf9f4;font-size:11px;font-weight:650}
-.bond-ticket-wallet-stamp {position:absolute;z-index:5;top:85px;right:35px;padding:8px 11px;border:2px solid #64625e;border-radius:2px;
-  font:bold 16px Georgia,serif;color:#64625e;transform:rotate(-17deg) scale(1.6);opacity:0;pointer-events:none}
-.bond-ticket-wallet-pass[data-stamped="true"] .bond-ticket-wallet-stamp {animation:bondStamp .4s ease-out .08s both}
-.bond-ticket-wallet-paging {display:flex;justify-content:center;align-items:center;gap:19px;margin:20px 0 7px;color:#faf9f2;font-size:11px}
-.couple-content-mode .bond-ticket-wallet-paging button {width:36px;height:36px;min-height:36px;border:1px solid #a09a91;border-radius:2px;color:#fff;font-size:24px}
-.bond-ticket-wallet-thumbs {display:flex;justify-content:flex-start;gap:7px;overflow-x:auto;padding:12px 0 0;scrollbar-width:thin;scrollbar-color:#8c8780 #383633}
-.couple-content-mode .bond-ticket-wallet-thumbs button {display:flex;flex-direction:column;align-items:center;gap:2px;flex:0 0 67px;width:67px;
-  min-height:62px;padding:8px 4px 5px;background:#eeeae3;border:1px solid #d6d1c8;color:#48453e;font-size:10px;transform:none}
-.couple-content-mode .bond-ticket-wallet-thumbs button[aria-pressed="true"] {background:#fffefa;border-color:#f9f5ec}
-.bond-ticket-wallet-thumbs button span {font-size:18px;filter:grayscale(1)}
-.bond-ticket-wallet-thumbs button small {width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#55504a;font-size:10px}
-.bond-ticket-wallet-empty {position:relative;z-index:3;min-height:364px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:18px;gap:18px}
-.bond-ticket-wallet-blank {position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:52px;max-width:286px;width:90%;height:237px;
-  padding:20px 22px;background:#fdfbf7;border:1px dashed #b9b2a7;transform:rotate(-2deg);
-  box-shadow:5px 7px 0 #c5bfb5}
-.bond-ticket-wallet-blank::after {content:"";position:absolute;bottom:35px;left:22px;right:22px;border-top:1px dashed #c1bbb1}
-.bond-ticket-wallet-blank span {font-size:10px;color:#979188;letter-spacing:.18em}
-.bond-ticket-wallet-blank b {align-self:center;margin:auto 0;font-size:17px;font-weight:600;color:#99938b}
-.bond-ticket-wallet-blank i {position:absolute;top:13px;right:17px;font-style:normal;color:#aaa39a}
-.couple-content-mode .bond-ticket-wallet-empty button {color:#fff;border-bottom:1px solid #dedbd4;padding:7px 2px}
-.bond-ticket-details {border-bottom:1px solid #d0ccc4;margin:13px 1px 0;padding:0 3px}
-.bond-ticket-details>summary {display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;cursor:pointer;
-  padding:13px 0;color:#5e5a53;font-size:11px}
+.bond-ticket-wallet-pass-foot>span {font-size:11px;color:#7e786f}
+.couple-content-mode .bond-ticket-wallet-pass-foot button {min-height:39px;background:#292827;color:#fff;padding:8px 13px;font-size:11px;font-weight:650}
+.bond-ticket-wallet-stamp {position:absolute;right:26px;top:81px;padding:6px 12px;border:2px solid #6a655e;color:#6a655e;
+  font:bold 16px Georgia,serif;letter-spacing:.1em;transform:rotate(-18deg) scale(1.6);opacity:0}
+.bond-ticket-wallet-pass[data-stamped="true"] .bond-ticket-wallet-stamp {animation:stamp .4s ease-out both}
+.bond-ticket-wallet-paging {display:flex;align-items:center;justify-content:center;gap:24px;margin:27px 0 11px;color:#faf8f2;font-size:11px}
+.couple-content-mode .bond-ticket-wallet-paging button {width:38px;min-height:34px;background:transparent;border:1px solid #aba59d;color:#f8f5ee;font-size:25px;padding:0}
+.bond-ticket-wallet-thumbs {display:flex;gap:8px;overflow-x:auto;padding:15px 0 1px;scrollbar-width:thin;scrollbar-color:#aaa #e9e5dc}
+.couple-content-mode .bond-ticket-wallet-thumbs button {display:flex;flex:0 0 70px;align-items:center;flex-direction:column;justify-content:center;gap:3px;
+  width:70px;min-height:70px;padding:7px 5px;border:1px solid #cdc6bb;background:#f9f7f2;color:#555048}
+.couple-content-mode .bond-ticket-wallet-thumbs button[aria-pressed="true"] {border:2px solid #282725;background:#fffefa;transform:translateY(-3px)}
+.bond-ticket-wallet-thumbs button span {font-size:19px;filter:grayscale(1)}
+.bond-ticket-wallet-thumbs button small {width:100%;font-size:10px;color:#5e5950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bond-ticket-wallet-empty {position:relative;z-index:4;display:flex;flex-direction:column;align-items:center;gap:20px;padding-top:12px;min-height:341px}
+.bond-ticket-wallet-blank {position:relative;display:flex;flex-direction:column;align-items:flex-start;width:min(91%,294px);height:242px;
+  padding:20px 22px;background:#fffefa;border:1px dashed #bcb5aa;box-shadow:5px 7px 0 #c5bfb5;transform:rotate(-2deg)}
+.bond-ticket-wallet-blank::after {content:"";position:absolute;left:22px;right:22px;bottom:33px;border-top:1px dashed #bcb5aa}
+.bond-ticket-wallet-blank span {font-size:10px;letter-spacing:.16em;color:#958e84}
+.bond-ticket-wallet-blank b {align-self:center;margin:auto 0;font-size:17px;color:#aaa398;font-weight:600}
+.bond-ticket-wallet-blank i {position:absolute;top:15px;right:18px;font-style:normal;color:#ada69b}
+.couple-content-mode .bond-ticket-wallet-empty button {margin:0;border-bottom:1px solid #e4dfd5;color:#fff;padding:7px 3px}
+.bond-ticket-details {margin:18px 1px 0;padding:0 3px;border-bottom:1px solid #d0cac1}
+.bond-ticket-details>summary {display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 2px;font-size:11px;color:#676158;cursor:pointer;list-style:none}
 .bond-ticket-details>summary::-webkit-details-marker {display:none}
-.bond-ticket-details>summary::after {content:"＋";font-size:15px;color:#7e7971;margin-left:auto}
+.bond-ticket-details>summary::after {content:"＋";margin-left:auto;font-size:14px;color:#888078}
 .bond-ticket-details[open]>summary::after {content:"−"}
-.bond-ticket-details>summary>span {margin-left:auto;color:#9f9990}
-.bond-ticket-details p {margin:5px 0 12px;font-size:11px;color:#76716b;line-height:1.6}
-.bond-ticket-details small {color:#868078}
-/* Task slips: ONE perforated receipt, not four duplicated standalone cards. */
-.bond-ticket-tasks {padding:17px 0 8px}
-.bond-ticket-section-head {margin:0 3px 19px}
-.bond-ticket-task-book {position:relative;background:#fdfbf7;border:1px solid #d6d0c6;box-shadow:4px 6px 0 #e1dcd4;
-  padding:13px 9px 13px;overflow:visible}
-.bond-ticket-task-book::before {content:"";position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,#272726 0px 20px,#fdfbf7 20px 25px)}
-.bond-ticket-task {position:relative;display:grid;grid-template-columns:36px minmax(0,1fr) 66px;align-items:center;gap:9px;
-  min-height:95px;padding:11px 4px;border-bottom:1px dashed #bbb5aa;background:transparent}
+.bond-ticket-details summary span {margin-left:auto;color:#a49e95}
+.bond-ticket-details p {font-size:11px;line-height:1.6;color:#757068;margin:9px 0}
+.bond-ticket-details small {color:#888278}
+/* Four tasks live on ONE perforated sheet; individual rows are not four cards. */
+.bond-ticket-tasks {padding:22px 0 6px}
+.bond-ticket-section-head {margin:0 3px 22px}
+.bond-ticket-task-book {position:relative;padding:15px 12px 12px;background:#fffefa;border:1px solid #d1cbc1;
+  box-shadow:5px 7px 0 #e0dbd2}
+.bond-ticket-task-book::before {content:"";position:absolute;left:0;right:0;top:0;height:7px;background:repeating-linear-gradient(90deg,#282827 0 15px,#fffefa 15px 19px)}
+.bond-ticket-task {display:grid;grid-template-columns:36px minmax(0,1fr) 65px;gap:10px;align-items:center;min-height:108px;
+  padding:11px 0;border-bottom:1px dashed #c3bdb3;background:transparent}
 .bond-ticket-task:last-child {border-bottom:0}
-.bond-ticket-task-count {font-family:Georgia,serif;font-size:23px;color:#a39c92;font-variant-numeric:tabular-nums;text-align:center}
-.bond-ticket-task-copy {display:flex;flex-direction:column;min-width:0;gap:7px}
-.bond-ticket-task-copy strong {font-size:12px;color:#35332f;line-height:1.55;font-weight:620;overflow-wrap:anywhere}
-.bond-ticket-task-copy small {font-size:10px;color:#8d867d;letter-spacing:.08em}
-.couple-content-mode .bond-ticket-task button {width:65px;min-width:65px;height:61px;min-height:61px;
-  border:1px solid #7c776f;border-radius:50%;padding:7px 3px;background:transparent;color:#302e2a;
-  font-size:10px;font-weight:650;line-height:1.4;transform:rotate(-9deg)}
-.couple-content-mode .bond-ticket-task button:disabled {border-color:#d2ccc3;color:#aaa49b;opacity:1}
-.couple-content-mode .bond-ticket-task button:not(:disabled) {background:#272726;color:#fff;border-color:#272726;box-shadow:0 2px 0 #aca79e}
-/* Prize: a letter slides out of an ink-black envelope, not a framed form. */
-.bond-ticket-grand {position:relative;min-height:512px;margin:20px 0 9px;padding:30px 10px 27px;
-  background:linear-gradient(to bottom,#262625 0px,#262625 150px,#e8e5df 150px,#e8e5df 100%);
-  border:1px solid #d0cbc3;border-radius:4px;overflow:hidden}
-.bond-ticket-grand::before {content:"";position:absolute;left:9px;right:9px;top:11px;height:100px;
-  background:linear-gradient(155deg,#383837,#262625);clip-path:polygon(0 0,100% 0,50% 83%);
-  border:1px solid #ffffff1b;pointer-events:none}
-.bond-ticket-grand-letter {position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;min-height:435px;
-  margin:40px 6px 0;padding:29px 19px 18px;background:#fdfbf6;border:1px solid #d2cdc5;box-shadow:4px 7px 0 #c7c2ba;
-  text-align:center;animation:bondLetterReveal .52s cubic-bezier(.15,.78,.28,1) both}
-.bond-ticket-seal {display:grid;place-items:center;width:57px;height:57px;border:1px solid #4b4944;border-radius:50%;
-  font-size:29px;color:#55524b;margin:0 0 13px}
-.bond-ticket-grand-series {font-size:10px;letter-spacing:.16em;color:#8d877e}
-.couple-content-mode .bond-ticket-grand h3 {margin:10px 0 20px;color:#252421;font-size:26px;font-weight:700;letter-spacing:.05em}
-.bond-ticket-grand-count {margin:0!important;font-size:13px;color:#928c82;font-variant-numeric:tabular-nums}
-.bond-ticket-grand-count strong {font-family:Georgia,serif;font-size:39px;font-weight:400;color:#252421;letter-spacing:-.05em}
-.bond-ticket-grand-progress {height:3px;width:100%;margin:15px auto 24px;background:#d8d3ca}
-.bond-ticket-grand-progress i {display:block;height:100%;background:#292827;transition:width .5s ease}
-.bond-ticket-grand-pact {align-self:stretch;text-align:left;margin:0 0 13px;padding:14px 13px;border-top:1px solid #d0cbc2;border-bottom:1px solid #d0cbc2}
-.bond-ticket-grand-pact strong {display:block;font-size:13px;color:#2c2a27;overflow-wrap:anywhere}
-.bond-ticket-grand-pact>span {display:block;color:#777169;font-size:10px;margin-top:6px}
-.bond-ticket-grand-pact p {font-size:12px;color:#5a564f;line-height:1.6;margin:8px 0 0}
-.bond-ticket-grand-create {align-self:stretch;text-align:left;min-width:0}
-.bond-ticket-grand-create label {display:block;font-size:11px;color:#787169}
-.couple-content-mode .bond-ticket-grand-create textarea {width:100%;min-height:83px;display:block;margin:8px 0 13px;padding:11px;
-  resize:vertical;background:#f8f6f1;border:1px solid #d1cbc2;border-radius:2px;font-size:12px;color:#282624}
-.couple-content-mode .bond-ticket-grand :is(button) {display:block;margin:8px auto 0;min-height:41px;padding:9px 23px;
-  color:#fff;background:#292827;border:1px solid #292827;font-size:12px;font-weight:600}
-.bond-ticket-grand-rules {align-self:stretch;margin-top:auto;padding:18px 0 0;text-align:left;color:#89837a;font-size:11px}
-.bond-ticket-grand-rules>summary {cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;border-top:1px dashed #d2ccc2;padding-top:12px}
-.bond-ticket-grand-rules>summary::after {content:"＋";font-size:13px}
-.bond-ticket-grand-rules[open]>summary::after {content:"−"}
-.bond-ticket-grand-rules p {font-size:11px;line-height:1.6;margin-top:8px;color:#7f7970}
-/* The workshop has a live preview of the very same printable ticket stock. */
-.bond-ticket-editor-wrap {padding:10px 0 7px}
-.bond-ticket-editor-head {display:flex;align-items:center;justify-content:space-between;gap:10px;margin:3px 3px 18px}
-.bond-ticket-editor-head>div {display:flex;flex-direction:column;gap:4px}
-.bond-ticket-editor-head small {font-size:10px;color:#8e887e}
-.bond-ticket-editor-head strong {font-size:23px;color:#292724}
-.couple-content-mode .bond-ticket-editor-head button {display:grid;place-items:center;border:1px solid #ccc6bc;width:38px;min-height:38px;border-radius:50%;padding:0;font-size:23px}
-.bond-ticket-editor-preview {display:flex;flex-direction:column;position:relative;min-height:194px;margin:0 8px 25px;
-  padding:20px 21px 14px 23px;background:#fffefa;border:1px solid #cec9bf;border-bottom:12px solid #292827;
-  box-shadow:4px 6px 0 #d0cbc1;transform:rotate(-1deg);overflow:hidden}
-.bond-ticket-editor-preview-top {display:flex;align-items:start;justify-content:space-between;gap:12px}
-.bond-ticket-editor-preview-top span:first-child {font-size:10px;color:#999389;letter-spacing:.1em}
-.bond-ticket-editor-preview-top span:last-child {font-size:24px;filter:grayscale(1)}
-.bond-ticket-editor-preview>strong {margin:19px 0 4px;font-size:25px;color:#282724;overflow-wrap:anywhere}
-.bond-ticket-editor-preview>p {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:3px 0 12px;
-  font-size:12px;color:#878178;overflow-wrap:anywhere;line-height:1.5}
-.bond-ticket-editor-preview-cut {margin-top:auto;border-top:1px dashed #bcb6ad}
-.bond-ticket-editor-preview footer {display:flex;align-items:center;justify-content:space-between;padding:8px 0 0;gap:10px}
-.bond-ticket-editor-preview footer span {font-size:10px;color:#8e877e}
-.bond-ticket-editor-preview footer b {font:400 27px Georgia,serif;color:#292724}
-.bond-ticket-editor-preview footer b small {font:500 10px inherit;color:#999187}
+.bond-ticket-task-count {font:25px Georgia,serif;color:#aaa397;text-align:center}
+.bond-ticket-task-copy {min-width:0;display:flex;flex-direction:column;gap:7px}
+.bond-ticket-task-copy strong {font-size:13px;color:#3c3934;line-height:1.45;font-weight:650;overflow-wrap:anywhere}
+.bond-ticket-task-copy small {font-size:10px;letter-spacing:.09em;color:#8d867c}
+.couple-content-mode .bond-ticket-task button {width:63px;min-width:63px;height:63px;min-height:63px;padding:5px;
+  border:1px solid #aba397;border-radius:50%;font-size:10px;color:#6c665c;transform:rotate(-11deg)}
+.couple-content-mode .bond-ticket-task button:disabled {opacity:1;color:#aaa399;border-color:#d1cbc2}
+.couple-content-mode .bond-ticket-task button:not(:disabled) {background:#282827;border-color:#282827;color:#fff}
+/* The prize is not a white framed widget: a letter protrudes from an ink envelope. */
+.bond-ticket-grand {position:relative;overflow:hidden;min-height:548px;margin:17px 0 0;padding:34px 12px 28px;
+  background:linear-gradient(180deg,#262625 0 170px,#e7e3dc 170px 100%);border:1px solid #d2cdc5}
+.bond-ticket-grand::before {content:"";position:absolute;top:0;left:0;right:0;height:155px;
+  background:linear-gradient(155deg,#3b3936,#20201f);clip-path:polygon(0 0,100% 0,50% 78%)}
+.bond-ticket-grand-letter {position:relative;display:flex;flex-direction:column;align-items:center;min-height:460px;z-index:2;
+  margin:36px 8px 0;padding:30px 23px 19px;text-align:center;background:#fffefa;border:1px solid #d3cdc3;
+  box-shadow:5px 7px 0 #c3bdb3;animation:letterReveal .55s cubic-bezier(.17,.82,.29,1) both}
+.bond-ticket-seal {display:grid;place-items:center;width:57px;height:57px;border:1px solid #4a4740;border-radius:50%;font-size:28px;color:#615a50;margin:0 0 12px}
+.bond-ticket-grand-series {font-size:10px;letter-spacing:.12em;color:#8f887e}
+.couple-content-mode .bond-ticket-grand h3 {margin:9px 0 20px;font-size:27px;line-height:1.2;font-weight:720;color:#2b2925}
+.bond-ticket-grand-count {margin:0!important;color:#948d84;font-size:13px;font-variant-numeric:tabular-nums}
+.bond-ticket-grand-count strong {font:400 39px Georgia,serif;color:#2a2926}
+.bond-ticket-grand-progress {height:3px;background:#d8d2c9;width:100%;margin:16px 0 25px}
+.bond-ticket-grand-progress i {display:block;height:100%;background:#292827;transition:width .4s ease}
+.bond-ticket-grand-pact {align-self:stretch;text-align:left;padding:11px 0;border-top:1px solid #d9d4cb;border-bottom:1px solid #d9d4cb;margin-bottom:15px}
+.bond-ticket-grand-pact strong {display:block;color:#37322c;font-size:13px;overflow-wrap:anywhere}
+.bond-ticket-grand-pact>span {display:block;color:#827b71;font-size:10px;margin-top:5px}
+.bond-ticket-grand-pact p {font-size:11px;line-height:1.6;color:#6e675f;margin:6px 0}
+.bond-ticket-grand-create {align-self:stretch;text-align:left}
+.bond-ticket-grand-create label {font-size:11px;color:#8a8277}
+.couple-content-mode .bond-ticket-grand-create textarea {width:100%;min-height:79px;margin:8px 0 12px;padding:10px 12px;
+  border-radius:1px;border:1px solid #d4cec5;background:#f8f6f1;color:#2b2925;font-size:12px;resize:vertical}
+.couple-content-mode .bond-ticket-grand button {display:block;min-height:42px;margin:8px auto;padding:9px 20px;background:#2c2a27;color:#fff;border:1px solid #2c2a27;font-weight:650}
+.bond-ticket-grand-rules {align-self:stretch;margin-top:auto;padding:19px 0 0;text-align:left}
+.bond-ticket-grand-rules>summary {display:flex;justify-content:space-between;align-items:center;padding:12px 1px 0;border-top:1px dashed #d1cac0;cursor:pointer;list-style:none;font-size:11px;color:#8d857b}
+.bond-ticket-grand-rules summary::after {content:"＋";font-size:14px}
+.bond-ticket-grand-rules[open] summary::after {content:"−"}
+.bond-ticket-grand-rules p {color:#777068;font-size:11px;line-height:1.6}
+/* Craft desk: preview and editor use the very same material. */
+.bond-ticket-editor-wrap {padding:12px 0 5px}
+.bond-ticket-editor-head {display:flex;justify-content:space-between;align-items:center;margin:3px 3px 18px}
+.bond-ticket-editor-head>div {display:flex;flex-direction:column;gap:5px}
+.bond-ticket-editor-head small {font-size:10px;color:#948c81}
+.bond-ticket-editor-head strong {font-size:22px;color:#2d2a26}
+.couple-content-mode .bond-ticket-editor-head button {display:grid;place-items:center;width:38px;height:38px;min-height:38px;border:1px solid #c9c2b7;border-radius:50%;font-size:23px;padding:0}
+.bond-ticket-editor-preview {display:flex;flex-direction:column;min-height:207px;padding:21px 24px 14px;margin:0 9px 25px;position:relative;
+  background:#fffefa;border:1px solid #cec6ba;border-bottom:12px solid #282827;box-shadow:5px 7px 0 #d0cac0;transform:rotate(-1.5deg)}
+.bond-ticket-editor-preview-top {display:flex;justify-content:space-between;gap:10px;align-items:start}
+.bond-ticket-editor-preview-top span:first-child {font-size:10px;letter-spacing:.12em;color:#8f877b}
+.bond-ticket-editor-preview-top span:last-child {font-size:23px;filter:grayscale(1)}
+.bond-ticket-editor-preview>strong {margin:22px 0 5px;font-size:26px;color:#2b2925;overflow-wrap:anywhere}
+.bond-ticket-editor-preview>p {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#8b8277;font-size:12px;line-height:1.6;margin:0 0 16px;overflow-wrap:anywhere}
+.bond-ticket-editor-preview-cut {margin-top:auto;border-top:1px dashed #beb6ab}
+.bond-ticket-editor-preview footer {display:flex;justify-content:space-between;align-items:center;padding-top:9px}
+.bond-ticket-editor-preview footer span {font-size:10px;color:#979085}
+.bond-ticket-editor-preview footer b {font:400 27px Georgia,serif;color:#2b2925}
+.bond-ticket-editor-preview footer b small {font-size:10px;font-family:inherit}
 .couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
-  margin:0;padding:0 2px;background:transparent;box-shadow:none;border:0;border-radius:0}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label {font-size:11px;color:#747067;min-width:0}
+  padding:0 2px;margin:0;background:transparent;border:0;box-shadow:none}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label {font-size:11px;min-width:0;color:#797268}
 .couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:nth-of-type(2),
 .couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:nth-of-type(3) {grid-column:1/-1}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:has(input[type=checkbox]) {grid-column:1/-1;display:flex;align-items:center;gap:7px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label:has(input[type=checkbox]) {grid-column:1/-1;display:flex;align-items:center;gap:8px}
 .couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label :is(input:not([type=checkbox]),textarea,select) {
-  display:block;width:100%;min-width:0;margin:5px 0 0;padding:9px 5px;min-height:39px;background:#faf8f4;border:1px solid #d5d0c7;
-  border-radius:2px;color:#292724;font:inherit;font-size:13px}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label textarea {min-height:72px;resize:vertical}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions {display:flex;gap:8px;grid-column:1/-1}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button {flex:1;min-height:43px;border:1px solid #bab5ac}
-.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button:first-child {background:#292827;color:#fff}
-.bond-ticket-options {margin:26px 1px 0;border-top:1px solid #cdc9c1}
-.bond-ticket-options>summary {display:flex;align-items:center;justify-content:space-between;padding:13px 5px;cursor:pointer;
-  color:#666159;list-style:none;font-size:11px}
+  display:block;width:100%;min-width:0;min-height:40px;margin:6px 0 0;padding:9px 7px;background:#faf8f3;
+  border:1px solid #d5cec4;border-radius:1px;color:#302c27;font:inherit;font-size:13px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor label textarea {min-height:77px;resize:vertical}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions {display:flex;grid-column:1/-1;gap:9px}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button {flex:1;min-height:43px;border:1px solid #c5beb3}
+.couple-content-mode .bond-ticket-editor-wrap .couple-shop-editor>.couple-actions button:first-child {color:#fff;background:#292827;border-color:#292827}
+.bond-ticket-options {margin:24px 2px 0;border-top:1px solid #d0cac0}
+.bond-ticket-options>summary {display:flex;align-items:center;justify-content:space-between;padding:15px 4px;cursor:pointer;list-style:none;font-size:11px;color:#686259}
 .bond-ticket-options>summary::-webkit-details-marker {display:none}
-.bond-ticket-options summary span {color:#9b948b}
-.bond-ticket-option-body {padding:8px 12px 15px;border:1px solid #ded9d1;background:#efede7}
-.bond-ticket-option-body label {display:flex;align-items:center;gap:8px;padding:10px 2px;font-size:11px;color:#555149;line-height:1.5}
-.bond-ticket-option-body input[type=checkbox] {accent-color:#2c2b29}
-.bond-ticket-option-body small {font-size:10px;color:#8d867d}
-@keyframes bondTicketPull {from{opacity:.35;transform:translateY(65px) rotate(0)}to{opacity:1;transform:translateY(0) rotate(-1deg)}}
-@keyframes bondStamp {0%{opacity:0;transform:rotate(-17deg) scale(1.65)}70%{opacity:1;transform:rotate(-17deg) scale(.96)}100%{opacity:.8;transform:rotate(-17deg) scale(1)}}
-@keyframes bondLetterReveal {from{opacity:.4;transform:translateY(34px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:370px) {
+.bond-ticket-options summary span {color:#a29a8f}
+.bond-ticket-option-body {padding:8px 12px 13px;background:#ede9e2;border:1px solid #d8d1c7}
+.bond-ticket-option-body label {display:flex;gap:9px;align-items:center;padding:10px 2px;font-size:11px;line-height:1.55;color:#575149}
+.bond-ticket-option-body input[type=checkbox] {accent-color:#292827}
+.bond-ticket-option-body small {font-size:10px;color:#888075}
+@keyframes walletPull {from{opacity:.55;transform:translateY(63px) rotate(.5deg)}to{opacity:1;transform:translateY(0) rotate(-1.3deg)}}
+@keyframes stamp {0%{opacity:0;transform:rotate(-18deg) scale(1.6)}65%{opacity:.92;transform:rotate(-18deg) scale(.96)}100%{opacity:.78;transform:rotate(-18deg) scale(1)}}
+@keyframes letterReveal {from{opacity:.4;transform:translateY(38px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:375px) {
   .couple-content-mode .bond-ticket-room {padding-inline:11px}
-  .bond-ticket-ledger-main>strong {font-size:32px}
-  .bond-ticket-ledger-main {gap:8px}
+  .bond-ticket-ledger-main {gap:7px}
+  .bond-ticket-ledger-main>strong {font-size:33px}
   .bond-ticket-ledger-other {padding-left:8px}
   .bond-ticket-ledger-other>span {font-size:9px}
   .bond-ticket-ledger-other b {font-size:10px}
-  .bond-ticket-paper {padding:16px 17px 13px}
-  .couple-content-mode .bond-ticket-paper-main h3 {font-size:26px}
-  .couple-content-mode .bond-ticket-pass {min-height:289px}
-  .bond-ticket-paper {min-height:234px}
-  .bond-machine-housing {min-height:438px}
-  .bond-ticket-tear-tab {padding-inline:12px}
+  .bond-ticket-shelves {gap:12px}
+  .bond-ticket-stack {width:calc(100% - 21px)}
+  .bond-ticket-paper {padding:18px 17px 14px;min-height:262px}
+  .couple-content-mode .bond-ticket-paper-main h3 {font-size:29px}
+  .bond-ticket-paper-icon {font-size:29px}
+  .bond-ticket-paper-price strong {font-size:27px}
+  .bond-ticket-tear-tab {padding-inline:12px;min-height:68px}
   .couple-content-mode .bond-ticket-room .bond-ticket-buy {min-width:102px;padding-inline:10px}
-  .bond-ticket-paper-price strong {font-size:25px}
-  .bond-ticket-task {grid-template-columns:29px minmax(0,1fr) 57px;gap:5px}
-  .couple-content-mode .bond-ticket-task button {min-width:55px;width:55px;height:55px;min-height:55px;font-size:9px}
-  .bond-ticket-wallet-top h3 {font-size:21px!important}
+  .bond-ticket-tear-word {font-size:10px}
+  .bond-ticket-task {grid-template-columns:28px minmax(0,1fr) 57px;gap:6px}
+  .couple-content-mode .bond-ticket-task button {width:56px;min-width:56px;height:56px;min-height:56px;font-size:9px}
 }
 @media(max-width:325px) {
   .bond-ticket-ledger-other>span {font-size:9px}
-  .bond-ticket-shelves {gap:12px}
-  .bond-ticket-machine {margin-inline:-2px}
-  .bond-ticket-paper {padding:14px 13px 12px}
-  .couple-content-mode .bond-ticket-paper-main h3 {font-size:23px}
+  .bond-ticket-stack {width:calc(100% - 15px)}
+  .bond-ticket-paper {padding:16px 13px 12px}
+  .couple-content-mode .bond-ticket-paper-main h3 {font-size:24px}
   .bond-ticket-paper-price>span {font-size:9px}
-  .bond-ticket-wallet-pass {padding-inline:20px}
+  .bond-ticket-wallet-pass {padding-inline:18px}
+  .bond-ticket-tear-word small {display:none}
 }
 @media(prefers-reduced-motion:reduce) {
   .bond-ticket-pass,.bond-ticket-wallet-pass,.bond-ticket-grand-letter {animation-duration:.01ms!important}
   .bond-ticket-stack[data-motion="issuing"] .bond-ticket-pass {animation-duration:.01ms!important}
-  .bond-machine-footer .bond-machine-progress,.bond-ticket-grand-progress i {transition:none!important}
+  .bond-machine-progress,.bond-ticket-grand-progress i {transition:none}
 }
