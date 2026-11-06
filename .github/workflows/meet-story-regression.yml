@@ -202,7 +202,17 @@ jobs:
               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
               --screenshot="${prefix}.png" "$url" >/dev/null 2>&1
           done
-          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 portrait-input portrait-keyboard portrait-zoom; do
+          # A portrait handset can have a landscape-shaped CSS viewport after
+          # the keyboard opens; it must still use the narrow-phone layout.
+          url="http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=keyboard"
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,360 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --dump-dom "$url" > output/meet-landscape/portrait-short-keyboard.html 2> output/meet-landscape/portrait-short-keyboard.log
+          grep -q 'data-meet-landscape-ready="true"' output/meet-landscape/portrait-short-keyboard.html
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,360 --force-device-scale-factor=1 --virtual-time-budget=8000 \
+            --screenshot=output/meet-landscape/portrait-short-keyboard.png "$url" >/dev/null 2>&1
+          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 portrait-input portrait-keyboard portrait-zoom portrait-short-keyboard; do
             echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_BEGIN"
             base64 -w0 "output/meet-landscape/${frame}.png"
             echo
