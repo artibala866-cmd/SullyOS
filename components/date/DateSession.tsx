@@ -202,22 +202,51 @@ const DateSession: React.FC<DateSessionProps> = ({
 }) => {
     const { addToast, registerBackHandler, apiConfig, updateCharacter } = useOS();
     const sessionRootRef = useRef<HTMLDivElement>(null);
-    // Android may shrink visualViewport without resizing the app shell.
-    // Keep dialogue and input inside the actual visible keyboard-safe height.
+    // Keep the full-size Meet sprite stage when an Android keyboard overlays the
+    // visual viewport. The previous maxHeight shrank the entire stage to the
+    // remaining ~90px of landscape screen and turned the character into a dot.
+    // Position only the dialogue/composer inside the visible portion instead.
     useEffect(() => {
         const viewport = window.visualViewport;
+        const scene = { width: 0, height: 0 };
         let frame = 0;
         const sync = () => {
             cancelAnimationFrame(frame);
             frame = requestAnimationFrame(() => {
                 const root = sessionRootRef.current;
                 if (!root || (viewport && viewport.scale !== 1)) return;
+                // Remove temporary constraints before measuring parent layout.
+                root.style.height = '';
+                root.style.minHeight = '';
                 root.style.maxHeight = '';
                 const bounds = root.getBoundingClientRect();
                 const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
-                if (bounds.height > 0 && visibleBottom < bounds.bottom - 1) {
-                    root.style.maxHeight = `${Math.max(0, visibleBottom - bounds.top)}px`;
+                const visibleHeight = Math.max(0, visibleBottom - bounds.top);
+                const width = window.innerWidth;
+                if (scene.width !== width) {
+                    scene.width = width;
+                    scene.height = Math.max(bounds.height, visibleHeight);
                 }
+                const active = document.activeElement;
+                const isEditing = !!active && root.contains(active)
+                    && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement);
+                const keyboardInset = Math.max(0, scene.height - visibleHeight);
+                const hasKeyboard = isEditing && keyboardInset >= 80;
+                if (!hasKeyboard) {
+                    // Refresh after the keyboard closes, including orientation changes.
+                    scene.height = Math.max(bounds.height, visibleHeight);
+                    root.classList.remove('date-session-keyboard-open');
+                    root.style.removeProperty('--date-visible-height');
+                    root.style.removeProperty('--date-scene-height');
+                    return;
+                }
+                const originalHeight = Math.max(scene.height, bounds.height);
+                root.style.height = `${originalHeight}px`;
+                root.style.minHeight = `${originalHeight}px`;
+                root.style.maxHeight = 'none';
+                root.style.setProperty('--date-visible-height', `${Math.min(originalHeight, visibleHeight)}px`);
+                root.style.setProperty('--date-scene-height', `${originalHeight}px`);
+                root.classList.add('date-session-keyboard-open');
             });
         };
         sync();
@@ -225,15 +254,27 @@ const DateSession: React.FC<DateSessionProps> = ({
         viewport?.addEventListener('scroll', sync);
         window.addEventListener('resize', sync);
         window.addEventListener('orientationchange', sync);
+        document.addEventListener('focusin', sync);
+        document.addEventListener('focusout', sync);
         return () => {
             cancelAnimationFrame(frame);
             viewport?.removeEventListener('resize', sync);
             viewport?.removeEventListener('scroll', sync);
             window.removeEventListener('resize', sync);
             window.removeEventListener('orientationchange', sync);
+            document.removeEventListener('focusin', sync);
+            document.removeEventListener('focusout', sync);
+            const root = sessionRootRef.current;
+            if (root) {
+                root.style.height = '';
+                root.style.minHeight = '';
+                root.style.maxHeight = '';
+                root.style.removeProperty('--date-visible-height');
+                root.style.removeProperty('--date-scene-height');
+            }
         };
     }, []);
-    
+
     const readingStyle = meetingAppearance(char.dateAppearance);
     const decoratedReading = readingStyle.id !== 'none';
     const lightReading = decoratedReading ? readingStyle.id !== 'night' : char.dateLightReading;
