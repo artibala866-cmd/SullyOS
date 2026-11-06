@@ -188,6 +188,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     {selectedGreeting && <div className='mt-3 border-t border-slate-100 pt-3'>
                         <textarea
                             ref={greetingTextarea}
+                            data-story-opening-editor='true'
                             aria-label='编辑开场内容'
                             value={editingGreeting ? greetingText : selectedGreeting.content}
                             onChange={event => {
