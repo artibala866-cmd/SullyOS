@@ -161,9 +161,9 @@ export const expandSillyTavernPromptText = (
  */
 export const normalizeSillyTavernStoryOutput = (value: string): string => {
     const withoutClosedThinking = String(value || '')
-        .replace(/<thinking\\b[^>]*>[\\s\\S]*?<\\/thinking\\s*>/gi, '');
+        .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking\s*>/gi, '');
     // Some compatible endpoints omit the opening tag but emit the closing one.
-    const withoutOrphanedPrefix = withoutClosedThinking.replace(/^[\\s\\S]*?<\\/thinking\\s*>/i, '');
+    const withoutOrphanedPrefix = withoutClosedThinking.replace(/^[\s\S]*?<\/thinking\s*>/i, '');
     return withoutOrphanedPrefix.trim();
 };
 
