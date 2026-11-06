@@ -126,6 +126,25 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(native.document.prompts.find(p => p.id === 'st-chat-depth')?.injection?.depth).toBe(1);
     });
 
+    it('关闭全部酒馆条目仍可导入编辑，不会意外开启提示词', () => {
+        const emptyActive = {
+            ...tavern,
+            temperature: null,
+            top_p: null,
+            prompt_order: [{ character_id: 100001, order: tavern.prompt_order[0].order.map(item => ({
+                ...item, enabled: false,
+            })) }],
+        };
+        const doc = parseStoryTheaterPreset(JSON.stringify(emptyActive), '停用中.json').document;
+        expect(doc.prompts.every(item => !item.enabled)).toBe(true);
+        expect(doc.prompts).toHaveLength(tavern.prompts.length);
+        expect(doc.generation.temperature).toBe(0.9);
+        expect(doc.generation.topP).toBe(1);
+        expect(compileStoryPreset({ preset: { id: 'off', name: '停用', format: 'sullyos-story-preset',
+            createdAt: 1, updatedAt: 1, document: doc }, slots, userName: '你', characterNames: ['角色'] }).messages)
+            .toHaveLength(0);
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
