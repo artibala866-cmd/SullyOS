@@ -212,13 +212,16 @@
 /* The settings preview shares the real sprite stage geometry for both rotations.
    Unlike the old fixed 256px preview, it uses the orientation's actual ratio. */
 .date-settings-sprite-preview {
-  aspect-ratio: 9 / 16;
-  width: min(100%, calc(68dvh * 9 / 16));
+  /* 19.5:9 matches the tall phone used by Meet, unlike a generic 16:9 crop. */
+  aspect-ratio: 9 / 19.5;
+  width: min(100%, calc(68dvh * 9 / 19.5));
   margin-inline: auto;
 }
 @media (orientation: landscape) and (max-height: 760px) {
   .date-settings-sprite-preview {
-    aspect-ratio: 16 / 9;
-    width: min(100%, calc(68dvh * 16 / 9));
+    aspect-ratio: 19.5 / 9;
+    width: min(100%, calc(68dvh * 19.5 / 9));
   }
 }
+
+.date-settings-sprite-preview .date-session-sprite-stage.date-session-sprite-zoomed { padding-top: clamp(8px, 4dvh, 44px); }
