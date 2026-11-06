@@ -732,10 +732,24 @@ export const applyStoryPresetChoice = (
     prompts: document.prompts.map(prompt => optionIds.includes(prompt.id) ? { ...prompt, enabled: prompt.id === selectedId } : prompt),
 });
 
-const macroReplace = (text: string, userName: string, characterNames: string[]): string => text
-    .replace(/\{\{user\}\}/gi, userName || '你')
-    .replace(/\{\{char\}\}/gi, characterNames.join('、') || '角色')
-    .replace(/\{\{group\}\}/gi, characterNames.join('、') || '角色');
+/** Runtime binding for user/character names. Never bake identity names into an imported preset. */
+const macroReplace = (text: string, userName: string, characterNames: string[]): string => {
+    const user = userName || '你';
+    const char = characterNames.join('、') || '角色';
+    const inGroup = characterNames.length > 1;
+    const values: Record<string, string> = {
+        user, char, group: char, groupnotmuted: char,
+        charifnotgroup: inGroup ? '' : char,
+        notchar: inGroup ? char : user,
+    };
+    return text
+        .replace(/\{\{\s*(user|char|group|groupnotmuted|charifnotgroup|notchar)\s*\}\}/gi,
+            (raw, name: string) => values[name.toLowerCase()] ?? raw)
+        .replace(/<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>/gi, (raw, name: string) => ({
+            USER: user, BOT: char, CHAR: char, GROUP: char,
+            CHARIFNOTGROUP: inGroup ? '' : char,
+        }[name.toUpperCase()] ?? raw));
+};
 
 /** 仅在尚无剧情正文时使用：把选中的酒馆开场白转成真实的首条角色消息。 */
 export const resolveStoryOpeningGreeting = (
