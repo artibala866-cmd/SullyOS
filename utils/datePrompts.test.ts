@@ -52,6 +52,19 @@ describe('DatePrompts.buildSessionPayload', () => {
         expect(sys).not.toContain('叙事人称');
     });
 
+    it('场景标签只供已配置图片的地点使用，原本的 VN 表情规则不受影响', async () => {
+        const char = makeChar({ dateSceneBackgrounds: { bedroom: 'blobref:bed', work: 'https://example.com/work.jpg' } });
+        const { messages } = await DatePrompts.buildSessionPayload(baseInput(char));
+        const sys = sysOf(messages);
+        expect(sys).toContain('bedroom=卧室');
+        expect(sys).toContain('work=工作');
+        expect(sys).toContain('[scene:bedroom]');
+        expect(sys).not.toContain('kitchen=厨房');
+        expect(sys).toContain('同一地点持续时无需重复');
+        const noScenes = await DatePrompts.buildSessionPayload(baseInput(makeChar()));
+        expect(sysOf(noScenes.messages)).not.toContain('场景切换');
+    });
+
     it('按 dateStyleConfig.style 切换风格块', async () => {
         for (const preset of DATE_STYLE_PRESETS) {
             const char = makeChar({ dateStyleConfig: { style: preset.id } });

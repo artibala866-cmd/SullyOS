@@ -7,6 +7,7 @@ import { useOS } from '../../context/OSContext';
 import DateSettings from './DateSettings';
 import ObserveHUD from './ObserveHUD';
 import { extractObservation, hasObservation } from '../../utils/datePrompts';
+import { extractDateSceneTag, type DateSceneKey } from '../../utils/dateScenes';
 import { useBlobRefUrl } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 
@@ -83,11 +84,14 @@ const parseDialogue = (fullText: string, initialEmotion: string = 'normal'): Dia
     const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const results: DialogueItem[] = [];
     let currentEmotion = initialEmotion;
+    let pendingScene: DateSceneKey | undefined;
 
     for (const rawLine of lines) {
         if (isContextNoise(rawLine)) continue;
         // 先把独立的语音情绪标记 [v:xxx] 抽出来（跟立绘情绪互不影响），再解析立绘标签
-        const { voiceEmotion, rest } = extractVoiceEmotionTag(rawLine);
+        const { rest: sceneRest, scene } = extractDateSceneTag(rawLine);
+        if (scene) pendingScene = scene;
+        const { voiceEmotion, rest } = extractVoiceEmotionTag(sceneRest);
         const line = rest.trim();
         if (!line) continue;
         const tagMatch = line.match(/^\[([a-zA-Z0-9_\-]+)\]\s*(.*)/);
@@ -104,7 +108,8 @@ const parseDialogue = (fullText: string, initialEmotion: string = 'normal'): Dia
             }
         }
         if (content) {
-            results.push({ text: content, emotion: currentEmotion, voiceEmotion });
+            results.push({ text: content, emotion: currentEmotion, voiceEmotion, scene: pendingScene });
+            pendingScene = undefined;
         }
     }
     return results;
@@ -202,6 +207,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [isNovelMode, setIsNovelMode] = useState(decoratedReading);
     useEffect(() => { if (decoratedReading) setIsNovelMode(true); }, [readingStyle.id]);
     const [bgImage, setBgImage] = useState<string>(char.dateBackground || '');
+    const [currentSceneKey, setCurrentSceneKey] = useState<DateSceneKey | ''>('');
     // bgImage state 里存的一直是原始字段值（令牌 / data: / 外链），只在渲染这一刻解析成能喂 CSS 的 url
     const bgImageUrl = useBlobRefUrl(bgImage);
     const [currentSprite, setCurrentSprite] = useState<string>('');
@@ -567,7 +573,9 @@ const DateSession: React.FC<DateSessionProps> = ({
         if (initialState) {
             // Resume: 新快照只保存 sprite key，不再复制 base64；旧快照的 bg/currentSprite 仍兼容读取一次。
             const restoredSprite = resolveSpriteFromState(initialState);
-            setBgImage(char.dateBackground || initialState.bgImage || '');
+            const savedScene = initialState.currentSceneKey || '';
+            setCurrentSceneKey(savedScene);
+            setBgImage((savedScene && char.dateSceneBackgrounds?.[savedScene]) || char.dateBackground || initialState.bgImage || '');
             setCurrentSprite(restoredSprite.src);
             setCurrentSpriteKey(restoredSprite.key);
             setCurrentText(initialState.currentText || '');
@@ -594,8 +602,14 @@ const DateSession: React.FC<DateSessionProps> = ({
                 const first = items[0];
                 setCurrentText(first.text);
                 currentLineEmotionRef.current = first.voiceEmotion;
-                // Note: Not setting sprite here because useEffect below will handle emotion->sprite mapping if needed,
-                // or we rely on default.
+                if (first.scene && char.dateSceneBackgrounds?.[first.scene]) {
+                    setCurrentSceneKey(first.scene);
+                    setBgImage(char.dateSceneBackgrounds[first.scene]!);
+                }
+                if (first.emotion && activeSprites[first.emotion]) {
+                    setCurrentSprite(activeSprites[first.emotion]);
+                    setCurrentSpriteKey(first.emotion);
+                }
                 setDialogueQueue(items.slice(1));
             }
         }
@@ -604,12 +618,13 @@ const DateSession: React.FC<DateSessionProps> = ({
     // Sprite & Config Sync (If user goes to settings and comes back, this helps)
     useEffect(() => {
         if (char.spriteConfig) setSpriteConfig(char.spriteConfig);
-        if (char.dateBackground || !initialState?.bgImage) setBgImage(char.dateBackground || '');
+        const selectedBackground = currentSceneKey && char.dateSceneBackgrounds?.[currentSceneKey];
+        if (selectedBackground || char.dateBackground || !initialState?.bgImage) setBgImage(selectedBackground || char.dateBackground || '');
         if (currentSpriteKey) {
             const resolved = resolveSpriteByKey(currentSpriteKey);
             if (resolved.src) setCurrentSprite(resolved.src);
         }
-    }, [char, currentSpriteKey]);
+    }, [char, currentSpriteKey, currentSceneKey]);
 
     // Novel Mode Scroll
     const readingPosition = useRef({ first: 0, last: 0, height: 0, top: 0, nearBottom: true, active: false });
@@ -661,6 +676,10 @@ const DateSession: React.FC<DateSessionProps> = ({
     const processNextDialogue = (item: DialogueItem, remaining: DialogueItem[]) => {
         setCurrentText(item.text);
         currentLineEmotionRef.current = item.voiceEmotion;
+        if (item.scene && char.dateSceneBackgrounds?.[item.scene]) {
+            setCurrentSceneKey(item.scene);
+            setBgImage(char.dateSceneBackgrounds[item.scene]!);
+        }
         if (item.emotion && activeSprites) {
             const emotionKey = item.emotion.toLowerCase();
             if (dateEmotionKeys.includes(emotionKey)) {

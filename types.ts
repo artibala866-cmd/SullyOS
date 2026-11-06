@@ -2122,6 +2122,8 @@ export interface DialogueItem {
     emotion?: string;
     /** 语音情绪，来自独立标记 [v:xxx]，跟立绘分开。仅取合法 MiniMax emotion，否则 undefined。 */
     voiceEmotion?: string;
+    /** 见面背景切换标签，与表情独立。 */
+    scene?: import('./utils/dateScenes').DateSceneKey;
 }
 
 /**
@@ -2191,6 +2193,8 @@ export interface DateState {
     currentSprite?: string;
     /** 当前立绘对应的情绪 key，只存引用信息，避免把 base64 立绘重复塞进 savedDateState。 */
     currentSpriteKey?: string;
+    /** 恢复会话时所在背景槽。 */
+    currentSceneKey?: import('./utils/dateScenes').DateSceneKey;
     /** 恢复时优先按当时的皮肤集找 currentSpriteKey，皮肤不存在再回退当前皮肤/默认立绘。 */
     activeSkinSetId?: string;
     isNovelMode: boolean;
@@ -2981,6 +2985,8 @@ export interface CharacterProfile {
   hideBeforeMessageId?: number; 
   
   dateBackground?: string;
+  /** 见面立绘模式的室外/卧室/浴室/厨房/工作独立背景槽。 */
+  dateSceneBackgrounds?: import('./utils/dateScenes').DateSceneBackgrounds;
   sprites?: Record<string, string>;
   spriteConfig?: SpriteConfig;
   customDateSprites?: string[]; // User-added custom emotion names for date mode (per-character)

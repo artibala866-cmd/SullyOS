@@ -7,6 +7,7 @@ import { CharacterProfile, SpriteConfig, SkinSet, DateStyleConfig } from '../../
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import { pickDateFallbackSprite } from '../../utils/dateSprites';
+import { DATE_SCENES, type DateSceneKey } from '../../utils/dateScenes';
 import TokenImg from '../os/TokenImg';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
 import ObserveSettings from './ObserveSettings';
@@ -74,7 +75,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     }, []);
     // 背景字段存的是 blobref 令牌（二进制在 IndexedDB），CSS url() 喂不了令牌，
     // 先在这里解析成能直接用的地址。非令牌值（旧 data: / 外链）原样透传。
-    const dateBackgroundUrl = useBlobRefUrl(char.dateBackground);
+    const [previewSceneKey, setPreviewSceneKey] = useState<DateSceneKey | ''>('');
+    const dateBackgroundUrl = useBlobRefUrl((previewSceneKey && char.dateSceneBackgrounds?.[previewSceneKey]) || char.dateBackground);
 
     // 文风与叙事（即时生效：system prompt 每次请求重建，存上就影响下一条回复）
     const styleConfig = char.dateStyleConfig || {};
@@ -99,7 +101,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         { id: 'first-you', label: '第一人称', example: '我看着你' },
     ];
 
-    const [uploadTarget, setUploadTarget] = useState<'bg' | 'sprite' | 'skin-sprite'>('bg');
+    const [uploadTarget, setUploadTarget] = useState<'bg' | 'scene' | 'sprite' | 'skin-sprite'>('bg');
+    const [targetSceneKey, setTargetSceneKey] = useState<DateSceneKey>('outdoor');
+    const [sceneUrlTarget, setSceneUrlTarget] = useState<DateSceneKey | null>(null);
+    const [sceneUrlInput, setSceneUrlInput] = useState('');
     const [targetEmotionKey, setTargetEmotionKey] = useState<string>('');
     const [tempSpriteConfig, setTempSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
     const [newEmotionName, setNewEmotionName] = useState<string>('');
@@ -142,6 +147,35 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         fileInputRef.current?.click();
     };
 
+    const triggerSceneUpload = (key: DateSceneKey) => {
+        setPreviewSceneKey(key);
+        setTargetSceneKey(key);
+        setUploadTarget('scene');
+        fileInputRef.current?.click();
+    };
+    const updateScene = (key: DateSceneKey, value?: string) => {
+        const backgrounds = { ...(char.dateSceneBackgrounds || {}) };
+        if (value) backgrounds[key] = value;
+        else delete backgrounds[key];
+        updateCharacter(char.id, { dateSceneBackgrounds: backgrounds });
+    };
+    const saveSceneUrl = () => {
+        if (!sceneUrlTarget) return;
+        const url = sceneUrlInput.trim();
+        try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('protocol');
+        } catch {
+            addToast('请输入有效的 http/https 图片链接', 'error');
+            return;
+        }
+        updateScene(sceneUrlTarget, url);
+        setPreviewSceneKey(sceneUrlTarget);
+        setSceneUrlTarget(null);
+        setSceneUrlInput('');
+        addToast('场景背景链接已保存', 'success');
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -157,6 +191,13 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 return;
             }
 
+            if (uploadTarget === 'scene') {
+                const blob = await processImageToBlob(file, { skipCompression: true });
+                const ref = await putImageBlob(blob);
+                updateScene(targetSceneKey, ref);
+                addToast('场景背景已保存', 'success');
+                return;
+            }
             // 立绘也改存 Blob，字段里只留 blobref 令牌。压缩口径和以前一模一样：
             // 不传参 = 长边 1200 / 质量 0.85 / PNG·WebP 保留透明通道，只是产物从
             // base64 换成二进制。别跟着背景抄 skipCompression，那是背景要原画质。
@@ -458,6 +499,31 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </Section>
                 
+                <Section title="基础场景背景">
+                    <p className="text-[11px] text-slate-400 mb-3">点击图片上传对应场景，或粘贴图床链接。角色只会在剧情切换地点时换背景，未配置的场景不会被调用。</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        {DATE_SCENES.map(({ key, label }) => {
+                            const image = char.dateSceneBackgrounds?.[key];
+                            return (
+                                <div key={key} data-date-scene={key} className="min-w-0">
+                                    <button type="button" aria-label={`上传${label}背景`} onClick={() => triggerSceneUpload(key)}
+                                        className={`relative aspect-video w-full rounded-xl border overflow-hidden flex items-center justify-center ${image ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-slate-100'}`}>
+                                        {image ? <TokenImg value={image} className="w-full h-full object-cover" /> : <span className="text-slate-300 text-2xl">+</span>}
+                                    </button>
+                                    <div className="flex items-center justify-between gap-1 pt-1">
+                                        <span className="text-[11px] font-bold text-slate-600">{label} <span className="text-slate-400 font-normal">{key}</span></span>
+                                        <div className="flex shrink-0 items-center gap-1">
+                                            <button type="button" className="text-[10px] text-slate-500 px-1 py-1" onClick={() => { setSceneUrlTarget(key); setSceneUrlInput(image?.startsWith('http') ? image : ''); }}>链接</button>
+                                            {image && <button type="button" className="text-[10px] text-slate-400 px-1 py-1" onClick={() => { updateScene(key); if (previewSceneKey === key) setPreviewSceneKey(''); }}>清除</button>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button type="button" className="mt-3 text-[11px] text-slate-400 underline underline-offset-2" onClick={() => setPreviewSceneKey('')}>预览默认背景</button>
+                </Section>
+
                 <Section title="基础情绪立绘">
                     <div className="grid grid-cols-3 gap-3">
                         {REQUIRED_EMOTIONS.map(key => (
@@ -633,6 +699,19 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
             {extraEditorOpen && <DateExtraEditor key={char.id} value={extraDraft} onChange={setExtraDraft}
                 onClose={() => { saveExtraDraft(); setExtraEditorOpen(false); }} />}
+
+            {sceneUrlTarget && (
+                <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setSceneUrlTarget(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-4 space-y-4" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-sm font-bold text-slate-700">配置{DATE_SCENES.find(item => item.key === sceneUrlTarget)?.label}背景链接</h3>
+                        <input aria-label="场景图片 URL" type="url" value={sceneUrlInput} onChange={e => setSceneUrlInput(e.target.value)} placeholder="https://example.com/background.jpg" className="w-full px-3 py-2.5 rounded-xl bg-slate-100 text-sm outline-none" />
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setSceneUrlTarget(null)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-xs text-slate-600">取消</button>
+                            <button type="button" onClick={saveSceneUrl} className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-white">保存链接</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* URL Input Modal */}
             {showUrlModal && (

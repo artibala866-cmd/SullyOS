@@ -23,6 +23,7 @@
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig, DateObservation, DateObserveConfig, DateObserveCustomField } from '../types';
 import { ContextBuilder } from './context';
 import { ChatPrompts } from './chatPrompts';
+import { configuredDateScenes } from './dateScenes';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { getVoicePromptOverride } from './ttsProvider';
@@ -583,6 +584,8 @@ const buildVNModeBlock = (char: CharacterProfile, userName: string): string => {
     const dateTimeOn = isDateTimeAwarenessOn(char);
     const timeLine = dateTimeOn ? `1. **Time**: 当前时间 ${getRealTimeStr(resolveCharTimeZone(char))}。\n` : '';
     const dateEmotions = getDateEmotions(char);
+    const sceneChoices = configuredDateScenes(char.dateSceneBackgrounds).map(item => `${item.key}=${item.label}`).join('、');
+    const sceneBlock = sceneChoices ? `3. **场景切换**: 角色可用背景仅有 ${sceneChoices}。只有剧情实际进入其中某场景时，才在对应正文前单独输出一行 [scene:英文键]（例如 [scene:bedroom]），也允许与 [emotion] 标签放在同一行。此标签只负责背景切换，不是动作、台词或表情。同一地点持续时无需重复，禁止为了切换而改变剧情；没有配置背景的地点绝对不要输出场景标签。单独的场景切换行是每行以情绪标签开头规则的唯一例外。\n` : '';
     const styleConfig = char.dateStyleConfig;
     const preset = getStylePreset(styleConfig);
     const povBlock = buildPovBlock(styleConfig, char.name, userName);
@@ -596,7 +599,7 @@ const buildVNModeBlock = (char: CharacterProfile, userName: string): string => {
 前端解析器基于**换行符**来分割气泡。
 1. **禁止混写**: 严禁在同一行里既写动作又写带引号的台词。
 2. **情绪标签**: **每一行都必须以** \`[emotion]\` **开头**，表示该行的表情立绘。逐行结合台词、动作和上下文选择最贴切的表情，细微情绪也要体现；[normal] 用于确实平静或中性的状态，不是默认占位符。已有笑意、低落、恼意或羞赧时，应从可用标签中选对应表情，不要把明确情绪全标成 [normal]。同一情绪延续时，相邻行可以重复标签；情绪发生变化时及时切换，不为了凑标签种类制造情绪。仅限使用以下情绪: ${dateEmotions.join(', ')}。不要使用任何不在此列表中的标签。
-3. **格式**: 台词用双引号 **"..."**，动作/叙述直接写（不加引号）。
+${sceneBlock}3. **格式**: 台词用双引号 **"..."**，动作/叙述直接写（不加引号）。
 ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : ''}
 
 ${preset.block}
