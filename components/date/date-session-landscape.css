@@ -1,9 +1,95 @@
-/* Compact landscape for Meet visual-novel mode.
-   Portrait and regular desktop layouts retain their existing design. */
+/* Meet uses one responsive viewport for its sprite, dialogue, input and controls.
+   Keep the saved sprite coordinates unchanged. Only protect a zoomed sprite's head
+   by moving its transform origin to the top (in settings and in the session). */
+.date-session-root { min-height: 0; }
+.date-session-root .date-session-sprite-stage.date-session-sprite-zoomed {
+  align-items: flex-start;
+  padding-top: clamp(12px, 6dvh, 64px);
+  box-sizing: border-box;
+}
+.date-session-root .date-session-sprite-stage.date-session-sprite-zoomed > img {
+  transform-origin: center top;
+}
+/* The action buttons stay visible while the opened menu alone scrolls. */
+.date-session-root .date-session-controls { overflow: visible; }
+.date-session-root .date-session-menu-items {
+  max-height: max(90px, calc(100dvh - 142px - env(safe-area-inset-top, 0px)));
+  max-width: min(90vw, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.35) transparent;
+  padding: 3px 4px 5px 8px;
+  pointer-events: auto;
+}
+
+/* Portrait is not a scaled-up landscape screen. Reserve separate, small
+   non-overlapping areas for reading, typing and the device's keyboard. */
+@media (orientation: portrait) and (max-width: 800px) {
+  .date-session-root .date-session-controls {
+    padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 0 0;
+  }
+  .date-session-root .date-session-menu-items {
+    max-height: max(90px, calc(100dvh - 150px - env(safe-area-inset-top, 0px)));
+  }
+  .date-session-root .date-session-dialogue-position {
+    inset: auto 12px max(16px, env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+  .date-session-root .date-session-dialogue-card {
+    width: 100%;
+    max-width: 520px;
+    min-height: 0;
+    max-height: min(27dvh, 225px);
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* The name must be inside a scrollable panel, never clipped by its top edge. */
+  .date-session-root .date-session-dialogue-card > div:first-child {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin-bottom: 5px;
+  }
+  .date-session-root.date-session-input-open .date-session-dialogue-position {
+    bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+  }
+  .date-session-root.date-session-input-open .date-session-dialogue-card {
+    max-height: min(19dvh, 142px);
+    padding: 12px 15px;
+  }
+  .date-session-root .date-session-dialogue-text {
+    font-size: 14px;
+    line-height: 1.45;
+    margin-top: 4px;
+  }
+  .date-session-root .date-session-input-layer {
+    inset: auto 12px max(12px, env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+  .date-session-root .date-session-input-box {
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 0;
+    gap: 5px;
+    padding: 6px;
+  }
+  .date-session-root .date-session-input-text,
+  .date-session-root .date-session-send-button {
+    height: 50px;
+    min-height: 50px;
+  }
+  .date-session-root .date-session-typing-indicator {
+    bottom: calc(100% + 8px);
+  }
+}
+/* A phone rotated sideways must keep the sprite at left and a truly compact
+   readable conversation at right. Avoid an oversized, full-width dialogue. */
 @media (orientation: landscape) and (max-height: 760px) {
   .date-session-root .date-session-sprite-stage {
-    inset: auto auto 0 0;
-    width: 58%;
+    inset: auto auto 0 max(0px, env(safe-area-inset-left, 0px));
+    width: 56%;
     height: 100%;
     justify-content: center;
     align-items: flex-end;
@@ -12,68 +98,69 @@
   .date-session-root .date-session-sprite-stage > img {
     max-height: 96%;
     max-width: 100%;
-    /* Preserve the existing sprite position while limiting portrait-scale zoom. */
+    /* Compensate only the landscape overflow; do not rewrite saved settings. */
     scale: var(--date-landscape-fit-scale, 1);
+  }
+  .date-session-root .date-session-sprite-stage.date-session-sprite-zoomed {
+    align-items: flex-start;
+    padding-top: clamp(8px, 4dvh, 24px);
+  }
+  .date-session-root .date-session-sprite-stage.date-session-sprite-zoomed > img {
+    max-height: 100%;
   }
   .date-session-root .date-session-controls {
     top: 0;
     right: 0;
-    padding: 8px max(10px, env(safe-area-inset-right, 0px));
-    max-height: calc(100% - 8px);
-    max-width: min(48%, 310px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,.3) transparent;
+    padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px));
+    max-width: min(44%, 350px);
   }
-  .date-session-root .date-session-controls > .date-session-menu-items {
-    flex-shrink: 0;
+  .date-session-root .date-session-menu-items {
+    max-height: max(85px, calc(100dvh - 115px - env(safe-area-inset-top, 0px)));
+    max-width: 100%;
   }
   .date-session-root .date-session-observe {
-    padding: 8px 12px;
-    max-width: 46%;
+    padding: 8px max(10px, env(safe-area-inset-left, 0px));
+    max-width: 45%;
     max-height: calc(100% - 12px);
     overflow-y: auto;
   }
   .date-session-root .date-session-dialogue-position {
-    inset: auto max(12px, 2.5%) 12px auto;
-    width: min(42%, 520px);
-    max-height: 42%;
+    inset: auto max(12px, env(safe-area-inset-right, 0px)) 10px auto;
+    width: min(40%, 480px);
+    max-height: 44%;
     align-items: flex-end;
   }
   .date-session-root .date-session-dialogue-card {
     width: 100%;
     max-width: none;
-    min-height: 82px;
-    max-height: min(39vh, 180px);
+    min-height: 0;
+    max-height: min(34dvh, 145px);
     overflow-y: auto;
-    padding: 14px 16px 12px;
-    border-radius: 14px;
+    padding: 12px 14px;
+    border-radius: 13px;
     overscroll-behavior: contain;
   }
-  /* The badge hangs outside the dialogue in portrait; inside the scrollable
-     landscape card it must be placed above the text, not clipped. */
   .date-session-root .date-session-dialogue-card > div:first-child {
     position: relative;
     top: auto;
     left: auto;
-    margin: 0 0 5px 0;
+    margin: 0 0 4px;
   }
   .date-session-root .date-session-dialogue-text {
     font-size: 13px;
     line-height: 1.42;
-    margin-top: 4px;
+    margin-top: 3px;
   }
   .date-session-root.date-session-input-open .date-session-dialogue-position {
-    bottom: 90px;
-    max-height: calc(100% - 150px);
+    bottom: 72px;
+    max-height: calc(100% - 136px);
   }
   .date-session-root.date-session-input-open .date-session-dialogue-card {
-    max-height: min(27vh, 115px);
+    max-height: min(24dvh, 100px);
   }
   .date-session-root .date-session-input-layer {
-    inset: auto max(12px, 2.5%) 9px auto;
-    width: min(42%, 520px);
+    inset: auto max(12px, env(safe-area-inset-right, 0px)) 8px auto;
+    width: min(40%, 480px);
   }
   .date-session-root .date-session-input-box {
     width: 100%;
@@ -85,14 +172,15 @@
     align-items: center;
   }
   .date-session-root .date-session-input-text {
-    height: 46px;
-    min-height: 46px;
-    padding: 8px 10px;
+    height: 44px;
+    min-height: 44px;
+    padding: 8px;
     font-size: 13px;
   }
   .date-session-root .date-session-send-button {
-    height: 46px;
-    padding: 0 13px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
     font-size: 13px;
   }
   .date-session-root .date-session-typing-indicator {
@@ -108,17 +196,29 @@
 }
 @media (orientation: landscape) and (max-height: 410px) {
   .date-session-root .date-session-dialogue-position { bottom: 8px; }
-  .date-session-root.date-session-input-open .date-session-dialogue-position { bottom: 77px; }
+  .date-session-root.date-session-input-open .date-session-dialogue-position { bottom: 66px; }
   .date-session-root .date-session-dialogue-card {
-    min-height: 68px;
-    max-height: 108px;
-    padding: 11px 12px 9px;
+    max-height: min(32dvh, 104px);
+    padding: 9px 11px;
   }
   .date-session-root.date-session-input-open .date-session-dialogue-card {
-    max-height: min(24vh, 84px);
+    max-height: min(22dvh, 79px);
   }
   .date-session-root .date-session-input-layer { bottom: 7px; }
   .date-session-root .date-session-input-text,
-  .date-session-root .date-session-send-button { height: 42px; min-height: 42px; }
+  .date-session-root .date-session-send-button { height: 40px; min-height: 40px; }
   .date-session-root .date-session-dialogue-text { font-size: 12px; line-height: 1.35; }
+}
+/* The settings preview shares the real sprite stage geometry for both rotations.
+   Unlike the old fixed 256px preview, it uses the orientation's actual ratio. */
+.date-settings-sprite-preview {
+  aspect-ratio: 9 / 16;
+  width: min(100%, calc(68dvh * 9 / 16));
+  margin-inline: auto;
+}
+@media (orientation: landscape) and (max-height: 760px) {
+  .date-settings-sprite-preview {
+    aspect-ratio: 16 / 9;
+    width: min(100%, calc(68dvh * 16 / 9));
+  }
 }
