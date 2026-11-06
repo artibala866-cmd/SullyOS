@@ -231,7 +231,12 @@ const DateSession: React.FC<DateSessionProps> = ({
                 const isEditing = !!active && root.contains(active)
                     && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement);
                 const keyboardInset = Math.max(0, scene.height - visibleHeight);
-                const hasKeyboard = keyboardInset >= 80 && (isEditing || root.classList.contains('date-session-keyboard-open'));
+                const hasComposer = !!root.querySelector('.date-session-input-box');
+                // Focus events may arrive after visualViewport.resize (or blur first).
+                // A visible composer + substantial viewport loss is sufficient to
+                // preserve the scene, without depending on event ordering.
+                const hasKeyboard = keyboardInset >= 80 &&
+                    (isEditing || hasComposer || root.classList.contains('date-session-keyboard-open'));
                 // Keep this layout until Android reports the keyboard fully closed;
                 // focusout often precedes visualViewport.resize by several frames.
                 if (!hasKeyboard) {
