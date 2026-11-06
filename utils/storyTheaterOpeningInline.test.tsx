@@ -81,6 +81,8 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect((host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement).disabled).toBe(true);
         await click('保存修改');
         expect(onChangeGreeting).toHaveBeenCalledWith(actor.id, opening.id, '真正保存的开场');
+        // The UI must not jump back to stale text while the parent character refresh is pending.
+        expect(field().value).toBe('真正保存的开场');
         expect(onSave).not.toHaveBeenCalled();
 
         const changedActor = { ...actor, tavernGreetings: [{ ...opening, content: '真正保存的开场' }] };
