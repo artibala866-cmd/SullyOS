@@ -7,13 +7,12 @@ import {
 interface EmojiDocumentFilePickerProps {
     active: boolean;
     disabled?: boolean;
-    currentText: string;
-    onTextReady: (value: string) => void;
+    onAppendText: (value: string) => void;
 }
 
 /** Small file-import control inside the existing private-chat 表情注入 modal. */
 export default function EmojiDocumentFilePicker({
-    active, disabled = false, currentText, onTextReady,
+    active, disabled = false, onAppendText,
 }: EmojiDocumentFilePickerProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const operationRef = useRef(0);
@@ -57,9 +56,7 @@ export default function EmojiDocumentFilePicker({
             }
             if (operationRef.current !== id) return;
             // Preview before saving; do not erase any pasted/edited rows.
-            const original = currentText.trim();
-            const combined = [original, ...normalized].filter(Boolean).join('\n');
-            onTextReady(combined);
+            onAppendText(normalized.join('\n'));
             setStatus('已从 ' + files.length + ' 个文件识别 ' + count + ' 条表情' +
                 (ignored ? '，忽略 ' + ignored + ' 行非表情文字' : '') +
                 '。确认内容后点击下方添加。');
