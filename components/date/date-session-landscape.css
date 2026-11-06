@@ -214,7 +214,8 @@
 .date-settings-sprite-preview {
   /* 19.5:9 matches the tall phone used by Meet, unlike a generic 16:9 crop. */
   aspect-ratio: 9 / 19.5;
-  width: min(100%, calc(68dvh * 9 / 19.5));
+  /* Keep the controls reachable below the preview on a short portrait screen. */
+  width: min(100%, calc(50dvh * 9 / 19.5));
   margin-inline: auto;
 }
 @media (orientation: landscape) and (max-height: 760px) {
