@@ -1,5 +1,6 @@
 import type { CardImportOrigin, CharacterProfile, MountedWorldbook, TavernOpeningGreeting, Worldbook } from '../types';
 import { toMountedWorldbook } from './worldbook';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
 
 /**
  * Card identity lives on the character, not in a permanent import registry.
@@ -91,11 +92,20 @@ const equalBook = (a: Worldbook, b: Worldbook): boolean => {
 export function mergeCardGreetings(
     existing: TavernOpeningGreeting[] = [], incoming: TavernOpeningGreeting[] = [],
 ): TavernOpeningGreeting[] {
-    const output = [...existing];
-    for (const greeting of incoming) {
-        if (!greeting.content?.trim()) continue;
-        // Identical text must not be imported twice even when the source changed IDs.
-        if (output.some(row => row.content.trim() === greeting.content.trim())) continue;
+    const output = existing.map(adaptTavernOpeningGreeting);
+    for (const original of incoming) {
+        if (!original?.content?.trim()) continue;
+        const greeting = adaptTavernOpeningGreeting(original);
+        const key = tavernOpeningBodyKey(greeting);
+        if (!key) continue;
+        // An old saved card with <!-- title/desc --> is the SAME scene as its
+        // new normalized version. Upgrade its metadata in place, not a copy.
+        const byBody = output.findIndex(row => tavernOpeningBodyKey(row) === key);
+        if (byBody >= 0) {
+            const previous = output[byBody];
+            output[byBody] = { ...previous, ...greeting, id: previous.id };
+            continue;
+        }
         const byId = output.findIndex(row => row.id === greeting.id);
         const byTitle = output.findIndex(row => row.title === greeting.title);
         const index = byId >= 0 ? byId : byTitle;
