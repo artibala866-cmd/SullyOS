@@ -1068,10 +1068,26 @@ export const compileStoryPreset = (input: {
     const messages: StoryApiMessage[] = [];
     const importedFromTavern = document.sourceFormat === 'sillytavern';
     const variables = new Map<string, string>();
+    // The imported Tavern preset may set a rich rule via {{setvar}} without any
+    // active {{getvar}} consumer: its original helper script is not runnable here.
+    // Inline just those standalone XML rule bodies so an enabled toggle actually
+    // affects the model, while normal getvar references keep their source location.
+    const referencedVariables = new Set<string>();
+    if (importedFromTavern) {
+        const enabledContents = [
+            ...document.prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content),
+            document.assistantPrefill || '',
+        ];
+        for (const value of enabledContents) {
+            for (const match of value.matchAll(/\{\{\s*getvar::([^{}]+)\}\}/gi)) {
+                referencedVariables.add(match[1].trim());
+            }
+        }
+    }
     const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
     let historyStart: number | null = null;
     let historyLength = 0;
-    const expandImported = (value: string): string => importedFromTavern ? expandSillyTavernPromptText(value, variables) : value;
+    const expandImported = (value: string): string => importedFromTavern ? expandSillyTavernPromptText(value, variables, referencedVariables) : value;
 
     const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
     const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
