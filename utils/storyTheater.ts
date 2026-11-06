@@ -1102,6 +1102,7 @@ export const compileStoryPreset = (input: {
     slots: StoryPromptSlots;
     historyMessages?: StoryApiMessage[];
     currentInput?: string;
+    currentInputIsNewUserMessage?: boolean;
     modelName?: string;
     continueRequested?: boolean;
     userName: string;
@@ -1131,8 +1132,14 @@ export const compileStoryPreset = (input: {
     const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
     let historyStart: number | null = null;
     let historyLength = 0;
-    const lastHistoryMessage = input.historyMessages?.at(-1);
-    const lastUserMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
+    const previousHistoryMessage = input.historyMessages?.at(-1);
+    const pendingUserContent = input.currentInputIsNewUserMessage && input.currentInput?.trim()
+        ? input.currentInput : undefined;
+    const lastHistoryMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent } : previousHistoryMessage;
+    const lastUserMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent }
+        : [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
     const lastCharMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'assistant');
     const expandImported = (value: string): string => importedFromTavern
         ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables), {
