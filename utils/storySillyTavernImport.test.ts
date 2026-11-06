@@ -357,6 +357,64 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(result.messages.some(m => m.content === '全部角色卡')).toBe(true);
     });
 
+    it('描述与性格两个槽位均启用时各自发送，关掉一个时仍有完整角色资料', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'charPersonality', role: 'assistant', marker: true },
+                { identifier: 'charDescription', role: 'system', marker: true },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'charPersonality', enabled: true },
+                { identifier: 'charDescription', enabled: true },
+            ] }],
+            personality_format: '<personality>{{personality}}</personality>',
+        }), '两个角色槽.json');
+        const boundSlots = { ...slots, worldBefore: '',
+            tavernDescription: '描述原文A', tavernPersonality: '性格原文B' };
+        const full = compileStoryPreset({ preset: imported, slots: boundSlots,
+            userName: '用户', characterNames: ['演员'] }).messages;
+        expect(full.map(m => m.content)).toEqual(['<personality>性格原文B</personality>', '描述原文A']);
+        expect(full.map(m => m.role)).toEqual(['assistant', 'system']);
+        const disabled = { ...imported, document: { ...imported.document,
+            prompts: imported.document.prompts.map(prompt => prompt.id === 'st-charDescription'
+                ? { ...prompt, enabled: false } : prompt) } };
+        const single = compileStoryPreset({ preset: disabled, slots: boundSlots,
+            userName: '用户', characterNames: ['演员'] }).messages;
+        expect(single.map(m => m.content)).toEqual(['全部角色卡']);
+    });
+
+    it('不用名称宏的 {0} 世界书格式和元数据会保留、发送、导出再导入', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'worldInfoBefore', marker: true, role: 'system' },
+                { identifier: 'scenario', marker: true, role: 'system' },
+                { identifier: 'chatHistory', marker: true, role: 'system' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'worldInfoBefore', enabled: true },
+                { identifier: 'scenario', enabled: true },
+                { identifier: 'chatHistory', enabled: true },
+            ] }],
+            wi_format: '<lore>{0}</lore>', scenario_format: '<scene>{{scenario}}</scene>',
+            new_chat_prompt: '[开始本段对话]', top_k: 40, openai_max_context: 240000,
+            extensions: { regex_scripts: [{ disabled: false, name: '不执行的扩展正则' }] },
+        }), '模板变体.json');
+        const exported = parseStoryTheaterPreset(JSON.stringify(imported.document), '糯米机导出.json');
+        expect(exported.document.tavernFormats?.worldInfo).toBe('<lore>{0}</lore>');
+        expect(exported.document.tavernOptions?.top_k).toBe(40);
+        expect(exported.document.tavernOptions?.openai_max_context).toBe(240000);
+        expect(JSON.stringify(exported.document)).not.toContain('不执行的扩展正则');
+        const contents = compileStoryPreset({
+            preset: exported, slots: { ...slots, worldBefore: '前置世界', worldAfter: '' },
+            historyMessages: [{ role: 'user', content: '你好' }],
+            userName: '用户', characterNames: ['角色'],
+        }).messages.map(m => m.content);
+        expect(contents).toContain('<lore>前置世界</lore>');
+        expect(contents).toContain('<scene>剧情设定</scene>');
+        expect(contents).toContain('[开始本段对话]');
+        expect(contents).toContain('你好');
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
