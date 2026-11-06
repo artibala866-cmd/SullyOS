@@ -86,7 +86,9 @@ const CharacterCard: React.FC<{
     >
         <div className="flex items-center gap-4">
             <div className="w-14 h-14 shrink-0 rounded-full overflow-hidden border border-slate-100 bg-slate-50">
-                <TokenImg value={char.avatar} className="w-full h-full object-cover" alt={char.name} />
+                {char.avatar
+                    ? <TokenImg value={char.avatar} className="w-full h-full object-cover" alt={char.name} />
+                    : <span className="flex h-full w-full items-center justify-center text-base font-semibold text-neutral-400" aria-label="无头像">{char.name?.trim().slice(0,1) || '人'}</span>}
             </div>
             <div className="flex-1 min-w-0 pr-6">
                 <h3 className="text-[16px] font-semibold tracking-[-0.02em] truncate text-[#191919]">
@@ -2303,7 +2305,7 @@ ${isInitialGeneration ? `
         >
             {pendingCard && <div className="mb-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3">
                 <p className="mb-3 text-xs font-semibold text-neutral-700">选择导入内容（可多选）</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 min-[370px]:grid-cols-3 gap-2">
                     {([
                         ['persona', '人设', selectedCardPreviews.filter(card => Boolean(
                             card.character.description?.trim() || card.character.systemPrompt?.trim() ||
@@ -2316,7 +2318,7 @@ ${isInitialGeneration ? `
                     ] as const).map(([key, label, amount]) => {
                         const enabled = availableImportSections[key];
                         return <label key={key}
-                            className={`flex min-h-[76px] flex-col items-start justify-between gap-2 rounded-xl border p-2.5 transition-colors ${!enabled
+                            className={`flex min-h-[76px] flex-col items-start justify-between gap-2 rounded-xl border p-2.5 transition-colors ${key === 'greetings' ? 'col-span-2 min-[370px]:col-span-1' : ''} ${!enabled
                                 ? 'border-neutral-100 bg-neutral-100 text-neutral-400'
                                 : selectedImportSections[key] ? 'border-neutral-600 bg-white text-neutral-900'
                                     : 'border-neutral-200 bg-white text-neutral-500'}`}>
@@ -2342,7 +2344,9 @@ ${isInitialGeneration ? `
                             onChange={event => setSelectedImportIndices(current => event.target.checked
                                 ? [...current, index] : current.filter(n => n !== index))} className="mt-4" />
                         <span className="w-12 h-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100">
-                            <TokenImg value={card.character.avatar || ''} alt="角色头像" className="w-full h-full object-cover" />
+                            {card.character.avatar
+                                ? <TokenImg value={card.character.avatar} alt="角色头像" className="w-full h-full object-cover" />
+                                : <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-neutral-400" aria-label="无头像">{card.character.name?.trim().slice(0,1) || '人'}</span>}
                         </span>
                         <span className="flex flex-col gap-1 min-w-0">
                             <span className="text-sm font-semibold break-words">{card.character.name}</span>
@@ -2364,7 +2368,9 @@ ${isInitialGeneration ? `
                 <div className="flex items-center gap-3">
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-100 shrink-0">
                         {cardPreviewUrl ? <img src={cardPreviewUrl} alt="角色头像" className="w-full h-full object-cover" /> :
-                            <TokenImg value={pendingCard.character.avatar || ''} alt="角色头像" className="w-full h-full object-cover" />}
+                            (pendingCard.character.avatar
+                                ? <TokenImg value={pendingCard.character.avatar} alt="角色头像" className="w-full h-full object-cover" />
+                                : <span className="flex h-full w-full items-center justify-center text-lg font-semibold text-neutral-400" aria-label="无头像">{pendingCard.character.name?.trim().slice(0,1) || '人'}</span>)}
                     </div>
                     <div className="min-w-0">
                         <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
