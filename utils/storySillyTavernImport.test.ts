@@ -214,6 +214,47 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(normalizeSillyTavernStoryOutput('<thinking>无正文</thinking>')).toBe('');
     });
 
+    it('启用的 setvar 富文本规则直接参与发送；初始化空值与关闭选项不误生效', () => {
+        const rich = {
+            prompts: [
+                { identifier: 'defaults', role: 'system', content: '{{setvar::视角:: }}' },
+                { identifier: 'selected', role: 'system', content: '{{setvar::视角::\n<rule name="视角">必须遵守角色知识边界</rule>\n}}' },
+                { identifier: 'disabled', role: 'system', content: '{{setvar::被关闭::\n<rule>禁止启用的条目</rule>\n}}' },
+                { identifier: 'chatHistory', role: 'system', marker: true },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'defaults', enabled: true },
+                { identifier: 'selected', enabled: true },
+                { identifier: 'disabled', enabled: false },
+                { identifier: 'chatHistory', enabled: true },
+            ] }],
+        };
+        const imported = parseStoryTheaterPreset(JSON.stringify(rich), '变量配置.json');
+        const messages = compileStoryPreset({ preset: imported, slots, userName: '小雨',
+            characterNames: ['阿蓝'], historyMessages: [] }).messages.map(msg => msg.content);
+        expect(messages).toContain('<rule name="视角">必须遵守角色知识边界</rule>');
+        expect(messages.join('\n')).not.toContain('禁止启用的条目');
+        expect(messages.join('\n')).not.toContain('{{setvar');
+        expect(imported.document.prompts.find(p => p.id === 'st-selected')?.content).toContain('{{setvar');
+    });
+
+    it('当启用 getvar 明确引用变量时，在引用位置只插入一次', () => {
+        const rich = {
+            prompts: [
+                { identifier: 'vars', role: 'system', content: '{{setvar::节奏::<rule>跟随上下文自然推进</rule>}}' },
+                { identifier: 'reference', role: 'system', content: '本轮启用：{{getvar::节奏}}' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'vars', enabled: true },
+                { identifier: 'reference', enabled: true },
+            ] }],
+        };
+        const imported = parseStoryTheaterPreset(JSON.stringify(rich), '变量引用.json');
+        const messages = compileStoryPreset({ preset: imported, slots, userName: '小雨',
+            characterNames: ['阿蓝'] }).messages.map(msg => msg.content);
+        expect(messages).toEqual(['本轮启用：<rule>跟随上下文自然推进</rule>']);
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
