@@ -1106,10 +1106,10 @@ export const compileStoryPreset = (input: {
     let historyStart: number | null = null;
     let historyLength = 0;
     const lastHistoryMessage = input.historyMessages?.at(-1);
-    const lastUserMessage = input.historyMessages?.findLast(message => message.role === 'user');
-    const lastCharMessage = input.historyMessages?.findLast(message => message.role === 'assistant');
+    const lastUserMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
+    const lastCharMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'assistant');
     const expandImported = (value: string): string => importedFromTavern
-        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(value, variables, referencedVariables), {
+        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables), {
             description: slots.tavernDescription ?? slots.actors,
             personality: slots.tavernPersonality ?? slots.actors,
             persona: slots.persona,
