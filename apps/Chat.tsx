@@ -2700,6 +2700,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
         emojiImportInFlightRef.current = true;
         setEmojiImportBusy(true);
+        let savedToDatabase = false;
         try {
             // 表情 name 是全局唯一主键，既要保护其他分类，也要防止重复导入。
             const existing = await DB.getEmojis();
@@ -2716,6 +2717,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             }
             // 一个事务写入整个批次；若配额不足、另一标签页抢占名字，全部回滚。
             await DB.saveEmojisBatch(prepared);
+            savedToDatabase = true;
             await loadEmojiData();
             markEmojiLibraryChanged();
             setModalType('none');
@@ -2728,8 +2730,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             );
         } catch (error) {
             console.error('智能导入表情包失败', error);
-            // 出错时保留文本，避免重新寻找/复制几十条表情数据。
-            addToast('表情包导入失败，未覆盖原有表情，请重试', 'error');
+            // Database commits are irreversible even if a later UI refresh fails.
+            // Never tell users to retry a completed write (it could create confusing duplicates).
+            if (savedToDatabase) {
+                markEmojiLibraryChanged();
+                setModalType('none');
+                setEmojiImportText('');
+                addToast('表情已保存，但列表刷新失败；重新打开表情面板即可查看', 'info');
+            } else {
+                // Keep the original text if the transaction was rolled back.
+                addToast('表情包导入失败，未覆盖原有表情；请检查存储空间后重试', 'error');
+            }
         } finally {
             emojiImportInFlightRef.current = false;
             setEmojiImportBusy(false);
