@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile } from '../../../types';
+import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
@@ -52,7 +53,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 .filter(greeting => greeting && typeof greeting.id === 'string'
                     && typeof greeting.title === 'string' && typeof greeting.content === 'string'
                     && greeting.content.trim())
-                .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...greeting })),
+                .map(greeting => ({ characterId: actor.id, characterName: actor.name, ...adaptTavernOpeningGreeting(greeting) }))
+                .filter(greeting => greeting.content.trim()),
         );
         if (recentGreeting && actors.some(actor => actor.id === recentGreeting.characterId)
             && !all.some(item => item.characterId === recentGreeting.characterId && item.id === recentGreeting.id)) {
@@ -305,7 +307,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         <option value=''>{actors.length === 0 ? '先选择参与角色'
                             : greetingChoices.length === 0 ? '暂无可选开场'
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
-                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}</option>)}
+                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
                     </select>
                     {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>也可在上方写好正文，点书签存为开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
