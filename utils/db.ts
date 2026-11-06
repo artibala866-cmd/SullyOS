@@ -6,6 +6,7 @@ import {restoreDecorationMedia} from './decorationMediaBackup';
 import {exportBeautyPreferences,importBeautyPreferences} from './beautyPreferencesBackup';
 import {exportBeautyAuthorBackup,importBeautyAuthorBackup} from './beautyAuthorBackup';
 import { toMountedWorldbook } from './worldbook';
+import { mergeCardImports, type CardImportItem, type CardImportResult } from './cardImportMerge';
 import { persistCharacterWithHomeMessages } from './homeMessageBridge';
 import {deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
@@ -3006,6 +3007,53 @@ export const DB = {
               try { tx.abort(); } catch {}
               reject(error);
           }
+      });
+  },
+
+  /**
+   * Re-imports and first imports share one all-or-nothing IndexedDB transaction.
+   * getAll is performed IN the write transaction: stale UI lists / a deleted role
+   * cannot become permanent duplicate-detection tombstones.
+   */
+  importCharacterCardsSmartAtomic: async (items: CardImportItem[]): Promise<CardImportResult> => {
+      const db = await openDB();
+      return new Promise<CardImportResult>((resolve, reject) => {
+          const tx = db.transaction([STORE_CHARACTERS, STORE_WORLDBOOKS], 'readwrite');
+          const charStore = tx.objectStore(STORE_CHARACTERS);
+          const bookStore = tx.objectStore(STORE_WORLDBOOKS);
+          const chars = charStore.getAll();
+          const books = bookStore.getAll();
+          let planned = false;
+          let result: CardImportResult | undefined;
+          let mergeError: Error | undefined;
+          const apply = () => {
+              if (planned || chars.readyState !== 'done' || books.readyState !== 'done') return;
+              planned = true;
+              try {
+                  const currentChars = chars.result as CharacterProfile[];
+                  const currentBooks = books.result as Worldbook[];
+                  const plan = mergeCardImports(currentChars, currentBooks, items);
+                  const oldCharIds = new Set(currentChars.map(char => char.id));
+                  const oldBookIds = new Set(currentBooks.map(book => book.id));
+                  for (const char of plan.characters) {
+                      if (oldCharIds.has(char.id)) charStore.put(char);
+                      else charStore.add(char);
+                  }
+                  for (const book of plan.worldbooks) {
+                      if (oldBookIds.has(book.id)) bookStore.put(book);
+                      else bookStore.add(book);
+                  }
+                  result = plan.result;
+              } catch (error) {
+                  mergeError = error instanceof Error ? error : new Error('角色卡增量导入失败');
+                  tx.abort();
+              }
+          };
+          chars.onsuccess = apply;
+          books.onsuccess = apply;
+          tx.oncomplete = () => resolve(result!);
+          tx.onabort = () => reject(mergeError || tx.error || new Error('增量导入失败，修改已全部撤销'));
+          tx.onerror = () => { /* onabort is the single failure path */ };
       });
   },
 
