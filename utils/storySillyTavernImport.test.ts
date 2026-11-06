@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildBareTheaterActorContext,
     compileStoryPreset,
+    parseStoryDisplayBlocks,
     parseStoryTheaterPreset,
 } from './storyTheater';
-import { convertSillyTavernChatPreset, expandSillyTavernPromptText, squashAdjacentSystemMessages } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, expandSillyTavernPromptText, normalizeSillyTavernStoryOutput, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
 const tavern = {
     temperature: 1.05,
@@ -179,6 +181,37 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(result[0].content).toBe('原规则一\\n\\n原规则二'.replaceAll('\\n', '\n'));
         expect(result[3].content).toContain('新规则\n\n本轮约束');
         expect(input[0].content).toBe('原规则一');
+    });
+
+    it('酒馆角色描述槽位读取原有角色档案的 description，原生预设保持原样', () => {
+        const actor = {
+            id: 'c1', name: '林澈', description: '有一颗蓝色纽扣的深色大衣',
+            systemPrompt: '性格安静、谨慎', worldview: '雨中的城市',
+        } as any;
+        const nativeContext = buildBareTheaterActorContext(actor);
+        const tavernContext = buildBareTheaterActorContext(actor, true);
+        expect(nativeContext).not.toContain('有一颗蓝色纽扣');
+        expect(tavernContext).toContain('有一颗蓝色纽扣');
+        expect(tavernContext).toContain('性格安静、谨慎');
+        const imported = parseStoryTheaterPreset(JSON.stringify(tavern), '真实角色.json');
+        const compiled = compileStoryPreset({ preset: imported, slots: {
+            actors: tavernContext, persona: '用户身份', scenario: '雨夜',
+            worldBefore: '', worldAfter: '', history: '',
+        }, userName: '小雨', characterNames: ['林澈'] });
+        expect(compiled.messages.map(m => m.content).join('\\n')).toContain('有一颗蓝色纽扣');
+        expect(compiled.messages.filter(m => m.content.includes('有一颗蓝色纽扣'))).toHaveLength(1);
+    });
+
+    it('酒馆思考区不会泄露到剧情展示、历史或附录，正文仍可正常解析', () => {
+        const response = '<thinking>不能对外显示的内部步骤</thinking>\\n<content>雨点落在玻璃上。</content>\\n<details data-info="archive"><summary>剧情摘要</summary>雨夜</details>';
+        const cleaned = normalizeSillyTavernStoryOutput(response);
+        expect(cleaned).not.toContain('内部步骤');
+        expect(cleaned).toContain('<content>雨点落在玻璃上。</content>');
+        expect(cleaned).toContain('data-info="archive"');
+        expect(parseStoryDisplayBlocks(cleaned).map(item => item.text).join('\\n')).toContain('雨点落在玻璃上');
+        expect(normalizeSillyTavernStoryOutput('思考过程</thinking><content>最后的正文</content>'))
+            .toBe('<content>最后的正文</content>');
+        expect(normalizeSillyTavernStoryOutput('<thinking>无正文</thinking>')).toBe('');
     });
 
     it('拒绝其它 completion JSON 与空排序伪装', () => {
