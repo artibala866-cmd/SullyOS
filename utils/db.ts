@@ -681,8 +681,15 @@ export const DB = {
 
   deleteCharacter: async (id: string): Promise<void> => {
     const db = await openDB();
-    const transaction = db.transaction(STORE_CHARACTERS, 'readwrite');
-    transaction.objectStore(STORE_CHARACTERS).delete(id);
+    // Await actual commit, not just request scheduling. A re-import immediately
+    // after deletion must see the new DB state, never a pending ghost character.
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
+      tx.objectStore(STORE_CHARACTERS).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('删除角色失败'));
+      tx.onabort = () => reject(tx.error || new Error('删除角色事务已中止'));
+    });
   },
 
   // ---- 角色分组（神经链接"文件夹"，与群聊 groups 无关）----
