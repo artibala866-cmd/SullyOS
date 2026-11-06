@@ -2296,6 +2296,8 @@ export interface StoryTheaterPresetPrompt {
     section?: { id: string; name: string; edge: 'start' | 'end' };
     /** marker 由发送器替换为角色/世界书/用户/场景/历史，不把占位条目当普通正文。 */
     marker?: 'characters' | 'world_before' | 'user' | 'world_after' | 'scenario' | 'examples' | 'history';
+    /** 酒馆 In-Chat 插入点，按历史深度与同深度顺序发送。 */
+    injection?: { position: 'chat'; depth: number; order: number };
 }
 
 export interface StoryTheaterPresetDocument {
@@ -2312,9 +2314,12 @@ export interface StoryTheaterPresetDocument {
     };
     prompts: StoryTheaterPresetPrompt[];
     assistantPrefill?: string;
+    /** 仅允许白名单酒馆文本宏解释，不执行扩展插件的代码。 */
+    sourceFormat?: 'sillytavern';
+    importWarnings?: string[];
 }
 
-/** 糯米机专属剧情预设。导入器只接受 sullyos.story-preset，不兼容其它应用格式。 */
+/** 糯米机剧情预设，支持原生格式和安全转换后的酒馆 Chat Completion 预设。 */
 export interface StoryTheaterPreset {
     id: string;
     name: string;
