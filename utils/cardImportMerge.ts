@@ -156,7 +156,7 @@ export function mergeCardImports(
         if ((target?.id || null) !== item.expectedTargetId) {
             throw new Error('导入期间角色列表发生变化，请重新选择角色卡，避免覆盖错误角色');
         }
-        const next: CharacterProfile = target ? { ...target } : { ...item.character };
+        const next: CharacterProfile = target ? { ...target } : { ...item.character, mountedWorldbooks: [] };
         if (target) {
             for (const [key, value] of Object.entries(item.fields)) {
                 if (PRIVATE_FIELDS.has(key) || !nonBlank(value)) continue;
