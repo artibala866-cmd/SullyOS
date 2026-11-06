@@ -21,8 +21,9 @@ export const availableCardImportSections = (cards: PreparedCharacterCard[]): Car
         card.imageProfile
     )),
     worldbooks: cards.some(card => card.worldbooks.length > 0),
-    greetings: cards.some(card => (card.character.tavernGreetings || [])
-        .some(greeting => greeting.content.trim())),
+    greetings: cards.some(card =>
+        [...(card.character.tavernGreetings || []), ...(card.character.linkGreetings || [])]
+            .some(greeting => greeting.content.trim())),
 });
 
 export const effectiveCardImportSections = (
@@ -58,6 +59,13 @@ export const selectCardImportSections = (
             if (value !== undefined) fields[key] = value;
         }
     }
-    if (selected.greetings) fields.tavernGreetings = card.character.tavernGreetings;
+    if (selected.greetings) {
+        if (card.source === 'babylink-character') fields.linkGreetings = card.character.linkGreetings;
+        else {
+            fields.tavernGreetings = card.character.tavernGreetings;
+            if (card.source === 'sully' && card.character.linkGreetings?.length)
+                fields.linkGreetings = card.character.linkGreetings;
+        }
+    }
     return { fields, worldbooks: selected.worldbooks ? card.worldbooks : [] };
 };
