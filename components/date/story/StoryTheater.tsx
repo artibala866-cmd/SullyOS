@@ -29,6 +29,7 @@ import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheater
 import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
 import { deleteUnusedStoryMask, saveStoryWithOpening } from '../../../utils/storyTheaterPersistence';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from '../../../utils/tavernOpeningGreeting';
+import { isLegacyLinkOpening, listCharacterStoryOpenings } from '../../../utils/linkStoryOpenings';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -112,15 +113,36 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const changeGreeting = useCallback(async (characterId: string, greetingId: string, content: string | null) => {
         const latest = await DB.getCharacter(characterId);
         if (!latest) throw new Error('角色已不存在，无法修改开场白');
+        const nativeLink = (latest.linkGreetings || []).find(row => row.id === greetingId);
+        const oldLink = (latest.tavernGreetings || []).find(row =>
+            row.id === greetingId && isLegacyLinkOpening(row));
+        const selected = listCharacterStoryOpenings(latest).find(row => row.id === greetingId);
+        if (!selected) throw new Error('开场白已不存在，请重新选择');
+        if (content !== null && (!content.trim() || content.length > 200000))
+            throw new Error('开场白正文不能为空或超过 20 万字');
+
+        if (nativeLink || oldLink) {
+            // A legacy Link opening saved in tavernGreetings is migrated only
+            // when the user edits/deletes it. Never apply Tavern HTML rules.
+            const existingLink = latest.linkGreetings || [];
+            const nextLinks = content === null
+                ? existingLink.filter(row => row.id !== greetingId)
+                : nativeLink
+                    ? existingLink.map(row => row.id === greetingId ? { ...row, content: content.trim() } : row)
+                    : [...existingLink, { ...oldLink!, content: content.trim() }];
+            const nextTavern = oldLink
+                ? (latest.tavernGreetings || []).filter(row => row !== oldLink)
+                : latest.tavernGreetings || [];
+            await DB.saveCharacter({ ...latest, linkGreetings: nextLinks, tavernGreetings: nextTavern });
+            updateCharacter(characterId, { linkGreetings: nextLinks, tavernGreetings: nextTavern });
+            return;
+        }
+
         const greetings = latest.tavernGreetings || [];
-        if (!greetings.some(greeting => greeting.id === greetingId)) throw new Error('开场白已不存在，请重新选择');
-        if (content !== null && (!content.trim() || content.length > 200000)) throw new Error('开场白正文不能为空或超过 20 万字');
         const next = content === null
             ? greetings.filter(greeting => greeting.id !== greetingId)
             : greetings.map(greeting => {
                 if (greeting.id !== greetingId) return greeting;
-                // Older imported cards keep title/desc inside raw HTML comments.
-                // Preserve that metadata as structured fields when the user edits.
                 const previous = adaptTavernOpeningGreeting(greeting);
                 const updated = adaptTavernOpeningGreeting({ ...previous, content: content.trim() });
                 if (!updated.content.trim()) throw new Error('开场白正文不能只包含标题或简介');
@@ -144,7 +166,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         if (!greeting.content.trim()) throw new Error('开场白正文不能只包含标题或简介');
         // A legacy raw metadata header and a clean new opening are identical
         // when they resolve to the same scene. Keep the original stable ID.
-        const existing = greetings.find(item => tavernOpeningBodyKey(item) === tavernOpeningBodyKey(greeting));
+        const existing = listCharacterStoryOpenings(latest)
+            .find(item => item.content.trim() === greeting.content.trim() ||
+                (item.source !== 'link' && tavernOpeningBodyKey(item) === tavernOpeningBodyKey(greeting)));
         if (existing) return adaptTavernOpeningGreeting(existing);
         const next = [...greetings, greeting];
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
