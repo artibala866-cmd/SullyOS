@@ -218,6 +218,7 @@ const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
         }
         return {
             ...wb, id: id('wb'), title: text(wb.title) || '未命名设定',
+            cardImportKey: 'sully:' + (text(wb.id) || String(index)),
             category: text(wb.category) || name + ' 的世界书',
             createdAt: Date.now(), updatedAt: Date.now(),
         } as Worldbook;
