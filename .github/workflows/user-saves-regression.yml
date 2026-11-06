@@ -4,6 +4,7 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'apps/UserApp.tsx'
+      - 'apps/Settings.tsx'
       - 'components/user/UserSaveSection.tsx'
       - 'utils/userSave*.ts'
       - 'utils/db.ts'
@@ -33,7 +34,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Storage and existing backup regressions
-        run: pnpm exec vitest run utils/userSaves.test.ts utils/db.test.ts utils/backupRoundtrip.test.ts utils/lsMirror.test.ts utils/collaborationStore.test.ts utils/collaborationWiring.test.ts utils/storageStats.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts
+        run: pnpm exec vitest run utils/userSaves.test.ts utils/userSaveBackup.test.ts utils/db.test.ts utils/backupRoundtrip.test.ts utils/lsMirror.test.ts utils/collaborationStore.test.ts utils/collaborationWiring.test.ts utils/storageStats.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts
       - name: Check changed TypeScript files
         env:
           NODE_OPTIONS: --max-old-space-size=8192

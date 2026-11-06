@@ -37,7 +37,7 @@ export function mergeCharacterBase(base: CharacterProfile, previous?: CharacterP
     if (base.vrState?.chibi && previous.vrState) merged.vrState = { ...previous.vrState, chibi: base.vrState.chibi };
     return merged;
 }
-const SHARED_STORES = ['character_groups', 'worldbooks', 'themes', 'emojis', 'emoji_categories', 'journal_stickers',
+export const SHARED_STORES = ['character_groups', 'worldbooks', 'themes', 'emojis', 'emoji_categories', 'journal_stickers',
     'cc_custom_parts', 'pixel_home_assets', 'pixel_home_layouts', 'vr_novels', 'vr_scripts', 'vr_presets', 'story_theater_presets', 'story_theater_masks'];
 export function isSharedAsset(id: string): boolean {
     return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1'].includes(id) ||
@@ -71,7 +71,7 @@ function openTarget(source: IDBDatabase, id: string): Promise<IDBDatabase> {
     });
 }
 /** Read only referenced common binaries, never copy gallery/chat image history. */
-function referencedBlobs(db: IDBDatabase, data: unknown[]): Promise<any[]> {
+export function referencedBlobs(db: IDBDatabase, data: unknown[]): Promise<any[]> {
     const ids = new Set<string>();
     const visit = (value: any): void => {
         if (typeof value === 'string') {
@@ -97,7 +97,7 @@ export function isUserSaveSwitching(): boolean { return switching; }
  * active-id manifest. Failure never selects an uninitialized/half-written save.
  * Reload is deliberate: every component, queue and singleton gets a new lifetime. */
 export async function activateUserSave(targetId: string, create?: { name: string; profile: UserProfile }): Promise<void> {
-    if (switching) throw new Error('正在切换身份，请稍候');
+    if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
     try {
@@ -111,12 +111,7 @@ export async function activateUserSave(targetId: string, create?: { name: string
         } else if (!registry.saves.some(s => s.id === targetId)) throw new Error('找不到这个身份');
         const source = await openDB();
         const storeNames = SHARED_STORES.filter(name => source.objectStoreNames.contains(name));
-        const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => {
-            const data = await all(source, name);
-            if (name !== 'pixel_home_layouts') return data;
-            return data.map(({charId, roomId, furniture, wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY}) =>
-                ({charId, roomId, furniture: furniture.map((item: any) => ({...item, placedBy: 'user'})), wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY, ambiance: '', lastUpdatedAt: 0, lastDecoratedBy: 'user'}));
-        })]);
+        const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
         const bases = characters.map(baseCharacter);
         const sharedAssets = assets.filter(row => isSharedAsset(row.id));
         const userVisuals: UserProfile | undefined = create ? {
@@ -163,3 +158,28 @@ export async function activateUserSave(targetId: string, create?: { name: string
 }
 export function newUserSaveId(): string { return crypto.randomUUID(); }
 export { readUserSaves, USER_SAVE_ID, DEFAULT_USER_SAVE };
+
+let saveOperation = '';
+export function beginUserSaveOperation(label: string): () => void {
+    if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请完成后重试`);
+    saveOperation = label;
+    return () => { saveOperation = ''; };
+}
+export function renameUserSave(id: string, name: string): void {
+    const release = beginUserSaveOperation('修改身份名称');
+    try {
+        const registry = readUserSaves();
+        if (registry.activeId !== USER_SAVE_ID) throw new Error('身份已在其他页面切换，请刷新');
+        const clean = name.trim();
+        if (!clean || clean.length > 40) throw new Error('身份名称请填写 1～40 个字');
+        if (!registry.saves.some(save => save.id === id)) throw new Error('找不到这个身份');
+        if (!nativeLocalStorage) throw new Error('本地存储不可用');
+        nativeLocalStorage.setItem(USER_SAVES_KEY, JSON.stringify({...registry, saves: registry.saves.map(save => save.id === id ? {...save, name: clean} : save)}));
+    } finally { release(); }
+}
+
+export function sharedStoreRows(name: string, rows: any[]): any[] {
+    if (name !== 'pixel_home_layouts') return rows;
+    return rows.map(({charId, roomId, furniture, wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY}) =>
+        ({charId, roomId, furniture: (Array.isArray(furniture) ? furniture : []).map((item: any) => ({...item, placedBy: 'user'})), wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY, ambiance: '', lastUpdatedAt: 0, lastDecoratedBy: 'user'}));
+}

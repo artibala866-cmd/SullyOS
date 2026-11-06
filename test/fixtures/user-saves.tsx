@@ -3,6 +3,7 @@ import '../../utils/userSaveBootstrap';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { OSProvider, useOS } from '../../context/OSContext';
+import Settings from '../../apps/Settings';
 import UserApp from '../../apps/UserApp';
 import { DB } from '../../utils/db';
 import { USER_SAVE_ID } from '../../utils/userSaveScope';
@@ -15,5 +16,5 @@ if (USER_SAVE_ID === 'original' && !localStorage.getItem('qa-user-saves-seeded')
     localStorage.setItem('vr_sar_simulations_v1',JSON.stringify({runs:[{id:'old-story',title:'原剧情'}]}));
     localStorage.setItem('qa-user-saves-seeded','1');
 }
-function ReadyArchive() { const {isDataLoaded} = useOS(); return isDataLoaded ? <UserApp/> : <p>正在读取档案…</p>; }
+function ReadyArchive() { const {isDataLoaded} = useOS(); return isDataLoaded ? new URLSearchParams(location.search).has('settings') ? <Settings/> : <UserApp/> : <p>正在读取档案…</p>; }
 createRoot(document.getElementById('root')!).render(<OSProvider><ReadyArchive/></OSProvider>);

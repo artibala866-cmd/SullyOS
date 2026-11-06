@@ -66,8 +66,6 @@ const UserApp: React.FC = () => {
                 {tab === 'life' && <LifeRecordPanel />}
                 {tab === 'profile' && <>
 
-                <UserSaveSection />
-
                 {/* Profile name card */}
                 <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(76, 76, 76,0.25)] border border-slate-100 overflow-hidden">
                     {/* Cover banner */}
@@ -109,6 +107,7 @@ const UserApp: React.FC = () => {
                                 />
                             </div>
                         </div>
+                        <UserSaveSection />
                     </div>
                 </div>
 

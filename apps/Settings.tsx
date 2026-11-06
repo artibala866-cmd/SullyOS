@@ -1,3 +1,4 @@
+import { createAllUserSaveBackup, prepareUserSaveRestore } from '../utils/userSaveBackup';
 import ImageApiSettingsPanel from '../components/settings/ImageApiSettingsPanel';
 import NavigationBallSettings from '../components/settings/NavigationBallSettings';
 import { useSettingsFocus } from '../utils/settingsNavigation';
@@ -1241,14 +1242,19 @@ const Settings: React.FC = () => {
       }
   };
 
-  const handleExport = async (mode: 'text_only' | 'media_only' | 'full') => {
+  const [identityBackupScope, setIdentityBackupScope] = useState<'current' | 'all'>('current');
+  const [identityBackupBusy, setIdentityBackupBusy] = useState(false);
+  const identityBackupBusyRef = useRef(false);
+  const [identityBackupStatus, setIdentityBackupStatus] = useState('');
+  const handleExport = async (mode: 'text_only' | 'media_only' | 'full' | 'all_saves') => {
+      if (identityBackupBusyRef.current) return;
       trackEvent('导出本地备份', { scope: mode });
       try {
           // 二次确认：整包备份（full / text_only）本就包含你的 API 密钥等设置——这是预期行为，
           // 但绝不能发给别人。media_only 只有媒体、不含密钥，视为可分享。
           if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
               const includesSettings = mode !== 'media_only';
-              const includesBackend = includesSettings && exportBackendConnection;
+              const includesBackend = includesSettings && exportBackendConnection && mode !== 'all_saves';
               const msg = includesBackend
                   ? '该导出数据包含了明文密钥，以及主动消息 2.0 的后端连接（Worker 地址与主密钥）。拿到这个文件的人可以连上你那台 Worker，请不要发送给任何人'
                   : includesSettings
@@ -1261,7 +1267,8 @@ const Settings: React.FC = () => {
           }
 
           // Trigger export (Context handles loading state UI)
-          const blob = await exportSystem(mode, { includeBackendConnection: exportBackendConnection });
+          identityBackupBusyRef.current = true; setIdentityBackupBusy(true);
+          const blob = mode === 'all_saves' ? await createAllUserSaveBackup(setIdentityBackupStatus) : await exportSystem(mode, { includeBackendConnection: exportBackendConnection });
           
           const fileName = `Sully_Backup_${mode}_${new Date().toISOString().slice(0, 10)}.zip`;
           if (!Capacitor.isNativePlatform()) {
@@ -1284,15 +1291,26 @@ const Settings: React.FC = () => {
           // 只报导出档位，错误文案是动态串不能进属性
           trackEvent('导出备份失败', { mode });
           addToast(e.message, 'error');
-      }
+      } finally { identityBackupBusyRef.current = false; setIdentityBackupBusy(false); setIdentityBackupStatus(''); }
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
-
+      if (!file || identityBackupBusyRef.current) return;
+      if (importInputRef.current) importInputRef.current.value = '';
+      identityBackupBusyRef.current = true; setIdentityBackupBusy(true);
+      try {
+          if (file.name.toLowerCase().endsWith('.zip')) {
+              const plan = await prepareUserSaveRestore(file);
+              if (plan) {
+                  const count = await plan.restore(setIdentityBackupStatus);
+                  addToast(`已恢复 ${count} 个身份副本，原存档已保留`, 'success');
+                  window.location.reload();
+                  return;
+              }
+          }
       // Pass the File object directly to importSystem
-      importSystem(file, {
+      await importSystem(file, {
           // 备份里带着 Worker 后端连接时问一句。程序分不清这份文件是自己的还是别人的
           // （换新设备时用户 id 本来就对不上），只有拿着文件的人知道，所以把话问出去。
           confirmBackendRestore: (workerUrl) => window.confirm(
@@ -1301,7 +1319,8 @@ const Settings: React.FC = () => {
               + '如果是别人给你的，点「取消」——连上去的话，你的 API 密钥和聊天记录会被写进对方那台服务器。\n\n'
               + '（不连也不影响其它数据导入，之后可以在设置里手动填。）',
           ),
-      }).catch(err => {
+      });
+      } catch(err: any) {
           console.error(err);
           // 只上报归类后的固定枚举：报错原文（可能含文件路径/内容片段）只留在 console
           const rawMessage = String(err?.message || '');
@@ -1317,7 +1336,7 @@ const Settings: React.FC = () => {
           const details = err?.stack || err?.message || String(err || '未知错误');
           showError('导入失败', details);
           addToast('导入失败，错误信息已展开', 'error');
-      });
+      } finally { identityBackupBusyRef.current = false; setIdentityBackupBusy(false); setIdentityBackupStatus(''); }
       
       if (importInputRef.current) importInputRef.current.value = '';
   };
@@ -1992,43 +2011,51 @@ const Settings: React.FC = () => {
             <label className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
                 <input
                     type="checkbox"
-                    checked={exportBackendConnection}
+                    checked={identityBackupScope === 'current' && exportBackendConnection}
+                    disabled={identityBackupBusy || identityBackupScope === 'all'}
                     onChange={(e) => setExportBackendConnection(e.target.checked)}
                     className="mt-0.5 shrink-0"
                 />
                 <span className="text-[11px] leading-relaxed text-slate-600">
                     <span className="font-bold">包含主动消息 2.0 的后端连接</span>
                     <span className="block text-slate-400">
-                        换设备恢复时勾上，Worker 地址和密钥会一起带走。
+                        {identityBackupScope === 'all' ? '全部身份档位只备份本机数据，恢复后需重新配置云端连接。' : '换设备恢复时勾上，Worker 地址和密钥会一起带走。'}
                         <span className="font-bold text-neutral-500">勾着导出的备份不要分享给别人</span>
                         ——拿到文件的人能连上你那台 Worker，也能解开里面的聊天记录。
                     </span>
                 </span>
             </label>
 
+            <label className="flex items-center justify-between gap-3 mb-3 px-1 text-xs text-slate-500">
+                <span className="shrink-0">备份范围</span>
+                <select aria-label="备份范围" disabled={identityBackupBusy} value={identityBackupScope} onChange={event => setIdentityBackupScope(event.target.value as 'current' | 'all')} className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none">
+                    <option value="current">当前身份</option><option value="all">全部身份</option>
+                </select>
+            </label>
+            {identityBackupBusy && <p role="status" className="text-[11px] text-slate-400 mb-3 px-1">{identityBackupStatus || '正在处理备份…'}</p>}
             <div className="mb-3">
-                <button onClick={() => handleExport('full')} className="w-full py-4 bg-gradient-to-r from-neutral-500 to-neutral-600 border border-neutral-300 rounded-xl text-xs font-bold text-white shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden mb-3">
+                <button disabled={identityBackupBusy} onClick={() => handleExport(identityBackupScope === 'all' ? 'all_saves' : 'full')} className="w-full py-4 bg-gradient-to-r from-neutral-500 to-neutral-600 border border-neutral-300 rounded-xl text-xs font-bold text-white shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden mb-3">
                     <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-white/20 text-[9px] text-white rounded-bl-lg font-bold">完整</div>
                     <div className="p-2 bg-white/20 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg></div>
-                    <span>整合导出 (文字+媒体)</span>
+                    <span>{identityBackupScope === 'all' ? '导出全部身份 (记录+媒体+模型)' : '整合导出 (文字+媒体)'}</span>
                 </button>
             </div>
 
-            <p className="text-[10px] text-slate-400 px-1 mb-3 text-center">以下为分步导出，适合低配设备分次备份</p>
+            <p className="text-[10px] text-slate-400 px-1 mb-3 text-center">以下仅导出当前身份，适合低配设备分次备份</p>
 
             <div className="grid grid-cols-2 gap-3 mb-3">
-                <button onClick={() => handleExport('text_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden">
+                <button disabled={identityBackupBusy} onClick={() => handleExport('text_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 relative overflow-hidden">
                     <div className="p-2 bg-neutral-50 rounded-full text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg></div>
                     <span>纯文字备份</span>
                 </button>
-                 <button onClick={() => handleExport('media_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2">
+                 <button disabled={identityBackupBusy} onClick={() => handleExport('media_only')} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2">
                     <div className="p-2 bg-neutral-50 rounded-full text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg></div>
                     <span>媒体与美化素材</span>
                 </button>
             </div>
 
             <div className="grid grid-cols-1 gap-3 mb-4">
-                 <div onClick={() => importInputRef.current?.click()} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 cursor-pointer hover:bg-neutral-50 hover:border-neutral-200">
+                 <div onClick={() => { if (!identityBackupBusy) importInputRef.current?.click(); }} className="py-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex flex-col items-center gap-2 cursor-pointer hover:bg-neutral-50 hover:border-neutral-200">
                     <div className="p-2 bg-neutral-100 rounded-full text-neutral-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg></div>
                     <span>导入备份 (.zip / .json)</span>
                 </div>
@@ -2036,6 +2063,7 @@ const Settings: React.FC = () => {
             </div>
 
             <p className="text-[10px] text-slate-400 px-1 mb-4 leading-relaxed">
+                • <b>全部身份</b>: 包含本机各身份的记录、宫殿、媒体和模型。导入后新增恢复副本，保留当前存档与外观；云端连接需重新配置。<br/>
                 • <b>整合导出</b>: 一次性导出文字与图片媒体；VRM / Live2D 模型请使用下方独立备份。<br/>
                 • <b>纯文字备份</b>: 包含所有聊天记录、角色设定、剧情数据。所有图片会被移除（减小体积）。<br/>
                 • <b>媒体与美化素材</b>: 导出相册、表情包、聊天图片、头像、主题气泡、壁纸、图标等图片资源和外观配置。<br/>
