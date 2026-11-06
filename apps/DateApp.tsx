@@ -4,6 +4,8 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
+import { useMusic, musicSongKey } from '../context/MusicContext';
+import { findCharacterDateBgm } from '../utils/dateBgm';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, AppID } from '../types';
 import { DatePrompts, ApiMessage } from '../utils/datePrompts';
@@ -42,6 +44,26 @@ import {
 
 const DateApp: React.FC = () => {
     const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, virtualTime, userProfile, memoryPalaceConfig, dateAutoStartCharId, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const { library: musicLibrary, playSong: playMusic, stopDateBgmIfCurrent } = useMusic();
+    // Only the real Meet session starts BGM. Selecting a character / sensing is silent.
+    // Never start an empty or unbound playlist, and never alter unrelated music on exit.
+    const activeBgmRef = useRef<{ encounterId: string; trackKeys: string[] } | null>(null);
+    const startDateBgm = (target: CharacterProfile) => {
+        const encounterId = encounterIdRef.current;
+        if (activeBgmRef.current?.encounterId === encounterId) return;
+        const list = findCharacterDateBgm(musicLibrary, target.id);
+        if (!list) return;
+        activeBgmRef.current = { encounterId, trackKeys: list.songs.map(musicSongKey) };
+        void playMusic(list.songs[0], { replaceQueue: list.songs, startIdx: 0 }).catch(() => {});
+    };
+    const stopDateBgm = () => {
+        const active = activeBgmRef.current;
+        activeBgmRef.current = null;
+        if (active) stopDateBgmIfCurrent(active.trackKeys);
+    };
+    const stopBgmOnUnmountRef = useRef(stopDateBgm);
+    stopBgmOnUnmountRef.current = stopDateBgm;
+    useEffect(() => () => stopBgmOnUnmountRef.current(), []);
 
     // 是否由聊天「见面」按钮进入：为真时，退出见面流程回到聊天而非见面选择页/桌面。
     // 用本地 state（而非 context）承载：DateApp 切走即卸载，标记随之消失，不会泄漏到
@@ -243,6 +265,9 @@ const DateApp: React.FC = () => {
         if (!char || enteringSessionRef.current) return;
         enteringSessionRef.current = true;
         const enteringEncounterId = encounterIdRef.current;
+        // Start on the actual user's entry gesture, before asynchronous archive writes.
+        startDateBgm(char);
+        let entered = false;
         try {
 
             // 1. 如果有开场白且未保存，立即保存到数据库
@@ -278,8 +303,10 @@ const DateApp: React.FC = () => {
             // 2. 切换模式并刷新数据
             if (encounterIdRef.current !== enteringEncounterId) return;
             setMode('session');
+            entered = true;
             trackEvent('走过去开始见面会话');
         } finally {
+            if (!entered) stopDateBgm();
             enteringSessionRef.current = false;
         }
     };
@@ -624,6 +651,7 @@ const DateApp: React.FC = () => {
     };
 
     const onExitSession = () => {
+        stopDateBgm();
         clearDateResumeAttempt();
         encounterIdRef.current = '';
         // 来自聊天：退出见面回聊天
@@ -1043,7 +1071,7 @@ const DateApp: React.FC = () => {
                     <button onClick={() => startPeek(char, 'invite')} className="text-left rounded-2xl border border-neutral-700 px-6 py-5 hover:bg-neutral-900">
                         <span className="block text-lg">让他靠近</span><span className="block text-xs text-neutral-400 mt-2">由他自然地来到你面前</span>
                     </button>
-                    <button onClick={() => { setPeekStatus(''); setMode('session'); }} className="text-left rounded-2xl border border-neutral-700 px-6 py-5 hover:bg-neutral-900">
+                    <button onClick={() => { startDateBgm(char); setPeekStatus(''); setMode('session'); }} className="text-left rounded-2xl border border-neutral-700 px-6 py-5 hover:bg-neutral-900">
                         <span className="block text-lg">直接见面</span><span className="block text-xs text-neutral-400 mt-2">不生成开场白，直接开始互动</span>
                     </button>
                 </div>

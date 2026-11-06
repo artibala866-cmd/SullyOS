@@ -574,6 +574,8 @@ interface MusicContextType {
 
   // 操作
   playSong: (song: Song, opts?: { alsoSetQueue?: boolean; replaceQueue?: Song[]; startIdx?: number }) => Promise<void>;
+  /** Stop only a Meet BGM request/track, leaving any manually changed music alone. */
+  stopDateBgmIfCurrent: (trackKeys: string[]) => void;
   togglePlay: () => void;
   nextSong: () => void;
   prevSong: () => void;
@@ -1778,6 +1780,25 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [toast, commitQueue]);
   playSongRef.current = (song: Song, opts?: { mediaRecovery?: boolean; awaitPlayback?: boolean }) => playSong(song, opts);
 
+  const stopDateBgmIfCurrent = useCallback((trackKeys: string[]) => {
+    const song = currentSongRef.current;
+    if (!song || !trackKeys.includes(musicSongKey(song))) return;
+    // Invalidate slow remote URL resolution too: exiting before the fetch finishes
+    // must not start audio after the Meet screen is gone.
+    ++playRequestSeq.current;
+    resolvingTrackKeyRef.current = null;
+    const audio = audioRef.current;
+    if (audio) {
+      const src = audio.src;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      if (src.startsWith('blob:')) URL.revokeObjectURL(src);
+    }
+    setLoadingSong(false);
+    setPlaying(false);
+  }, []);
+
   // 下一首 / 上一首
   const nextSong = useCallback(() => {
     const q = queueRef.current; if (!q.length) return;
@@ -2041,7 +2062,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playing, progress, duration, loadingSong, actualQualityLabel, lyricMessage,
     lyric, tlyric, activeLyricIdx,
     profile, refreshProfile,
-    playSong, togglePlay, nextSong, prevSong, seek,
+    playSong, stopDateBgmIfCurrent, togglePlay, nextSong, prevSong, seek,
     playMode, setPlayMode,
     liked, toggleLike,
     listeningTogetherWith, listeningStartedAt, listeningInvites, inviteListeningPartner, cancelListeningInvite, refreshListeningInvite: refreshOutgoingInvite, respondListeningInvite, answerIncomingListeningInvite, lastListeningEnd, addListeningPartner, removeListeningPartner, clearListeningPartners,
