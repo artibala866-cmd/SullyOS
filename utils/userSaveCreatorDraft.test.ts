@@ -30,3 +30,9 @@ it('fallback draft keys and delayed old editors remain pinned; invalid namespace
  b.init('');expect(b.call('getDraftKey()')).toBe(key);
  const invalid=editor(localStorage);invalid.init('bad-prefix');invalid.call('saveDraft()');expect(localStorage.length).toBe(0);
 });
+
+it('uninitialized preview frames cannot read or clear the original fallback draft',()=>{
+ localStorage.clear();const key='like520_cc_draft_char_default';localStorage.setItem(key,JSON.stringify({selected:{eyes:'eyes_02'}}));
+ const preview=editor(localStorage);expect(preview.call('tryLoadDraft()')).toBe(false);preview.call('clearDraft()');
+ expect(JSON.parse(localStorage.getItem(key)!).selected.eyes).toBe('eyes_02');expect(preview.ctx.state.selected.eyes).toBe('eyes_01');
+});

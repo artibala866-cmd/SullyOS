@@ -59,7 +59,9 @@ jobs:
           else
             pnpm --dir /tmp/user-save-browser exec playwright install --with-deps chromium
           fi
-          sudo apt-get install -y -qq fonts-noto-cjk
+          mkdir -p "$HOME/.local/share/fonts"
+          curl -fL --retry 2 --max-time 60 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o "$HOME/.local/share/fonts/NotoSansCJKsc-Regular.otf"
+          fc-cache -f "$HOME/.local/share/fonts"
       - name: Real archive A/B/A/B and mobile screenshots
         shell: bash
         env:
