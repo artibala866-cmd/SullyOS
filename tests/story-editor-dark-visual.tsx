@@ -33,7 +33,7 @@ const validate=()=>{
     const buttons=[...document.querySelectorAll<HTMLElement>('.story-setup-save')];
     const card=document.querySelector<HTMLElement>('.story-memory-live-card');
     const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
-    const openingSelect=opening?.querySelector('select[aria-label="选择已有开场"]');
+    const openingSelect=opening?.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]');
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
