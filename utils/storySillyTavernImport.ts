@@ -161,6 +161,46 @@ export const expandSillyTavernPromptText = (
     })
     .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
 
+/** Resolve supported Tavern card/persona/history macros against the actual story
+ * runtime. Unsupported syntax is preserved literally for editing instead of
+ * silently deleting or executing uploaded code.
+ */
+export const expandSillyTavernContextMacros = (
+    raw: string,
+    values: {
+        description?: string;
+        personality?: string;
+        persona?: string;
+        scenario?: string;
+        examples?: string;
+        lastMessage?: string;
+        lastUserMessage?: string;
+        lastCharMessage?: string;
+        input?: string;
+    },
+): string => {
+    const aliases: Record<string, string | undefined> = {
+        description: values.description,
+        personality: values.personality,
+        persona: values.persona,
+        scenario: values.scenario,
+        mesexamples: values.examples,
+        mesexamplesraw: values.examples,
+        lastmessage: values.lastMessage,
+        lastusermessage: values.lastUserMessage,
+        lastcharmessage: values.lastCharMessage,
+        input: values.input,
+    };
+    return raw
+        .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|input)\s*\}\}/gi,
+            (original, key: string) => aliases[key.toLowerCase()] ?? original)
+        .replace(/\{\{\s*newline(?:\s*::\s*(\d+))?\s*\}\}/gi,
+            (_original, count?: string) => '\n'.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
+        .replace(/\{\{\s*space(?:\s*::\s*(\d+))?\s*\}\}/gi,
+            (_original, count?: string) => ' '.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
+        .replace(/\{\{\s*noop\s*\}\}/gi, '');
+};
+
 /** Preserve roles and message order while matching Tavern's system-message squashing. */
 export const squashAdjacentSystemMessages = (items: StoryApiMessage[]): StoryApiMessage[] => {
     const result: StoryApiMessage[] = [];
