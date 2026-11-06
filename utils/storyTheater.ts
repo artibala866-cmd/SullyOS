@@ -570,7 +570,9 @@ export const BUILTIN_NIGHT_SCREENING_PRESET: StoryTheaterPreset = {
 
 export const withBuiltInStoryPresets = (presets: StoryTheaterPreset[]): StoryTheaterPreset[] => [
     BUILTIN_NIGHT_SCREENING_PRESET,
-    ...presets.filter(preset => !preset.id.startsWith('builtin-night-screening')),
+    ...presets.filter(preset => preset && typeof preset.id === 'string'
+        && typeof preset.name === 'string' && Array.isArray(preset.document?.prompts)
+        && !preset.id.startsWith('builtin-night-screening')),
 ];
 
 /**
