@@ -595,7 +595,7 @@ export const resolveStoryPresetDocument = (
 export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string, now: number = Date.now()): StoryTheaterPreset => {
     if (rawText.length > 5 * 1024 * 1024) throw new Error('预设超过 5 MB，请先移除内嵌素材或脚本数据');
     let data: Record<string, any>;
-    try { data = JSON.parse(rawText); } catch { throw new Error('不是有效的 JSON 预设'); }
+    try { data = JSON.parse(rawText.replace(/^\uFEFF/, '')); } catch { throw new Error('不是有效的 JSON 预设'); }
     const fileBase = sourceFileName.replace(/\.(json|png)$/i, '').trim() || '导入预设';
     const document = data?.schema === 'sullyos.story-preset'
         ? normalizeDocument(data, fileBase)
@@ -624,7 +624,7 @@ export const resolveStoryPresetImport = (
     const canonical = (document: StoryTheaterPresetDocument): string =>
         JSON.stringify({ ...document, name: '', description: document.description || '' });
     const fingerprint = canonical(imported.document);
-    const duplicate = savedPresets.find(saved => !saved.builtIn
+    const duplicate = savedPresets.find(saved => saved && !saved.builtIn && saved.document?.prompts
         && saved.sourceFileName === imported.sourceFileName
         && canonical(saved.document) === fingerprint);
     if (duplicate) return { preset: duplicate, duplicate: true };
