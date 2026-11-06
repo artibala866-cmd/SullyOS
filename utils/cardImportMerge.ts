@@ -5,6 +5,17 @@ import { toMountedWorldbook } from './worldbook';
  * Card identity lives on the character, not in a permanent import registry.
  * Deleting the character therefore immediately releases its identity.
  */
+/** Fast stable fingerprints only for skipping identical image copies; never used as role identity. */
+export function cardContentFingerprint(value: string | Uint8Array): string {
+    let first = 2166136261, second = 0x811c9dc7;
+    for (let index = 0; index < value.length; index++) {
+        const n = typeof value === 'string' ? value.charCodeAt(index) : value[index];
+        first = Math.imul(first ^ n, 16777619);
+        second = Math.imul(second ^ (n + (index & 255)), 16777619);
+    }
+    return value.length + ':' + (first >>> 0).toString(16) + ':' + (second >>> 0).toString(16);
+}
+
 export const normalizeCardName = (name: string): string =>
     (name || '').normalize('NFKC').trim().replace(/\s+/g, '').toLocaleLowerCase();
 
