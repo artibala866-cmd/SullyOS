@@ -241,6 +241,9 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         // Link openings are optional, user-selectable greetings. Never blend
         // an opening scene into the stable persona or silently execute scripts.
         const tavernGreetings: NonNullable<PreparedCharacterCard['character']['tavernGreetings']> = [];
+        if (value.openings != null && !Array.isArray(value.openings)) {
+            throw new Error('Link 分享包独立开场白字段类型错误，已中止以防误导入');
+        }
         if (Array.isArray(value.openings)) {
             if (value.openings.length > 100) throw new Error('BabyLink 开场白超过 100 条');
             for (const [openingIndex, rawOpening] of value.openings.entries()) {
@@ -280,6 +283,7 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             tavernGreetings,
         };
         return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [],
+            linkOpeningPayloadOmitted: value.openings == null,
             sourceIdentity: optionalText(value.id, '角色 ID', 256) || undefined };
     });
     return { source: 'babylink', cards, warnings };
