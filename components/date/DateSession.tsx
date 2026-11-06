@@ -210,10 +210,10 @@ const DateSession: React.FC<DateSessionProps> = ({
         // Register before the keyboard can focus/resize on the first paint.
         const viewport = window.visualViewport;
         const scene = { width: 0, height: 0 };
-        let frame = 0;
+        // This must run synchronously. requestAnimationFrame can be throttled
+        // while Android's IME/rotation is settling or a page is backgrounded,
+        // leaving the compact layout stuck after the keyboard disappears.
         const sync = () => {
-            cancelAnimationFrame(frame);
-            frame = requestAnimationFrame(() => {
                 const root = sessionRootRef.current;
                 if (!root || (viewport && viewport.scale !== 1)) return;
                 // Remove temporary constraints before measuring parent layout.
@@ -249,7 +249,6 @@ const DateSession: React.FC<DateSessionProps> = ({
                 root.style.setProperty('--date-visible-height', `${Math.min(originalHeight, visibleHeight)}px`);
                 root.style.setProperty('--date-scene-height', `${originalHeight}px`);
                 root.classList.add('date-session-keyboard-open');
-            });
         };
         sync();
         viewport?.addEventListener('resize', sync);
@@ -259,7 +258,6 @@ const DateSession: React.FC<DateSessionProps> = ({
         document.addEventListener('focusin', sync);
         document.addEventListener('focusout', sync);
         return () => {
-            cancelAnimationFrame(frame);
             viewport?.removeEventListener('resize', sync);
             viewport?.removeEventListener('scroll', sync);
             window.removeEventListener('resize', sync);
