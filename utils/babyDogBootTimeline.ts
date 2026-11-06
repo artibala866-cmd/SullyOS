@@ -25,7 +25,7 @@ export function getBabyDogFrame(timeMs: number): BabyDogFrame {
       (t >= 3000 && t < 3170)) expression = 'tongue';
 
   // 文案只在两个乐句处出现，不再每几百毫秒左右闪烁。
-  const label: BabyDogLabel = t >= 3250 ? 'bottom' : t >= 570 && t < 1360 ? 'right' : 'none';
+  const label: BabyDogLabel = t >= 570 && t < 1360 ? 'right' : 'none';
   return {
     expression,
     mirrored: false,

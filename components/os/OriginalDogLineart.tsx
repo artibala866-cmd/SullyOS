@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BabyDogExpression } from '../../utils/babyDogBootTimeline';
 
 /**
@@ -145,7 +145,7 @@ export default function OriginalDogLineart({ expression, mirrored }: Props) {
   }, []);
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ready) return;
     const sticker = stickerRef.current?.getContext('2d');
     if (sticker) roughBadge(sticker);

@@ -95,6 +95,7 @@ const inspectExpression = `(() => {
     stickerTransform: document.querySelector('.sully-lineart-sticker') ?
       getComputedStyle(document.querySelector('.sully-lineart-sticker')).transform : 'none',
     label: label.textContent,
+    labelOpacity: Number(getComputedStyle(label).opacity),
     labelLocation: document.querySelector('.sully-boot-artwork').dataset.label,
     welcome: caption.textContent,
     welcomeShown: caption.dataset.visible === 'true',
@@ -172,6 +173,7 @@ try {
         'final Welcome home caption');
       assert.equal(final.label, 'dog');
       assert.equal(final.welcome, 'Welcome home.');
+      assert.equal(final.labelOpacity, 0, 'Dog tag must not overlap Welcome home.');
       assert(final.ready && final.white && final.ink > 250);
       assert(final.width <= 190 && final.width >= 160, 'Dog must stay video-sized');
       assert(final.noOverflow, '390px body overflow');
@@ -242,7 +244,7 @@ try {
       url:'http://127.0.0.1:5173/test/fixtures/brand-baby-dog.html',
     });
     const scene = await waitForState(reduced, state => state.ready, 'reduced-motion puppy');
-    assert(!scene.zoomRunning && !scene.replacementVisible && scene.welcomeShown,
+    assert(!scene.zoomRunning && !scene.replacementVisible && scene.welcomeShown && scene.labelOpacity === 0,
       'Reduced motion must show only static original dog, no zoom or duplicated face');
     await reduced.shot('baby-dog-reduced-motion.png');
     console.log('PASS reduced motion', scene.width);

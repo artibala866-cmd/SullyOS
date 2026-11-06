@@ -8,7 +8,7 @@ describe('Baby Dog rhythmic opening', () => {
       expression: 'normal', mirrored: false, label: 'none', welcome: false,
     });
     expect(getBabyDogFrame(3900)).toEqual({
-      expression: 'normal', mirrored: false, label: 'bottom', welcome: true,
+      expression: 'normal', mirrored: false, label: 'none', welcome: true,
     });
   });
 
@@ -24,8 +24,8 @@ describe('Baby Dog rhythmic opening', () => {
     [2350, 'squint', 'none', false],
     [2780, 'blink', 'none', false],
     [3000, 'tongue', 'none', false],
-    [3250, 'normal', 'bottom', true],
-    [5000, 'normal', 'bottom', true],
+    [3250, 'normal', 'none', true],
+    [5000, 'normal', 'none', true],
   ] as const)('at %sms: %s, dog=%s, welcome=%s',
     (ms, expression, label, welcome) => {
       expect(getBabyDogFrame(ms)).toEqual({

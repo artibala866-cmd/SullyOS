@@ -118,7 +118,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone, poster, var
       ) : (
         <div className="sully-boot-scene">
           <div className="sully-boot-center">
-            <div className="sully-boot-artwork" data-label={reduced ? "bottom" : videoFrame.label}>
+            <div className="sully-boot-artwork" data-label={reduced ? "none" : videoFrame.label}>
               <OriginalDogLineart expression={reduced ? "normal" : videoFrame.expression}
                 mirrored={!reduced && videoFrame.mirrored} />
               <span className="sully-boot-side-label">dog</span>
