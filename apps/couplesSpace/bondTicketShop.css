@@ -542,3 +542,16 @@
  .bond-ticket-room-v2 .bond-ticket-pass,
  .bond-ticket-room-v2 .bond-ticket-stack[data-motion="issuing"] .bond-ticket-pass {animation-duration:.01ms!important}
 }
+
+/* Physical selector movement and the deliberately spare balance strip. */
+.bond-ticket-room-v2 .bond-ticket-ledger {width:100%;justify-content:space-between}
+.bond-ticket-room-v2 .bond-machine-head-copy strong {font-size:16px;letter-spacing:.075em}
+.bond-ticket-room-v2 .bond-machine-dial {
+  transform:rotate(var(--ticket-turn,0deg));
+  transition:transform .48s cubic-bezier(.2,.8,.25,1)}
+.bond-ticket-room-v2 .bond-machine-dial-inner {
+  transform:rotate(var(--ticket-counterturn,0deg));
+  transition:transform .48s cubic-bezier(.2,.8,.25,1)}
+@media(prefers-reduced-motion:reduce){
+  .bond-ticket-room-v2 .bond-machine-dial,.bond-ticket-room-v2 .bond-machine-dial-inner {transition:none}
+}
