@@ -131,6 +131,23 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         description: '从酒馆 Chat Completion 预设适配；原有提示词、开关及顺序已保留。',
         sourceFormat: 'sillytavern',
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
+        // Other Chat Completion presets can use format strings without any
+        // double-brace name macros. Keep these templates intact until runtime.
+        tavernFormats: {
+            worldInfo: text(value.wi_format),
+            scenario: text(value.scenario_format),
+            personality: text(value.personality_format),
+            newChat: text(value.new_chat_prompt),
+            newExampleChat: text(value.new_example_chat_prompt),
+            continueNudge: text(value.continue_nudge_prompt),
+        },
+        // Retain safe scalar configuration fields (including unsupported sampler
+        // options) so editing/exporting as a native preset does not silently erase
+        // the source's configuration. Never copy extensions or execute scripts.
+        tavernOptions: Object.fromEntries(Object.entries(value)
+            .filter(([key, option]) => !['prompts', 'prompt_order', 'extensions'].includes(key)
+                && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
+                && (typeof option !== 'string' || option.length <= 65536))),
         importWarnings: warnings,
         generation: {
             temperature: numeric(value.temperature, 0.9, 0, 2),
