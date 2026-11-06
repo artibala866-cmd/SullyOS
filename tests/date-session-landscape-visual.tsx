@@ -70,10 +70,12 @@ const intersects = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) =>
 let prepared = false;
 let originalSpriteHeight = 0;
 let keyboardShown = false;
+let keyboardSyncAttempts = 0;
 function showSimulatedKeyboard() {
   if (!mockViewport) return;
   mockViewport.height = Math.min(105, Math.round(innerHeight * .36));
   mockViewport.dispatchEvent(new Event('resize'));
+  window.dispatchEvent(new Event('resize'));
   if (!document.getElementById('mock-android-keyboard')) {
     const overlay = document.createElement('div');
     overlay.id = 'mock-android-keyboard';
@@ -158,6 +160,13 @@ function check() {
   );
   const keyboardActive = simulatedLandscapeKeyboard && keyboardShown;
   const viewportHeight = mockViewport?.height || innerHeight;
+  if (keyboardActive && !stage.classList.contains('date-session-keyboard-open') && keyboardSyncAttempts++ < 12) {
+    // On Chromium, virtual-time timers can advance ahead of animation frames.
+    // Retry the exact viewport event and wait for the layout effect to settle.
+    mockViewport?.dispatchEvent(new Event('resize'));
+    setTimeout(check, 140);
+    return true;
+  }
   const keyboardSceneStable = !keyboardActive || (
     !!spriteBox && !!input && !!dialogue && !!controlsRect &&
     !!stage && stage.classList.contains('date-session-keyboard-open') &&
@@ -177,7 +186,7 @@ function check() {
     : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true)) && compactKeyboardFits && keyboardSceneStable && keyboardRestored;
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
     spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
-    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, keyboardActive, keyboardSceneStable, keyboardRestored, originalSpriteHeight, visibleHeight: viewportHeight, errors };
+    headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, portraitFits, compactKeyboardFits, keyboardActive, keyboardSceneStable, keyboardRestored, originalSpriteHeight, visibleHeight: viewportHeight, focusTag: document.activeElement?.tagName, rootKeyboardClass: stage.classList.contains('date-session-keyboard-open'), keyboardSyncAttempts, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);
   let output = document.getElementById('meet-landscape-report');
