@@ -258,4 +258,20 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(field().getAttribute('data-story-opening-editor')).toBeNull();
     });
 
+    it('多行 desc 元数据不会混入自定义开场的标题', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const create=vi.fn(async(_id:string,_title:string,content:string)=>({id:'metadata-test',title:'正常标题',content}));
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},
+            characters:[{...actor,tavernGreetings:[]}],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),onCreateGreeting:create,
+        })));
+        await typeInto(field(),'<!-- desc:\\n一段很长的故事背景。\\n-->\\n雨后初见的那天。');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        expect(create).toHaveBeenCalledTimes(1);
+        expect(create.mock.calls[0][1]).toBe('雨后初见的那天。');
+        expect(create.mock.calls[0][2]).toContain('<!-- desc:');
+    });
+
 });
