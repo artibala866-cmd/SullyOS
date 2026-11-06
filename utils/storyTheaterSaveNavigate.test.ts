@@ -116,6 +116,8 @@ describe('见面剧情从点击到真实数据库持久化，再次进入的完�
             textarea.dispatchEvent(new Event('input',{bubbles:true}));
         });
         await tap('收藏为可选开场');
+        // IndexedDB completion can happen on a later task than the click handler.
+        await act(async()=>{await new Promise(resolve=>setTimeout(resolve,80));});
         expect(host!.querySelector<HTMLTextAreaElement>('textarea[aria-label="编辑开场内容"]')?.value).toBe('{{char}}在旧桥边等{{user}}。');
         await tap('保存并进入');
         await act(async()=>{await new Promise(resolve=>setTimeout(resolve,80));});
