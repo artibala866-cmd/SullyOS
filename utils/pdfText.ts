@@ -193,6 +193,60 @@ const joinPdfLines = (lines: PdfTextLine[]): string => {
     return output.trim();
 };
 
+/**
+ * Emoji list PDF imports require literal visual row breaks, unlike the learning
+ * reader which intentionally merges soft-wrapped paragraphs into prose.
+ * Reuse the same PDF.js worker and vertical-position checks, but not joinPdfLines.
+ */
+export const pdfItemsToVisualLines = (items: PdfTextItemLike[]): string[] => {
+    const lines: string[] = [];
+    let line: PdfTextLine = { text: '' };
+    const flush = () => {
+        if (line.text.trim()) lines.push(line.text.trim());
+        line = { text: '' };
+    };
+    for (const item of items) {
+        const value = typeof item.str === 'string' ? item.str.replace(/\u0000/g, '') : '';
+        if (value && line.text && isNewVisualLine(line, item)) flush();
+        if (value) {
+            const metrics = itemMetrics(item);
+            line.x ??= metrics.x;
+            line.y ??= metrics.y;
+            line.height = Math.max(line.height || 0, metrics.height || 0) || undefined;
+            const separator = /https?:\/\/\S*[/=?&#._~-]$/i.test(line.text) && /^[\w%]/.test(value)
+                ? '' : inlineSeparator(line.text, value);
+            line.text += separator + value;
+        }
+        if (item.hasEOL) flush();
+    }
+    flush();
+    return lines;
+};
+
+/** Local-only PDF text extraction for sticker lists, never OCR or uploads. */
+export const extractPdfEmojiLines = async (data: ArrayBuffer, maxPages = 80): Promise<string> => {
+    const pdfjs = await loadPdfJs();
+    const pdf = await pdfjs.getDocument({ data }).promise;
+    try {
+        if (pdf.numPages > maxPages) {
+            throw new Error('PDF 超过 ' + maxPages + ' 页，请拆分后再导入');
+        }
+        const pages: string[] = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+            const page = await pdf.getPage(pageNumber);
+            try {
+                const content = await page.getTextContent();
+                pages.push(pdfItemsToVisualLines(content.items || []).join('\n'));
+            } finally {
+                page.cleanup?.();
+            }
+        }
+        return pages.filter(Boolean).join('\n');
+    } finally {
+        await pdf.destroy?.();
+    }
+};
+
 export const pdfItemsToText = (items: PdfTextItemLike[]): string => {
     const lines: PdfTextLine[] = [];
     let line: PdfTextLine = { text: '' };
