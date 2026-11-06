@@ -67,7 +67,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         const inactive = normalizeBabyLinkShare(share([char('甲', ['bk'])], [book('bk', false, [keyword])]));
         expect(inactive.warnings.some(w => w.includes('记忆摘要'))).toBe(false);
     });
-    it('keeps full stable persona, real name and nickname without openings or platform state', () => {
+    it('keeps full stable persona and separately exposes Link openings without platform state', () => {
         const bundle = normalizeBabyLinkShare(share([char('路明', [])], []));
         expect(bundle.source).toBe('babylink');
         expect(bundle.cards).toHaveLength(1);
@@ -77,8 +77,12 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(profile.systemPrompt).toContain('昵称路明');
         expect(profile.systemPrompt).toContain('角色签名');
         expect(bundle.cards[0].worldbooks).toHaveLength(0);
+        expect(profile.systemPrompt).not.toContain('不许进入人格');
+        expect(profile.tavernGreetings).toEqual([
+            { id: 'babylink-opening-0', title: '开场', content: '不许进入人格' },
+        ]);
         const serialized = JSON.stringify(bundle);
-        for (const forbidden of ['不许进入人格', '不要导入', '过滤种子', 'SECRET', 'high']) {
+        for (const forbidden of ['不要导入', '过滤种子', 'SECRET', 'high']) {
             expect(serialized).not.toContain(forbidden);
         }
     });
