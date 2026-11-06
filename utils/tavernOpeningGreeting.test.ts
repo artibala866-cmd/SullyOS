@@ -3,7 +3,7 @@ import type { CharacterProfile } from '../types';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
 import { normalizeCharacterCard } from './sillyTavernCard';
 import { mergeCardGreetings } from './cardImportMerge';
-import { resolveStoryOpeningGreeting } from './storyTheater';
+import { buildStoryHistory, resolveStoryOpeningGreeting } from './storyTheater';
 
 const stored = (content: string) => ({
     id: 'tavern-alt-6', title: '备选开场白 6', content,
@@ -71,6 +71,28 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(opening?.content).toContain('<scene role="assistant">');
         expect(opening?.content).not.toMatch(/<!--\s*(title|desc)\s*:/i);
     });
+    it('keeps old saved first-message history untouched while removing only metadata from future AI context', () => {
+        const oldOpeningMessage = {
+            id: 1, timestamp: 1, role: 'assistant', charId: 'story-id',
+            type: 'text', content: legacy,
+            metadata: {
+                source: 'story_theater',
+                theaterOpeningGreeting: { characterId: 'actor', greetingId: 'tavern-alt-6' },
+            },
+        } as any;
+        const ordinaryMessage = {
+            ...oldOpeningMessage, id: 2, timestamp: 2, role: 'user',
+            metadata: { source: 'story_theater' },
+            content: '<!-- title:这是用户实际输入的文字 -->\\n我在这里',
+        };
+        const history = buildStoryHistory([ordinaryMessage, oldOpeningMessage]);
+        expect(history[0].content).toContain('{{char}}撑开伞');
+        expect(history[0].content).not.toContain('<!-- title:');
+        expect(history[0].content).not.toContain('<!-- desc:');
+        expect(history[1].content).toBe(ordinaryMessage.content);
+        expect(oldOpeningMessage.content).toBe(legacy); // no historical DB mutation
+    });
+
     it('supports Chinese full-width colon, case-insensitive metadata and does not drop narrative', () => {
         const opening = stored('<!-- TITLE：第六幕 -->\n<!-- DESCRIPTION：室内独白 -->\n*门缓缓打开。*');
         const result = adaptTavernOpeningGreeting(opening);
