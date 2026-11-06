@@ -179,7 +179,8 @@ function check() {
   const keyboardSceneStable = !keyboardActive || (
     !!spriteBox && !!input && !!dialogue && !!controlsRect &&
     !!stage && stage.classList.contains('date-session-keyboard-open') &&
-    spriteBox.h >= Math.max(100, originalSpriteHeight * .8) &&
+    spriteBox.h >= Math.max(100, originalSpriteHeight * .55) &&
+    spriteBox.h <= originalSpriteHeight * .86 &&
     spriteBox.y >= -2 &&
     !intersects(controlsRect, dialogue) &&
     dialogue.bottom + 2 <= input.y &&
