@@ -54,8 +54,11 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
 export function mergeLinkGreetings(
     existing: LinkOpeningGreeting[] = [], incoming: LinkOpeningGreeting[] = [],
 ): LinkOpeningGreeting[] {
-    const result: LinkOpeningGreeting[] = [];
-    for (const row of [...existing, ...incoming]) {
+    // Do not remove existing duplicate IDs during import: old unfinished
+    // stories may still reference either of them. Only dedupe incoming rows.
+    const result: LinkOpeningGreeting[] = existing.filter(g =>
+        g && typeof g.content === 'string' && g.content.trim()).map(g => ({ ...g }));
+    for (const row of incoming) {
         if (!row || typeof row.content !== 'string' || !row.content.trim()) continue;
         const key = row.content.trim();
         const byBody = result.findIndex(old => old.content.trim() === key);
