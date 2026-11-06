@@ -127,8 +127,12 @@ const matchedMountedBook = (
     const sameText = mounted.filter(row =>
         row.content.trim() === incoming.content.trim() && row.category === incoming.category);
     if (sameText.length === 1) return sameText[0];
+    // Differently keyed entries with the same title are NOT the same module.
+    // This matters for cards containing two different chapters both called
+    // "设定": the second must be added rather than overwrite the first.
     const sameTitle = mounted.filter(row =>
-        row.title.trim() === incoming.title.trim() && row.category === incoming.category);
+        row.title.trim() === incoming.title.trim() && row.category === incoming.category &&
+        (!incoming.cardImportKey || !row.cardImportKey));
     return sameTitle.length === 1 ? sameTitle[0] : undefined;
 };
 
