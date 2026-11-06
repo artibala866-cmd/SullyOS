@@ -1,0 +1,81 @@
+/* Anniversary only: a quietly personalised monochrome page, not a generic card stack. */
+.couple-content-mode .couple-scene-anniversary{color:#29292d}
+.couple-content-mode .couple-scene-anniversary .couple-anniversary-hero{min-height:226px;padding:22px 19px 23px;border:1px solid #e9e9eb;border-radius:20px;background:radial-gradient(ellipse at 48% 24%,#fff 0%,#fff 52%,#fbfbfc 100%);box-shadow:none}
+.couple-scene-anniversary .couple-anniversary-kicker{color:#929299;font-size:9px;letter-spacing:.11em}
+.couple-scene-anniversary .couple-anniversary-pair{margin:7px 0 2px}
+.couple-scene-anniversary .couple-anniversary-time{padding-top:7px}
+.couple-scene-anniversary .couple-anniversary-time strong{font-family:Georgia,'Times New Roman',serif;font-size:55px;font-weight:400}
+.couple-scene-anniversary .couple-anniversary-names{font-size:10px}
+/* A date annotation replaces the grey rectangular countdown. */
+.couple-content-mode .couple-anniversary-upcoming{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:114px;margin:12px 0 23px;padding:16px 3px 15px;border:0;border-bottom:1px solid #d5d5d8;border-radius:0;background:transparent;overflow:hidden}
+.couple-anniversary-upcoming::before{content:'';position:absolute;z-index:-1;right:28px;top:9px;width:150px;height:90px;pointer-events:none;opacity:.72;background:radial-gradient(ellipse at center,#e9e9eb 0%,#f4f4f5 38%,transparent 72%);filter:blur(11px)}
+.couple-anniversary-upcoming-copy{display:grid;justify-items:start;gap:9px;min-width:0}
+.couple-anniversary-upcoming-label{display:inline-flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.13em;color:#92929a}
+.couple-anniversary-upcoming-label::before{content:'✳';font-size:12px;letter-spacing:0;color:#74747a}
+.couple-anniversary-upcoming-copy strong{font-size:16px;font-weight:610;color:#303036;line-height:1.35;overflow-wrap:anywhere}
+.couple-anniversary-upcoming-date{font-size:10px;color:#96969b;letter-spacing:.04em}
+.couple-anniversary-upcoming-count{display:flex;align-items:baseline;gap:4px;flex-shrink:0;color:#33333a}
+.couple-anniversary-upcoming-count strong{font-family:Georgia,'Times New Roman',serif;font-size:51px;line-height:1;font-weight:400;letter-spacing:-.065em;font-variant-numeric:tabular-nums}
+.couple-anniversary-upcoming-count small{font-size:10px;color:#86868d;white-space:nowrap}
+/* Each saved date uses its real image when available, otherwise a restrained line motif. */
+.couple-anniversary-ledger{margin:0 0 9px}
+.couple-anniversary-ledger-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:0 0 17px;padding:0 2px}
+.couple-anniversary-ledger-head>div{display:grid;gap:5px}
+.couple-anniversary-ledger-index{font-size:9px;letter-spacing:.14em;color:#a1a1a6}
+.couple-anniversary-ledger-head h3{margin:0;font-size:20px;font-weight:630;line-height:1.2;letter-spacing:.02em;color:#2f2f33}
+.couple-anniversary-ledger-head>small{font-size:10px;color:#919198;white-space:nowrap;padding-bottom:3px}
+.couple-anniversary-story-list{position:relative;padding-left:14px}
+.couple-anniversary-story-list::before{content:'';position:absolute;left:3px;top:15px;bottom:18px;border-left:1px solid #dedee0;pointer-events:none}
+.couple-content-mode .couple-anniversary-story{position:relative;display:grid;grid-template-columns:63px minmax(0,1fr) 54px;align-items:center;gap:13px;width:100%;min-height:99px;margin:0;padding:12px 2px 12px 7px;text-align:left;border:0;border-bottom:1px solid #e9e9eb;border-radius:0;background:transparent;color:inherit}
+.couple-content-mode .couple-anniversary-story:disabled{opacity:1;cursor:default}
+.couple-anniversary-story::before{content:'';position:absolute;left:-14px;top:47px;width:7px;height:7px;background:#fff;border:1px solid #a9a9b0;border-radius:50%}
+.couple-anniversary-story.is-origin::before{background:#4f4f55;border-color:#4f4f55;box-shadow:0 0 0 3px #f9f9f9}
+.couple-anniversary-story-date{display:grid;gap:3px;justify-items:start}
+.couple-anniversary-story-date strong{font-family:Georgia,'Times New Roman',serif;font-size:29px;font-weight:400;letter-spacing:-.055em;line-height:1;color:#37373d;font-variant-numeric:tabular-nums}
+.couple-anniversary-story-date small{font-size:9px;color:#9898a0;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.couple-anniversary-story-copy{display:grid;gap:5px;align-content:center;min-width:0}
+.couple-anniversary-story-copy>span{color:#aaaab1;font-size:9px;letter-spacing:.05em}
+.couple-anniversary-story-copy strong{font-size:13px;font-weight:590;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#323238}
+.couple-anniversary-story-copy small{font-size:10px;color:#9999a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.couple-anniversary-story-media{position:relative;width:52px;height:58px;display:grid;place-items:center;overflow:visible}
+.couple-anniversary-story-media>img{width:52px;height:58px;object-fit:cover;filter:grayscale(1) contrast(.95);border-radius:5px;transform:rotate(3deg);box-shadow:2px 3px 0 #e2e2e5}
+.couple-anniversary-story-media.is-pair{display:flex;justify-content:center;align-items:center}
+.couple-anniversary-story-media.is-pair .couple-scene-avatar{width:34px;height:34px;flex-basis:34px;border:2px solid #fff;box-shadow:0 0 0 1px #e2e2e6}
+.couple-anniversary-story-media.is-pair .couple-scene-avatar:first-child{transform:translateX(5px) rotate(-7deg)}
+.couple-anniversary-story-media.is-pair .couple-scene-avatar:last-child{transform:translateX(-5px) translateY(9px) rotate(7deg)}
+.couple-anniversary-story-media.is-empty::before{content:'♡';display:grid;place-items:center;width:42px;height:47px;border:1px solid #e4e4e7;border-radius:5px;transform:rotate(5deg);font-size:22px;color:#b3b3ba;background:#f4f4f5}
+.couple-anniversary-story-media.is-empty::after{content:'';position:absolute;width:15px;height:1px;top:13px;right:10px;background:#dddde1;transform:rotate(35deg)}
+.couple-content-mode .couple-anniversary-story:not(:disabled):active{background:#f0f0f2;transform:none}
+.couple-content-mode .couple-anniversary-add{display:flex;align-items:center;gap:10px;min-height:49px;margin:12px 0 0;padding:8px 3px;width:100%;border:0;border-radius:0;background:transparent;text-align:left;color:#44444a;font-size:11px}
+.couple-anniversary-add-plus{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid #c9c9ce;background:#fff;font-size:19px;font-weight:300}
+.couple-anniversary-add>span:nth-child(2){flex:1}
+.couple-anniversary-add>span:last-child{color:#a0a0a6;font-size:17px}
+.couple-content-mode .couple-anniversary-ask{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:45px;margin:12px 0 0;padding:12px 2px;border:0;border-top:1px solid #e4e4e7;border-radius:0;background:transparent;font-size:11px;color:#82828a;text-align:left}
+.couple-anniversary-ask>span{font-size:14px;color:#62626a}
+/* Detail and editor continue the same style instead of falling back to ticket-like generic cards. */
+.couple-content-mode .couple-records-anniversary.couple-records-detail .couple-entry-anniversary{border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;padding:0 0 14px!important;overflow:hidden}
+.couple-records-anniversary.couple-records-detail .couple-entry-anniversary::before,.couple-records-anniversary.couple-records-detail .couple-entry-anniversary::after{display:none!important}
+.couple-content-mode .couple-records-anniversary .couple-detail-anniversary{background:linear-gradient(150deg,#f9f9fa,#fff 52%);border-bottom:1px solid #e9e9eb;padding:26px 15px 24px;gap:10px}
+.couple-content-mode .couple-detail-anniversary h2{font-size:20px;color:#2e2e34;font-weight:610;margin:4px 0 0}
+.couple-content-mode .couple-detail-anniversary small{font-size:10px;letter-spacing:.08em;color:#8f8f97}
+.couple-detail-anniversary-days{font-size:11px;color:#85858b}
+.couple-detail-anniversary-days strong{font-family:Georgia,'Times New Roman',serif;font-size:31px;color:#2b2b31}
+.couple-content-mode .couple-records-anniversary .couple-detail-body{background:#fff!important;margin:0 17px;padding:20px 4px;border-bottom:1px solid #ebebed}
+.couple-content-mode .couple-records-anniversary .couple-record-image{display:block;width:calc(100% - 34px);max-height:370px;object-fit:contain;margin:17px auto 0;border-radius:3px;filter:grayscale(1);background:#f4f4f5}
+.couple-content-mode .couple-records-anniversary .couple-record-entry>.couple-actions{margin:0 17px!important;border:0;padding-top:15px}
+.couple-content-mode .couple-records-anniversary .couple-compose{border:1px solid #e9e9eb!important;border-radius:16px!important;box-shadow:none!important}
+.couple-content-mode .couple-records-anniversary .couple-edit-anniversary-banner{background:linear-gradient(155deg,#f8f8f9,#fff 70%);border-bottom:1px solid #e9e9ec;min-height:178px}
+.couple-edit-anniversary-banner>span{color:#93939a;font-size:9px;letter-spacing:.09em}
+.couple-content-mode .couple-records-anniversary .couple-edit-anniversary-fields{background:#fff;padding:19px 18px 10px;gap:4px}
+.couple-content-mode .couple-records-anniversary .couple-edit-anniversary-fields label{color:#77777e}
+.couple-content-mode .couple-records-anniversary .couple-edit-anniversary-fields :is(input:not([type=file]),textarea,select){background:#fcfcfc;border:0;border-bottom:1px solid #d5d5db;border-radius:0;padding:10px 4px}
+.couple-content-mode .couple-records-anniversary .couple-edit-photo-box{min-height:90px;border:1px dashed #d9d9de;border-radius:7px;background:#f7f7f8}
+@media(max-width:350px){
+ .couple-content-mode .couple-anniversary-upcoming{min-height:100px;margin:9px 0 17px}
+ .couple-anniversary-upcoming-count strong{font-size:44px}
+ .couple-content-mode .couple-anniversary-story{grid-template-columns:56px minmax(0,1fr) 48px;gap:9px}
+ .couple-anniversary-story-date strong{font-size:25px}
+ .couple-anniversary-story-media{width:46px}
+ .couple-anniversary-story-media>img{width:46px}
+}
+@media(prefers-reduced-motion:reduce){.couple-content-mode .couple-scene-anniversary *{transition:none!important}}
