@@ -1061,7 +1061,7 @@ export const compileStoryPreset = (input: {
     historyMessages?: StoryApiMessage[];
     userName: string;
     characterNames: string[];
-}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage } => {
+}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[] } => {
     const { preset, slots, userName, characterNames } = input;
     const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
     const messages: StoryApiMessage[] = [];
@@ -1129,21 +1129,25 @@ export const compileStoryPreset = (input: {
     // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
     if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
         messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames).trim() });
+        if (historyStart !== null) historyStart += 1;
     }
 
-    // SillyTavern's In-Chat position is relative to the END of the actual message history.
-    // Depth 0 = after last history item; depth 1 = just before last item.
-    // Stable tie ordering: lower injection_order first, then user/assistant/system.
+    // The pending user turn is appended by StoryTheaterSession after compilation.
+    // SillyTavern depth=0 goes AFTER that pending turn, depth=1 goes immediately BEFORE it.
+    const afterLatestUser: StoryApiMessage[] = [];
     if (inChatPrompts.length) {
         const rolePriority: Record<StoryApiRole, number> = { user: 0, assistant: 1, system: 2 };
+        const byOrder = (a: typeof inChatPrompts[number], b: typeof inChatPrompts[number]) =>
+            a.order - b.order || rolePriority[a.message.role] - rolePriority[b.message.role] || a.sourceIndex - b.sourceIndex;
+        inChatPrompts.sort(byOrder);
+        afterLatestUser.push(...inChatPrompts.filter(prompt => prompt.depth === 0).map(prompt => prompt.message));
         const insertionStart = historyStart ?? messages.length;
         const insertionLength = historyStart === null ? 0 : historyLength;
-        const inserts = inChatPrompts.map(prompt => ({
+        const inserts = inChatPrompts.filter(prompt => prompt.depth > 0).map(prompt => ({
             ...prompt,
-            index: insertionStart + Math.max(0, insertionLength - prompt.depth),
+            index: insertionStart + Math.max(0, insertionLength - (prompt.depth - 1)),
         }));
-        inserts.sort((a, b) => b.index - a.index || b.order - a.order
-            || rolePriority[b.message.role] - rolePriority[a.message.role] || b.sourceIndex - a.sourceIndex);
+        inserts.sort((a, b) => b.index - a.index || -byOrder(a, b));
         for (const item of inserts) messages.splice(item.index, 0, item.message);
     }
 
@@ -1160,6 +1164,7 @@ export const compileStoryPreset = (input: {
             max_tokens: document.generation.maxTokens,
         },
         assistantPrefill,
+        ...(afterLatestUser.length ? { afterLatestUser } : {}),
     };
 };
 
