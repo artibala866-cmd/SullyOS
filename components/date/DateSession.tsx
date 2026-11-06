@@ -228,18 +228,12 @@ const DateSession: React.FC<DateSessionProps> = ({
                     scene.width = width;
                     scene.height = Math.max(bounds.height, visibleHeight);
                 }
-                const active = document.activeElement;
-                const isEditing = !!active && root.contains(active)
-                    && (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement);
+                // Android can emit the viewport resize before focusin or even
+                // before React mounts the textarea. Significant lost viewport
+                // height is the authoritative signal; don't miss that first event.
+                // Normal browser chrome bars are below this 80px threshold.
                 const keyboardInset = Math.max(0, scene.height - visibleHeight);
-                const hasComposer = !!root.querySelector('.date-session-input-box');
-                // Focus events may arrive after visualViewport.resize (or blur first).
-                // A visible composer + substantial viewport loss is sufficient to
-                // preserve the scene, without depending on event ordering.
-                const hasKeyboard = keyboardInset >= 80 &&
-                    (isEditing || hasComposer || root.classList.contains('date-session-keyboard-open'));
-                // Keep this layout until Android reports the keyboard fully closed;
-                // focusout often precedes visualViewport.resize by several frames.
+                const hasKeyboard = keyboardInset >= 80;
                 if (!hasKeyboard) {
                     // Refresh after the keyboard closes, including orientation changes.
                     scene.height = Math.max(bounds.height, visibleHeight);
