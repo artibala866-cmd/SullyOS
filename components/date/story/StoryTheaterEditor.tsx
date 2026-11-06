@@ -16,7 +16,7 @@ interface Props {
     onImportPreset: (file: File) => Promise<StoryTheaterPreset | null>;
     onEditPreset: (preset: StoryTheaterPreset, draft: StoryTheaterEntry) => void;
     onOpenMaskBox: (draft: StoryTheaterEntry) => void;
-    onChangeGreeting: (characterId: string, greetingId: string, content: string | null) => Promise<void>;
+    onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>;
 }
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
@@ -46,6 +46,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         setGreetingBusy(true);
         setGreetingError('');
         try {
+            if (!onChangeGreeting) throw new Error('当前页面未连接开场白管理功能');
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
             if (content === null) update('openingGreeting', undefined);
             setGreetingEdit(null);
