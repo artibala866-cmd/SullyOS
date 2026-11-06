@@ -190,10 +190,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     </div>}
                     {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
                 </div>}
-                    <p className='mt-2 text-[10px] text-slate-400'>{!storyFirst
-                        ? '进入后由你写下第一句话。'
-                        : selectedGreeting ? '选中的内容会直接成为第一幕。'
-                        : '进入后点推进，让故事写下第一幕。'}</p>
+                    {!selectedGreeting && <p className='mt-2 text-[10px] text-slate-400'>{storyFirst
+                        ? '进入后点推进，让故事写下第一幕。'
+                        : '进入后由你写下第一句话。'}</p>}
                 </div>
             </section>
             <section ref={castSection} className='pt-6 border-t border-slate-200'>
