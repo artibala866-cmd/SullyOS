@@ -79,3 +79,18 @@
  .couple-anniversary-story-media>img{width:46px}
 }
 @media(prefers-reduced-motion:reduce){.couple-content-mode .couple-scene-anniversary *{transition:none!important}}
+
+/* Screenshot QA pass: protect the number column from long user titles. */
+.couple-anniversary-upcoming-copy strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:100%;word-break:break-word}
+.couple-content-mode .couple-records-anniversary .couple-edit-photo{position:relative}
+.couple-content-mode .couple-records-anniversary .couple-edit-photo input[type=file]{
+  position:absolute;bottom:0;left:0;width:1px;height:1px;min-height:0;padding:0;margin:0;
+  opacity:0;pointer-events:none;border:0;clip-path:inset(50%);overflow:hidden;
+}
+.couple-content-mode .couple-records-anniversary .couple-edit-photo:focus-within .couple-edit-photo-box{
+  outline:2px solid #85858b;outline-offset:3px;
+}
+.couple-content-mode .couple-records-anniversary.couple-records-detail .couple-record-detail-back{
+  min-height:37px;padding:7px 2px;margin-bottom:12px;background:transparent;border:0;border-bottom:1px solid #e2e2e5;
+  border-radius:0;color:#676770;font-size:11px;
+}
