@@ -29,20 +29,31 @@ const role = (value: unknown): StoryTheaterPresetPrompt['role'] =>
 
 export const isSillyTavernChatPreset = (value: any): boolean =>
     !!value && Array.isArray(value.prompts) && value.prompts.length > 0
-    && value.prompts.some((prompt: any) => prompt && typeof prompt.identifier === 'string')
-    && Array.isArray(value.prompt_order)
-    && value.prompt_order.some((group: any) => Array.isArray(group?.order));
+    && value.prompts.some((prompt: any) => prompt && typeof prompt.identifier === 'string'
+        && (typeof prompt.content === 'string' || typeof prompt.role === 'string' || prompt.marker === true))
+    // A few older/hand-edited Chat Completion exports only have prompts[].
+    // Only support a genuinely missing order table; an explicitly malformed
+    // order table must not turn disabled prompts on by accident.
+    && (value.prompt_order === undefined || (Array.isArray(value.prompt_order)
+        && value.prompt_order.some((group: any) => Array.isArray(group?.order))));
 
 export const convertSillyTavernChatPreset = (value: any, fallbackName: string): StoryTheaterPresetDocument => {
     if (!isSillyTavernChatPreset(value)) throw new Error('无法识别为酒馆 Chat Completion 预设');
 
-    const orderGroups = value.prompt_order.filter((group: any) => Array.isArray(group?.order));
+    const missingOrderTable = value.prompt_order === undefined;
+    const orderGroups = missingOrderTable ? [] : value.prompt_order.filter((group: any) => Array.isArray(group?.order));
     const populated = orderGroups.filter((group: any) => group.order.length > 0);
-    const eligibleOrderGroups = populated.length ? populated : orderGroups;
     // 100001 / 100000 are the SillyTavern default character-order configurations.
-    const orderGroup = eligibleOrderGroups.find((group: any) => group.character_id === 100001)
-        || eligibleOrderGroups.find((group: any) => group.character_id === 100000)
-        || eligibleOrderGroups[0];
+    const eligibleOrderGroups = populated.length ? populated : orderGroups;
+    const orderGroup = missingOrderTable
+        ? { order: value.prompts.filter((prompt: any) => typeof prompt?.identifier === 'string')
+            .map((prompt: any) => ({ identifier: prompt.identifier, enabled: prompt.enabled !== false })) }
+        : eligibleOrderGroups.find((group: any) => group.character_id === 100001)
+            || eligibleOrderGroups.find((group: any) => group.character_id === 100000)
+            || eligibleOrderGroups[0];
+    if (!orderGroup || (orderGroup.order.length === 0 && !missingOrderTable)) {
+        throw new Error('酒馆排序表为空，无法确认提示词开关；请重新导出完整 Chat Completion 预设');
+    }
     const sourceById = new Map<string, any>();
     for (const item of value.prompts) {
         if (item && typeof item.identifier === 'string' && !sourceById.has(item.identifier)) {
@@ -56,9 +67,11 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         const source = sourceById.get(identifier);
         if (!source || used.has(identifier)) return;
         used.add(identifier);
-        const isMarker = source.marker === true;
-        const mappedMarker = isMarker ? MARKERS[identifier] : undefined;
         const content = text(source.content);
+        // Recognize standard SillyTavern placeholder IDs even in exports that
+        // omit marker:true; only do so when the prompt has no custom text.
+        const mappedMarker = MARKERS[identifier] && (source.marker === true || !content.trim())
+            ? MARKERS[identifier] : undefined;
         // Preserve unknown marker entries for lossless editing/export; do not execute them.
         const next: StoryTheaterPresetPrompt = {
             id: `st-${identifier}`,
@@ -68,7 +81,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
             content,
             ...(mappedMarker ? { marker: mappedMarker } : {}),
         };
-        if (source.injection_position === 1 && !mappedMarker) {
+        if (Number(source.injection_position) === 1 && !mappedMarker) {
             next.injection = {
                 position: 'chat',
                 depth: Math.round(numeric(source.injection_depth, 4, 0, 10000)),
@@ -90,6 +103,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     // anything on, and do not reject its user's archived prompt text.
 
     const warnings: string[] = [];
+    if (missingOrderTable) warnings.push('原文件没有 prompt_order；已按 prompts 数组顺序和各条 enabled 开关导入（原文件无法提供更精确的排序）');
     const regexCount = Array.isArray(value.extensions?.regex_scripts)
         ? value.extensions.regex_scripts.filter((script: any) => script?.disabled !== true).length : 0;
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
@@ -108,7 +122,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     }
     if (Number(value.openai_max_tokens) > 32000) warnings.push('酒馆最大输出 tokens 超过糯米机当前 32000 上限，已按原生范围适配');
     if (prompts.some(prompt => prompt.enabled && prompt.marker === 'examples')) warnings.push('对话示例占位已保留；当前剧情角色资料没有独立示例字段时，该槽位不发送内容');
-    if (prompts.some(prompt => prompt.marker === 'characters')) warnings.push('酒馆角色描述与性格槽位合并使用糯米机的完整角色资料，避免重复发送');
+    if (prompts.some(prompt => prompt.marker === 'characters')) warnings.push('酒馆角色资料按当前糯米机角色动态绑定；描述与性格两个占位均启用时分别插入');
 
     return {
         schema: 'sullyos.story-preset',
