@@ -124,7 +124,43 @@ describe('incremental character-card imports', () => {
         const old = char('role', {
             cardImportOrigin: { ...anotherId, externalId: 'old' },
         });
-        expect(() => findCardImportTarget([old], anotherId, '雨生')).toThrow('不同的卡片身份');
+        expect(() => findCardImportTarget([old], anotherId, '雨生')).toThrow('来源身份不同');
+    });
+
+    it('does not overwrite a user-written lore entry merely because its title matches the card', () => {
+        const manuallyWritten = lore('manual-book', '玩家自己写的内容', {
+            cardImportKey: undefined, sourceUid: undefined,
+        });
+        const original = char('existing', {
+            mountedWorldbooks: [toMountedWorldbook(manuallyWritten)],
+        });
+        const imported = lore('external-book', '来源卡的新设定', { cardImportKey: 'tavern:44', sourceUid: 44 });
+        const plan = mergeCardImports([original], [manuallyWritten], [
+            card('ignored', source, { systemPrompt: '已更新' }, [imported], original.id),
+        ]);
+        expect(plan.result.booksAdded).toBe(1);
+        expect(plan.result.booksUpdated).toBe(0);
+        expect(plan.characters.find(c => c.id === original.id)?.mountedWorldbooks).toHaveLength(2);
+        expect(plan.worldbooks.find(row => row.id === 'manual-book')).toBeUndefined();
+    });
+
+    it('deduplicates exactly identical first-import greetings without removing distinct variants', () => {
+        const incoming = card('fresh', source, {
+            tavernGreetings: [
+                { id: 'first', title: '默认开场白', content: '欢迎' },
+                { id: 'duplicate', title: '重复标题', content: '欢迎' },
+                { id: 'other', title: '另一条', content: '晚上好' },
+            ],
+        });
+        const plan = mergeCardImports([], [], [incoming]);
+        expect(plan.characters[0].tavernGreetings?.map(x => x.content)).toEqual(['欢迎','晚上好']);
+    });
+
+    it('rejects ambiguous source key collisions in a single role card', () => {
+        const one = lore('a', '版本甲');
+        const two = lore('b', '版本乙', { cardImportKey: one.cardImportKey });
+        const incoming = card('fresh', source, {}, [one,two]);
+        expect(() => mergeCardImports([], [], [incoming])).toThrow('重复的世界书来源条目 ID');
     });
 
     it('a deleted role leaves no identity tombstone: orphaned library rows cannot block fresh import', () => {
