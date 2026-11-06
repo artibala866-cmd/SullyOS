@@ -734,8 +734,9 @@ export const resolveStoryOpeningGreeting = (
     const selection = entry.openingGreeting;
     if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
     const actor = characters.find(character => character.id === selection.characterId);
-    const greeting = actor?.tavernGreetings?.find(item => item.id === selection.greetingId);
-    if (!actor || !greeting?.content?.trim()) return null;
+    const greeting = Array.isArray(actor?.tavernGreetings)
+        ? actor.tavernGreetings.find(item => item?.id === selection.greetingId) : undefined;
+    if (!actor || typeof greeting?.content !== 'string' || !greeting.content.trim()) return null;
     return {
         characterId: actor.id,
         greetingId: greeting.id,

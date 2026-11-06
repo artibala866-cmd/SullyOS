@@ -76,8 +76,18 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const saveEntry = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
         const identity = resolveStoryTheaterMask(normalized.mask, userProfile, characters, masks).name;
-        const opening = resolveStoryOpeningGreeting(normalized, characters, identity);
-        if (normalized.openingGreeting && !opening) throw new Error('所选开场白已不存在，或角色已移出剧情，请重新选择');
+        // Existing first-floor text remains the source of truth even if the imported
+        // greeting is later changed or removed from the character card.
+        const rows = await DB.getMessagesByCharId(storyTheaterThreadId(normalized.id), true);
+        const hasStarted = rows.some(message => message.metadata?.source === 'story_theater');
+        const persistedActor = !hasStarted && normalized.openingGreeting
+            ? await DB.getCharacter(normalized.openingGreeting.characterId) : undefined;
+        const opening = hasStarted ? null : resolveStoryOpeningGreeting(
+            normalized, persistedActor ? [persistedActor] : [], identity,
+        );
+        if (!hasStarted && normalized.openingGreeting && !opening) {
+            throw new Error('所选开场白已失效，请重新选择；旧剧情不会改变');
+        }
         const requiredRecipients = storyTheaterMemoryRecipientIds(normalized);
         const availableRecipients = requiredRecipients.filter(id => characters.some(character => character.id === id));
         if (normalized.writesToCharacterMemory && requiredRecipients.length !== availableRecipients.length) {
@@ -195,6 +205,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 ...current,
                 mask: selection,
                 characterIds,
+                openingGreeting: current.openingGreeting && characterIds.includes(current.openingGreeting.characterId)
+                    ? current.openingGreeting : undefined,
                 selectedWorldbookIds: Array.from(new Set([...current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
                     ...(selection.type === 'character' && (current.mask?.type !== 'character' || current.mask.id !== selection.id)
                         ? (characters.find(char => char.id === selection.id)?.mountedWorldbooks || []).map(book => book.id) : [])])), 

@@ -281,7 +281,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     const book = data.character_book;
     const worldbooks = normalizeWorldbooks(book, name, warnings);
     const tavernGreetings = normalizeTavernGreetings(data, warnings);
-    if (!description.trim() && !personality && !worldview && worldbooks.length === 0) {
+    if (!description.trim() && !personality && !worldview && worldbooks.length === 0 && tavernGreetings.length === 0) {
         throw new Error('角色卡只有姓名，没有可导入的人设或世界书');
     }
     if (source === 'tavern-v3' && data.assets?.some?.((a: any) => a?.uri && a.uri !== 'ccdefault:')) {
