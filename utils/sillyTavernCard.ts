@@ -41,6 +41,8 @@ export interface PreparedCharacterCard {
     /** BabyLink-only per-character image config; Tavern imports never set this. */
     imageProfile?: CharacterImageProfile;
     warnings: string[];
+    /** Stable source ID when the card actually provides one (name is the legacy fallback). */
+    sourceIdentity?: string;
 }
 
 export type PreparedCardImport = PreparedCharacterCard | PreparedBabyLinkBundle;
@@ -196,7 +198,8 @@ const normalizeWorldbooks = (raw: unknown, charName: string, warnings: string[])
     }
     if (!standardEntries.length) return [];
     // Use SullyOS's own canonical importer, then the normal mounted-worldbook format.
-    return parseStandardWorldbook(JSON.stringify({ entries: standardEntries }), charName + ' 的世界书');
+    return parseStandardWorldbook(JSON.stringify({ entries: standardEntries }), charName + ' 的世界书')
+        .map((entry, index) => ({ ...entry, cardImportKey: 'tavern:' + String(entries[index] && (entries[index] as any).uid ?? (entries[index] as any)?.id ?? index) }));
 };
 
 const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
@@ -294,6 +297,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         source,
         character: { name, avatar: safeInlineAvatar(data.avatar), description, systemPrompt, worldview, tavernGreetings },
         worldbooks, avatarFile: null, warnings: [...new Set(warnings)],
+        sourceIdentity: text(data.extensions?.uuid) || text(data.extensions?.id) || text(data.creator_notes?.id) || undefined,
     };
 };
 
