@@ -8,7 +8,7 @@ import { readCharacterCardFile } from './sillyTavernCard';
 import { DB } from './db';
 import { isWorldbookEntryActive, toMountedWorldbook } from './worldbook';
 import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
-import { mergeCardGreetings } from './cardImportMerge';
+import { mergeCardGreetings, mergeCardImports } from './cardImportMerge';
 import { resolveStoryOpeningGreeting } from './storyTheater';
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
