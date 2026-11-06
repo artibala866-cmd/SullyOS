@@ -145,6 +145,22 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
             .toHaveLength(0);
     });
 
+    it('大型 373 条酒馆预设无丢项，启用 104 条且保持排序与文字', () => {
+        const prompts = Array.from({ length: 373 }, (_, i) => ({
+            identifier: `entry-${i}`, name: `原始条目${i}`, role: 'system',
+            content: `段落${i}：保留文字、标点与 {{char}}`,
+        }));
+        const order = prompts.map((entry, i) => ({ identifier: entry.identifier, enabled: i < 104 }));
+        const doc = parseStoryTheaterPreset(JSON.stringify({
+            prompts, prompt_order: [{ character_id: 100001, order }],
+        }), '大预设.json').document;
+        expect(doc.prompts).toHaveLength(373);
+        expect(doc.prompts.filter(item => item.enabled)).toHaveLength(104);
+        expect(doc.prompts[0].content).toBe('段落0：保留文字、标点与 {{char}}');
+        expect(doc.prompts[372].content).toBe('段落372：保留文字、标点与 {{char}}');
+        expect(doc.prompts[104].enabled).toBe(false);
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
