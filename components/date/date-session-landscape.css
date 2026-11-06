@@ -1,0 +1,114 @@
+/* Compact landscape for Meet visual-novel mode.
+   Portrait and regular desktop layouts retain their existing design. */
+@media (orientation: landscape) and (max-height: 760px) {
+  .date-session-root .date-session-sprite-stage {
+    inset: auto auto 0 0;
+    width: 58%;
+    height: 100%;
+    justify-content: center;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .date-session-root .date-session-sprite-stage > img {
+    max-height: 96%;
+    max-width: 100%;
+  }
+  .date-session-root .date-session-controls {
+    top: 0;
+    right: 0;
+    padding: 8px max(10px, env(safe-area-inset-right, 0px));
+    max-height: calc(100% - 8px);
+    max-width: min(48%, 310px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.3) transparent;
+  }
+  .date-session-root .date-session-controls > .date-session-menu-items {
+    flex-shrink: 0;
+  }
+  .date-session-root .date-session-observe {
+    padding: 8px 12px;
+    max-width: 46%;
+    max-height: calc(100% - 12px);
+    overflow-y: auto;
+  }
+  .date-session-root .date-session-dialogue-position {
+    inset: auto max(12px, 2.5%) 12px auto;
+    width: min(42%, 520px);
+    max-height: 42%;
+    align-items: flex-end;
+  }
+  .date-session-root .date-session-dialogue-card {
+    width: 100%;
+    max-width: none;
+    min-height: 82px;
+    max-height: min(39vh, 180px);
+    overflow-y: auto;
+    padding: 14px 16px 12px;
+    border-radius: 14px;
+    overscroll-behavior: contain;
+  }
+  .date-session-root .date-session-dialogue-text {
+    font-size: 13px;
+    line-height: 1.42;
+    margin-top: 4px;
+  }
+  .date-session-root.date-session-input-open .date-session-dialogue-position {
+    bottom: 90px;
+    max-height: calc(100% - 150px);
+  }
+  .date-session-root.date-session-input-open .date-session-dialogue-card {
+    max-height: min(27vh, 115px);
+  }
+  .date-session-root .date-session-input-layer {
+    inset: auto max(12px, 2.5%) 9px auto;
+    width: min(42%, 520px);
+  }
+  .date-session-root .date-session-input-box {
+    width: 100%;
+    max-width: none;
+    margin-bottom: 0;
+    padding: 5px;
+    gap: 4px;
+    border-radius: 12px;
+    align-items: center;
+  }
+  .date-session-root .date-session-input-text {
+    height: 46px;
+    min-height: 46px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .date-session-root .date-session-send-button {
+    height: 46px;
+    padding: 0 13px;
+    font-size: 13px;
+  }
+  .date-session-root .date-session-typing-indicator {
+    bottom: calc(100% + 8px);
+    left: 50%;
+  }
+  .date-session-root .date-session-reading-page {
+    padding-top: 54px;
+    padding-bottom: 80px;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+}
+@media (orientation: landscape) and (max-height: 410px) {
+  .date-session-root .date-session-dialogue-position { bottom: 8px; }
+  .date-session-root.date-session-input-open .date-session-dialogue-position { bottom: 77px; }
+  .date-session-root .date-session-dialogue-card {
+    min-height: 68px;
+    max-height: 108px;
+    padding: 11px 12px 9px;
+  }
+  .date-session-root.date-session-input-open .date-session-dialogue-card {
+    max-height: min(24vh, 84px);
+  }
+  .date-session-root .date-session-input-layer { bottom: 7px; }
+  .date-session-root .date-session-input-text,
+  .date-session-root .date-session-send-button { height: 42px; min-height: 42px; }
+  .date-session-root .date-session-dialogue-text { font-size: 12px; line-height: 1.35; }
+}
