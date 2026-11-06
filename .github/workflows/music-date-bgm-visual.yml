@@ -1,0 +1,70 @@
+name: Meet BGM real music UI mobile visual acceptance
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/MusicApp.tsx'
+      - 'apps/music/DateBgmPanel.tsx'
+      - 'context/MusicContext.tsx'
+      - 'utils/dateBgm.ts'
+      - 'tests/music-date-bgm-visual.tsx'
+      - 'tests/music-date-bgm-visual.html'
+      - '.github/workflows/music-date-bgm-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sully-date-bgm-visual
+  cancel-in-progress: true
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chinese fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - name: Screenshot the real music BGM tab and exercise its controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/date-bgm
+          pnpm exec vite --host 127.0.0.1 --port 5186 --strictPort > output/date-bgm/vite.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl -fsSL http://127.0.0.1:5186/tests/music-date-bgm-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser"
+          for scenario in empty filled many create; do
+            url="http://127.0.0.1:5186/tests/music-date-bgm-visual.html?scenario=${scenario}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=15000 --dump-dom "$url" > "output/date-bgm/${scenario}.html" 2> "output/date-bgm/${scenario}.log"
+            if ! grep -q 'data-meet-bgm-ready="true"' "output/date-bgm/${scenario}.html"; then
+              grep -o '<output[^>]*>[^<]*' "output/date-bgm/${scenario}.html" | tail -c 2000 || true
+              tail -n 30 "output/date-bgm/${scenario}.log" || true
+              exit 1
+            fi
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=15000 --screenshot="output/date-bgm/${scenario}-390.png" "$url" >/dev/null 2>&1
+            test -s "output/date-bgm/${scenario}-390.png"
+            grep 'meet-bgm-visual-report' "output/date-bgm/${scenario}.html" | sed 's/<[^>]*>//g' | cut -c 1-1200 || true
+            echo "MEET_BGM_SCREENSHOT_${scenario}_BASE64_BEGIN"
+            base64 -w0 "output/date-bgm/${scenario}-390.png"
+            echo
+            echo "MEET_BGM_SCREENSHOT_${scenario}_BASE64_END"
+          done
+          echo 'PASS: real MusicApp Meet BGM tab, empty/filled/many/create rendered and exercised'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: date-bgm-real-music-ui
+          path: output/date-bgm/
+          retention-days: 7
+          if-no-files-found: ignore
