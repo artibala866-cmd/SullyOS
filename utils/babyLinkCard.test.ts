@@ -7,6 +7,9 @@ import { readCharacterImageProfile, writeCharacterImageProfile, clearCharacterIm
 import { readCharacterCardFile } from './sillyTavernCard';
 import { DB } from './db';
 import { isWorldbookEntryActive, toMountedWorldbook } from './worldbook';
+import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { mergeCardGreetings } from './cardImportMerge';
+import { resolveStoryOpeningGreeting } from './storyTheater';
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
     id, title: id, content: '正文：' + id, enabled: true,
@@ -86,6 +89,82 @@ describe('BabyLink 1.1.10 share conversion', () => {
             expect(serialized).not.toContain(forbidden);
         }
     });
+    it('adapts Link openings with Tavern HTML metadata, keeping body HTML and runtime user/char macros', () => {
+        const scene = [
+            '<!-- title: Link 第六幕 -->',
+            '<!-- desc:',
+            '  深夜，雨停了。',
+            '  两人终于重逢。',
+            '-->',
+            '',
+            '{{char}}推开门，望向{{user}}。',
+            '<!-- 叙事中的注释不能丢 -->',
+            '<section class="story">正文 HTML 不删除</section>',
+        ].join('\n');
+        const parsed = normalizeBabyLinkShare(share([
+            char('千雪', ['shared'], {
+                description: '稳定人设，不应该被开场白更改',
+                openings: [
+                    { title: '备选 6', opening: scene },
+                    { title: '相同正文的重复开场', content: '{{char}}推开门，望向{{user}}。\n<!-- 叙事中的注释不能丢 -->\n<section class="story">正文 HTML 不删除</section>' },
+                    { title: '纯元数据，无正文', opening: '<!-- title: 空白 -->\n<!-- desc: 不应导入 -->' },
+                    { title: '另一幕', desc: '室内的第二场戏', opening: '她在窗边等候。' },
+                ],
+            }),
+        ], [book('shared', true, [entry('城市地理', { activation: 'constant' })])]));
+        const card = parsed.cards[0];
+        expect(card.worldbooks).toHaveLength(1);
+        expect(card.character.tavernGreetings).toHaveLength(2);
+        const [first, second] = card.character.tavernGreetings!;
+        expect(first).toMatchObject({
+            id: 'babylink-opening-0', title: 'Link 第六幕',
+            description: '深夜，雨停了。\n  两人终于重逢。',
+        });
+        expect(first.content).toBe('{{char}}推开门，望向{{user}}。\n<!-- 叙事中的注释不能丢 -->\n<section class="story">正文 HTML 不删除</section>');
+        expect(second).toMatchObject({
+            id: 'babylink-opening-3', title: '另一幕',
+            description: '室内的第二场戏', content: '她在窗边等候。',
+        });
+        expect(card.character.systemPrompt).toContain('稳定人设');
+        expect(card.character.systemPrompt).not.toContain('Link 第六幕');
+        const actor = { ...card.character, id: 'actor-1', memories: [], mountedWorldbooks: [] } as CharacterProfile;
+        const opening = resolveStoryOpeningGreeting({
+            characterIds: [actor.id], openingGreeting: { characterId: actor.id, greetingId: first.id },
+        }, [actor], '小瞿');
+        expect(opening?.content).toContain('千雪推开门，望向小瞿。');
+        expect(opening?.content).toContain('<section class="story">');
+        expect(opening?.content).not.toContain('<!-- title:');
+        expect(opening?.content).toContain('<!-- 叙事中的注释不能丢 -->');
+    });
+
+    it('reimporting Link with normalized openings updates the original ID without duplicating a legacy comment-header copy', () => {
+        const old = {
+            id: 'old-opening', title: '备选开场 1',
+            content: '<!-- title：熟悉的街角 -->\n<!-- desc：重逢 -->\n\n我们在雨中碰面。',
+        };
+        const link = normalizeBabyLinkShare(share([
+            char('林叶', [], { openings: [{ title: '熟悉的街角', opening: '我们在雨中碰面。' }] }),
+        ], []));
+        const next = mergeCardGreetings([old], link.cards[0].character.tavernGreetings!);
+        expect(next).toHaveLength(1);
+        expect(next[0]).toMatchObject({ id: 'old-opening', title: '熟悉的街角', content: '我们在雨中碰面。' });
+        expect(mergeCardGreetings(next, link.cards[0].character.tavernGreetings!)).toEqual(next);
+        expect(adaptTavernOpeningGreeting(old).description).toBe('重逢');
+    });
+
+    it('does not invent independent openings from Link persona phase instructions', () => {
+        // Real PNG may say "开场白锚点" inside a persona, but its V1 export
+        // contains no openings[] module. It must remain ordinary persona text.
+        const three = normalizeBabyLinkShare(share([
+            char('角色甲', [] ,{ description: '人物简介。' , openings: undefined }),
+            char('角色乙', ['shared'], { description: '【剧情阶段与开场白锚点】\nPhase 1，Phase 2。', openings: undefined }),
+            char('角色丙', [], { description: '人物简介。', openings: undefined }),
+        ], [book('shared', true, [entry('城镇', { activation: 'constant' }), entry('学校', { activation: 'constant' })])]));
+        expect(three.cards.map(c => c.character.tavernGreetings?.length || 0)).toEqual([0, 0, 0]);
+        expect(three.cards.map(c => c.worldbooks.length)).toEqual([0, 2, 0]);
+        expect(three.cards[1].character.systemPrompt).toContain('开场白锚点');
+    });
+
     it('preserves both enable levels, keyword order, probability and case sensitivity', () => {
         const bundle = normalizeBabyLinkShare(share([char('甲', ['one', 'off'])], [
             book('one', true, [
