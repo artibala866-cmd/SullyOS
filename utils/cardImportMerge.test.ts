@@ -144,6 +144,23 @@ describe('incremental character-card imports', () => {
         expect(plan.worldbooks.find(row => row.id === 'manual-book')).toBeUndefined();
     });
 
+    it('cannot merge unrelated legacy lore solely from colliding numeric Tavern UIDs', () => {
+        const unrelated = lore('other-book', '别人的世界书正文', {
+            cardImportKey: undefined, category: '别人的世界书',
+            sourceUid: 21,
+        });
+        const old = char('old', {
+            mountedWorldbooks: [toMountedWorldbook(unrelated)],
+        });
+        const incoming = lore('fresh', '谢嬴自己的世界书正文', { sourceUid: 21 });
+        const result = mergeCardImports([old], [unrelated], [
+            card('ignored', source, { systemPrompt:'当前角色' }, [incoming], 'old'),
+        ]);
+        expect(result.result.booksAdded).toBe(1);
+        expect(result.result.booksUpdated).toBe(0);
+        expect(result.characters[0].mountedWorldbooks?.length).toBe(2);
+    });
+
     it('deduplicates exactly identical first-import greetings without removing distinct variants', () => {
         const incoming = card('fresh', source, {
             tavernGreetings: [
