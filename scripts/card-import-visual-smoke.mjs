@@ -48,9 +48,12 @@ try{
  const cases=[
   {name:'tavern-390',source:'tavern',w:390,h:844},
   {name:'link-390',source:'link',w:390,h:844},
+  {name:'link-openings-390',source:'link-openings',w:390,h:844},
+  {name:'link-openings-320',source:'link-openings',w:320,h:690},
   {name:'tavern-320',source:'tavern',w:320,h:690},
   {name:'tavern-landscape',source:'tavern',w:844,h:390},
   {name:'link-landscape',source:'link',w:844,h:390},
+  {name:'link-openings-landscape',source:'link-openings',w:844,h:390},
  ];
  const failures=[];
  for(const c of cases){
@@ -75,6 +78,22 @@ try{
   console.log('SCREENSHOT_END '+c.name);
   console.log('CARD_VISUAL_REPORT '+c.name+' '+JSON.stringify({ready,report}));
   if(ready!=='true')failures.push(c.name+': '+JSON.stringify(report).slice(0,1700));
+  if(c.name==='link-openings-390'&&ready==='true'){
+   const choice=await evaluate(`(async()=>{
+      const persona=document.querySelector('input[aria-label="导入人设"]');
+      const greeting=document.querySelector('input[aria-label="导入开场白"]');
+      const confirm=[...document.querySelectorAll('button')].find(x=>x.textContent?.includes('确认导入'));
+      persona.click();await new Promise(r=>setTimeout(r,100));
+      const onlyGreeting=greeting.checked&&!greeting.disabled&&confirm?.disabled===false;
+      greeting.click();await new Promise(r=>setTimeout(r,100));
+      const allOff=confirm?.disabled===true;
+      greeting.click();await new Promise(r=>setTimeout(r,100));
+      return {onlyGreeting,allOff,restored:confirm?.disabled===false};
+   })()`);
+   console.log('LINK_OPENING_SELECTION '+JSON.stringify(choice));
+   if(!choice?.onlyGreeting||!choice?.allOff||!choice?.restored)
+      failures.push('link opening-only import toggle: '+JSON.stringify(choice));
+  }
   if(c.name==='tavern-390'&&ready==='true'){
    const clickResult=await evaluate(`(async()=>{const labels=['人设','世界书','开场白'];for(const label of labels){document.querySelector('input[aria-label="导入'+label+'"]')?.click()}await new Promise(r=>setTimeout(r,180));const button=[...document.querySelectorAll('button')].find(x=>x.textContent?.includes('确认导入'));const noneDisabled=button?.disabled===true;document.querySelector('input[aria-label="导入世界书"]')?.click();await new Promise(r=>setTimeout(r,180));const picked=labels.map(label=>document.querySelector('input[aria-label="导入'+label+'"]')?.checked);return {noneDisabled,picked,buttonEnabled:button?.disabled===false};})()`);
    console.log('CARD_SELECTION_INTERACTION '+JSON.stringify(clickResult));
