@@ -219,7 +219,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(exportedOne.cards[0].character.linkGreetings).toHaveLength(1);
         expect(() => normalizeBabyLinkShare(share([
             char('丙', [], { openings: { title: '格式不正确' } }),
-        ], []))).toThrow('类型错误');
+        ], []))).toThrow('Link 独立开场白结构或数量无效');
     });
 
     it('preserves both enable levels, keyword order, probability and case sensitivity', () => {
