@@ -114,6 +114,7 @@ const matchedMountedBook = (
     }
     if (source === 'tavern' && incoming.sourceUid != null) {
         const found = mounted.filter(row => row.sourceUid === incoming.sourceUid &&
+            row.category === incoming.category &&
             (!row.cardImportKey || row.cardImportKey.startsWith('tavern:')));
         if (found.length === 1) return found[0]; // legacy imports predate cardImportKey
     }
