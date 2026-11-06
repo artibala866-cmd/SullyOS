@@ -747,7 +747,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                             actors: actorContext,
                             persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
                             scenario, worldBefore: slots.before, worldAfter: slots.after, history: '',
-                            tavernDescription: actors.map(actor => `### ${actor.name}\n${actor.description || ''}`).join('\n\n'),
+                            tavernDescription: entry.carryCharacterMemory ? actorContext\n                                : actors.map(actor => `### ${actor.name}\n${actor.description || ''}`).join('\n\n'),
                             tavernPersonality: actors.map(actor => `### ${actor.name}\n${actor.systemPrompt || ''}\n${actor.worldview || ''}`).join('\n\n'),
                         },
                     });
