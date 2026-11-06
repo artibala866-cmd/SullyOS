@@ -130,7 +130,7 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
         await render({ ...createStoryTheaterDraft(), title: '丢失的开场', characterIds: [actor.id],
             openingGreeting: { characterId: actor.id, greetingId: 'missing' } }, [actor], save);
-        expect(host!.textContent).toContain('原开场白已失效');
+        expect(host!.textContent).toContain('原开场已失效');
         await clickButton('清除失效选择');
         await clickButton('保存并进入');
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
