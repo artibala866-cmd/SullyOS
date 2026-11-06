@@ -22,3 +22,14 @@ export function extractDateSceneTag(line: string): { rest: string; scene?: DateS
     });
     return { rest: rest.trim(), scene };
 }
+
+/** Hide machine-only location controls on the pre-encounter sensing page.
+ * Preserve the original peekStatus for saving and scene switching. */
+export function stripDateSceneTagsForDisplay(text: string): string {
+    return (text || '').split(/\r?\n/).map(line => {
+        const parsed = extractDateSceneTag(line);
+        return { raw: line, visible: parsed.rest };
+    }).filter(({ raw, visible }) => visible.length > 0 || raw.trim() === '')
+      .map(({ visible }) => visible)
+      .join('\n').trim();
+}
