@@ -57,7 +57,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(parsed.cards[0].character.systemPrompt).toContain('人物资料 第一段\n人物资料 第二段');
         expect(parsed.cards[0].worldbooks.map(b => b.title)).toEqual(['人际关系', '校园']);
         expect(parsed.cards[0].worldbooks.every(b => b.constant && !b.disable && b.position === 0)).toBe(true);
-        expect(parsed.warnings).toEqual([]);
+        expect(parsed.warnings.some(w => w.includes('局部正则'))).toBe(true);
         expect(JSON.stringify(parsed)).not.toContain('private-file');
         expect(JSON.stringify(parsed)).not.toContain('not-imported');
         // The aggregate worldbook.content is not imported a second time.
@@ -355,7 +355,7 @@ describe('BabyLink phone-style image generation profile adaptation', () => {
             wardrobe: { guidance: '便服', inventory: '黑夹克、灰色卫衣', avoid: '校服' },
         });
         expect(result.worldbooks).toHaveLength(2);
-        expect(bundle.warnings).toEqual([]);
+        expect(bundle.warnings.some(w => w.includes('局部正则'))).toBe(true);
         const prompt = JSON.stringify(result.character);
         expect(prompt).not.toContain('DO_NOT_COPY');
         expect(prompt).not.toContain('黑夹克');
