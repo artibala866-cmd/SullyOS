@@ -7,8 +7,8 @@ import { readCharacterImageProfile, writeCharacterImageProfile, clearCharacterIm
 import { readCharacterCardFile } from './sillyTavernCard';
 import { DB } from './db';
 import { isWorldbookEntryActive, toMountedWorldbook } from './worldbook';
-import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
-import { mergeCardGreetings, mergeCardImports } from './cardImportMerge';
+import { mergeCardImports } from './cardImportMerge';
+import { listCharacterStoryOpenings, mergeLinkGreetings } from './linkStoryOpenings';
 import { resolveStoryOpeningGreeting } from './storyTheater';
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -81,7 +81,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(profile.systemPrompt).toContain('角色签名');
         expect(bundle.cards[0].worldbooks).toHaveLength(0);
         expect(profile.systemPrompt).not.toContain('不许进入人格');
-        expect(profile.tavernGreetings).toEqual([
+        expect(profile.linkGreetings).toEqual([
             { id: 'babylink-opening-0', title: '开场', content: '不许进入人格' },
         ]);
         const serialized = JSON.stringify(bundle);
@@ -89,67 +89,71 @@ describe('BabyLink 1.1.10 share conversion', () => {
             expect(serialized).not.toContain(forbidden);
         }
     });
-    it('adapts Link openings with Tavern HTML metadata, keeping body HTML and runtime user/char macros', () => {
-        const scene = [
-            '<!-- title: Link 第六幕 -->',
-            '<!-- desc:',
-            '  深夜，雨停了。',
-            '  两人终于重逢。',
-            '-->',
-            '',
-            '{{char}}推开门，望向{{user}}。',
-            '<!-- 叙事中的注释不能丢 -->',
-            '<section class="story">正文 HTML 不删除</section>',
-        ].join('\n');
+    it('reads Link-native structured title/description and preserves original HTML and macros without using Tavern parsing', () => {
+        const scene = '<!-- title: 属于 Link 正文的 HTML 注释 -->\n{{char}}推门看向{{user}}。\n<section>Link 的正文 HTML</section>';
         const parsed = normalizeBabyLinkShare(share([
             char('千雪', ['shared'], {
-                description: '稳定人设，不应该被开场白更改',
+                description: '稳定人设，不被开场白更改',
                 openings: [
-                    { title: '备选 6', opening: scene },
-                    { title: '相同正文的重复开场', content: '{{char}}推开门，望向{{user}}。\n<!-- 叙事中的注释不能丢 -->\n<section class="story">正文 HTML 不删除</section>' },
-                    { title: '纯元数据，无正文', opening: '<!-- title: 空白 -->\n<!-- desc: 不应导入 -->' },
-                    { title: '另一幕', desc: '室内的第二场戏', opening: '她在窗边等候。' },
+                    { id: 'scene-1', title: '雨夜相逢', description: '在屋檐下等候', content: scene },
+                    { title: '同正文重复项', content: scene },
+                    { id: 'scene-2', title: '第二幕', opening: '她在窗边等候。' },
                 ],
             }),
         ], [book('shared', true, [entry('城市地理', { activation: 'constant' })])]));
         const card = parsed.cards[0];
         expect(card.worldbooks).toHaveLength(1);
-        expect(card.character.tavernGreetings).toHaveLength(2);
-        const [first, second] = card.character.tavernGreetings!;
-        expect(first).toMatchObject({
-            id: 'babylink-opening-0', title: 'Link 第六幕',
-            description: '深夜，雨停了。\n  两人终于重逢。',
+        expect(card.character.tavernGreetings).toBeUndefined();
+        expect(card.character.linkGreetings).toHaveLength(2);
+        expect(card.character.linkGreetings?.[0]).toEqual({
+            id: 'babylink-opening-scene-1', title: '雨夜相逢',
+            description: '在屋檐下等候', content: scene,
         });
-        expect(first.content).toBe('{{char}}推开门，望向{{user}}。\n<!-- 叙事中的注释不能丢 -->\n<section class="story">正文 HTML 不删除</section>');
-        expect(second).toMatchObject({
-            id: 'babylink-opening-3', title: '另一幕',
-            description: '室内的第二场戏', content: '她在窗边等候。',
+        expect(card.character.linkGreetings?.[1]).toMatchObject({
+            id: 'babylink-opening-scene-2', title: '第二幕',
+            content: '她在窗边等候。',
         });
-        expect(card.character.systemPrompt).toContain('稳定人设');
-        expect(card.character.systemPrompt).not.toContain('Link 第六幕');
-        const actor = { ...card.character, id: 'actor-1', memories: [], mountedWorldbooks: [] } as CharacterProfile;
-        const opening = resolveStoryOpeningGreeting({
-            characterIds: [actor.id], openingGreeting: { characterId: actor.id, greetingId: first.id },
+        const actor = { ...card.character, id: 'actor', memories: [], mountedWorldbooks: [] } as CharacterProfile;
+        const openings = listCharacterStoryOpenings(actor);
+        expect(openings.map(o => o.source)).toEqual(['link', 'link']);
+        const selected = resolveStoryOpeningGreeting({
+            characterIds: ['actor'],
+            openingGreeting: { characterId: 'actor', greetingId: openings[0].id },
         }, [actor], '小瞿');
-        expect(opening?.content).toContain('千雪推开门，望向小瞿。');
-        expect(opening?.content).toContain('<section class="story">');
-        expect(opening?.content).not.toContain('<!-- title:');
-        expect(opening?.content).toContain('<!-- 叙事中的注释不能丢 -->');
+        expect(selected?.content).toContain('千雪推门看向小瞿');
+        expect(selected?.content).toContain('<!-- title: 属于 Link 正文的 HTML 注释 -->');
+        expect(selected?.content).toContain('<section>Link 的正文 HTML</section>');
+        expect(card.character.systemPrompt).toContain('稳定人设');
+        expect(card.character.systemPrompt).not.toContain('雨夜相逢');
     });
 
-    it('reimporting Link with normalized openings updates the original ID without duplicating a legacy comment-header copy', () => {
-        const old = {
-            id: 'old-opening', title: '备选开场 1',
-            content: '<!-- title：熟悉的街角 -->\n<!-- desc：重逢 -->\n\n我们在雨中碰面。',
+    it('upgrades a legacy Link scene kept in Tavern field to the independent Link library with the same ID', () => {
+        const oldOpening = {
+            id: 'babylink-opening-0', title: '原有 Link 开场',
+            content: '雨后在街角碰面。',
         };
-        const link = normalizeBabyLinkShare(share([
-            char('林叶', [], { openings: [{ title: '熟悉的街角', opening: '我们在雨中碰面。' }] }),
-        ], []));
-        const next = mergeCardGreetings([old], link.cards[0].character.tavernGreetings!);
-        expect(next).toHaveLength(1);
-        expect(next[0]).toMatchObject({ id: 'old-opening', title: '熟悉的街角', content: '我们在雨中碰面。' });
-        expect(mergeCardGreetings(next, link.cards[0].character.tavernGreetings!)).toEqual(next);
-        expect(adaptTavernOpeningGreeting(old).description).toBe('重逢');
+        const old = {
+            id: 'existing-link', name: '林叶', avatar: '',
+            description: '', systemPrompt: '旧设定', mountedWorldbooks: [],
+            tavernGreetings: [oldOpening], memories: [],
+        } as CharacterProfile;
+        const incoming = normalizeBabyLinkShare(share([
+            char('林叶', [], { openings: [{ title: '新版 Link 标题', opening: '雨后在街角碰面。' }] }),
+        ], [])).cards[0];
+        const changes = mergeCardImports([old], [], [{
+            expectedTargetId: old.id,
+            character: { ...old, id: 'unused-new-id', linkGreetings: incoming.character.linkGreetings },
+            fields: { name: old.name, linkGreetings: incoming.character.linkGreetings },
+            origin: { source: 'babylink', originalName: old.name },
+            worldbooks: [],
+        }]);
+        const next = changes.characters.find(c => c.id === old.id)!;
+        expect(next.linkGreetings).toEqual([{
+            id: oldOpening.id, title: '新版 Link 标题', content: oldOpening.content,
+        }]);
+        expect(next.tavernGreetings).toEqual([]);
+        expect(listCharacterStoryOpenings(next)).toHaveLength(1);
+        expect(mergeLinkGreetings(next.linkGreetings, incoming.character.linkGreetings)).toEqual(next.linkGreetings);
     });
 
     it('does not invent independent openings from Link persona phase instructions', () => {
@@ -160,7 +164,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
             char('角色乙', ['shared'], { description: '【剧情阶段与开场白锚点】\nPhase 1，Phase 2。', openings: undefined }),
             char('角色丙', [], { description: '人物简介。', openings: undefined }),
         ], [book('shared', true, [entry('城镇', { activation: 'constant' }), entry('学校', { activation: 'constant' })])]));
-        expect(three.cards.map(c => c.character.tavernGreetings?.length || 0)).toEqual([0, 0, 0]);
+        expect(three.cards.map(c => c.character.linkGreetings?.length || 0)).toEqual([0, 0, 0]);
         expect(three.cards.map(c => c.worldbooks.length)).toEqual([0, 2, 0]);
         expect(three.cards[1].character.systemPrompt).toContain('开场白锚点');
     });
@@ -179,10 +183,10 @@ describe('BabyLink 1.1.10 share conversion', () => {
         ])]));
         expect(parsed.cards).toHaveLength(3);
         expect(parsed.cards.map(card => card.linkOpeningPayloadOmitted)).toEqual([true, true, true]);
-        expect(parsed.cards.map(card => card.character.tavernGreetings?.length)).toEqual([0, 0, 0]);
+        expect(parsed.cards.map(card => card.character.linkGreetings?.length)).toEqual([0, 0, 0]);
         expect(parsed.cards.map(card => card.worldbooks.length)).toEqual([0, 2, 0]);
         expect(parsed.cards[1].character.systemPrompt).toContain('开场白锚点');
-        expect(parsed.cards[1].character.tavernGreetings).toEqual([]);
+        expect(parsed.cards[1].character.linkGreetings).toEqual([]);
 
         // The PNG does not carry this source-side opening. Updating a previously
         // imported character must not overwrite the locally saved one.
@@ -212,7 +216,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
             char('乙', [], { openings: [{ title: '见面', opening: '我们在这里相遇。' }] }),
         ], []));
         expect(exportedOne.cards[0].linkOpeningPayloadOmitted).toBe(false);
-        expect(exportedOne.cards[0].character.tavernGreetings).toHaveLength(1);
+        expect(exportedOne.cards[0].character.linkGreetings).toHaveLength(1);
         expect(() => normalizeBabyLinkShare(share([
             char('丙', [], { openings: { title: '格式不正确' } }),
         ], []))).toThrow('类型错误');
