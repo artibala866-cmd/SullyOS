@@ -330,7 +330,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         style={{ 
                             transform: `translate(${tempSpriteConfig.x}%, ${tempSpriteConfig.y}%) scale(${tempSpriteConfig.scale})`,
                             '--date-landscape-fit-scale': String(1 / Math.max(1, tempSpriteConfig.scale))
-                        }}
+                        } as React.CSSProperties}
                         />
                     </div>
             </div>}
