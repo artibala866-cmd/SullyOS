@@ -168,7 +168,7 @@ jobs:
             sleep 1
           done
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          for scenario in dialogue input menu reading zoom; do
+          for scenario in dialogue input menu reading zoom landscapeKeyboard landscapeKeyboardZoom landscapeKeyboardRestore landscapeKeyboardMenu; do
             for viewport in 844x390 740x360; do
               width="${viewport%x*}"; height="${viewport#*x}"
               url="http://127.0.0.1:5195/test/fixtures/date-session-landscape-visual.html?scenario=${scenario}"
@@ -212,7 +212,7 @@ jobs:
           "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
             --window-size=390,360 --force-device-scale-factor=1 --virtual-time-budget=8000 \
             --screenshot=output/meet-landscape/portrait-short-keyboard.png "$url" >/dev/null 2>&1
-          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 portrait-input portrait-keyboard portrait-zoom portrait-short-keyboard; do
+          for frame in dialogue-844x390 input-844x390 menu-740x360 input-740x360 zoom-740x360 landscapeKeyboard-844x390 landscapeKeyboardZoom-740x360 landscapeKeyboardRestore-844x390 landscapeKeyboardMenu-740x360 portrait-input portrait-keyboard portrait-zoom portrait-short-keyboard; do
             echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_BEGIN"
             base64 -w0 "output/meet-landscape/${frame}.png"
             echo
