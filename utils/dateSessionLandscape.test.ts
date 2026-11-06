@@ -22,6 +22,8 @@ describe('Meet landscape layout regression', () => {
     expect(css).toContain('date-session-sprite-zoomed');
     expect(css).toContain('.date-settings-sprite-preview');
     expect(css).toContain('aspect-ratio: 9 / 19.5');
+    expect(css).toContain('(max-width: 599px)');
+    expect(css).toContain('(min-width: 600px)');
     expect(app).toContain('window.visualViewport');
     expect(app).toContain('ref={sessionRootRef}');
   });
