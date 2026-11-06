@@ -160,41 +160,43 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     });
   };
 
-  return <div className="bond-ticket-room" data-shop-view={tab}>
-    <section className="bond-ticket-top" aria-label="羁绊积分">
-      <div className="bond-ticket-top-title"><span>两个人的票券所</span><h2>羁绊商店</h2></div>
+  return <div className="bond-ticket-room bond-ticket-room-v2" data-shop-view={tab}>
+    <div className="bond-ticket-top" aria-label="羁绊积分">
       <div className="bond-ticket-ledger">
-        <div className="bond-ticket-ledger-main"><span>我的积分</span><strong>{bond.points.me}</strong></div>
+        <div className="bond-ticket-ledger-main"><span>可用积分</span><strong>{bond.points.me}</strong></div>
         <div className="bond-ticket-ledger-other">
           <span>共同 <b>{bond.points.shared}</b></span>
           <span>{partner} <b>{bond.points.them}</b></span>
         </div>
       </div>
-    </section>
+      <div className="bond-ticket-serial" aria-hidden="true"><span>✳</span><small>NO. TWO</small></div>
+    </div>
     <nav className="bond-ticket-tabs" aria-label="羁绊商店区域">
-      {Object.entries(tabs).map(([key, label]) =>
-        <button key={key} type="button" disabled={working || busy} aria-pressed={tab === key}
-          onClick={() => { setTab(key as keyof typeof tabs); setDraft(undefined); setActiveIndex(0); setBagIndex(0); setIssuedCardId(null); }}>
-          <span className="bond-ticket-tab-mark" aria-hidden="true">{({shop: '⌑', bag: '▣', tasks: '✓', grand: '✧'} as Record<string,string>)[key]}</span>
+      {Object.entries(tabs).map(([key,label])=>
+        <button type="button" key={key} disabled={working||busy} aria-pressed={tab===key}
+          onClick={() => {setTab(key as keyof typeof tabs);setDraft(undefined);setActiveIndex(0);setBagIndex(0);setIssuedCardId(null);}}>
+          <span className="bond-ticket-tab-mark" aria-hidden="true">{({shop:'⌑',bag:'▣',tasks:'✓',grand:'✧'} as Record<string,string>)[key]}</span>
           {label}
         </button>)}
     </nav>
-    {error && <p role="alert" className="couple-error bond-ticket-alert">{error}</p>}
-
-    {tab === 'shop' && <section className="bond-ticket-counter">
+    {error&&<p role="alert" className="couple-error bond-ticket-alert">{error}</p>}
+    {tab==='shop'&&<section className="bond-ticket-counter">
       <div className="bond-ticket-controls">
         <nav className="bond-ticket-shelves" aria-label="卡券分类">
           {([['general','通用'],['relation',relationNames[bond.relation]],['custom','自订']] as const).map(([id,label])=>
-            <button type="button" key={id} disabled={working || busy} aria-pressed={shelf === id}
-              onClick={() => { setShelf(id); setActiveIndex(0); }}>{label}</button>)}
+            <button type="button" key={id} disabled={working||busy} aria-pressed={shelf===id}
+              onClick={()=>{setShelf(id);setActiveIndex(0);}}>{label}</button>)}
         </nav>
         <div className="bond-ticket-utilities">
-          <button type="button" disabled={working || busy} aria-label="制作自订卡" onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>＋</button>
-          <button type="button" disabled={working || busy} aria-label="管理卡券" aria-pressed={manage} onClick={() => setManage(current=>!current)}>⋯</button>
+          <button type="button" disabled={working||busy} aria-label="制作自订卡"
+            onClick={()=>setDraft({id:crypto.randomUUID(),icon:'✧',name:'',effect:'',price:30,charUse:false})}>＋</button>
+          <button type="button" disabled={working||busy} aria-label="管理卡券" aria-pressed={manage}
+            onClick={()=>setManage(current=>!current)}>⋯</button>
         </div>
       </div>
-      {manage && <div className="bond-ticket-manage-note"><span>卡券整理</span>
-        <button type="button" disabled={working || busy || !bond.hidden.length} onClick={() => apply(current => ({ ...current, hidden: [] }))}>全部放回</button>
+      {manage&&<div className="bond-ticket-manage-note"><span>整理票券</span>
+        <button type="button" disabled={working||busy||!bond.hidden.length}
+          onClick={()=>apply(current=>({...current,hidden:[]}))}>全部放回</button>
       </div>}
       {draft && <div className="bond-ticket-editor-wrap">
         <header className="bond-ticket-editor-head"><div><small>裁券工作台</small><strong>制作自己的票券</strong></div>
@@ -236,55 +238,79 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <div className="couple-actions"><button disabled={working}>保存</button><button type="button" onClick={() => setDraft(undefined)}>取消</button></div>
           </form>
       </div>}
-      {!draft && (activeCard ? <div className="bond-ticket-showcase" onTouchStart={event => { swipeX.current = event.touches[0]?.clientX ?? null; }}
-        onTouchEnd={event => { const x=swipeX.current; swipeX.current=null;
-          if(x===null || working || busy) return;
-          const dx=(event.changedTouches[0]?.clientX ?? x)-x;
-          if(Math.abs(dx)>42) shopMove(dx<0?1:-1); }}>
-        <div className="bond-ticket-counter-trim" aria-hidden="true"><span /><span /><span /><span /><span /></div>
-        <div className="bond-ticket-stack" data-motion={cardMotion}>
-          <div className="bond-ticket-stack-back bond-ticket-stack-back-two" aria-hidden="true" />
-          <div className="bond-ticket-stack-back bond-ticket-stack-back-one" aria-hidden="true" />
-          <article key={activeCard.id} className="bond-ticket-pass" aria-label={activeCard.name + '，' + activeCard.price + '积分'}>
-            <div className="bond-ticket-pass-head">
-              <span className="bond-ticket-series">NO. {String(activeIndex+1).padStart(2,'0')} <i> / {String(visibleCards.length).padStart(2,'0')}</i></span>
-              <span className="bond-ticket-pass-icon" aria-hidden="true">{activeCard.icon || '✧'}</span>
+
+      {!draft && (activeCard ? <div className="bond-ticket-showcase"
+        onTouchStart={event=>{swipeX.current=event.touches[0]?.clientX??null;}}
+        onTouchEnd={event=>{const x=swipeX.current;swipeX.current=null;
+          if(x===null||working||busy)return;
+          const dx=(event.changedTouches[0]?.clientX??x)-x;
+          if(Math.abs(dx)>42)shopMove(dx<0?1:-1);}}>
+        <div className="bond-machine-housing">
+          <div className="bond-machine-head">
+            <span className="bond-machine-twin-symbol" aria-hidden="true">◒ <i>◓</i></span>
+            <div className="bond-machine-head-copy"><small>FOR THE TWO OF US</small><strong>心意兑换所</strong></div>
+            <span className="bond-machine-number">{String(activeIndex+1).padStart(2,'0')}<i> / </i>{String(visibleCards.length).padStart(2,'0')}</span>
+          </div>
+          <div className="bond-machine-mouth" aria-hidden="true"><span /></div>
+          <div className="bond-ticket-stack" data-motion={cardMotion} aria-live="polite">
+            <article key={activeCard.id} className="bond-ticket-pass" aria-label={activeCard.name+'，'+activeCard.price+'积分'}>
+              <div className="bond-ticket-paper">
+                <div className="bond-ticket-paper-firstline">
+                  <span>NO.{String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◇</span>
+                </div>
+                <div className="bond-ticket-paper-main">
+                  <span className="bond-ticket-paper-icon" aria-hidden="true">{activeCard.icon||'✧'}</span>
+                  <h3>{activeCard.name}</h3>
+                  <p title={activeCard.effect}>{activeCard.effect}</p>
+                </div>
+                <div className="bond-ticket-paper-tear" aria-hidden="true" />
+                <div className="bond-ticket-paper-price">
+                  <strong>{activeCard.price}<small>PTS</small></strong>
+                  <span>{activeCard.charUse?'双人通用':'仅我可用'}</span>
+                </div>
+              </div>
+              <div className="bond-ticket-tear-tab">
+                <span className="bond-ticket-tear-mark" aria-hidden="true">✳</span>
+                <span className="bond-ticket-tear-word">专属兑换券</span>
+                {manage?<div className="bond-ticket-pass-actions">
+                  <button type="button" disabled={working||busy}
+                    onClick={()=>apply(current=>({...current,hidden:current.hidden.includes(activeCard.id)
+                      ?current.hidden.filter(id=>id!==activeCard.id):[...current.hidden,activeCard.id]}))}>
+                    {bond.hidden.includes(activeCard.id)?'放回':'隐藏'}</button>
+                  {bond.cards.some(c=>c.id===activeCard.id)&&<>
+                    <button type="button" disabled={working||busy} onClick={()=>setDraft(activeCard)}>编辑</button>
+                    <button type="button" disabled={working||busy} onClick={()=>removeCard(activeCard)}>删除</button>
+                  </>}
+                </div>:<button type="button" className="bond-ticket-buy"
+                  disabled={working||busy||bond.disabledCards||bond.points.me<activeCard.price}
+                  onClick={()=>issueCard(activeCard)} aria-label={'兑换'+activeCard.name}>
+                  <span>{bond.disabledCards?'停用':bond.points.me<activeCard.price?'不足':'兑换'}</span>
+                  <b aria-hidden="true">↗</b>
+                </button>}
+              </div>
+            </article>
+          </div>
+          <div className="bond-machine-lower">
+            <div className="bond-machine-lower-rule" aria-hidden="true"><span /></div>
+            <div className="bond-ticket-navigator">
+              <button type="button" aria-label="上一张卡券" disabled={working||busy||activeIndex<=0}
+                onClick={()=>shopMove(-1)}><span aria-hidden="true">‹</span></button>
+              <div className="bond-machine-dial" aria-hidden="true">
+                <div className="bond-machine-dial-inner"><span>{String(activeIndex+1).padStart(2,'0')}</span></div>
+              </div>
+              <button type="button" aria-label="下一张卡券" disabled={working||busy||activeIndex>=visibleCards.length-1}
+                onClick={()=>shopMove(1)}><span aria-hidden="true">›</span></button>
             </div>
-            <div className="bond-ticket-pass-center">
-              <h3>{activeCard.name}</h3>
-              <p>{activeCard.effect}</p>
-            </div>
-            <div className="bond-ticket-perforation" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
-            <div className="bond-ticket-pass-foot">
-              <div className="bond-ticket-pass-terms"><span>{activeCard.charUse ? '双人通用' : '仅我可用'}</span><strong>{activeCard.price}<small> PTS</small></strong></div>
-              {manage ? <div className="bond-ticket-pass-actions">
-                <button disabled={working || busy} onClick={() => apply(current => ({ ...current, hidden: current.hidden.includes(activeCard.id)
-                  ? current.hidden.filter(id => id !== activeCard.id) : [...current.hidden, activeCard.id] }))}>
-                  {bond.hidden.includes(activeCard.id) ? '放回' : '隐藏'}</button>
-                {bond.cards.some(c => c.id === activeCard.id) && <>
-                  <button disabled={working || busy} onClick={() => setDraft(activeCard)}>编辑</button>
-                  <button disabled={working || busy} onClick={() => removeCard(activeCard)}>删除</button>
-                </>}
-              </div> : <button className="bond-ticket-buy" type="button"
-                disabled={working || busy || bond.disabledCards || bond.points.me < activeCard.price} onClick={() => issueCard(activeCard)}>
-                {bond.disabledCards ? '已停用' : bond.points.me < activeCard.price ? '积分不足' : '兑换这张券'} <span aria-hidden="true">↗</span>
-              </button>}
-            </div>
-          </article>
+            <div className="bond-machine-footer" aria-hidden="true"><span>←</span><span>滑动切换票券</span><span>→</span></div>
+          </div>
         </div>
-        <div className="bond-ticket-slot" aria-hidden="true"><span /></div>
-        <div className="bond-ticket-navigator">
-          <button type="button" aria-label="上一张卡券" disabled={working || busy || activeIndex<=0} onClick={() => shopMove(-1)}>‹</button>
-          <span>{String(activeIndex+1).padStart(2,'0')} <i>/</i> {String(visibleCards.length).padStart(2,'0')}</span>
-          <button type="button" aria-label="下一张卡券" disabled={working || busy || activeIndex>=visibleCards.length-1} onClick={() => shopMove(1)}>›</button>
-        </div>
-      </div> : <div className="bond-ticket-empty">
+      </div>:<div className="bond-ticket-empty">
         <div className="bond-ticket-empty-cut" aria-hidden="true">✧</div>
-        <strong>这里还没有票券</strong>
-        <button type="button" disabled={working || busy} onClick={() => setDraft({ id: crypto.randomUUID(), icon: '✧', name: '', effect: '', price: 30, charUse: false })}>制作一张</button>
+        <strong>还没有可兑换的票券</strong>
+        <button type="button" disabled={working||busy}
+          onClick={()=>setDraft({id:crypto.randomUUID(),icon:'✧',name:'',effect:'',price:30,charUse:false})}>制作一张</button>
       </div>)}
     </section>}
-
     {tab === 'bag' && <section className="bond-ticket-wallet">
       <div className="bond-ticket-wallet-top">
         <div><small>收纳夹</small><h3>{bagOwner==='me'?'我的卡包':partner+'的卡包'}</h3></div>
