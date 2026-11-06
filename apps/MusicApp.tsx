@@ -5,6 +5,7 @@ import { useMusic, musicApi, musicSongKey, normalizeCookie, toHttps, Song } from
 import { DB } from '../utils/db';
 import { findPendingMusicInvite, MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import { sameMusic } from '../utils/musicLibrary';
+import { DateBgmPanel } from './music/DateBgmPanel';
 import { trackEvent } from '../utils/analytics';
 import { Gear, User as UserIcon, Crosshair, Play as PlayIcon, Pause as PauseIcon, Heart, Plus, ListPlus, DotsThreeVertical, Trash, PencilSimple, CaretDown, CaretUp, MusicNotes, Headphones } from '@phosphor-icons/react';
 import {
@@ -41,6 +42,8 @@ const MusicApp: React.FC = () => {
     addLocalSong, removeLocalSong, localAlbumSongs,
     queue, idx, library, toggleLocalLike, createPlaylist, createPlaylistWithSong, renamePlaylist, deletePlaylist,
     addSongToPlaylist, removeSongFromPlaylist, movePlaylistSong,
+    createDateBgmPlaylist, renameDateBgmPlaylist, deleteDateBgmPlaylist, bindDateBgmCharacter,
+    addSongToDateBgm, removeSongFromDateBgm, moveDateBgmTrack,
     addToQueue, moveQueueSong, removeQueueSong, clearUpcomingQueue,
     playMode, setPlayMode,
     regeneratingId, regeneratingStatus,
@@ -163,10 +166,11 @@ const MusicApp: React.FC = () => {
   });
   const [keyword, setKeyword] = useState('');
   const [searchSource, setSearchSource] = useState<'netease' | 'tencent'>('netease');
-  const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'history'>('results');
+  const [section, setSection] = useState<'results' | 'likes' | 'playlists' | 'history' | 'dateBgm'>('results');
   const [playlistName, setPlaylistName] = useState('');
   const [openedPlaylist, setOpenedPlaylist] = useState<string | null>(null);
   const [playlistSheetSong, setPlaylistSheetSong] = useState<Song | null>(null);
+  const [dateBgmPickerSong, setDateBgmPickerSong] = useState<Song | null>(null);
   const [openSongMenuKey, setOpenSongMenuKey] = useState<string | null>(null);
   const openSongMenuRef = useRef<HTMLDivElement | null>(null);
   // Inline menus must scroll into view if expanded at the bottom of a long list.
@@ -307,6 +311,8 @@ const MusicApp: React.FC = () => {
               }}>加入播放队列</button>
             <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
               onClick={() => { setPlaylistSheetSong(song); setOpenSongMenuKey(null); }}>加入本地歌单</button>
+            <button type="button" role="menuitem" className="music-tap w-full min-h-10 px-3 text-left text-[12px] rounded-[10px]"
+              onClick={() => { setDateBgmPickerSong(song); setOpenSongMenuKey(null); }}>加入见面 BGM</button>
             {playlistId && <>
               <div className="h-px mx-2 my-1" style={{ background: '#eeecea' }} />
               <button type="button" role="menuitem" disabled={i === 0}
@@ -404,7 +410,7 @@ const MusicApp: React.FC = () => {
       <div className="flex gap-1 px-4 pt-1 pb-2 relative z-10 overflow-x-auto text-[12px] shizuku-scrollbar" role="tablist" aria-label="音乐分类">
         {([
           ['results', '搜索结果'], ['likes', '本地喜欢'], ['playlists', '我的歌单'],
-          ['history', '播放历史'],
+          ['dateBgm', '见面 BGM'], ['history', '播放历史'],
         ] as const).map(([key, title]) =>
           <button key={key} role="tab" className="music-tap shrink-0 px-3.5 py-2.5 font-medium rounded-full"
              aria-selected={section === key}
@@ -438,6 +444,15 @@ const MusicApp: React.FC = () => {
           <p className="px-3 pb-2 text-[11px]" style={{ color: C.muted }}>播放历史 · {library.history.length} 首</p>
           {renderLibrarySongs(library.history.map(h => h.song))}
         </>}
+        {section === 'dateBgm' && <DateBgmPanel
+          library={library} characters={characters} current={current} playing={playing}
+          localAlbumSongs={localAlbumSongs}
+          onCreate={createDateBgmPlaylist} onRename={renameDateBgmPlaylist} onDelete={deleteDateBgmPlaylist}
+          onBind={bindDateBgmCharacter} onAdd={addSongToDateBgm}
+          onRemove={removeSongFromDateBgm} onMove={moveDateBgmTrack}
+          onPlay={(song, songs, index) => { void playSong(song, { replaceQueue: songs, startIdx: index }); }}
+          onSearch={() => setSection('results')}
+        />}
         {section === 'playlists' && <div className="space-y-5 px-1">
           <div className="flex items-center gap-3 px-1 py-1">
             <span className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center"
@@ -910,6 +925,35 @@ const MusicApp: React.FC = () => {
         onCancel={charId => cancelListeningInvite(charId)}
         onEnd={charId => removeListeningPartner(charId)}
       />}
+      {dateBgmPickerSong && <div className="absolute inset-0 z-[85] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="加入见面 BGM 歌单">
+        <button type="button" className="absolute inset-0 bg-black/30" aria-label="关闭选择见面 BGM" onClick={() => setDateBgmPickerSong(null)} />
+        <div className="relative rounded-t-[26px] p-5 max-h-[75dvh] flex flex-col gap-3" style={{ background: C.bg }}>
+          <div className="flex items-center justify-between">
+            <div><h3 className="font-semibold text-[15px]">加入见面 BGM</h3><p className="text-[11px] mt-1" style={{ color: C.muted }}>{dateBgmPickerSong.name}</p></div>
+            <button type="button" className="music-tap px-3 py-2 text-xs rounded-full" aria-label="关闭选择歌单" onClick={() => setDateBgmPickerSong(null)}>关闭</button>
+          </div>
+          <div className="overflow-y-auto min-h-0 space-y-2">
+            {(library.dateBgmPlaylists || []).map(pl => {
+              const has = pl.songs.some(s => sameMusic(s, dateBgmPickerSong));
+              return <button key={pl.id} type="button" disabled={has || pl.songs.length >= 500}
+                className="music-tap flex items-center justify-between text-left w-full px-4 py-3 rounded-[14px] disabled:opacity-50"
+                style={{ background: '#fff', color: C.text }}
+                onClick={() => {
+                  if (addSongToDateBgm(pl.id, dateBgmPickerSong)) {
+                    addToast(`已加入《${pl.name}》`, 'success');
+                    setDateBgmPickerSong(null);
+                  }
+                }}>
+                <span className="min-w-0 truncate text-[13px]">{pl.name}</span>
+                <span className="text-[11px] shrink-0 ml-3" style={{ color: C.muted }}>{has ? '已加入' : `${pl.songs.length} 首 · 添加`}</span>
+              </button>;
+            })}
+            {!(library.dateBgmPlaylists || []).length && <p className="text-sm text-center py-6" style={{ color: C.muted }}>还没有见面 BGM 歌单</p>}
+          </div>
+          <button type="button" className="music-tap rounded-full py-3 text-xs" style={{ background: C.soft }}
+            onClick={() => { setDateBgmPickerSong(null); setSection('dateBgm'); }}>前往见面 BGM 新建歌单</button>
+        </div>
+      </div>}
       {playlistSheetSong && <MusicPlaylistSheet
         song={playlistSheetSong} playlists={library.playlists}
         onClose={() => setPlaylistSheetSong(null)}
