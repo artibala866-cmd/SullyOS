@@ -13,6 +13,7 @@ on:
       - utils/emojiDocumentPicker.test.ts
       - utils/emojiImport.ts
       - utils/emojiImport.test.ts
+      - utils/emojiImportRealScenarios.test.ts
       - utils/pdfText.ts
       - utils/pdfText.test.ts
   workflow_dispatch:
@@ -35,6 +36,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Test text, Word, PDF, UI, and database rollback
-        run: pnpm exec vitest run utils/emojiImport.test.ts utils/emojiDocumentImport.test.ts utils/emojiDocumentPicker.test.ts utils/pdfText.test.ts utils/chatInputEmojis.test.ts
+        run: pnpm exec vitest run utils/emojiImport.test.ts utils/emojiImportRealScenarios.test.ts utils/emojiDocumentImport.test.ts utils/emojiDocumentPicker.test.ts utils/pdfText.test.ts utils/chatInputEmojis.test.ts
       - name: Verify production bundle imports
         run: pnpm run build
