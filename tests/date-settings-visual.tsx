@@ -29,13 +29,15 @@ let charMirror = base;
 const debugEvents: string[] = [];
 window.addEventListener('error', e => debugEvents.push('window-error: ' + e.message));
 window.addEventListener('unhandledrejection', e => debugEvents.push('promise-error: ' + String(e.reason)));
-const realPutBlobAsset = DB.putBlobAsset;
+// The screenshot fixture tests the real upload UI against an in-memory adapter.
+// Native IndexedDB migration/persistence is covered by the separate DB tests.
+const fixtureBlobs = new Map<string, Blob>();
 DB.putBlobAsset = async (id, blob) => {
   debugEvents.push('blob-save-start: ' + id + ': ' + blob.size);
-  const result = await realPutBlobAsset(id, blob);
+  fixtureBlobs.set(id, blob);
   debugEvents.push('blob-save-done: ' + id);
-  return result;
 };
+DB.getBlobAsset = async id => fixtureBlobs.get(id) || null;
 function Harness() {
   const [char, setChar] = useState(base);
   const patch = (_id: string, value: any) =>
@@ -106,7 +108,7 @@ function check() {
     output.textContent = JSON.stringify(report);
   };
   if (scenario === 'upload') {
-    // Exercise the real image-upload handler + IndexedDB blob storage, not merely mocked state.
+    // Exercise the real file input, upload handler, blobref generation and React update flow.
     void (async () => {
       try {
         const upload = async (key: string) => {
