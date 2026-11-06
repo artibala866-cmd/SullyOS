@@ -104,6 +104,17 @@ describe('酒馆开场白与剧情首幕原子保存', () => {
             } });
         }
     });
+    it('删除已使用的首幕后，调整设置不会把旧开场白再插入正文', async () => {
+        const entry = { ...draft('deleted-once'), openingGreetingInitialized: true };
+        await saveStoryWithOpening(entry, intro, []);
+        const floors = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+        expect(floors).toHaveLength(1);
+        await DB.deleteMessages([floors[0].id]);
+        await saveStoryWithOpening({ ...entry, title: '只修改标题' }, null, []);
+        expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true))).toHaveLength(0);
+        const saved = (await DB.getStoryTheaters()).find(row => row.id === entry.id);
+        expect(saved?.openingGreetingInitialized).toBe(true);
+    });
     it('第二个角色镜像失败则剧情、正文和所有镜像同时回滚', async () => {
         const entry = draft('rollback', true);
         const add = IDBObjectStore.prototype.add;

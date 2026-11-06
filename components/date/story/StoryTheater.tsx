@@ -84,22 +84,27 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             message => message.metadata?.source === 'story_theater',
         );
         const hasStarted = started.messages.length > 0;
-        const persistedActor = !hasStarted && normalized.openingGreeting
+        const alreadyInitialized = normalized.openingGreetingInitialized === true;
+        const persistedActor = !hasStarted && !alreadyInitialized && normalized.openingGreeting
             ? await DB.getCharacter(normalized.openingGreeting.characterId) : undefined;
-        const opening = hasStarted ? null : resolveStoryOpeningGreeting(
+        const opening = hasStarted || alreadyInitialized ? null : resolveStoryOpeningGreeting(
             normalized, persistedActor ? [persistedActor] : [], identity,
         );
-        if (!hasStarted && normalized.openingGreeting && !opening) {
+        if (!hasStarted && !alreadyInitialized && normalized.openingGreeting && !opening) {
             throw new Error('所选开场白已失效，请重新选择；旧剧情不会改变');
         }
+        // Persist the one-time marker in the SAME transaction as the first floor.
+        // Re-saving settings after that floor is intentionally deleted must never recreate it.
+        const savedEntry = normalized.openingGreeting && (hasStarted || alreadyInitialized || opening)
+            ? { ...normalized, openingGreetingInitialized: true } : normalized;
         const requiredRecipients = storyTheaterMemoryRecipientIds(normalized);
         const availableRecipients = requiredRecipients.filter(id => characters.some(character => character.id === id));
         if (normalized.writesToCharacterMemory && requiredRecipients.length !== availableRecipients.length) {
             throw new Error('有参与角色已不存在，无法安全保存角色记忆；请重新选择角色');
         }
-        await saveStoryWithOpening(normalized, opening, availableRecipients);
-        setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
-        setActiveEntry(normalized);
+        await saveStoryWithOpening(savedEntry, opening, availableRecipients);
+        setEntries(current => [savedEntry, ...current.filter(item => item.id !== savedEntry.id)].sort((a, b) => b.updatedAt - a.updatedAt));
+        setActiveEntry(savedEntry);
         setView('session');
     }, [characters, masks, userProfile]);
 
@@ -223,7 +228,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const openEntryEditor = useCallback(async (entry: StoryTheaterEntry) => {
         try {
             const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
-            setMaskLocked(rows.some(message => message.metadata?.source === 'story_theater'));
+            setMaskLocked(entry.openingGreetingInitialized === true
+                || rows.some(message => message.metadata?.source === 'story_theater'));
             setView('editor');
         } catch (error) {
             addToast(error instanceof Error ? `剧情编辑前读取失败：${error.message}` : '剧情读取失败，已保留当前页面', 'error');

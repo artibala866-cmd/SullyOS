@@ -2250,6 +2250,8 @@ export interface StoryTheaterEntry {
     premise: string;
     /** 剧情首次开始时选用的酒馆卡开场白；只保存角色与开场白 ID，不修改其它剧情。 */
     openingGreeting?: { characterId: string; greetingId: string };
+    /** 首幕曾经写入过剧情；即使用户删掉第一条正文也不得自动重播旧开场。 */
+    openingGreetingInitialized?: boolean;
     /** 谁写下本剧情第一段：用户当前身份或模型故事正文。 */
     openingMode?: 'user' | 'assistant';
     /** 本剧情中用户执笔的身份；缺省时使用真实用户档案。 */
