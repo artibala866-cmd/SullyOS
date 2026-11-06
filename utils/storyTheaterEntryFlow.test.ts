@@ -75,13 +75,15 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(save).toHaveBeenCalledTimes(2);
         expect((await DB.getStoryTheaters()).find(story => story.title === '我保存的剧情')?.characterIds).toEqual([actor.id]);
     });
-    it('选择再取消酒馆开场白，不会暗中切换“我先写”的开场方式', async () => {
+    it('故事先写可选已有开场，取消后保留原自动开场', async () => {
         const greetingActor = { ...actor, tavernGreetings: [
             { id: 'tavern-first', title: '默认开场白', content: '{{char}}已经开场' },
         ] };
         const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
         await render({ ...createStoryTheaterDraft(), title: '开场选择', characterIds: [actor.id] }, [greetingActor], save);
-        const select = host!.querySelector('select[aria-label="选择酒馆卡开场白"]') as HTMLSelectElement;
+        expect(host!.querySelector('select[aria-label="选择已有开场"]')).toBeNull();
+        await clickButton('故事先写');
+        const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
         expect(select).toBeTruthy();
         await act(async () => {
             select.value = `${actor.id}::tavern-first`;
@@ -93,8 +95,36 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         });
         await clickButton('保存并进入');
         expect(save).toHaveBeenCalledTimes(1);
+        expect(save.mock.calls[0][0]).toMatchObject({ openingMode: 'assistant' });
+        expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('我先写继续使用原有手动开场，切换后清理已选素材', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-first', title: '默认开场白', content: '雨停了' },
+        ] };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '我来开场', characterIds: [actor.id],
+            openingMode: 'assistant', openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' },
+        }, [greetingActor], save);
+        await clickButton('我先写');
+        expect(host!.querySelector('select[aria-label="选择已有开场"]')).toBeNull();
+        await clickButton('保存并进入');
         expect(save.mock.calls[0][0]).toMatchObject({ openingMode: 'user' });
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('整个编辑器只有原故事设置中的一个开场选择，角色区没有重复模块', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-first', title: '默认开场白', content: '清晨' },
+        ] };
+        await render({ ...createStoryTheaterDraft(), title: '唯一开场', characterIds: [actor.id],
+            openingMode: 'assistant',
+        }, [greetingActor]);
+        const settings = host!.querySelector('[data-story-opening-settings="true"]');
+        expect(settings?.querySelectorAll('select[aria-label="选择已有开场"]')).toHaveLength(1);
+        const cast = [...host!.querySelectorAll('section')].find(section => section.textContent?.includes('让谁参与'));
+        expect(cast?.querySelector('select[aria-label="选择已有开场"]')).toBeNull();
+        expect(host!.textContent).not.toContain('酒馆卡');
+        expect(host!.textContent).not.toContain('Tavern opening');
     });
     it('开场白原文已删除且没有其它候选时能清理残留关联', async () => {
         const save = vi.fn(async (_entry: StoryTheaterEntry) => {});

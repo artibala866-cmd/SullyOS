@@ -46,6 +46,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     ), [actors]);
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
+    const storyFirst = !!draft.openingGreeting || draft.openingMode === 'assistant';
     const changeGreeting = async (content: string | null) => {
         if (!selectedGreeting || greetingLock.current) return;
         if (content !== null && !content.trim()) { setGreetingError('开场白不能留空；需要移除请使用删除。'); return; }
@@ -144,7 +145,56 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>01 / Story</div>
                 <label className='block mt-2'><span className='text-[10px] font-bold text-slate-500'>标题 · 必填</span><input ref={titleInput} value={draft.title} onChange={event => { setSaveError(''); update('title', event.target.value); }} placeholder='剧情名称' className='mt-1 w-full bg-transparent text-3xl font-serif font-semibold outline-none placeholder:text-slate-300' /></label>
                 <label className='block mt-5'><span className='text-[10px] font-bold text-slate-500'>剧情介绍 · 可选</span><textarea value={draft.premise} onChange={event => update('premise', event.target.value)} placeholder='不填写也能直接开场；也可以写地点、冲突或必须守住的设定……' className='mt-2 w-full min-h-28 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none' /></label>
-                <div className='mt-5'><div className='text-[10px] font-bold text-slate-500'>谁先落笔</div><div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'><button disabled={maskLocked || !!selectedGreeting} onClick={() => update('openingMode', 'user')} className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${(draft.openingMode || 'user') === 'user' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button><button disabled={maskLocked || !!selectedGreeting} onClick={() => update('openingMode', 'assistant')} className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${draft.openingMode === 'assistant' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>故事先写</button></div><p className='mt-2 text-[10px] text-slate-400'>{draft.openingGreeting ? '已指定酒馆卡开场白，会由该角色直接写下第一幕。' : draft.openingMode === 'assistant' ? '进入后可直接让故事根据标题与介绍写出第一幕。' : '进入后由你用当前身份写下第一句话。'}</p></div>
+                <div className='mt-5' data-story-opening-settings='true'>
+                    <div className='text-[10px] font-bold text-slate-500'>谁先落笔</div>
+                    <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
+                        <button type='button' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
+                            onClick={() => setDraft(current => ({ ...current, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() }))}
+                            className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${!storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button>
+                        <button type='button' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
+                            onClick={() => update('openingMode', 'assistant')}
+                            className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>故事先写</button>
+                    </div>
+                    {storyFirst && (greetingChoices.length > 0 || !!draft.openingGreeting) && <div className='mt-3'>
+                    <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
+                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
+                        value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
+                        onChange={event => {
+                            const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
+                            setDraft(current => ({ ...current, openingMode: 'assistant',
+                                openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
+                                updatedAt: Date.now(),
+                            }));
+                            setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
+                        }}
+                        className='mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs disabled:opacity-60'>
+                        <option value=''>自动写第一幕</option>
+                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}</option>)}
+                    </select>
+                    {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
+                        {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}
+                        {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
+                    </div>}
+                    {selectedGreeting && <div className='mt-3 border-t border-slate-100 pt-3'>
+                        {editingGreeting ? <div className='space-y-2'>
+                            <textarea aria-label='编辑开场内容' value={greetingText} onChange={event => setGreetingText(event.target.value)} maxLength={200000} rows={6} className='w-full rounded-xl border border-slate-200 bg-stone-50 p-3 text-xs leading-6 resize-y outline-none' />
+                            <div className='flex justify-end gap-3'><button disabled={greetingBusy} onClick={() => setEditingGreeting(false)} className='text-xs text-slate-500'>取消</button><button disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button></div>
+                        </div> : <>
+                            <p className='max-h-28 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-6 text-slate-600'>{selectedGreeting.content}</p>
+                            <div className='mt-3 flex justify-end gap-4'>
+                                <button disabled={greetingBusy} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); setConfirmGreetingDelete(false); }} className='text-xs font-semibold text-violet-700'>修改</button>
+                                <button disabled={greetingBusy} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
+                            </div>
+                            {confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从角色的开场库删除？已写出的剧情不会改变。</p><div className='mt-2 flex justify-end gap-3'><button onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
+                        </>}
+                    </div>}
+                    {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
+                </div>}
+                    <p className='mt-2 text-[10px] text-slate-400'>{!storyFirst
+                        ? '进入后由你写下第一句话。'
+                        : selectedGreeting ? '选中的内容会直接成为第一幕。'
+                        : '进入后点推进，让故事写下第一幕。'}</p>
+                </div>
             </section>
             <section ref={castSection} className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>02 / Cast</div><h2 className='mt-1 text-lg font-semibold'>让谁参与</h2>
@@ -156,44 +206,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 </button>
                 {(maskLocked || draft.writesToCharacterMemory) && <p className='mt-2 text-[10px] leading-5 text-slate-500'>{draft.writesToCharacterMemory ? '真实时间陪伴只能使用真实的你，不能扮演已有角色或原创人物。' : '第一段内容发出后，当前身份会锁定，避免中途更换导致人物记忆与叙事视角错位。'}</p>}
                 <div className='mt-4 grid grid-cols-2 gap-2.5'>{characters.map(char => { const selected = draft.characterIds.includes(char.id); const isMask = draft.mask?.type === 'character' && draft.mask.id === char.id; return <button key={char.id} disabled={isMask} onClick={() => toggleCharacter(char)} className={`flex items-center gap-3 p-3 rounded-2xl border text-left disabled:opacity-45 ${selected ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-200'}`}><TokenImg value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover' /><span className='min-w-0 flex-1'><span className='block text-sm font-semibold truncate'>{char.name}</span>{isMask && <span className='block text-[9px] text-violet-500'>当前由你扮演</span>}</span><span className={`w-4 h-4 rounded-full border-2 ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`} /></button>; })}</div>
-                <div className='mt-6 p-4 rounded-2xl border border-slate-200 bg-white'>
-                    <div className='text-[9px] tracking-[.2em] uppercase font-bold text-violet-500'>Tavern opening</div>
-                    <div className='mt-1 text-sm font-semibold'>选择酒馆卡开场白</div>
-                    <p className='mt-1 text-[10px] leading-5 text-slate-500'>选中后作为剧情第一幕，后续从这里续写。不选择则沿用原开场方式。</p>
-                    <select aria-label='选择酒馆卡开场白' disabled={maskLocked || editingGreeting || confirmGreetingDelete
-                            || (greetingChoices.length === 0 && !draft.openingGreeting)}
-                        value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
-                        onChange={event => {
-                            const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
-                            update('openingGreeting', selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined);
-                            // Prefilled openings don't change the unrelated manual/AI opening preference.
-                            setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
-                        }}
-                        className='mt-3 w-full rounded-xl border border-slate-200 bg-stone-50 p-3 text-xs disabled:opacity-60'>
-                        <option value=''>不使用开场白 · 沿用原开场方式</option>
-                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}</option>)}
-                    </select>
-                    {greetingChoices.length === 0 && <p className='mt-2 text-[10px] text-slate-400'>所选角色暂无开场白；旧版导入需重新导入原酒馆卡。</p>}
-                    {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
-                        {maskLocked ? '原开场白已作为剧情正文保存，素材被删除不会影响旧剧情。' : '原开场白已失效，请重新选择。'}
-                        {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
-                    </div>}
-                    {maskLocked && <p className='mt-2 text-[10px] text-amber-700'>这条剧情已有正文，开场白选择已锁定；修改角色卡素材不会覆盖已经发生的剧情。</p>}
-                    {selectedGreeting && <div className='mt-3 border-t border-slate-100 pt-3'>
-                        {editingGreeting ? <div className='space-y-2'>
-                            <textarea aria-label='编辑开场白内容' value={greetingText} onChange={event => setGreetingText(event.target.value)} maxLength={200000} rows={6} className='w-full rounded-xl border border-slate-200 bg-stone-50 p-3 text-xs leading-6 resize-y outline-none' />
-                            <div className='flex justify-end gap-3'><button disabled={greetingBusy} onClick={() => setEditingGreeting(false)} className='text-xs text-slate-500'>取消</button><button disabled={greetingBusy || !greetingText.trim()} onClick={() => void changeGreeting(greetingText)} className='text-xs font-semibold text-violet-700 disabled:opacity-40'>保存修改</button></div>
-                        </div> : <>
-                            <p className='max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-6 text-slate-600'>{selectedGreeting.content}</p>
-                            <div className='mt-3 flex justify-end gap-4'>
-                                <button disabled={greetingBusy} onClick={() => { setEditingGreeting(true); setGreetingText(selectedGreeting.content); setConfirmGreetingDelete(false); }} className='text-xs font-semibold text-violet-700'>修改</button>
-                                <button disabled={greetingBusy} onClick={() => setConfirmGreetingDelete(true)} className='text-xs font-semibold text-rose-500'>删除</button>
-                            </div>
-                            {confirmGreetingDelete && <div className='mt-3 rounded-xl bg-rose-50 p-3 text-xs'><p className='text-rose-700'>从这位角色的开场白库删除该条？其他已有剧情的正文不会删除。</p><div className='mt-2 flex justify-end gap-3'><button onClick={() => setConfirmGreetingDelete(false)} className='text-slate-500'>取消</button><button disabled={greetingBusy} onClick={() => void changeGreeting(null)} className='font-semibold text-rose-700'>确认删除</button></div></div>}
-                        </>}
-                    </div>}
-                    {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
-                </div>
+
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>03 / Memory</div><h2 className='mt-1 text-lg font-semibold'>这段故事是真的吗</h2>
