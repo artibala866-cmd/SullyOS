@@ -15,6 +15,7 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
+import { convertSillyTavernChatPreset, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export function hasStoryTheaterParticipant(entry: StoryTheaterEntry, characters: CharacterProfile[]): boolean {
@@ -329,6 +330,11 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
             section: { id: String(prompt.section.id), name: String(prompt.section.name || '自定义分组'), edge: prompt.section.edge },
         } : {}),
         ...(NATIVE_MARKERS.includes(prompt?.marker) ? { marker: prompt.marker } : {}),
+        ...(prompt?.injection?.position === 'chat' ? { injection: {
+            position: 'chat' as const,
+            depth: Math.round(clampNumber(prompt.injection.depth, 0, 10000, 4)),
+            order: clampNumber(prompt.injection.order, -100000, 100000, 100),
+        } } : {}),
     }));
     if (prompts.length === 0) throw new Error('预设中没有提示词条目');
     return {
@@ -345,6 +351,8 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
         },
         prompts,
         assistantPrefill: String(value.assistantPrefill || ''),
+        ...(value.sourceFormat === 'sillytavern' ? { sourceFormat: 'sillytavern' as const } : {}),
+        ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
     };
 };
 
@@ -569,9 +577,12 @@ export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string,
     if (rawText.length > 5 * 1024 * 1024) throw new Error('预设超过 5 MB，请先移除内嵌素材或脚本数据');
     let data: Record<string, any>;
     try { data = JSON.parse(rawText); } catch { throw new Error('不是有效的 JSON 预设'); }
-    const fileBase = sourceFileName.replace(/\.json$/i, '').trim() || '导入预设';
-    if (data.schema !== 'sullyos.story-preset') throw new Error('只接受糯米机剧情预设（schema: sullyos.story-preset）');
-    const document = normalizeDocument(data, fileBase);
+    const fileBase = sourceFileName.replace(/\.(json|png)$/i, '').trim() || '导入预设';
+    const document = data?.schema === 'sullyos.story-preset'
+        ? normalizeDocument(data, fileBase)
+        : isSillyTavernChatPreset(data)
+            ? normalizeDocument(convertSillyTavernChatPreset(data, fileBase), fileBase)
+            : (() => { throw new Error('只接受糯米机剧情预设或酒馆 Chat Completion 预设'); })();
     return { id: makeStoryTheaterId(), name: document.name, sourceFileName, format: 'sullyos-story-preset', document, createdAt: now, updatedAt: now };
 };
 
@@ -1054,6 +1065,12 @@ export const compileStoryPreset = (input: {
     const { preset, slots, userName, characterNames } = input;
     const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
     const messages: StoryApiMessage[] = [];
+    const importedFromTavern = document.sourceFormat === 'sillytavern';
+    const variables = new Map<string, string>();
+    const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
+    let historyStart: number | null = null;
+    let historyLength = 0;
+    const expandImported = (value: string): string => importedFromTavern ? expandSillyTavernPromptText(value, variables) : value;
 
     const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
     const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
@@ -1088,13 +1105,25 @@ export const compileStoryPreset = (input: {
             if (injectedMarkers.has(prompt.marker)) continue;
             injectedMarkers.add(prompt.marker);
             if (prompt.marker === 'history' && input.historyMessages) {
+                historyStart = messages.length;
+                historyLength = input.historyMessages.length;
                 messages.push(...input.historyMessages);
                 continue;
             }
             raw = slotForMarker(prompt.marker, slots);
         }
+        raw = expandImported(raw);
         if (!raw.trim()) continue;
-        pushPromptMessage(messages, prompt.role, macroReplace(raw, userName, characterNames));
+        const content = macroReplace(raw, userName, characterNames).trim();
+        if (prompt.injection?.position === 'chat' && !prompt.marker) {
+            inChatPrompts.push({ message: { role: prompt.role, content }, depth: prompt.injection.depth, order: prompt.injection.order, sourceIndex: index });
+            continue;
+        }
+        if (prompt.marker === 'history') {
+            historyStart = messages.length;
+            historyLength = 1;
+        }
+        pushPromptMessage(messages, prompt.role, content);
     }
 
     // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
@@ -1102,7 +1131,23 @@ export const compileStoryPreset = (input: {
         messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames).trim() });
     }
 
-    const prefill = String(document.assistantPrefill || '').trim();
+    // SillyTavern's In-Chat position is relative to the END of the actual message history.
+    // Depth 0 = after last history item; depth 1 = just before last item.
+    // Stable tie ordering: lower injection_order first, then user/assistant/system.
+    if (inChatPrompts.length) {
+        const rolePriority: Record<StoryApiRole, number> = { user: 0, assistant: 1, system: 2 };
+        const insertionStart = historyStart ?? messages.length;
+        const insertionLength = historyStart === null ? 0 : historyLength;
+        const inserts = inChatPrompts.map(prompt => ({
+            ...prompt,
+            index: insertionStart + Math.max(0, insertionLength - prompt.depth),
+        }));
+        inserts.sort((a, b) => b.index - a.index || b.order - a.order
+            || rolePriority[b.message.role] - rolePriority[a.message.role] || b.sourceIndex - a.sourceIndex);
+        for (const item of inserts) messages.splice(item.index, 0, item.message);
+    }
+
+    const prefill = expandImported(String(document.assistantPrefill || '')).trim();
     const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames) } : undefined;
 
     return {
