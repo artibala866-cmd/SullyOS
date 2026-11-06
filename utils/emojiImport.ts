@@ -50,12 +50,18 @@ export function parseEmojiImportLine(raw: string): EmojiImportEntry | null {
         return name && isImageReference(colon[2]) ? { name, url: colon[2] } : null;
     }
 
-    const separator = line.indexOf('--');
-    if (separator < 0) return null;
-    const name = line.slice(0, separator).trim();
-    const url = line.slice(separator + 2).trim();
-    // 裸 URL 含有 -- 时不应被误解析成「名称--链接」。
-    return name && !/^https?:\/\//i.test(name) && isImageReference(url) ? { name, url } : null;
+    // 名字本身也可能包含「--」（如「哭--笑」）。
+    // 从左到右找第一个后半段是真实图片引用的分隔符，不能按最后一个分隔，
+    // 否则图片 URL 路径里含 -- 时又会被错误切开。
+    let cursor = -2;
+    while ((cursor = line.indexOf('--', cursor + 2)) >= 0) {
+        const name = line.slice(0, cursor).trim();
+        const url = line.slice(cursor + 2).trim();
+        if (name && !/^https?:\/\//i.test(name) && isImageReference(url)) {
+            return { name, url };
+        }
+    }
+    return null;
 }
 
 export function parseEmojiImportText(text: string): EmojiImportParseResult {
