@@ -3,7 +3,7 @@ import {
     compileStoryPreset,
     parseStoryTheaterPreset,
 } from './storyTheater';
-import { convertSillyTavernChatPreset, expandSillyTavernPromptText } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, expandSillyTavernPromptText, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
 const tavern = {
     temperature: 1.05,
@@ -47,6 +47,7 @@ const tavern = {
         ] },
     ],
     assistant_prefill: '<scene>',
+    squash_system_messages: true,
     extensions: {
         regex_scripts: [{ scriptName: 'erase', disabled: false, findRegex: '.*', replaceString: '' }],
         tavern_helper: { scripts: [{ name: 'javascript', enabled: true, content: 'throw new Error("should never execute")' }] },
@@ -65,6 +66,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(imported.name).toBe('宝宝我是char');
         expect(doc.schema).toBe('sullyos.story-preset');
         expect(doc.sourceFormat).toBe('sillytavern');
+        expect(doc.squashSystemMessages).toBe(true);
         expect(doc.generation).toEqual({
             temperature: 1.05, topP: 0.96, frequencyPenalty: 0.6, presencePenalty: 0.5, maxTokens: 32000,
         });
@@ -122,6 +124,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const imported = parseStoryTheaterPreset(JSON.stringify(tavern), '测试.json');
         const native = parseStoryTheaterPreset(JSON.stringify(imported.document), '转换后.json');
         expect(native.document.sourceFormat).toBe('sillytavern');
+        expect(native.document.squashSystemMessages).toBe(true);
         expect(native.document.prompts.map(p => p.id)).toEqual(imported.document.prompts.map(p => p.id));
         expect(native.document.prompts.find(p => p.id === 'st-chat-depth')?.injection?.depth).toBe(1);
     });
@@ -159,6 +162,23 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(doc.prompts[0].content).toBe('段落0：保留文字、标点与 {{char}}');
         expect(doc.prompts[372].content).toBe('段落372：保留文字、标点与 {{char}}');
         expect(doc.prompts[104].enabled).toBe(false);
+    });
+
+    it('仅在酒馆显式开启时合并相邻系统消息，保持角色与历史边界', () => {
+        const input = [
+            { role: 'system', content: '原规则一' },
+            { role: 'system', content: '原规则二' },
+            { role: 'user', content: '用户上一条' },
+            { role: 'assistant', content: '角色回答' },
+            { role: 'system', content: '新规则' },
+            { role: 'system', content: '本轮约束' },
+            { role: 'user', content: '最新输入' },
+        ] as const;
+        const result = squashAdjacentSystemMessages([...input]);
+        expect(result.map(m => m.role)).toEqual(['system', 'user', 'assistant', 'system', 'user']);
+        expect(result[0].content).toBe('原规则一\\n\\n原规则二'.replaceAll('\\n', '\n'));
+        expect(result[3].content).toContain('新规则\n\n本轮约束');
+        expect(input[0].content).toBe('原规则一');
     });
 
     it('拒绝其它 completion JSON 与空排序伪装', () => {
