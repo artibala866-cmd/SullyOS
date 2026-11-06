@@ -161,22 +161,25 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                             onClick={() => update('openingMode', 'assistant')}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>故事先写</button>
                     </div>
-                    {storyFirst && (greetingChoices.length > 0 || !!draft.openingGreeting) && <div className='mt-3'>
+                    <div className='mt-3'>
                     <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
-                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete}
+                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || editingGreeting || confirmGreetingDelete || greetingChoices.length === 0}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
-                            setDraft(current => ({ ...current, openingMode: 'assistant',
+                            setDraft(current => ({ ...current, openingMode: selected ? 'assistant' : current.openingMode,
                                 openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
                                 updatedAt: Date.now(),
                             }));
                             setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
                         }}
                         className='mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs disabled:opacity-60'>
-                        <option value=''>自动写第一幕</option>
+                        <option value=''>{actors.length === 0 ? '先选择参与角色'
+                            : greetingChoices.length === 0 ? '暂无可选开场'
+                            : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
                         {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>{item.characterName} · {item.title}</option>)}
                     </select>
+                    {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>旧版导入的角色需要重新导入原卡才能读取开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
                         {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}
                         {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}

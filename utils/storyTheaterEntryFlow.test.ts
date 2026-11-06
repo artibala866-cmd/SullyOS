@@ -82,9 +82,12 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         ] };
         const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
         await render({ ...createStoryTheaterDraft(), title: '开场选择', characterIds: [actor.id] }, [greetingActor], save);
-        expect(host!.querySelector('select[aria-label="选择已有开场"]')).toBeNull();
-        await clickButton('故事先写');
         const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        expect(select.disabled).toBe(false);
+        expect(select.options[0].text).toBe('选择已有开场');
+        await clickButton('故事先写');
+        expect(select.options[0].text).toBe('自动写第一幕');
         expect(select).toBeTruthy();
         await act(async () => {
             select.value = `${actor.id}::tavern-first`;
@@ -108,10 +111,51 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
             openingMode: 'assistant', openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' },
         }, [greetingActor], save);
         await clickButton('我先写');
-        expect(host!.querySelector('select[aria-label="选择已有开场"]')).toBeNull();
+        const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        expect(select.value).toBe('');
+        expect(select.options[0].text).toBe('选择已有开场');
         await clickButton('保存并进入');
         expect(save.mock.calls[0][0]).toMatchObject({ openingMode: 'user' });
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
+    });
+    it('保持“我先写”也能直接挑已有开场，选中后自然切换为故事先写', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'first', title: '最初相遇', content: '{{char}}在夜里敲门' },
+        ] };
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '先写模式直接选', characterIds: [actor.id] },
+            [greetingActor], save);
+        const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        await act(async () => {
+            select.value = `${actor.id}::first`;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        expect(host!.textContent).toContain('在夜里敲门');
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].openingMode).toBe('assistant');
+        expect(save.mock.calls[0][0].openingGreeting).toEqual({ characterId: actor.id, greetingId: 'first' });
+    });
+    it('未选角色时已有开场入口仍显示，提示先选参与角色', async () => {
+        await render({ ...createStoryTheaterDraft(), title: '未选角色' }, [actor]);
+        const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        expect(select.disabled).toBe(true);
+        expect(select.options[0].text).toBe('先选择参与角色');
+        await clickButton('角色甲');
+        expect(select.disabled).toBe(true);
+        expect(select.options[0].text).toBe('暂无可选开场');
+    });
+    it('角色没有导入的开场时入口也不会消失，说明旧卡需要重新导入', async () => {
+        await render({ ...createStoryTheaterDraft(), title: '空开场', characterIds: [actor.id] }, [actor]);
+        const select = host!.querySelector('select[aria-label="选择已有开场"]') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        expect(select.disabled).toBe(true);
+        expect(select.options[0].text).toBe('暂无可选开场');
+        expect(host!.textContent).toContain('重新导入原卡');
+        await clickButton('故事先写');
+        expect(select.disabled).toBe(true);
+        expect(select.options[0].text).toBe('暂无可选开场');
     });
     it('整个编辑器只有原故事设置中的一个开场选择，角色区没有重复模块', async () => {
         const greetingActor = { ...actor, tavernGreetings: [

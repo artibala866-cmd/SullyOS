@@ -108,7 +108,7 @@ jobs:
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000               --screenshot="output/meet-story/story-editor-${focus}-390.png" "${url}?focus=${focus}"               > "output/meet-story/${focus}-screenshot.log" 2>&1
             test -s "output/meet-story/story-editor-${focus}-390.png"
           done
-          for scenario in selected auto manual; do
+          for scenario in selected auto manual empty unselected; do
             lighturl="${url}?mode=light&scenario=${scenario}&focus=opening"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8000 \
