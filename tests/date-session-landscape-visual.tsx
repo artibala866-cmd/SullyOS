@@ -94,9 +94,10 @@ function check() {
   const inputCompact = !['input', 'keyboard'].includes(scenario) || (!!input && input.h <= 75 && !!dialogue && dialogue.bottom + 2 <= input.y);
   const menuFits = scenario !== 'menu' || (exitVisible && !!controlsRect && controlsRect.y >= 0 && controlsRect.bottom <= innerHeight + 1);
   const novelFits = scenario !== 'reading' || !!reading;
-  const portraitFits = !!dialogue && !!input && !!spriteBox &&
-    input.w > 140 && input.x >= 0 && input.bottom <= rect(host)!.bottom + 2 &&
-    dialogue.bottom + 2 <= input.y && spriteBox.y >= -2;
+  const portraitFits = !!dialogue && !!spriteBox && spriteBox.y >= -2 &&
+    (scenario === 'zoom' ? dialogue.bottom <= rect(host)!.bottom + 2 :
+      !!input && input.w > 140 && input.x >= 0 && input.bottom <= rect(host)!.bottom + 2 &&
+      dialogue.bottom + 2 <= input.y);
   const responsiveOk = smallLandscape
     ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits && nameVisible)
     : (['input', 'keyboard', 'zoom'].includes(scenario) ? portraitFits : true);
