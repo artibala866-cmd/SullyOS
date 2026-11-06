@@ -211,7 +211,7 @@ function jsonToText(value: unknown): JsonRows {
                 for (const child of children) visit(child, depth + 1, inEmojiMap);
                 return;
             }
-            if (inEmojiMap || url !== undefined) {
+            if (inEmojiMap || url !== undefined || ['url','src','imageUrl','image','link','图片链接','图片地址'].some(key => Object.prototype.hasOwnProperty.call(obj, key))) {
                 note('JSON 中存在名称或图片链接缺失的记录：' + String(name ?? '未命名').slice(0, 60));
             }
             return;
