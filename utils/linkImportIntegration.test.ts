@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile } from '../types';
 import { normalizeBabyLinkShare } from './babyLinkCard';
+import { readCharacterCardFile } from './sillyTavernCard';
 import { mergeCardImports } from './cardImportMerge';
 import { availableCardImportSections, effectiveCardImportSections, selectCardImportSections } from './cardImportSections';
 import { listCharacterStoryOpenings, mergeLinkGreetings } from './linkStoryOpenings';
@@ -122,5 +123,31 @@ describe('Link 开场白导入到剧情的实际闭环', () => {
         }]).characters[0];
         expect(merged.linkGreetings).toEqual(target.linkGreetings);
         expect(merged.tavernGreetings).toEqual(target.tavernGreetings);
+    });
+
+    it('Link V1 JSON 角色分享包能安全走与 PNG 相同的导入解析', async () => {
+        const raw = {
+            magic: 'LINK_CHARACTER_SHARE_PNG_V1', version: 1,
+            characters: [{name:'Link测试角色', description:'完整人设', avatar:'',
+                nickname:'', signature:'', localWorldBookIds:[],
+                openings:[{id:'start-1',title:'主线开始',content:'Link 正文'}]}],
+            worldBooks: [],
+        };
+        const file = new File([JSON.stringify(raw)],'link-share.json',{type:'application/json'});
+        const parsed = await readCharacterCardFile(file);
+        expect(parsed.source).toBe('babylink');
+        if(parsed.source !== 'babylink') throw new Error('识别结果必须是 Link 分享包');
+        expect(parsed.cards[0].character.linkGreetings?.[0].content).toBe('Link 正文');
+        expect(parsed.cards[0].character.tavernGreetings).toBeUndefined();
+    });
+
+    it('旧存档中的异常开场字段或坏条目不会让整个剧情编辑器崩溃', () => {
+        expect(listCharacterStoryOpenings({
+            linkGreetings: {bad:true} as any, tavernGreetings: {bad:true} as any,
+        })).toEqual([]);
+        expect(listCharacterStoryOpenings({
+            linkGreetings:[null as any,{id:'ok',title:'可以用',content:'有效场景'}],
+            tavernGreetings:[null as any,{title:'缺少ID',content:'异常内容'} as any],
+        }).map(item=>item.id)).toEqual(['ok']);
     });
 });
