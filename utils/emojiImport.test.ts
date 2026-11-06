@@ -72,6 +72,16 @@ describe('私聊表情智能导入安全回归', () => {
         expect(repeated.skipped).toBe(3);
     });
 
+    it('兼容旧版站内图片路径与 BlobRef，避免格式升级破坏原有图片', () => {
+        expect(parseEmojiImportText([
+            '自带贴纸--/assets/stickers/hello.png',
+            '本机旧图--blobref:b_example123',
+        ].join('\n')).entries).toEqual([
+            { name: '自带贴纸', url: '/assets/stickers/hello.png' },
+            { name: '本机旧图', url: 'blobref:b_example123' },
+        ]);
+    });
+
     it('新批次内重复的名字和 URL 自动去重，同 URL 不同名字仍可独立存在', () => {
         const a = 'https://example.com/a.gif';
         expect(planEmojiImport([
