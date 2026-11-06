@@ -2303,7 +2303,7 @@ ${isInitialGeneration ? `
                 </button>
             </div>}
         >
-            {pendingCard && <div className="mb-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3">
+            {pendingCard && <div className="mb-3 min-[370px]:mb-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-2.5 min-[370px]:p-3">
                 <p className="mb-3 text-xs font-semibold text-neutral-700">选择导入内容（可多选）</p>
                 <div className="grid grid-cols-2 min-[370px]:grid-cols-3 gap-2">
                     {([
@@ -2318,7 +2318,7 @@ ${isInitialGeneration ? `
                     ] as const).map(([key, label, amount]) => {
                         const enabled = availableImportSections[key];
                         return <label key={key}
-                            className={`flex min-h-[76px] flex-col items-start justify-between gap-2 rounded-xl border p-2.5 transition-colors ${key === 'greetings' ? 'col-span-2 min-[370px]:col-span-1' : ''} ${!enabled
+                            className={`flex min-h-[64px] min-[370px]:min-h-[76px] flex-col items-start justify-between gap-1.5 min-[370px]:gap-2 rounded-xl border p-2 min-[370px]:p-2.5 transition-colors ${key === 'greetings' ? 'col-span-2 min-[370px]:col-span-1' : ''} ${!enabled
                                 ? 'border-neutral-100 bg-neutral-100 text-neutral-400'
                                 : selectedImportSections[key] ? 'border-neutral-600 bg-white text-neutral-900'
                                     : 'border-neutral-200 bg-white text-neutral-500'}`}>
@@ -2334,7 +2334,7 @@ ${isInitialGeneration ? `
                         </label>;
                     })}
                 </div>
-                <p className="mt-2 text-[11px] text-neutral-500">仅更新勾选的模块；相同内容自动跳过，保留原角色的聊天和记忆。</p>
+                <p className="mt-2 text-[11px] text-neutral-500"><span className="min-[370px]:hidden">未选模块不变，保留聊天与记忆。</span><span className="hidden min-[370px]:inline">仅更新勾选的模块；相同内容自动跳过，保留原角色的聊天和记忆。</span></p>
             </div>}
             {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">
                 <p className="text-xs text-neutral-600">共 {pendingCard.cards.length} 个角色，勾选需要导入的角色及其专属世界书：</p>
