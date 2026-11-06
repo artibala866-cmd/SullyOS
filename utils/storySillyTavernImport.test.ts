@@ -5,7 +5,7 @@ import {
     parseStoryDisplayBlocks,
     parseStoryTheaterPreset,
 } from './storyTheater';
-import { convertSillyTavernChatPreset, expandSillyTavernPromptText, normalizeSillyTavernStoryOutput, squashAdjacentSystemMessages } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
 const tavern = {
     temperature: 1.05,
@@ -202,16 +202,49 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(compiled.messages.filter(m => m.content.includes('有一颗蓝色纽扣'))).toHaveLength(1);
     });
 
-    it('酒馆思考区不会泄露到剧情展示、历史或附录，正文仍可正常解析', () => {
-        const response = '<thinking>不能对外显示的内部步骤</thinking>\\n<content>雨点落在玻璃上。</content>\\n<details data-info="archive"><summary>剧情摘要</summary>雨夜</details>';
-        const cleaned = normalizeSillyTavernStoryOutput(response);
-        expect(cleaned).not.toContain('内部步骤');
-        expect(cleaned).toContain('<content>雨点落在玻璃上。</content>');
-        expect(cleaned).toContain('data-info="archive"');
-        expect(parseStoryDisplayBlocks(cleaned).map(item => item.text).join('\\n')).toContain('雨点落在玻璃上');
-        expect(normalizeSillyTavernStoryOutput('思考过程</thinking><content>最后的正文</content>'))
-            .toBe('<content>最后的正文</content>');
-        expect(normalizeSillyTavernStoryOutput('<thinking>无正文</thinking>')).toBe('');
+    it('酒馆思考区完整保存并可展开查看，正文和附录独立显示，原生解析不变', () => {
+        const response = '<thinking>场景确认：必须读当前输入</thinking>\n<content>雨点落在玻璃上。</content>\n<details data-info="archive"><summary>剧情摘要</summary>雨夜</details>';
+        const blocks = parseStoryDisplayBlocks(response, true);
+        expect(blocks.map(block => block.kind)).toEqual(['thinking', 'story', 'tavern-extra']);
+        expect(blocks[0].text).toContain('场景确认：必须读当前输入');
+        expect(blocks[1].text).toBe('雨点落在玻璃上。');
+        expect(blocks[2].text).toContain('剧情摘要');
+        expect(blocks[2].title).toBe('剧情摘要');
+        expect(response).toContain('<thinking>');
+        // Native presets keep their existing parser and display behavior.
+        expect(parseStoryDisplayBlocks(response).some(block => block.kind === 'thinking')).toBe(false);
+    });
+
+    it('{{char}} 和 {{user}} 在运行时按当前角色/当前档案动态解析', () => {
+        const renamePreset = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'name', role: 'system', content: '角色：{{char}}，用户：{{USER}}，兼容：{{ char }} / <BOT> / <USER>' },
+                { identifier: 'body', role: 'user', content: '与 {{user}} 和 {{Char}} 互动，<CHAR> 也要被替换。' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'name', enabled: true }, { identifier: 'body', enabled: true },
+            ] }],
+        }), '名字宏.json');
+        const opts = { preset: renamePreset, slots, historyMessages: [] };
+        const first = compileStoryPreset({ ...opts, userName: '江岚', characterNames: ['林澈'] }).messages;
+        const second = compileStoryPreset({ ...opts, userName: '小星', characterNames: ['沈远'] }).messages;
+        expect(first[0].content).toContain('角色：林澈，用户：江岚');
+        expect(first[0].content).toContain('林澈 / 林澈 / 江岚');
+        expect(first[1].content).toContain('与 江岚 和 林澈 互动');
+        expect(second[0].content).toContain('角色：沈远，用户：小星');
+        expect(second.map(m => m.content).join(' ')).not.toContain('江岚');
+        expect(second.map(m => m.content).join(' ')).not.toContain('林澈');
+    });
+
+    it('角色字段、历史与当前输入宏使用糯米机实时数据，未知宏不乱替换', () => {
+        const expanded = expandSillyTavernContextMacros('卡：{{description}} 性格：{{PERSONALITY}} 你：{{persona}} 输入：{{input}}\n历史：{{lastUserMessage}}\n{{newline}}! {{futureExtension}}', {
+            description: '蓝色衣服', personality: '不爱说谎', persona: '旅行者',
+            input: '打开门', lastUserMessage: '早上好',
+        });
+        expect(expanded).toContain('卡：蓝色衣服 性格：不爱说谎 你：旅行者 输入：打开门');
+        expect(expanded).toContain('历史：早上好');
+        expect(expanded).toContain('{{futureExtension}}');
+        expect(expanded).toContain('\n\n!');
     });
 
     it('启用的 setvar 富文本规则直接参与发送；初始化空值与关闭选项不误生效', () => {
@@ -236,6 +269,14 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(messages.join('\n')).not.toContain('禁止启用的条目');
         expect(messages.join('\n')).not.toContain('{{setvar');
         expect(imported.document.prompts.find(p => p.id === 'st-selected')?.content).toContain('{{setvar');
+    });
+
+    it('带自定义 XML 根标签的酒馆规则不会因无法运行脚本而丢失', () => {
+        const variables = new Map<string, string>();
+        const source = '{{setvar::感官::<five_senses_intimate>按人物设定描写环境</five_senses_intimate>}}';
+        expect(expandSillyTavernPromptText(source, variables, new Set())).toBe('<five_senses_intimate>按人物设定描写环境</five_senses_intimate>');
+        expect(variables.get('感官')).toContain('按人物设定');
+        expect(expandSillyTavernPromptText(source, new Map(), new Set(['感官']))).toBe('');
     });
 
     it('当启用 getvar 明确引用变量时，在引用位置只插入一次', () => {
