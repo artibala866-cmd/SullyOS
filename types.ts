@@ -2802,7 +2802,7 @@ export interface LinkOpeningGreeting {
 }
 
 export interface CardImportOrigin {
-  source: 'tavern' | 'babylink' | 'sully';
+  source: 'tavern' | 'babylink' | 'sully' | 'document';
   externalId?: string;
   originalName: string;
   avatarFingerprint?: string;
