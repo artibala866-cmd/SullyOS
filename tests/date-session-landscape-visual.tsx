@@ -77,6 +77,8 @@ function check() {
   const spriteStage = rect(host.querySelector('.date-session-sprite-stage'));
   const dialogue = rect(host.querySelector('.date-session-dialogue-card'));
   const input = rect(host.querySelector('.date-session-input-box'));
+  const name = rect(host.querySelector('.date-session-dialogue-card > div:first-child'));
+  const nameVisible = !!name && !!dialogue && name.y >= dialogue.y - 1 && name.bottom <= dialogue.bottom + 1;
   const controls = host.querySelector<HTMLElement>('.date-session-controls');
   const controlsRect = rect(controls);
   const reading = host.querySelector<HTMLElement>('.date-session-reading-page');
@@ -91,10 +93,10 @@ function check() {
   const menuFits = scenario !== 'menu' || (exitVisible && !!controlsRect && controlsRect.y >= 0 && controlsRect.bottom <= innerHeight + 1);
   const novelFits = scenario !== 'reading' || !!reading;
   const responsiveOk = smallLandscape
-    ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits)
+    ? (scenario === 'reading' ? novelFits && !!controlsRect : headVisible && spriteOnLeft && inputCompact && menuFits && nameVisible)
     : (scenario === 'input' && !!input && input.w > 140 && input.x >= 0);
   const report = { scenario, viewport: [innerWidth, innerHeight], smallLandscape, notOverflow,
-    spriteBox, spriteStage, dialogue, input, controlsRect, exit: rect(exit || null), exitVisible, 
+    spriteBox, spriteStage, dialogue, input, name, nameVisible, controlsRect, exit: rect(exit || null), exitVisible, 
     headVisible, spriteOnLeft, inputCompact, menuFits, novelFits, errors };
   const result = notOverflow && responsiveOk && errors.length === 0;
   document.body.dataset.meetLandscapeReady = String(result);

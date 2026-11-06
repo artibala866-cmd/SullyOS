@@ -12,6 +12,8 @@
   .date-session-root .date-session-sprite-stage > img {
     max-height: 96%;
     max-width: 100%;
+    /* Preserve the existing sprite position while limiting portrait-scale zoom. */
+    scale: var(--date-landscape-fit-scale, 1);
   }
   .date-session-root .date-session-controls {
     top: 0;
@@ -48,6 +50,14 @@
     padding: 14px 16px 12px;
     border-radius: 14px;
     overscroll-behavior: contain;
+  }
+  /* The badge hangs outside the dialogue in portrait; inside the scrollable
+     landscape card it must be placed above the text, not clipped. */
+  .date-session-root .date-session-dialogue-card > div:first-child {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin: 0 0 5px 0;
   }
   .date-session-root .date-session-dialogue-text {
     font-size: 13px;
