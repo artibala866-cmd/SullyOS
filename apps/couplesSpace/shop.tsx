@@ -293,7 +293,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <div className="bond-ticket-navigator">
               <button type="button" aria-label="上一张卡券" disabled={working||busy||activeIndex<=0}
                 onClick={()=>shopMove(-1)}><span aria-hidden="true">‹</span></button>
-              <div className="bond-machine-dial" style={{'--ticket-turn':(activeIndex*24)+'deg'} as React.CSSProperties} aria-hidden="true">
+              <div className="bond-machine-dial" style={{'--ticket-turn':(activeIndex*24)+'deg','--ticket-counterturn':(-activeIndex*24)+'deg'} as React.CSSProperties} aria-hidden="true">
                 <div className="bond-machine-dial-inner"><span>{String(activeIndex+1).padStart(2,'0')}</span></div>
               </div>
               <button type="button" aria-label="下一张卡券" disabled={working||busy||activeIndex>=visibleCards.length-1}
