@@ -31,6 +31,7 @@ interface ChatModalsProps {
     emojiImportText: string;
     setEmojiImportText: React.Dispatch<React.SetStateAction<string>>;
     emojiImportBusy?: boolean;
+    emojiImportCategoryName?: string;
     settingsContextLimit: number;
     setSettingsContextLimit: (v: number) => void;
     settingsContextRangeMode: ContextRangeMode;
@@ -238,7 +239,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     modalType, setModalType, compactHome=false,
     transferAmt, setTransferAmt,
     transferNote, setTransferNote,
-    emojiImportText, setEmojiImportText, emojiImportBusy = false,
+    emojiImportText, setEmojiImportText, emojiImportBusy = false, emojiImportCategoryName = '默认分类',
     settingsContextLimit, setSettingsContextLimit,
     settingsContextRangeMode, setSettingsContextRangeMode,
     settingsHideSysLogs, setSettingsHideSysLogs,
@@ -379,7 +380,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<button onClick={onImportEmoji} disabled={emojiImportBusy || emojiDocumentReading || emojiImportReview.entries.length === 0 || emojiImportReview.invalidLineNumbers.length > 0} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : emojiDocumentReading ? '识别文件中…' : '添加至当前分类'}</button>}
             >
                 <div className="space-y-3">
-                    <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
+                    <p className="text-xs text-slate-400">将导入「{emojiImportCategoryName}」。支持「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
                     <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} onReadingChange={setEmojiDocumentReading} />
                     {emojiImportText.trim() && (
                         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
