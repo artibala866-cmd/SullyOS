@@ -52,6 +52,11 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   });
   Object.defineProperty(picker!,'files',{configurable:true,value:files});
   await act(async()=>{picker!.dispatchEvent(new Event('change',{bubbles:true}));});
+  // IndexedDB commits on a later task; wait for the real third import rather
+  // than assuming React act() awaits an async file input event handler.
+  for(let attempt=0;attempt<30&&onImport.mock.calls.length<3;attempt++){
+   await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});
+  }
   expect(onImport).toHaveBeenCalledTimes(3);
   expect(savedIds).toHaveLength(2);
   const button=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='保存并进入');
