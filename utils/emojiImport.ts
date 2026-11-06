@@ -80,19 +80,27 @@ export function formatEmojiImportText(entries: readonly EmojiImportEntry[]): str
  */
 export function planEmojiImport(
     entries: readonly EmojiImportEntry[],
-    existing: readonly EmojiImportEntry[],
+    existing: readonly (EmojiImportEntry & { categoryId?: string })[],
+    targetCategoryId?: string,
 ): EmojiImportPlan {
-    const occupied = new Map(existing.map(e => [e.name, e.url]));
+    // Emoji names are global keys. An image from a different category
+    // should be copied under a distinct name, not silently skipped.
+    const target = targetCategoryId && targetCategoryId !== 'default' ? targetCategoryId : undefined;
+    const occupied = new Map(existing.map(e => [e.name, {
+        url: e.url, categoryId: e.categoryId === 'default' ? undefined : e.categoryId,
+    }]));
     const additions: EmojiImportEntry[] = [];
     let skipped = 0;
     let renamed = 0;
     for (const entry of entries) {
         let name = entry.name;
-        if (occupied.has(name) && occupied.get(name) !== entry.url) {
+        const sameInTarget = (key: string): boolean =>
+            occupied.get(key)?.url === entry.url && occupied.get(key)?.categoryId === target;
+        if (occupied.has(name) && !sameInTarget(name)) {
             let suffix = 2;
             do {
                 name = entry.name + '（' + suffix++ + '）';
-            } while (occupied.has(name) && occupied.get(name) !== entry.url);
+            } while (occupied.has(name) && !sameInTarget(name));
         }
         if (occupied.has(name)) {
             skipped++;
@@ -100,7 +108,7 @@ export function planEmojiImport(
         }
         if (name !== entry.name) renamed++;
         additions.push({ name, url: entry.url });
-        occupied.set(name, entry.url);
+        occupied.set(name, { url: entry.url, categoryId: target });
     }
     return { additions, skipped, renamed };
 }
