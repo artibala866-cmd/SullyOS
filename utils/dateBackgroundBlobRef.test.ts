@@ -18,6 +18,12 @@ describe('见面背景的 blobref 读写路径', () => {
     expect(settingsSource).not.toContain('updateCharacter(char.id, { dateBackground: base64 });');
   });
 
+  it('连续更新各场景时基于最新角色数据合并，避免旧 props 覆盖其他场景', () => {
+    expect(settingsSource).toContain('updateCharacter(char.id, current => {');
+    expect(settingsSource).toContain('return { dateSceneBackgrounds: backgrounds };');
+    expect(settingsSource).not.toContain('const backgrounds = { ...(char.dateSceneBackgrounds || {}) }');
+  });
+
   it('场景布置页的预览底图先用 useBlobRefUrl 解析再拼进 CSS url()', () => {
     expect(settingsSource).toContain('const dateBackgroundUrl = useBlobRefUrl((previewSceneKey && char.dateSceneBackgrounds?.[previewSceneKey]) || char.dateBackground);');
     expect(settingsSource).toContain('backgroundImage: dateBackgroundUrl ?');
@@ -26,7 +32,8 @@ describe('见面背景的 blobref 读写路径', () => {
 
   it('单独配置场景背景仍走原来的 blobref 存取和默认背景兜底', () => {
     expect(settingsSource).toContain("else updateScene(key, value)");
-    expect(settingsSource).toContain('const backgrounds = { ...(char.dateSceneBackgrounds || {}) }');
+    expect(settingsSource).toContain('updateCharacter(char.id, current => {');
+    expect(settingsSource).toContain('const backgrounds = { ...(current.dateSceneBackgrounds || {}) }');
     expect(settingsSource).toContain('|| char.dateBackground);');
     expect(settingsSource).toContain('<TokenImg value={image}');
     expect(settingsSource).not.toContain('<img src={image}');

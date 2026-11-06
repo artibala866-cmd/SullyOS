@@ -28,7 +28,12 @@ let charMirror = base;
 function Harness() {
   const [char, setChar] = useState(base);
   const patch = (_id: string, value: any) =>
-    setChar((prev: any) => { const next = { ...prev, ...value }; charMirror = next; return next; });
+    setChar((prev: any) => {
+      const changes = typeof value === 'function' ? value(prev) : value;
+      const next = { ...prev, ...changes };
+      charMirror = next;
+      return next;
+    });
   const os = {
     characters: [char], userProfile: { name: '用户' }, theme: {},
     appearancePresets: [], addToast: () => {}, registerBackHandler: () => () => {},

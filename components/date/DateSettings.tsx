@@ -158,10 +158,13 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         fileInputRef.current?.click();
     };
     const updateScene = (key: DateSceneKey, value?: string) => {
-        const backgrounds = { ...(char.dateSceneBackgrounds || {}) };
-        if (value) backgrounds[key] = value;
-        else delete backgrounds[key];
-        updateCharacter(char.id, { dateSceneBackgrounds: backgrounds });
+        // Use the latest character snapshot: two fast uploads must not overwrite each other.
+        updateCharacter(char.id, current => {
+            const backgrounds = { ...(current.dateSceneBackgrounds || {}) };
+            if (value) backgrounds[key] = value;
+            else delete backgrounds[key];
+            return { dateSceneBackgrounds: backgrounds };
+        });
     };
     const updateBackground = (key: 'default' | DateSceneKey, value?: string) => {
         if (key === 'default') updateCharacter(char.id, { dateBackground: value });
