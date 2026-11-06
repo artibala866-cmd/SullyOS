@@ -37,9 +37,10 @@ export function findCardImportTarget(
         (char.cardImportOrigin && normalizeCardName(char.cardImportOrigin.originalName) === key));
     if (names.length > 1) throw new Error('发现多个同名角色，无法安全判断需要更新哪一个，请先整理重复角色');
     const found = names[0];
-    if (found && externalId && found.cardImportOrigin?.source === origin.source &&
-        found.cardImportOrigin.externalId && found.cardImportOrigin.externalId !== externalId) {
-        throw new Error('同名角色来自不同的卡片身份，为避免错误覆盖已停止导入');
+    if (found?.cardImportOrigin?.externalId && externalId &&
+        (found.cardImportOrigin.source !== origin.source ||
+         found.cardImportOrigin.externalId !== externalId)) {
+        throw new Error('同名角色的来源身份不同，不能确定是同一角色；为避免误覆盖已停止导入');
     }
     return found;
 }
@@ -130,9 +131,14 @@ const matchedMountedBook = (
     // Differently keyed entries with the same title are NOT the same module.
     // This matters for cards containing two different chapters both called
     // "设定": the second must be added rather than overwrite the first.
+    // Only the legacy Link importer had stable, recognizable folder names
+    // without source keys. A user-created lore entry with the same title must
+    // not be silently replaced by unrelated imported content.
+    if (source !== 'babylink' || !incoming.category.startsWith('BabyLink · ')) return undefined;
     const sameTitle = mounted.filter(row =>
-        row.title.trim() === incoming.title.trim() && row.category === incoming.category &&
-        (!incoming.cardImportKey || !row.cardImportKey));
+        row.title.trim() === incoming.title.trim() &&
+        row.category === incoming.category &&
+        !row.cardImportKey);
     return sameTitle.length === 1 ? sameTitle[0] : undefined;
 };
 
@@ -147,6 +153,10 @@ export function mergeCardImports(
     if (!items.length) throw new Error('未选择任何角色');
     const seenNames = new Set<string>();
     for (const item of items) {
+        const sourceKeys = item.worldbooks.map(book => book.cardImportKey).filter((key): key is string => !!key);
+        if (new Set(sourceKeys).size !== sourceKeys.length) {
+            throw new Error('角色卡存在重复的世界书来源条目 ID，无法安全合并');
+        }
         const nameKey = normalizeCardName(item.fields.name || item.character.name);
         if (!nameKey || seenNames.has(nameKey)) throw new Error('本次导入含有重复姓名的角色，请分别导入以免合并错误');
         seenNames.add(nameKey);
@@ -167,6 +177,10 @@ export function mergeCardImports(
             throw new Error('导入期间角色列表发生变化，请重新选择角色卡，避免覆盖错误角色');
         }
         const next: CharacterProfile = target ? { ...target } : { ...item.character, mountedWorldbooks: [] };
+        if (!target && next.tavernGreetings?.length) {
+            // First import must also dedupe identical opening text, not just re-imports.
+            next.tavernGreetings = mergeCardGreetings([], next.tavernGreetings);
+        }
         if (target) {
             for (const [key, value] of Object.entries(item.fields)) {
                 if (PRIVATE_FIELDS.has(key) || !nonBlank(value)) continue;
