@@ -123,6 +123,17 @@ describe('剧情数据删除只在本地事务提交后返回成功', () => {
     });
 });
 
+describe('跨标签页面具引用安全', () => {
+    it('面具已删除时，带开场白与不带开场白的保存都不能复活悬空引用', async () => {
+        const entry = { ...makeEntry('story-mask-missing-save'),
+            mask: { type: 'custom' as const, id: 'story-mask-deleted-before-save' } };
+        await expect(saveStoryWithOpening(entry, null, [])).rejects.toThrow('原创身份已不存在');
+        await expect(saveStoryWithOpening(entry, greeting, [])).rejects.toThrow('原创身份已不存在');
+        expect((await DB.getStoryTheaters()).find(item => item.id === entry.id)).toBeUndefined();
+        expect(await rows(entry)).toHaveLength(0);
+    });
+});
+
 describe('剧情主 API 参数前置校验', () => {
     it('缺失或非法主 API 时先阻止请求，而不是写入孤立的用户正文', () => {
         expect(() => assertStoryApiConfigured({ baseUrl: '', model: 'm' })).toThrow('主 API 地址');
