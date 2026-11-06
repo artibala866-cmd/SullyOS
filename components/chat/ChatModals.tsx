@@ -16,6 +16,7 @@ import { trackEvent } from '../../utils/analytics';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../utils/voiceLanguage';
 import { chatMessageFuzzyMatchesKeyword } from '../../utils/chatMessageSearch';
 import { parseEmojiImportText, formatEmojiImportText } from '../../utils/emojiImport';
+import EmojiDocumentFilePicker from './EmojiDocumentFilePicker';
 
 interface ChatModalsProps {
     imageCharacterId?: string;
@@ -374,6 +375,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             >
                 <div className="space-y-3">
                     <p className="text-xs text-slate-400">表情将导入当前分类，自动识别「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
+                    <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} currentText={emojiImportText} onTextReady={setEmojiImportText} />
                     <textarea
                         value={emojiImportText}
                         onChange={e => setEmojiImportText(e.target.value)}
