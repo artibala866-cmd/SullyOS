@@ -52,6 +52,20 @@ try {
    writeFileSync(join(dir,c.name+'.png'),Buffer.from(screenshot.data,'base64'));
    console.log('EMOJI_DOCUMENT_VISUAL '+c.name+' '+JSON.stringify({ready,report:report?.slice(0,1800)}));
    if(ready!=='true')errors.push(c.name+': '+report);
+   if(ready==='true') {
+     const after=await run(`(async()=>{
+       const clean=[...document.querySelectorAll('button')].find(x=>x.textContent?.includes('只保留已识别内容'));
+       clean?.click();
+       await new Promise(r=>setTimeout(r,160));
+       const save=[...document.querySelectorAll('button')].find(x=>x.textContent?.includes('添加至当前分类'));
+       const area=document.querySelector('textarea');
+       return {cleaned:!area?.value.includes('无效格式'),saveEnabled:save?.disabled===false,rows:(area?.value||'').split('\\n').length};
+     })()`);
+     console.log('EMOJI_DOCUMENT_CLEANUP '+c.name+' '+JSON.stringify(after));
+     if(!after?.cleaned || !after?.saveEnabled || after?.rows!==3) errors.push(c.name+': cleanup did not unlock saving: '+JSON.stringify(after));
+     const cleanedSnap=await cmd('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
+     writeFileSync(join(dir,c.name+'-cleaned.png'),Buffer.from(cleanedSnap.data,'base64'));
+   }
  }
  ws.close();
  if(errors.length)throw Error(errors.join('\n'));
