@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: couple-ticketshop-visual-${{ github.ref }}
+  group: couple-ticketshop-visual-safefont-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   capture:
