@@ -41,6 +41,10 @@ import { stripSensitiveCardFields } from '../utils/characterCard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readCharacterCardFile, type PreparedCardImport, type PreparedCharacterCard } from '../utils/sillyTavernCard';
 import { cardContentFingerprint, findCardImportTarget } from '../utils/cardImportMerge';
+import {
+    availableCardImportSections, effectiveCardImportSections, hasCardImportSelection,
+    selectCardImportSections, type CardImportSections,
+} from '../utils/cardImportSections';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
@@ -191,6 +195,18 @@ const Character: React.FC = () => {
   const cardImportRef = useRef<HTMLInputElement>(null);
   const [pendingCard, setPendingCard] = useState<PreparedCardImport | null>(null);
   const [selectedImportIndices, setSelectedImportIndices] = useState<number[]>([0]);
+  const [selectedImportSections, setSelectedImportSections] = useState<CardImportSections>({
+      persona: true, worldbooks: true, greetings: true,
+  });
+  const selectedCardPreviews = useMemo((): PreparedCharacterCard[] => !pendingCard ? [] :
+      pendingCard.source === 'babylink'
+          ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
+          : [pendingCard], [pendingCard, selectedImportIndices]);
+  const availableImportSections = useMemo(() =>
+      availableCardImportSections(selectedCardPreviews), [selectedCardPreviews]);
+  const enabledImportSections = useMemo(() =>
+      effectiveCardImportSections(selectedCardPreviews, selectedImportSections),
+      [selectedCardPreviews, selectedImportSections]);
   const [savingCard, setSavingCard] = useState(false);
   const [cardPreviewUrl, setCardPreviewUrl] = useState('');
   useEffect(() => {
@@ -1181,6 +1197,7 @@ ${isInitialGeneration ? `
           const prepared = await readCharacterCardFile(file);
           setSelectedImportIndices(prepared.source === 'babylink'
               ? prepared.cards.map((_, index) => index) : [0]);
+          setSelectedImportSections({ persona: true, worldbooks: true, greetings: true });
           setPendingCard(prepared);
       } catch (error: any) {
           console.error('[Character Card] Parse failed', error);
@@ -1203,6 +1220,11 @@ ${isInitialGeneration ? `
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard];
       if (!chosen.length) { addToast('请至少选择一个角色', 'error'); return; }
+      const sections = effectiveCardImportSections(chosen, selectedImportSections);
+      if (!hasCardImportSelection(sections)) {
+          addToast('请至少选择一项有内容的导入模块', 'error');
+          return;
+      }
       setSavingCard(true);
       const createdAvatars: string[] = [];
       const stagedImageProfiles: Array<{ id: string; previous: ReturnType<typeof readCharacterImageProfile> | null }> = [];
@@ -1218,16 +1240,16 @@ ${isInitialGeneration ? `
               const targetId = target?.id || null;
               const newId = targetId || 'char-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto
                   ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-              const fields = { ...prepared.character };
-              let avatar = prepared.character.avatar || '';
-              if (prepared.avatarFile) {
+              const { fields, worldbooks: selectedWorldbooks } = selectCardImportSections(prepared, sections);
+              let avatar = sections.persona ? prepared.character.avatar || '' : target?.avatar || '';
+              if (sections.persona && prepared.avatarFile) {
                   const bytes = new Uint8Array(await prepared.avatarFile.arrayBuffer());
                   origin.avatarFingerprint = cardContentFingerprint(bytes);
                   if (!target || target.cardImportOrigin?.avatarFingerprint !== origin.avatarFingerprint) {
                       avatar = await putImageBlob(await processImageToBlob(prepared.avatarFile, { maxWidth: 900 }));
                       createdAvatars.push(avatar);
                   } else avatar = target.avatar;
-              } else if (avatar.startsWith('data:image/')) {
+              } else if (sections.persona && avatar.startsWith('data:image/')) {
                   origin.avatarFingerprint = cardContentFingerprint(avatar);
                   if (!target || target.cardImportOrigin?.avatarFingerprint !== origin.avatarFingerprint) {
                       const sourceImage = await (await fetch(avatar)).blob();
@@ -1236,9 +1258,9 @@ ${isInitialGeneration ? `
                       createdAvatars.push(avatar);
                   } else avatar = target.avatar;
               } else if (target) avatar = target.avatar;
-              fields.avatar = avatar;
+              if (sections.persona) fields.avatar = avatar;
 
-              if (prepared.source === 'babylink-character' && prepared.imageProfile) {
+              if (sections.persona && prepared.source === 'babylink-character' && prepared.imageProfile) {
                   const incoming = prepared.imageProfile;
                   origin.imageFingerprint = cardContentFingerprint(JSON.stringify(incoming));
                   if (!target || target.cardImportOrigin?.imageFingerprint !== origin.imageFingerprint) {
@@ -1258,24 +1280,24 @@ ${isInitialGeneration ? `
                       stagedImageProfiles.push({ id: newId, previous });
                   }
               }
-              const mounted = prepared.worldbooks.map(toMountedWorldbook);
+              const mounted = selectedWorldbooks.map(toMountedWorldbook);
               imports.push({
                   expectedTargetId: targetId,
                   origin,
                   fields,
-                  worldbooks: prepared.worldbooks,
+                  worldbooks: selectedWorldbooks,
                   character: {
-                      ...prepared.character, id: newId, avatar,
+                      ...fields, id: newId, avatar,
                       name: prepared.character.name,
-                      description: prepared.character.description,
-                      systemPrompt: prepared.character.systemPrompt,
+                      description: fields.description || '',
+                      systemPrompt: fields.systemPrompt || '',
                       cardImportOrigin: origin,
                       memories: [], refinedMemories: {}, activeMemoryMonths: [],
                       mountedWorldbooks: mounted,
-                      contextRangeMode: prepared.character.contextRangeMode ?? 'manual',
-                      contextLimit: prepared.character.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
-                      contextRangePolicyVersion: prepared.character.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
-                      emotionConfig: prepared.character.emotionConfig ?? { enabled: false },
+                      contextRangeMode: fields.contextRangeMode ?? 'manual',
+                      contextLimit: fields.contextLimit ?? DEFAULT_MANUAL_CONTEXT_LIMIT,
+                      contextRangePolicyVersion: fields.contextRangePolicyVersion ?? CONTEXT_RANGE_POLICY_VERSION,
+                      emotionConfig: fields.emotionConfig ?? { enabled: false },
                   } as CharacterProfile,
               });
           }
@@ -2272,12 +2294,46 @@ ${isInitialGeneration ? `
             onClose={() => { if (!savingCard) setPendingCard(null); }}
             footer={<div className="flex w-full gap-2">
                 <button disabled={savingCard} onClick={() => setPendingCard(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-semibold disabled:opacity-50">取消</button>
-                <button disabled={savingCard || (pendingCard?.source === 'babylink' && selectedImportIndices.length === 0)}
+                <button disabled={savingCard || !hasCardImportSelection(enabledImportSections) ||
+                    (pendingCard?.source === 'babylink' && selectedImportIndices.length === 0)}
                     onClick={confirmCardImport} className="flex-1 py-3 bg-[#222222] text-white rounded-2xl font-semibold disabled:opacity-50">
                     {savingCard ? '保存中…' : '确认导入'}
                 </button>
             </div>}
         >
+            {pendingCard && <div className="mb-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-3">
+                <p className="mb-3 text-xs font-semibold text-neutral-700">选择导入内容（可多选）</p>
+                <div className="grid grid-cols-3 gap-2">
+                    {([
+                        ['persona', '人设', selectedCardPreviews.filter(card => Boolean(
+                            card.character.description?.trim() || card.character.systemPrompt?.trim() ||
+                            card.character.worldview?.trim() || card.character.avatar || card.avatarFile ||
+                            card.imageProfile)).length + ' 个角色'],
+                        ['worldbooks', '世界书', selectedCardPreviews.reduce((count, card) =>
+                            count + card.worldbooks.length, 0) + ' 条'],
+                        ['greetings', '开场白', selectedCardPreviews.reduce((count, card) =>
+                            count + (card.character.tavernGreetings?.length || 0), 0) + ' 条'],
+                    ] as const).map(([key, label, amount]) => {
+                        const enabled = availableImportSections[key];
+                        return <label key={key}
+                            className={`flex min-h-[76px] flex-col items-start justify-between gap-2 rounded-xl border p-2.5 transition-colors ${!enabled
+                                ? 'border-neutral-100 bg-neutral-100 text-neutral-400'
+                                : selectedImportSections[key] ? 'border-neutral-600 bg-white text-neutral-900'
+                                    : 'border-neutral-200 bg-white text-neutral-500'}`}>
+                            <span className="flex w-full items-center justify-between gap-1">
+                                <span className="text-xs font-semibold">{label}</span>
+                                <input type="checkbox" aria-label={`导入${label}`} checked={enabled && selectedImportSections[key]}
+                                    disabled={savingCard || !enabled}
+                                    onChange={event => setSelectedImportSections(current =>
+                                        ({ ...current, [key]: event.target.checked }))}
+                                    className="h-4 w-4 accent-neutral-800" />
+                            </span>
+                            <span className="text-[10px] text-neutral-500">{enabled ? amount : '无可导入内容'}</span>
+                        </label>;
+                    })}
+                </div>
+                <p className="mt-2 text-[11px] text-neutral-500">仅更新勾选的模块；相同内容自动跳过，保留原角色的聊天和记忆。</p>
+            </div>}
             {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">
                 <p className="text-xs text-neutral-600">共 {pendingCard.cards.length} 个角色，勾选需要导入的角色及其专属世界书：</p>
                 <div className="max-h-[48vh] overflow-y-auto space-y-2">
