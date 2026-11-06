@@ -1,0 +1,57 @@
+name: Character card import real browser screenshots
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - 'apps/Character.tsx'
+      - 'utils/cardImport*.ts'
+      - 'utils/sillyTavernCard.ts'
+      - 'utils/babyLinkCard.ts'
+      - 'tests/card-import-visual.*'
+      - 'scripts/card-import-visual-smoke.mjs'
+      - '.github/workflows/card-import-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: character-card-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chinese fonts and Chrome
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends fonts-noto-cjk
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Capture real Character modal on phone portrait and landscape
+        shell: bash
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/card-import-visual-vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          url='http://127.0.0.1:5173/tests/card-import-visual.html'
+          for i in $(seq 1 70); do if curl -fsS "$url" >/dev/null; then break; fi; sleep 1; done
+          node scripts/card-import-visual-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: character-card-import-actual-react-screenshots
+          path: card-import-visual-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 7
