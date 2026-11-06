@@ -25,6 +25,7 @@ const base = {
 } as any;
 const host = document.getElementById('visual')!;
 let charMirror = base;
+const debugEvents: string[] = [];
 function Harness() {
   const [char, setChar] = useState(base);
   const patch = (_id: string, value: any) =>
@@ -32,11 +33,12 @@ function Harness() {
       const changes = typeof value === 'function' ? value(prev) : value;
       const next = { ...prev, ...changes };
       charMirror = next;
+      debugEvents.push('patch ' + Object.keys(changes).join(','));
       return next;
     });
   const os = {
     characters: [char], userProfile: { name: '用户' }, theme: {},
-    appearancePresets: [], addToast: () => {}, registerBackHandler: () => () => {},
+    appearancePresets: [], addToast: (message: string, kind: string) => { debugEvents.push('toast ' + kind + ': ' + message); }, registerBackHandler: () => () => {},
     updateCharacter: patch, updateTheme: () => {}, exportAppearancePreset: () => {},
     importAppearancePreset: () => {},
   } as any;
@@ -80,6 +82,7 @@ function check() {
     const imagesOk = scenario === 'empty' ? pictureCount === 0 : scenario === 'upload' ? pictureCount === 6 : pictureCount === 4;
     const labelsOk = realLabels.join('|') === '默认|室外|卧室|浴室|厨房|工作';
     const report = { scenario, keys, realLabels, pictureCount, fit, imagesOk, uploadOk,
+      debugEvents, storedScenes: Object.fromEntries(Object.entries(charMirror.dateSceneBackgrounds || {}).map(([k, v]) => [k, String(v).slice(0, 30)])),
       defaultOriginallyPresent: scenario === 'empty' ? !original : original.startsWith('data:image/svg+xml'),
       noExtraSections, clearOk,
       scrollbarWidth: scroller?.clientWidth, viewport: [innerWidth,innerHeight],
@@ -100,6 +103,7 @@ function check() {
           const button = settings.querySelector<HTMLButtonElement>(`[data-date-scene="${key}"] button[aria-label^="上传"]`);
           if (!button) throw Error('missing upload button: ' + key);
           button.click();
+          debugEvents.push('clicked ' + key);
           await new Promise(resolve => setTimeout(resolve, 75));
           const input = document.querySelector<HTMLInputElement>('input[type="file"][accept="image/*"]');
           if (!input) throw Error('missing file input');
@@ -108,6 +112,7 @@ function check() {
           dt.items.add(new File([text], `${key}.svg`, { type: 'image/svg+xml' }));
           input.files = dt.files;
           input.dispatchEvent(new Event('change', { bubbles: true }));
+          debugEvents.push('changed ' + key + ' input.files=' + input.files?.length);
           await new Promise(resolve => setTimeout(resolve, 300));
         };
         await upload('bathroom');
