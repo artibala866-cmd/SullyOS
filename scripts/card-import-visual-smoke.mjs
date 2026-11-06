@@ -2,7 +2,7 @@
  * Captures screenshots and DOM assertions, never downloads users' private cards.
  * Uses Chrome DevTools Protocol without importing Playwright/npm browser packages. */
 import {spawn} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -86,6 +86,8 @@ try{
  if(failures.length)throw Error(failures.join('\n'));
  console.log('CARD_VISUAL_ALL_CHECKS_PASSED '+cases.length);
 }finally{
+ // The GitHub Actions VM is disposable. Chromium may still be flushing its
+ // profile after SIGTERM; deleting it immediately causes a false ENOTEMPTY
+ // regression failure even when every screenshot and interaction passed.
  chrome.kill('SIGTERM');
- rmSync(profile,{recursive:true,force:true});
 }
