@@ -163,7 +163,7 @@ function check() {
     !!stage && stage.classList.contains('date-session-keyboard-open') &&
     spriteBox.h >= Math.max(100, originalSpriteHeight * .8) &&
     spriteBox.y >= -2 &&
-    dialogue.y >= controlsRect.bottom - 3 &&
+    !intersects(controlsRect, dialogue) &&
     dialogue.bottom + 2 <= input.y &&
     input.bottom <= viewportHeight + 2 &&
     !intersects(spriteBox, dialogue) &&
