@@ -348,6 +348,10 @@
   .date-session-root.date-session-keyboard-open > .date-session-sprite-stage > img {
     max-height: 96%;
     max-width: 100%;
+    /* Full-size stage stays stable; a moderate top-anchored face crop fits
+       within the keyboard's remaining ~100px without becoming a tiny figure. */
+    transform-origin: center top;
+    scale: var(--date-landscape-keyboard-fit-scale, .65);
   }
   .date-session-root.date-session-keyboard-open .date-session-controls {
     padding: 1px max(6px, env(safe-area-inset-right, 0px)) 0 0;
@@ -381,6 +385,7 @@
     padding: 1px 6px;
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: none;
     border-radius: 8px;
   }
   .date-session-root.date-session-keyboard-open .date-session-dialogue-card > div:first-child {
@@ -402,7 +407,10 @@
     white-space: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: none;
   }
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-card::-webkit-scrollbar,
+  .date-session-root.date-session-keyboard-open .date-session-dialogue-text::-webkit-scrollbar { display: none; }
   .date-session-root.date-session-keyboard-open .date-session-input-layer {
     inset: auto max(8px, env(safe-area-inset-right, 0px)) auto auto;
     top: calc(var(--date-visible-height) - 34px);
