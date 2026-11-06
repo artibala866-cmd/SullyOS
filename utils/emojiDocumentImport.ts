@@ -144,11 +144,21 @@ function htmlToText(html: string): string {
 }
 
 function rtfToText(rtf: string): string {
-    // Best-effort for text-based RTF (including \uNNNN Unicode). Word's binary .doc is different.
+    // Chinese Word/WPS RTF files often encode names as \'hh byte runs
+    // using \ansicpg936; deleting these bytes silently loses their names.
+    const codePage = /\\ansicpg(\d+)/i.exec(rtf)?.[1] || '1252';
+    const encoding = codePage === '936' || codePage === '54936' ? 'gb18030'
+        : codePage === '65001' ? 'utf-8'
+        : 'windows-' + codePage;
+    const decodeHex = (sequence: string): string => {
+        const hex = [...sequence.matchAll(/\\'([a-f0-9]{2})/gi)].map(match => parseInt(match[1], 16));
+        try { return new TextDecoder(encoding, { fatal: true }).decode(new Uint8Array(hex)); }
+        catch { return new TextDecoder('windows-1252').decode(new Uint8Array(hex)); }
+    };
     return rtf
         .replace(/\{\\\*\\[^{}]*\}/g, '')
+        .replace(/(?:\\'[a-f0-9]{2})+/gi, decodeHex)
         .replace(/\\u(-?\d+)\??/g, (_all, digits: string) => String.fromCharCode((Number(digits) + 65536) % 65536))
-        .replace(/\\'(?:[a-f0-9]{2})/gi, '')
         .replace(/\\(?:par|line)\b\s?/g, '\n')
         .replace(/\\tab\b\s?/g, '\t')
         .replace(/\\[a-z]+\d*\s?/gi, '')
@@ -156,28 +166,82 @@ function rtfToText(rtf: string): string {
         .replace(/[{}]/g, '');
 }
 
-function jsonToText(value: unknown): string {
+interface JsonRows {
+    text: string;
+    omitted: string[];
+}
+function jsonToText(value: unknown): JsonRows {
     const rows: string[] = [];
-    const visit = (node: unknown, depth: number) => {
+    const omitted: string[] = [];
+    const pushRow = (row: string) => {
         if (rows.length >= MAX_IMPORT_ENTRIES) throw new Error('JSON 表情数量超过 3000 条，请分批导入');
-        if (depth > 10 || node == null) return;
+        rows.push(row);
+    };
+    const note = (message: string) => {
+        if (omitted.length < 8) omitted.push(message.slice(0, 160));
+    };
+    const cleanName = (name: string) => name.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+    const visit = (node: unknown, depth: number, inEmojiMap = false) => {
+        if (depth > 24 || node == null) return;
         if (typeof node === 'string') {
-            if (/https?:\/\/|--data:image\//i.test(node)) rows.push(node);
+            if (/^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(node.trim())
+                || /--(?:https?:\/\/|data:image\/)/i.test(node)) pushRow(node);
             return;
         }
-        if (Array.isArray(node)) { for (const item of node) visit(item, depth + 1); return; }
+        if (Array.isArray(node)) { for (const item of node) visit(item, depth + 1, inEmojiMap); return; }
         if (typeof node !== 'object') return;
         const obj = node as Record<string, unknown>;
-        const name = obj.name ?? obj.title ?? obj.label;
-        const url = obj.url ?? obj.src ?? obj.imageUrl ?? obj.link;
-        if (typeof name === 'string' && typeof url === 'string') {
-            rows.push(name + '--' + url);
+        const name = obj.name ?? obj.title ?? obj.label ?? obj.表情名称 ?? obj.表情包名称;
+        const url = obj.url ?? obj.src ?? obj.imageUrl ?? obj.image ?? obj.link ?? obj.图片链接 ?? obj.图片地址;
+        const isNamedEntry = name !== undefined || url !== undefined;
+        if (isNamedEntry) {
+            if (typeof name === 'string' && cleanName(name) && typeof url === 'string' && url.trim()) {
+                pushRow(cleanName(name) + '--' + url.trim());
+            } else if (typeof url === 'string' && /^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(url.trim())) {
+                pushRow(url.trim()); // The document importer will derive the filename.
+                note('JSON 中有缺少名称的图片链接，已尝试自动命名：' + url.slice(0, 80));
+            } else {
+                note('JSON 中存在名称或图片链接缺失的记录：' + String(name ?? '未命名').slice(0, 60));
+            }
             return;
         }
-        for (const val of Object.values(obj)) visit(val, depth + 1);
+        for (const [key, item] of Object.entries(obj)) {
+            const nextIsEmojiMap = inEmojiMap || /^(?:emojis?|stickers?|expressions?|表情包?|贴图|图片列表|表情列表)$/i.test(key);
+            if (typeof item === 'string' && (/^https?:\/\//i.test(item) || /^data:image\//i.test(item))) {
+                // Generic metadata links such as homepage/repository must not
+                // become fake stickers. In known emoji maps, names are keys.
+                const likelyImage = /^https?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|apng)(?:[?#]\S*)?$/i.test(item.trim())
+                    || /^data:image\//i.test(item);
+                if (nextIsEmojiMap || likelyImage) pushRow(cleanName(key) + '--' + item.trim());
+            } else {
+                visit(item, depth + 1, nextIsEmojiMap);
+            }
+        }
     };
     visit(value, 0);
-    return rows.join('\n');
+    return { text: rows.join('\n'), omitted };
+}
+
+/** Keep CSV quoted names containing line breaks in the same logical record. */
+function normalizeDelimitedNewlines(text: string): string {
+    let inQuotes = false;
+    let normalized = '';
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"') {
+            if (inQuotes && text[i + 1] === '"') {
+                normalized += '""'; i++;
+            } else {
+                inQuotes = !inQuotes;
+                normalized += char;
+            }
+        } else if (inQuotes && (char === '\r' || char === '\n')) {
+            normalized += ' ';
+            if (char === '\r' && text[i + 1] === '\n') i++;
+        } else normalized += char;
+    }
+    if (inQuotes) throw new Error('CSV/TSV 文件存在未闭合的引号，请检查表格后重新导出');
+    return normalized;
 }
 
 function splitDelimitedRow(line: string, delimiter: string): string[] {
@@ -354,6 +418,7 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
     if (file.size > EMOJI_DOCUMENT_MAX_BYTES) throw new Error('单个文件不能超过 16MB，请拆分后导入');
     const bytes = await file.arrayBuffer();
     let content = '';
+    let jsonOmitted: string[] = [];
     if (extension === 'pdf') {
         // Keep the heavy PDF worker out of the private-chat initial bundle.
         const { extractPdfEmojiLines } = await import('./pdfText');
@@ -368,15 +433,21 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
             try { parsed = JSON.parse(plain); }
             catch { throw new Error('JSON 文件格式错误，请检查文件内容'); }
             // Preserve informative capacity errors from the import walker.
-            content = jsonToText(parsed);
+            const extracted = jsonToText(parsed);
+            content = extracted.text;
+            jsonOmitted = extracted.omitted;
         } else if (extension === 'html' || extension === 'htm') {
             content = htmlToText(plain);
         } else if (extension === 'rtf') {
             content = rtfToText(plain);
-        } else content = plain;
+        } else content = (extension === 'csv' || extension === 'tsv') ? normalizeDelimitedNewlines(plain) : plain;
     }
     if (content.length > MAX_DOCUMENT_TEXT_LENGTH) throw new Error('文档正文过大，请拆分后重试');
     const { entries, ignoredLines, suspiciousLines, generatedNames } = collectEmojiDocumentRows(content);
     if (!entries.length) throw new Error('未找到「表情名称＋图片链接」，请检查文档是否包含在线表情包地址');
-    return { name, entries, text: formatEmojiImportText(entries), ignoredLines, suspiciousLines, generatedNames };
+    return {
+        name, entries, text: formatEmojiImportText(entries), generatedNames,
+        ignoredLines: ignoredLines + jsonOmitted.length,
+        suspiciousLines: [...jsonOmitted, ...suspiciousLines].slice(0, 8),
+    };
 }
