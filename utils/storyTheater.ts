@@ -1,3 +1,4 @@
+import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
 import type {
     CharacterProfile,
     Message,
@@ -765,11 +766,13 @@ export const resolveStoryOpeningGreeting = (
     const actor = characters.find(character => character.id === selection.characterId);
     const greeting = Array.isArray(actor?.tavernGreetings)
         ? actor.tavernGreetings.find(item => item?.id === selection.greetingId) : undefined;
-    if (!actor || typeof greeting?.content !== 'string' || !greeting.content.trim()) return null;
+    if (!actor || typeof greeting?.content !== 'string') return null;
+    const adapted = adaptTavernOpeningGreeting(greeting);
+    if (!adapted.content.trim()) return null;
     return {
         characterId: actor.id,
         greetingId: greeting.id,
-        content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
+        content: macroReplace(adapted.content.trim(), identityName, [actor.name]),
     };
 };
 
