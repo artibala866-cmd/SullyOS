@@ -201,6 +201,38 @@ const DateSession: React.FC<DateSessionProps> = ({
     onSettings
 }) => {
     const { addToast, registerBackHandler, apiConfig, updateCharacter } = useOS();
+    const sessionRootRef = useRef<HTMLDivElement>(null);
+    // Android may shrink visualViewport without resizing the app shell.
+    // Keep dialogue and input inside the actual visible keyboard-safe height.
+    useEffect(() => {
+        const viewport = window.visualViewport;
+        let frame = 0;
+        const sync = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const root = sessionRootRef.current;
+                if (!root || (viewport && viewport.scale !== 1)) return;
+                root.style.maxHeight = '';
+                const bounds = root.getBoundingClientRect();
+                const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+                if (bounds.height > 0 && visibleBottom < bounds.bottom - 1) {
+                    root.style.maxHeight = `${Math.max(0, visibleBottom - bounds.top)}px`;
+                }
+            });
+        };
+        sync();
+        viewport?.addEventListener('resize', sync);
+        viewport?.addEventListener('scroll', sync);
+        window.addEventListener('resize', sync);
+        window.addEventListener('orientationchange', sync);
+        return () => {
+            cancelAnimationFrame(frame);
+            viewport?.removeEventListener('resize', sync);
+            viewport?.removeEventListener('scroll', sync);
+            window.removeEventListener('resize', sync);
+            window.removeEventListener('orientationchange', sync);
+        };
+    }, []);
     
     const readingStyle = meetingAppearance(char.dateAppearance);
     const decoratedReading = readingStyle.id !== 'none';
@@ -890,7 +922,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     const canReroll = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
     return (
-        <div className={`date-session-root h-full w-full relative bg-black overflow-hidden font-sans select-none ${decoratedReading ? 'meeting-reading' : ''} ${showInputBox ? 'date-session-input-open' : ''}`} data-reading-preset={readingStyle.id} onClick={handleScreenClick}><style>{MEETING_READING_CSS}</style>
+        <div ref={sessionRootRef} className={`date-session-root h-full w-full relative bg-black overflow-hidden font-sans select-none ${decoratedReading ? 'meeting-reading' : ''} ${showInputBox ? 'date-session-input-open' : ''}`} data-reading-preset={readingStyle.id} onClick={handleScreenClick}><style>{MEETING_READING_CSS}</style>
             
             {/* Background Layer */}
             <div 
@@ -1194,7 +1226,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             {/* Visual Mode View */}
             {!isNovelMode && (
                 <>
-                    <div className="date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none z-10 overflow-hidden">
+                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none z-10 overflow-hidden ${spriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
                         {currentSprite && <TokenImg value={currentSprite} className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 origin-bottom" style={{ filter: showInputBox ? 'brightness(1)' : (isTextAnimating ? 'brightness(1.05)' : 'brightness(1)'), transform: `translate(${spriteConfig.x}%, ${spriteConfig.y}%) scale(${isTextAnimating ? spriteConfig.scale * 1.02 : spriteConfig.scale})`, '--date-landscape-fit-scale': String(1 / Math.max(1, (isTextAnimating ? spriteConfig.scale * 1.02 : spriteConfig.scale))) } as React.CSSProperties} />}
                     </div>
                     {!isTyping && (
