@@ -2359,6 +2359,10 @@ ${isInitialGeneration ? `
                             <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
                             <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
                             <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '分享包未携带（原角色可能已有）' : (card.character.linkGreetings?.length || 0) + ' 条'}</span>
+                            {!!card.character.linkGreetings?.length && <span className="text-[10px] text-neutral-500 break-words">
+                                已识别：{card.character.linkGreetings.slice(0, 2).map(item => item.title).join(' · ')}
+                                {card.character.linkGreetings.length > 2 ? ` · +${card.character.linkGreetings.length - 2}` : ''}
+                            </span>}
                             {card.imageProfile && <span className="text-xs text-neutral-600">生图：{card.imageProfile.reference
                                 ? (card.imageProfile.referenceEnabled === false ? '参考图已识别（原卡关闭）'
                                     : card.imageProfile.referenceMode === 'composition' ? '构图参考图已识别' : '锁脸参考图已识别')
