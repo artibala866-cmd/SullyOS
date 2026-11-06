@@ -369,7 +369,7 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
                     .filter(([key, option]) => key !== 'extensions' && key !== 'prompts' && key !== 'prompt_order'
                         && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
                         && (typeof option !== 'string' || option.length <= 65536)),
-            ) } : {}),
+            ) as Record<string, string | number | boolean | null> } : {}),
         ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
     };
 };
