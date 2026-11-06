@@ -1,4 +1,5 @@
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
+import type { StoryApiMessage } from './storyTheater';
 
 /**
  * SillyTavern Chat Completion preset -> native story preset.
@@ -137,8 +138,8 @@ export const expandSillyTavernPromptText = (raw: string, variables: Map<string, 
     .replace(/\{\{\s*getvar::([^{}]+)\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
 
 /** Preserve roles and message order while matching Tavern's system-message squashing. */
-export const squashAdjacentSystemMessages = <T extends { role: string; content: string }>(items: T[]): T[] => {
-    const result: T[] = [];
+export const squashAdjacentSystemMessages = (items: StoryApiMessage[]): StoryApiMessage[] => {
+    const result: StoryApiMessage[] = [];
     for (const item of items) {
         const last = result[result.length - 1];
         if (item.role === 'system' && last?.role === 'system') {
