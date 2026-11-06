@@ -26,5 +26,11 @@ describe('Meet landscape layout regression', () => {
     expect(css).toContain('(min-width: 600px)');
     expect(app).toContain('window.visualViewport');
     expect(app).toContain('ref={sessionRootRef}');
+    expect(app).toContain("root.classList.add('date-session-keyboard-open')");
+    expect(app).toContain("root.style.setProperty('--date-visible-height'");
+    expect(css).toContain('.date-session-root.date-session-keyboard-open .date-session-sprite-stage');
+    expect(css).toContain('height: var(--date-scene-height)');
+    expect(css).toContain('top: calc(var(--date-visible-height) - 34px)');
+    expect(app).not.toContain('root.style.maxHeight = `${Math.max(0, visibleBottom - bounds.top)}px`');
   });
 });
