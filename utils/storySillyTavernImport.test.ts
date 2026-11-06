@@ -5,7 +5,7 @@ import {
     parseStoryDisplayBlocks,
     parseStoryTheaterPreset,
 } from './storyTheater';
-import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, squashAdjacentSystemMessages } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, extractSillyTavernStoryContent, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
 const tavern = {
     temperature: 1.05,
@@ -213,6 +213,28 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(response).toContain('<thinking>');
         // Native presets keep their existing parser and display behavior.
         expect(parseStoryDisplayBlocks(response).some(block => block.kind === 'thinking')).toBe(false);
+    });
+
+    it('酒馆专用 API 提取不再误删 thinking，兼容独立 reasoning 字段和模型多段返回', () => {
+        const inText = { choices: [{ message: {
+            content: '<thinking>规划人物行动</thinking><content>雨停了。</content>',
+        } }] };
+        expect(extractSillyTavernStoryContent(inText)).toBe('<thinking>规划人物行动</thinking><content>雨停了。</content>');
+        const separated = { choices: [{ message: {
+            content: '<content>角色推开门。</content>', reasoning_content: '先确认身份再写剧情',
+        } }] };
+        const actual = extractSillyTavernStoryContent(separated);
+        expect(actual).toContain('<thinking>先确认身份再写剧情</thinking>');
+        expect(actual).toContain('<content>角色推开门。</content>');
+        expect(parseStoryDisplayBlocks(actual, true).map(item => item.kind)).toEqual(['thinking', 'story']);
+        const array = { choices: [{ message: { content: [
+            { type: 'thinking', thinking: '观察周围线索' },
+            { type: 'text', text: '<content>街灯亮了。</content>' },
+        ] } }] };
+        expect(parseStoryDisplayBlocks(extractSillyTavernStoryContent(array), true).map(item => item.kind))
+            .toEqual(['thinking', 'story']);
+        expect(parseStoryDisplayBlocks('<think>完整过程</think><content>剧情</content>', true).map(item => item.kind))
+            .toEqual(['thinking', 'story']);
     });
 
     it('{{char}} 和 {{user}} 在运行时按当前角色/当前档案动态解析', () => {
