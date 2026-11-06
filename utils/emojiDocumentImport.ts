@@ -352,8 +352,11 @@ export async function importEmojiDocument(file: ReadableFile): Promise<EmojiDocu
     } else {
         const plain = decodePlainText(bytes);
         if (extension === 'json') {
-            try { content = jsonToText(JSON.parse(plain)); }
+            let parsed: unknown;
+            try { parsed = JSON.parse(plain); }
             catch { throw new Error('JSON 文件格式错误，请检查文件内容'); }
+            // Preserve informative capacity errors from the import walker.
+            content = jsonToText(parsed);
         } else if (extension === 'html' || extension === 'htm') {
             content = htmlToText(plain);
         } else if (extension === 'rtf') {
