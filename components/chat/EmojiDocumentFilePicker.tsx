@@ -8,11 +8,12 @@ interface EmojiDocumentFilePickerProps {
     active: boolean;
     disabled?: boolean;
     onAppendText: (value: string) => void;
+    onReadingChange?: (reading: boolean) => void;
 }
 
 /** Small file-import control inside the existing private-chat 表情注入 modal. */
 export default function EmojiDocumentFilePicker({
-    active, disabled = false, onAppendText,
+    active, disabled = false, onAppendText, onReadingChange,
 }: EmojiDocumentFilePickerProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const operationRef = useRef(0);
@@ -24,6 +25,7 @@ export default function EmojiDocumentFilePicker({
         if (!active) {
             operationRef.current++;
             setReading(false);
+            onReadingChange?.(false);
             setStatus('');
             setError(false);
         }
@@ -41,6 +43,7 @@ export default function EmojiDocumentFilePicker({
         }
         const id = ++operationRef.current;
         setReading(true);
+        onReadingChange?.(true);
         setError(false);
         setStatus('正在读取文件并识别表情包…');
         try {
@@ -65,7 +68,10 @@ export default function EmojiDocumentFilePicker({
             setError(true);
             setStatus(cause instanceof Error ? cause.message : '文件读取失败，请重新选择');
         } finally {
-            if (operationRef.current === id) setReading(false);
+            if (operationRef.current === id) {
+                setReading(false);
+                onReadingChange?.(false);
+            }
         }
     };
 
