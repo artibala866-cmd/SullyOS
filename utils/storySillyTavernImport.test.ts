@@ -415,6 +415,38 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(contents).toContain('你好');
     });
 
+    it('时间、模型名、变量简写及基础 if/else 宏安全展开，未知表达式保留', () => {
+        const variables = new Map<string, string>();
+        const first = expandSillyTavernPromptText('{{setvar::天气::晴天}} 天气：{{.天气}}', variables);
+        expect(first).toBe(' 天气：晴天');
+        const raw = [
+            '日期={{isodate}} 时间={{isotime}} 模型={{model}}',
+            '{{#if description}}有角色：{{description}}{{else}}无角色{{/if}}',
+            '{{if !persona}}用户设定为空{{else}}用户设定存在{{/if}}',
+            '{{if .天气}}天气变量有值{{/if}}',
+            '{{if this_unknown_macro}}未知语义应原样保留{{/if}}',
+        ].join('\n');
+        const output = expandSillyTavernContextMacros(raw, {
+            now: new Date(2026, 10, 7, 13, 5),
+            model: 'gemini-model', description: '深蓝外套', persona: '', variables,
+        });
+        expect(output).toContain('日期=2026-11-07 时间=13:05 模型=gemini-model');
+        expect(output).toContain('有角色：深蓝外套');
+        expect(output).not.toContain('无角色');
+        expect(output).toContain('用户设定为空');
+        expect(output).not.toContain('用户设定存在');
+        expect(output).toContain('天气变量有值');
+        expect(output).toContain('{{if this_unknown_macro}}未知语义应原样保留{{/if}}');
+    });
+
+    it('嵌套条件按内层优先展开且不会丢弃未实现的指令', () => {
+        const output = expandSillyTavernContextMacros(
+            '{{if description}}A{{if personality}}B{{else}}C{{/if}}D{{/if}} {{pick::红::蓝}}',
+            { description: '在场', personality: '' },
+        );
+        expect(output).toBe('ACD {{pick::红::蓝}}');
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
