@@ -198,7 +198,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         </>}
                     </div>}
                     {greetingError && <p role='alert' className='mt-2 text-xs text-rose-600'>{greetingError}</p>}
-                </div>}
+                </div>
                     {!selectedGreeting && <p className='mt-2 text-[10px] text-slate-400'>{storyFirst
                         ? '进入后点推进，让故事写下第一幕。'
                         : '进入后由你写下第一句话。'}</p>}
