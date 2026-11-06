@@ -136,7 +136,10 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
  */
 const isStandaloneTavernRule = (value: string): boolean => {
     const match = /^\s*<([a-z][\w-]*)\b[^>]*>[\s\S]*<\/\1\s*>\s*$/i.exec(value);
-    return Boolean(match && /(?:^rule$|(?:rule|rules|instruction|instructions|guideline|guidelines|prompt|intimate)$)/i.test(match[1]));
+    // Tavern's preset can wrap rules in custom XML names (e.g.
+    // <five_senses_intimate>), not just <rule>. Treat them as static
+    // instruction text, never as DOM or executable code.
+    return Boolean(match && !/^(?:script|style|iframe|object|embed|svg|html)$/i.test(match[1]));
 };
 
 export const expandSillyTavernPromptText = (
