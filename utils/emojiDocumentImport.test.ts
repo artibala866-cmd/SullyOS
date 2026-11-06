@@ -125,6 +125,7 @@ describe('表情文件导入（完全本地解析）', () => {
             ],
             ignoredLines: 1,
             suspiciousLines: [],
+            generatedNames: 0,
         });
     });
     it('PDF 链接被排版断成两行时能重新拼接；残余无法匹配的网址会列入提醒', () => {
@@ -152,6 +153,40 @@ describe('表情文件导入（完全本地解析）', () => {
         const result = collectEmojiDocumentRows('说明\nhttps://example.com/orphan.png\n可爱--https://example.com/ok.png\n备用网址：https://');
         expect(result.entries).toContainEqual({ name: '可爱', url: 'https://example.com/ok.png' });
         expect(result.suspiciousLines.length).toBeGreaterThan(0);
+    });
+
+    it('仅网址文件也可以导入，图片名称取自真实文件名，普通网页链接不会误导入', async () => {
+        const result = await importEmojiDocument(asFile('裸链接.txt', [
+            '表情包合集',
+            'https://files.catbox.moe/6j9ltv.jpeg',
+            'https://example.com/images/smile-cat.gif?download=1',
+            'https://example.com/introduction',
+        ].join('\n')));
+        expect(result.entries).toEqual([
+            { name: '6j9ltv', url: 'https://files.catbox.moe/6j9ltv.jpeg' },
+            { name: 'smile-cat', url: 'https://example.com/images/smile-cat.gif?download=1' },
+        ]);
+        expect(result.generatedNames).toBe(2);
+        expect(result.suspiciousLines).toContain('https://example.com/introduction');
+    });
+
+    it('文档标题不能被当成下一行图片的网址名称', () => {
+        const rows = collectEmojiDocumentRows([
+            '表情包目录',
+            'https://example.com/a.gif',
+            '开心',
+            'https://example.com/b.png',
+        ].join('\n'));
+        expect(rows.entries).toEqual([
+            { name: 'a', url: 'https://example.com/a.gif' },
+            { name: '开心', url: 'https://example.com/b.png' },
+        ]);
+    });
+
+    it('旧 .doc 若实际为 HTML/RTF 可以导入；真正二进制文件才提示另存 DOCX', async () => {
+        const file = asFile('word.doc', '<html><body>开心：https://example.com/a.png</body></html>');
+        expect((await importEmojiDocument(file)).entries).toContainEqual({ name: '开心', url: 'https://example.com/a.png' });
+        await expect(importEmojiDocument(asFile('word.doc', 'word-binary-data'))).rejects.toThrow('另存为 .docx');
     });
 
 });
