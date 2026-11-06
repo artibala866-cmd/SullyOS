@@ -147,7 +147,8 @@ function rtfToText(rtf: string): string {
 function jsonToText(value: unknown): string {
     const rows: string[] = [];
     const visit = (node: unknown, depth: number) => {
-        if (rows.length >= MAX_IMPORT_ENTRIES || depth > 10 || node == null) return;
+        if (rows.length >= MAX_IMPORT_ENTRIES) throw new Error('JSON 表情数量超过 3000 条，请分批导入');
+        if (depth > 10 || node == null) return;
         if (typeof node === 'string') {
             if (/https?:\/\/|--data:image\//i.test(node)) rows.push(node);
             return;
