@@ -20,6 +20,7 @@ export default function EmojiDocumentFilePicker({
     const [reading, setReading] = useState(false);
     const [status, setStatus] = useState('');
     const [error, setError] = useState(false);
+    const [reviewNotes, setReviewNotes] = useState<string[]>([]);
 
     useEffect(() => {
         if (!active) {
@@ -28,6 +29,7 @@ export default function EmojiDocumentFilePicker({
             onReadingChange?.(false);
             setStatus('');
             setError(false);
+            setReviewNotes([]);
         }
     }, [active]);
 
@@ -47,25 +49,51 @@ export default function EmojiDocumentFilePicker({
         setError(false);
         setStatus('正在读取文件并识别表情包…');
         try {
-            let count = 0, ignored = 0;
+            let count = 0, ignored = 0, successFiles = 0;
             const normalized: string[] = [];
+            const failed: string[] = [];
+            const suspicious: string[] = [];
             for (const file of files) {
-                const result = await importEmojiDocument(file);
-                if (operationRef.current !== id) return;
-                count += result.entries.length;
-                ignored += result.ignoredLines;
-                if (count > 3000) throw new Error('一次最多识别 3000 张表情，请分批导入');
-                normalized.push(result.text);
+                try {
+                    const result = await importEmojiDocument(file);
+                    if (operationRef.current !== id) return;
+                    if (count + result.entries.length > 3000) {
+                        failed.push(file.name + '：超过一次 3000 张的上限，请拆分文件');
+                        continue;
+                    }
+                    count += result.entries.length;
+                    ignored += result.ignoredLines;
+                    successFiles++;
+                    normalized.push(result.text);
+                    for (const row of result.suspiciousLines || []) {
+                        if (suspicious.length < 8) suspicious.push(file.name + '：' + row);
+                    }
+                } catch (cause) {
+                    if (operationRef.current !== id) return;
+                    const why = cause instanceof Error ? cause.message : '文件无法读取';
+                    failed.push(file.name + '：' + why);
+                }
             }
             if (operationRef.current !== id) return;
-            // Preview before saving; do not erase any pasted/edited rows.
-            onAppendText(normalized.join('\n'));
-            setStatus('已从 ' + files.length + ' 个文件识别 ' + count + ' 条表情' +
-                (ignored ? '，忽略 ' + ignored + ' 行非表情文字' : '') +
-                '。确认内容后点击下方添加。');
+            // Keep recognized files even if one file is corrupt; never silently drop failed ones.
+            if (normalized.length) onAppendText(normalized.join('\n'));
+            setReviewNotes([...failed, ...suspicious]);
+            setError(failed.length > 0 || suspicious.length > 0);
+            if (successFiles) {
+                setStatus(
+                    '已识别 ' + successFiles + '/' + files.length + ' 个文件，共 ' + count + ' 条表情' +
+                    (ignored ? '；忽略 ' + ignored + ' 行非表情文字' : '') +
+                    (failed.length ? '；另有 ' + failed.length + ' 个文件失败' : '') +
+                    (suspicious.length ? '；有 ' + suspicious.length + ' 行含链接但未识别' : '') +
+                    '。结果已添加到下方预览框，尚未保存。'
+                );
+            } else {
+                setStatus('未能从所选文件导入表情，请查看下方原因；原有内容没有变化。');
+            }
         } catch (cause) {
             if (operationRef.current !== id) return;
             setError(true);
+            setReviewNotes([]);
             setStatus(cause instanceof Error ? cause.message : '文件读取失败，请重新选择');
         } finally {
             if (operationRef.current === id) {
@@ -102,6 +130,14 @@ export default function EmojiDocumentFilePicker({
                 <p role="status" aria-live="polite" className={'text-[11px] ' + (error ? 'text-rose-500' : 'text-slate-500')}>
                     {status}
                 </p>
+            )}
+            {reviewNotes.length > 0 && (
+                <details className="text-[11px] text-slate-500">
+                    <summary className="cursor-pointer font-semibold">查看失败文件 / 可能遗漏的链接（{reviewNotes.length} 条）</summary>
+                    <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto break-all rounded-xl bg-slate-50 p-2">
+                        {reviewNotes.map((note, index) => <li key={index}>{note}</li>)}
+                    </ul>
+                </details>
             )}
         </div>
     );
