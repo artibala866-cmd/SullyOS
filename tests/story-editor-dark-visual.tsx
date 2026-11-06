@@ -17,13 +17,17 @@ const actor={id:'visual-char',name:'故事角色',avatar:'',memories:[],mountedW
 const characters=scenario==='empty'?[{...actor,tavernGreetings:[]}]:[actor];
 const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验收',characterIds:scenario==='unselected'?[]:[actor.id],writesToCharacterMemory:true,carryCharacterMemory:true,
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
-    openingGreeting:scenario==='selected'?{characterId:actor.id,greetingId:'tavern-first'}:undefined};
+    openingGreeting:['selected','editing'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}:undefined};
 root.render(React.createElement('div',{className:`story-theme ${light?'story-theme-light':'story-theme-dark'} story-decor-plain h-full w-full`},
     React.createElement(StoryTheaterEditor,{
         initial:entry,characters,user:{name:'用户'} as any,masks:[],maskLocked:false,
         presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave:async()=>{},
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
     })));
+if(scenario==='editing')setTimeout(()=>{
+    const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
+    [...(opening?.querySelectorAll('button')||[])].find(button=>button.textContent?.trim()==='修改')?.click();
+},750);
 const target=(element:Element|null)=>{
     if(!element)return {exists:false,color:'',background:''};
     const c=getComputedStyle(element);
@@ -34,6 +38,7 @@ const validate=()=>{
     const card=document.querySelector<HTMLElement>('.story-memory-live-card');
     const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
     const openingSelect=opening?.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]');
+    const openingEditor=opening?.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
@@ -43,14 +48,19 @@ const validate=()=>{
         functionsKept:buttons.every(b=>!b.hasAttribute('disabled'))&&buttons.every(b=>b.tagName==='BUTTON'),
         fit:document.documentElement.scrollWidth<=innerWidth,
         light,scenario,rootBackground:getComputedStyle(rootTheme).backgroundColor,
+        openingEditorVisible:!!openingEditor,openingEditorLength:openingEditor?.value.length||0,
         openingIntegrated:openingSelect!==null
             && cast?.querySelector('select[aria-label="选择已有开场"]')===null
             && !document.body.textContent?.includes('Tavern opening') && !document.body.textContent?.includes('酒馆卡'),
         success:openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
-            && (scenario==='selected'
-                ? openingSelect?.value===`${actor.id}::tavern-first` && !!opening?.textContent?.includes('雨夜的钟声响起')
-                : !opening?.textContent?.includes('雨夜的钟声响起'))
+            && (['selected','editing'].includes(scenario)
+                ? openingSelect?.value===`${actor.id}::tavern-first`
+                    && openingEditor?.value==='雨夜的钟声响起，故事从这里开始。'
+                    && opening?.querySelectorAll('textarea[data-story-opening-editor="true"]').length===1
+                    && ![...(opening?.querySelectorAll('p')||[])].some(p=>p.textContent?.includes('雨夜的钟声响起'))
+                    && (scenario!=='editing' || !![...(opening?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='保存修改'))
+                : !openingEditor && !opening?.textContent?.includes('雨夜的钟声响起'))
             && (scenario==='manual'
                 ? !openingSelect?.hasAttribute('disabled') && openingSelect?.querySelector('option')?.textContent==='选择已有开场'
                 : scenario==='auto'
