@@ -4,6 +4,7 @@ import { stripSensitiveCardFields } from './characterCard';
 import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
 import { decodeBabyLinkPng, type PreparedBabyLinkBundle } from './babyLinkCard';
+import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
 
 const MAX_JSON = 6 * 1024 * 1024;
 const MAX_PNG = 32 * 1024 * 1024;
@@ -74,7 +75,9 @@ const normalizeTavernGreetings = (data: Record<string, any>, warnings: string[])
         if (entry.content != null && typeof entry.content !== 'string') throw new Error(`${entry.title}不是有效文本`);
         const value = text(entry.content);
         if (value.length > MAX_ENTRY_TEXT) throw new Error(`${entry.title}超过文本长度限制`);
-        return value ? [{ id: entry.id, title: entry.title, content: normalizeMacros(value, warnings) }] : [];
+        if (!value) return [];
+        const normalized = adaptTavernOpeningGreeting({ id: entry.id, title: entry.title, content: value });
+        return normalized.content.trim() ? [{ ...normalized, content: normalizeMacros(normalized.content, warnings) }] : [];
     });
 };
 
@@ -232,7 +235,7 @@ const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
                 typeof greeting.content !== 'string' || greeting.content.length > MAX_ENTRY_TEXT ||
                 identifiers.has(greeting.id)) throw new Error(`原生角色卡第 ${index + 1} 条开场白无效`);
             identifiers.add(greeting.id);
-            return { id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content };
+            return adaptTavernOpeningGreeting({ id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content, ...(typeof greeting.description === 'string' ? { description: greeting.description } : {}) });
         }).filter(greeting => greeting.content.trim());
     }
     return {
