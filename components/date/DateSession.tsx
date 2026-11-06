@@ -206,7 +206,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     // visual viewport. The previous maxHeight shrank the entire stage to the
     // remaining ~90px of landscape screen and turned the character into a dot.
     // Position only the dialogue/composer inside the visible portion instead.
-    useEffect(() => {
+    useLayoutEffect(() => {
+        // Register before the keyboard can focus/resize on the first paint.
         const viewport = window.visualViewport;
         const scene = { width: 0, height: 0 };
         let frame = 0;
