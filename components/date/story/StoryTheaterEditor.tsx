@@ -137,7 +137,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 </button>
                 {(maskLocked || draft.writesToCharacterMemory) && <p className='mt-2 text-[10px] leading-5 text-slate-500'>{draft.writesToCharacterMemory ? '真实时间陪伴只能使用真实的你，不能扮演已有角色或原创人物。' : '第一段内容发出后，当前身份会锁定，避免中途更换导致人物记忆与叙事视角错位。'}</p>}
                 <div className='mt-4 grid grid-cols-2 gap-2.5'>{characters.map(char => { const selected = draft.characterIds.includes(char.id); const isMask = draft.mask?.type === 'character' && draft.mask.id === char.id; return <button key={char.id} disabled={isMask} onClick={() => toggleCharacter(char)} className={`flex items-center gap-3 p-3 rounded-2xl border text-left disabled:opacity-45 ${selected ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-200'}`}><TokenImg value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover' /><span className='min-w-0 flex-1'><span className='block text-sm font-semibold truncate'>{char.name}</span>{isMask && <span className='block text-[9px] text-violet-500'>当前由你扮演</span>}</span><span className={`w-4 h-4 rounded-full border-2 ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`} /></button>; })}</div>
-            </section>
                 <div className='mt-6 p-4 rounded-2xl border border-slate-200 bg-white'>
                     <div className='text-[9px] tracking-[.2em] uppercase font-bold text-violet-500'>Tavern opening</div>
                     <div className='mt-1 text-sm font-semibold'>选择酒馆卡开场白</div>
