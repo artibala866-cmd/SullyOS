@@ -38,7 +38,7 @@ try{
   </OSPreviewProvider>
  ));
  if(scene==='source'||scene==='editor'){
-  const edit=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('重新捏')||b.textContent?.includes('捏这只'));
+  const edit=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.trim()==='编辑 3D 形象');
   flushSync(()=>edit?.click());
   if(scene==='editor'){
     const resume=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.includes('继续编辑当前家园形象'));
@@ -49,7 +49,7 @@ try{
   const text=document.body.textContent??'';
   const images=[...document.querySelectorAll<HTMLImageElement>('img')];
   const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
-  const all3d=scene==='editor'?(text.includes('3D 形象')&&text.includes('造型间')):scene==='source'?text.includes('3D 家园 · Q 版捏人'):text.includes('3D 家园 · Q 版形象');
+  const all3d=scene==='editor'?(text.includes('3D 形象')&&text.includes('造型间')):scene==='source'?text.includes('3D 家园 · 形象编辑'):text.includes('3D 家园 · Q 版形象');
   const oldAbsent=!['小小窝','特别时光','彼方','520 EVENT','同步到全部'].some(t=>text.includes(t));
   const correctCount=scene==='source'||scene==='editor'||(existing?text.includes('1/1 已上架')||scene==='cabinet':text.includes('0/1 已上架')||scene==='cabinet');
   const sourceButtons=scene==='editor'||scene!=='source'||(!!buttons.find(b=>b.textContent?.includes('从头捏一个'))&&(!existing||!!buttons.find(b=>b.textContent?.includes('继续编辑当前家园形象'))));
