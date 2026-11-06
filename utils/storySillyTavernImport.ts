@@ -190,7 +190,10 @@ export const expandSillyTavernPromptText = (
             ? value.trim()
             : '';
     })
-    .replace(/\{\{\s*getvar(?:\s*::\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '');
+    .replace(/\{\{\s*getvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '')
+    // SillyTavern's local-variable shorthand: {{.variableName}}.
+    .replace(/\{\{\s*\.([\w\p{L}\p{N}-]+)\s*\}\}/gu, (original, key: string) =>
+        variables.has(key) ? variables.get(key) || '' : original);
 
 /** Resolve supported Tavern card/persona/history macros against the actual story
  * runtime. Unsupported syntax is preserved literally for editing instead of
