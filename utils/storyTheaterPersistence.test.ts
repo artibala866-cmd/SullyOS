@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry, StoryTheaterMask } from '../types';
 import { DB } from './db';
-import { assertStoryApiConfigured, createStoryTheaterDraft, storyTheaterThreadId } from './storyTheater';
+import { assertStoryApiConfigured, createBlankStoryPreset, createStoryTheaterDraft, storyTheaterThreadId } from './storyTheater';
 import { deleteUnusedStoryMask, saveStoryWithOpening } from './storyTheaterPersistence';
 
 const makeEntry = (id: string, memory = false): StoryTheaterEntry => ({
@@ -88,6 +88,38 @@ describe('原创面具删除保护', () => {
         await DB.saveStoryTheaterMask(mask);
         await deleteUnusedStoryMask(mask.id);
         expect((await DB.getStoryTheaterMasks()).find(item => item.id === mask.id)).toBeUndefined();
+    });
+});
+
+describe('剧情数据删除只在本地事务提交后返回成功', () => {
+    async function simulateAbortedDelete(storeName: string, action: () => Promise<void>) {
+        const original = IDBObjectStore.prototype.delete;
+        const spy = vi.spyOn(IDBObjectStore.prototype, 'delete').mockImplementation(function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['delete']>) {
+            const request = original.apply(this, args);
+            if (this.name === storeName) {
+                request.addEventListener('success', () => {
+                    try { this.transaction.abort(); } catch { /* already aborted */ }
+                });
+            }
+            return request;
+        });
+        try {
+            await expect(action()).rejects.toThrow();
+        } finally { spy.mockRestore(); }
+    }
+
+    it('预设删除事务回滚不能被报告为成功', async () => {
+        const preset = { ...createBlankStoryPreset('保留的预设'), id: 'story-preset-abort-test' };
+        await DB.saveStoryTheaterPreset(preset);
+        await simulateAbortedDelete('story_theater_presets', () => DB.deleteStoryTheaterPreset(preset.id));
+        expect((await DB.getStoryTheaterPresets()).some(row => row.id === preset.id)).toBe(true);
+    });
+
+    it('面具删除事务回滚不能被报告为成功', async () => {
+        const mask: StoryTheaterMask = { id: 'story-mask-abort-test', name: '保留的面具', description: '', createdAt: 1, updatedAt: 1 };
+        await DB.saveStoryTheaterMask(mask);
+        await simulateAbortedDelete('story_theater_masks', () => DB.deleteStoryTheaterMask(mask.id));
+        expect((await DB.getStoryTheaterMasks()).some(row => row.id === mask.id)).toBe(true);
     });
 });
 
