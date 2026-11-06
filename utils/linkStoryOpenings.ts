@@ -44,6 +44,8 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
     const tavern = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
     for (const greeting of links) add(greeting, 'link');
     for (const greeting of tavern) {
+        if (!greeting || typeof greeting.id !== 'string' ||
+            typeof greeting.content !== 'string') continue;
         if (isLegacyLinkOpening(greeting)) add(greeting, 'link');
         else {
             const source: StoryOpeningSource = greeting.id.startsWith('story-custom-') ? 'custom' : 'tavern';
