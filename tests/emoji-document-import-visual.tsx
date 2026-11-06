@@ -63,13 +63,16 @@ function bounds(el: Element | null) {
 }
 /** A real, parseable one-page PDF fixture, not mocked text. */
 function tinyPdf(): Uint8Array {
-    const stream = 'BT /F1 12 Tf 45 755 Td (PDFhappy--https://example.com/pdf.png) Tj ET';
+    const streamA = 'BT /F1 12 Tf 45 755 Td (PDFhappy--https://example.com/pdf.png) Tj ET';
+    const streamB = 'BT /F1 12 Tf 45 755 Td (PDFsecond--https://example.com/pdf2.gif) Tj ET';
     const objects = [
         '<< /Type /Catalog /Pages 2 0 R >>',
-        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
         '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
         '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-        '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream',
+        '<< /Length ' + streamA.length + ' >>\nstream\n' + streamA + '\nendstream',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 7 0 R >>',
+        '<< /Length ' + streamB.length + ' >>\nstream\n' + streamB + '\nendstream',
     ];
     let pdf = '%PDF-1.4\n';
     const offsets = [0];
@@ -134,7 +137,8 @@ async function exercise() {
             report.recognizedText.includes('不理人--https://example.com/b.gif') &&
             report.recognizedText.includes('Wordhappy--https://example.com/word.gif') &&
             report.recognizedText.includes('PDFhappy--https://example.com/pdf.png') &&
-            report.status.includes('3/3 个文件，共 5 条表情') &&
+            report.recognizedText.includes('PDFsecond--https://example.com/pdf2.gif') &&
+            report.status.includes('3/3 个文件，共 6 条表情') &&
             report.cleanButtonVisible && report.saveBlockedUntilClean &&
             report.footerVisible && report.overflowX<=2 && report.errors.length===0;
         document.querySelector('#qa-report')!.textContent=JSON.stringify(report);
