@@ -177,9 +177,11 @@ describe('表情文件导入（完全本地解析）', () => {
             '开心',
             'https://example.com/b.png',
         ].join('\n'));
+        // A URL followed by a short name is a supported URL-first pair.
+        // The heading must never be used as a sticker name.
         expect(rows.entries).toEqual([
-            { name: 'a', url: 'https://example.com/a.gif' },
-            { name: '开心', url: 'https://example.com/b.png' },
+            { name: '开心', url: 'https://example.com/a.gif' },
+            { name: 'b', url: 'https://example.com/b.png' },
         ]);
     });
 
