@@ -15,7 +15,7 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
-import { convertSillyTavernChatPreset, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export function hasStoryTheaterParticipant(entry: StoryTheaterEntry, characters: CharacterProfile[]): boolean {
@@ -33,6 +33,9 @@ export interface StoryPromptSlots {
     worldAfter: string;
     examples?: string;
     history?: string;
+    /** Actual actor fields for Tavern-specific card macros, not native markers. */
+    tavernDescription?: string;
+    tavernPersonality?: string;
 }
 
 export interface StoryGenerationSettings {
@@ -1074,6 +1077,7 @@ export const compileStoryPreset = (input: {
     preset?: StoryTheaterPreset | null;
     slots: StoryPromptSlots;
     historyMessages?: StoryApiMessage[];
+    currentInput?: string;
     userName: string;
     characterNames: string[];
 }): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[] } => {
@@ -1101,7 +1105,22 @@ export const compileStoryPreset = (input: {
     const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
     let historyStart: number | null = null;
     let historyLength = 0;
-    const expandImported = (value: string): string => importedFromTavern ? expandSillyTavernPromptText(value, variables, referencedVariables) : value;
+    const lastHistoryMessage = input.historyMessages?.at(-1);
+    const lastUserMessage = input.historyMessages?.findLast(message => message.role === 'user');
+    const lastCharMessage = input.historyMessages?.findLast(message => message.role === 'assistant');
+    const expandImported = (value: string): string => importedFromTavern
+        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(value, variables, referencedVariables), {
+            description: slots.tavernDescription ?? slots.actors,
+            personality: slots.tavernPersonality ?? slots.actors,
+            persona: slots.persona,
+            scenario: slots.scenario,
+            examples: slots.examples,
+            lastMessage: lastHistoryMessage?.content,
+            lastUserMessage: lastUserMessage?.content,
+            lastCharMessage: lastCharMessage?.content,
+            input: input.currentInput,
+        })
+        : value;
 
     const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
     const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
