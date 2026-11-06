@@ -242,6 +242,11 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
         // title-comment, creator-note or chat-first-message parsing here.
         // Missing openings in V1 PNG means NOT EXPORTED, not "none in the Link app".
         const linkGreetings = normalizeLinkOpeningEntries(value.openings);
+        if (Array.isArray(value.openings) && value.openings.length > linkGreetings.length) {
+            warnings.push('Link 角色「' + name + '」有 ' +
+                (value.openings.length - linkGreetings.length) +
+                ' 条开场为空白或正文重复，未纳入可选开场；请先核对导入数量。');
+        }
         // The entire unabridged persona belongs in the actual AI context field.
         const prompt = [
             persona ? '【角色稳定人设】\n' + persona : '',
