@@ -132,7 +132,8 @@ export function mergeCardGreetings(
             typeof g.content !== 'string' || typeof g.title !== 'string')) {
         throw new Error('已有开场白数据结构异常，为保护原有剧情，已停止导入');
     }
-    const output = existing.map(adaptTavernOpeningGreeting);
+    const isHandwritten = (g: TavernOpeningGreeting) => g.id.startsWith('story-custom-');
+    const output = existing.map(g => isHandwritten(g) ? { ...g } : adaptTavernOpeningGreeting(g));
     const semanticKey = (g: TavernOpeningGreeting) => {
         const body = tavernOpeningSceneText(g.content);
         if (!body) return '';
@@ -141,17 +142,21 @@ export function mergeCardGreetings(
     };
     for (const original of incoming) {
         if (!original?.content?.trim()) continue;
-        const greeting = adaptTavernOpeningGreeting(original);
-        const key = tavernOpeningBodyKey(greeting);
+        const greeting = isHandwritten(original) ? { ...original } : adaptTavernOpeningGreeting(original);
+        const key = isHandwritten(greeting) ? greeting.content.trim() : tavernOpeningBodyKey(greeting);
         if (!key) continue;
         // Exact body matches and display-only asset changes are the same
         // opening; retain the ID used by old saved stories.
         const semantic = semanticKey(greeting);
-        const byBody = output.findIndex(row => tavernOpeningBodyKey(row) === key ||
-            (semantic && semanticKey(row) === semantic));
+        const byBody = output.findIndex(row =>
+            (isHandwritten(row) ? row.content.trim() : tavernOpeningBodyKey(row)) === key ||
+            (!isHandwritten(row) && !isHandwritten(greeting) && semantic && semanticKey(row) === semantic));
         if (byBody >= 0) {
             const previous = output[byBody];
-            output[byBody] = { ...previous, ...greeting, id: previous.id };
+            // Identical imported prose cannot overwrite a user's separately
+            // authored scene or its title/description on re-import.
+            if (!isHandwritten(previous))
+                output[byBody] = { ...previous, ...greeting, id: previous.id };
             continue;
         }
         // Tavern's tavern-alt-N ID is a list position, not a permanent source
