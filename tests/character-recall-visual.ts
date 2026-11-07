@@ -20,7 +20,10 @@ const messages: Message[]=[
   {id:2002,charId,role:'assistant',type:'text',timestamp:now-2000,content:'你猜'},
   {id:2003,charId,role:'assistant',type:'text',timestamp:now-1000,content:'[消息已撤回]',
    metadata:{recalledAt:now,recalledBy:'assistant',recalledOriginalContent:'敏感原文不该出现'}},
-  {id:2004,charId,role:'assistant',type:'text',timestamp:now,content:'……你少自恋了'},
+  {id:2004,charId,role:'assistant',type:'text',timestamp:now-700,content:'……你少自恋了'},
+  {id:2005,charId,role:'user',type:'text',timestamp:now-400,content:'[消息已撤回]',
+   metadata:{recalledAt:now,recalledBy:'user',recalledOriginalType:'text',recalledOriginalContent:'用户原消息必须隐藏'}},
+  {id:2006,charId,role:'assistant',type:'text',timestamp:now,content:'我看到了'},
 ];
 const root=document.querySelector<HTMLElement>('#recall-chat');
 if(!root)throw Error('Missing real chat fixture');
@@ -32,15 +35,22 @@ try{
     wrap.innerHTML=renderToStaticMarkup(React.createElement(MessageItem,{
       msg,activeTheme:PRESET_THEMES.forest,isFirstInGroup:true,isLastInGroup:true,
       charAvatar,charName:'林屿',userAvatar,onLongPress:()=>{},
-      onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},
+      onReply:()=>{},onViewRecalled:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},
       showTimestamp:'never',
     }));
     root.appendChild(wrap);
   }
   const target=root.querySelector<HTMLElement>('[data-message-id="2003"]');
   const status=target?.querySelector<HTMLElement>('[role="status"]');
+  const userTarget=root.querySelector<HTMLElement>('[data-message-id="2005"]');
+  const userStatus=userTarget?.querySelector<HTMLElement>('[role="status"]');
   const checks={
     targetHasStatus:!!status,
+    userTargetHasStatus:!!userStatus,
+    userLabel:userStatus?.textContent?.trim()==='你撤回了一条消息',
+    userHasClickableViewer:!!userStatus?.querySelector('button[title="查看撤回的消息"]'),
+    userOldTextHidden:!root.textContent?.includes('用户原消息必须隐藏'),
+    userOldBubbleGone:!!userTarget && userTarget.querySelectorAll('.sully-chat-message-bubble,.sully-chat-text-bubble').length===0,
     label:status?.textContent?.trim()==='林屿撤回了一条消息',
     originalTextHidden:!root.textContent?.includes('敏感原文不该出现'),
     oldBubbleGone:!!target && target.querySelectorAll('.sully-chat-message-bubble,.sully-chat-text-bubble').length===0
@@ -48,6 +58,8 @@ try{
     normalRepliesVisible:root.textContent?.includes('你猜')&&root.textContent?.includes('……你少自恋了'),
     centered:!!status && Math.abs(status.getBoundingClientRect().left
       + status.getBoundingClientRect().width/2 - root.getBoundingClientRect().left - root.getBoundingClientRect().width/2)<4,
+    userCentered:!!userStatus && Math.abs(userStatus.getBoundingClientRect().left
+      + userStatus.getBoundingClientRect().width/2 - root.getBoundingClientRect().left - root.getBoundingClientRect().width/2)<4,
   };
   const output=document.createElement('output');
   output.id='recall-visual-checks';output.hidden=true;output.textContent=JSON.stringify(checks);

@@ -11,6 +11,10 @@ on:
       - 'utils/streamPreview.ts'
       - 'components/chat/MessageItem.tsx'
       - 'apps/Chat.tsx'
+      - 'components/chat/ChatModals.tsx'
+      - 'utils/chatContinuation.ts'
+      - 'utils/realPersonReplyTurn.ts'
+      - 'tests/user-recall-menu-visual.*'
       - 'utils/contentFavorites.ts'
       - 'tests/character-recall-visual.*'
       - '.github/workflows/character-recall-visual.yml'
@@ -37,7 +41,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false >/tmp/recall-tsc.log 2>&1 || true
-          grep -E '^(utils/(db|messageRecall|applyAssistantPostProcessing|chatRequestPayload|chatPrompts|streamPreview)\\.ts|components/chat/MessageItem\\.tsx|apps/Chat\\.tsx|utils/contentFavorites\\.ts|tests/character-recall-visual\\.ts)\\(' /tmp/recall-tsc.log >/tmp/recall-tsc-errors.log || true
+          grep -E '^(utils/(db|messageRecall|applyAssistantPostProcessing|chatRequestPayload|chatPrompts|streamPreview)\\.ts|components/chat/(MessageItem|ChatModals)\\.tsx|apps/Chat\\.tsx|utils/(contentFavorites|chatContinuation|realPersonReplyTurn)\\.ts|tests/(character-recall-visual|user-recall-menu-visual)\\.tsx?)\\(' /tmp/recall-tsc.log >/tmp/recall-tsc-errors.log || true
           if [ -s /tmp/recall-tsc-errors.log ]; then cat /tmp/recall-tsc-errors.log; exit 1; fi
       - uses: browser-actions/setup-chrome@v1
         id: chrome
@@ -73,6 +77,28 @@ jobs:
             http://127.0.0.1:5173/tests/character-recall-visual.html
           test -s character-recall-real-320.png
           grep -q 'data-recall-visual-ready="true"' /tmp/recall-dom-320.html
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=390,850 --virtual-time-budget=15000 --dump-dom \
+            http://127.0.0.1:5173/tests/user-recall-menu-visual.html >/tmp/manual-recall-390.html 2>/tmp/manual-recall-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=390,850 --hide-scrollbars --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/user-recall-menu-390.png" \
+            http://127.0.0.1:5173/tests/user-recall-menu-visual.html
+          test -s user-recall-menu-390.png
+          grep -q 'data-manual-recall-ready="true"' /tmp/manual-recall-390.html || {
+            grep -o 'data-manual-recall-error="[^"]*"' /tmp/manual-recall-390.html | head -c 1200 || true
+            grep -o '<output id="manual-recall-checks"[^<]*[^<]*' /tmp/manual-recall-390.html | head -c 1200 || true
+            exit 1
+          }
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=320,750 --virtual-time-budget=15000 --dump-dom \
+            http://127.0.0.1:5173/tests/user-recall-menu-visual.html >/tmp/manual-recall-320.html 2>/tmp/manual-recall-320-chrome.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=320,750 --hide-scrollbars --virtual-time-budget=15000 \
+            --screenshot="$GITHUB_WORKSPACE/user-recall-menu-320.png" \
+            http://127.0.0.1:5173/tests/user-recall-menu-visual.html
+          test -s user-recall-menu-320.png
+          grep -q 'data-manual-recall-ready="true"' /tmp/manual-recall-320.html || exit 1
           if ! grep -q 'data-recall-visual-ready="true"' /tmp/recall-dom.html; then
             grep -o '<output id="recall-visual-checks"[^<]*[^<]*' /tmp/recall-dom.html | head -c 1200 || true
             grep -o 'data-recall-visual-error="[^"]*"' /tmp/recall-dom.html | head -c 1500 || true
@@ -86,5 +112,7 @@ jobs:
           path: |
             character-recall-real-390.png
             character-recall-real-320.png
+            user-recall-menu-390.png
+            user-recall-menu-320.png
           if-no-files-found: ignore
           retention-days: 7
