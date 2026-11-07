@@ -60,16 +60,15 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     // [spotify: title | decoration | cover.gif | song.mp3] and similar
     // third-party status widgets, including unknown names carrying multiple
     // external media assets. Ordinary [线索: ...] stays intact.
-    text = text.replace(/\[([^\]\r\n:：|]{1,50})[ \t]*[:：]([^\]]{0,4000})\]/g,
+    text = text.replace(/\[([^\]\[\r\n:：|]{1,50})[ \t]*[:：]([^\]\[]{0,4000})\]/g,
         (full, rawLabel: string, payload: string) => {
             const label = rawLabel.trim();
             const urls = (payload.match(/https?:\/\//gi) || []).length;
             const mediaWidget = mediaLabel.test(label)
                 && (externalUrl.test(payload) || payload.includes('|') || /^spotify$/i.test(label));
             const unknownMediaWidget = urls >= 2 && payload.includes('|') && mediaFile.test(payload);
-            // Keep unrelated bracketed story metadata, and never consume a
-            // second bracket marker when authors place widgets on new lines.
-            if (payload.includes('[') && !mediaLabel.test(label)) return full;
+            // Ordinary story metadata is never erased just for containing
+            // a colon. Only verified external-media widget shapes are dropped.
             return mediaWidget || unknownMediaWidget ? '' : full;
         });
 
