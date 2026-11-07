@@ -53,72 +53,154 @@ async function waitFor<T>(fn:()=>T,what:string):Promise<T>{
     }
     throw Error('Timeout: '+what);
 }
-async function run(){
- try {
-    const trigger=await waitFor(()=>document.querySelector<HTMLButtonElement>('button[aria-label="导入个人设定文件"]'),'user profile import button');
-    trigger.scrollIntoView({block:'center'});
-    await new Promise(r=>setTimeout(r,120));
-    const input=document.querySelector<HTMLInputElement>('input[aria-label="选择 TXT Word PDF 个人设定文件"]')!;
-    if(!input||!input.accept.includes('.pdf')||!input.accept.includes('.docx'))throw Error('UserApp input formats missing');
-    const files=new DataTransfer();
-    files.items.add(source==='user-profile-pdf' ? makeImportFixturePdf('PDF USER PROFILE TEXT','我的PDF档案.pdf') : new File([imported],'我的真实资料.txt',{type:'text/plain'}));
-    input.files=files.files;
-    input.dispatchEvent(new Event('change',{bubbles:true}));
-    const dialog=await waitFor(()=>document.querySelector<HTMLElement>('[role="dialog"][aria-label="导入个人设定"]'),'actual import confirmation');
-    const confirm=[...dialog.querySelectorAll('button')].find(x=>x.textContent?.includes('确认导入')) as HTMLButtonElement|undefined;
-    const append=dialog.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
-    const replace=[...dialog.querySelectorAll('button')].find(x=>x.textContent?.trim()==='替换') as HTMLButtonElement|undefined;
-    if(!confirm||!append||!replace)throw Error('Import modal append/replace controls missing');
-    const primaryBackground=getComputedStyle(confirm).backgroundColor;
-    const selectedBackground=getComputedStyle(append).backgroundColor;
-    const unselectedBackground=getComputedStyle(replace).backgroundColor;
-    const confirmRect=confirm.getBoundingClientRect();
-    if(['transparent','rgba(0, 0, 0, 0)'].includes(primaryBackground) ||
-        primaryBackground===getComputedStyle(dialog).backgroundColor)
-        throw Error('Confirm import button visually invisible');
-    if(selectedBackground===unselectedBackground)
-        throw Error('Append/replace selection is not visibly distinguishable');
-    if(confirmRect.height<36||confirmRect.bottom>innerHeight+1)
-        throw Error('Confirm import button clipped by viewport');
-    const before=document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]');
-    if(!before||before.value!==InitialBio)throw Error('Import preview changed original biography before confirmation');
-    if(source==='user-profile-saved'){
-        confirm.click();
-        await waitFor(()=>document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]')?.value.includes(imported),'saved bio');
-        if(document.querySelector('[role="dialog"]'))throw Error('Import dialog did not close');
+async function readSavedBio(expected:string):Promise<boolean>{
+    for(let i=0;i<110;i++){
+        if((await DB.getUserProfile())?.bio===expected)return true;
+        await new Promise(r=>setTimeout(r,40));
     }
-    if(source==='user-profile-replace'){
-        replace.click();
-        await new Promise(r=>setTimeout(r,70));
-        confirm.click();
-        await waitFor(()=>document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]')?.value===imported,'replaced bio');
-    }
-    const value=document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]')?.value||'';
-    const allText=document.body.textContent||'';
-    const bounds=trigger.getBoundingClientRect();
-    const report={
-        source,viewport:[innerWidth,innerHeight],
-        beforeUnchanged:source.startsWith('user-profile'),
-        contentCorrect:(source==='user-profile'||source==='user-profile-pdf')?value===InitialBio:source==='user-profile-replace'
-            ?value===imported:value===InitialBio+'\n\n'+imported,
-        noHorizontalOverflow:document.documentElement.scrollWidth<=innerWidth+2,
-        triggerVisible:bounds.width>50&&bounds.right<=innerWidth,
-        fileFormats:input.accept,
-        dialogShown:(source==='user-profile'||source==='user-profile-pdf')?!!document.querySelector('[role="dialog"]'):!document.querySelector('[role="dialog"]'),
-        appendDefault:append.textContent?.trim()==='追加',
-        wordAndPdfLabel:allText.includes('TXT · Word · PDF'),
-        actualPdfParsed:source!=='user-profile-pdf' || (dialog.textContent||'').includes('PDF USER PROFILE TEXT'),
-        pdfPages:source!=='user-profile-pdf' || (dialog.textContent||'').includes('PDF · 1 页'),
-        errors:observed,
-    };
-    const pass=report.beforeUnchanged&&report.contentCorrect&&report.noHorizontalOverflow&&
-        report.triggerVisible&&report.dialogShown&&report.appendDefault&&report.wordAndPdfLabel&&
-        report.actualPdfParsed&&report.pdfPages&&!observed.length;
+    return false;
+}
+const mark=(pass:boolean,report:object)=>{
     document.body.dataset.cardImportVisualReady=String(pass);
     document.getElementById('qa-report')!.textContent=JSON.stringify(report);
- }catch(error){
-    document.body.dataset.cardImportVisualReady='false';
-    document.getElementById('qa-report')!.textContent=String(error instanceof Error?error.stack:error);
- }
+};
+async function run(){
+    try{
+        const area=await waitFor(
+            ()=>document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]'),
+            'profile textarea',
+        );
+        if(isReloaded){
+            area.scrollIntoView({block:'center'});
+            const stored=await DB.getUserProfile();
+            const expected=InitialBio+'\n\n'+imported;
+            const pass=area.value===expected&&stored?.bio===expected;
+            sessionStorage.removeItem('qa-doc-import-reloaded');
+            mark(pass,{source,afterReload:true,persisted:true,displayedBio:area.value,
+                noOverflow:document.documentElement.scrollWidth<=innerWidth+2,
+                errors:observed});
+            return;
+        }
+        const trigger=await waitFor(
+            ()=>document.querySelector<HTMLButtonElement>('button[aria-label="导入个人设定文件"]'),
+            'user profile import button',
+        );
+        trigger.scrollIntoView({block:'center'});
+        await new Promise(r=>setTimeout(r,100));
+        const input=document.querySelector<HTMLInputElement>(
+            'input[aria-label="选择 TXT Word PDF 个人设定文件"]',
+        )!;
+        if(!input||!input.accept.includes('.pdf')||!input.accept.includes('.docx'))
+            throw Error('UserApp input formats missing');
+        const file=source==='user-profile-pdf'
+            ?makeImportFixturePdf('PDF USER PROFILE TEXT','我的PDF档案.pdf')
+            :new File([imported],'我的真实资料.txt',{type:'text/plain'});
+        const upload=()=>{
+            const transfer=new DataTransfer();
+            transfer.items.add(file);
+            input.files=transfer.files;
+            input.dispatchEvent(new Event('change',{bubbles:true}));
+        };
+        upload();
+        const dialog=await waitFor(
+            ()=>document.querySelector<HTMLElement>('[role="dialog"][aria-label="导入个人设定"]'),
+            'import confirmation',
+        );
+        const confirm=[...dialog.querySelectorAll('button')].find(x=>
+            x.textContent?.includes('确认导入')) as HTMLButtonElement|undefined;
+        const append=dialog.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+        const replace=[...dialog.querySelectorAll('button')].find(x=>
+            x.textContent?.trim()==='替换') as HTMLButtonElement|undefined;
+        if(!confirm||!append||!replace)throw Error('Missing real append/replace/confirm controls');
+        const primaryBackground=getComputedStyle(confirm).backgroundColor;
+        const selectedBackground=getComputedStyle(append).backgroundColor;
+        const unselectedBackground=getComputedStyle(replace).backgroundColor;
+        if(['transparent','rgba(0, 0, 0, 0)'].includes(primaryBackground)||
+            primaryBackground===getComputedStyle(dialog).backgroundColor)
+            throw Error('Confirm button visually invisible');
+        if(selectedBackground===unselectedBackground)
+            throw Error('Append/replace buttons have identical styling');
+        const bounds=confirm.getBoundingClientRect();
+        if(bounds.height<36||bounds.bottom>innerHeight+1)
+            throw Error('Confirm button clipped by viewport');
+        if(area.value!==InitialBio)throw Error('Preview changed saved bio without confirmation');
+        const sourcePreviewOk=source!=='user-profile-pdf'||
+            (dialog.textContent||'').includes('PDF USER PROFILE TEXT')&&
+            (dialog.textContent||'').includes('PDF · 1 页');
+
+        const expectedAppend=InitialBio+'\n\n'+imported;
+        if(source==='user-profile-replace'){
+            replace.click();
+            await new Promise(r=>setTimeout(r,80));
+            confirm.click();
+            await waitFor(()=>area.value===imported,'replacement in UI');
+            if(!(await readSavedBio(imported)))
+                throw Error('Replacement was not persisted');
+        }else if(source==='user-profile-cancel'){
+            const cancel=dialog.querySelector<HTMLButtonElement>('button[aria-label="取消导入个人设定"]');
+            if(!cancel)throw Error('Missing cancel action');
+            cancel.click();
+            await waitFor(()=>!document.querySelector('[role="dialog"]'),'cancel closed');
+            if(area.value!==InitialBio||!(await readSavedBio(InitialBio))||writeCount!==0)
+                throw Error('Cancellation mutated profile');
+        }else if(source==='user-profile-failure'){
+            confirm.click();
+            await waitFor(()=>area.value===InitialBio&&
+                String((window as any).__userImportToast).includes('qa-disk-full'),
+                'failed save UI rollback');
+            if(!(await readSavedBio(InitialBio)))
+                throw Error('Failed save mutated saved profile');
+            if(!document.querySelector('[role="dialog"]'))
+                throw Error('Failed import closed the retry dialog');
+        }else if(['user-profile-saved','user-profile-duplicate','user-profile-persist'].includes(source)){
+            confirm.click();
+            await waitFor(()=>area.value===expectedAppend,'appended text');
+            if(!(await readSavedBio(expectedAppend)))
+                throw Error('Append was not durably saved');
+            if(document.querySelector('[role="dialog"]'))throw Error('Success did not close dialog');
+            if(source==='user-profile-persist'){
+                sessionStorage.setItem('qa-doc-import-reloaded','1');
+                location.reload();
+                return;
+            }
+            if(source==='user-profile-duplicate'){
+                upload();
+                const repeated=await waitFor(
+                    ()=>document.querySelector<HTMLElement>('[role="dialog"][aria-label="导入个人设定"]'),
+                    'repeat import dialog');
+                const apply=[...repeated.querySelectorAll('button')].find(x=>
+                    x.textContent?.includes('确认导入')) as HTMLButtonElement;
+                apply.click();
+                await waitFor(()=>!document.querySelector('[role="dialog"]'),'repeat import completed');
+                if(writeCount!==1||!(await readSavedBio(expectedAppend)))
+                    throw Error('Repeat identical import duplicated biography or unnecessarily wrote DB');
+            }
+        }
+        const value=area.value;
+        const stored=await DB.getUserProfile();
+        const previewOnly=['user-profile','user-profile-pdf','user-profile-cancel','user-profile-failure'].includes(source);
+        const expected=source==='user-profile-replace'?imported:
+            previewOnly?InitialBio:expectedAppend;
+        const dialogExpected=['user-profile','user-profile-pdf','user-profile-failure'].includes(source);
+        const actualDialog=!!document.querySelector('[role="dialog"]');
+        const buttonBox=trigger.getBoundingClientRect();
+        const report={
+            source,viewport:[innerWidth,innerHeight],
+            contentCorrect:value===expected,storedCorrect:stored?.bio===expected,
+            originalNameUntouched:stored?.name==='测试档案',
+            dialogCorrect:actualDialog===dialogExpected,
+            noOverflow:document.documentElement.scrollWidth<=innerWidth+2,
+            buttonVisible:buttonBox.width>50&&buttonBox.right<=innerWidth,
+            appendDefault:append.textContent?.trim()==='追加',
+            pdfParsed:sourcePreviewOk,importWriteCount:writeCount,
+            fileFormats:input.accept,errors:observed,
+        };
+        const pass=report.contentCorrect&&report.storedCorrect&&report.originalNameUntouched&&
+            report.dialogCorrect&&report.noOverflow&&report.buttonVisible&&
+            report.appendDefault&&report.pdfParsed&&!observed.length;
+        mark(pass,report);
+    }catch(error){
+        mark(false,{source,error:String(error instanceof Error?error.stack:error)});
+    }
 }
 void run();
