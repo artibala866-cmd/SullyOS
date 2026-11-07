@@ -5,6 +5,7 @@ import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '..
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
+import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
@@ -720,10 +721,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             if (archiveEntry.archiveStrategy === 'summary') {
                 setMemoryStatus(`正在把 ${batch.length} 条正文压成事件盒……`);
-                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, apiConfig);
+                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig));
             } else {
                 const embedding = memoryPalaceConfig.embedding;
-                const light = memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
+                const light = resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model });
                 if (!embedding?.baseUrl || !embedding?.apiKey || !light.baseUrl) {
                     addToast('独立向量归档需要先完成向量记忆配置', 'error');
                     return null;
