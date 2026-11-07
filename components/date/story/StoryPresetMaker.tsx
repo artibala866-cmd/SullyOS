@@ -322,7 +322,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                     <span className='min-w-0 flex-1'>
                                         <strong className='block text-sm text-slate-800'>{section.label}</strong>
                                         <span className='block mt-1 text-[10px] text-slate-500 leading-5'>
-                                            {on.length ? `当前：${on.slice(0, 3).map(option => option.label).join('、')}${on.length > 3 ? ` 等 ${on.length} 项` : ''}`
+                                            {on.length ? `当前：${on.slice(0, 3).map(option => option.label + (option.preview ? ' · ' + option.preview : '')).join('、')}${on.length > 3 ? ` 等 ${on.length} 项` : ''}`
                                                 : '目前未开启选项'}
                                         </span>
                                     </span>
@@ -341,7 +341,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                                 className={`min-w-0 max-w-full break-words text-left px-3 py-2 rounded-l-full border text-[11px] font-semibold disabled:opacity-60 ${option.enabled
                                                     ? 'bg-slate-900 border-slate-900 text-white'
                                                     : 'bg-white border-slate-200 text-slate-600'}`}>
-                                                {option.label}
+                                                <span>{option.label}</span>
+                                                {option.preview && <span className={`block mt-0.5 text-[9px] font-normal ${option.enabled ? 'text-slate-200' : 'text-slate-400'}`}>{option.preview}</span>}
                                             </button>
                                             <button type='button' aria-label={`查看或编辑原作者条目：${option.name}`}
                                                 title='查看原文' onClick={() => jumpToAuthorPrompt(option.id)}
