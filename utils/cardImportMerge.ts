@@ -139,19 +139,23 @@ const matchedMountedBook = (
     }
     if (source === 'tavern' && incoming.sourceUid != null) {
         const found = mounted.filter(row => row.sourceUid === incoming.sourceUid &&
-            row.category === incoming.category &&
-            (!row.cardImportKey || row.cardImportKey.startsWith('tavern:')));
+            row.category === incoming.category && !row.cardImportKey);
         if (found.length === 1) return found[0]; // legacy imports predate cardImportKey
     }
-    const identical = mounted.filter(row => bookSignature(row) === bookSignature(incoming));
+    // Different nonempty source keys are independent lore entries, even if
+    // their prose is identical. They can have different activation, scope or
+    // ordering. Body-only fallback is for pre-key legacy mounted entries.
+    const candidates = incoming.cardImportKey
+        ? mounted.filter(row => !row.cardImportKey) : mounted;
+    const identical = candidates.filter(row => bookSignature(row) === bookSignature(incoming));
     if (identical.length === 1) return identical[0];
     // A role imported once from Tavern and then from Link may carry the same
     // lore under differently named folders. Keep only one copy of identical
     // titled content, rather than making a second mounted instruction.
-    const crossFormat = mounted.filter(row => row.title.trim() === incoming.title.trim() &&
+    const crossFormat = candidates.filter(row => row.title.trim() === incoming.title.trim() &&
         row.content.trim() === incoming.content.trim());
     if (crossFormat.length === 1) return crossFormat[0];
-    const sameText = mounted.filter(row =>
+    const sameText = candidates.filter(row =>
         row.content.trim() === incoming.content.trim() && row.category === incoming.category);
     if (sameText.length === 1) return sameText[0];
     // Differently keyed entries with the same title are NOT the same module.
@@ -161,7 +165,7 @@ const matchedMountedBook = (
     // without source keys. A user-created lore entry with the same title must
     // not be silently replaced by unrelated imported content.
     if (source !== 'babylink' || !incoming.category.startsWith('BabyLink · ')) return undefined;
-    const sameTitle = mounted.filter(row =>
+    const sameTitle = candidates.filter(row =>
         row.title.trim() === incoming.title.trim() &&
         row.category === incoming.category &&
         !row.cardImportKey);
