@@ -3304,13 +3304,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         setModalType('none');
     };
 
-    const handleCopyMessage = () => {
+    const handleCopyMessage = async () => {
         if (!selectedMessage) return;
-        navigator.clipboard.writeText(selectedMessage.content);
-        setModalType('none');
-        setSelectedMessage(null);
-        addToast('已复制到剪贴板', 'success');
-        trackEvent('复制一条消息');
+        // The options sheet can be open when an AI recall finishes. Do not copy
+        // its stale pre-recall React snapshot back to the user's clipboard.
+        const stored = await DB.getMessageById(selectedMessage.id).catch(() => null);
+        const live = stored?.charId === char.id ? stored : selectedMessage;
+        try {
+            await navigator.clipboard.writeText(live.content);
+            setModalType('none');
+            setSelectedMessage(null);
+            addToast('已复制到剪贴板', 'success');
+            trackEvent('复制一条消息');
+        } catch {
+            addToast('复制失败，请重试', 'error');
+        }
     };
 
     const handleDeleteEmoji = async () => {
