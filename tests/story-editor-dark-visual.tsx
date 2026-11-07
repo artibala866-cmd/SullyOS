@@ -44,6 +44,9 @@ const styledGreeting={id:'tavern-style-raw',title:'备选开场白 25',
         +'[spotify: time machine | ˚˖ Music | https://assets.example.net/cover.gif | https://assets.example.net/track.mp3]\n'
         +'[spotify: 初雪 | ˚˖ Music | https://assets.example.net/cover.gif | https://assets.example.net/snow.mp3]\n'
         +'【音乐|Novocaine|"Overdosing over U."|[https://assets.example.net/novocaine.mp3|】](https://assets.example.net/novocaine.mp3|】)\n'
+        +'!-- note: -->\n<!-- tag: sib -->\n'
+        +'【音乐|Tictoc|"째깍."|\nhttps://external-cdn.example/media/clock.mp3|】\n'
+        +'【音乐｜初雪｜无可用原生播放器｜https://another-cdn.example/snow.mp3｜】\n'
         +'[地图显示: 旧城 | https://assets.example.net/maps/embed?id=4]\n'
         +'<audio controls src="https://assets.example.net/sound.mp3"></audio>'
         +'<iframe src="https://assets.example.net/maps/embed?id=4"></iframe>'};
@@ -187,7 +190,7 @@ const validate=()=>{
                     && !!openingEditor
                     && openingEditor.value.includes('雨夜 · 铁锈街')
                     && openingEditor.value.includes('烟头烫在水泥地上')
-                    && !/<request|<div|<h3|style=|font-family|PingFang|spotify:|【音乐|Novocaine|Overdosing|地图显示:|<iframe|<audio|assets\.example\.net|\.mp3|\.gif/i.test(openingEditor.value)
+                    && !/<request|<div|<h3|style=|font-family|PingFang|spotify:|【音乐|Tictoc|Novocaine|Overdosing|tag: sib|note:|another-cdn|external-cdn|地图显示:|<iframe|<audio|assets\.example\.net|\.mp3|\.gif/i.test(openingEditor.value)
                     && !opening?.textContent?.includes('font-family')
                 : true)
             && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
