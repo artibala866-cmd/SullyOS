@@ -47,6 +47,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const promotedPremise = useRef<{ characterId: string; greetingId: string; content: string } | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
     const titleInput = useRef<HTMLInputElement>(null);
+    // An opening may supply a title only until the person edits that title.
+    const lastAutoOpeningTitle = useRef<string | null>(null);
     const greetingTextarea = useRef<HTMLTextAreaElement>(null);
     const castSection = useRef<HTMLElement>(null);
     const actors = useMemo(() => characters.filter(char => draft.characterIds.includes(char.id)), [characters, draft.characterIds]);
@@ -78,6 +80,15 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
     const storyFirst = !!draft.openingGreeting || draft.openingMode === 'assistant';
+    const titleFromOpening = (openingTitle?: string) => {
+        const titleBefore = titleInput.current?.value ?? draft.title;
+        const previousAuto = lastAutoOpeningTitle.current;
+        const canReplace = !titleBefore.trim() || (previousAuto !== null && titleBefore === previousAuto);
+        const nextTitle = (openingTitle || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+        lastAutoOpeningTitle.current = canReplace && nextTitle ? nextTitle : null;
+        // Preserve any concurrent user edit while an opening is being saved.
+        return (currentTitle: string) => canReplace && currentTitle === titleBefore ? nextTitle : currentTitle;
+    };
     const changeGreeting = async (content: string | null) => {
         if (!selectedGreeting || greetingLock.current) return;
         if (content !== null && !content.trim()) { setGreetingError('开场白不能留空；需要移除请使用删除。'); return; }
@@ -87,9 +98,14 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         try {
             if (!onChangeGreeting) throw new Error('当前页面未连接开场白管理功能');
             await onChangeGreeting(selectedGreeting.characterId, selectedGreeting.id, content);
+            const updatedGreeting = content === null ? null
+                : selectedGreeting.source === 'link'
+                    ? { ...selectedGreeting, content: content.trim() }
+                    : { ...adaptTavernOpeningGreeting({ ...selectedGreeting, content: content.trim() }), source: selectedGreeting.source };
             setRecentGreeting(current => content === null
                 ? (current?.characterId === selectedGreeting.characterId && current.id === selectedGreeting.id ? null : current)
-                : { ...selectedGreeting, content: content.trim() });
+                : { ...updatedGreeting!, characterId: selectedGreeting.characterId, characterName: selectedGreeting.characterName });
+            const updateTitle = titleFromOpening(updatedGreeting?.title);
             // A started story keeps the original link for provenance, even when
             // its character-card source is deleted; only new drafts clear it.
             if (content === null && !maskLocked) {
@@ -101,15 +117,18 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     return {
                         ...current,
                         premise: restore && promoted ? promoted.content : current.premise,
+                        title: updateTitle(current.title),
                         openingGreeting: undefined,
                         updatedAt: Date.now(),
                     };
                 });
                 setShowOpeningInIntro(false);
                 setChooseGreetingActor(false);
-            } else if (content !== null && promotedPremise.current?.characterId === selectedGreeting.characterId
-                && promotedPremise.current?.greetingId === selectedGreeting.id) {
-                promotedPremise.current.content = content.trim();
+            } else if (content !== null) {
+                if (promotedPremise.current?.characterId === selectedGreeting.characterId
+                    && promotedPremise.current?.greetingId === selectedGreeting.id)
+                    promotedPremise.current.content = updatedGreeting!.content;
+                setDraft(current => ({ ...current, title: updateTitle(current.title), updatedAt: Date.now() }));
             }
             setEditingGreeting(false);
             setConfirmGreetingDelete(false);
@@ -157,9 +176,12 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             const title = (adapted.title || firstLine || draft.title.trim() || '自定义开场').slice(0, 30);
             const created = await onCreateGreeting(actor.id, title, content);
             promotedPremise.current = { characterId: actor.id, greetingId: created.id, content: created.content };
-            setRecentGreeting({ ...created, source: 'custom', characterId: actor.id, characterName: actor.name });
+            const existingSource = greetingChoices.find(item => item.characterId === actor.id && item.id === created.id)?.source;
+            setRecentGreeting({ ...created, source: existingSource || 'custom', characterId: actor.id, characterName: actor.name });
+            const updateTitle = titleFromOpening(created.title);
             setDraft(current => ({
                 ...current,
+                title: updateTitle(current.title),
                 premise: current.premise.trim() === content ? '' : current.premise,
                 openingMode: 'assistant',
                 openingGreeting: { characterId: actor.id, greetingId: created.id },
@@ -208,6 +230,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         setChooseGreetingActor(false);
         setCreateTargetActor('');
         setCreateGreetingError('');
+        const removedSelectedOpening = draft.characterIds.includes(char.id)
+            && draft.openingGreeting?.characterId === char.id;
+        const updateTitle = removedSelectedOpening ? titleFromOpening(undefined) : (value: string) => value;
         setDraft(current => {
         const adding = !current.characterIds.includes(char.id);
         const characterIds = adding ? [...current.characterIds, char.id] : current.characterIds.filter(id => id !== char.id);
@@ -216,6 +241,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         return {
             ...current,
             characterIds,
+            title: updateTitle(current.title),
             openingGreeting: !adding && current.openingGreeting?.characterId === char.id ? undefined : current.openingGreeting,
             selectedWorldbookIds: adding ? Array.from(new Set([...current.selectedWorldbookIds, ...(char.mountedWorldbooks || []).map(book => book.id)])) : current.selectedWorldbookIds.filter(id => validBooks.has(id)),
             characterContextLimits: { ...current.characterContextLimits, ...(adding && !current.characterContextLimits[char.id] ? { [char.id]: 100 } : {}) },
@@ -279,7 +305,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         <main className='story-page-scroll flex-1 overflow-y-auto px-5 py-6 pb-28'><div className='max-w-2xl mx-auto space-y-8'>
             <section>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>01 / Story</div>
-                <label className='block mt-2'><span className='text-[10px] font-bold text-slate-500'>标题 · 必填</span><input ref={titleInput} value={draft.title} onChange={event => { setSaveError(''); update('title', event.target.value); }} placeholder='剧情名称' className='mt-1 w-full bg-transparent text-3xl font-serif font-semibold outline-none placeholder:text-slate-300' /></label>
+                <label className='block mt-2'><span className='text-[10px] font-bold text-slate-500'>标题 · 必填</span><input ref={titleInput} value={draft.title} onChange={event => { lastAutoOpeningTitle.current = null; setSaveError(''); update('title', event.target.value); }} placeholder='剧情名称' className='mt-1 w-full bg-transparent text-3xl font-serif font-semibold outline-none placeholder:text-slate-300' /></label>
                 <div className='mt-5'>
                     <div className='flex items-center justify-between gap-2'>
                         <span className='text-[10px] font-bold text-slate-500'>{selectedGreeting && showOpeningInIntro ? '开场白 · 可编辑' : '剧情介绍 · 可选'}</span>
@@ -341,12 +367,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                             onClick={() => {
                                 setShowOpeningInIntro(false);
                                 setChooseGreetingActor(false);
+                                const updateTitle = titleFromOpening(undefined);
                                 setDraft(current => {
                                     const promoted = promotedPremise.current;
                                     const restore = promoted?.characterId === current.openingGreeting?.characterId
                                         && promoted?.greetingId === current.openingGreeting?.greetingId
                                         && !current.premise.trim();
-                                    return { ...current, premise: restore && promoted ? promoted.content : current.premise, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() };
+                                    return { ...current, title: updateTitle(current.title), premise: restore && promoted ? promoted.content : current.premise, openingMode: 'user', openingGreeting: undefined, updatedAt: Date.now() };
                                 });
                             }}
                             className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${!storyFirst ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先写</button>
@@ -360,6 +387,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
+                            const updateTitle = titleFromOpening(selected?.title);
                             setDraft(current => {
                                 const promoted = promotedPremise.current;
                                 const restore = !selected && !current.premise.trim()
@@ -367,6 +395,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                                     && promoted?.greetingId === current.openingGreeting?.greetingId;
                                 return {
                                     ...current,
+                                    title: updateTitle(current.title),
                                     premise: restore && promoted ? promoted.content : current.premise,
                                     openingMode: selected ? 'assistant' : current.openingMode,
                                     openingGreeting: selected ? { characterId: selected.characterId, greetingId: selected.id } : undefined,
@@ -386,7 +415,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                     {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>也可在上方写好正文，点书签存为开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
                         {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}
-                        {!maskLocked && <button type='button' onClick={() => update('openingGreeting', undefined)} className='ml-2 underline'>清除失效选择</button>}
+                        {!maskLocked && <button type='button' onClick={() => {
+                            const updateTitle = titleFromOpening(undefined);
+                            setDraft(current => ({ ...current, title: updateTitle(current.title), openingGreeting: undefined, updatedAt: Date.now() }));
+                            setShowOpeningInIntro(false);
+                        }} className='ml-2 underline'>清除失效选择</button>}
                     </div>}
                 </div>
                     {!selectedGreeting && <p className='mt-2 text-[10px] text-slate-400'>{storyFirst
