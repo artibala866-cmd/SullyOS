@@ -353,5 +353,5 @@ export const storyOpeningReadingText = (content: string, greetingId?: string, so
     source === 'custom' || /^story-custom-/.test(greetingId || '')
         ? String(content || '')
         : source === 'link' || /^(?:babylink-opening-|link-)/.test(greetingId || '')
-            ? stripUnsupportedTavernOpeningEmbeds(String(content || ''))
+            ? stripUnsupportedTavernOpeningEmbeds(String(content || '')).replace(/\n{3,}/g, '\n\n').trim()
             : tavernOpeningSceneText(content);
