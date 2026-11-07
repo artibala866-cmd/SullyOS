@@ -364,6 +364,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const archiveLock = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const readingScrollRef = useRef<HTMLElement>(null);
+    const readingContentRef = useRef<HTMLDivElement>(null);
     const followLatestRef = useRef(true);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -499,6 +500,28 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     // lag behind a fast swipe or a programmatic jump to an earlier floor.
     const handleReadingScroll = useCallback(() => {
         updateVisibleFloor();
+    }, [updateVisibleFloor]);
+    // Fonts, media and archived-floor expansion change the height of older
+    // content without emitting a scroll event. Keep the floor counter accurate.
+    useEffect(() => {
+        const content = readingContentRef.current;
+        if (!content) return;
+        const syncLayout = () => {
+            if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+            updateVisibleFloor();
+        };
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
+        observer?.observe(content);
+        let mounted = true;
+        if (document.fonts?.ready) {
+            void document.fonts.ready.then(() => {
+                if (mounted) syncLayout();
+            }).catch(() => {});
+        }
+        return () => {
+            mounted = false;
+            observer?.disconnect();
+        };
     }, [updateVisibleFloor]);
     useEffect(() => {
         if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
@@ -965,7 +988,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         </header>
 
         <main ref={readingScrollRef} onScroll={handleReadingScroll} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 py-7'>
-            <div className='max-w-2xl mx-auto'>
+            <div ref={readingContentRef} className='max-w-2xl mx-auto'>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
                     <h2 className='mt-3 text-3xl font-serif font-semibold leading-tight'>{entry.title}</h2>
