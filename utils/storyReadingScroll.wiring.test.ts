@@ -31,6 +31,8 @@ describe('见面剧情连续楼层阅读', () => {
 
     it('楼层提示只显示于顶部信息栏，阅读正文里没有悬浮遮挡', () => {
         expect(sessionSource).not.toContain('sticky top-2');
+        expect(sessionSource).not.toContain('story-quick-preset pointer-events-none absolute');
+        expect(sessionSource).toContain("aria-label='本剧情快速预设'");
         expect(sessionSource).not.toContain('pointer-events-none absolute inset-x-0 z-10');
         expect(sessionSource).toContain("className='shrink-0 text-right leading-tight'");
         expect(sessionSource).toContain("aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}");
