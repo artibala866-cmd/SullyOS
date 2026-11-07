@@ -74,11 +74,13 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             // consecutive imports and imports after reload must behave the same.
             const stored = await DB.getStoryTheaterPresets();
             const result = resolveStoryPresetImport(imported, withBuiltInStoryPresets(stored));
-            if (!result.duplicate) await DB.saveStoryTheaterPreset(result.preset);
+            if (!result.duplicate || result.upgraded) await DB.saveStoryTheaterPreset(result.preset);
             setCustomPresets(current => [result.preset, ...current.filter(item => item.id !== result.preset.id)]);
-            addToast(result.duplicate
-                ? `相同剧情预设已存在，已选择「${result.preset.name}」；未重复保存`
-                : `已导入${result.preset.document.sourceFormat === 'sillytavern' ? '酒馆适配' : '糯米机'}剧情预设「${result.preset.name}」`, 'success');
+            addToast(result.upgraded
+                ? `已为「${result.preset.name}」补齐原作者分组，原预设及所有开关未改变`
+                : result.duplicate
+                    ? `相同剧情预设已存在，已选择「${result.preset.name}」；未重复保存`
+                    : `已导入${result.preset.document.sourceFormat === 'sillytavern' ? '酒馆适配' : '糯米机'}剧情预设「${result.preset.name}」`, 'success');
             if (result.preset.document.sourceFormat === 'sillytavern') {
                 const warnings = result.preset.document.importWarnings || [];
                 const skippedScripts = warnings.some(warning => /启用正则|启用脚本/.test(warning));
