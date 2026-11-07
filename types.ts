@@ -2344,6 +2344,14 @@ export interface StoryTheaterPresetDocument {
     };
     /** Original scalar options from the source preset; preserved but not executed. */
     tavernOptions?: Record<string, string | number | boolean | null>;
+    /** Only static author-owned Tavern entryGrouping labels/identifiers, never extension scripts or regex. */
+    tavernEntryGroups?: Array<{
+        id: string;
+        name: string;
+        memberIdentifiers?: string[];
+        startIdentifier?: string;
+        endIdentifier?: string;
+    }>;
     importWarnings?: string[];
 }
 
