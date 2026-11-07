@@ -253,9 +253,22 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
                         : <div className='whitespace-pre-wrap break-words'>{block.text}</div>}
                 </div>
             </details>;
-            if (block.kind === 'html') return <section key={index} className='py-2'>
-                <SafeStoryHtml source={block.htmlSource || block.text} fallback={block.text} title={block.title || '酒馆排版'} />
-            </section>;
+            if (block.kind === 'html') {
+                const layout = <SafeStoryHtml source={block.htmlSource || block.text}
+                    fallback={block.text} title={block.title || '安全排版'} />;
+                return block.title?.includes('剧场')
+                    ? <details key={index} className='group border-y border-violet-200'>
+                        <summary className='list-none cursor-pointer py-4 flex items-center gap-3'>
+                            <span className='w-8 h-8 rounded-full bg-violet-100 text-violet-600 grid place-items-center'>
+                                <ChatCircleDots size={16} weight='fill' />
+                            </span>
+                            <strong className='min-w-0 flex-1 text-sm text-slate-700'>{block.title}</strong>
+                            <CaretDown size={13} className='text-violet-500 transition-transform group-open:rotate-180' />
+                        </summary>
+                        <div className='pb-5 pl-1'>{layout}</div>
+                    </details>
+                    : <section key={index} className='py-2'>{layout}</section>;
+            }
             if (block.kind === 'story' && reading) return null;
             if (block.kind === 'story') return <p key={index} className='font-serif text-[15px] leading-8 text-slate-800 whitespace-pre-wrap'>{block.text}</p>;
             if (block.kind === 'scene') return <section key={index} className='py-4 border-y border-slate-300'>
