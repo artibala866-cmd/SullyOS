@@ -1,5 +1,6 @@
 import {meetingAppearance} from '../../utils/meetingAppearance';
 import './date-session-landscape.css';
+import { initialDateLandscapeSpriteConfig, isDateMobileLandscape, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
 import MeetingAppearanceControl from './MeetingAppearanceControl';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -112,6 +113,27 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const [targetSceneKey, setTargetSceneKey] = useState<DateSceneKey>('outdoor');
     const [targetEmotionKey, setTargetEmotionKey] = useState<string>('');
     const [tempSpriteConfig, setTempSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
+    const [tempLandscapeSpriteConfig, setTempLandscapeSpriteConfig] = useState<SpriteConfig>(DEFAULT_SPRITE_CONFIG);
+    const [spriteOrientation, setSpriteOrientation] = useState<DateSpriteOrientation>(
+        () => isDateMobileLandscape() ? 'landscape' : 'portrait',
+    );
+    const editedSpriteConfig = spriteOrientation === 'landscape' ? tempLandscapeSpriteConfig : tempSpriteConfig;
+    const editSpriteConfig = (next: SpriteConfig) => {
+        if (spriteOrientation === 'landscape') setTempLandscapeSpriteConfig(next);
+        else setTempSpriteConfig(next);
+    };
+    // Automatically follow a real rotation, but allow editing either layout
+    // with the preview switch even when the device stays in portrait.
+    useEffect(() => {
+        const query = window.matchMedia?.('(orientation: landscape) and (min-width: 600px) and (max-height: 760px)');
+        const sync = () => setSpriteOrientation(isDateMobileLandscape() ? 'landscape' : 'portrait');
+        query?.addEventListener?.('change', sync);
+        window.addEventListener('orientationchange', sync);
+        return () => {
+            query?.removeEventListener?.('change', sync);
+            window.removeEventListener('orientationchange', sync);
+        };
+    }, []);
     const [newEmotionName, setNewEmotionName] = useState<string>('');
 
     // Skin system state
@@ -126,9 +148,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
     // Sync config on mount
     useEffect(() => {
-        if (char.spriteConfig) {
-            setTempSpriteConfig(char.spriteConfig);
-        }
+        setTempSpriteConfig(char.spriteConfig || DEFAULT_SPRITE_CONFIG);
+        setTempLandscapeSpriteConfig(char.spriteConfigLandscape || initialDateLandscapeSpriteConfig(char.spriteConfig));
     }, [char.id]);
 
     const sprites = char.sprites || {};
@@ -274,7 +295,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     };
 
     const handleSaveSettings = () => {
-        updateCharacter(char.id, { spriteConfig: tempSpriteConfig });
+        updateCharacter(char.id, { spriteConfig: tempSpriteConfig, spriteConfigLandscape: tempLandscapeSpriteConfig });
         addToast('配置已保存', 'success');
         onBack();
     };
@@ -320,16 +341,28 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 {previewOpen ? '收起场景预览' : '展开场景预览'}
             </button>
             {/* Live Preview Area */}
-            {previewOpen && <div className="date-session-root date-settings-sprite-preview bg-black relative overflow-hidden shrink-0 border-b border-slate-200">
+            {previewOpen && <div className="date-settings-orientation-picker flex items-center justify-between gap-3 px-5 py-2.5 bg-white border-b border-slate-100">
+                <span className="text-xs text-slate-500 font-medium">立绘位置预览</span>
+                <div role="group" aria-label="立绘横竖屏位置" className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                    {(['portrait', 'landscape'] as const).map(mode => (
+                        <button key={mode} type="button" data-testid={`date-sprite-${mode}`} aria-pressed={spriteOrientation === mode}
+                            onClick={() => setSpriteOrientation(mode)}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${spriteOrientation === mode ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                            {mode === 'portrait' ? '竖屏' : '横屏'}
+                        </button>
+                    ))}
+                </div>
+            </div>}
+            {previewOpen && <div className="date-session-root date-settings-sprite-preview bg-black relative overflow-hidden shrink-0 border-b border-slate-200" data-sprite-preview-orientation={spriteOrientation}>
                 {readingAppearance.id!=='none'&&<div className="absolute inset-0 z-10 px-8 py-6 font-serif leading-8" style={{background:readingAppearance.background,color:readingAppearance.ink}}><small className="text-xs opacity-50">{readingAppearance.name} · 阅读预览</small><p className="mt-4">窗边的灯亮了，书页上留下了一小片暖色。</p><p>“今天读到哪里了？”</p><p>他把书签夹好，慢慢合上书。</p></div>}
                     <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: dateBackgroundUrl ? `url("${dateBackgroundUrl}")` : 'none' }}></div>
-                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none overflow-hidden ${tempSpriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
+                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none overflow-hidden ${editedSpriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
                         <TokenImg
                         value={currentSpriteImg}
                         className="max-h-full max-w-full object-contain transition-transform origin-bottom"
                         style={{ 
-                            transform: `translate(${tempSpriteConfig.x}%, ${tempSpriteConfig.y}%) scale(${tempSpriteConfig.scale})`,
-                            '--date-landscape-fit-scale': String(1 / Math.max(1, tempSpriteConfig.scale))
+                            transform: `translate(${editedSpriteConfig.x}%, ${editedSpriteConfig.y}%) scale(${editedSpriteConfig.scale})`,
+                            '--date-landscape-fit-scale': String(1 / Math.max(1, editedSpriteConfig.scale))
                         } as React.CSSProperties}
                         />
                     </div>
@@ -338,17 +371,18 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
             <div className="p-5 space-y-8">
                 <Section title="立绘位置调整">
                     <div className="space-y-6">
+                        <p className="text-[11px] text-slate-500">当前调整：{spriteOrientation === 'portrait' ? '竖屏' : '横屏'}。两种构图分别保存，不会互相改变。</p>
                         <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小</span><span>{tempSpriteConfig.scale.toFixed(1)}x</span></div>
-                            <input type="range" min="0.5" max="2.0" step="0.1" value={tempSpriteConfig.scale} onChange={e => setTempSpriteConfig({...tempSpriteConfig, scale: parseFloat(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小</span><span>{editedSpriteConfig.scale.toFixed(1)}x</span></div>
+                            <input type="range" min="0.5" max="2.0" step="0.1" value={editedSpriteConfig.scale} onChange={e => editSpriteConfig({...editedSpriteConfig, scale: parseFloat(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                         <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>左右</span><span>{tempSpriteConfig.x}%</span></div>
-                            <input type="range" min="-100" max="100" step="5" value={tempSpriteConfig.x} onChange={e => setTempSpriteConfig({...tempSpriteConfig, x: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>左右</span><span>{editedSpriteConfig.x}%</span></div>
+                            <input type="range" min="-100" max="100" step="5" value={editedSpriteConfig.x} onChange={e => editSpriteConfig({...editedSpriteConfig, x: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                             <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>上下</span><span>{tempSpriteConfig.y}%</span></div>
-                            <input type="range" min="-50" max="50" step="5" value={tempSpriteConfig.y} onChange={e => setTempSpriteConfig({...tempSpriteConfig, y: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>上下</span><span>{editedSpriteConfig.y}%</span></div>
+                            <input type="range" min="-50" max="50" step="5" value={editedSpriteConfig.y} onChange={e => editSpriteConfig({...editedSpriteConfig, y: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                     </div>
                 </Section>
