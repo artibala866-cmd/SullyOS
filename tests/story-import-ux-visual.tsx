@@ -54,29 +54,37 @@ async function run(){
     const presetSelect=()=>document.querySelector<HTMLSelectElement>('select:not([aria-label]):has(option[value="builtin-night-screening"])');
     const initial=presetSelect()?.value||'';
     const uploader=document.querySelector<HTMLInputElement>('input[type="file"][accept*="application/json"]')!;
-    const transfer=new DataTransfer();
-    for(const num of [1,2,3])transfer.items.add(presetFile('导入预设'+num));
-    uploader.files=transfer.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
-    document.body.dataset.storyImportUxStage='batch-dispatched';
-    await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
-    // A real user cannot choose another file until the busy button re-enables.
-    // The synthetic DataTransfer event must respect the same UI transition.
-    await waitFor(()=>!document.querySelector<HTMLButtonElement>('button[aria-label="导入剧情预设"]')?.disabled);
-    document.body.dataset.storyImportUxStage='batch-complete';
-    const preserved=presetSelect()?.value===initial;
-    const batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
-    const single=new DataTransfer();single.items.add(presetFile('单独选中'));
-    uploader.files=single.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
-    document.body.dataset.storyImportUxStage='single-dispatched';
-    await waitFor(()=>presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中');
-    document.body.dataset.storyImportUxStage='single-complete';
-    const singleSelected=presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中';
+    const focus=new URLSearchParams(location.search).get('focus') || 'search';
+    let preserved=true;
+    let batchFeedback=true;
+    let singleSelected=true;
+    if(focus==='single'){
+        const single=new DataTransfer();
+        single.items.add(presetFile('单独选中'));
+        uploader.files=single.files;
+        uploader.dispatchEvent(new Event('change',{bubbles:true}));
+        document.body.dataset.storyImportUxStage='single-dispatched';
+        await waitFor(()=>presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中');
+        await waitFor(()=>!document.querySelector<HTMLButtonElement>('button[aria-label="导入剧情预设"]')?.disabled);
+        singleSelected=presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中';
+        document.body.dataset.storyImportUxStage='single-complete';
+    }else{
+        const transfer=new DataTransfer();
+        for(const num of [1,2,3]) transfer.items.add(presetFile('导入预设'+num));
+        uploader.files=transfer.files;
+        uploader.dispatchEvent(new Event('change',{bubbles:true}));
+        document.body.dataset.storyImportUxStage='batch-dispatched';
+        await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
+        await waitFor(()=>!document.querySelector<HTMLButtonElement>('button[aria-label="导入剧情预设"]')?.disabled);
+        preserved=presetSelect()?.value===initial;
+        batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
+        document.body.dataset.storyImportUxStage='batch-complete';
+    }
     const fit=document.documentElement.scrollWidth<=innerWidth;
     const result={filtered,preserved,batchFeedback,singleSelected,fit,optionsAfterSearch:options().length};
     const node=document.createElement('output');node.id='story-import-ux-report';node.hidden=true;node.textContent=JSON.stringify(result);document.body.append(node);
     document.body.dataset.storyImportUxReady=String(Object.entries(result).filter(([k])=>k!=='optionsAfterSearch').every(([,v])=>v===true));
-    const focus=new URLSearchParams(location.search).get('focus');
-    if(focus==='preset')presetSelect()?.scrollIntoView({block:'center',behavior:'instant'});
+    if(focus==='preset' || focus==='single')presetSelect()?.scrollIntoView({block:'center',behavior:'instant'});
     else search.scrollIntoView({block:'center',behavior:'instant'});
 }
 void run().catch(error=>{document.body.dataset.storyImportUxReady='false';document.body.dataset.storyImportUxError=String(error?.stack||error).slice(0,2000);});
