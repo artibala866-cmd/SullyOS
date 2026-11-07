@@ -14,7 +14,14 @@ interface Props {
 
 const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply, onReset, onClose }) => {
     const [draft, setDraft] = useState<StoryTheaterPresetDocument>(() => ({ ...document, generation: { ...document.generation }, prompts: document.prompts.map(prompt => ({ ...prompt })) }));
-    const [page, setPage] = useState(0);
+    const [page, setPage] = useState(() => {
+        // Opening the quick sheet from a live story should make author style
+        // immediately reachable instead of forcing the user past permissions.
+        if (document.sourceFormat !== 'sillytavern') return 0;
+        const sections = getStoryTavernAuthorSections(document);
+        const styleIndex = sections.findIndex(section => /文风|风格|style/i.test(section.label));
+        return styleIndex >= 0 ? styleIndex : 0;
+    });
     const [saving, setSaving] = useState(false);
     // Native presets keep their original simple controls. Tavern imports use
     // their OWN author groups and source prompt IDs, not the built-in IDs.
@@ -51,6 +58,18 @@ const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply
             </header>
 
             <main className='flex-1 overflow-y-auto px-5 py-5'>
+                {imported && authorPages.length > 1 && <nav aria-label='原作者预设分组'
+                    className='-mx-5 -mt-1 mb-5 flex gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:thin]'>
+                    {authorPages.map((section, index) =>
+                        <button type='button' key={section.key} onClick={() => setPage(index)}
+                            aria-current={index === visiblePage ? 'page' : undefined}
+                            className={'shrink-0 max-w-[160px] rounded-xl border px-3 py-2 text-[11px] font-semibold truncate ' +
+                                (index === visiblePage
+                                    ? 'bg-slate-900 border-slate-900 text-white'
+                                    : 'bg-white border-slate-200 text-slate-600')}>
+                            {section.label}
+                        </button>)}
+                </nav>}
                 {currentAuthor ? <>
                     <div className='flex items-center justify-between gap-3'>
                         <span className='text-[9px] font-bold tabular-nums tracking-wider text-neutral-400'>{visiblePage + 1} / {pageCount}</span>
@@ -90,7 +109,9 @@ const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply
             </main>
 
             <footer className='story-safe-sheet shrink-0 px-5 pt-3 border-t border-slate-200'>
-                <div className='flex items-center justify-between'><button disabled={visiblePage === 0} onClick={() => setPage(value => Math.max(0, value - 1))} className='w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center disabled:opacity-25'><CaretLeft size={17} /></button><div className='flex gap-1'>{Array.from({ length: pageCount }, (_, index) => <button key={index} aria-label={'第' + (index + 1) + '组'} onClick={() => setPage(index)} className={`h-1.5 rounded-full transition-all ${index === visiblePage ? 'w-5 bg-neutral-600' : 'w-1.5 bg-slate-300'}`} />)}</div><button disabled={visiblePage >= pageCount - 1} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))} className='w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center disabled:opacity-25'><CaretRight size={17} /></button></div>
+                <div className='flex items-center justify-between'><button disabled={visiblePage === 0} onClick={() => setPage(value => Math.max(0, value - 1))} className='w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center disabled:opacity-25'><CaretLeft size={17} /></button><div className='flex gap-1'>{pageCount > 8
+                    ? <span className='text-[10px] tabular-nums text-slate-500'>{visiblePage + 1} / {pageCount}</span>
+                    : Array.from({ length: pageCount }, (_, index) => <button key={index} aria-label={'第' + (index + 1) + '组'} onClick={() => setPage(index)} className={`h-1.5 rounded-full transition-all ${index === visiblePage ? 'w-5 bg-neutral-600' : 'w-1.5 bg-slate-300'}`} />)}</div><button disabled={visiblePage >= pageCount - 1} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))} className='w-10 h-10 rounded-full border border-slate-200 bg-white grid place-items-center disabled:opacity-25'><CaretRight size={17} /></button></div>
                 <div className='mt-3 flex gap-2'>{hasOverride && <button onClick={async () => { await onReset(); onClose(); }} className='px-4 py-3 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-500'>恢复原预设</button>}<button disabled={saving || (!currentNative && !currentAuthor)} onClick={apply} className='flex-1 py-3 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-40'>{saving ? '应用中' : '应用到本剧情'}</button></div>
             </footer>
         </section>
