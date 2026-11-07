@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     buildBareTheaterActorContext,
     compileStoryPreset,
+    getStoryTavernAuthorSections,
+    selectStoryTavernAuthorOption,
     buildStoryIdentityGuard,
     buildTavernNativeOverrideMessages,
     buildStoryMiniTheaterReminder,
@@ -920,7 +922,104 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(exact.inferred.language).toBe('nmj-v3-language-cn');
     });
 
-    it('导入后能直接使用；只有显式改动才添加内置规则，保存重进不丢失且不覆盖原文', () => {
+
+    it('宝宝我是char 的原作者五档抢话、九档复述、十四个人称、专属文风可操作且保存重进', () => {
+        const source = [
+            { identifier:'intro',name:'┏╔叙事⭐规则╗┓',content:'<narrative_directive>' },
+            { identifier:'agency-title',name:'<==抢话▣▣权限==>',content:'' },
+            ...['不抢','微量','适度','协同','完全'].map((name,i)=>({
+                identifier:'agency-'+i,name:'▢'+name,
+                content:'<rule name="演绎权限·'+(i+1)+'档">作者原规则·'+name+'</rule>',
+            })),
+            { identifier:'retell-title',name:'<==复述▣▣权限==>',content:'' },
+            ...['完全扩写','扩写为主','扩写优先','复述均衡','复述不限','简要复述','精简复述','不复述','绝不复述'].map((name,i)=>({
+                identifier:'retell-'+i,name:'▢'+name,
+                content:'<rule name="回复处理·'+(i+1)+'档">作者原规则·'+name+'</rule>',
+            })),
+            { identifier:'pov-title',name:'<==人称▣▣选1个==>',content:'' },
+            ...Array.from({length:14},(_,i)=>({identifier:'pov-'+i,name:'▢作者人称 '+(i+1),
+                content:'<rule name="上帝视角·'+(i+1)+'">作者原人称 '+(i+1)+'</rule>'})),
+            { identifier:'finish',name:'┗╚叙事⭐规则╝┛',content:'</narrative_directive>' },
+            { identifier:'style-start',name:'┏╔拖拖📚文风╗┓',content:'<writing_style>' },
+            { identifier:'style0',name:'📩随机适配📩',content:'<writing_style:随机适配>根据现场随机选风格。</writing_style>' },
+            { identifier:'style1',name:'🎵拖：柠檬糖',content:'<writing_style:柠檬糖>作者柠檬糖文风。</writing_style>' },
+            { identifier:'style2',name:'🎵拖：梅雨季',content:'<writing_style:梅雨季>作者梅雨季文风。</writing_style>' },
+            { identifier:'style-end',name:'┗╚拖拖📚文风╝┛',content:'</writing_style>' },
+        ];
+        const on=new Set(['intro','agency-title','agency-4','retell-title','retell-7','pov-title','pov-0',
+            'finish','style-start','style0','style-end']);
+        const input=JSON.stringify({prompts:source.map(item=>({...item,role:'system'})),
+            prompt_order:[{character_id:100001,order:source.map(item=>({identifier:item.identifier,enabled:on.has(item.identifier)}))}]});
+        const initial=parseStoryTheaterPreset(input,'宝宝我是char-作者选项.json');
+        const groups=getStoryTavernAuthorSections(initial.document);
+        const agency=groups.find(x=>x.label.includes('抢话'))!;
+        const retell=groups.find(x=>x.label.includes('复述'))!;
+        const pov=groups.find(x=>x.label.includes('人称'))!;
+        const style=groups.find(x=>x.label.includes('文风'))!;
+        expect(agency.options).toHaveLength(5);
+        expect(retell.options).toHaveLength(9);
+        expect(pov.options).toHaveLength(14);
+        expect(style.options.map(x=>x.label)).toEqual(['随机适配','拖：柠檬糖','拖：梅雨季']);
+        expect(agency.options.find(x=>x.enabled)?.label).toBe('完全');
+        expect(style.options.find(x=>x.enabled)?.label).toBe('随机适配');
+        const originalContents=initial.document.prompts.map(p=>p.content);
+        const chosenAgency=selectStoryTavernAuthorOption(initial.document,agency.key,'st-agency-0');
+        expect(chosenAgency.prompts.filter(p=>p.id.startsWith('st-agency-') && p.enabled).map(p=>p.name)).toEqual(['▢不抢']);
+        expect(chosenAgency.prompts.find(p=>p.id==='st-retell-7')?.enabled).toBe(true);
+        const chosenStyle=selectStoryTavernAuthorOption(chosenAgency,style.key,'st-style1');
+        expect(chosenStyle.prompts.find(p=>p.id==='st-style0')?.enabled).toBe(false);
+        expect(chosenStyle.prompts.find(p=>p.id==='st-style1')?.enabled).toBe(true);
+        expect(chosenStyle.prompts.map(p=>p.content)).toEqual(originalContents);
+        const reopened=parseStoryTheaterPreset(JSON.stringify(chosenStyle),'保存重进.json');
+        const compiled=compileStoryPreset({preset:reopened,slots:{...slots,worldBefore:''},
+            userName:'玩家',characterNames:['角色']});
+        const sent=compiled.messages.map(m=>m.content).join('\n');
+        expect(sent).toContain('作者原规则·不抢');
+        expect(sent).not.toContain('作者原规则·完全');
+        expect(sent).toContain('作者柠檬糖文风');
+        expect(sent).not.toContain('根据现场随机选风格');
+        expect(compiled.nativeOverrideMessages).toEqual([]);
+    });
+
+    it('语言选项启用另一种对话语言，不会关闭作者独立的必开中文叙事规则', () => {
+        const prompts=[
+            {identifier:'title',name:'<==语言▣▣设置==>',role:'system',content:''},
+            {identifier:'narrative',name:'▢必开：叙事中文',role:'system',content:'<rule name="语言·叙述中文">旁白中文</rule>'},
+            {identifier:'cn',name:'▢对话中文',role:'system',content:'<rule name="语言·对话中文">对话中文</rule>'},
+            {identifier:'en',name:'▢对话英语',role:'system',content:'<rule name="语言·对话英语">对话英文</rule>'},
+        ];
+        const doc=parseStoryTheaterPreset(JSON.stringify({prompts,
+            prompt_order:[{character_id:100001,order:prompts.map(p=>({identifier:p.identifier,enabled:p.identifier!=='en'}))}]}),
+            '语言源.json').document;
+        const group=getStoryTavernAuthorSections(doc).find(x=>x.label.includes('语言'))!;
+        expect(group.single).toBe(false);
+        const changed=selectStoryTavernAuthorOption(doc,group.key,'st-en');
+        expect(changed.prompts.find(p=>p.id==='st-narrative')?.enabled).toBe(true);
+        expect(changed.prompts.find(p=>p.id==='st-cn')?.enabled).toBe(false);
+        expect(changed.prompts.find(p=>p.id==='st-en')?.enabled).toBe(true);
+    });
+
+    it('启用作者子小剧场也应同时启用原作者原有的 XML 前后包裹规则', () => {
+        const prompts=[
+            {identifier:'theater-start',name:'┏╔剧场💈娱乐╗┓',role:'system',content:'<theater>\n## 小剧场设置'},
+            {identifier:'a',name:'🌟未来弹幕',role:'system',content:'<details data-fate="side_theater">弹幕剧场</details>'},
+            {identifier:'b',name:'🌟随机剧场',role:'system',content:'<details data-fate="side_theater">随机剧场</details>'},
+            {identifier:'theater-end',name:'┗╚剧场💈娱乐╝┛',role:'system',content:'</theater>'},
+        ];
+        const doc=parseStoryTheaterPreset(JSON.stringify({prompts,
+            prompt_order:[{character_id:100001,order:prompts.map(p=>({identifier:p.identifier,enabled:false}))}]}),
+            '原作者小剧场.json').document;
+        const group=getStoryTavernAuthorSections(doc).find(x=>x.label.includes('剧场'))!;
+        const changed=selectStoryTavernAuthorOption(doc,group.key,'st-a');
+        expect(changed.prompts.filter(p=>p.enabled).map(p=>p.id)).toEqual(['st-theater-start','st-a','st-theater-end']);
+        const sent=compileStoryPreset({preset:{id:'x',name:'小剧场',document:changed,updatedAt:0},
+            slots:{...slots,worldBefore:''},userName:'玩家',characterNames:['角色']}).messages.map(m=>m.content).join('\n');
+        expect(sent).toContain('<theater>');
+        expect(sent).toContain('弹幕剧场');
+        expect(sent).toContain('</theater>');
+    });
+
+    it('旧版内置选择元数据仍可读回，但不再强行覆盖作者原文', () => {
         const raw = JSON.stringify({
             prompts: [
                 { identifier: 'pov', role: 'system', name: '第三人称上帝视角', content: '<POV>正文使用第三人称。</POV>' },
@@ -946,10 +1045,8 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(reopened.document.tavernControls?.overrides).toEqual(edited.tavernControls.overrides);
         expect(reopened.document.prompts.map(p => p.content)).toEqual(imported.document.prompts.map(p => p.content));
         const extra = buildTavernNativeOverrideMessages(reopened.document, '小雨', ['小蓝']);
-        expect(extra).toHaveLength(5);
-        expect(extra.map(p => p.content).join('\n')).toContain('不生成小剧场');
-        expect(extra.map(p => p.content).join('\n')).toContain('模型不创造');
-        expect(buildStoryIdentityGuard(reopened.document, '小雨', ['小蓝'])).toContain('第二人称');
+        expect(extra).toEqual([]);
+        expect(buildStoryIdentityGuard(reopened.document, '小雨', ['小蓝'])).toContain('第三人称');
         const computed = compileStoryPreset({ preset: reopened,
             slots: { actors: '角色', persona: '小雨', scenario: '剧情', worldBefore: '', worldAfter: '' },
             userName: '小雨', characterNames: ['小蓝'] });
@@ -969,7 +1066,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         };
         const reopened = parseStoryTheaterPreset(JSON.stringify(doc.document), '安全读回.json');
         expect(reopened.document.tavernControls?.overrides).toEqual({ theater: '' });
-        expect(buildTavernNativeOverrideMessages(reopened.document, 'user', ['char'])).toHaveLength(1);
+        expect(buildTavernNativeOverrideMessages(reopened.document, 'user', ['char'])).toEqual([]);
     });
 
 
