@@ -685,6 +685,8 @@ export interface StoryPresetPromptGroup {
     endIndex: number;
     protected: boolean;
     customSectionId?: string;
+    /** Browsing-only author grouping; never persisted into prompt records. */
+    autoGrouped?: boolean;
 }
 
 const STORY_PRESET_GROUP_SPECS = [
@@ -705,6 +707,89 @@ export const isProtectedStoryPrompt = (prompt: StoryTheaterPresetPrompt): boolea
     prompt.marker || prompt.id === 'nmj-v64-section-sources-start' || prompt.id === 'nmj-v64-section-sources-end'
     || ['charDescription', 'charPersonality', 'worldInfoBefore', 'personaDescription', 'worldInfoAfter', 'scenario', 'dialogueExamples', 'chatHistory'].includes(prompt.id)
 );
+
+
+/**
+ * Only explicit editorial separators count as headings; blank content alone
+ * never does. Some actual Tavern headings carry nonempty prompt content.
+ * Grouping is view-only and cannot change source order, roles or enabled flags.
+ */
+export const recognizeTavernPromptHeading = (
+    prompt: StoryTheaterPresetPrompt,
+): { label: string; edge: 'start' | 'end' | 'divider' } | undefined => {
+    if (prompt.marker || prompt.section) return undefined;
+    const name = prompt.name.trim();
+    if (!name || name.length > 105) return undefined;
+    const bracket = /^<==(.{2,68}?)==>$/.exec(name);
+    if (bracket && /[▣◈◀▶]/u.test(bracket[1])) {
+        return { label: bracket[1].trim(), edge: 'start' };
+    }
+    const hasArrow = /[⬇⬆↓↑]/u.test(name) && /(?:={2,}|—|📌)/u.test(name);
+    if (hasArrow) {
+        const up = /[⬆↑]/u.test(name) && !/[⬇↓]/u.test(name);
+        const hit = /[⬇⬆↓↑]\uFE0F?\s*(.{2,55}?)\s*[⬇⬆↓↑]/u.exec(name);
+        const label = (hit?.[1] || '').trim();
+        if (label) return { label, edge: up ? 'end' : 'start' };
+    }
+    // Mur/Janus short-dash separators; the slash and "结束" close a section.
+    const dash = /^[-—]{3,}\s*(.{2,75}?)\s*[-—]{2,}$/u.exec(name)
+        || /^-{4,}\s*(Think\s*(?:开始|结束))\s*$/iu.exec(name);
+    if (dash) {
+        const value = dash[1].trim();
+        if (!value || /^[-—]+$/u.test(value)) return undefined;
+        return { label: value.replace(/^\/\s*/u, '').trim(),
+            edge: /^\/|结束|尾部/u.test(value) ? 'end' : 'divider' };
+    }
+    // Ako uses paired decorative em-dash separators, even with content.
+    const em = /^—{2,}\s*(.{2,65}?)\s*—{2,}$/u.exec(name);
+    if (em) {
+        const value = em[1].trim();
+        if (value) return { label: value, edge: /结束|尾部/u.test(value) ? 'end' : 'divider' };
+    }
+    if (/^[╓╙]/u.test(name) && name.length <= 45) {
+        return { label: name.slice(1).trim(), edge: name.startsWith('╙') ? 'end' : 'start' };
+    }
+    return undefined;
+};
+
+const tavernVisualGroups = (
+    prompts: StoryTheaterPresetPrompt[], start: number, end: number,
+): StoryPresetPromptGroup[] => {
+    const result: StoryPresetPromptGroup[] = [];
+    let from = start;
+    let title = '';
+    let sectionActive = false;
+    const emit = (last: number) => {
+        if (last < from) return;
+        const slice = prompts.slice(from, last + 1);
+        result.push({
+            key: 'tavern:' + slice[0].id,
+            label: title || (from === 0 ? '预设开头' : '其他条目'),
+            description: '酒馆浏览分类 · 原顺序第 ' + (from + 1) + '–' + (last + 1) + ' 条（不改变提示词）',
+            promptIds: slice.map(prompt => prompt.id),
+            startIndex: from, endIndex: last, protected: false, autoGrouped: true,
+        });
+    };
+    for (let i = start; i <= end; i += 1) {
+        const heading = recognizeTavernPromptHeading(prompts[i]);
+        if (!heading) continue;
+        if (heading.edge === 'start' || heading.edge === 'divider') {
+            // A repeated decorative divider often terminates the prior block.
+            if (heading.edge === 'divider' && title && sectionActive && heading.label === title) {
+                emit(i);
+                from = i + 1; title = ''; sectionActive = false;
+                continue;
+            }
+            emit(i - 1);
+            from = i; title = heading.label; sectionActive = true;
+        } else if (sectionActive) {
+            emit(i);
+            from = i + 1; title = ''; sectionActive = false;
+        }
+    }
+    emit(end);
+    return result;
+};
 
 export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument): StoryPresetPromptGroup[] => {
     const prompts = document.prompts;
@@ -741,15 +826,19 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
         const startIndex = cursor;
         while (cursor + 1 < prompts.length && !claimed.has(cursor + 1)) cursor += 1;
         const endIndex = cursor;
+        if (document.sourceFormat === 'sillytavern') {
+            groups.push(...tavernVisualGroups(prompts, startIndex, endIndex));
+        } else {
         groups.push({
-            key: `custom:${prompts[startIndex]?.id || startIndex}`,
-            label: '自定义条目',
-            description: '没有归入内置区间的自定义提示词',
-            promptIds: prompts.slice(startIndex, endIndex + 1).map(prompt => prompt.id),
-            startIndex,
-            endIndex,
-            protected: false,
-        });
+                key: `custom:${prompts[startIndex]?.id || startIndex}`,
+                label: '自定义条目',
+                description: '没有归入内置区间的自定义提示词',
+                promptIds: prompts.slice(startIndex, endIndex + 1).map(prompt => prompt.id),
+                startIndex,
+                endIndex,
+                protected: false,
+            });
+        }
         cursor += 1;
     }
     return groups.sort((a, b) => a.startIndex - b.startIndex);
@@ -777,7 +866,7 @@ export const moveStoryPresetPromptToGroup = (document: StoryTheaterPresetDocumen
     const source = groups.find(group => group.promptIds.includes(promptId));
     const target = groups.find(group => group.key === groupKey);
     const prompt = document.prompts.find(item => item.id === promptId);
-    if (!prompt || !target || target.protected || source?.protected || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
+    if (!prompt || !target || target.protected || target.autoGrouped || source?.protected || source?.autoGrouped || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
     const next = { ...document, prompts: document.prompts.filter(item => item.id !== promptId) };
     const destination = getStoryPresetPromptGroups(next).find(group => group.key === groupKey);
     if (!destination) return document;
