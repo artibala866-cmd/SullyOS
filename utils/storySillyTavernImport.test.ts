@@ -719,6 +719,19 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         }
     });
 
+    it('作者没有把标题写成小剧场时，也能从正文后的 sidestory 输出合同识别', () => {
+        const detected = detectTavernNativeControls([{
+            id: 'appendix', name: '附录输出格式', role: 'system', enabled: true,
+            content: '正文结束后输出 <sidestory><details>每轮结尾生成独立小剧场</details></sidestory>。',
+        }]);
+        expect(detected.labels.theater).toBe('作者自定义小剧场');
+        expect(detected.inferred.theater).toBeUndefined();
+        expect(detectTavernNativeControls([{
+            id: 'off', name: '关闭小剧场', role: 'system', enabled: false,
+            content: '每轮结尾生成独立小剧场。<sidestory>示例</sidestory>',
+        }]).labels.theater).toBeUndefined();
+    });
+
     it('Mur 的 Word_budget 与 bare Chinese 语言识别不会捏造汉字单位或简体选项', () => {
         const detected = detectTavernNativeControls([
             { id: 'language', role: 'system', enabled: true, name: '语言',
