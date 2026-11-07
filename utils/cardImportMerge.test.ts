@@ -118,6 +118,16 @@ describe('incremental character-card imports', () => {
         expect(tavernRole.description).toBe('自己写的备注');
         expect(tavernRole.memories).toHaveLength(1);
     });
+    it('does not overwrite a manually created same-name character without import provenance',()=>{
+        const handwritten=char('handwritten',{
+            name:'雨生',systemPrompt:'我自己编写的人设',
+            description:'我写给这个角色的私密备注',
+            memories:[{id:'history',content:'长久的交互经历'}] as unknown as CharacterProfile['memories'],
+        });
+        expect(()=>findCardImportTarget([handwritten],source,'雨生')).toThrow('可能是手动创建角色');
+        expect(handwritten.memories).toHaveLength(1);
+        expect(handwritten.description).toBe('我写给这个角色的私密备注');
+    });
     it('handles legacy imported cards by name and original Tavern UID', () => {
         const existingBook = lore('legacy-lore', '旧正文', { cardImportKey: undefined });
         const legacy = char('legacy-role', { mountedWorldbooks: [toMountedWorldbook(existingBook)] });
