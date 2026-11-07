@@ -97,9 +97,9 @@ describe('user archive document import merge', () => {
     it('does not skip a new document merely because its words occur inside an existing sentence',()=>{
         const existing='我的旧设定里喜欢绘画，也喜欢旅游。';
         expect(planUserBioDocumentImport(existing,'喜欢绘画','append')).toEqual({
-            bio:existing+'\\n\\n喜欢绘画'.replace(/\\n/g,'\\n'),changed:true,
+            bio:existing+'\n\n喜欢绘画',changed:true,
         });
-        expect(planUserBioDocumentImport('自传：第一章'+'\\n\\n'+'爱好：画画','第一章','append').changed).toBe(true);
+        expect(planUserBioDocumentImport('自传：第一章'+'\n\n'+'爱好：画画','第一章','append').changed).toBe(true);
     });
 
     it('repeated identical import is idempotent, even in the middle of a longer profile', () => {
