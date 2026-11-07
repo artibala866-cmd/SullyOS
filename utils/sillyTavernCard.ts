@@ -309,6 +309,20 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         if (typeof data[key] === 'string' && data[key].length > MAX_JSON) throw new Error('角色人设正文过大');
     }
     const warnings: string[] = [];
+    // These Tavern-specific instruction channels do not have an equivalent
+    // SullyOS field. Do not silently treat them as imported persona or run
+    // external directives. The character description/personality/scenario are
+    // imported separately and remain complete.
+    const unsupportedInstructionFields: Array<[string,string]> = [
+        ['system_prompt','酒馆系统提示词'],
+        ['post_history_instructions','酒馆后置历史指令'],
+        ['mes_example','示例对话'],
+    ];
+    for (const [key, label] of unsupportedInstructionFields) {
+        if (typeof data[key] === 'string' && data[key].trim()) {
+            warnings.push(label + '未自动迁入糯米机人设（不会丢弃原卡文件；如需使用，请人工核对后添加）');
+        }
+    }
     const embeddedRegex = data.extensions?.regex_scripts ?? data.regex_scripts;
     if (Array.isArray(embeddedRegex) && embeddedRegex.length) {
         warnings.push('酒馆角色卡携带局部正则脚本；糯米机没有等价执行器，已跳过脚本执行。请在导入后核对正文特殊标记的显示效果。');
