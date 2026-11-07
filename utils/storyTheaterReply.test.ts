@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile, Message } from '../types';
 import { DB } from './db';
-import { loadStoryActorContext, replaceStoryTheaterReply } from './storyTheaterReply';
+import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, updateStoryTheaterFloor } from './storyTheaterReply';
 
 describe('剧情重写上下文和保存', () => {
     it('本剧情的用户/助手镜像都不回流，仍保留其他来源和剧情的可见原文', async () => {
@@ -71,4 +71,46 @@ describe('剧情重写上下文和保存', () => {
         expect((await DB.getMessagesByCharId(old.charId, true))[0].content).toBe('旧回复');
         expect((await DB.getMessagesByCharId(old.charId + '-actor', true))[0].content).toBe('手动编辑');
     });
+    it('长篇阅读编辑 AI 正文：主剧情与角色镜像一次提交，不会有部分新旧版本', async () => {
+        const original = await seed('floor-edit-atomic');
+        const mirrorId = Number(Object.values(original.metadata?.theaterMirrorIds || {})[0]);
+        await updateStoryTheaterFloor(original, '用户修正的正文');
+        expect((await DB.getMessageById(original.id))?.content).toBe('用户修正的正文');
+        expect((await DB.getMessageById(mirrorId))?.content).toBe('用户修正的正文');
+        await expect(updateStoryTheaterFloor(original, '过期页面的修改')).rejects.toThrow('已改变');
+        expect((await DB.getMessageById(mirrorId))?.content).toBe('用户修正的正文');
+    });
+
+    it('角色镜像在编辑期间被修改时，主剧情不得先保存一半', async () => {
+        const original = await seed('floor-edit-conflict');
+        const mirrorId = Number(Object.values(original.metadata?.theaterMirrorIds || {})[0]);
+        await DB.updateMessage(mirrorId, '角色侧已更改');
+        await expect(updateStoryTheaterFloor(original, '错误的部分修改')).rejects.toThrow('已改变');
+        expect((await DB.getMessageById(original.id))?.content).toBe('旧回复');
+        expect((await DB.getMessageById(mirrorId))?.content).toBe('角色侧已更改');
+    });
+
+    it('删除楼层前拒绝错误关联到私聊消息的镜像 ID，不会误删私聊', async () => {
+        const original = await seed('floor-delete-foreign');
+        const foreign = await DB.saveMessage({
+            charId: 'user-private-messages', role: 'assistant', type: 'text',
+            content: '私聊的重要文字', metadata: { source: 'chat' },
+        });
+        await DB.updateMessageMetadata(original.id, previous => ({
+            ...previous, theaterMirrorIds: { stranger: foreign },
+        }));
+        const current = await DB.getMessageById(original.id);
+        await expect(deleteStoryTheaterFloor(current!)).rejects.toThrow('未执行删除');
+        expect((await DB.getMessageById(foreign))?.content).toBe('私聊的重要文字');
+        expect((await DB.getMessageById(original.id))?.content).toBe('旧回复');
+    });
+
+    it('正常删除同时清理主剧情和对应镜像，不残留另一份楼层', async () => {
+        const original = await seed('floor-delete-consistent');
+        const mirrorId = Number(Object.values(original.metadata?.theaterMirrorIds || {})[0]);
+        await deleteStoryTheaterFloor(original);
+        expect(await DB.getMessageById(original.id)).toBeNull();
+        expect(await DB.getMessageById(mirrorId)).toBeNull();
+    });
+
 });
