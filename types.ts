@@ -2302,6 +2302,17 @@ export interface StoryTheaterPresetPrompt {
     injection?: { position: 'chat'; depth: number; order: number };
 }
 
+/** The eight choices visible in the existing native preset maker, not a new feature system. */
+export type StoryTavernChoiceKey = 'style' | 'pov' | 'retelling' | 'agency' | 'tension' | 'theater' | 'language' | 'length';
+export interface StoryTavernNativeControls {
+    /** Only confident, active source-prompt matches. Does not overwrite the author prompt. */
+    inferred: Partial<Record<StoryTavernChoiceKey, string>>;
+    /** Author's actual style / language / length or an ambiguity hint, for the existing UI. */
+    labels: Partial<Record<StoryTavernChoiceKey, string>>;
+    /** Optional, deliberate native-choice edits. null restores the author preset; '' means natural/off. */
+    overrides?: Partial<Record<StoryTavernChoiceKey, string | null>>;
+}
+
 export interface StoryTheaterPresetDocument {
     schema: 'sullyos.story-preset';
     version: 1;
@@ -2318,6 +2329,8 @@ export interface StoryTheaterPresetDocument {
     assistantPrefill?: string;
     /** 仅允许白名单酒馆文本宏解释，不执行扩展插件的代码。 */
     sourceFormat?: 'sillytavern';
+    /** Source-aware native easy-controls for imported Tavern presets only. */
+    tavernControls?: StoryTavernNativeControls;
     /** 酒馆预设的合并连续 system 消息开关；原生预设默认不启用。 */
     squashSystemMessages?: boolean;
     /** Chat Completion format templates are evaluated at runtime, not import time. */
