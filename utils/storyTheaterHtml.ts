@@ -182,6 +182,7 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     // sanitized content, excluding unopened nested <details> bodies. This
     // avoids a half-screen blank area for short appendices on mobile.
     const visibleDoc = new DOMParser().parseFromString(html, 'text/html');
+    const visibleDetails = visibleDoc.querySelectorAll('details').length;
     for (const closed of Array.from(visibleDoc.querySelectorAll('details:not([open])'))) {
         const summary = closed.querySelector('summary');
         closed.replaceWith(summary ? summary.cloneNode(true) : visibleDoc.createTextNode('折叠附录'));
@@ -195,7 +196,6 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     // An open nested details wrapper needs room for its padded summary.
     // Otherwise the next (collapsed) details title can be clipped by the
     // iframe even though the content is still technically scrollable.
-    const visibleDetails = visibleDoc.querySelectorAll('details').length;
     // Closed <details> may show only a 1-line summary. Keep the sandbox
     // compact rather than reserving a tall empty panel for hidden content;
     // expanded content remains scrollable within the iframe.
