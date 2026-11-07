@@ -3045,7 +3045,10 @@ export interface CharacterProfile {
   /** 见面立绘模式的室外/卧室/浴室/厨房/工作独立背景槽。 */
   dateSceneBackgrounds?: import('./utils/dateScenes').DateSceneBackgrounds;
   sprites?: Record<string, string>;
+  /** Portrait Meet composition (existing data and backups remain compatible). */
   spriteConfig?: SpriteConfig;
+  /** Independent landscape Meet composition; absent on old characters. */
+  spriteConfigLandscape?: SpriteConfig;
   customDateSprites?: string[]; // User-added custom emotion names for date mode (per-character)
   dateLightReading?: boolean;   // Light reading mode for novel/text view in date
   dateAppearance?: import('./utils/meetingAppearance').MeetingAppearance;
