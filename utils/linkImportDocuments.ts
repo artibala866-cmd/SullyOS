@@ -65,6 +65,21 @@ const parseRtf=(source:string):string=>source
     .replace(/\\[a-z]+\d* ?/gi,'')
     .replace(/\\([{}\\])/g,'$1').replace(/[{}]/g,'').trim();
 
+/**
+ * JSON worldbooks are NOT persona documents: historical Sully worldbook files
+ * can be larger than the 2M-character limit for a role persona. Use the same
+ * tolerant UTF-8/GBK/UTF-16 decoder with the existing 32MB file-size limit,
+ * without DOCX/RTF/HTML conversion or accidental truncation.
+ */
+export const readLinkWorldbookJsonText=async(file:File):Promise<string>=>{
+    if(file.size<=0||file.size>32*1024*1024)throw new Error('世界书 JSON 为空或超过 32 MB');
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    if(begins(bytes,CFB_SIGNATURE)||begins(bytes,[0x50,0x4b,0x03,0x04]))
+        throw new Error('世界书 JSON 文件内容其实是 Word/ZIP，请选择正确文件');
+    const source=decodeBytes(bytes).replace(/^\uFEFF/,'').trim();
+    if(!source||source.includes('\u0000'))throw new Error('世界书 JSON 内容为空或包含无效二进制数据');
+    return source;
+};
 export const isLinkPersonaDocument=(file:Pick<File,'name'|'type'>):boolean=>
     /\.(?:txt|text|doc|docx)$/i.test(file.name)||
     /^(?:text\/plain|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/i.test(file.type||'');
