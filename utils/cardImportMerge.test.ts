@@ -75,6 +75,31 @@ describe('incremental character-card imports', () => {
         expect(second.worldbooks).toHaveLength(0);
     });
 
+    it('rejects a same-named TXT/DOCX file when it would overwrite an unrelated Link/manual role',()=>{
+        const existingLink=char('link-existing',{
+            cardImportOrigin:{source:'babylink',externalId:'link-123',originalName:'雨生'},
+            systemPrompt:'原始 Link 人设',
+            memories:[{id:'saved-memory',content:'原聊天记忆'}] as CharacterProfile['memories'],
+        });
+        const existingManual=char('manual-existing',{systemPrompt:'我自己编写的人设'});
+        const documentOrigin:CardImportOrigin={source:'document',originalName:'雨生'};
+        expect(()=>findCardImportTarget([existingLink],documentOrigin,'雨生')).toThrow('文件名无法证明');
+        expect(()=>findCardImportTarget([existingManual],documentOrigin,'雨生')).toThrow('文件名无法证明');
+        expect(existingLink.memories?.[0]).toMatchObject({id:'saved-memory'});
+        expect(existingLink.systemPrompt).toBe('原始 Link 人设');
+    });
+    it('same-named updates of the SAME document source preserve the role ID and memories',()=>{
+        const identity:CardImportOrigin={source:'document',originalName:'雨生'};
+        const existing=char('doc-existing',{cardImportOrigin:identity,
+            systemPrompt:'文档旧版',
+            memories:[{id:'doc-memory',content:'聊天记录'}] as CharacterProfile['memories']});
+        const incoming=card('discard',identity,{systemPrompt:'文档新版'},[],'doc-existing');
+        const updated=mergeCardImports([existing],[],[incoming]);
+        expect(updated.result.updatedIds).toEqual(['doc-existing']);
+        expect(updated.characters[0].systemPrompt).toBe('文档新版');
+        expect(updated.characters[0].memories).toEqual(existing.memories);
+    });
+
     it('handles legacy imported cards by name and original Tavern UID', () => {
         const existingBook = lore('legacy-lore', '旧正文', { cardImportKey: undefined });
         const legacy = char('legacy-role', { mountedWorldbooks: [toMountedWorldbook(existingBook)] });
