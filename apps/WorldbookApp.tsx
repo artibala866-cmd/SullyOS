@@ -955,5 +955,3 @@ const WorldbookApp: React.FC = () => {
 };
 
 export default WorldbookApp;
-import { useAppShortcut } from '../utils/appShortcutLaunch';
-import { AppID as ShortcutAppID } from '../types';
