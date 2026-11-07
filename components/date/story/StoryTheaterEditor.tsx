@@ -98,7 +98,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
     const matchingGreetingChoices = useMemo(() => {
-        const query = greetingSearch.trim().toLocaleLowerCase('zh-CN');
+        const query = greetingChoices.length > 12 ? greetingSearch.trim().toLocaleLowerCase('zh-CN') : '';
         if (!query) return greetingChoices;
         const matched = greetingChoices.filter(item =>
             [item.title, item.characterName, item.description || ''].some(value =>
@@ -616,7 +616,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 {missingSelectedBooks.length > 0 && <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-amber-700'><span>有 {missingSelectedBooks.length} 条已选世界书暂不可用（已删除或 ID 冲突），不会发送</span><button type='button' onClick={() => setDraft(current => ({ ...current, selectedWorldbookIds: current.selectedWorldbookIds.filter(id => !missingSelectedBooks.includes(id)), updatedAt: Date.now() }))} className='shrink-0 underline underline-offset-2'>清除失效选择</button></div>}
             </section>
             <section className='pt-6 border-t border-slate-200'>
-                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；导入后直接选中，内置预设复制后可编辑。</p>
+                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；单文件导入自动选中，批量导入只加入预设库，不替换当前剧情。</p>
                 <div className='mt-3 flex gap-2'><select disabled={presetImportBusy} value={preset?.id || ''} onChange={event => setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() }))} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type='button' title='导入一个或多个剧情预设' aria-label='导入剧情预设' disabled={presetImportBusy} onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetImportBusy ? <SpinnerGap size={18} className='animate-spin' /> : <UploadSimple size={18} />}</button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
                 <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
                     const files = Array.from(event.currentTarget.files || []);
@@ -642,6 +642,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         setPresetImportFeedback(files.length === 1
                             ? importedCount ? '预设导入成功，已选为本剧情预设；保存并进入后生效。' : '预设导入失败，当前剧情配置未改变。'
                             : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}；当前剧情预设未改变。请从下拉列表手动选择要使用的预设。`);
+                    } catch (error) {
+                        setPresetImportFeedback(`预设导入中断：${error instanceof Error ? error.message : '文件读取失败'}。已有结果保留，当前剧情配置不会自动更换。`);
                     } finally {
                         presetImportLock.current = false;
                         setPresetImportBusy(false);
