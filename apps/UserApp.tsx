@@ -169,15 +169,26 @@ const UserApp: React.FC = () => {
 
                 {/* About / setting card */}
                 <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(76, 76, 76,0.18)] border border-slate-100 p-5">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                            </svg>
-                        </span>
-                        <h2 className="text-sm font-bold text-slate-700">关于我 / 设定</h2>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                                </svg>
+                            </span>
+                            <h2 className="text-sm font-bold text-slate-700 whitespace-nowrap">关于我 / 设定</h2>
+                        </div>
+                        <button type="button" onClick={() => bioFileInputRef.current?.click()}
+                            aria-label="导入个人设定文件" disabled={identityBusy || avatarBusy || bioFileBusy}
+                            className="shrink-0 h-8 px-3 rounded-full bg-slate-50 text-slate-600 border border-slate-100 flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-40 transition">
+                            <UploadSimple size={15} weight="bold" />导入
+                        </button>
+                        <input ref={bioFileInputRef} type="file" className="hidden"
+                            aria-label="选择 TXT Word PDF 个人设定文件"
+                            accept={DOCUMENT_IMPORT_ACCEPT} disabled={identityBusy || avatarBusy || bioFileBusy}
+                            onChange={handleBioFileChange} />
                     </div>
-                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">这些信息会发送给 AI，以便它更好地了解你（例如：大学生、喜欢吃辣、性格内向）。</p>
+                    <p className="text-[11px] text-slate-400 mb-3">TXT · Word · PDF</p>
                     <textarea
                         aria-label="关于我 / 设定"
                         disabled={identityBusy || bioFileBusy}
@@ -189,6 +200,36 @@ const UserApp: React.FC = () => {
                 </div>
                 </>}
             </div>
+            {pendingBioFile && (
+                <div role="dialog" aria-modal="true" aria-label="导入个人设定"
+                     className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-950/35 px-3 pb-[max(14px,env(safe-area-inset-bottom))] sm:pb-3">
+                    <div className="w-full max-w-sm rounded-[1.65rem] bg-white p-5 shadow-xl border border-slate-100">
+                        <div className="flex items-center justify-between gap-3">
+                            <h3 className="font-bold text-slate-800 text-base">导入个人设定</h3>
+                            <button type="button" onClick={cancelBioImport} disabled={bioSaving}
+                                aria-label="取消导入个人设定" className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 text-lg leading-none disabled:opacity-40">×</button>
+                        </div>
+                        <p className="text-sm text-slate-700 mt-3 font-semibold truncate" title={pendingBioFile.name}>{pendingBioFile.name}</p>
+                        <p className="text-[11px] text-slate-400 mt-1">{pendingBioFile.format}{pendingBioFile.pageCount ? ' · ' + pendingBioFile.pageCount + ' 页' : ''} · {pendingBioFile.text.length.toLocaleString()} 字</p>
+                        <div className="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-500 leading-relaxed line-clamp-4 whitespace-pre-wrap break-words max-h-28 overflow-hidden">
+                            {pendingBioFile.text.slice(0,400)}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-4" role="group" aria-label="个人设定导入方式">
+                            {([['append','追加'],['replace','替换']] as const).map(([value,label]) => (
+                                <button key={value} type="button" aria-pressed={bioImportMode===value}
+                                    onClick={() => setBioImportMode(value)}
+                                    className={'h-10 rounded-xl border text-sm font-semibold transition ' + (bioImportMode===value
+                                        ? 'border-primary/40 bg-primary/10 text-primary'
+                                        : 'border-slate-100 bg-slate-50 text-slate-500')}>{label}</button>
+                            ))}
+                        </div>
+                        <button type="button" disabled={bioSaving} onClick={confirmBioImport}
+                            className="w-full h-11 mt-3 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-50 active:scale-[0.99] transition">
+                            {bioSaving ? '保存中…' : '确认导入'}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
