@@ -340,6 +340,47 @@ describe('incremental character-card imports', () => {
         expect(await DB.getCharacter('fresh-' + suffix)).toBeTruthy();
         await DB.deleteCharacter('fresh-' + suffix);
     });
+
+    it('真实 IndexedDB 保存、退出重进和重复导入后，旧剧情选中的 ID 保持原正文', async()=>{
+        const suffix=crypto.randomUUID();
+        const name='故事合并回归'+suffix;
+        const origin:CardImportOrigin={source:'tavern',originalName:name,externalId:'source-'+suffix};
+        const roleId='story-regression-'+suffix;
+        const old = card(roleId,origin,{name,
+            tavernGreetings:[
+                {id:'tavern-first',title:'第一幕',content:'原来的车站初遇'},
+                {id:'tavern-alt-1',title:'第二幕',content:'原来的山顶告别'},
+                {id:'story-custom-9',title:'我的自写开场',content:'<!-- title:不该被当成标题 -->\n手写的故事'},
+            ],
+        });
+        try{
+            await DB.importCharacterCardsSmartAtomic([old]);
+            const second=card('discard-'+suffix,origin,{name,tavernGreetings:[
+                {id:'tavern-first',title:'第二幕',content:'原来的山顶告别'},
+                {id:'tavern-alt-1',title:'第一幕',content:'原来的车站初遇'},
+                {id:'tavern-alt-2',title:'第一幕',content:'新增的新世界'},
+            ]},[],roleId);
+            await DB.importCharacterCardsSmartAtomic([second]);
+            const saved=await DB.getCharacter(roleId);
+            expect(saved).toBeDefined();
+            expect(saved?.tavernGreetings?.find(g=>g.id==='tavern-first')?.content)
+                .toBe('原来的车站初遇');
+            expect(saved?.tavernGreetings?.find(g=>g.id==='tavern-alt-1')?.content)
+                .toBe('原来的山顶告别');
+            expect(saved?.tavernGreetings?.find(g=>g.id==='story-custom-9')?.content)
+                .toBe('<!-- title:不该被当成标题 -->\n手写的故事');
+            expect(saved?.tavernGreetings?.some(g=>g.content==='新增的新世界')).toBe(true);
+            await DB.importCharacterCardsSmartAtomic([second]);
+            const reopened=await DB.getCharacter(roleId);
+            expect(reopened?.tavernGreetings).toEqual(saved?.tavernGreetings);
+            const selected=reopened!.tavernGreetings!.find(g=>g.id==='tavern-first');
+            expect(selected?.content).toBe('原来的车站初遇');
+            expect(reopened?.memories).toEqual(saved?.memories);
+        } finally{
+            await DB.deleteCharacter(roleId);
+        }
+    });
+
     it('同名不同正文的两条酒馆开场不互相覆盖，旧剧情引用仍指向原内容',()=>{
         const oldRole=char('old',{cardImportOrigin:source,tavernGreetings:[
             {id:'tavern-first',title:'第一幕',content:'晨光中的初遇'},
