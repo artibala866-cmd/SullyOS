@@ -240,7 +240,11 @@ const normalizeNative = (raw: Record<string, any>): PreparedCharacterCard => {
                 identifiers.has(greeting.id)) throw new Error(`原生角色卡第 ${index + 1} 条开场白无效`);
             identifiers.add(greeting.id);
             const normalized = { id: greeting.id, title: text(greeting.title) || `开场白 ${index + 1}`, content: greeting.content, ...(typeof greeting.description === 'string' ? { description: greeting.description } : {}) };
-            return isLegacyLinkOpening(normalized) ? normalized : adaptTavernOpeningGreeting(normalized);
+            // Native backups may already contain hand-written Story openings:
+            // a leading comment in the user's prose is not an imported Tavern
+            // title directive, and must never be silently stripped on restore.
+            return isLegacyLinkOpening(normalized) || normalized.id.startsWith('story-custom-')
+                ? normalized : adaptTavernOpeningGreeting(normalized);
         }).filter(greeting => greeting.content.trim());
     }
     // Native Sully exports may contain already imported Link scenes. Validate
