@@ -16,7 +16,7 @@ import { confirmExportSafety } from '../utils/exportGuard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 import { parseLinkWorldbookJson } from '../utils/linkWorldbookImport';
-import { readLinkPersonaDocument } from '../utils/linkImportDocuments';
+import { readLinkPersonaDocument, readLinkWorldbookJsonText } from '../utils/linkImportDocuments';
 import { trackEvent } from '../utils/analytics';
 
 const WorldbookApp: React.FC = () => {
@@ -225,7 +225,7 @@ const WorldbookApp: React.FC = () => {
                     continue;
                 }
                 const source = await readShareFile(file, 'worldbook');
-                const rawText = await readLinkPersonaDocument(source);
+                const rawText = await readLinkWorldbookJsonText(source);
                 let raw: unknown;
                 try { raw = JSON.parse(rawText); }
                 catch { throw new Error('世界书「' + file.name + '」JSON 无效或编码损坏'); }
