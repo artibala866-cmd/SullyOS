@@ -47,6 +47,21 @@ const dialectCases: Record<string, {
     items: Array<{ id?: string; name: string; content: string; enabled?: boolean }>; labels: string[];
     sourceGroups?: Array<{ id: string; name: string; memberIdentifiers?: string[]; startIdentifier?: string; endIdentifier?: string }>;
 }> = {
+    unseen: {
+        temperature: .85, top_p: .91, frequency_penalty: .1, presence_penalty: .2, openai_max_tokens: 9100,
+        sourceGroups: [
+            { id: 'novel-lunar', name: '月潮调色盘（任选其一）', memberIdentifiers: ['unknownDawn', 'unknownDusk'] },
+            { id: 'novel-poem', name: '星屿造景', memberIdentifiers: ['unknownAmber', 'unknownMist'] },
+        ],
+        items: [
+            { id: 'unknownDawn', name: '晨星', content: 'ONLY-UNKNOWN-DAWN' },
+            { id: 'unknownDusk', name: '晦夜', content: 'ONLY-UNKNOWN-DUSK', enabled: false },
+            { id: 'unknownAmber', name: '琥珀光', content: 'ONLY-UNKNOWN-AMBER' },
+            { id: 'unknownMist', name: '薄雾蓝', content: 'ONLY-UNKNOWN-MIST', enabled: false },
+            { id: 'unknownCore', name: '必开底座', content: 'UNCHANGED-CORE' },
+        ],
+        labels: ['月潮调色盘', '晨星', '晦夜', '星屿造景', '琥珀光', '薄雾蓝'],
+    },
     gomora: {
         temperature: 1.05, top_p: .98, frequency_penalty: 0, presence_penalty: 0,
         openai_max_tokens: 32000,
