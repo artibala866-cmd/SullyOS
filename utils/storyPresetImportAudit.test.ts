@@ -51,7 +51,10 @@ describe('剧情预设导入全链路与真实文件异常审计', () => {
             prompts: legacyStored.document.prompts.map(prompt => prompt.id === 'st-rule'
                 ? { ...prompt, content: '用户自己修改的剧情指令' } : prompt),
         } };
-        const distinct = resolveStoryPresetImport(imported, [changed]);
+        // An actual second import parses the file anew and obtains a new ID.
+        // Reusing the same in-memory import object is not the real UI flow.
+        const freshImport = parse(source, '旧存档里的酒馆预设.json');
+        const distinct = resolveStoryPresetImport(freshImport, [changed]);
         expect(distinct.duplicate).toBe(false);
         expect(distinct.preset.id).not.toBe(changed.id);
         expect(changed.document.prompts[0].content).toBe('用户自己修改的剧情指令');
