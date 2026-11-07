@@ -65,6 +65,66 @@ describe('standalone Link worldbook safe incremental import',()=>{
         const two=make('two','babylink-worldbook:A:E',{content:'冲突'});
         expect(()=>planWorldbookImport([], [one,two])).toThrow('冲突的来源条目 ID');
     });
+    it('updates an imported TXT/PDF worldbook on second import without creating a duplicate',()=>{
+        const key='document-worldbook:长篇世界.pdf';
+        const one=make('doc-initial',key,{title:'长篇世界',category:'长篇世界',content:'旧世界背景',key:[],constant:true});
+        const first=planWorldbookImport([], [one]);
+        const revision=make('doc-new-file-id',key,{title:'长篇世界',category:'长篇世界',content:'新世界背景',key:[],constant:true});
+        const next=planWorldbookImport(first.library,[revision]);
+        expect(next.added).toHaveLength(0);
+        expect(next.updated).toHaveLength(1);
+        expect(next.library).toHaveLength(1);
+        expect(next.library[0]).toMatchObject({id:'doc-initial',content:'新世界背景'});
+        expect(planWorldbookImport(next.library,[revision]).skipped).toBe(1);
+    });
+    it('legacy document entries are adopted only with exact matching generated IDs and contents',()=>{
+        const key='document-worldbook:人生.txt';
+        const old=make('wb-1699999999999-0-a1b2c3',undefined,{
+            title:'人生',category:'人生',content:'以前导入的故事',sourceUid:0,key:[],constant:true,
+        });
+        const same=make('fresh',key,{title:'人生',category:'人生',content:'以前导入的故事',key:[],constant:true});
+        const adopted=planWorldbookImport([old],[same]);
+        expect(adopted).toMatchObject({skipped:0,conflicts:0,added:[]});
+        expect(adopted.updated).toHaveLength(1);
+        expect(adopted.library[0].id).toBe(old.id);
+        expect(adopted.library[0].cardImportKey).toBe(key);
+        const different=make('newer',key,{title:'人生',category:'人生',content:'修订的故事',key:[],constant:true});
+        const updated=planWorldbookImport(adopted.library,[different]);
+        expect(updated).toMatchObject({conflicts:0,added:[]});
+        expect(updated.library[0].content).toBe('修订的故事');
+        expect(planWorldbookImport([old],[different])).toMatchObject({conflicts:1,added:[],updated:[]});
+    });
+    it('a conflicting filename never overwrites handwritten lore or another document',()=>{
+        const first=planWorldbookImport([], [make('original','document-worldbook:世界.txt',{
+            title:'世界',category:'世界',content:'分支 A',key:[],constant:true,
+        })]);
+        const second=make('other','document-worldbook:世界.pdf',{
+            title:'世界',category:'世界',content:'分支 B',key:[],constant:true,
+        });
+        const conflicted=planWorldbookImport(first.library,[second]);
+        expect(conflicted).toMatchObject({conflicts:1,added:[],updated:[]});
+        expect(conflicted.library[0].content).toBe('分支 A');
+
+        const handmade=make('custom-id',undefined,{
+            title:'世界',category:'世界',content:'用户写的世界',key:[],constant:true,
+        });
+        const imported=planWorldbookImport([handmade],[second]);
+        expect(imported.added).toHaveLength(1);
+        expect(imported.library.find(book=>book.id==='custom-id')?.content).toBe('用户写的世界');
+    });
+    it('a locally edited imported document blocks automatic replacement',()=>{
+        const key='document-worldbook:秘密.docx';
+        const first=planWorldbookImport([], [make('original',key,{
+            title:'秘密',category:'秘密',content:'初稿',key:[],constant:true,
+        })]);
+        const edited=first.library.map(book=>({...book,content:'我自己编辑过的故事'}));
+        const reimport=planWorldbookImport(edited,[make('next',key,{
+            title:'秘密',category:'秘密',content:'新版文档',key:[],constant:true,
+        })]);
+        expect(reimport).toMatchObject({conflicts:1,added:[],updated:[]});
+        expect(reimport.library[0].content).toBe('我自己编辑过的故事');
+    });
+
     it('two documents with identical title and content skip one; different modules stay distinct',()=>{
         const one=make('1',undefined,{category:'文档世界书',constant:true,key:[]});
         const two=make('2',undefined,{category:'文档世界书',constant:true,key:[]});
