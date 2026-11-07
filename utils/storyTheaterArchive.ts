@@ -3,6 +3,7 @@ import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
 import { describeStoryApiError, storyTheaterThreadId } from './storyTheater';
 import { hasSummaryReasoningLeak } from './summaryReasoning';
+import { resolveStoryMemoryApi } from './storyMemoryApi';
 import { tavernOpeningSceneText } from './tavernOpeningGreeting';
 
 /** Summaries must come from the final channel, never a reasoning-only fallback. */
@@ -143,7 +144,7 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         const archive = entry?.archives.find(item => item.id === archiveId);
         if (!entry || !archive || archive.strategy !== 'summary') throw new Error('找不到剧情事件盒，请重新打开后重试');
         const messages = archiveRows(await DB.getMessagesByCharId(storyTheaterThreadId(entryId), true), entryId, archive);
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
+        const summary = await generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api));
         const db = await openDB();
         return await new Promise<StoryTheaterEntry>((resolve, reject) => {
             const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
