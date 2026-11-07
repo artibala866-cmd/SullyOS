@@ -39,6 +39,13 @@ export function findCardImportTarget(
         (char.cardImportOrigin && normalizeCardName(char.cardImportOrigin.originalName) === key));
     if (names.length > 1) throw new Error('发现多个同名角色，无法安全判断需要更新哪一个，请先整理重复角色');
     const found = names[0];
+    // A TXT/DOCX filename is not a verified identity. The original Link
+    // character may share that name but have completely different memories
+    // and persona; never replace it based on the document filename alone.
+    if (found && origin.source === 'document' &&
+        found.cardImportOrigin?.source !== 'document') {
+        throw new Error('同名角色已存在，但文档文件名无法证明是同一角色。为保护原有人设与记忆，已停止自动覆盖；可重命名文档后作为独立角色导入');
+    }
     if (found?.cardImportOrigin?.externalId && externalId &&
         (found.cardImportOrigin.source !== origin.source ||
          found.cardImportOrigin.externalId !== externalId)) {
