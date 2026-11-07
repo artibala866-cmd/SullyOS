@@ -151,7 +151,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         || /(?:小剧场[\s\S]{0,200}(?:HTML|CSS)|(?:HTML|CSS)[\s\S]{0,200}小剧场)/i.test(prompt.content)
     ));
     if (htmlTheaterPrompts.length) warnings.push(
-        `有 ${htmlTheaterPrompts.length} 条启用的酒馆小剧场/HTML 排版指令（如 ${htmlTheaterPrompts.slice(0, 2).map(prompt => prompt.name).join('、')}）不等价：正文会保留但不运行 HTML/CSS；<sidestory>/<RandomTheater> 不会变成糯米机原生小剧场。建议在预设制作器检查并按需关闭这些规则`
+        `有 ${htmlTheaterPrompts.length} 条启用的酒馆小剧场/HTML 排版指令（如 ${htmlTheaterPrompts.slice(0, 2).map(prompt => prompt.name).join('、')}）已尝试转换原生小剧场或使用隔离的安全 HTML/CSS 显示；酒馆专属 JS、正则美化与交互插件不会执行。无法安全转换的内容会保留可读文字，请检查作者原版的额外依赖`
     );
     const enabledText = prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content).join('\n');
     const setLocals = new Set([...enabledText.matchAll(/\{\{\s*setvar\s*::\s*([^{}:]+?)\s*::/gi)]
