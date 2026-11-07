@@ -1,6 +1,6 @@
 import type { CardImportOrigin, CharacterProfile, MountedWorldbook, TavernOpeningGreeting, Worldbook } from '../types';
 import { toMountedWorldbook } from './worldbook';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningSceneText, tavernOpeningAuthorNote } from './tavernOpeningGreeting';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 import { canReplaceImportedRemark, importedCardRemarkCorrection } from './cardImportRemark';
 
@@ -125,25 +125,47 @@ const equalBook = (a: Worldbook, b: Worldbook): boolean => {
 export function mergeCardGreetings(
     existing: TavernOpeningGreeting[] = [], incoming: TavernOpeningGreeting[] = [],
 ): TavernOpeningGreeting[] {
+    // An import is not a repair operation: never silently discard malformed
+    // existing scenes when the user has saved stories pointing to them.
+    if (!Array.isArray(existing) || !Array.isArray(incoming) ||
+        existing.some(g => !g || typeof g.id !== 'string' ||
+            typeof g.content !== 'string' || typeof g.title !== 'string')) {
+        throw new Error('已有开场白数据结构异常，为保护原有剧情，已停止导入');
+    }
     const output = existing.map(adaptTavernOpeningGreeting);
+    const semanticKey = (g: TavernOpeningGreeting) => {
+        const body = tavernOpeningSceneText(g.content);
+        if (!body) return '';
+        // Author requests affect role behavior even if not shown as dialogue.
+        return JSON.stringify([body, tavernOpeningAuthorNote(g.content)]);
+    };
     for (const original of incoming) {
         if (!original?.content?.trim()) continue;
         const greeting = adaptTavernOpeningGreeting(original);
         const key = tavernOpeningBodyKey(greeting);
         if (!key) continue;
-        // An old saved card with <!-- title/desc --> is the SAME scene as its
-        // new normalized version. Upgrade its metadata in place, not a copy.
-        const byBody = output.findIndex(row => tavernOpeningBodyKey(row) === key);
+        // Exact body matches and display-only asset changes are the same
+        // opening; retain the ID used by old saved stories.
+        const semantic = semanticKey(greeting);
+        const byBody = output.findIndex(row => tavernOpeningBodyKey(row) === key ||
+            (semantic && semanticKey(row) === semantic));
         if (byBody >= 0) {
             const previous = output[byBody];
             output[byBody] = { ...previous, ...greeting, id: previous.id };
             continue;
         }
-        const byId = output.findIndex(row => row.id === greeting.id);
-        const byTitle = output.findIndex(row => row.title === greeting.title);
-        const index = byId >= 0 ? byId : byTitle;
-        if (index >= 0) output[index] = { ...greeting, id: output[index].id };
-        else output.push(greeting);
+        // Tavern's tavern-alt-N ID is a list position, not a permanent source
+        // identity. Reordering/adding/renaming a scene must never replace a
+        // different old scene (nor should two stories with the same title).
+        let id = greeting.id;
+        if (output.some(row => row.id === id)) {
+            const fingerprint = cardContentFingerprint(greeting.content).replace(/:/g, '-');
+            id = greeting.id + '-scene-' + fingerprint;
+            let suffix = 2;
+            while (output.some(row => row.id === id))
+                id = greeting.id + '-scene-' + fingerprint + '-' + suffix++;
+        }
+        output.push({ ...greeting, id });
     }
     return output;
 }
