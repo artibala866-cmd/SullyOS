@@ -1509,6 +1509,37 @@ export const DB = {
     return recalledId;
   },
 
+  /**
+   * One-time-compatible privacy cleanup for earlier recall builds that wrote
+   * the withdrawn words to metadata.recalledOriginalContent. Safe to re-run on
+   * import: scanning is scoped to a single character and writes only old rows.
+   */
+  scrubLegacyRecalledMetadata: async (charId: string): Promise<number> => {
+    if (!charId) return 0;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      const req = store.index('charId').openCursor(IDBKeyRange.only(charId));
+      let cleaned = 0;
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const message = cursor.value as Message;
+        if (message.role === 'assistant' && message.metadata?.recalledAt
+            && Object.prototype.hasOwnProperty.call(message.metadata, 'recalledOriginalContent')) {
+          const { recalledOriginalContent: _stale, ...metadata } = message.metadata;
+          cursor.update({ ...message, metadata });
+          cleaned++;
+        }
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve(cleaned);
+      tx.onerror = () => reject(tx.error || new Error('Legacy recall metadata cleanup failed'));
+      tx.onabort = () => reject(tx.error || new Error('Legacy recall metadata cleanup aborted'));
+    });
+  },
+
   deleteMessage: async (id: number): Promise<void> => {
     const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
     await preserveContentFavoritesBeforeMessageDeletion({ ids: [id] });

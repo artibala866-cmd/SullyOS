@@ -61,6 +61,24 @@ describe('character recall is an actual persisted replacement, not an extra syst
             .every(item => !JSON.stringify(item).includes('不应泄漏的旧话'))).toBe(true);
     });
 
+    it('repairs legacy metadata and independently stored favorites on chat reopening', async () => {
+        const charId = uid();
+        const id = await DB.saveMessage({ charId, role: 'assistant', type: 'text', content: '旧版本泄漏的原文' });
+        await saveMessageContentFavorite((await DB.getMessageById(id))!, '角色');
+        await DB.updateMessage(id, '[消息已撤回]');
+        await DB.updateMessageMetadata(id, prev => ({
+            ...prev, recalledAt: Date.now(), recalledOriginalContent: '旧版本泄漏的原文',
+        }));
+        expect((await DB.getMessageById(id))?.metadata?.recalledOriginalContent).toBe('旧版本泄漏的原文');
+        expect(await DB.scrubLegacyRecalledMetadata(charId)).toBe(1);
+        expect(await DB.scrubLegacyRecalledMetadata(charId)).toBe(0);
+        expect(JSON.stringify(await DB.getMessageById(id))).not.toContain('旧版本泄漏的原文');
+        const { reconcileStoredRecalledFavoritesForCharacter } = await import('./contentFavorites');
+        await reconcileStoredRecalledFavoritesForCharacter(charId);
+        const saved = (await listContentFavorites()).find(x => x.kind === 'chat' && x.charId === charId);
+        expect(JSON.stringify(saved)).not.toContain('旧版本泄漏的原文');
+    });
+
     it('cannot withdraw the user or a different character\'s words', async () => {
         const charId = uid();
         const other = uid();

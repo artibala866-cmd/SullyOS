@@ -134,6 +134,7 @@ import {
     removeContentFavoriteById,
     saveMessageContentFavorite,
     saveConversationContentFavorite,
+    reconcileStoredRecalledFavoritesForCharacter,
 } from '../utils/contentFavorites';
 import { DAILY_SCHEDULE_SAVED_EVENT, SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
 import {
@@ -343,6 +344,21 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+
+    // Compatibility repair for earlier recall builds: after opening a
+    // character, scrub hidden originals from legacy metadata/favorites.
+    // Do not add any UI delay, network/API request or autonomous chat trigger.
+    useEffect(() => {
+        if (!activeCharacterId) return;
+        void (async () => {
+            try {
+                await DB.scrubLegacyRecalledMetadata(activeCharacterId);
+                await reconcileStoredRecalledFavoritesForCharacter(activeCharacterId);
+            } catch (error) {
+                console.warn('[Chat recall] Legacy privacy cleanup deferred', error);
+            }
+        })();
+    }, [activeCharacterId]);
     // An already selected quote can be recalled while the user is composing.
     // Replace the composer snapshot with the tombstone before they send.
     useEffect(() => {

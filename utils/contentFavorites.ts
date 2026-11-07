@@ -499,6 +499,32 @@ export const redactRecalledMessageFavorites = async (charId: string, messageId: 
         }
     });
 
+/**
+ * Repair old favorite snapshots from pre-redaction releases. Only IDs whose
+ * live DB rows carry a recall marker are touched; no ordinary favorite is lost.
+ */
+export const reconcileStoredRecalledFavoritesForCharacter = async (charId: string): Promise<void> => {
+    const favorites = (await listContentFavorites()).filter(
+        item => item.kind === 'chat' && item.charId === charId,
+    );
+    const ids = new Set<number>();
+    for (const favorite of favorites) {
+        if (favorite.kind !== 'chat') continue;
+        ids.add(favorite.messageId);
+        if (favorite.snapshot?.replyTo) ids.add(favorite.snapshot.replyTo.id);
+        for (const entry of favorite.conversation || []) {
+            ids.add(entry.messageId);
+            if (entry.replyTo) ids.add(entry.replyTo.id);
+        }
+    }
+    const rows = await Promise.all([...ids].map(id => DB.getMessageById(id).catch(() => null)));
+    for (const row of rows) {
+        if (row?.charId === charId && row.role === 'assistant' && row.metadata?.recalledAt) {
+            await redactRecalledMessageFavorites(charId, row.id);
+        }
+    }
+};
+
 /** Called by DB deletion paths before removing original chat rows. */
 export const preserveContentFavoritesBeforeMessageDeletion = async (
     intent: { ids?: number[]; charId?: string },
