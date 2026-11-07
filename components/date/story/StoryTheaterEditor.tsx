@@ -518,6 +518,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
                         {matchingGreetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>[{item.source === 'link' ? 'Link' : item.source === 'custom' ? '自定义' : '酒馆'}] {item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
                     </select>
+                    {selectedGreeting && selectedGreeting.content.length > 12000 && <p role='status' className='mt-2 rounded-xl border border-amber-200 px-3 py-2 text-[10px] leading-5 text-amber-700'>
+                        这篇开场白有 {selectedGreeting.content.length.toLocaleString()} 字符（约 {estimateStoryTokens(selectedGreeting.content).toLocaleString()} tokens）。作为剧情首楼会影响后续上下文长度，过长时模型可能超限；建议先缩短再推进。
+                    </p>}
                     <div data-story-opening-document-import='true' className='mt-3 rounded-2xl border border-slate-200 bg-white/75 px-3 py-3'>
                         <div className='flex flex-wrap items-center justify-between gap-2'>
                             <div className='min-w-0'>
