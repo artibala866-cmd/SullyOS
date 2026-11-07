@@ -17,12 +17,17 @@ const tavernPreset=parseStoryTheaterPreset(JSON.stringify({
         {identifier:'main',name:'酒馆叙事规则',role:'system',content:'用 {{char}} 与 {{user}} 推进剧情'},
         {identifier:'charDescription',name:'酒馆角色资料',role:'system',marker:true},
         {identifier:'chatHistory',name:'酒馆历史',role:'system',marker:true},
+        {identifier:'html-side',name:'酒馆 HTML 小剧场',role:'system',content:'<sidestory><details><summary>小剧场</summary><div style="color:red">HTML/CSS 小剧场</div></details></sidestory>'},
         {identifier:'disabled-rule',name:'原本关闭的规则',role:'system',content:'保持关闭'},
     ],
     prompt_order:[{character_id:100001,order:[
         {identifier:'main',enabled:true},{identifier:'charDescription',enabled:true},
-        {identifier:'chatHistory',enabled:true},{identifier:'disabled-rule',enabled:false},
+        {identifier:'chatHistory',enabled:true},{identifier:'html-side',enabled:true},{identifier:'disabled-rule',enabled:false},
     ]}],
+    extensions: { regex_scripts: [{
+        scriptName: '酒馆 HTML 美化仅作源文件测试', disabled: false,
+        placement: [2], findRegex: '<sidestory>(.*?)</sidestory>', replaceString: '<div class="fancy">$1</div>',
+    }] },
 }), '酒馆视觉测试.json', 1);
 const actor={id:'visual-char',name:'故事角色',avatar:'',memories:[],mountedWorldbooks:[],systemPrompt:'一个角色',
     tavernGreetings:[{id:'tavern-first',title:'默认开场白',content:'雨夜的钟声响起，故事从这里开始。'}]} as any;
@@ -84,7 +89,8 @@ const validate=()=>{
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
     const tavernVisible=!!presetSection?.querySelector('select')?.textContent?.includes('酒馆视觉测试')
-        && !presetSection?.textContent?.includes('已适配酒馆预设')
+        && !!presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行')
+        && !!presetSection?.textContent?.includes('酒馆 HTML 小剧场不会按网页排版')
         && !presetSection?.querySelector('.border-amber-200');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
     const values={top:target(buttons[0]),bottom:target(buttons[1]),card:target(card),
