@@ -120,7 +120,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         const choice = listCharacterStoryOpenings({
             tavernGreetings: [{id:'tavern-alt-44',title:'备选开场白 44',content:requestFirst}],
             linkGreetings: [],
-        } as CharacterProfile)[0];
+        } as unknown as CharacterProfile)[0];
         expect(choice.title).toBe('雨夜原名');
         expect(choice.content).toBe('开场正文。');
         expect(tavernOpeningSceneText(requestFirst)).toBe('开场正文。');
@@ -177,7 +177,7 @@ describe('SillyTavern opening metadata compatibility', () => {
 
     it('never strips native Link or self-written HTML and keeps authored notes separate from the first floor', () => {
         const html='<div style="color:red"><p>Link 自带原始 HTML 正文。</p></div>';
-        const char={id:'actor',name:'季淮北',linkGreetings:[{id:'link-source-1',title:'Link 原生开场',content:html}],tavernGreetings:[]} as CharacterProfile;
+        const char={id:'actor',name:'季淮北',linkGreetings:[{id:'link-source-1',title:'Link 原生开场',content:html}],tavernGreetings:[]} as unknown as CharacterProfile;
         expect(listCharacterStoryOpenings(char)[0].content).toBe(html);
         expect(storyOpeningReadingText(html,'link-source-1','link')).toBe(html);
         expect(storyOpeningReadingText(html,'story-custom-1','custom')).toBe(html);
