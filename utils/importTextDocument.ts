@@ -1,4 +1,3 @@
-import { isPdfFile, extractPdfText } from './pdfText';
 import { isLinkPersonaDocument, readLinkPersonaDocument } from './linkImportDocuments';
 
 /** All three import surfaces use ONE parser; no hidden format-specific
@@ -16,6 +15,8 @@ export interface ImportedTextDocument {
     pageCount?: number;
 }
 
+const isPdfFile = (file: Pick<File,'name'|'type'>): boolean =>
+    file.type?.toLowerCase() === 'application/pdf' || /\.pdf$/i.test(file.name);
 export function isImportedTextDocument(file: Pick<File,'name'|'type'>): boolean {
     return isPdfFile(file) || isLinkPersonaDocument(file);
 }
@@ -36,6 +37,8 @@ export async function readImportedTextDocument(file: File): Promise<ImportedText
         throw new Error('文件内容是 PDF，请改用 .pdf 文件后导入');
 
     if (pdf) {
+        // PDF.js and its worker are large; load them only when a PDF is chosen.
+        const { extractPdfText } = await import('./pdfText');
         let result: Awaited<ReturnType<typeof extractPdfText>>;
         try {
             result = await extractPdfText(await file.arrayBuffer(), {
