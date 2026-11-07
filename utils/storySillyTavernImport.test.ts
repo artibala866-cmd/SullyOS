@@ -787,6 +787,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const imported = parseStoryTheaterPreset(raw, '多类作者预设.json');
         expect(imported.document.tavernControls?.inferred.pov).toBe('nmj-v3-pov-third');
         expect(buildStoryIdentityGuard(imported.document, '小雨', ['小蓝'])).toContain('第三人称');
+        expect(buildStoryIdentityGuard(imported.document, '小雨', ['小蓝'])).toContain('<content> 的旁白');
         expect(buildTavernNativeOverrideMessages(imported.document, '小雨', ['小蓝'])).toEqual([]);
         const edited = { ...imported.document, tavernControls: {
             ...imported.document.tavernControls!, overrides: {
