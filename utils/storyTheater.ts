@@ -310,7 +310,10 @@ export const selectStoryArchiveBatch = (
     const threshold = Math.max(2, Math.round(archiveAfter) || 40);
     if (rows.length < threshold) return [];
     const keep = Math.max(1, Math.min(threshold - 1, Math.round(keepRecent) || 5));
-    const batch = rows.slice(0, Math.max(0, rows.length - keep));
+    // A pending turn needs the preceding reply. A completed turn can be rerolled
+    // and needs the reply preceding it as well, even with keepRecent set to 1.
+    const anchor = rows.slice(0, -1).map(row => row.role).lastIndexOf('assistant');
+    const batch = rows.slice(0, Math.min(rows.length - keep, anchor < 0 ? rows.length : anchor));
     if (batch[batch.length - 1]?.role === 'user' && rows[batch.length]?.role === 'assistant') {
         batch.pop();
     }
@@ -2506,20 +2509,43 @@ export const formatActorRecentMessages = (
     return `### ${char.name} 最近携带的专属原文上下文（${messages.length} 条）\n以下记录只属于「${char.name}」与原互动对象「${originalUser}」，不得并入其他角色的经历。${identityReminder}\n${rows.join('\n')}`;
 };
 
+const toStoryHistoryMessage = (message: Message): StoryApiMessage => ({
+    role: message.role as StoryApiRole,
+    content: message.metadata?.theaterOpeningGreeting
+        ? storyOpeningReadingText(String(message.content || ''),
+            message.metadata.theaterOpeningGreeting.greetingId,
+            message.metadata.theaterOpeningGreeting.source)
+        : String(message.content || ''),
+});
+
 export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
     .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
     .sort((a, b) => a.id - b.id)
-    .map(message => ({
-        role: message.role as StoryApiRole,
-        // Already-started stories may have saved a Tavern header as the first
-        // assistant floor before this adapter existed. Only sanitize that
-        // marked opening in AI context; never rewrite historical DB messages.
-        content: message.metadata?.theaterOpeningGreeting
-            ? storyOpeningReadingText(String(message.content || ''),
-                message.metadata.theaterOpeningGreeting.greetingId,
-                message.metadata.theaterOpeningGreeting.source)
-            : String(message.content || ''),
-    }));
+    .map(toStoryHistoryMessage);
+
+/** Number floors before hiding old records so the API and reading view use the same numbers. */
+export const buildStoryRequestHistory = (
+    rows: Message[],
+    beforeId: number,
+    isArchived: (message: Message) => boolean,
+) => {
+    const history = rows.map((row, index) => ({ row, floor: index + 1 }))
+        .filter(({ row }) => row.id < beforeId && (row.role === 'user' || row.role === 'assistant'));
+    const anchor = history.map(({ row }) => row.role).lastIndexOf('assistant');
+    return history.filter(({ row }, index) =>
+        // Restore the exact previous reply for old stories that archived it too early.
+        index === anchor || (index === anchor - 1 && row.role === 'user') || !isArchived(row),
+    ).map(({ row, floor }) => ({ row, floor, message: toStoryHistoryMessage(row) }));
+};
+
+/** Use the original input on new replies. Legacy replies can use an adjacent user floor. */
+export const getStoryReplyInput = (rows: Message[], reply: Message): Message | undefined => {
+    const savedId = reply.metadata?.theaterReplyToUserId;
+    const candidate = savedId === undefined
+        ? rows[rows.findIndex(row => row.id === reply.id) - 1]
+        : rows.find(row => row.id === savedId);
+    return candidate?.role === 'user' && candidate.id < reply.id ? candidate : undefined;
+};
 
 /** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
 export const getPendingStoryRetryInput = (messages: Message[]): string => {

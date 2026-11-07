@@ -14,6 +14,8 @@ export interface ShareOrDownloadOptions {
     mimeType?: string;
     /** 系统 / Web 分享面板标题，默认取文件名。 */
     shareTitle?: string;
+    /** 网页下载入口可直接下载；原生 App 保留系统分享。 */
+    preferDownloadOnWeb?: boolean;
 }
 
 export interface ShareOrDownloadBlobOptions {
@@ -32,6 +34,13 @@ const NATIVE_WRITE_CHUNK_SIZE = 3 * 1024 * 1024;
 // Capacitor's iOS and Android plugins reject with this message (without AbortError).
 const isShareCancelled = (error: any): boolean => error?.name === 'AbortError'
     || /^share cancel(?:ed|led)$/i.test(String(error?.message || '').trim());
+
+const isWebSharePermissionDenied = (error: any): boolean => error?.name === 'NotAllowedError'
+    || /permission denied|not allowed|user activation/i.test(String(error?.message || error));
+
+const canUseWebShare = () => typeof navigator !== 'undefined'
+    && typeof navigator.share === 'function'
+    && navigator.userActivation?.isActive !== false;
 
 const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -120,9 +129,8 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
 
     try {
         const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
-        const canShareFile = typeof navigator !== 'undefined'
-            && !preferDownloadOnWeb
-            && typeof navigator.share === 'function'
+        const canShareFile = !preferDownloadOnWeb
+            && canUseWebShare()
             && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
         if (canShareFile) {
             await navigator.share({ title: shareTitle, files: [file] });
@@ -130,9 +138,7 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
         }
     } catch (error: any) {
         if (isShareCancelled(error)) return 'cancelled';
-        const expectedPermissionFallback = error?.name === 'NotAllowedError'
-            || /permission denied|not allowed|user activation/i.test(String(error?.message || error));
-        if (!expectedPermissionFallback) console.error('Web Blob Share Error', error);
+        if (!isWebSharePermissionDenied(error)) console.error('Web Blob Share Error', error);
     }
 
     // 原生壳绝不能伪装成“浏览器已下载”：WebView 的 a.download 正是最常见的无反应来源。
@@ -165,7 +171,7 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions & { card?: undefined }): Promise<'shared' | 'downloaded'>;
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'>;
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
-    const { content, fileName, mimeType = 'application/json', shareTitle = fileName } = options;
+    const { content, fileName, mimeType = 'application/json', shareTitle = fileName, preferDownloadOnWeb = false } = options;
     if (options.card) return shareOrDownloadBlob({ blob: new Blob([content], { type: mimeType }), fileName, shareTitle, card: options.card });
 
     // 1) 原生平台：写缓存 → 取 URI → 调起系统分享面板。
@@ -198,8 +204,8 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
     // 2) Web Share API（移动端浏览器 / 支持的 WebView）。
     try {
         const file = new File([content], fileName, { type: mimeType });
-        const canShareFile = typeof navigator !== 'undefined'
-            && typeof navigator.share === 'function'
+        const canShareFile = !preferDownloadOnWeb
+            && canUseWebShare()
             && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
 
         if (canShareFile) {
@@ -211,7 +217,7 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
         }
     } catch (e: any) {
         // 用户取消（AbortError）与不支持的情况都继续走下载兜底，保证一定能拿到文件。
-        if (e?.name !== 'AbortError') {
+        if (!isShareCancelled(e) && !isWebSharePermissionDenied(e)) {
             console.error('Web Share Export Error', e);
         }
     }
@@ -229,6 +235,6 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     return 'downloaded';
 }

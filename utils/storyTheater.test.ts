@@ -18,6 +18,8 @@ import {
     buildStoryMultiAffinityGuide,
     buildStoryWorldbookScanMessages,
     buildStoryHistory,
+    buildStoryRequestHistory,
+    getStoryReplyInput,
     compileStoryPreset,
     prepareStoryGenerationSettings,
     reconcileStoryAffinityScores,
@@ -66,6 +68,38 @@ describe('线下剧情多轮历史一致性', () => {
         expect(history).toHaveLength(24);
         expect(history.at(-2)).toEqual({ role: 'user', content: '第12轮推进' });
         expect(history.at(-1)).toEqual({ role: 'assistant', content: '第12轮正文' });
+    });
+
+    it('归档保留续写和重写所需的最近正文，并恢复旧存档被隐藏的准确楼层', () => {
+        const rows = Array.from({ length: 12 }, (_, index) => ({
+            id: 100 + 3 * index,
+            role: index % 2 === 0 ? 'user' : 'assistant',
+            content: `正文或推进 ${index + 1}`,
+        } as Message));
+        expect(selectStoryArchiveBatch(rows, 10, 1)).toEqual(rows.slice(0, 8));
+        const pending = { ...rows[10], id: 200 };
+        expect(selectStoryArchiveBatch([...rows, pending], 10, 1)).toEqual(rows.slice(0, 10));
+
+        // Old archive settings can leave only a summary for the previous reply.
+        const history = buildStoryRequestHistory([...rows, pending], pending.id, row => row.id <= rows[11].id);
+        expect(history.map(({ floor, message }) => [floor, message.role, message.content])).toEqual([
+            [11, 'user', '正文或推进 11'],
+            [12, 'assistant', '正文或推进 12'],
+        ]);
+        const reroll = buildStoryRequestHistory(rows, rows[10].id, row => row.id < rows[10].id);
+        expect(reroll.map(({ floor }) => floor)).toEqual([9, 10]);
+    });
+
+    it('换一种写法使用原始推进，删除后不会改用早一楼的用户输入', () => {
+        const olderUser = { id: 5, role: 'user' } as Message;
+        const previousReply = { id: 6, role: 'assistant' } as Message;
+        const originalInput = { id: 7, role: 'user' } as Message;
+        const reply = { id: 8, role: 'assistant', metadata: { theaterReplyToUserId: 7 } } as Message;
+        expect(getStoryReplyInput([olderUser, previousReply, originalInput, reply], reply)).toBe(originalInput);
+        expect(getStoryReplyInput([olderUser, reply], reply)).toBeUndefined();
+        const legacyReply = { ...reply, metadata: {} };
+        expect(getStoryReplyInput([olderUser, previousReply, legacyReply], legacyReply)).toBeUndefined();
+        expect(getStoryReplyInput([olderUser, previousReply, originalInput, legacyReply], legacyReply)).toBe(originalInput);
     });
 
     it('酒馆最近消息宏指向本轮用户输入，角色消息宏仍指向上一轮 AI 正文', () => {
