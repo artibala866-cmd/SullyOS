@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     BUILTIN_NIGHT_SCREENING_PRESET, compileStoryPreset, getStoryTavernAuthorSections,
-    parseStoryTheaterPreset, selectStoryTavernAuthorOption,
+    parseStoryTheaterPreset, resolveStoryPresetImport, selectStoryTavernAuthorOption,
 } from './storyTheater';
 
 type Entry = { id: string; name: string; content: string; enabled: boolean; role?: 'system' | 'assistant' | 'user' };
@@ -16,6 +16,24 @@ const compiled = (preset: ReturnType<typeof make>) =>
     userName: '用户', characterNames: ['角色'] }).messages.map(msg => msg.content).join('\n');
 
 describe('各作者原生分组的真实行为：不把宝宝我是char套给其他作者', () => {
+    it('旧版已导入 MoM 预设重新导入时原地补齐作者分组，不复制和不重置原 ID、开关', () => {
+        const source = make('老MoM.json', [
+            { id: 'first', name: '文风-原版', content: '原作者旧选择 A', enabled: true },
+            { id: 'second', name: '文风-新方案', content: '原作者候选 B', enabled: false },
+        ], [{ id: 'from-author', name: '小说文风', memberIdentifiers: ['first', 'second'] }]);
+        const { tavernEntryGroups: _old, ...legacyDoc } = source.document;
+        const prior = { ...source, id: 'existing-user-preset', document: legacyDoc };
+        const resolved = resolveStoryPresetImport(source, [prior]);
+        expect(resolved.duplicate).toBe(true);
+        expect(resolved.upgraded).toBe(true);
+        expect(resolved.preset.id).toBe('existing-user-preset');
+        expect(resolved.preset.document.prompts).toEqual(prior.document.prompts);
+        expect(getStoryTavernAuthorSections(resolved.preset.document).some(s => s.label === '小说文风')).toBe(true);
+        const repeat = resolveStoryPresetImport(source, [resolved.preset]);
+        expect(repeat.duplicate).toBe(true);
+        expect(repeat.upgraded).toBeUndefined();
+    });
+
     it('蛾摩拉：优先采用作者元数据，小说类型、小说文风互不串组；保存后重读仍能切换', () => {
         const entries: Entry[] = [
             { id: 'genre1', name: '群像', content: '原作群像 A', enabled: true },
