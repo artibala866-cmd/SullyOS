@@ -1623,7 +1623,10 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
         .map(style => '<style>' + (style.textContent || '') + '</style>')
         .join('\n').slice(0, 26000);
     const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
-        const text = formatTaggedStoryFragment(raw);
+        const displayRaw = raw.replace(
+            /<(?:script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|embed|svg|math)\s*>/gi, '',
+        );
+        const text = formatTaggedStoryFragment(displayRaw);
         if (!text && !htmlSource) return;
         const last = blocks[blocks.length - 1];
         if (kind === 'story' && last?.kind === 'story') {
