@@ -452,6 +452,14 @@ describe('剧情沙盒辅助逻辑', () => {
         expect(JSON.stringify(worldbooks)).toBe(snapshot);
     });
 
+    it('旧剧情存档有重复与非字符串世界书 ID 时，安全去重并保留正常选择', () => {
+        const restored=normalizeStoryTheater({
+            ...createStoryTheaterDraft(),title:'旧剧情',
+            selectedWorldbookIds:['global-a','global-a',null,'',0,'legacy-b'] as any,
+        });
+        expect(restored.selectedWorldbookIds).toEqual(['global-a','legacy-b']);
+    });
+
     it('全局同 ID 以最新库记录优先，挂载但未入库的旧世界书可单独选择，重名不同 ID 不丢', () => {
         const globals = [
             { id: 'shared', title: '共同', content: '全局最新版本', category: '主线' },
