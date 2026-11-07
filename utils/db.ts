@@ -4596,6 +4596,7 @@ export const DB = {
               activeSkinSetId: media.activeSkinSetId || c.activeSkinSetId,
               customDateSprites: media.customDateSprites || c.customDateSprites,
               spriteConfig: media.spriteConfig || c.spriteConfig,
+              spriteConfigLandscape: media.spriteConfigLandscape || c.spriteConfigLandscape,
               chatBackground: media.backgrounds?.chat || c.chatBackground,
               dateBackground: media.backgrounds?.date || c.dateBackground,
               roomConfig: c.roomConfig ? {
