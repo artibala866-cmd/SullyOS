@@ -517,7 +517,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const content = readingContentRef.current;
         if (!content) return;
         const syncLayout = () => {
-            // Reflow while reading an older floor must not pull the reader away.
+            // Follow late font/media reflow only when the reader chose the latest floor.
+            // Expanding archived history explicitly disables following, preserving position.
+            if (followLatestRef.current) {
+                const viewport = readingScrollRef.current;
+                if (viewport) viewport.scrollTop = viewport.scrollHeight;
+            }
             updateVisibleFloor();
         };
         const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
