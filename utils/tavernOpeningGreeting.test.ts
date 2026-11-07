@@ -116,7 +116,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(visible).toContain('{{char}}看见{{user}}');
         expect(visible).not.toMatch(/<request:|<div\b|<h3\b|style=|font-family|PingFang/i);
         expect(tavernOpeningAuthorNote(raw)).toContain('两个季淮北的称呼应该都是季淮北');
-        const requestFirst = '<request:只叫他季淮北>\\n<!-- title:雨夜原名 -->\\n<p>开场正文。</p>';
+        const requestFirst = '<request:只叫他季淮北>\n<!-- title:雨夜原名 -->\n<p>开场正文。</p>';
         const choice = listCharacterStoryOpenings({
             tavernGreetings: [{id:'tavern-alt-44',title:'备选开场白 44',content:requestFirst}],
             linkGreetings: [],
