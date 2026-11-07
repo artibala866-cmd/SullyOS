@@ -264,6 +264,17 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(storyOpeningReadingText(raw,'link-opening:existing','link')).toBe(raw);
         expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
         expect(stripUnsupportedTavernOpeningEmbeds(raw)).toContain('<!-- title:回到十八岁 -->');
+        const preface = '[spotify: 午夜 | https://cdn.example/cover.gif | https://cdn.example/music.mp3]\n'
+            + '<!-- title:下雪那天 -->\n<p>他从走廊跑来。</p>';
+        const refreshed = listCharacterStoryOpenings({id:'actor', name:'季淮北',
+            tavernGreetings:[{id:'tavern-alt-2',title:'备选开场 2',content:preface}],
+        } as CharacterProfile)[0];
+        expect(refreshed.title).toBe('下雪那天');
+        expect(refreshed.content).toBe('他从走廊跑来。');
+        const malformed = '[线索: 书架第三层\n'
+            + '[spotify: 初雪 | https://cdn.example/card.gif | https://cdn.example/song.mp3]\n正文';
+        expect(tavernOpeningReadableText(malformed)).toContain('[线索: 书架第三层');
+        expect(tavernOpeningReadableText(malformed)).not.toContain('spotify:');
     });
 
 });
