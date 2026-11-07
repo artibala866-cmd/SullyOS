@@ -207,7 +207,7 @@ const validate=()=>{
                 ? scenario==='styledTavern' ? !!openingEditor : titleInput?.value===(scenario==='autoNameTavern'?'开场白6':
                     scenario==='autoNameLink'?'Link · 星河初遇':'我自己命名的剧情')
                     && openingSelect?.value===`${actor.id}::${scenario==='autoNameLink'?'link-visual-opening':'tavern-first'}`
-                    && openingEditor?.value===(scenario==='autoNameLink'?linkGreeting.content:legacyScene)
+                    && openingEditor?.value===(scenario==='autoNameLink'?'{{char}}在星河下等待{{user}}。':legacyScene)
                 : true)
             && (scenario==='manual'
                 ? !openingSelect?.hasAttribute('disabled') && openingSelect?.querySelector('option')?.textContent==='选择已有开场'
