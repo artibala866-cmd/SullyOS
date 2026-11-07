@@ -2275,6 +2275,9 @@ export interface StoryTheaterEntry {
     archiveKeepRecent?: number;
     archiveStrategy: StoryTheaterArchiveStrategy;
     archives: StoryTheaterArchive[];
+    /** Only this story's memory summaries/extraction use this complete API snapshot; absent follows existing routes. */
+    memorySummaryApi?: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>;
+
     /** 当前剧情明确选中的全局/旧挂载世界书 ID；只影响本剧情，不改角色或世界书库。 */
     selectedWorldbookIds: string[];
     presetId?: string;
