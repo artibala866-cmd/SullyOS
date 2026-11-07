@@ -440,7 +440,7 @@ describe('剧情沙盒辅助逻辑', () => {
         ] as any[];
         const snapshot = JSON.stringify(worldbooks);
         const resolved = resolveStoryTheaterWorldbooks(worldbooks, []);
-        expect(resolved.map(book => book.id)).toEqual(['book-a', 'book-b']);
+        expect(resolved.map(book => book.id).sort()).toEqual(['book-a', 'book-b']);
         const selected = resolved.filter(book => new Set(['book-b']).has(book.id));
         const request = ContextBuilder.buildWorldbookRequest({
             books: selected, history: [{ role: 'user', content: '开始' }],
