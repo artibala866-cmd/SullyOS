@@ -234,7 +234,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         const old = {id:1,charId:'story-theater:test',role:'assistant',type:'text',timestamp:1,
             content:music+'\n{{char}}说要下雪了。',
             metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-first'}}};
-        const reply = { ...old, id:2,role:'user',content:'我在对话里写下 '+music,
+        const reply = { ...old, id:2,role:'user',timestamp:2,content:'我在对话里写下 '+music,
             metadata:{source:'story_theater'}};
         const history = buildStoryHistory([reply,old] as any);
         expect(history[0].content).toBe('{{char}}说要下雪了。');
