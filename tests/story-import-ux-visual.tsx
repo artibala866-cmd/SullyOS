@@ -35,28 +35,34 @@ const changeText=(input:HTMLInputElement,text:string)=>{
     input.dispatchEvent(new Event('input',{bubbles:true}));
 };
 async function waitFor(check:()=>boolean) {
-    for(let i=0;i<100;i++){if(check())return;await sleep(60);}
+    for(let i=0;i<90;i++){if(check())return;await sleep(30);}
     throw new Error('导入流程没有完成预期操作');
 }
 async function run(){
+    document.body.dataset.storyImportUxStage='mount';
     await waitFor(()=>!!document.querySelector('input[aria-label="搜索已有开场白"]'));
+    document.body.dataset.storyImportUxStage='search-mounted';
     const search=document.querySelector<HTMLInputElement>('input[aria-label="搜索已有开场白"]')!;
     changeText(search,'开场白29');
     await waitFor(()=>[...document.querySelectorAll<HTMLSelectElement>('select[aria-label="选择已有开场"] option')].some(o=>o.textContent?.includes('开场白29')));
     const options=[...document.querySelectorAll<HTMLOptionElement>('select[aria-label="选择已有开场"] option')];
     const filtered=options.some(o=>o.textContent?.includes('开场白29')) && !options.some(o=>o.textContent?.includes('开场白18'));
+    document.body.dataset.storyImportUxStage='search-complete';
     const presetSelect=()=>document.querySelector<HTMLSelectElement>('select:not([aria-label]):has(option[value="builtin-night-screening"])');
     const initial=presetSelect()?.value||'';
     const uploader=document.querySelector<HTMLInputElement>('input[type="file"][accept*="application/json"]')!;
     const transfer=new DataTransfer();
     for(const num of [1,2,3])transfer.items.add(new File(['{}'],'导入预设'+num+'.json',{type:'application/json'}));
     uploader.files=transfer.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
+    document.body.dataset.storyImportUxStage='batch-dispatched';
     await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
+    document.body.dataset.storyImportUxStage='batch-complete';
     const preserved=presetSelect()?.value===initial;
     const batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
     const single=new DataTransfer();single.items.add(new File(['{}'],'单独选中.json',{type:'application/json'}));
     uploader.files=single.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(()=>presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中');
+    document.body.dataset.storyImportUxStage='single-complete';
     const singleSelected=presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中';
     const fit=document.documentElement.scrollWidth<=innerWidth;
     const result={filtered,preserved,batchFeedback,singleSelected,fit,optionsAfterSearch:options.length};
