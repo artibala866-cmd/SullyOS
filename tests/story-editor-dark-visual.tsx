@@ -47,6 +47,15 @@ const styledGreeting={id:'tavern-style-raw',title:'备选开场白 25',
         +'!-- note: -->\n<!-- tag: sib -->\n'
         +'【音乐|Tictoc|"째깍."|\nhttps://external-cdn.example/media/clock.mp3|】\n'
         +'【音乐｜初雪｜无可用原生播放器｜https://another-cdn.example/snow.mp3｜】\n'
+        +'<wb_lore>\n'
+        +'[账号|user|{{user}}|粉丝:612|关注:48]\n'
+        +'[账号|char|左宥之|粉丝:1087万|关注:86]\n'
+        +'【微博撰写要求】\n'
+        +'- char：片场碎碎念，绝不公布助理身份。\n'
+        +'【其它初始化】\n'
+        +'- 关系：user 是新任助理。\n'
+        +'</wb_lore>\n'
+        +'<!-- route: 1 -->\n'
         +'[地图显示: 旧城 | https://assets.example.net/maps/embed?id=4]\n'
         +'<audio controls src="https://assets.example.net/sound.mp3"></audio>'
         +'<iframe src="https://assets.example.net/maps/embed?id=4"></iframe>'};
@@ -190,7 +199,7 @@ const validate=()=>{
                     && !!openingEditor
                     && openingEditor.value.includes('雨夜 · 铁锈街')
                     && openingEditor.value.includes('烟头烫在水泥地上')
-                    && !/<request|<div|<h3|style=|font-family|PingFang|spotify:|【音乐|Tictoc|Novocaine|Overdosing|tag: sib|note:|another-cdn|external-cdn|地图显示:|<iframe|<audio|assets\.example\.net|\.mp3|\.gif/i.test(openingEditor.value)
+                    && !/<request|<div|<h3|style=|font-family|PingFang|spotify:|【音乐|Tictoc|Novocaine|Overdosing|tag: sib|note:|wb_lore|粉丝:|微博撰写要求|其它初始化|route: 1|another-cdn|external-cdn|地图显示:|<iframe|<audio|assets\.example\.net|\.mp3|\.gif/i.test(openingEditor.value)
                     && !opening?.textContent?.includes('font-family')
                 : true)
             && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
