@@ -44,8 +44,67 @@ const imported = parseStoryTheaterPreset(JSON.stringify({
 const dialectCases: Record<string, {
     temperature: number; top_p: number; frequency_penalty: number;
     presence_penalty: number; openai_max_tokens: number;
-    items: Array<{ name: string; content: string }>; labels: string[];
+    items: Array<{ id?: string; name: string; content: string; enabled?: boolean }>; labels: string[];
+    sourceGroups?: Array<{ id: string; name: string; memberIdentifiers?: string[]; startIdentifier?: string; endIdentifier?: string }>;
 }> = {
+    gomora: {
+        temperature: 1.05, top_p: .98, frequency_penalty: 0, presence_penalty: 0,
+        openai_max_tokens: 32000,
+        sourceGroups: [
+            { id: 'genre', name: '小说类型', memberIdentifiers: ['genreA','genreB'] },
+            { id: 'style', name: '小说文风', memberIdentifiers: ['styleA','styleB'] },
+        ],
+        items: [
+            { id: 'genreA', name: '群像', content: '群像多角色叙述。' },
+            { id: 'genreB', name: '言情', content: '言情向叙述。', enabled: false },
+            { id: 'styleA', name: '文风-恋爱喜剧@电波系', content: '原作者恋爱喜剧文风。' },
+            { id: 'styleB', name: '文风-诗童话', content: '原作者诗童话文风。', enabled: false },
+            { id: 'core', name: 'set-不要关', content: '原作者底座。' },
+        ],
+        labels: ['小说类型', '小说文风', '群像', '文风-恋爱喜剧'],
+    },
+    ivory: {
+        temperature: 1.5, top_p: .88, frequency_penalty: 1.5, presence_penalty: 1.5,
+        openai_max_tokens: 30000,
+        sourceGroups: [{ id: 'theater', name: '🎪小剧场', startIdentifier: 'theaterOpen', endIdentifier: 'theaterClose' }],
+        items: [
+            { id: 'theaterOpen', name: '╔小剧场开启╗', content: '<theater>' },
+            { id: 'aurora', name: '🎪极光交互小剧场', content: '作者极光剧场。', enabled: false },
+            { id: 'plain', name: '🎪简约文字小剧场', content: '作者简约小剧场。' },
+            { id: 'theaterClose', name: '╚小剧场结束╝', content: '</theater>' },
+        ],
+        labels: ['🎪小剧场', '简约文字小剧场'],
+    },
+    yuki: {
+        temperature: 1, top_p: 1, frequency_penalty: 0, presence_penalty: 0,
+        openai_max_tokens: 20000,
+        items: [
+            { name: '——📌⬇️文风区⬇️——', content: '<writing_style>' },
+            { name: '⌨️浪漫文风@小白狗', content: '原作者浪漫文风。' },
+            { name: '⌨️克制白描文风@电波系', content: '原作者白描风格。', enabled: false },
+            { name: '——📌⬆️文风区⬆️——', content: '</writing_style>' },
+            { name: '===💡⬇️小剧场区⬇️💡===', content: '<theater>' },
+            { name: '💡4选1🌌 极光小剧场@电波系', content: '极光小剧场。' },
+            { name: '💡4选1❄️小回小剧场@小回', content: '小回小剧场。', enabled: false },
+            { name: '🔦完全随机小剧场', content: '完全随机小剧场。' },
+            { name: '===⬆️小剧场区⬆️===', content: '</theater>' },
+        ],
+        labels: ['文风区', '小剧场区', '完全随机小剧场'],
+    },
+    phantasm: {
+        temperature: 1.05, top_p: .98, frequency_penalty: 0, presence_penalty: 0,
+        openai_max_tokens: 65536,
+        items: [
+            { name: '▍文风 [择一]', content: '主文风仅选一。' },
+            { name: '📘轻快自然', content: '轻快自然写作。' },
+            { name: '📘慢活治愈', content: '慢活治愈写作。', enabled: false },
+            { name: '📒轻小说 [可叠加]', content: '附加轻小说风格。' },
+            { name: '✏ 表现&修辞手法', content: '采用不同的修辞技巧。' },
+            { name: '📙白描', content: '白描技巧。' },
+            { name: '▍功能&守则', content: '下一组规则。' },
+        ],
+        labels: ['文风 [择一]', '轻快自然', '轻小说 [可叠加]', '白描'],
+    },
     pluto: {
         temperature: 1, top_p: .9, frequency_penalty: 0, presence_penalty: 0, openai_max_tokens: 60000,
         items: [
@@ -127,10 +186,11 @@ const mappedPreset = dialect === 'baby' ? babyPreset : dialectCase
         frequency_penalty: dialectCase.frequency_penalty, presence_penalty: dialectCase.presence_penalty,
         openai_max_tokens: dialectCase.openai_max_tokens,
         prompts: dialectCase.items.map((item, i) => ({
-            identifier: 'v' + i, role: 'system', name: item.name, content: item.content,
+            identifier: item.id || 'v' + i, role: 'system', name: item.name, content: item.content,
         })),
         prompt_order: [{ character_id: 100001,
-            order: dialectCase.items.map((_, i) => ({ identifier: 'v' + i, enabled: true })) }],
+            order: dialectCase.items.map((item, i) => ({ identifier: item.id || 'v' + i, enabled: item.enabled !== false })) }],
+        extensions: { entryGrouping: dialectCase.sourceGroups || [] },
     }), dialect + '.json') : imported;
 const groups = getStoryPresetPromptGroups(mappedPreset.document);
 const authoredIds = imported.document.prompts.map(p=>p.id);
