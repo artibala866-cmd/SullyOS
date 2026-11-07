@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/meet-story-regression.yml'
       - 'components/date/story/**'
+      - 'tests/story-reading-scroll-visual.tsx'
+      - 'utils/storyReadingScroll.wiring.test.ts'
       - 'test/fixtures/story-editor-dark.html'
       - 'tests/story-editor-dark-visual.tsx'
       - 'scripts/story-lore-device-viewport.mjs'
@@ -67,7 +69,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Test story creation, persistence, archives, backups and timeline compatibility
         run: |
-          pnpm exec vitest run utils/tavernOpeningGreeting.test.ts utils/storyTheaterHtml.test.ts utils/storyTheaterHtmlUI.test.tsx utils/storyTheaterRealDialectAudit.test.ts utils/storyTavernCategories.test.ts utils/storySillyTavernImport.test.ts utils/storyTavernAuthorSections.test.ts utils/storyQuickPresetPanel.test.tsx utils/storyPresetImportAudit.test.ts utils/storyPresetImportUi.test.tsx utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/dateSessionLandscape.test.ts utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts utils/storyTheaterOpeningInline.test.tsx
+          pnpm exec vitest run utils/tavernOpeningGreeting.test.ts utils/storyTheaterHtml.test.ts utils/storyTheaterHtmlUI.test.tsx utils/storyTheaterRealDialectAudit.test.ts utils/storyTavernCategories.test.ts utils/storySillyTavernImport.test.ts utils/storyTavernAuthorSections.test.ts utils/storyQuickPresetPanel.test.tsx utils/storyPresetImportAudit.test.ts utils/storyPresetImportUi.test.tsx utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/dateSessionLandscape.test.ts utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyReadingScroll.wiring.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts utils/storyTheaterOpeningInline.test.tsx
       - name: Check meet and database TypeScript diagnostics
         shell: bash
         run: |
@@ -380,6 +382,41 @@ jobs:
             echo "MEET_LANDSCAPE_SCREENSHOT_${frame}_END"
           done
           echo 'PASS: Meet responsive layout verified in real Chromium for small landscape and portrait'
+      - name: Screenshot cinema decoration in the real story component after closing appearance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-cinema-after-close
+          pnpm exec vite --host 127.0.0.1 --port 5197 --strictPort > output/story-cinema-after-close/vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:5197/story-reading-scroll-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat output/story-cinema-after-close/vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for mode in plain cinema; do
+            url="http://127.0.0.1:5197/story-reading-scroll-visual.html?mode=${mode}&focus=middle"
+            "$browser" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run \
+              --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=7000 \
+              --dump-dom "$url" > "output/story-cinema-after-close/${mode}.html" 2> "output/story-cinema-after-close/${mode}.log"
+            grep -q 'data-story-scroll-ready="true"' "output/story-cinema-after-close/${mode}.html" || {
+              grep 'story-scroll-report' "output/story-cinema-after-close/${mode}.html" | tail -c 1400 || true
+              tail -n 30 "output/story-cinema-after-close/${mode}.log" || true
+              exit 1
+            }
+            "$browser" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run \
+              --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=7000 \
+              --screenshot="output/story-cinema-after-close/${mode}-390.png" "$url" >/dev/null 2>&1
+            test -s "output/story-cinema-after-close/${mode}-390.png"
+          done
+          echo "STORY_CINEMA_SCREENSHOT_BEGIN"
+          base64 -w0 output/story-cinema-after-close/cinema-390.png
+          echo
+          echo "STORY_CINEMA_SCREENSHOT_END"
+          echo "PASS: cinema decor visible after closing the real appearance portal; plain remains unchanged"
       - name: Attach browser screenshot and computed style report
         if: always()
         uses: actions/upload-artifact@v4
@@ -389,4 +426,5 @@ jobs:
             output/meet-story/
             output/meet-scenes/
             output/meet-landscape/
+            output/story-cinema-after-close/
           if-no-files-found: ignore
