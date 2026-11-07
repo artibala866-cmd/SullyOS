@@ -1500,7 +1500,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }
         if (savedPresets) {
             try {
-                const normalizedPresets = normalizeApiPresets(JSON.parse(savedPresets));
+                const parsedPresets: unknown = JSON.parse(savedPresets);
+                const normalizedPresets = normalizeApiPresets(parsedPresets);
+                if (!Array.isArray(parsedPresets) || (parsedPresets.length > 0 && normalizedPresets.length === 0)) {
+                    throw new Error('Stored preset list has no usable records');
+                }
                 setApiPresets(normalizedPresets);
                 localStorage.setItem('os_api_presets', JSON.stringify(normalizedPresets));
             } catch (error) {
@@ -3171,7 +3175,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const addApiPreset = (name: string, config: APIConfig, group?: string) => { setApiPresets(prev => { const next = [...prev, normalizeApiPreset({ id: crypto.randomUUID(), name, config, group: group?.trim() })]; localStorage.setItem('os_api_presets', JSON.stringify(next)); return next; }); };
   const updateApiPreset = (id: string, name: string, config: APIConfig, group?: string) => { setApiPresets(prev => { const next = prev.map(p => p.id === id ? normalizeApiPreset({ ...p, name, config, group: group === undefined ? p.group : group.trim() }) : p); localStorage.setItem('os_api_presets', JSON.stringify(next)); return next; }); };
   const removeApiPreset = (id: string) => { setApiPresets(prev => { const next = prev.filter(p => p.id !== id); localStorage.setItem('os_api_presets', JSON.stringify(next)); return next; }); };
-  const savePresets = (presets: ApiPreset[]) => { const normalized = normalizeApiPresets(presets); setApiPresets(normalized); localStorage.setItem('os_api_presets', JSON.stringify(normalized)); };
+  const savePresets = (presets: ApiPreset[]) => {
+      if (!Array.isArray(presets)) {
+          console.warn('Backup API preset list is not an array; keeping current presets');
+          return;
+      }
+      const normalized = normalizeApiPresets(presets);
+      if (presets.length > 0 && normalized.length === 0) {
+          console.warn('Backup API presets are all invalid; keeping current presets');
+          return;
+      }
+      try { localStorage.setItem('os_api_presets', JSON.stringify(normalized)); }
+      catch (error) { console.warn('Imported API presets were not saved', error); addToast('导入的 API 预设保存失败，原预设未被覆盖', 'error'); return; }
+      setApiPresets(normalized);
+  };
   const addCharacter = async () => {
     const name = 'New Character';
     // 情绪 Buff 已与日程分离：新角色必须由用户在私聊设置主动开启，避免额外 API 调用。
