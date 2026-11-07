@@ -54,6 +54,17 @@ async function run(){
     const append=dialog.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
     const replace=[...dialog.querySelectorAll('button')].find(x=>x.textContent?.trim()==='替换') as HTMLButtonElement|undefined;
     if(!confirm||!append||!replace)throw Error('Import modal append/replace controls missing');
+    const primaryBackground=getComputedStyle(confirm).backgroundColor;
+    const selectedBackground=getComputedStyle(append).backgroundColor;
+    const unselectedBackground=getComputedStyle(replace).backgroundColor;
+    const confirmRect=confirm.getBoundingClientRect();
+    if(['transparent','rgba(0, 0, 0, 0)'].includes(primaryBackground) ||
+        primaryBackground===getComputedStyle(dialog).backgroundColor)
+        throw Error('Confirm import button visually invisible');
+    if(selectedBackground===unselectedBackground)
+        throw Error('Append/replace selection is not visibly distinguishable');
+    if(confirmRect.height<36||confirmRect.bottom>innerHeight+1)
+        throw Error('Confirm import button clipped by viewport');
     const before=document.querySelector<HTMLTextAreaElement>('textarea[aria-label="关于我 / 设定"]');
     if(!before||before.value!==InitialBio)throw Error('Import preview changed original biography before confirmation');
     if(source==='user-profile-saved'){
