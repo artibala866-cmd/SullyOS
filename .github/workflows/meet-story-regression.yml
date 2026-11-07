@@ -7,6 +7,7 @@ on:
       - 'components/date/story/**'
       - 'test/fixtures/story-editor-dark.html'
       - 'tests/story-editor-dark-visual.tsx'
+      - 'scripts/story-lore-device-viewport.mjs'
       - 'apps/DateApp.tsx'
       - 'context/MusicContext.tsx'
       - 'utils/dateBgm*.ts'
@@ -135,17 +136,16 @@ jobs:
               > "output/meet-story/light-${scenario}-screenshot.log" 2>&1
             test -s "output/meet-story/story-editor-light-${scenario}-390.png"
           done
-          # Global lore sandbox: both widths must show selectable worldbooks even with no cast.
+          # Verify the *CSS* viewport, not Chrome's >=500px minimum desktop
+          # layout accidentally cropped into an apparent 320px screenshot.
           for width in 390 320; do
             loreurl="http://127.0.0.1:5193/test/fixtures/story-editor-dark.html?mode=light&scenario=globalLore&focus=lore"
-            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-              --window-size="${width},844" --force-device-scale-factor=1 --virtual-time-budget=8000 \
-              --dump-dom "$loreurl" > "output/meet-story/global-lore-${width}.html" 2> "output/meet-story/global-lore-${width}.log"
-            grep -q 'data-story-gray-ready="true"' "output/meet-story/global-lore-${width}.html"
-            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-              --window-size="${width},844" --force-device-scale-factor=1 --virtual-time-budget=8000 \
-              --screenshot="output/meet-story/story-global-lore-${width}.png" "$loreurl" > /dev/null 2>&1
+            CHROME_BIN="$browser" node scripts/story-lore-device-viewport.mjs \
+              "$loreurl" "$width" 844 \
+              "output/meet-story/story-global-lore-${width}.png" \
+              "output/meet-story/global-lore-${width}-device.json"
             test -s "output/meet-story/story-global-lore-${width}.png"
+            grep -q '"width": ${width}' "output/meet-story/global-lore-${width}-device.json"
           done
           # Regression: imported Tavern preset uses the original preset section, not an extra panel.
           tavernurl="${url}?scenario=tavern&focus=preset"
