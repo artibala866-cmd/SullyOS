@@ -531,18 +531,19 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         })));
         const search=host!.querySelector<HTMLInputElement>('input[aria-label="搜索剧情世界书"]')!;
         expect(search).toBeTruthy();
+        expect(host!.querySelector('[aria-label="剧情世界书列表"]')?.className).toContain('max-h-[44vh]');
         await act(async()=>{
             Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(search,'设定13');
             search.dispatchEvent(new Event('input',{bubbles:true}));
         });
         expect(host!.querySelector('button[aria-label="世界书：设定13"]')).toBeTruthy();
         expect(host!.querySelector('button[aria-label="世界书：设定12"]')).toBeNull();
-        expect(host!.textContent).toContain('1 条已选世界书已失效');
+        expect(host!.textContent).toContain('1 条已选世界书暂不可用');
         expect(host!.querySelector('button[aria-label="世界书：设定13"]')?.getAttribute('aria-pressed')).toBe('true');
         const remove=[...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('清除失效选择'))!;
         expect(remove).toBeTruthy();
         await act(async()=>{remove.click()});
-        expect(host!.textContent).not.toContain('1 条已选世界书已失效');
+        expect(host!.textContent).not.toContain('1 条已选世界书暂不可用');
         expect(host!.querySelector('button[aria-label="世界书：设定13"]')?.getAttribute('aria-pressed')).toBe('true');
     });
 
