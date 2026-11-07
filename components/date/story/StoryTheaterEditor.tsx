@@ -34,6 +34,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const [saveError, setSaveError] = useState('');
     const [worldbookSearch, setWorldbookSearch] = useState('');
     const [greetingSearch, setGreetingSearch] = useState('');
+    const [presetSearch, setPresetSearch] = useState('');
     const [presetImportBusy, setPresetImportBusy] = useState(false);
     const [presetImportFeedback, setPresetImportFeedback] = useState('');
     const [editingGreeting, setEditingGreeting] = useState(false);
@@ -292,6 +293,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     }, [draft.selectedWorldbookIds, books]);
     const canStart = hasStoryTheaterParticipant(draft, characters);
     const preset = presets.find(item => item.id === draft.presetId) || presets[0] || null;
+    const matchingPresets = useMemo(() => {
+        const query = presets.length > 12 ? presetSearch.trim().toLocaleLowerCase('zh-CN') : '';
+        if (!query) return presets;
+        const results = presets.filter(item => item.name.toLocaleLowerCase('zh-CN').includes(query));
+        // Keep the selected value mounted as an option while the list is filtered.
+        return preset && !results.some(item => item.id === preset.id) ? [preset, ...results] : results;
+    }, [preset, presetSearch, presets]);
     const effectivePreset = preset ? { ...preset, document: resolveStoryPresetDocument(preset, draft.presetOverride) } : null;
     const presetStats = getPresetPromptStats(effectivePreset);
     const sourceDoc = effectivePreset?.document;
@@ -618,7 +626,16 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；单文件导入自动选中，批量导入只加入预设库，不替换当前剧情。</p>
-                <div className='mt-3 flex gap-2'><select disabled={presetImportBusy} value={preset?.id || ''} onChange={event => setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() }))} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type='button' title='导入一个或多个剧情预设' aria-label='导入剧情预设' disabled={presetImportBusy} onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetImportBusy ? <SpinnerGap size={18} className='animate-spin' /> : <UploadSimple size={18} />}</button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
+                {presets.length > 12 && <div className='mt-3'>
+                    <input type='search' aria-label='搜索剧情预设' value={presetSearch}
+                        onChange={event => setPresetSearch(event.target.value)}
+                        placeholder={`搜索预设名称（共 ${presets.length} 份）`}
+                        className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none' />
+                    <p role='status' className='mt-1 text-[10px] text-slate-400'>
+                        {presetSearch.trim() ? `匹配 ${presets.filter(item => item.name.toLocaleLowerCase('zh-CN').includes(presetSearch.trim().toLocaleLowerCase('zh-CN'))).length} 份；当前预设始终保留在下拉列表中` : '可按预设名称搜索；不必逐项翻找'}
+                    </p>
+                </div>}
+                <div className='mt-3 flex gap-2'><select disabled={presetImportBusy} value={preset?.id || ''} onChange={event => { setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() })); setPresetSearch(''); }} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{matchingPresets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type='button' title='导入一个或多个剧情预设' aria-label='导入剧情预设' disabled={presetImportBusy} onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetImportBusy ? <SpinnerGap size={18} className='animate-spin' /> : <UploadSimple size={18} />}</button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
                 <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
                     const files = Array.from(event.currentTarget.files || []);
                     event.currentTarget.value = '';
