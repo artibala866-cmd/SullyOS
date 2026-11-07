@@ -276,4 +276,163 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(create.mock.calls[0][2]).toContain('<!-- desc:');
     });
 
+    it('新剧情选择酒馆注释标题后自动填入剧情名称，切换和清空同步，保存仍读取选中正文', async () => {
+        host = document.createElement('div'); document.body.append(host); root = createRoot(host);
+        const intro = '<!-- title: 开场白21 -->\\n<!-- desc: 另一条世界线 -->\\n\\n这是第一幕正文。';
+        const role = { ...actor, tavernGreetings: [
+            {id:'meta-21',title:'默认开场',content:intro},
+            {id:'meta-22',title:'第二幕',content:'另一条正文'},
+        ] };
+        const onSave = vi.fn(async (_entry:any) => {});
+        await act(async () => root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[role.id]},
+            characters:[role],user:{name:'用户'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave,
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const title = host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        const selector = host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        expect(title.value).toBe('');
+        const selectOpening = async (value: string) => act(async () => {
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(selector,value);
+            selector.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        await selectOpening(`${actor.id}::meta-21`);
+        expect(title.value).toBe('开场白21');
+        expect(field().value).toBe('这是第一幕正文。');
+        await selectOpening(`${actor.id}::meta-22`);
+        expect(title.value).toBe('第二幕');
+        await selectOpening('');
+        expect(title.value).toBe('');
+        await selectOpening(`${actor.id}::meta-21`);
+        await click('保存并进入');
+        expect(onSave).toHaveBeenCalledTimes(1);
+        expect(onSave.mock.calls[0][0].title).toBe('开场白21');
+        expect(onSave.mock.calls[0][0].openingGreeting).toEqual({characterId: actor.id,greetingId:'meta-21'});
+    });
+
+    it('手工命名的剧情与编辑已有剧情都不会被开场选择覆盖', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const role={...actor,tavernGreetings:[opening,{id:'other',title:'另一个开场',content:'第二段'}]};
+        const onSave=vi.fn();
+        const props={initial:{...createStoryTheaterDraft(),title:'用户自己写的剧情',characterIds:[role.id]},
+            characters:[role],user:{name:'用户'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave,
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn()};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,props)));
+        const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        const selector=host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        const select = async(value:string)=>act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(selector,value);
+            selector.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        await select(`${actor.id}::opening-1`);
+        expect(title.value).toBe('用户自己写的剧情');
+        await select(`${actor.id}::other`);
+        expect(title.value).toBe('用户自己写的剧情');
+        await select('');
+        expect(title.value).toBe('用户自己写的剧情');
+        await click('保存并进入');
+        expect(onSave.mock.calls[0][0].title).toBe('用户自己写的剧情');
+    });
+
+    it('自动命名之后只要用户自己修改过标题，之后的开场切换不再覆盖', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const role={...actor,tavernGreetings:[opening,{id:'other',title:'新开场标题',content:'第二段'}]};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},
+            characters:[role],user:{name:'用户'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave:vi.fn(),
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        const select=host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        const change=async(value:string)=>act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,value);
+            select.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        await change(`${actor.id}::opening-1`);
+        expect(title.value).toBe('雨夜');
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(title,'雨夜 · 我的版本');
+            title.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+        await change(`${actor.id}::other`);
+        expect(title.value).toBe('雨夜 · 我的版本');
+        await click('我先写');
+        expect(title.value).toBe('雨夜 · 我的版本');
+    });
+
+    it('无标题时 Link 选项使用原生标题，保留 Link 正文注释', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const linkBody='<!-- title: Link 剧情正文，不是元数据 -->\\n角色在站台等候。';
+        const role={...actor,tavernGreetings:[],linkGreetings:[
+            {id:'link-first',title:'Link 第一幕',content:linkBody},
+        ]};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},characters:[role],
+            user:{name:'用户'} as any,masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const selector=host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(selector,`${actor.id}::link-first`);
+            selector.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        expect(host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')?.value).toBe('Link 第一幕');
+        expect(field().value).toBe(linkBody);
+    });
+
+    it('收藏自写开场时空白标题自动使用收藏标题，手动模式和删除则撤销自动标题', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const create=vi.fn(async (_id:string,_title:string,content:string)=>({id:'custom-title',title:'自定义收藏标题',content}));
+        const remove=vi.fn(async (_id:string,_g:string,_content:string|null)=>{});
+        const props={initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},
+            characters:[{...actor,tavernGreetings:[]}],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+            onCreateGreeting:create,onChangeGreeting:remove};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,props)));
+        const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        await typeInto(field(),'原创剧情正文');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        expect(title.value).toBe('自定义收藏标题');
+        await click('我先写');
+        expect(title.value).toBe('');
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(
+                host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!,`${actor.id}::custom-title`);
+            host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        expect(title.value).toBe('自定义收藏标题');
+        await click('删除');
+        await click('确认删除');
+        expect(title.value).toBe('');
+    });
+
+    it('酒馆修改标题注释后能更新临时显示及自动生成的剧情标题，不影响手写标题', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const change=vi.fn(async (_id:string,_g:string,_body:string|null)=>{});
+        const role={...actor,tavernGreetings:[opening]};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},characters:[role],
+            user:{name:'用户'} as any,masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),onChangeGreeting:change,
+        })));
+        const select=host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,`${actor.id}::opening-1`);
+            select.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        expect(title.value).toBe('雨夜');
+        await typeInto(field(),'<!-- title: 新的开场标题 -->\\n新的正文。');
+        await click('保存修改');
+        expect(change).toHaveBeenCalledWith(actor.id,'opening-1','<!-- title: 新的开场标题 -->\\n新的正文。');
+        expect(field().value).toBe('新的正文。');
+        expect(title.value).toBe('新的开场标题');
+        await click('我先写');
+        expect(title.value).toBe('');
+    });
+
 });
