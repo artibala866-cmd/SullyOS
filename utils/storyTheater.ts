@@ -1050,7 +1050,7 @@ export const selectStoryTavernAuthorOption = (
             const members = document.prompts.filter(p => sourceGroup.promptIds.includes(p.id));
             const start = members[0], end = members[members.length - 1];
             const tag = /^\s*<([A-Za-z][\w:-]*)\b/.exec(start?.content || '')?.[1];
-            if (tag && new RegExp('^\\\\s*<\\\\/' + tag + '\\\\s*>', 'i')
+            if (tag && new RegExp('^\\s*<\\/' + tag + '\\s*>', 'i')
                 .test(end?.content || '')) {
                 requiredWrappers.add(start.id);
                 requiredWrappers.add(end.id);
