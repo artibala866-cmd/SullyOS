@@ -274,6 +274,12 @@ export function mergeCardImports(
                 target?.cardImportOrigin?.originalName || item.origin.originalName,
             avatarFingerprint: item.origin.avatarFingerprint || target?.cardImportOrigin?.avatarFingerprint,
             imageFingerprint: item.origin.imageFingerprint || target?.cardImportOrigin?.imageFingerprint,
+            // Record only a nickname actually applied, not a skipped incoming
+            // value, so user-edited notes are never mistaken for source data.
+            importedRemark: item.origin.source === 'babylink' && importingPersona &&
+                Object.prototype.hasOwnProperty.call(item.fields, 'description') &&
+                next.description === item.fields.description
+                ? next.description : target?.cardImportOrigin?.importedRemark,
         };
         const mounted: MountedWorldbook[] = [...(next.mountedWorldbooks || [])];
         for (const incoming of item.worldbooks) {
