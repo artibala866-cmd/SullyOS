@@ -113,7 +113,11 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
         ]);
         const section = getStoryTavernAuthorSections(p.document).find(s => /文风/.test(s.label) && s.options.some(o => o.id === 'st-alt'))!;
         expect(section).toBeDefined();
-        expect(section.single).toBe(false);
+        expect(section.single).toBe(true);
+        const separate = getStoryTavernAuthorSections(p.document);
+        expect(separate.some(s => s.label === '可叠加文体' && s.options.some(o => o.id === 'st-overlay'))).toBe(true);
+        expect(separate.some(s => s.label.includes('表现&修辞手法') && s.options.some(o => o.id === 'st-plain'))).toBe(true);
+        expect(section.options.some(o => o.id === 'st-overlay')).toBe(false);
         const changed = selectStoryTavernAuthorOption(p.document, section.key, 'st-alt');
         expect(changed.prompts.find(o => o.id === 'st-default')?.enabled).toBe(false);
         expect(changed.prompts.find(o => o.id === 'st-alt')?.enabled).toBe(true);
