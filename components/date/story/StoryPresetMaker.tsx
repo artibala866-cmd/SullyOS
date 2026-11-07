@@ -100,9 +100,11 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [promptQuery, setPromptQuery] = useState('');
     const mainScrollRef = useRef<HTMLElement>(null);
     const previousListScroll = useRef(0);
+    const previousOverviewScroll = useRef(0);
     const readOnly = preset.builtIn === true;
     const groups = useMemo(() => getStoryPresetPromptGroups(draft.document), [draft.document]);
-    const activeGroup = groups.find(group => group.key === activeGroupKey) || null;
+    const activeGroup = groups.find(group => group.key === activeGroupKey)
+        || (selectedId ? groups.find(group => group.promptIds.includes(selectedId)) : undefined) || null;
     const activePrompts = useMemo(() => {
         if (!activeGroup) return [];
         const ids = new Set(activeGroup.promptIds);
@@ -135,6 +137,17 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const closePrompt = () => {
         setSelectedId('');
         requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = previousListScroll.current; });
+    };
+    const enterGroup = (key: string) => {
+        previousOverviewScroll.current = mainScrollRef.current?.scrollTop || 0;
+        setActiveGroupKey(key);
+        setSelectedId('');
+        if (tavernBrowse) requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0; });
+    };
+    const leaveGroup = () => {
+        setActiveGroupKey(null);
+        setSelectedId('');
+        if (tavernBrowse) requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = previousOverviewScroll.current; });
     };
 
     const replaceDocument = (document: StoryTheaterPresetDocument) => setDraft(current => ({ ...current, name: document.name, document, updatedAt: Date.now() }));
@@ -219,7 +232,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const renderGroupDetails = () => {
         if (!activeGroup) return null;
         return <section>
-            <button onClick={() => { setActiveGroupKey(null); setSelectedId(''); }} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
+            <button onClick={leaveGroup} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
             <div className='flex items-start justify-between gap-4'><div><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>{activeGroup.label}</h2><p className='mt-2 text-[10px] leading-5 text-slate-500'>{activeGroup.description}</p></div>{activeGroup.protected && <span className='shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-[9px] font-bold text-amber-700'><LockSimple size={12} />受保护</span>}</div>
             {activeGroup.protected && <div className='mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] leading-6 text-amber-800'>这里是宝宝狗连接角色、你的身份、世界书与历史的骨架。可以上下调整发送顺序，但不能修改内容、开关、消息位置或类型，也不能删除。</div>}
             {activeGroup.customSectionId && !readOnly && <div className='mt-5 space-y-3'>
@@ -288,7 +301,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                         const index = groups.findIndex(item => item.key === group.key);
                         const groupPrompts = draft.document.prompts.filter(prompt => group.promptIds.includes(prompt.id) && !isStoryPresetSectionMarker(prompt));
                         const enabled = groupPrompts.filter(prompt => prompt.enabled).length;
-                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => { setActiveGroupKey(group.key); setSelectedId(''); }} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[10px] text-slate-400 truncate'>{group.description}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
+                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[10px] text-slate-400 truncate'>{group.description}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
                     })}<button onClick={() => setActiveGroupKey('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong><span className='block mt-1 text-[10px] text-slate-400'>Temperature、Top P、惩罚项与最大输出</span></button></div>
                     {!readOnly && <section className='pt-6 border-t border-slate-200 grid gap-3 sm:grid-cols-2'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label><label><span className='text-[10px] font-bold text-slate-500'>说明</span><input value={draft.document.description || ''} onChange={event => patchDocument({ description: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                     {!readOnly && onDelete && <button onClick={() => onDelete(draft)} className='mt-8 w-full py-3 text-xs font-bold text-rose-500'>删除这个预设</button>}
