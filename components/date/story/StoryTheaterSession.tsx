@@ -1,6 +1,6 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
+import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
 import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
@@ -434,15 +434,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         onContextMenu: (event: React.MouseEvent<HTMLElement>) => openMessageMenu(message, event),
     });
 
-    const relatedMessageIds = useCallback((message: Message): number[] => {
-        const mirrorIds = Object.values((message.metadata?.theaterMirrorIds || {}) as Record<string, number>).map(Number).filter(id => Number.isFinite(id) && id > 0);
-        return [...new Set([message.id, ...mirrorIds])];
-    }, []);
     const saveMessageEdit = useCallback(async () => {
         if (!editingMessage || !editDraft.trim() || mutatingMessage) return;
         setMutatingMessage(true);
         try {
-            await Promise.all(relatedMessageIds(editingMessage).map(id => DB.updateMessage(id, editDraft.trim())));
+            await updateStoryTheaterFloor(editingMessage, editDraft.trim());
             await loadMessages();
             setEditingMessage(null);
             setEditDraft('');
@@ -452,12 +448,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setMutatingMessage(false);
         }
-    }, [addToast, editDraft, editingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage, relatedMessageIds]);
+    }, [addToast, editDraft, editingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
     const deleteStoryMessage = useCallback(async () => {
         if (!deletingMessage || mutatingMessage) return;
         setMutatingMessage(true);
         try {
-            await DB.deleteMessages(relatedMessageIds(deletingMessage));
+            await deleteStoryTheaterFloor(deletingMessage);
             await loadMessages();
             setDeletingMessage(null);
             addToast(entry.writesToCharacterMemory ? '这一层和角色侧镜像记忆已同步删除' : '这一层已删除', 'success');
@@ -466,7 +462,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setMutatingMessage(false);
         }
-    }, [addToast, deletingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage, relatedMessageIds]);
+    }, [addToast, deletingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
     // Reading is one continuous scroll. Only follow new replies while the reader
     // is already near the end; editing or expanding an older floor must not jump away.
     const updateVisibleFloor = useCallback((trackReaderScroll = false) => {
