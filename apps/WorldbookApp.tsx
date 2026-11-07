@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
-import { Worldbook, WorldbookDepthRole, WorldbookPosition, WorldbookSelectiveLogic } from '../types';
+import { Worldbook, WorldbookDepthRole, WorldbookPosition, WorldbookSelectiveLogic, AppID as ShortcutAppID } from '../types';
+import { useAppShortcut } from '../utils/appShortcutLaunch';
 import Modal from '../components/os/Modal';
 import { Check, DiamondsFour, BookOpen, DownloadSimple, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react';
 import {
