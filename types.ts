@@ -2825,6 +2825,9 @@ export interface CardImportOrigin {
   /** Last Link nickname actually applied to the local remark. Allows updates
    * without overwriting a user-edited remark, including nickname === name. */
   importedRemark?: string;
+  /** Last imported persona snapshot; prevents document updates from silently
+   * overwriting user edits made after importing a card. */
+  personaFingerprint?: string;
 }
 
 export interface CharacterProfile {
