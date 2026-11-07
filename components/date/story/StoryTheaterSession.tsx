@@ -984,7 +984,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 <StoryAppearanceButton />
                 <button onClick={onEdit} className='w-9 h-9 rounded-full grid place-items-center'><GearSix size={19} /></button>
             </div>
-            <div className='flex items-center gap-1 px-4 pb-3'>
+            <div className='flex items-start gap-1 px-4 pb-3'>
             <details className='group min-w-0 flex-1'>
                 <summary className='list-none cursor-pointer px-1 flex items-center gap-3'>
                     <span className='flex -space-x-1.5 shrink-0'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' /> : <span className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{mask.name.slice(0, 1)}</span>}{actors.slice(0, 2).map(actor => actor.avatar
