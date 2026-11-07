@@ -4163,6 +4163,7 @@ export interface FullBackupData {
         activeSkinSetId?: string;
         customDateSprites?: string[];
         spriteConfig?: SpriteConfig;
+        spriteConfigLandscape?: SpriteConfig;
         roomItems?: Record<string, string>;
         backgrounds?: { chat?: string; date?: string; roomWall?: string; roomFloor?: string };
     }[];
