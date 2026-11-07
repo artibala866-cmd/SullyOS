@@ -244,11 +244,17 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     }, [addToast]);
 
     const deletePreset = useCallback(async (preset: StoryTheaterPreset) => {
+        // Read persistent references, not only the current UI state. Deleting a
+        // shared preset used to silently swap every dependent story to default.
+        const referenced = (await DB.getStoryTheaters()).filter(item => item.presetId === preset.id);
+        if (referenced.length) {
+            throw new Error(`这份预设仍被 ${referenced.length} 条剧情使用。请先在这些剧情的设置中换用其他预设，避免之后续写突然变成内置规则。`);
+        }
         await DB.deleteStoryTheaterPreset(preset.id);
         setCustomPresets(current => current.filter(item => item.id !== preset.id));
         setEditingPreset(null);
         setView(activeEntry ? 'editor' : 'list');
-        addToast('预设已删除；使用它的剧情会回退到内置预设', 'info');
+        addToast('未被使用的预设已删除，其他剧情配置保持不变', 'success');
     }, [activeEntry, addToast]);
 
     const saveMask = useCallback(async (mask: StoryTheaterMask) => {
@@ -335,6 +341,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     if (view === 'preset' && editingPreset) return <StoryPresetMaker key={editingPreset.id}
         preset={editingPreset}
+        usedByStoryCount={entries.filter(item => item.presetId === editingPreset.id).length}
         onBack={() => setView(activeEntry ? 'editor' : 'list')}
         onSave={savePreset}
         onOpenCopy={copyPreset}
