@@ -985,8 +985,8 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     if (/<(?:pov|multi_perspective_pov)\b/i.test(prompt.content)) return 'author:pov';
     const globalSet = /\{\{\s*setglobalvar\s*::\s*([^:{}]+?)\s*::/i.exec(prompt.content)?.[1];
     if (globalSet) return 'global:' + globalSet.trim();
-    const localSet = /\{\{\s*setvar\s*::\s*([^:{}]+?)\s*::/i.exec(prompt.content)?.[1];
-    if (localSet && /Perspective|视角|文风|叙述视角/i.test(localSet)) return 'local:' + localSet.trim();
+    const localAssignments = [...prompt.content.matchAll(/\{\{\s*setvar\s*::\s*([^:{}]+?)\s*::/gi)];
+    if (localAssignments.length === 1) return 'local:' + localAssignments[0][1].trim();
     const shortName = tavernAuthorChoiceName(prompt.name);
     if (/可叠加|叠加使用/.test(shortName)) return '';
     if (/(?:[2-9]|[二三四五六七八九])选1|选一/i.test(shortName) && /小剧场/.test(shortName)) return 'author:theater-choice';
@@ -1110,10 +1110,7 @@ export const getStoryTavernAuthorSections = (
         const mixed = options.some(option => option.enabled)
             && options.some(option => !option.enabled);
         if (!options.length || (tavernGroupIsRuntimeCore(group.label) && !explicit)
-            || (options.length < 2 && !explicit)
-            || (options.length > 1 && !mixed && !explicit
-                && !options.some(option => tavernStructuralFamily(
-                    document.prompts.find(prompt => prompt.id === option.id)!) !== ''))) continue;
+            || (options.length < 2 && !explicit)) continue;
         // A named source section is an author's real module, even when its
         // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
         const key = 'source:' + group.key;
