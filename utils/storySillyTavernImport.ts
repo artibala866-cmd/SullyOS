@@ -132,8 +132,8 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         hint('theater', random ? '作者随机小剧场' : '作者自定义小剧场',
             random ? 'nmj-v3-theater-random' : ai ? 'nmj-v3-theater-ai' : undefined);
     }
-    const language = active.find(p => /(?:修改语言|叙述语言|中文语言|叙事中文|对话中文|语言设置|输出语言)/.test(p.name)
-        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|(?:正文要求|叙事必须|叙述必须).{0,35}(?:简体中文|繁體中文|繁体中文)|(?:write|output|respond|generate).{0,140}(?:zh-CN|zh-TW|zh-Hans|zh-Hant|Simplified Chinese|Traditional Chinese)/i
+    const language = active.find(p => /(?:修改语言|叙述语言|中文语言|叙事中文|对话中文|语言设置|输出语言|^语言$|语言翻译)/.test(p.name)
+        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|<language_forms>|language\s*:\s*Chinese|(?:正文要求|叙事必须|叙述必须).{0,55}(?:简体中文|繁體中文|繁体中文)|(?:write|output|respond|generate).{0,140}(?:zh-CN|zh-TW|zh-Hans|zh-Hant|Simplified Chinese|Traditional Chinese)/i
             .test(p.text.slice(0, 800)));
     if (language) {
         const sample = language.text.slice(0, 650);
@@ -141,10 +141,11 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|(?:正文要求|叙事必须|叙述必须).{0,40}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)|(?:write|output|respond|generate).{0,140}(?:zh-TW|zh-Hant|Traditional Chinese)/i.test(sample);
         if (simplified && !traditional) hint('language', '简体中文', 'nmj-v3-language-cn');
         else if (traditional && !simplified) hint('language', '繁體中文', 'nmj-v3-language-tw');
+        else if (/<language_forms>[\s\S]{0,160}language\s*:\s*Chinese\b/i.test(sample)) hint('language', '中文（简繁未指定）');
         else hint('language', '作者语言／翻译规则');
     }
-    const length = active.find(p => /正文.{0,4}(?:字数|篇幅|长度)|字数.{0,5}(?:设定|要求|设置|修改|前置)|修改字数|篇幅设定/i.test(p.name)
-        || /setvar\s*::\s*正文字数\s*::|字数要求.{0,10}\d{3,5}\s*字/i.test(p.text.slice(0, 450)));
+    const length = active.find(p => /正文.{0,4}(?:字数|篇幅|长度)|字数.{0,5}(?:设定|要求|设置|修改|前置)|修改字数|篇幅设定|^字数要求$/i.test(p.name)
+        || /setvar\s*::\s*正文字数\s*::|字数要求.{0,10}\d{3,5}\s*字|Word_budget\s*:\s*\d{2,5}/i.test(p.text.slice(0, 450)));
     if (length) {
         const sample = length.text.slice(0, 750);
         const range = /(\d{3,5})\s*(?:[-—–~～]|至|到)\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
@@ -152,16 +153,26 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         // character count. Display it precisely without forcing short/medium.
         const wordRange = /(\d{3,5})\s*(?:[-—–~～]|to)\s*([\d,]{3,7})\s*[- ]?(?:word|words)\b/i.exec(sample);
         const exact = /(?:字数要求|正文字数|篇幅)\s*[：:=]?\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
+        const budget = /Word_budget\s*:\s*(\d{2,5})\s*(?:[-—–~～]|to)\s*(\d{2,5})/i.exec(sample);
         const minimum = range ? Number(range[1]) : exact ? Number(exact[1]) : 0;
         const maximum = range ? Number(range[2]) : minimum;
         if (wordRange) {
             hint('length', wordRange[1] + '–' + wordRange[2].replace(/,/g, '') + ' words（英文计数）');
+        } else if (budget) {
+            // No explicit unit: cannot safely claim Chinese character count.
+            hint('length', `${budget[1]}–${budget[2]}（Word_budget，按作者单位）`);
         } else if (minimum && maximum >= minimum) {
             const id = maximum <= 1250 ? 'nmj-v3-length-short'
                 : minimum >= 1300 && maximum <= 2350 ? 'nmj-v3-length-medium'
                 : minimum >= 2250 ? 'nmj-v3-length-long' : undefined;
             hint('length', range ? minimum + '–' + maximum + '字' : minimum + '字', id);
         } else hint('length', '作者篇幅规则');
+    }
+    if (!scopedPov && active.some(p => /(?:用[“"']?你\s*\/\s*您[”"']?指代\s*<user>|He\/She\s*&\s*You)/i.test(p.text)
+        && /(?:Third-Person|第三人称)/i.test(p.text))) {
+        // Character-third + user-second perspective is NOT identical to the
+        // native limited second-person preset. Keep its authored mixed rules.
+        hint('pov', '作者混合视角（角色第三／用户第二）');
     }
     return { inferred, labels };
 };
