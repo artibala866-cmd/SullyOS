@@ -86,9 +86,13 @@ const report = () => {
             && !doc.includes('storyHtmlHacked')
             && !doc.includes('<script')
             && !doc.includes('tracker.invalid');
-    const compactHeight = dialect === 'janus'
-        || (dialect === 'ako' ? Boolean(frame && frame.getBoundingClientRect().height <= 520)
-            : Boolean(frame && frame.getBoundingClientRect().height <= 270));
+    const frameHeights = Array.from(document.querySelectorAll('iframe')).map(frame => frame.getBoundingClientRect().height);
+    const compactHeight = dialect === 'janus' || (
+        dialect === 'ako' ? frameHeights.every(height => height <= 520)
+        : dialect === 'pluto' || dialect === 'mur'
+            ? frameHeights.every(height => height >= 76 && height <= 160)
+            : frameHeights.every(height => height <= 270)
+    );
     const success = Boolean(frameCount === expectedFrames && structure && secure && widthOk && compactHeight);
     document.body.dataset.storyTheaterHtmlReady = String(success);
     let output=document.getElementById('story-tavern-html-report');
