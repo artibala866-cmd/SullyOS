@@ -976,6 +976,7 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     const shortName = tavernAuthorChoiceName(prompt.name);
     if (/可叠加|叠加使用/.test(shortName)) return '';
     if (/(?:[2-9]|[二三四五六七八九])选1|选一/i.test(shortName) && /小剧场/.test(shortName)) return 'author:theater-choice';
+    if (/小剧场/.test(shortName)) return 'author:theater-format';
     if (/^(?:✅)?(?:主文风|文风[-：:]|拖：)/.test(shortName) || /⌨️.*文风/.test(prompt.name)) return 'author:style';
     if (/人称|视角/.test(prompt.name)) return 'author:pov';
     if (/抢话|不抢话/.test(prompt.name)) return 'author:agency';
