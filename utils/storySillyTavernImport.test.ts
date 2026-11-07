@@ -790,7 +790,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const extra = buildTavernNativeOverrideMessages(reopened.document, '小雨', ['小蓝']);
         expect(extra).toHaveLength(5);
         expect(extra.map(p => p.content).join('\n')).toContain('不生成小剧场');
-        expect(extra.map(p => p.content).join('\n')).toContain('完全不代写');
+        expect(extra.map(p => p.content).join('\n')).toContain('模型不创造');
         expect(buildStoryIdentityGuard(reopened.document, '小雨', ['小蓝'])).toContain('第二人称');
         const computed = compileStoryPreset({ preset: reopened,
             slots: { actors: '角色', persona: '小雨', scenario: '剧情', worldBefore: '', worldAfter: '' },
