@@ -445,7 +445,7 @@ export const readCharacterCardFile = async (file: File): Promise<PreparedCardImp
         return {
             source: 'document',
             character: {
-                name, avatar: '', description: persona.slice(0, 260),
+                name, avatar: '', description: '',
                 systemPrompt: '【导入人物原始文档】\n' + persona,
                 worldview: '',
             },
