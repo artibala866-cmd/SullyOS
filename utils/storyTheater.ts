@@ -907,6 +907,8 @@ export interface StoryTavernAuthorOption {
     cluster: string;
     /** Show an explicit, non-destructive jump to the original prompt. */
     name: string;
+    /** A literal author value such as 800–1500字, never a native tier guess. */
+    preview?: string;
 }
 export interface StoryTavernAuthorSection {
     key: string;
@@ -921,6 +923,22 @@ const tavernAuthorChoiceName = (name: string): string => name
     .replace(/^[\s▢▣◈❍╋╬⭐🌟✅🟢💚💛🩵🎵📩👻✍️📢🎦🆖🆓]+/gu, '')
     .replace(/[\s📩⭐✨▢▣◈❍]+$/gu, '')
     .trim() || name.trim();
+
+
+const tavernAuthorValuePreview = (prompt: StoryTheaterPresetPrompt): string | undefined => {
+    const source = prompt.content;
+    const literal = /\{\{\s*setvar\s*::\s*(?:正文字数|主要语言|正文语言|附录语言|叙述语言)\s*::\s*([^{}\n]{2,64})\}\}/i.exec(source)?.[1]?.trim();
+    if (literal) return literal;
+    const chineseRange = /(\d{2,5}\s*(?:-|—|–|~|～|至|到)\s*\d{2,5}\s*(?:个)?字)/u.exec(source)?.[1];
+    if (chineseRange) return chineseRange;
+    const exact = /(?:字数要求|正文.*?字数)\s*[：:]?\s*(\d{2,5}\s*(?:个)?字)/u.exec(source)?.[1];
+    if (exact) return exact;
+    const words = /(\d{2,5}\s*(?:-|—|–|~|～|to)\s*[\d,]{2,7}\s*[- ]?(?:word|words)\b)/i.exec(source)?.[1];
+    if (words) return words + '（英文计数）';
+    const budget = /Word_budget\s*:\s*(\d{2,5}\s*(?:-|—|–|~|～)\s*\d{2,5})/i.exec(source)?.[1];
+    if (budget) return budget + '（作者单位）';
+    return undefined;
+};
 
 const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     const namedRule = /<rule\b[^>]*\bname=["']([^"']+)["']/i.exec(prompt.content)?.[1] || '';
@@ -972,6 +990,7 @@ export const getStoryTavernAuthorSections = (
         .map(p => ({
             id: p.id, label: tavernAuthorChoiceName(p.name),
             name: p.name, enabled: p.enabled, cluster: tavernChoiceCluster(p),
+            preview: tavernAuthorValuePreview(p),
         }));
     for (const group of groups) {
         const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label);
