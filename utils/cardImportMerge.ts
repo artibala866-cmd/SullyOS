@@ -314,6 +314,10 @@ export function mergeCardImports(
                 next.avatar = item.fields.avatar;
             }
             if (item.fields.tavernGreetings?.length) {
+                // A damaged legacy field is not an empty library. Abort rather
+                // than discarding unrecognized stored records on re-import.
+                if (target.tavernGreetings != null && !Array.isArray(target.tavernGreetings))
+                    throw new Error('已有开场白数据结构异常，为保护原有剧情，已停止导入');
                 // Preserve any old Link entries mixed into this legacy field
                 // without running Tavern's title/desc rules over their body.
                 const all = target.tavernGreetings || [];
@@ -323,6 +327,9 @@ export function mergeCardImports(
                 ];
             }
             if (item.fields.linkGreetings?.length) {
+                if ((target.linkGreetings != null && !Array.isArray(target.linkGreetings)) ||
+                    (target.tavernGreetings != null && !Array.isArray(target.tavernGreetings)))
+                    throw new Error('已有 Link／酒馆开场白结构异常，已停止导入以保护旧存档');
                 // Migrate pre-separation Link entries in place (same greeting IDs)
                 // only when an actual Link openings payload was imported.
                 const legacy = (target.tavernGreetings || []).filter(isLegacyLinkOpening);
