@@ -47,6 +47,8 @@ export interface ExtractPdfTextOptions {
     maxPages?: number;
     /** Abort extraction instead of silently truncating a long imported document. */
     maxChars?: number;
+    /** Reject oversized PDFs before parsing any page, not after a silent subset. */
+    requireAllPages?: boolean;
     onProgress?: (progress: PdfExtractionProgress) => void;
 }
 
@@ -281,6 +283,8 @@ export const extractPdfDocumentText = async (
     const requestedPages = options.maxPages == null
         ? pdf.numPages
         : Math.max(0, Math.floor(options.maxPages));
+    if (options.requireAllPages && pdf.numPages > requestedPages)
+        throw new Error('PDF 超过 200 页，请拆分后导入；不会只导入前几页');
     const extractedPages = Math.min(pdf.numPages, requestedPages);
     const pages: string[] = [];
     let totalChars = 0;
