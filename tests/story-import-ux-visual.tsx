@@ -67,6 +67,7 @@ async function run(){
     const batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
     const single=new DataTransfer();single.items.add(presetFile('单独选中'));
     uploader.files=single.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
+    document.body.dataset.storyImportUxStage='single-dispatched';
     await waitFor(()=>presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中');
     document.body.dataset.storyImportUxStage='single-complete';
     const singleSelected=presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中';
