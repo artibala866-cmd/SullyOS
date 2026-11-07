@@ -919,6 +919,7 @@ export interface StoryTavernAuthorSection {
 
 const tavernAuthorChoiceName = (name: string): string => name
     .replace(/^[\s▢▣◈❍╋╬⭐🌟✅🟢💚💛🩵🎵📩👻✍️📢🎦🆖🆓]+/gu, '')
+    .replace(/[\s📩⭐✨▢▣◈❍]+$/gu, '')
     .trim() || name.trim();
 
 const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
@@ -982,7 +983,7 @@ export const getStoryTavernAuthorSections = (
         // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
         const key = 'source:' + group.key;
         out.push({
-            key, label: group.label,
+            key, label: group.label.replace(/[▣◈▶◀︎◌]/gu, '').replace(/\s+/g, ' ').trim(),
             description: '原作者分组 · 切换原始条目，不附加内置规则',
             options, single: /选\s*(?:一|1|①)|单选|择一/u.test(group.label)
                 || (options.length >= 2 && options.filter(p => p.enabled).length <= 1
