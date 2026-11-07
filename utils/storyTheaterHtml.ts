@@ -7,6 +7,8 @@ export interface SafeStoryHtml {
     srcDoc: string;
     text: string;
     hasVisibleContent: boolean;
+    /** Conservative height estimate; long appendices scroll inside the sandbox. */
+    estimatedHeight: number;
 }
 
 const ALLOWED_ELEMENTS = new Set(
@@ -101,6 +103,7 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
             srcDoc: '<!doctype html><html><body><pre>' + escaped + '</pre></body></html>',
             text: raw.replace(/<[^>]*>/g, ' ').trim(),
             hasVisibleContent: Boolean(escaped),
+            estimatedHeight: 220,
         };
     }
     const document = new DOMParser().parseFromString(raw, 'text/html');
@@ -110,6 +113,23 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     // Fallback text comes from the sanitized subtree, never script/style text.
     const text = new DOMParser().parseFromString(html, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() || '';
     const hasVisibleContent = Boolean(html.replace(/<[^>]*>/g, '').trim() || /<(?:img|hr|table)\b/i.test(html));
+    // A sandboxed iframe cannot execute resize scripts, and its opaque origin
+    // forbids parent-side DOM measurements. Estimate the *visible* height from
+    // sanitized content, excluding unopened nested <details> bodies. This
+    // avoids a half-screen blank area for short appendices on mobile.
+    const visibleDoc = new DOMParser().parseFromString(html, 'text/html');
+    for (const closed of Array.from(visibleDoc.querySelectorAll('details:not([open])'))) {
+        const summary = closed.querySelector('summary');
+        closed.replaceWith(summary ? summary.cloneNode(true) : visibleDoc.createTextNode('折叠附录'));
+    }
+    const visibleChars = (visibleDoc.body.textContent || '').replace(/\s+/g, ' ').trim().length;
+    const viewport = typeof window === 'undefined' ? 390 : window.innerWidth;
+    const charsPerLine = Math.max(22, Math.min(58, Math.floor((viewport - 64) / 13)));
+    const lines = Math.ceil(visibleChars / charsPerLine);
+    const blockLines = visibleDoc.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,tr,summary,blockquote,pre').length;
+    const images = visibleDoc.querySelectorAll('img').length;
+    const estimatedHeight = Math.max(180, Math.min(520,
+        76 + lines * 22 + blockLines * 15 + images * 145));
     const baseCss = [
         'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere}',
         '.story-theater-html-content{box-sizing:border-box;max-width:100%;overflow-x:auto;padding:8px 2px}',
@@ -128,5 +148,5 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
         + '<meta http-equiv="Content-Security-Policy" content="' + escapeHtml(csp) + '">'
         + '<style>' + baseCss + '</style></head><body><main class="story-theater-html-content">'
         + html + '</main></body></html>';
-    return { srcDoc, text, hasVisibleContent };
+    return { srcDoc, text, hasVisibleContent, estimatedHeight };
 };
