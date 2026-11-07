@@ -194,7 +194,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     // this audit. This notice does not change any user's enabled toggles.
     const htmlTavernTheater = importedTavern && Boolean(sourceDoc?.prompts.some(prompt =>
         prompt.enabled && (
-            /<(?:sidestory|randomtheater|episode|writing_interlude|small_theater)\b/i.test(prompt.content)
+            /<(?:sidestory|randomtheater|writing_interlude|small_theater)\b/i.test(prompt.content)
             || /(?:小剧场[\s\S]{0,200}(?:HTML|CSS)|(?:HTML|CSS)[\s\S]{0,200}小剧场)/i.test(prompt.content)
         )));
 
