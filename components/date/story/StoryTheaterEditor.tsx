@@ -641,7 +641,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     {draft.memorySummaryApi && <div className='mt-4 space-y-3'>
                         <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>从已保存的 API 预设载入</span>
-                            <select aria-label='选择剧情记忆 API 预设' value={findActivePresetId(apiPresets, draft.memorySummaryApi)} onChange={event => {
+                            <select aria-label='选择剧情记忆 API 预设' value={findActivePresetId(apiPresets, draft.memorySummaryApi) ?? ''} onChange={event => {
                                 const preset = apiPresets.find(item => item.id === event.target.value);
                                 if (preset) update('memorySummaryApi', storyMemoryApiFromPreset(preset));
                             }} className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs'>
