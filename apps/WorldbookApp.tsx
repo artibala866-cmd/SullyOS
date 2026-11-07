@@ -52,6 +52,8 @@ const WorldbookApp: React.FC = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showImportConfirm, setShowImportConfirm] = useState(false);
     const importRef = useRef<HTMLInputElement>(null);
+    const importingRef = useRef(false);
+    const [importing, setImporting] = useState(false);
     const [tempEnabled, setTempEnabled] = useState(true);
     const [tempConstant, setTempConstant] = useState(true);
     const [tempKeywords, setTempKeywords] = useState('');
@@ -201,7 +203,9 @@ const WorldbookApp: React.FC = () => {
 
     const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || []);
-        if (!files.length) return;
+        if (!files.length || importingRef.current) return;
+        importingRef.current = true;
+        setImporting(true);
         try {
             if (files.length > 30) throw new Error('一次最多导入 30 个世界书文件，请分批选择');
             if (files.reduce((total, file) => total + file.size, 0) > 48 * 1024 * 1024)
@@ -256,11 +260,14 @@ const WorldbookApp: React.FC = () => {
         } catch (error: any) {
             addToast(error?.message || '世界书导入失败，本批未保存', 'error');
         } finally {
+            importingRef.current = false;
+            setImporting(false);
             if (importRef.current) importRef.current.value = '';
         }
     };
 
     const confirmImport = () => {
+        if (importingRef.current) return;
         setShowImportConfirm(false);
         importRef.current?.click();
     };
@@ -687,10 +694,12 @@ const WorldbookApp: React.FC = () => {
                                     {isSelecting ? '取消' : '管理'}
                                 </button>
                             )}
-                            <input ref={importRef} type="file" multiple accept=".json,.png,.txt,.docx,.doc,.pdf,application/json,image/png,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
+                            <input ref={importRef} type="file" disabled={importing} multiple accept=".json,.png,.txt,.docx,.doc,.pdf,application/json,image/png,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
                             <button
-                                onClick={() => { setShowImportConfirm(true); trackEvent('打开导入世界书弹窗'); }}
-                                className="w-9 h-9 bg-white/80 text-neutral-500 border border-white rounded-full shadow-sm flex items-center justify-center active:scale-90 transition-transform"
+                                onClick={() => { if (!importingRef.current) {setShowImportConfirm(true); trackEvent('打开导入世界书弹窗');} }}
+                                disabled={importing}
+                                aria-busy={importing}
+                                className="w-9 h-9 bg-white/80 text-neutral-500 border border-white rounded-full shadow-sm flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40"
                                 title="导入标准世界书"
                             >
                                 <UploadSimple size={18} weight="bold" />
