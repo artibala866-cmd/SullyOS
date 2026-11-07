@@ -766,6 +766,10 @@ export const recognizeTavernPromptHeading = (
     if (prompt.marker || prompt.section) return undefined;
     const name = prompt.name.trim();
     if (!name || name.length > 105) return undefined;
+    // Some real author presets delimit a whole adjustable section with
+    // ┏╔标题╗┓ ... ┗╚标题╝┛. These are browse boundaries, not choices.
+    const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
+    if (corner) return { label: corner[1].trim(), edge: /[┗╚╝┛]/.test(name) ? 'end' : 'start' };
     const bracket = /^<==(.{2,68}?)==>$/.exec(name);
     if (bracket && /[▣◈◀▶]/u.test(bracket[1])) {
         return { label: bracket[1].trim(), edge: 'start' };
@@ -888,6 +892,158 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
         cursor += 1;
     }
     return groups.sort((a, b) => a.startIndex - b.startIndex);
+};
+
+
+/**
+ * Imported Tavern presets have THEIR OWN choices, not native Night Screening
+ * styles/lengths. Derive a browse-only control surface from the author's
+ * original entries, retaining every prompt in its original order.
+ */
+export interface StoryTavernAuthorOption {
+    id: string;
+    label: string;
+    enabled: boolean;
+    cluster: string;
+    /** Show an explicit, non-destructive jump to the original prompt. */
+    name: string;
+}
+export interface StoryTavernAuthorSection {
+    key: string;
+    label: string;
+    description: string;
+    options: StoryTavernAuthorOption[];
+    /** Author explicitly says pick one, or the source is a known tier group. */
+    single: boolean;
+}
+
+const tavernAuthorChoiceName = (name: string): string => name
+    .replace(/^[\s▢▣◈❍╋╬⭐🌟✅🟢💚💛🩵🎵📩👻✍️📢🎦🆖🆓]+/gu, '')
+    .trim() || name.trim();
+
+const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
+    const namedRule = /<rule\b[^>]*\bname=["']([^"']+)["']/i.exec(prompt.content)?.[1] || '';
+    if (namedRule) {
+        const root = namedRule.split(/[·｜|]/)[0].trim().replace(/(?:[一二三四五六七八九十\d]+档.*)$/u, '');
+        if (/^语言$/.test(root)) return /对话/.test(namedRule) ? '语言:对话' : '语言:叙事';
+        if (root) return 'rule:' + root.toLocaleLowerCase();
+    }
+    if (/<writing_style\s*:/i.test(prompt.content)) return 'author:writing_style';
+    if (/<(?:pov|multi_perspective_pov)\b/i.test(prompt.content)) return 'author:pov';
+    const globalSet = /\{\{\s*setglobalvar\s*::\s*([^:{}]+?)\s*::/i.exec(prompt.content)?.[1];
+    if (globalSet) return 'global:' + globalSet.trim();
+    const localSet = /\{\{\s*setvar\s*::\s*([^:{}]+?)\s*::/i.exec(prompt.content)?.[1];
+    if (localSet && /Perspective|视角|文风|叙述视角/i.test(localSet)) return 'local:' + localSet.trim();
+    if (/^(?:✅)?(?:主文风|文风[-：:]|拖：)/.test(tavernAuthorChoiceName(prompt.name))) return 'author:style';
+    if (/人称|视角/.test(prompt.name)) return 'author:pov';
+    if (/抢话|不抢话/.test(prompt.name)) return 'author:agency';
+    if (/复述|转述/.test(prompt.name)) return 'author:retell';
+    return '';
+};
+
+const tavernAuthorTopic = (name: string): string | undefined => {
+    // Only map CATEGORY names. Never map an imported author's choices onto
+    // fixed native style IDs or make up a missing author option.
+    if (/文风|写作风格|叙事风格|author.style/i.test(name)) return '文风';
+    if (/人称|视角|pov/i.test(name)) return '人称与视角';
+    if (/抢话|代写|执笔权|演绎权限/i.test(name)) return '抢话与执笔权';
+    if (/复述|转述|回放扩写|回复处理/i.test(name)) return '转述与接戏';
+    if (/小剧场|side.?theater|sidestory|幕间/i.test(name)) return '小剧场';
+    if (/语言|译文|翻译|zh[-_](?:CN|TW)/i.test(name)) return '语言与翻译';
+    if (/篇幅|字数|段落长短|word.budget/i.test(name)) return '篇幅与段落';
+    return undefined;
+};
+
+export const getStoryTavernAuthorSections = (
+    document: StoryTheaterPresetDocument,
+): StoryTavernAuthorSection[] => {
+    if (document.sourceFormat !== 'sillytavern') return [];
+    const groups = getStoryPresetPromptGroups(document);
+    const seen = new Set<string>();
+    const out: StoryTavernAuthorSection[] = [];
+    const eligible = (p: StoryTheaterPresetPrompt): boolean =>
+        !p.marker && !p.section && Boolean(p.content.trim())
+        && !recognizeTavernPromptHeading(p)
+        && !/^<\/?[\w:-]+(?:\s*[^>]*)?>\s*$/i.test(p.content.trim())
+        && !/^(?:说明|使用教程|免责|注意事项)/.test(tavernAuthorChoiceName(p.name));
+    const makeOptions = (items: StoryTheaterPresetPrompt[]): StoryTavernAuthorOption[] => items
+        .filter(eligible)
+        .map(p => ({
+            id: p.id, label: tavernAuthorChoiceName(p.name),
+            name: p.name, enabled: p.enabled, cluster: tavernChoiceCluster(p),
+        }));
+    for (const group of groups) {
+        const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label);
+        if (!named) continue;
+        const items = document.prompts.filter(p => group.promptIds.includes(p.id));
+        const options = makeOptions(items);
+        if (!options.length) continue;
+        // A named source section is an author's real module, even when its
+        // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
+        const key = 'source:' + group.key;
+        out.push({
+            key, label: group.label,
+            description: '原作者分组 · 切换原始条目，不附加内置规则',
+            options, single: /选\s*(?:一|1|①)|单选|择一/u.test(group.label)
+                || (options.length >= 2 && options.filter(p => p.enabled).length <= 1
+                    && options.every(p => Boolean(p.cluster))
+                    && new Set(options.map(p => p.cluster)).size === 1),
+        });
+        options.forEach(p => seen.add(p.id));
+    }
+    // Older/loosely formatted author presets have no explicit section
+    // separators. Detect ONLY the category; take every option name verbatim.
+    const fallback = new Map<string, StoryTheaterPresetPrompt[]>();
+    for (const prompt of document.prompts) {
+        if (seen.has(prompt.id) || !eligible(prompt)) continue;
+        const topic = tavernAuthorTopic(prompt.name);
+        if (!topic) continue;
+        const list = fallback.get(topic) || [];
+        list.push(prompt);
+        fallback.set(topic, list);
+    }
+    for (const [topic, items] of fallback) {
+        const options = makeOptions(items);
+        if (!options.length) continue;
+        out.push({
+            key: 'author:' + topic, label: topic,
+            description: '按原作者条目归类 · 名称与内容均不改写',
+            options,
+            single: options.length > 1 && options.filter(p => p.enabled).length <= 1
+                && options.every(p => Boolean(p.cluster))
+                && new Set(options.map(p => p.cluster)).size === 1,
+        });
+    }
+    return out;
+};
+
+/** Toggle the SOURCE prompt, never an approximated built-in directive.
+ * When an author explicitly groups a one-of-N choice, disable its siblings.
+ * Independent rules (e.g. 必开叙事中文 vs 对话语言) are left untouched.
+ */
+export const selectStoryTavernAuthorOption = (
+    document: StoryTheaterPresetDocument,
+    sectionKey: string,
+    optionId: string,
+): StoryTheaterPresetDocument => {
+    if (document.sourceFormat !== 'sillytavern') return document;
+    const section = getStoryTavernAuthorSections(document).find(s => s.key === sectionKey);
+    const selected = section?.options.find(o => o.id === optionId);
+    if (!section || !selected) return document;
+    const siblings = section.options.filter(o => o.id !== optionId
+        && (section.single || (selected.cluster && o.cluster === selected.cluster)));
+    const existingOn = selected.enabled;
+    const newEnabled = existingOn && !section.single ? false : true;
+    // If a source section is explicitly exclusive, do not turn it into
+    // a zero-choice state by clicking its already active button.
+    if (existingOn && section.single) return document;
+    const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
+    return {
+        ...document,
+        prompts: document.prompts.map(p =>
+            p.id === optionId ? { ...p, enabled: newEnabled }
+                : off.has(p.id) ? { ...p, enabled: false } : p),
+    };
 };
 
 export const addStoryPresetGroup = (document: StoryTheaterPresetDocument, name: string): StoryTheaterPresetDocument => {
