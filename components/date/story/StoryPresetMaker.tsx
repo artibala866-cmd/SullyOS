@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
-import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
+import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt, StoryTavernChoiceKey } from '../../../types';
+import { detectTavernNativeControls } from '../../../utils/storySillyTavernImport';
 import {
     applyStoryPresetChoice,
     addStoryPresetGroup,
@@ -87,12 +88,17 @@ const STORY_GENERATION_FIELDS = [
     ['maxTokens', '最大输出', 'Max tokens', 256, 32000, 256, '只限制本轮最多能生成多少，不代表每次一定写满；篇幅仍主要由上面的“篇幅”选项决定。'],
 ] as const;
 
+const TAVERN_NATIVE_CHOICE_KEYS: Record<string, StoryTavernChoiceKey> = {
+    '文风': 'style', '人称': 'pov', '输入转述': 'retelling', '你的执笔权': 'agency',
+    '场景张力': 'tension', '小剧场': 'theater', '语言': 'language', '篇幅': 'length',
+};
+
 const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy, onDelete }) => {
     const [draft, setDraft] = useState<StoryTheaterPreset>(() => ({
         ...preset,
         document: { ...preset.document, generation: { ...preset.document.generation }, prompts: preset.document.prompts.map(item => ({ ...item })) },
     }));
-    const [mode, setMode] = useState<'simple' | 'pro'>(() => preset.document.sourceFormat === 'sillytavern' ? 'pro' : 'simple');
+    const [mode, setMode] = useState<'simple' | 'pro'>('simple');
     const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState('');
     const [saving, setSaving] = useState(false);
@@ -113,6 +119,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
 
     const selected = activePrompts.find(prompt => prompt.id === selectedId) || null;
     const tavernBrowse = draft.document.sourceFormat === 'sillytavern';
+    const tavernDetected = useMemo(() => tavernBrowse ? detectTavernNativeControls(draft.document.prompts) : null,
+        [tavernBrowse, draft.document.prompts]);
     const quickEdit = tavernBrowse && Boolean(selected);
     const query = promptQuery.trim().toLocaleLowerCase();
     const allPromptsById = useMemo(() => new Map(draft.document.prompts.map(prompt => [prompt.id, prompt])), [draft.document.prompts]);
@@ -157,6 +165,21 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     });
     const selectSimpleChoice = (choice: StoryPresetSimpleChoice, id?: string) => {
         if (readOnly) return;
+        if (tavernBrowse) {
+            const key = TAVERN_NATIVE_CHOICE_KEYS[choice.label];
+            if (!key) return;
+            // Source/inferred content remains editable and unchanged. Explicit
+            // choices are compiled as a final native rule only for this preset.
+            const value = id === '__source__' ? null : id === '__off__' ? '' : id || null;
+            replaceDocument({
+                ...draft.document,
+                tavernControls: {
+                    ...(draft.document.tavernControls || tavernDetected || { inferred: {}, labels: {} }),
+                    overrides: { ...draft.document.tavernControls?.overrides, [key]: value },
+                },
+            });
+            return;
+        }
         replaceDocument(applyStoryPresetChoice(draft.document, choice.ids, id));
     };
     const moveGroup = (key: string, direction: -1 | 1) => {
@@ -283,9 +306,32 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             <div className='max-w-2xl mx-auto'>
                 {mode === 'simple' ? <>
                     <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div><h1 className='mt-1 text-3xl font-serif font-semibold'>只调看得懂的部分</h1><p className='mt-3 text-[11px] leading-6 text-slate-500'>角色、世界书、历史注入和底层发送结构由宝宝狗照管。这里的选择不会修改角色档案。</p>{readOnly && <p className='mt-3 text-[10px] text-amber-700'>这是内置原版。点右上角“复制调整”后即可保存你的选择。</p>}</section>
-                    <div className='divide-y divide-slate-200'>{STORY_PRESET_SIMPLE_CHOICES.filter(choice => choice.ids.some(id => draft.document.prompts.some(prompt => prompt.id === id))).map(choice => {
-                        const active = choice.ids.find(id => draft.document.prompts.find(prompt => prompt.id === id)?.enabled);
-                        return <section key={choice.label} className='py-6'><h2 className='text-sm font-bold'>{choice.label}</h2><p className='mt-1 text-[10px] text-slate-400'>{choice.hint}</p><div className='mt-3 flex flex-wrap gap-2'>{choice.options.map(option => { const selectedOption = option.id ? active === option.id : !active; return <button key={option.id || 'default'} disabled={readOnly} onClick={() => selectSimpleChoice(choice, option.id)} className={`px-3 py-2 rounded-full border text-[11px] font-semibold disabled:opacity-60 ${selectedOption ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600'}`}>{option.label}</button>; })}</div></section>;
+                    <div className='divide-y divide-slate-200'>{STORY_PRESET_SIMPLE_CHOICES.filter(choice => tavernBrowse || choice.ids.some(id => draft.document.prompts.some(prompt => prompt.id === id))).map(choice => {
+                        const nativeActive = choice.ids.find(id => draft.document.prompts.find(prompt => prompt.id === id)?.enabled);
+                        const key = TAVERN_NATIVE_CHOICE_KEYS[choice.label];
+                        const override = key ? draft.document.tavernControls?.overrides?.[key] : undefined;
+                        const fromAuthor = key ? tavernDetected?.inferred[key] : undefined;
+                        const sourceLabel = key ? tavernDetected?.labels[key] : undefined;
+                        const chosen = tavernBrowse ? (override === undefined ? fromAuthor : override) : nativeActive;
+                        const options: Array<{ label: string; id?: string }> = tavernBrowse
+                            ? [
+                                { id: '__source__', label: '沿用原预设' },
+                                ...choice.options.filter(option => Boolean(option.id)).map(option => ({ id: option.id, label: option.label })),
+                                ...(choice.label === '小剧场' ? [{ id: '__off__', label: '关闭' }] : []),
+                                ...(choice.label === '场景张力' ? [{ id: '__off__', label: '自然' }] : []),
+                            ]
+                            : choice.options;
+                        return <section key={choice.label} className='py-6'><h2 className='text-sm font-bold'>{choice.label}</h2><p className='mt-1 text-[10px] text-slate-400'>{choice.hint}</p>
+                            {tavernBrowse && <p className='mt-1 text-[10px] text-violet-600'>自动识别：{sourceLabel || '作者没有明确设置，按原预设处理'}{override !== undefined && override !== null ? ' · 已手动覆盖' : ''}</p>}
+                            <div className='mt-3 flex flex-wrap gap-2'>{options.map(option => {
+                                const selectedOption = tavernBrowse
+                                    ? option.id === '__source__' ? (override === null || (override === undefined && !fromAuthor))
+                                        : option.id === '__off__' ? override === ''
+                                            : chosen === option.id
+                                    : option.id ? nativeActive === option.id : !nativeActive;
+                                return <button key={option.id || 'default'} disabled={readOnly} onClick={() => selectSimpleChoice(choice, option.id)}
+                                    className={`px-3 py-2 rounded-full border text-[11px] font-semibold disabled:opacity-60 ${selectedOption ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600'}`}>{option.label}</button>;
+                            })}</div></section>;
                     })}</div>
                     <section className='py-6 border-t border-slate-200'><h2 className='text-sm font-bold'>续写参数</h2><p className='mt-1 text-[10px] leading-5 text-slate-400'>跟着这份预设保存；看不懂时保持原值即可。</p>{renderGenerationFields()}</section>
                     {!readOnly && <section className='pt-5 border-t border-slate-200'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-2 w-full px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
