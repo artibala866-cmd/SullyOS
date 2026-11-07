@@ -1116,8 +1116,6 @@ export const getStoryTavernAuthorSections = (
         // A novel writer can call the section absolutely anything. Paired
         // decorative headings + real enabled/disabled choice entries count.
         const explicit = tavernOneOf(group.label) || tavernOptionalModule(group.label);
-        const mixed = options.some(option => option.enabled)
-            && options.some(option => !option.enabled);
         if (!options.length || (tavernGroupIsRuntimeCore(group.label) && !explicit)
             || (options.length < 2 && !explicit)) continue;
         // A named source section is an author's real module, even when its
