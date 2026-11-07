@@ -6,6 +6,7 @@ import {createRoot} from 'react-dom/client';
 import {OSPreviewProvider} from '../context/OSContext';
 import WorldbookApp from '../apps/WorldbookApp';
 import { makeImportFixturePdf } from './import-fixture-pdf';
+import { makeImportFixtureWord } from './import-fixture-word';
 import type {Worldbook} from '../types';
 
 const errors:string[]=[];
@@ -69,15 +70,16 @@ async function run(){
         transfer.items.add(new File([JSON.stringify(link)],'link-worldbooks.json',{type:'application/json'}));
         transfer.items.add(new File(['这是一份完整世界观文档。'],'旅行故事.txt',{type:'text/plain'}));
         transfer.items.add(makeImportFixturePdf('PDF WORLD BOOK STORY','PDF世界书.pdf'));
+        transfer.items.add(await makeImportFixtureWord('WORD BOOK STORY\n第二段','Word世界书.docx'));
         input.files=transfer.files;
         input.dispatchEvent(new Event('change',{bubbles:true}));
-        for(let n=0;n<100&&lastImported.length!==4;n++)await new Promise(r=>setTimeout(r,100));
+        for(let n=0;n<100&&lastImported.length!==5;n++)await new Promise(r=>setTimeout(r,100));
         await new Promise(r=>setTimeout(r,150));
         const root=document.documentElement,view=[innerWidth,innerHeight];
-        const cards=[...document.querySelectorAll('h3')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事')||value.includes('PDF世界书'));
+        const cards=[...document.querySelectorAll('h3')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事')||value.includes('PDF世界书')||value.includes('Word世界书'));
         const doc=document.body.textContent||'';
         const result={
-            viewport:view,selectedFileCount:3,importedCount:lastImported.length,
+            viewport:view,selectedFileCount:4,importedCount:lastImported.length,
             grouped:cards,warningCount:errors.length,
             noOverflowX:root.scrollWidth<=innerWidth+2,
             titleFits:!([...document.querySelectorAll('span')].filter(x=>x.textContent?.trim()==='世界书').some(el=>el.getBoundingClientRect().height>40)),
@@ -86,12 +88,13 @@ async function run(){
             linkedBook:cards.some(x=>x.includes('Link世界设定')),
             documentBook:cards.some(x=>x.includes('旅行故事')),
             pdfBook:lastImported.some(x=>x.title==='PDF世界书'&&x.content.includes('PDF WORLD BOOK STORY')),
+            wordBook:lastImported.some(x=>x.title==='Word世界书'&&x.content.includes('WORD BOOK STORY')&&x.content.includes('第二段')),
             acceptedPdf:input.accept.includes('.pdf'),
             disabledBookImported:lastImported.some(x=>x.title==='城市信息'&&x.disable===true),
             keywordImported:lastImported.some(x=>x.title==='好友背景'&&x.key?.includes('旧友')),
             errors,
         };
-        const pass=result.importedCount===4&&result.pdfBook&&result.acceptedPdf&&result.noOverflowX&&result.titleFits&&result.inputMulti&&
+        const pass=result.importedCount===5&&result.pdfBook&&result.wordBook&&result.acceptedPdf&&result.noOverflowX&&result.titleFits&&result.inputMulti&&
             result.acceptedWord&&result.uiVisible&&result.linkedBook&&result.documentBook&&
             result.disabledBookImported&&result.keywordImported&&!errors.length;
         document.body.dataset.cardImportVisualReady=String(pass);
