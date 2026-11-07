@@ -109,7 +109,10 @@ export const parseLinkWorldbookJson=(raw:unknown,filename:string):LinkWorldbookI
             // newlines; never sanitize a user's story text into different data.
             const content=typeof body==='string'?body:'';
             if(content.length>200000)throw Error('Link 世界书条目正文过长');
-            if(!content.trim()&&!title.trim()&&!key.length&&!keysecondary.length)continue;
+            if(!content.trim()&&!key.length&&!keysecondary.length){
+                if(!warnings.some(x=>x.includes('空白条目')))warnings.push('Link 世界书中仅有标题的空白条目已跳过，没有把空白文本注入角色上下文');
+                continue;
+            }
             const rawMode=text(row.activation??row.mode).toLowerCase();
             const mode=['constant','keyword','priority'].includes(rawMode)?rawMode:
                 bool(row.constant,false)?'constant':bool(row.priority,false)?'priority':'keyword';
