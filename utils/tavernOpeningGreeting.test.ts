@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText, stripUnsupportedTavernOpeningEmbeds } from './tavernOpeningGreeting';
 import { normalizeCharacterCard } from './sillyTavernCard';
 import { mergeCardGreetings } from './cardImportMerge';
 import { buildStoryHistory, resolveStoryOpeningGreeting } from './storyTheater';
@@ -190,4 +190,80 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(resolved?.authorNote).toBe('两位季淮北都只能叫季淮北');
         expect(resolved?.source).toBe('tavern');
     });
+    it('external media widgets are stripped regardless of author or hosting domain, leaving real plot prose', () => {
+        const opening = [
+            '暮色降临，他推开了旧车站的门。',
+            '[spotify: time machine | ˚˖ 𓂂ꔫ Music ⊹꙳◦ | https://i.postimg.cc/NM4bQjxb/2.gif | https://files.catbox.moe/fkzat7.mp3]',
+            '[spotify: 初雪 | ˚˖ 𓂂ꔫ Music ⊹꙳◦ | https://i.postimg.cc/NM4bQjxb/2.gif | https://files.catbox.moe/sndokv.mp3]',
+            '[map: 夜间车站 | https://example.org/maps/embed?location=station]',
+            '<iframe title="作者的外部地图" src="https://example.org/maps/embed?place=home"></iframe>',
+            '<audio controls src="https://example.org/theme.mp3"><source src="https://example.org/backup.ogg"></audio>',
+            '<video src="https://example.org/clip.mp4" autoplay></video>',
+            '<img src="https://example.org/cover.gif" alt="装饰封面">',
+            '![装饰小卡片](https://example.org/a.png)',
+            'https://example.org/music.mp3',
+            'https://example.org/maps/place/old-station',
+            '他把车票递给{{user}}，说：“初雪到了。”',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(opening);
+        expect(visible).toContain('暮色降临，他推开了旧车站的门。');
+        expect(visible).toContain('他把车票递给{{user}}，说：“初雪到了。”');
+        expect(visible).not.toMatch(/spotify:|\\.gif|\\.mp3|\\.ogg|\\.mp4|example\\.org|<iframe|<audio|<video|<source|<img|!\\[/i);
+        expect(tavernOpeningReadableText(visible)).toBe(visible);
+    });
+
+    it('handles multiline third-party embeds, generic widget labels and audio or map decorations', () => {
+        const raw = [
+            '[soundtrack: 主题曲 |',
+            '  https://any-cdn.example/pic.gif |',
+            '  https://any-cdn.example/sound.m4a]',
+            '[地图显示: 城北水库 | https://any-cdn.example/maps/route/123]',
+            '[time-machine-widget: state | https://any-cdn.example/card.webp | https://any-cdn.example/player.mp3]',
+            '[spotify: 独立播放器]',
+            '这里才是{{char}}真正说的话。',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(raw);
+        expect(visible).toBe('这里才是{{char}}真正说的话。');
+    });
+
+    it('keeps narrative addresses, written location hints, dialogue, user links and story XML instead of globally deleting URLs', () => {
+        const raw = [
+            '[线索: 旧站台的钥匙还在口袋里]',
+            '[地图: 城北旧站台]',
+            '[music: 角色正在哼一首歌]',
+            '她给他留下了一个网址 https://example.org/diary/scene-1 ，作为线索。',
+            '[旧车站](https://example.org/location/old-station)',
+            '<scene role="assistant">请看这张地图上的旧城。</scene>',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(raw);
+        expect(visible).toContain('[线索: 旧站台的钥匙还在口袋里]');
+        expect(visible).toContain('[地图: 城北旧站台]');
+        expect(visible).toContain('[music: 角色正在哼一首歌]');
+        expect(visible).toContain('她给他留下了一个网址 https://example.org/diary/scene-1 ，作为线索。');
+        expect(visible).toContain('旧车站');
+        expect(visible).not.toContain('https://example.org/location/old-station');
+        expect(visible).toContain('<scene role="assistant">');
+    });
+
+    it('does not mutate stored Tavern cards or Link/custom openings and cleans existing marked first floors', () => {
+        const spotify = '[spotify: 初雪 | https://another-cdn.example/cover.png | https://another-cdn.example/song.mp3]';
+        const raw = '<!-- title:回到十八岁 -->\n' + spotify + '\n<p>{{char}}在走廊等{{user}}。</p>';
+        const sourceCard = { id:'tavern-alt-99',title:'备选开场 99',content:raw };
+        const actor = {id:'actor',name:'十八岁季淮北',tavernGreetings:[sourceCard]} as CharacterProfile;
+        const item = listCharacterStoryOpenings(actor)[0];
+        expect(item.title).toBe('回到十八岁');
+        expect(item.content).toBe('{{char}}在走廊等{{user}}。');
+        expect(sourceCard.content).toBe(raw);
+        expect(resolveStoryOpeningGreeting({characterIds:['actor'],
+            openingGreeting:{characterId:'actor',greetingId:'tavern-alt-99'}},[actor],'玩家')?.content)
+            .toBe('十八岁季淮北在走廊等玩家。');
+        const oldOpening = {id:11,charId:'story-theater:test',role:'assistant',content:raw,type:'text',timestamp:1,
+            metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-alt-99'}}};
+        expect(buildStoryHistory([oldOpening as any])[0].content).toBe('{{char}}在走廊等{{user}}。');
+        expect(oldOpening.content).toBe(raw);
+        expect(storyOpeningReadingText(raw,'link-opening:existing','link')).toBe(raw);
+        expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
+        expect(stripUnsupportedTavernOpeningEmbeds(raw)).toContain('<!-- title:回到十八岁 -->');
+    });
+
 });
