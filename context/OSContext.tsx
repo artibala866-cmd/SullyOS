@@ -1522,7 +1522,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             // Reuse this read and heal missing media before resolving theme tokens.
             try {
                 const { openDB } = await import('../utils/db');
-                const { repairSharedAppearanceBlobs } = await import('../utils/userSaves');
+                const { repairSharedAppearanceBlobs, purgeDeletedUserSaves } = await import('../utils/userSaves');
+                void purgeDeletedUserSaves().catch(error => console.warn('[user-saves] 删除清理待重试', error));
                 await repairSharedAppearanceBlobs(await openDB(), assets);
             } catch (error) { console.warn('[user-saves] 桌面图片恢复失败', error); }
             const assetMap: Record<string, string> = {};

@@ -49,7 +49,7 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
     };
     const remove = () => {
         if (registry.saves.length < 2 || busyRef.current || disabled) return;
-        if (!window.confirm(`移除「${userProfile.name || '当前身份'}」？本机存档会保留，可在身份列表中恢复。`)) return;
+        if (!window.confirm(`永久删除「${userProfile.name || '当前身份'}」的本机档案和互动记录？如需恢复，须导入之前导出的备份。`)) return;
         void run(deleteCurrentUserSave);
     };
     const labels = registry.saves.map(save => {
@@ -76,7 +76,7 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
                 {busy ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" className="opacity-20"/><path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round"/></svg> : <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6"/></svg>}
             </span>
             <select id="user-save-select" aria-label="切换身份" title="切换身份" disabled={busy || disabled} value={USER_SAVE_ID}
-                onChange={event => { const id=event.target.value; if(id!==USER_SAVE_ID) void run(()=>activateUserSave(id, undefined, {restore: !!registry.deletedSaves?.some(save => save.id === id)})); }}
+                onChange={event => { const id=event.target.value; if(id!==USER_SAVE_ID) void run(()=>activateUserSave(id)); }}
                 className="absolute right-0 top-0 bottom-0 w-14 h-full opacity-0 cursor-pointer touch-manipulation">
                 {registry.saves.map((save, index) => {
                     const label = labels[index];
@@ -84,9 +84,6 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
                         ? ` · ${labels.slice(0, index + 1).filter(value => value === label).length}` : '';
                     return <option key={save.id} value={save.id}>{label}{number}{save.id === USER_SAVE_ID ? ' · 当前' : ''}</option>;
                 })}
-                {!!registry.deletedSaves?.length && <optgroup label="恢复本机保留的身份">
-                    {registry.deletedSaves.map(save => <option key={save.id} value={save.id}>恢复：{save.name}</option>)}
-                </optgroup>}
             </select>
         </div>
     </div>;

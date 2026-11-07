@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { createBackupArchive } from './backupArchive';
 import { openDB } from './db';
-import { baseCharacter, beginUserSaveOperation, isSharedAsset, referencedBlobs, sharedStoreRows, SHARED_STORES } from './userSaves';
+import { baseCharacter, beginUserSaveOperation, isSharedAsset, referencedBlobs, repairSharedAppearanceBlobs, sharedStoreRows, SHARED_STORES } from './userSaves';
 import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY, isUserSaveIndexKey, writeUserSaves, type UserSave } from './userSaveScope';
 
 const FORMAT = 'sully-user-saves';
@@ -50,7 +50,7 @@ export async function createAllUserSaveBackup(onProgress: Progress = () => {}): 
     try {
         if (!nativeLocalStorage) throw new Error('本地存储不可用');
         const registry = readUserSaves(), revision = nativeLocalStorage.getItem(USER_SAVES_KEY);
-        await openDB();
+        if (registry.activeId !== USER_SAVE_ID) throw new Error('身份已在其他页面切换，请刷新');
         const archive = createBackupArchive(), files: Manifest['files'] = Object.create(null), binaries = new Map<string, string>();
         let sequence = 0;
         const file = async (bytes: Uint8Array, extension: 'json' | 'bin') => {
@@ -90,7 +90,10 @@ export async function createAllUserSaveBackup(onProgress: Progress = () => {}): 
                 const db = await existingDatabase(scopedDatabaseName(KINDS[kind],save.id));
                 if (!db) { if (kind === 'main') throw new Error(`身份「${save.name}」的存档不存在，备份已停止`); continue; }
                 const version=db.version; let stores;
-                try { stores = await snapshot(db); } finally { db.close(); }
+                try {
+                    if (kind === 'main') await repairSharedAppearanceBlobs(db);
+                    stores = await snapshot(db);
+                } finally { db.close(); }
                 const packed: StoreSnapshot[] = [];
                 for (const {schema,rows} of stores) {
                     const parts: string[] = []; let items: string[] = [], size = 0;
@@ -108,9 +111,10 @@ export async function createAllUserSaveBackup(onProgress: Progress = () => {}): 
             }
             saves.push({id:save.id,name:save.name,preferences:await encode(preferences),databases});
         }
-        if(nativeLocalStorage.getItem(USER_SAVES_KEY)!==revision) throw new Error('身份列表已在其他页面变化，请重新备份');
         archive.file(MANIFEST,JSON.stringify({format:FORMAT,version:1,saves,files} satisfies Manifest));
-        return await archive.generateBlob(({percent})=>onProgress(`正在打包全部身份 ${Math.floor(percent)}%`));
+        const blob = await archive.generateBlob(({percent})=>onProgress(`正在打包全部身份 ${Math.floor(percent)}%`));
+        if(nativeLocalStorage.getItem(USER_SAVES_KEY)!==revision) throw new Error('身份列表已在其他页面变化，请重新备份');
+        return blob;
     } finally { release(); }
 }
 
@@ -185,7 +189,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             const added: UserSave[]=[], missingShared = new Map<string,string>();
             for(const [index,save] of manifest.saves.entries()) {
                 onProgress(`正在恢复身份 ${index+1}/${manifest.saves.length}：${save.name}`);
-                const id=crypto.randomUUID();if(registry.saves.some(save=>save.id===id)||added.some(save=>save.id===id))throw new Error('身份编号重复，请重新导入');added.push({id,name:save.name.slice(0,100),restored:true});
+                const id=crypto.randomUUID();if([...registry.saves,...(registry.deletedSaves??[])].some(save=>save.id===id)||added.some(save=>save.id===id))throw new Error('身份编号重复，请重新导入');added.push({id,name:save.name.slice(0,100),restored:true});
                 for(const database of save.databases) {
                     const name=scopedDatabaseName(KINDS[database.kind],id);
                     const db=await new Promise<IDBDatabase>((resolve,reject)=>{

@@ -173,16 +173,32 @@ it('remote memory reads, writes and deletes use the active identity namespace', 
     expect(decodeURIComponent(fetcher.mock.calls[3][0])).toContain(`char_id=eq.user:${SECOND}:char`);
 });
 
-it('deleting an identity switches safely, removes only its visible entry and preserves its private database', async () => {
+it('deleting an identity switches safely before purging private data, retaining the shared library', async () => {
     const {openDB}=await import('./db'); const db=await openDB();
-    await write(db,{characters:[{id:'c',name:'角色',avatar:'',description:'',systemPrompt:'',memories:[{summary:'原身份的记忆'}]}],messages:[{id:1,charId:'c',content:'原身份聊天'}]});
+    await write(db,{characters:[{id:'c',name:'角色',avatar:'',description:'',systemPrompt:'',memories:[{summary:'原身份的记忆'}]}],messages:[{id:1,charId:'c',content:'原身份聊天'}],
+        assets:[{id:'wallpaper',data:'blobref:shared-wallpaper'}],blob_assets:[{id:'shared-wallpaper',blob:'图片内容'}]});
     const scope=await import('./userSaveScope');
     await (await import('./userSaves')).activateUserSave(SECOND,{name:'另一个身份'});
     localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:'original',saves:[{id:'original',name:'原'},{id:SECOND,name:'另一个身份'}]}));
     vi.resetModules();
     const {deleteCurrentUserSave}=await import('./userSaves');await deleteCurrentUserSave();
-    const registry=scope.readUserSaves();expect(registry.activeId).toBe(SECOND);expect(registry.saves.map(s=>s.id)).toEqual([SECOND]);expect(registry.deletedSaves?.[0].id).toBe('original');
-    expect((await rows(db,'messages'))[0].content).toBe('原身份聊天');const target=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(target,'messages')).toEqual([]);expect((await rows(target,'characters'))[0].name).toBe('角色');expect((await rows(target,'characters'))[0].memories).toEqual([]);target.close();db.close();
+    const registry=scope.readUserSaves();expect(registry.activeId).toBe(SECOND);expect(registry.saves.map(s=>s.id)).toEqual([SECOND]);expect(registry.deletedSaves?.[0]).toMatchObject({id:'original',purgePending:true});
+    expect((await rows(db,'messages'))[0].content).toBe('原身份聊天');
+    localStorage.setItem('private-draft','旧草稿');
+    localStorage.setItem('os_theme','共用外观');
+    db.close();
+    (await open('SullyOS_Collaboration')).close();
+    (await open('ActiveMsg')).close();
+    vi.resetModules();
+    const {purgeDeletedUserSaves,activateUserSave}=await import('./userSaves');
+    await purgeDeletedUserSaves();
+    expect((await indexedDB.databases()).map(db=>db.name)).toEqual([`AetherOS_Data__user_${SECOND}`]);
+    expect(localStorage.getItem('private-draft')).toBeNull();
+    expect(localStorage.getItem('os_theme')).toBe('共用外观');
+    expect(scope.readUserSaves().deletedSaves).toEqual([]);
+    await expect(activateUserSave('original')).rejects.toThrow('找不到这个身份');
+    const target=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(target,'messages')).toEqual([]);expect((await rows(target,'characters'))[0].name).toBe('角色');expect((await rows(target,'characters'))[0].memories).toEqual([]);
+    expect(await rows(target,'blob_assets')).toEqual([{id:'shared-wallpaper',blob:'图片内容'}]);target.close();
 });
 it('the last identity cannot be deleted',async()=>{
     const {deleteCurrentUserSave}=await import('./userSaves');await expect(deleteCurrentUserSave()).rejects.toThrow('至少保留');expect(reload).not.toHaveBeenCalled();
@@ -264,13 +280,15 @@ it('mirror quota failure blocks publication and primary-write failure restores t
         expect(scope.readUserSaves()).toEqual(previous);expect(localStorage.getItem(scope.USER_SAVES_RECOVERY_KEY)).toBe(raw);
     }
 });
-it('restores a soft-removed identity with its actual profile and interaction records intact', async () => {
+it('never activates a legacy removed identity, even when its old database still exists', async () => {
     const {openDB}=await import('./db');const db=await openDB();
-    const scope=await import('./userSaveScope');const saves=await import('./userSaves');
-    await saves.activateUserSave(SECOND,{name:'B'});const b=await open('AetherOS_Data__user_'+SECOND);
-    await write(b,{messages:[{id:1,charId:'c',content:'B多年的经历'}],user_profile:[{id:'me',name:'B自己的名字',bio:'B设定',avatar:'B头像'}]});b.close();db.close();
-    vi.resetModules();await (await import('./userSaves')).deleteCurrentUserSave();
-    vi.resetModules();await (await import('./userSaves')).activateUserSave(SECOND,undefined,{restore:true});
-    const restored=await open('AetherOS_Data__user_'+SECOND);expect((await rows(restored,'messages'))[0].content).toBe('B多年的经历');expect((await rows(restored,'user_profile'))[0].avatar).toBe('B头像');restored.close();
-    const latest=(await import('./userSaveScope')).readUserSaves();expect(latest.activeId).toBe(SECOND);expect(latest.deletedSaves).toEqual([]);
+    const {USER_SAVES_KEY,readUserSaves}=await import('./userSaveScope');
+    const registry={activeId:'original',saves:[{id:'original',name:'保留'}],deletedSaves:[{id:SECOND,name:'已删测试',deletedAt:1}]};
+    localStorage.setItem(USER_SAVES_KEY,JSON.stringify(registry));
+    const legacy=await open('AetherOS_Data__user_'+SECOND);legacy.close();
+    const {activateUserSave,purgeDeletedUserSaves}=await import('./userSaves');
+    await expect(activateUserSave(SECOND)).rejects.toThrow('找不到这个身份');
+    await purgeDeletedUserSaves();
+    expect(readUserSaves()).toEqual(registry);
+    expect(reload).not.toHaveBeenCalled();db.close();
 });

@@ -1,6 +1,6 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
-import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
+import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
@@ -58,10 +58,12 @@ function openTarget(source: IDBDatabase, id: string, create: boolean): Promise<I
             created = event.oldVersion === 0;
             const schema = source.transaction(Array.from(source.objectStoreNames), 'readonly');
             for (const name of Array.from(source.objectStoreNames)) {
-                if (request.result.objectStoreNames.contains(name)) continue;
                 const old = schema.objectStore(name);
-                const store = request.result.createObjectStore(name, { keyPath: old.keyPath, autoIncrement: old.autoIncrement });
+                const store = request.result.objectStoreNames.contains(name)
+                    ? request.transaction!.objectStore(name)
+                    : request.result.createObjectStore(name, { keyPath: old.keyPath, autoIncrement: old.autoIncrement });
                 for (const indexName of Array.from(old.indexNames)) {
+                    if (store.indexNames.contains(indexName)) continue;
                     const index = old.index(indexName);
                     store.createIndex(indexName, index.keyPath, { unique: index.unique, multiEntry: index.multiEntry });
                 }
@@ -115,7 +117,7 @@ export async function repairSharedAppearanceBlobs(db: IDBDatabase, appearanceAss
     const missing = new Set(refs.filter(ref => !present.has(ref)));
     const recovered: any[] = [];
     const registry = readUserSaves();
-    const donors = [...registry.saves, ...(Array.isArray(registry.deletedSaves) ? registry.deletedSaves : [])];
+    const donors = [...registry.saves, ...(registry.deletedSaves ?? []).filter(save => !save.purgePending)];
     for (const save of donors) {
         if (!/^(original|[a-f0-9-]{36})$/.test(save?.id ?? '')) continue;
         const name = scopedDatabaseName('AetherOS_Data', save.id);
@@ -151,14 +153,14 @@ export function freshUserProfile(name: string): UserProfile {
 /** Copy base resources in a single target transaction, then commit the tiny
  * active-id manifest. Failure never selects an uninitialized/half-written save.
  * Reload is deliberate: every component, queue and singleton gets a new lifetime. */
-export async function activateUserSave(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean; restore?: boolean }): Promise<void> {
+export async function activateUserSave(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean }): Promise<void> {
     // Serialize database preparation between browser tabs where Web Locks exist.
     // The revision guard below remains mandatory for browsers without that API.
     if (typeof navigator !== 'undefined' && navigator.locks?.request)
         return navigator.locks.request('sully-user-save-switch', () => activateUserSaveLocked(targetId, create, options));
     return activateUserSaveLocked(targetId, create, options);
 }
-async function activateUserSaveLocked(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean; restore?: boolean }): Promise<void> {
+async function activateUserSaveLocked(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean }): Promise<void> {
     if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
@@ -173,7 +175,7 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         if (create) {
             if (!/^[a-f0-9-]{36}$/.test(targetId) || [...registry.saves, ...(registry.deletedSaves ?? [])].some(s => s.id === targetId)) throw new Error('身份编号无效');
             if (!create.name.trim() || create.name.trim().length > 40) throw new Error('身份名称请填写 1～40 个字');
-        } else if (!(options?.restore ? registry.deletedSaves : registry.saves)?.some(s => s.id === targetId)) throw new Error('找不到这个身份');
+        } else if (!registry.saves.some(s => s.id === targetId)) throw new Error('找不到这个身份');
         const source = await openDB();
         const storeNames = SHARED_STORES.filter(name => source.objectStoreNames.contains(name));
         const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
@@ -206,14 +208,9 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         // Check for a concurrent tab again after the asynchronous preparation.
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
         const next: UserSaveRegistry = { ...registry, activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
-        if (options?.restore) {
-            const {deletedAt: _removedAt, ...restored} = registry.deletedSaves!.find(save => save.id === targetId)!;
-            next.saves = [...next.saves, restored];
-            next.deletedSaves = registry.deletedSaves!.filter(save => save.id !== targetId);
-        }
         if (options?.deleteCurrent) {
             next.saves = next.saves.filter(save => save.id !== USER_SAVE_ID);
-            next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now()}];
+            next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now(), purgePending: true}];
         }
         writeUserSaves(next, revision);
         target.close(); target = undefined;
@@ -256,12 +253,47 @@ export function sharedStoreRows(name: string, rows: any[]): any[] {
         ({charId, roomId, furniture: (Array.isArray(furniture) ? furniture : []).map((item: any) => ({...item, placedBy: 'user'})), wallColor, floorColor, wallFillMode, wallOffsetX, wallOffsetY, floorFillMode, floorOffsetX, floorOffsetY, ambiance: '', lastUpdatedAt: 0, lastDecoratedBy: 'user'}));
 }
 
-/** Remove a visible identity only after the replacement save is ready. Retain
- * its underlying database so neither late writers nor an accidental tap destroy
- * private history. No character/worldbook deletion is involved. */
+/** Commit the deletion only after the replacement holds the shared library.
+ * The next document releases the old database connections before purging. */
 export async function deleteCurrentUserSave(): Promise<void> {
     const registry = readUserSaves();
     const replacement = registry.saves.find(save => save.id !== USER_SAVE_ID);
     if (!replacement) throw new Error('至少保留一个身份');
     await activateUserSave(replacement.id, undefined, {deleteCurrent: true});
+}
+
+let purgeJob: Promise<void> | undefined;
+
+/** Retry unfinished explicit deletions on startup. Old soft-deletion records
+ * are hidden and remain eligible only as donors for shared appearance bytes. */
+export function purgeDeletedUserSaves(): Promise<void> {
+    return purgeJob ??= purgePendingDeletions();
+}
+
+async function purgePendingDeletions(): Promise<void> {
+    if (!nativeLocalStorage) return;
+    const registry = readUserSaves();
+    if (registry.activeId !== USER_SAVE_ID) return;
+    for (const save of registry.deletedSaves ?? []) {
+        if (!save.purgePending) continue;
+        // IDB waits for other documents holding open connections. The pending
+        // entry survives a closed page, so startup can retry without restoring it.
+        await Promise.all(['AetherOS_Data', 'SullyOS_Collaboration', 'ActiveMsg'].map(name =>
+            new Promise<void>((resolve, reject) => {
+                const request = indexedDB.deleteDatabase(scopedDatabaseName(name, save.id));
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            })
+        ));
+        const latest = readUserSaves();
+        if (latest.activeId !== USER_SAVE_ID || !latest.deletedSaves?.some(entry => entry.id === save.id && entry.purgePending)) continue;
+        const storage = createSaveStorage(nativeLocalStorage, save.id);
+        for (const key of Object.keys(storage)) {
+            if (!isSharedPreference(key)) storage.removeItem(key);
+        }
+        writeUserSaves({
+            ...latest,
+            deletedSaves: latest.deletedSaves.filter(entry => entry.id !== save.id),
+        }, nativeLocalStorage.getItem(USER_SAVES_KEY));
+    }
 }

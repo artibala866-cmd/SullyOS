@@ -3,7 +3,7 @@
 export const USER_SAVES_KEY = 'sully:user-saves:v1';
 export const DEFAULT_USER_SAVE = 'original';
 export interface UserSave { id: string; name: string; restored?: boolean }
-export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deletedSaves?: (UserSave & { deletedAt: number })[] }
+export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deletedSaves?: (UserSave & { deletedAt: number; purgePending?: true })[] }
 export const nativeLocalStorage = typeof window === 'undefined' ? undefined : window.localStorage;
 export const nativeSessionStorage = typeof window === 'undefined' ? undefined : window.sessionStorage;
 const RETURN_KEY = 'sully:user-save-return-profile:v1';

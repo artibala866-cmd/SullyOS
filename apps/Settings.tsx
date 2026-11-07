@@ -1,4 +1,4 @@
-import { beginUserSaveOperation } from '../utils/userSaves';
+import { beginUserSaveOperation, readUserSaves, USER_SAVE_ID } from '../utils/userSaves';
 import { createAllUserSaveBackup, prepareUserSaveRestore } from '../utils/userSaveBackup';
 import ImageApiSettingsPanel from '../components/settings/ImageApiSettingsPanel';
 import NavigationBallSettings from '../components/settings/NavigationBallSettings';
@@ -1315,15 +1315,18 @@ const Settings: React.FC = () => {
           if (!window.confirm('这份备份将恢复到当前身份，可能替换当前档案及互动记录。其他身份会保留。\n\n请先确认已有备份。继续导入？')) return;
           const release = beginUserSaveOperation('恢复当前身份');
           try {
-              const restoreCurrent = () => importSystem(file, {
-                  // Do not reconnect a legacy backup to a third party's Worker without consent.
-                  confirmBackendRestore: (workerUrl) => window.confirm(
-                      `这份备份里带着一个主动消息 2.0 的后端连接：\n\n${workerUrl}\n\n`
-                      + '如果这是你自己导出的备份，点「确定」连上它。\n\n'
-                      + '如果是别人给你的，点「取消」——连上去的话，你的 API 密钥和聊天记录会被写进对方那台服务器。\n\n'
-                      + '（不连也不影响其它数据导入，之后可以在设置里手动填。）',
-                  ),
-              });
+              const restoreCurrent = () => {
+                  if (readUserSaves().activeId !== USER_SAVE_ID) throw new Error('当前身份已在其他页面切换，请回到要导入的身份再试');
+                  return importSystem(file, {
+                      // Do not reconnect a legacy backup to a third party's Worker without consent.
+                      confirmBackendRestore: (workerUrl) => window.confirm(
+                          `这份备份里带着一个主动消息 2.0 的后端连接：\n\n${workerUrl}\n\n`
+                          + '如果这是你自己导出的备份，点「确定」连上它。\n\n'
+                          + '如果是别人给你的，点「取消」——连上去的话，你的 API 密钥和聊天记录会被写进对方那台服务器。\n\n'
+                          + '（不连也不影响其它数据导入，之后可以在设置里手动填。）',
+                      ),
+                  });
+              };
               if (typeof navigator !== 'undefined' && navigator.locks?.request)
                   await navigator.locks.request('sully-user-save-switch', restoreCurrent);
               else await restoreCurrent();

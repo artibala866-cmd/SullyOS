@@ -1,4 +1,4 @@
-import { scopedDatabaseName } from './userSaveScope';
+import { readUserSaves, scopedDatabaseName, USER_SAVE_ID } from './userSaveScope';
 import { readLocalCursor } from './localRead';
 import { reportDatabaseFailure } from './databaseHealth';
 import { associateDatabaseOpen, beginDatabaseOpen, recordDatabaseOpen } from './databaseOpenDiagnostics';
@@ -160,6 +160,11 @@ function clearStaleMemoryMirror(transaction: IDBTransaction, charId: string, new
 
 export const openDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
+  // A stale document can outlive the tab that deleted its identity. Once its
+  // connection closes, do not let a delayed task recreate that database.
+  if (!readUserSaves().saves.some(save => save.id === USER_SAVE_ID)) {
+    return Promise.reject(new Error('当前身份已删除，请刷新页面'));
+  }
 
   const promise = new Promise<IDBDatabase>((resolve, reject) => {
     const diagnosticRequest = beginDatabaseOpen(DB_VERSION);

@@ -16,6 +16,23 @@ const inspect=()=>page.evaluate(async()=>{
 const ready=()=>page.getByLabel('你的名字',{exact:true}).waitFor();
 async function switchTo(id){await Promise.all([page.waitForEvent('framenavigated'),page.getByLabel('切换身份',{exact:true}).selectOption(id)]);await ready();assert.equal((await inspect()).id,id);}
 async function shot(name){if(!name.endsWith('844') && !name.startsWith('backup')) await page.getByTestId('archive-scroll').evaluate(el=>el.scrollTop=0);await page.waitForTimeout(400);await page.screenshot({path:out+'/'+name+'.png'});}
+async function downloadAll(target, screenshot){
+ await target.goto(origin+'/test/fixtures/user-saves.html?settings=1');
+ await target.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
+ await target.getByLabel('备份范围',{exact:true}).selectOption('all');
+ const button=target.getByRole('button',{name:/导出全部身份/});await button.scrollIntoViewIfNeeded();
+ if(screenshot)await shot(screenshot);
+ target.once('dialog',d=>d.accept());
+ const dlPromise=target.waitForEvent('download');await button.click();const dl=await dlPromise;
+ const file={name:dl.suggestedFilename(),mimeType:'application/zip',buffer:await readFile(await dl.path())};
+ await target.getByRole('button',{name:'关闭',exact:true}).click();await button.waitFor();
+ return file;
+}
+async function importAll(target,file){
+ await Promise.all([target.waitForEvent('framenavigated'),target.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);
+ await target.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
+}
+
 async function checkDesktop(name,damage=false){
  await page.goto(origin+'/test/fixtures/user-saves.html?desktop=1');
  if(damage){
@@ -123,31 +140,56 @@ try{
  await switchTo(fresh.id);const again=await inspect();assert.equal(again.profile.name,edited.profile.name);assert.equal(again.profile.bio,edited.profile.bio);assert.equal(again.profile.avatar,edited.profile.avatar);assert.equal(again.lifeSettings[0].cycleLength,35);assert.equal(again.transactions.length,1);assert.equal(again.transactions[0].note,'B档独立账单');assert.equal(again.profile.chibiStudio,undefined);assert.equal(again.hwm,'9');assert(again.messages.some(m=>m.content==='校园线独有的聊天'));
  const other=await context.newPage();other.on('pageerror',e=>errors.push(e.message));await other.goto(origin+'/test/fixtures/user-saves.html');await other.getByLabel('你的名字',{exact:true}).waitFor();
  await switchTo('original');await other.waitForFunction(()=>document.querySelector('#user-save-select')?.value==='original');await other.close();
- await switchTo(fresh.id);page.once('dialog',d=>d.accept());
- await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'删除当前身份',exact:true}).click()]);await ready();
- const deleted=await inspect();assert.equal(deleted.id,'original');assert.equal(deleted.registry.saves.length,1);assert(deleted.registry.deletedSaves.some(s=>s.id===fresh.id));assert.equal(deleted.profile.name,'原来的名字');assert.equal(deleted.profile.bio,'原身份的独立设定');assert(deleted.books.some(w=>w.id==='qa-save-world'));
- assert.equal(await page.getByRole('button',{name:'删除当前身份',exact:true}).isEnabled(),false);
- await page.setViewportSize({width:390,height:844});await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('after-delete-390');
- // Restore through the same native name picker, then corrupt/remove the primary
- // index while preserving the mirror and all actual interaction data.
+ // Verify the index mirror while both live saves are present.
  await switchTo(fresh.id);
- const recovered=await inspect();assert.equal(recovered.id,fresh.id);assert.equal(recovered.profile.avatar,edited.profile.avatar);assert(recovered.messages.some(m=>m.content==='校园线独有的聊天'));assert.equal(recovered.transactions[0].note,'B档独立账单');
- await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('restored-identity-390');
  await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.setItem(s.USER_SAVES_KEY,'{damaged');});
  await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert.equal((await inspect()).profile.avatar,edited.profile.avatar);
  await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.removeItem(s.USER_SAVES_KEY);});
  await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert((await inspect()).messages.some(m=>m.content==='校园线独有的聊天'));
+
+ // Old releases kept deleted test saves. Even if present in the index, these
+ // never become selectable or part of a newly exported all-identity backup.
+ await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');const registry=s.readUserSaves();s.writeUserSaves({...registry,deletedSaves:[{id:'22222222-2222-4222-8222-222222222222',name:'已删测试',deletedAt:1}]},s.nativeLocalStorage.getItem(s.USER_SAVES_KEY));});
+ await page.reload();await ready();
+ assert.equal(await page.locator('#user-save-select option').count(),2);
+ assert.equal(await page.locator('#user-save-select optgroup').count(),0);
+ await page.setViewportSize({width:390,height:844});
+ const file=await downloadAll(page,'backup-all-390');
+ await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
+ page.once('dialog',async d=>{assert.match(d.message(),/永久删除/);await d.dismiss();});
+ await page.getByRole('button',{name:'删除当前身份',exact:true}).click();assert.equal((await inspect()).id,fresh.id);
  page.once('dialog',d=>d.accept());
  await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'删除当前身份',exact:true}).click()]);await ready();
- // Keep all-identity backup/import regression through the real Settings controls.
- await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();await page.getByLabel('备份范围',{exact:true}).selectOption('all');
- await page.getByRole('button',{name:/导出全部身份/}).scrollIntoViewIfNeeded();await shot('backup-all-390');
- page.once('dialog',d=>d.accept());
- const dlPromise=page.waitForEvent('download');await page.getByRole('button',{name:/导出全部身份/}).click();const dl=await dlPromise;const file={name:dl.suggestedFilename(),mimeType:'application/zip',buffer:await readFile(await dl.path())};
- await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
- await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
+ await page.waitForFunction(async id=>!(await indexedDB.databases()).some(db=>db.name==='AetherOS_Data__user_'+id),fresh.id);
+ const deleted=await inspect();assert.equal(deleted.id,'original');assert.equal(deleted.registry.saves.length,1);assert.equal(deleted.profile.name,'原来的名字');assert.equal(deleted.profile.bio,'原身份的独立设定');assert(deleted.books.some(w=>w.id==='qa-save-world'));
+ assert.equal(await page.getByRole('button',{name:'删除当前身份',exact:true}).isEnabled(),false);
+ assert.deepEqual(await page.locator('#user-save-select option').allTextContents(),['原来的名字 · 当前']);
+ await shot('after-delete-390');
+ const currentOnly=await downloadAll(page);
+ await importAll(page,currentOnly);
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');
  const copy=imported.registry.saves.find(save=>save.id!=='original');await switchTo(copy.id);const restoredCopy=await inspect();assert.equal(restoredCopy.profile.bio,'原身份的独立设定');assert.deepEqual(restoredCopy.messages,imported.messages);assert.match(await page.locator('#user-save-select option:checked').textContent(),/副本 · 当前/);await switchTo('original');
+
+ // A separate browser context has none of the original site data. The file
+ // alone must bring back both identities with their original private histories.
+ const clean=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ await clean.addInitScript(()=>{localStorage.setItem('qa-user-saves-seeded','1');localStorage.setItem('sullyos_disclaimer_accepted','1');localStorage.setItem('os_first_use_memory_guide_v1','done');});
+ const cleanPage=await clean.newPage();cleanPage.on('pageerror',e=>errors.push(e.message));
+ await cleanPage.goto(origin+'/test/fixtures/user-saves.html?settings=1');await cleanPage.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
+ await importAll(cleanPage,file);
+ await cleanPage.goto(origin+'/test/fixtures/user-saves.html');
+ const cleanPicker=cleanPage.getByLabel('切换身份',{exact:true});await cleanPicker.waitFor();
+ const restoredLabels=await cleanPicker.locator('option').allTextContents();assert.equal(restoredLabels.length,3);assert.deepEqual(restoredLabels.slice(1),['原来的名字 · 副本','校园线名字 · 副本']);
+ for(const [name,bio,message] of [['原来的名字','原身份的独立设定','原身份的聊天'],['校园线名字','校园线自己的身份设定，不能写回原身份。','校园线独有的聊天']]){
+  const option=cleanPicker.locator('option').filter({hasText:name+' · 副本'});
+  await Promise.all([cleanPage.waitForEvent('framenavigated'),cleanPicker.selectOption(await option.getAttribute('value'))]);
+  await cleanPage.getByLabel('关于我 / 设定',{exact:true}).waitFor();
+  assert.equal(await cleanPage.getByLabel('关于我 / 设定',{exact:true}).inputValue(),bio);
+  const contents=await cleanPage.evaluate(async()=>{const {openDB}=await import('/utils/db.ts');const db=await openDB();return new Promise(resolve=>{const req=db.transaction('messages').objectStore('messages').getAll();req.onsuccess=()=>resolve(req.result.map(row=>row.content));});});
+  assert(contents.includes(message));
+ }
+ await cleanPage.screenshot({path:out+'/backup-restored-fresh-browser-390.png'});
+ await clean.close();
  // Dismissing the current-identity replacement warning must leave the rich
  // original untouched. The independent ZIP above never uses this warning.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
@@ -155,5 +197,5 @@ try{
  await page.locator('input[type=file][accept=".json,.zip"]').setInputFiles({name:'old-backup.json',mimeType:'application/json',buffer:Buffer.from('{}')});
  await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出')&&!b.disabled));assert.match(await confirmation,/可能替换当前档案及互动记录/);
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();assert.deepEqual((await inspect()).messages,imported.messages);assert.deepEqual(errors,[]);
- console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; recovery preserves both identities and index corruption heals; final identity protected; multi-tab, all-save backup/import and cancelled legacy replacement; 390/320/landscape screenshots; no page errors.');
+ console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash purges current identity and retains base library; deleted entries stay hidden; index corruption heals; exported ZIP restores both identities in a clean browser; final identity protected; multi-tab, all-save backup/import and cancelled legacy replacement; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}

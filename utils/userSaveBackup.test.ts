@@ -77,3 +77,46 @@ it('restores missing shared theme settings with their theme-only photo bytes on 
  expect(await (await rows(db,'blob_assets')).find(row=>row.id==='theme-only-photo').blob.text()).toBe('film bytes');
  expect((await rows(db,'messages'))[0].content).toBe('A聊天');db.close();
 });
+
+it('restores both identities from the exported file alone, excluding legacy deleted entries',async()=>{
+ const {db,registry}=await seed();
+ localStorage.setItem(key,JSON.stringify({...registry,deletedSaves:[{id:'22222222-2222-4222-8222-222222222222',name:'已删测试',deletedAt:1}]}));
+ const backup=await (await import('./userSaveBackup')).createAllUserSaveBackup();
+ db.close();
+ // A different browser profile has neither the old identity index nor its databases.
+ localStorage.clear();vi.stubGlobal('indexedDB',new IDBFactory());vi.resetModules();
+ const {prepareUserSaveRestore}=await import('./userSaveBackup');
+ const plan=(await prepareUserSaveRestore(backup))!;expect(await plan.restore()).toBe(2);
+ const imported=JSON.parse(localStorage.getItem(key)!);
+ expect(imported.saves.map((save:any)=>save.name)).toEqual(['原有身份','原来的故事','校园线']);
+ for(const [index,save] of imported.saves.slice(1).entries()){
+   const restored=await open('AetherOS_Data__user_'+save.id);
+   const label=index===0?'A':'B';
+   expect((await rows(restored,'messages'))[0].content).toBe(label+'聊天');
+   expect((await rows(restored,'user_profile'))[0].bio).toBe(label+'设定');
+   restored.close();
+ }
+});
+
+it('updates indexes when switching to an older restored identity without losing its chat',async()=>{
+ const {db}=await seed();
+ const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
+ const backup=await createAllUserSaveBackup();
+ const zip=await JSZip.loadAsync(await backup.arrayBuffer());
+ const manifest=JSON.parse(await zip.file('user-saves.json')!.async('string'));
+ const main=manifest.saves[1].databases.find((database:any)=>database.kind==='main');
+ main.version--;
+ const messages=main.stores.find((store:any)=>store.name==='messages');
+ messages.indexes=messages.indexes.filter((index:any)=>index.name!=='charId_type');
+ zip.file('user-saves.json',JSON.stringify(manifest));
+ const oldBackup=new Blob([await zip.generateAsync({type:'uint8array'}) as BlobPart]);
+ await (await prepareUserSaveRestore(oldBackup))!.restore();
+ const registry=JSON.parse(localStorage.getItem(key)!);
+ const copy=registry.saves.at(-1);
+ await (await import('./userSaves')).activateUserSave(copy.id);
+ const restored=await open('AetherOS_Data__user_'+copy.id);
+ expect(restored.version).toBe(db.version);
+ expect(restored.transaction('messages').objectStore('messages').indexNames.contains('charId_type')).toBe(true);
+ expect((await rows(restored,'messages'))[0].content).toBe('B聊天');
+ restored.close();db.close();
+});
