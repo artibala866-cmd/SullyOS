@@ -26,14 +26,32 @@ describe('悬浮窗紧凑交互', () => {
     expect(ball).toContain('onClick={() => run(() => onSwitchPreset(preset))}');
     expect(ball).toContain('findActivePresetId(apiPresets, apiConfig)');
     expect(ball).toContain('applyApi(configFromPreset(preset))');
-    expect(ball).toContain("addToast('已切换到「' + preset.name + '」，立即生效', 'success')");
+    expect(ball).toContain("addToast('已切换到「' + preset.name + '」，下一次请求生效', 'success')");
   });
   it('URL、Key、模型整套保存，与设置页共享云端凭据同步路径', () => {
     expect(ball).toContain("Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>");
-    expect(ball).toContain('updateApiConfig(patch)');
+    expect(ball).toContain('updateApiConfig(patch) === false');
+    expect(ball).toContain('quickApiConfigurationIssue(manual)');
+    expect(ball).toContain('quickApiConfigurationIssue(preset.config)');
+    expect(ball).toContain('disabled={!!issue}');
     expect(ball).toContain('syncAmsgLlmCredentials({ ...apiConfig, ...patch })');
-    expect(ball).toContain('onManualApi(manual)');
+    expect(ball).toContain('onManualApi(normalizedQuickApiFields(manual))');
     expect(ball).toContain('type="password"');
-    expect(ball).toContain('只切换全局对话 API；角色或玩法独立 API 不会被覆盖。');
+    expect(ball).toContain('角色或玩法 API 不会被覆盖。');
+  });
+});
+
+describe('真机交互风险防护', () => {
+  it('键盘缩小可视高度时恢复拖动目标位置，而不是永久贴在中部', () => {
+    expect(ball).toContain('window.visualViewport?.addEventListener(\'resize\', constrain)');
+    expect(ball).toContain('const preferredPosition = useRef(position)');
+    expect(ball).toContain('preferredPosition.current = next;');
+    expect(ball).toContain('parentH: visibleHeight');
+    expect(style).toContain('overflow-y:auto');
+  });
+  it('有独立 API 的角色得到明确作用范围提示，避免误以为普通见面已切换', () => {
+    expect(ball).toContain('independentApiCharacterName');
+    expect(ball).toContain('普通见面继续使用角色配置；剧情剧场使用此处的全局配置');
+    expect(ball).toContain('enabled && isDataLoaded && !isLocked && !pickerOpen');
   });
 });
