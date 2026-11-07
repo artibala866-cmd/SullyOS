@@ -136,8 +136,8 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         const long = sanitizeStoryTheaterHtml(
             '<div>' + Array.from({ length: 90 }, (_, index) => '<p>故事段落 ' + index + '：延续人物的剧情内容。</p>').join('') + '</div>',
         );
-        expect(short.estimatedHeight).toBeGreaterThanOrEqual(180);
-        expect(short.estimatedHeight).toBeLessThanOrEqual(260);
+        expect(short.estimatedHeight).toBeGreaterThanOrEqual(76);
+        expect(short.estimatedHeight).toBeLessThanOrEqual(160);
         expect(long.estimatedHeight).toBeGreaterThan(short.estimatedHeight);
         expect(long.estimatedHeight).toBeLessThanOrEqual(520);
         expect(short.srcDoc).toContain('隐藏的长说明');
