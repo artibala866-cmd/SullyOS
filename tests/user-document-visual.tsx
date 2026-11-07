@@ -12,7 +12,7 @@ const observed:string[]=[];
 window.addEventListener('error',e=>observed.push(e.message));
 window.addEventListener('unhandledrejection',e=>observed.push(String(e.reason)));
 const imported='从文件导入的经历。\n我喜欢旅行和画画。';
-const InitialBio='原本的个人资料不能被意外覆盖。';
+const InitialBio=source==='user-profile-whitespace'?'  我手动写的资料，保留缩进和末尾换行。\n':'原本的个人资料不能被意外覆盖。';
 const initialProfile={name:'测试档案',avatar:'',bio:InitialBio, imageAppearance:'我自己写的生图外貌', imageLockEnabled:false, perCharAvatars:{'test-role':'manual-avatar-ref'}};
 const isReloaded=source==='user-profile-persist' &&
     sessionStorage.getItem('qa-doc-import-reloaded')==='1';
@@ -140,7 +140,7 @@ async function run(){
                 (dialog.textContent||'').includes('Word')
             ));
 
-        const expectedAppend=InitialBio+'\n\n'+imported;
+        const expectedAppend=InitialBio+(source==='user-profile-whitespace'?'\n':'\n\n')+imported;
         if(source==='user-profile-replace'){
             replace.click();
             await new Promise(r=>setTimeout(r,80));
@@ -164,7 +164,7 @@ async function run(){
                 throw Error('Failed save mutated saved profile');
             if(!document.querySelector('[role="dialog"]'))
                 throw Error('Failed import closed the retry dialog');
-        }else if(['user-profile-saved','user-profile-duplicate','user-profile-persist'].includes(source)){
+        }else if(['user-profile-saved','user-profile-duplicate','user-profile-persist','user-profile-whitespace'].includes(source)){
             confirm.click();
             await waitFor(()=>area.value===expectedAppend,'appended text');
             if(!(await readSavedBio(expectedAppend)))
