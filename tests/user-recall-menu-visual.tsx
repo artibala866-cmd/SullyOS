@@ -18,6 +18,17 @@ const props={
     modalType:'message-options',
     setModalType:()=>{},
     selectedMessage:m,
+    // Hidden submodals still evaluate some JSX expressions when ChatModals
+    // renders. Supply their ordinary empty controlled values, not undefined.
+    emojiImportText:'',
+    emojiImportCategoryName:'默认分类',
+    setEmojiImportText:()=>{},
+    newCategoryName:'',
+    newEmojiName:'',
+    selectedEmoji:null,
+    selectedCategory:null,
+    transferAmt:'',
+    transferNote:'',
     activeCharacter:{id:chatId,name:'林屿'},
     messages:[m],
     onRecallMessage:()=>{clicks++;},
