@@ -780,6 +780,16 @@ export const recognizeTavernPromptHeading = (
     // ┏╔标题╗┓ ... ┗╚标题╝┛. These are browse boundaries, not choices.
     const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
     if (corner) return { label: corner[1].trim(), edge: /[┗╚╝┛]/.test(name) ? 'end' : 'start' };
+    // MoM and Phantasm author headings do not always use paired arrows.
+    // They are visual boundaries, not selectable prompt entries.
+    const tabHeading = /^▍\s*(.{2,72})$/u.exec(name);
+    if (tabHeading) return { label: tabHeading[1].trim(), edge: 'start' };
+    const openBox = /^┌\s*(.{2,72}?)\s*┐$/u.exec(name);
+    if (openBox) return { label: openBox[1].trim(), edge: 'start' };
+    const closeBox = /^└\s*(.{2,72}?)\s*┘$/u.exec(name);
+    if (closeBox) return { label: closeBox[1].trim(), edge: 'end' };
+    const centered = /^✧─\s*(.{2,72}?)\s*─✧$/u.exec(name);
+    if (centered) return { label: centered[1].trim(), edge: 'divider' };
     const bracket = /^<==(.{2,68}?)==>$/.exec(name);
     if (bracket && /[▣◈◀▶]/u.test(bracket[1])) {
         return { label: bracket[1].trim(), edge: 'start' };
