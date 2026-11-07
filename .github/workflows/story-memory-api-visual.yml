@@ -1,0 +1,97 @@
+name: Story memory-only secondary API QA
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - types.ts
+      - utils/storyMemoryApi.ts
+      - utils/storyMemoryApi.test.ts
+      - utils/storyMemoryApiWiring.test.ts
+      - utils/storyTheater.ts
+      - utils/storyTheaterArchive.ts
+      - utils/storyTheaterArchive.test.ts
+      - components/date/story/StoryTheater.tsx
+      - components/date/story/StoryTheaterEditor.tsx
+      - components/date/story/StoryTheaterSession.tsx
+      - components/date/story/StoryArchivePanel.tsx
+      - story-memory-api-visual.html
+      - tests/story-memory-api-visual.tsx
+      - .github/workflows/story-memory-api-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  story-memory-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify memory API isolation and real archive regeneration
+        run: pnpm exec vitest run utils/storyMemoryApi.test.ts utils/storyMemoryApiWiring.test.ts utils/storyTheaterArchive.test.ts utils/db.storyTheater.test.ts
+      - name: Verify touched TS modules (do not obscure unrelated pre-existing diagnostics)
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/story-memory-typecheck.log 2>&1 || true
+          grep -E '^(utils/(storyMemoryApi(\.test)?|storyMemoryApiWiring\.test|storyTheater|storyTheaterArchive(\.test)?)\.ts|components/date/story/(StoryTheater|StoryTheaterEditor|StoryTheaterSession|StoryArchivePanel)\.tsx|tests/story-memory-api-visual\.tsx|types\.ts)\(' /tmp/story-memory-typecheck.log > /tmp/story-memory-target-errors.log || true
+          if [ -s /tmp/story-memory-target-errors.log ]; then
+            cat /tmp/story-memory-target-errors.log
+            exit 1
+          fi
+          echo 'Story memory API target files have no TypeScript diagnostics.'
+      - name: Install Chinese fonts for accurate mobile screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+      - name: Screenshot real editor and test preset and save interactions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/story-memory-api-shots
+          pnpm exec vite --host 127.0.0.1 --port 5179 --strictPort > /tmp/story-memory-api-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5179/story-memory-api-visual.html > /dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/story-memory-api-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for scenario in off empty preset manual invalid save narrow; do
+            size=390,844
+            if [ "$scenario" = "narrow" ]; then size=360,740; fi
+            url="http://127.0.0.1:5179/story-memory-api-visual.html?scenario=$scenario"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run \
+              --window-size="$size" --force-device-scale-factor=1 --virtual-time-budget=6200 \
+              --screenshot="/tmp/story-memory-api-shots/story-memory-$scenario.png" "$url"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run \
+              --window-size="$size" --force-device-scale-factor=1 --virtual-time-budget=6200 --dump-dom \
+              "$url" > "/tmp/story-memory-$scenario.html"
+            if ! grep -q 'data-story-memory-api-ready="true"' "/tmp/story-memory-$scenario.html"; then
+              echo "Real editor scenario failed: $scenario"
+              grep -o 'data-story-memory-api-[^ ]*' "/tmp/story-memory-$scenario.html" | head -n 5 || true
+              tail -n 25 /tmp/story-memory-api-vite.log
+              exit 1
+            fi
+          done
+          test "$(find /tmp/story-memory-api-shots -name '*.png' | wc -l)" -eq 7
+      - name: Upload mobile UI screenshot verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-memory-api-ui-screenshots
+          path: /tmp/story-memory-api-shots/*.png
+          if-no-files-found: ignore
+          retention-days: 7
