@@ -23,7 +23,8 @@ describe('per-story API uses only memory call sites', () => {
     it('regeneration and conversion use the entry snapshot; standard character memory processing stays untouched', () => {
         expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api))');
         expect(archives).toContain('const llm=resolveStoryMemoryApi(entry,memoryPalaceConfig.lightLLM?.baseUrl');
-        expect(session).toContain('const light = memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM :');
+        expect(session).toContain('light = resolveStoryMemoryApi(entry, memoryPalaceConfig.lightLLM?.baseUrl');
+        expect(session).toContain('processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light');
     });
     it('UI is under the original 03 Memory section; selects global presets read-only, never updates global config', () => {
         expect(editor).toContain('03 / Memory');
