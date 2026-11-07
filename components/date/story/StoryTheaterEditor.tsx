@@ -3,6 +3,7 @@ import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGa
 import TokenImg from '../../os/TokenImg';
 import type { ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
+import { findActivePresetId } from '../../../utils/apiPresetSwitch';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
 import { sortCustomStoryOpenings, STORY_OPENING_ACCEPT } from '../../../utils/storyOpeningDocumentImport';
@@ -640,7 +641,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     {draft.memorySummaryApi && <div className='mt-4 space-y-3'>
                         <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>从已保存的 API 预设载入</span>
-                            <select aria-label='选择剧情记忆 API 预设' defaultValue='' onChange={event => {
+                            <select aria-label='选择剧情记忆 API 预设' value={findActivePresetId(apiPresets, draft.memorySummaryApi)} onChange={event => {
                                 const preset = apiPresets.find(item => item.id === event.target.value);
                                 if (preset) update('memorySummaryApi', storyMemoryApiFromPreset(preset));
                             }} className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs'>
