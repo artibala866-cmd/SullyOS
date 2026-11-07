@@ -23,6 +23,7 @@ interface Props {
     onSave: (preset: StoryTheaterPreset) => Promise<void> | void;
     onOpenCopy: (preset: StoryTheaterPreset) => Promise<void> | void;
     onDelete?: (preset: StoryTheaterPreset) => Promise<void> | void;
+    usedByStoryCount?: number;
 }
 
 export interface StoryPresetSimpleChoice {
@@ -89,7 +90,7 @@ const STORY_GENERATION_FIELDS = [
     ['maxTokens', '最大输出', 'Max tokens', 256, 32000, 256, '只限制本轮最多能生成多少，不代表每次一定写满；篇幅仍主要由上面的“篇幅”选项决定。'],
 ] as const;
 
-const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy, onDelete }) => {
+const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy, onDelete, usedByStoryCount = 0 }) => {
     const [draft, setDraft] = useState<StoryTheaterPreset>(() => ({
         ...preset,
         document: { ...preset.document, generation: { ...preset.document.generation }, prompts: preset.document.prompts.map(item => ({ ...item })) },
@@ -98,6 +99,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState('');
     const [saving, setSaving] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [newGroupName, setNewGroupName] = useState('');
     const [promptQuery, setPromptQuery] = useState('');
     const [expandedAuthorSections, setExpandedAuthorSections] = useState<Record<string, boolean>>({});
@@ -231,6 +235,18 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         finally { setSaving(false); }
     };
 
+    const removePreset = async () => {
+        if (!onDelete || deleting || usedByStoryCount > 0) return;
+        setDeleting(true);
+        setDeleteError('');
+        try { await onDelete(draft); }
+        catch (error) {
+            setDeleteError(error instanceof Error ? error.message : '删除失败，请重试');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const renderGenerationFields = () => <>
         <div className='mt-5 divide-y divide-slate-200 border-y border-slate-200'>
             {STORY_GENERATION_FIELDS.map(([key, label, technicalLabel, min, max, step, help]) => <label key={key} className='block py-4'>
@@ -301,6 +317,11 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
 
         <main ref={mainScrollRef} className='story-page-scroll flex-1 overflow-y-auto px-5 py-6 pb-24'>
             <div className='max-w-2xl mx-auto'>
+                {!readOnly && usedByStoryCount > 0 && <section role='status' className='mb-5 rounded-xl border border-amber-200 px-3 py-3 text-[10px] leading-5 text-amber-800'>
+                    这份预设正在被 {usedByStoryCount} 条剧情使用。直接保存修改，会改变这些剧情之后的续写规则。
+                    <button type='button' disabled={saving} onClick={() => void onOpenCopy(duplicateStoryPreset(draft))}
+                        className='mt-2 block font-semibold underline underline-offset-2'>复制为独立预设（不影响原剧情）</button>
+                </section>}
                 {mode === 'simple' ? <>
                     <section className='pb-5 border-b border-slate-200'>
                         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div>
@@ -379,7 +400,25 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                         return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[10px] text-slate-400 truncate'>{group.description}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
                     })}<button onClick={() => setActiveGroupKey('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong><span className='block mt-1 text-[10px] text-slate-400'>Temperature、Top P、惩罚项与最大输出</span></button></div>
                     {!readOnly && <section className='pt-6 border-t border-slate-200 grid gap-3 sm:grid-cols-2'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label><label><span className='text-[10px] font-bold text-slate-500'>说明</span><input value={draft.document.description || ''} onChange={event => patchDocument({ description: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
-                    {!readOnly && onDelete && <button onClick={() => onDelete(draft)} className='mt-8 w-full py-3 text-xs font-bold text-rose-500'>删除这个预设</button>}
+                    {!readOnly && onDelete && <section className='mt-8 border-t border-slate-200 pt-4'>
+                        {!confirmDelete ? <button type='button' onClick={() => { setConfirmDelete(true); setDeleteError(''); }}
+                            className='w-full py-3 text-xs font-bold text-rose-500'>删除这个预设</button> : <div className='rounded-xl border border-rose-200 px-3 py-3'>
+                            <p className='text-xs font-semibold text-rose-700'>确认删除「{draft.name}」？</p>
+                            <p className='mt-2 text-[10px] leading-5 text-slate-500'>
+                                {usedByStoryCount > 0
+                                    ? `仍有 ${usedByStoryCount} 条剧情在使用。请先进入对应剧情设置更换预设，才能删除。`
+                                    : '删除后无法在制作器中撤销，请确认已保留需要的预设文件。'}
+                            </p>
+                            <div className='mt-3 flex gap-2'>
+                                <button type='button' disabled={deleting} onClick={() => setConfirmDelete(false)}
+                                    className='min-h-10 flex-1 rounded-lg border border-slate-200 bg-white text-xs'>取消</button>
+                                <button type='button' disabled={deleting || usedByStoryCount > 0} onClick={() => void removePreset()}
+                                    className='min-h-10 flex-1 rounded-lg bg-rose-600 text-white text-xs font-semibold disabled:opacity-40'>
+                                    {deleting ? '正在删除…' : '确认删除'}</button>
+                            </div>
+                            {deleteError && <p role='alert' className='mt-2 text-[10px] leading-5 text-rose-600'>{deleteError}</p>}
+                        </div>}
+                    </section>}
                 </>}
             </div>
         </main>
