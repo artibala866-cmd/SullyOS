@@ -364,7 +364,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const archiveLock = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const readingScrollRef = useRef<HTMLElement>(null);
-    const scrollFrameRef = useRef<number | null>(null);
     const followLatestRef = useRef(true);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -478,23 +477,29 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             floor = messages.length;
         } else {
             const readingLine = viewport.getBoundingClientRect().top + Math.min(120, viewport.clientHeight * 0.24);
-            for (const element of viewport.querySelectorAll<HTMLElement>('[data-story-floor]')) {
-                if (element.getBoundingClientRect().top > readingLine) break;
-                floor = Number(element.dataset.storyFloor) || floor;
+            const floorNodes = viewport.querySelectorAll<HTMLElement>('[data-story-floor]');
+            // Binary search keeps progress in sync on every scroll event without
+            // measuring every old floor in long-running stories.
+            let low = 0;
+            let high = floorNodes.length - 1;
+            while (low <= high) {
+                const middle = Math.floor((low + high) / 2);
+                const element = floorNodes[middle];
+                if (element.getBoundingClientRect().top > readingLine) {
+                    high = middle - 1;
+                } else {
+                    floor = Number(element.dataset.storyFloor) || floor;
+                    low = middle + 1;
+                }
             }
         }
         setVisibleFloor(current => current === floor ? current : floor);
     }, [messages.length]);
+    // Update synchronously with the scroll position: animation-frame callbacks can
+    // lag behind a fast swipe or a programmatic jump to an earlier floor.
     const handleReadingScroll = useCallback(() => {
-        if (scrollFrameRef.current !== null) return;
-        scrollFrameRef.current = window.requestAnimationFrame(() => {
-            scrollFrameRef.current = null;
-            updateVisibleFloor();
-        });
+        updateVisibleFloor();
     }, [updateVisibleFloor]);
-    useEffect(() => () => {
-        if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
-    }, []);
     useEffect(() => {
         if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
         updateVisibleFloor();
