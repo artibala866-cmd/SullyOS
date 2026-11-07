@@ -43,7 +43,7 @@ describe('story theater billing safety wiring', () => {
         const interceptorSource = sliceBetween(osContextSource, 'const patchedFetch = async', 'window.fetch = patchedFetch;');
 
         expect(storySource).toContain("purpose: '剧情见面生成'");
-        expect(storySource).toContain('prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true)');
+        expect(storySource).toContain('prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)');
         expect(editorSource).toContain("value={draft.omitSamplingParams === true}");
         expect(editorSource).toContain("update('omitSamplingParams', value)");
         expect(editorSource).toContain('默认关闭');
