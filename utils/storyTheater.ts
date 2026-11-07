@@ -1,4 +1,5 @@
 import { adaptTavernOpeningGreeting, tavernOpeningSceneText } from './tavernOpeningGreeting';
+import { hasStoryHtmlLayout } from './storyTheaterHtml';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
     CharacterProfile,
@@ -103,12 +104,14 @@ export interface ResolvedStoryTheaterMask {
     characterId?: string;
 }
 
-export type StoryDisplayBlockKind = 'story' | 'scene' | 'backstage' | 'worldline' | 'debts' | 'theater' | 'choices' | 'affinity' | 'thinking' | 'tavern-extra' | 'other';
+export type StoryDisplayBlockKind = 'story' | 'scene' | 'backstage' | 'worldline' | 'debts' | 'theater' | 'choices' | 'affinity' | 'thinking' | 'tavern-extra' | 'html' | 'other';
 export interface StoryDisplayBlock {
     kind: StoryDisplayBlockKind;
     title?: string;
     text: string;
     theater?: StoryMiniTheaterDisplay;
+    /** Rendered only by the sandboxed, filtered Tavern HTML viewer. */
+    htmlSource?: string;
 }
 
 export interface StoryMiniTheaterDisplayMessage {
@@ -1596,9 +1599,129 @@ const formatTaggedStoryFragment = (fragment: string): string => {
     return clean;
 };
 
+/**
+ * Tavern output may nest <details> inside <sidestory>, or append side-theaters
+ * inside a <content> body. Matching the first closing tag with a regex loses
+ * nested information. Use the browser's HTML tree for imported output only;
+ * original SullyOS preset parsing remains untouched.
+ */
+const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
+    const document = new DOMParser().parseFromString(source, 'text/html');
+    const blocks: StoryDisplayBlock[] = [];
+    const foreignNames: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+        small_theater: '酒馆小剧场',
+        side_theater: '酒馆小剧场',
+    };
+    const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
+    const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
+    const structural = meaningfulTags.join(',');
+    const sharedStyles = Array.from(document.querySelectorAll('style'))
+        .map(style => '<style>' + (style.textContent || '') + '</style>')
+        .join('\n').slice(0, 26000);
+    const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
+        const text = formatTaggedStoryFragment(raw);
+        if (!text && !htmlSource) return;
+        const last = blocks[blocks.length - 1];
+        if (kind === 'story' && last?.kind === 'story') {
+            last.text = last.text + '\n\n' + text;
+        } else {
+            blocks.push({ kind, text, ...(title ? { title } : {}),
+                ...(htmlSource ? { htmlSource } : {}) });
+        }
+    };
+    const pushStructuredTheater = (raw: string, title: string): boolean => {
+        // Only explicit chat semantics map to native bubbles. Ordinary prose,
+        // tables and stylized appendices must never be guessed as dialogue.
+        const containsChat = /<(?:mt_ai|mt_user)\b/i.test(raw)
+            || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(raw);
+        if (!containsChat) return false;
+        const theater = parseStoryMiniTheater(raw);
+        if (!theater.messages.length) return false;
+        const text = [
+            theater.title ? '幕间：' + theater.title : '',
+            theater.system ? '旁白：' + theater.system : '',
+            ...theater.messages.map(message => message.name + '：' + message.text),
+        ].filter(Boolean).join('\n');
+        blocks.push({ kind: 'theater', title, text, theater });
+        return true;
+    };
+    const pushAppendix = (element: Element, title: string) => {
+        const raw = element.innerHTML;
+        if (pushStructuredTheater(raw, title)) return;
+        const htmlSource = hasStoryHtmlLayout(raw) ? sharedStyles + '\n' + raw : undefined;
+        push('tavern-extra', raw, title, htmlSource);
+    };
+    const visit = (node: Node): void => {
+        if (node.nodeType === 3) {
+            const content = node.textContent || '';
+            if (content.trim()) push('story', content);
+            return;
+        }
+        if (node.nodeType !== 1) return;
+        const element = node as Element;
+        const tag = element.tagName.toLowerCase();
+        if (['style', 'script', 'noscript', 'iframe', 'object', 'embed', 'svg', 'math', 'template'].includes(tag)) return;
+        if (['thinking', 'think', 'thought'].includes(tag)) {
+            push('thinking', element.innerHTML, '思考过程');
+            return;
+        }
+        if (tag === 'content') {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(foreignNames, tag)) {
+            pushAppendix(element, foreignNames[tag]);
+            return;
+        }
+        if (tag === 'details') {
+            const fate = (element.getAttribute('data-fate') || '').toLowerCase();
+            const info = (element.getAttribute('data-info') || '').toLowerCase();
+            const title = info === 'archive' ? '剧情摘要'
+                : fate === 'destiny' ? '剧情选项'
+                : fate.includes('side_theater') ? '小剧场附录'
+                : element.querySelector('summary')?.textContent?.trim().slice(0, 80) || '酒馆附录';
+            pushAppendix(element, title);
+            return;
+        }
+        if (nativeNames.has(tag)) {
+            // Reuse existing native card parser, including original mini theater,
+            // relationship and choices behavior, without changing native presets.
+            blocks.push(...parseStoryDisplayBlocks(element.outerHTML, false));
+            return;
+        }
+        const nested = element.querySelector(structural);
+        if (nested) {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        // Full HTML layouts are never injected into the SullyOS page itself:
+        // they are rendered in a separate CSP-locked sandboxed document.
+        if (hasStoryHtmlLayout(element.outerHTML)
+            && (['div', 'table', 'section', 'article', 'figure', 'img', 'ul', 'ol', 'pre', 'blockquote'].includes(tag)
+                || element.hasAttribute('style') || element.hasAttribute('class'))) {
+            push('html', element.outerHTML, '酒馆排版', sharedStyles + '\n' + element.outerHTML);
+            return;
+        }
+        push('story', element.outerHTML);
+    };
+    Array.from(document.body.childNodes).forEach(visit);
+    if (!blocks.length) {
+        // Invalid/mismatched foreign tags must still produce readable fallback,
+        // but discard untrusted executable markup rather than displaying JS.
+        const fallback = source.replace(/<(?:script|style|iframe|object|svg)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|svg)\s*>/gi, '');
+        push('story', fallback);
+    }
+    return blocks;
+};
+
 /** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
 export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
     const source = String(content || '');
+    if (fromTavern && typeof DOMParser !== 'undefined') return parseTavernStoryDisplayBlocks(source);
     const blocks: StoryDisplayBlock[] = [];
     const topLevel = fromTavern
         ? /<(thinking|think|thought|content|details|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
