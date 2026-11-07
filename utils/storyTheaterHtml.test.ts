@@ -103,6 +103,32 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(sanitizeStoryScopedCss('body{color:red}.x{color:blue}@import url(https://evil.test);')).not.toContain('@import');
     });
 
+    it('原生 <mini_theater> 若包含完整 HTML 布局，沿用折叠剧场且不丢美化正文', () => {
+        const raw = '<mini_theater><div class="theater" style="border-radius:12px">'
+            + '<h3>原生 HTML 小剧场</h3><p>人物还在舞台上</p></div></mini_theater>';
+        const blocks = parseStoryDisplayBlocks(raw, false);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].kind).toBe('html');
+        expect(blocks[0].title).toBe('幕间剧场');
+        expect(blocks[0].htmlSource).toContain('<h3>原生 HTML 小剧场</h3>');
+        const safe = sanitizeStoryTheaterHtml(blocks[0].htmlSource!);
+        expect(safe.srcDoc).toContain('人物还在舞台上');
+        expect(safe.srcDoc).toContain('style="border-radius:12px"');
+    });
+
+    it('恶意 CSS 不能把作者正文悄悄隐藏，危险脚本也不进入纯文本保底', () => {
+        const css = sanitizeStoryScopedCss('.hide{display:none;opacity:0;font-size:0px;color:green}');
+        expect(css).not.toContain('display:none');
+        expect(css).not.toContain('opacity:0');
+        expect(css).not.toContain('font-size:0px');
+        expect(css).toContain('color:green');
+        const blocks = parseStoryDisplayBlocks(
+            '<sidestory><div>可读的正文<script>secretPayload()</script></div></sidestory>', true,
+        );
+        expect(blocks[0].text).toContain('可读的正文');
+        expect(blocks[0].text).not.toContain('secretPayload');
+    });
+
     it('未识别的旧式标签退回可读文字，不更改模型历史或原生迷你剧场协议', () => {
         const blocks = parseStoryDisplayBlocks('<unknown_theater>最重要的正文<b>不能丢</b></unknown_theater>', true);
         expect(blocks.map(b => b.text).join('')).toContain('最重要的正文');
