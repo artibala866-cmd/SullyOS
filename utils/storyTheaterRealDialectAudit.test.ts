@@ -115,6 +115,7 @@ describe('真实酒馆五份预设的输出格式交叉审计', () => {
         expect(safe.srcDoc).toContain('<details open>');
         expect(safe.srcDoc).toContain('内部正文');
         expect(safe.srcDoc).not.toContain('tracker.invalid');
+        expect(safe.srcDoc).toContain('[外部图片未加载]');
         expect(safe.srcDoc).not.toContain('onerror=');
         expect(safe.srcDoc).not.toContain('steal()');
         expect(safe.srcDoc).toContain('data:image/png;base64,aGVsbG8=');
