@@ -146,7 +146,15 @@ const matchedMountedBook = (
     // their prose is identical. They can have different activation, scope or
     // ordering. Body-only fallback is for pre-key legacy mounted entries.
     const candidates = incoming.cardImportKey
-        ? mounted.filter(row => !row.cardImportKey) : mounted;
+        ? mounted.filter(row =>
+            !row.cardImportKey && (
+                // Legacy imports can be upgraded in place, but a handwritten
+                // unkeyed worldbook must never become imported source data.
+                (source === 'tavern' && row.sourceUid != null &&
+                    row.category === incoming.category) ||
+                (source === 'babylink' && row.category.startsWith('BabyLink · ')) ||
+                source === 'sully'
+            )) : mounted;
     const identical = candidates.filter(row => bookSignature(row) === bookSignature(incoming));
     if (identical.length === 1) return identical[0];
     // A role imported once from Tavern and then from Link may carry the same
