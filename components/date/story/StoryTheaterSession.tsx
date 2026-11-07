@@ -806,6 +806,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     const payloadBeforeTurn = [
                     ...compiled.messages,
                     ...(compiled.continueNudge ? [compiled.continueNudge] : []),
+                    ...(compiled.nativeOverrideMessages || []),
                     ...(promptEntry.writesToCharacterMemory ? [{ role: 'system' as const, content: REAL_COMPANION_MEMORY_GUARD }] : []),
                     ...(backstageAftermathReminder ? [{ role: 'system' as const, content: backstageAftermathReminder }] : []),
                     ...(miniTheaterReminder ? [{ role: 'system' as const, content: miniTheaterReminder }] : []),
