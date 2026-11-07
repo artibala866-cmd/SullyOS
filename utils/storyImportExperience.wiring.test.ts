@@ -38,6 +38,8 @@ describe('剧情导入的真实使用约束', () => {
         expect(editor).toContain('matchingGreetingChoices.map');
         expect(editor).toContain('return [selectedGreeting, ...matched]');
         expect(editor).toContain("setGreetingSearch('')");
+        expect(editor).toContain('if (importTargetActor && !actor) {');
+        expect(editor).toContain('原选定的导入角色已不在当前剧情中');
         expect(editor).toContain("aria-label='搜索剧情预设'");
         expect(editor).toContain('matchingPresets.map');
         expect(editor).toContain('return preset && !results.some(item => item.id === preset.id) ? [preset, ...results] : results');
