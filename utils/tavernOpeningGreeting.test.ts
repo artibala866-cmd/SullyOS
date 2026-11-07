@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, storyOpeningReadingText } from './tavernOpeningGreeting';
 import { normalizeCharacterCard } from './sillyTavernCard';
 import { mergeCardGreetings } from './cardImportMerge';
 import { buildStoryHistory, resolveStoryOpeningGreeting } from './storyTheater';
+import { listCharacterStoryOpenings } from './linkStoryOpenings';
 
 const stored = (content: string) => ({
     id: 'tavern-alt-6', title: '备选开场白 6', content,
@@ -99,5 +100,82 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(result.title).toBe('第六幕');
         expect(result.description).toBe('室内独白');
         expect(result.content).toBe('*门缓缓打开。*');
+    });
+
+    it('recognizes generic author requests and styled HTML without showing English style code in the story', () => {
+        const raw = [
+            '<request:两个季淮北的称呼应该都是季淮北,禁止出现本体/IF这样的称呼,或者直接让28岁的季淮北称呼是tavern>',
+            '<div style="margin: 15px 0; font-family: \'PingFang SC\', \'Noto Sans SC\', sans-serif;">',
+            '<h3 style="background-color: #f0f4f8; color: #4c6680; padding: 8px 16px; border-radius: 4px;">雨夜 · 铁锈街</h3>',
+            '<p>烟头烫在水泥地上，嘶一声，火星死了。{{char}}看见{{user}}。</p>',
+            '</div>',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(raw);
+        expect(visible).toContain('雨夜 · 铁锈街');
+        expect(visible).toContain('烟头烫在水泥地上');
+        expect(visible).toContain('{{char}}看见{{user}}');
+        expect(visible).not.toMatch(/<request:|<div\b|<h3\b|style=|font-family|PingFang/i);
+        expect(tavernOpeningAuthorNote(raw)).toContain('两个季淮北的称呼应该都是季淮北');
+    });
+
+    it('keeps plot text inside nested HTML while hiding script, CSS and empty layout wrappers', () => {
+        const raw = '<style>.panel{font:15px serif}</style>\n'
+            + '<div><h3 style="background:#abc">栀子花开</h3>'
+            + '<section><p>他轻声说：&quot;你回来了。&quot;</p><p>第二段。</p></section></div>'
+            + '\n```css\n.status{color:red}\n```\n';
+        const text = tavernOpeningReadableText(raw);
+        expect(text).toContain('栀子花开');
+        expect(text).toContain('他轻声说："你回来了。"');
+        expect(text).toContain('第二段。');
+        expect(text).not.toMatch(/style|status|font:|<div|<section|```/i);
+        expect(tavernOpeningReadableText('<div><request:只叫他季淮北>\n<p>故事开场</p></div>'))
+            .toBe('故事开场');
+        expect(tavernOpeningReadableText('<style>.foo { color:red }</style>')).toBe('');
+    });
+
+    it('does not remove meaningful story XML tags, macros, or change the imported source card', () => {
+        const raw = '<!-- title:雨夜 -->\n<div class="legacy"><p>{{char}}撑开伞。</p></div>\n'
+            + '<scene role="assistant">别走。</scene>\n<!-- 剧情内的作者标记 -->';
+        const card = { id:'tavern-alt-21',title:'备选开场 21',content:raw };
+        const char = {id:'actor',name:'季淮北',tavernGreetings:[card]} as CharacterProfile;
+        const selected = listCharacterStoryOpenings(char)[0];
+        expect(selected.title).toBe('雨夜');
+        expect(selected.content).toContain('{{char}}撑开伞');
+        expect(selected.content).toContain('<scene role="assistant">');
+        expect(selected.content).toContain('<!-- 剧情内的作者标记 -->');
+        expect(selected.content).not.toContain('<div class=');
+        expect(card.content).toBe(raw);
+        expect(resolveStoryOpeningGreeting({
+            characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:card.id},
+        },[char],'玩家')?.content).toContain('季淮北撑开伞');
+    });
+
+    it('cleans old first floors in display and AI context without rewriting database messages', () => {
+        const opening='<request:一律称为季淮北>\n<div style="margin:12px"><p>雨停了，{{char}}醒来。</p></div>';
+        const old = {id:1,role:'assistant',type:'text',timestamp:1,charId:'story-theater:1',content:opening,
+            metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-alt-1'}}};
+        const user={...old,id:2,role:'user',timestamp:2,content:opening,
+            metadata:{source:'story_theater'}};
+        const history=buildStoryHistory([user,old] as any);
+        expect(history[0].content).toBe('雨停了，{{char}}醒来。');
+        expect(history[1].content).toBe(opening);
+        expect(old.content).toBe(opening);
+        expect(storyOpeningReadingText(opening,'tavern-alt-1')).toBe('雨停了，{{char}}醒来。');
+    });
+
+    it('never strips native Link or self-written HTML and keeps authored notes separate from the first floor', () => {
+        const html='<div style="color:red"><p>Link 自带原始 HTML 正文。</p></div>';
+        const char={id:'actor',name:'季淮北',linkGreetings:[{id:'link-source-1',title:'Link 原生开场',content:html}],tavernGreetings:[]} as CharacterProfile;
+        expect(listCharacterStoryOpenings(char)[0].content).toBe(html);
+        expect(storyOpeningReadingText(html,'link-source-1','link')).toBe(html);
+        expect(storyOpeningReadingText(html,'story-custom-1','custom')).toBe(html);
+        const scene='<request:两位季淮北都只能叫季淮北>\n<p>旧街尽头，{{char}}停下脚步。</p>';
+        const tavern={...char,tavernGreetings:[{id:'tavern-alt-8',title:'开场八',content:scene}],linkGreetings:[]};
+        const resolved=resolveStoryOpeningGreeting({
+            characterIds:['actor'], openingGreeting:{characterId:'actor',greetingId:'tavern-alt-8'},
+        },[tavern],'玩家');
+        expect(resolved?.content).toBe('旧街尽头，季淮北停下脚步。');
+        expect(resolved?.authorNote).toBe('两位季淮北都只能叫季淮北');
+        expect(resolved?.source).toBe('tavern');
     });
 });
