@@ -318,9 +318,9 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
         (nick && nick !== name ? '\n【角色昵称】' + normalizeMacros(nick, warnings) : '');
     const personality = normalizeMacros(text(data.personality), warnings);
     const worldview = normalizeMacros(stableScenario(text(data.scenario), warnings), warnings);
-    // In SullyOS the "description" field is treated as a local nickname/user note
-    // by ContextBuilder, not core persona. Preserve it visibly AND also put the
-    // exact text into the role instruction, or identity/background is lost in chat.
+    // SullyOS description is the owner's local remark, not the character-card
+    // description. Keep Tavern identity/background ONLY in systemPrompt; never
+    // leak the long persona into Neural Link's editable remark field.
     // Never import Tavern system_prompt or post-history control instructions.
     const systemPrompt = [
         description.trim() ? '【角色身份与背景】\n' + description.trim() : '',
@@ -337,7 +337,7 @@ export const normalizeCharacterCard = (raw: unknown): PreparedCharacterCard => {
     }
     return {
         source,
-        character: { name, avatar: safeInlineAvatar(data.avatar), description, systemPrompt, worldview, tavernGreetings },
+        character: { name, avatar: safeInlineAvatar(data.avatar), description: '', systemPrompt, worldview, tavernGreetings },
         worldbooks, avatarFile: null, warnings: [...new Set(warnings)],
         sourceIdentity: text(data.extensions?.uuid) || text(data.extensions?.id) || text(data.creator_notes?.id) || undefined,
     };
