@@ -970,7 +970,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
                 {messages.length > 0 && <div className='sticky top-2 z-10 mb-8 flex justify-end pointer-events-none'>
                     <div className='pointer-events-auto inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm'>
-                        <span className='text-[10px] font-semibold tabular-nums text-slate-600' aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}>第 {visibleFloor || 1} / {messages.length} 楼</span>
+                        <span className='shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-600' aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}>第 {visibleFloor || 1} / {messages.length} 楼</span>
                         {visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => { followLatestRef.current = true; bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }} className='border-l border-slate-200 pl-3 text-[10px] font-semibold text-violet-600'>回到最新</button>}
                     </div>
                 </div>}
