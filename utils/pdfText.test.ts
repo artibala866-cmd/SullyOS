@@ -100,6 +100,20 @@ describe('PDF 文本提取', () => {
         expect(cleanup).toHaveBeenCalledTimes(2);
     });
 
+    it('document imports fail before reading if pages are missing, and abort on character limits', async () => {
+        const getPage = vi.fn(async () => ({
+            getTextContent: async () => ({ items: [{str:'中文正文 xxxxx',hasEOL:true}] }),
+        }));
+        await expect(extractPdfDocumentText({numPages:201,getPage},{
+            maxPages:200,requireAllPages:true,maxChars:2_000_000,
+        })).rejects.toThrow('超过 200 页');
+        expect(getPage).not.toHaveBeenCalled();
+        await expect(extractPdfDocumentText({numPages:2,getPage},{
+            maxChars:10,
+        })).rejects.toThrow('超过 200 万字符');
+        expect(getPage).toHaveBeenCalledTimes(1);
+    });
+
     it('为学习 App 保留可配置的页数上限', async () => {
         const getPage = vi.fn(async (pageNumber: number) => ({
             getTextContent: async () => ({ items: [{ str: `P${pageNumber}` }] }),
