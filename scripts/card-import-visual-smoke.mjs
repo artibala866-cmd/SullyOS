@@ -64,6 +64,10 @@ try{
   {name:'user-profile-320',source:'user-profile',w:320,h:690},
   {name:'user-profile-pdf-390',source:'user-profile-pdf',w:390,h:844},
   {name:'user-profile-saved-390',source:'user-profile-saved',w:390,h:844},
+  {name:'user-profile-duplicate-390',source:'user-profile-duplicate',w:390,h:844},
+  {name:'user-profile-cancel-320',source:'user-profile-cancel',w:320,h:690},
+  {name:'user-profile-failure-320',source:'user-profile-failure',w:320,h:690},
+  {name:'user-profile-persist-390',source:'user-profile-persist',w:390,h:844},
   {name:'user-profile-replace-320',source:'user-profile-replace',w:320,h:690},
   {name:'user-profile-landscape',source:'user-profile',w:844,h:390},
   {name:'tavern-landscape',source:'tavern',w:844,h:390},
@@ -77,7 +81,7 @@ try{
   const uri='http://127.0.0.1:5173/tests/'+page+'?source='+c.source+'&nonce='+Math.random();
   await cmd('Page.navigate',{url:uri});
   let ready=null;
-  for(let n=0;n<95;n++){
+  for(let n=0;n<185;n++){
    ready=await evaluate('document.body?.dataset?.cardImportVisualReady || null');
    if(ready==='true'||ready==='false')break;
    await sleep(110);
