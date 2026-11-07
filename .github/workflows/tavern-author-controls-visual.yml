@@ -1,0 +1,80 @@
+name: Tavern author-defined preset controls visual regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/tavern-author-controls-visual.yml'
+      - 'utils/storyTheater.ts'
+      - 'utils/storySillyTavernImport.ts'
+      - 'utils/storySillyTavernImport.test.ts'
+      - 'utils/storyPresetImportUi.test.tsx'
+      - 'components/date/story/StoryPresetMaker.tsx'
+      - 'tests/story-preset-import-audit-visual.tsx'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-author-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Source selector, actual compiler, source persistence and React controls
+        run: pnpm exec vitest run utils/storySillyTavernImport.test.ts utils/storyPresetImportUi.test.tsx
+      - name: Screenshot actual imported and built-in preset makers at phone viewport
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/author-preset-visual
+          pnpm exec vite --host 127.0.0.1 --port 5196 --strictPort > output/author-preset-visual/vite.log 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsSL http://127.0.0.1:5196/test/fixtures/story-preset-import-audit.html >/dev/null; then break; fi
+            sleep 1
+          done
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-microhei
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$browser"
+          for dialect in baby pluto ako mur janus; do
+            for focus in overview; do
+              url="http://127.0.0.1:5196/test/fixtures/story-preset-import-audit.html?dialect=${dialect}&focus=${focus}&theme=light"
+              target="output/author-preset-visual/${dialect}-${focus}"
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=13000 --dump-dom "$url" > "${target}.html" 2> "${target}.log"
+              grep -q 'data-story-preset-audit-ready="true"' "${target}.html" || {
+                grep -o 'id="story-preset-audit-report"[^<]*' "${target}.html" | tail -c 2500 || true
+                exit 1
+              }
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=13000 --screenshot="${target}.png" "$url" > /dev/null 2>&1
+              test -s "${target}.png"
+            done
+          done
+          for variant in "dialect=baby&focus=author" "variant=native&focus=overview"; do
+            case "$variant" in
+              *focus=author*) name="baby-after-select";;
+              *) name="original-native";;
+            esac
+            url="http://127.0.0.1:5196/test/fixtures/story-preset-import-audit.html?${variant}&theme=light"
+            target="output/author-preset-visual/${name}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=13000 --dump-dom "$url" > "${target}.html" 2> "${target}.log"
+            grep -q 'data-story-preset-audit-ready="true"' "${target}.html" || {
+              grep -o 'id="story-preset-audit-report"[^<]*' "${target}.html" | tail -c 2500 || true
+              exit 1
+            }
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=13000 --screenshot="${target}.png" "$url" > /dev/null 2>&1
+            test -s "${target}.png"
+          done
+          echo "PASS: author's 5/9/14 modules, 4 other author formats, actual chip click and native maker preserved"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tavern-author-original-source-controls
+          path: output/author-preset-visual/
+          retention-days: 7
