@@ -77,6 +77,7 @@ function VisualFixture() {
                 container.style.height = '844px';
                 window.setTimeout(() => {
                   const restored = bubble.getBoundingClientRect().top;
+                  document.documentElement.dataset.navResizeMetrics = [originalTop, narrowed, restored].join(',');
                   document.documentElement.dataset.navScenarioResult =
                     narrowed < originalTop - 100 && Math.abs(restored - originalTop) <= 3 ? 'pass' : 'fail';
                 }, 230);
