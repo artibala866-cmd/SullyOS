@@ -123,8 +123,12 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
             : /低烧\s*(?:Ⅰ|I|1)/i.test(tension.name) ? 'nmj-v64-tension-lowfever-1' : undefined;
         hint('tension', id ? '作者低烧张力' : '作者场景张力', id);
     }
-    const theater = active.find(p => /小剧场|sidestory|mini_theater|randomtheater|side.theater/i.test(p.name)
-        && /(?:小剧场|sidestory|mini_theater|randomtheater|输出|生成)/i.test(p.text)
+    const theater = active.find(p => (
+        /小剧场|sidestory|mini_theater|randomtheater|side.theater/i.test(p.name)
+        // The author may title this section "附录/输出合同" instead of 小剧场.
+        || /<(?:sidestory|randomtheater|mini_theater|small_theater|side_theater)\b|(?:正文结束后|每轮结尾).{0,90}小剧场/i
+            .test(p.text.slice(0, 1800))
+    ) && /(?:小剧场|sidestory|mini_theater|randomtheater|输出|生成)/i.test(p.text)
         && !/^(?:关闭|不生成|禁用)小剧场/.test(p.name));
     if (theater) {
         const random = /随机小剧场|随机换台|random.theater/i.test(theater.name);
