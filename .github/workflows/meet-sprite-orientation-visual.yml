@@ -1,0 +1,93 @@
+name: Meet portrait-landscape sprite visual QA
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/meet-sprite-orientation-visual.yml'
+      - 'utils/dateSpriteOrientation.ts'
+      - 'utils/dateSpriteOrientation.test.ts'
+      - 'types.ts'
+      - 'components/date/DateSession.tsx'
+      - 'components/date/DateSettings.tsx'
+      - 'components/date/date-session-landscape.css'
+      - 'tests/date-sprite-orientation-visual.tsx'
+      - 'test/fixtures/date-sprite-orientation-visual.html'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meet-sprite-orientation-visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Test portrait/landscape configuration independence and keyboard layout
+        run: pnpm exec vitest run utils/dateSpriteOrientation.test.ts utils/dateSessionLandscape.test.ts
+      - name: Check changed Meet TypeScript files
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/meet-sprite-tsc.log 2>&1 || true
+          grep -E '^(types.ts|utils/dateSpriteOrientation(\.test)?\.ts|components/date/(DateSession|DateSettings)\.tsx|tests/date-sprite-orientation-visual\.tsx)[(]' /tmp/meet-sprite-tsc.log > /tmp/meet-sprite-errors.log || true
+          if [ -s /tmp/meet-sprite-errors.log ]; then
+            cat /tmp/meet-sprite-errors.log
+            exit 1
+          fi
+          echo "Meet sprite changed-file TypeScript diagnostics clean"
+      - name: Screenshot real Meet settings and session in both orientations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/date-sprite-orientation
+          pnpm exec vite --host 127.0.0.1 --port 5197 --strictPort > output/date-sprite-orientation/vite.log 2>&1 &
+          for i in $(seq 1 75); do
+            if curl -fsSL http://127.0.0.1:5197/test/fixtures/date-sprite-orientation-visual.html >/dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          for sample in settingsPortrait:390x844 settingsLandscape:390x844 settingsSave:390x844 settingsLegacySave:390x844 portrait:390x844 landscape:844x390 legacyLandscape:844x390 landscape:740x360 portrait:360x740; do
+            scenario="${sample%:*}"
+            viewport="${sample#*:}"
+            width="${viewport%x*}"
+            height="${viewport#*x}"
+            url="http://127.0.0.1:5197/test/fixtures/date-sprite-orientation-visual.html?scenario=${scenario}"
+            prefix="output/date-sprite-orientation/${scenario}-${viewport}"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size="${width},${height}" --force-device-scale-factor=1 \
+              --virtual-time-budget=9000 --dump-dom "$url" > "${prefix}.html" 2> "${prefix}.log"
+            if ! grep -q 'data-date-orientation-ready="true"' "${prefix}.html"; then
+              grep -o 'id="date-orientation-report"[^<]*' "${prefix}.html" | tail -c 2500 || true
+              tail -n 25 "${prefix}.log"
+              exit 1
+            fi
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size="${width},${height}" --force-device-scale-factor=1 \
+              --virtual-time-budget=9000 --screenshot="${prefix}.png" "$url" >/dev/null 2>&1
+            test -s "${prefix}.png"
+            grep -o 'id="date-orientation-report"[^<]*' "${prefix}.html" | tail -c 1100 || true
+          done
+          for sample in settingsPortrait-390x844 settingsLandscape-390x844 settingsSave-390x844 portrait-390x844 landscape-844x390 legacyLandscape-844x390; do
+            echo "DATE_SPRITE_SCREENSHOT_${sample}_BEGIN"
+            base64 -w0 "output/date-sprite-orientation/${sample}.png"
+            echo
+            echo "DATE_SPRITE_SCREENSHOT_${sample}_END"
+          done
+          echo 'PASS: independent portrait/landscape settings, legacy fallback, save/re-enter and real screenshots'
+      - name: Attach orientation screenshots and layout report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meet-sprite-orientation-visual
+          path: output/date-sprite-orientation/
+          if-no-files-found: ignore
