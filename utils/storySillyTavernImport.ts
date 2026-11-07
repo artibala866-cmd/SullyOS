@@ -1,4 +1,4 @@
-import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
+import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt, StoryTavernChoiceKey, StoryTavernNativeControls } from '../types';
 import type { StoryApiMessage } from './storyTheater';
 
 /**
@@ -41,6 +41,122 @@ export const isSillyTavernChatPreset = (value: any): boolean =>
     // order table must not turn disabled prompts on by accident.
     && (value.prompt_order === undefined || (Array.isArray(value.prompt_order)
         && value.prompt_order.some((group: any) => Array.isArray(group?.order))));
+
+
+/** Conservative mapping to the EXISTING native eight-option preset maker.
+ * Only currently enabled author rules count. Nothing is rewritten or injected.
+ * A label without a selected built-in ID means the author's rules are more
+ * specific than the native mode and must be respected verbatim.
+ */
+export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetPrompt[]): StoryTavernNativeControls => {
+    const inferred: StoryTavernNativeControls['inferred'] = {};
+    const labels: StoryTavernNativeControls['labels'] = {};
+    const active = prompts.filter(p => p.enabled && !p.marker && !p.section && p.content.trim()).map(p => ({
+        name: p.name,
+        text: p.content.replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '').replace(/<!--[\s\S]*?-->/g, ''),
+    }));
+    const hint = (key: StoryTavernChoiceKey, label: string, id?: string): void => {
+        labels[key] = label.slice(0, 75);
+        if (id) inferred[key] = id;
+    };
+    const style = active.find(p => /文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
+        .test(p.name + p.text.slice(0, 300)) && p.text.length > 40);
+    if (style) {
+        const content = style.name + style.text.slice(0, 1000);
+        const builtin: Array<[RegExp, string, string]> = [
+            [/汽水日常/, '汽水日常', 'nmj-v3-style-soda'],
+            [/潮雨走廊/, '潮雨走廊', 'nmj-v3-style-corridor'],
+            [/荒诞喜剧/, '荒诞喜剧', 'nmj-v3-style-comedy'],
+            [/黑喜剧/, '黑喜剧', 'nmj-v3-style-darkcomedy'],
+            [/直球甜宠/, '直球甜宠', 'nmj-v3-style-syrup'],
+            [/钝刀虐心/, '钝刀虐心', 'nmj-v3-style-dullknife'],
+            [/冷峻正剧/, '冷峻正剧', 'nmj-v3-style-drama'],
+        ];
+        const matches = builtin.filter(([pattern]) => pattern.test(content));
+        if (matches.length === 1) hint('style', matches[0][1], matches[0][2]);
+        else if (/动态|随机适配|Dynamic_Writing_Style/.test(content)) hint('style', '作者动态文风');
+        else if (/严肃文学|古典文学|文学名著/.test(content)) hint('style', '作者严肃文学文风');
+        else if (/电影化|电影创作|Cinematic|白描/.test(content)) hint('style', '作者电影化文风');
+        else hint('style', '作者自定义文风');
+    }
+    // <pov_user> is authoritative for the player. A third-person NPC setting,
+    // an output example and a disabled alternative are not player POV settings.
+    const userPov = active.flatMap(p => [...p.text.matchAll(/<pov_user\b[^>]*>\s*([^<\n]{1,40})/gi)]
+        .map(match => match[1].trim())).at(-1);
+    const namedPov = active.filter(p => /(?:第一|第二|第三)人称|视角体系/i.test(p.name)
+        && /(?:第一|第二|第三)人称|POV/i.test(p.text.slice(0, 350)));
+    const scopedPov = userPov || (namedPov.length === 1
+        ? namedPov[0].name + ' ' + namedPov[0].text.slice(0, 260) : '');
+    const first = /第一人称/.test(scopedPov), second = /第二人称/.test(scopedPov), third = /第三人称/.test(scopedPov);
+    if (second && !first && !third) hint('pov', '第二人称', 'nmj-v3-pov-second');
+    else if (third && !first && !second) hint('pov', '第三人称', 'nmj-v3-pov-third');
+    else if (first && !second && !third) hint('pov', '作者第一人称');
+    else if (scopedPov || active.some(p => /Perspective_System|叙事视角/i.test(p.name + p.text.slice(0, 180))))
+        hint('pov', '作者自定义／多视角');
+
+    const retelling = active.filter(p => /(?:RP转述|不复述|回复处理|转述模式|输入转述|回放扩写|纯推进)/i.test(p.name)
+        || /<转述>|<retelling>|<input_replay>/i.test(p.text.slice(0, 300)));
+    const replay = retelling.some(p => /扩写|回放|重拍|重新描写|重述输入/.test(p.name + p.text.slice(0, 350)));
+    const direct = retelling.some(p => /不复述|直接接戏|纯推进|不重复|已经发生|直接.{0,12}回应/.test(p.name + p.text.slice(0, 350)));
+    if (replay && !direct) hint('retelling', '回放扩写', 'nmj-v62-retelling-replay');
+    else if (direct && !replay) hint('retelling', '直接接戏', 'nmj-v62-retelling-direct');
+    else if (retelling.length) hint('retelling', '作者自定义转述规则');
+
+    const agency = active.filter(p => /不抢话|执笔权|演绎权限|玩家自主|禁止代写|user.agency/i.test(p.name)
+        || /(?:不可|不得|禁止|不允许).{0,22}(?:代替|替.*?决定|控制).{0,14}(?:用户|玩家|user)/i
+            .test(p.text.slice(0, 420)));
+    const locked = agency.some(p => /不抢话|绝对不抢|完全不代写|不可代替|不得代替|禁止代写/i
+        .test(p.name + p.text.slice(0, 400)));
+    const auto = agency.some(p => /全自动演绎|完全接管用户|自动代写|允许.{0,15}完整.{0,10}用户行动/i
+        .test(p.name + p.text.slice(0, 350)));
+    if (locked && !auto) hint('agency', '完全不代写', 'nmj-v63-user-agency-locked');
+    else if (auto && !locked) hint('agency', '全自动演绎', 'nmj-v63-user-agency-auto');
+    else if (agency.length) hint('agency', '作者限定的执笔权');
+
+    const tension = active.find(p => /低烧[ⅠⅡⅢI123]|场景张力|tension.mode/i.test(p.name));
+    if (tension) {
+        const id = /低烧\s*(?:Ⅲ|III|3)/i.test(tension.name) ? 'nmj-v64-tension-lowfever-3'
+            : /低烧\s*(?:Ⅱ|II|2)/i.test(tension.name) ? 'nmj-v64-tension-lowfever-2'
+            : /低烧\s*(?:Ⅰ|I|1)/i.test(tension.name) ? 'nmj-v64-tension-lowfever-1' : undefined;
+        hint('tension', id ? '作者低烧张力' : '作者场景张力', id);
+    }
+    const theater = active.find(p => /小剧场|sidestory|mini_theater|randomtheater|side.theater/i.test(p.name)
+        && /(?:小剧场|sidestory|mini_theater|randomtheater|输出|生成)/i.test(p.text)
+        && !/^(?:关闭|不生成|禁用)小剧场/.test(p.name));
+    if (theater) {
+        const random = /随机小剧场|随机换台|random.theater/i.test(theater.name);
+        const ai = /AI客服|AI聊天|角色与AI|AI应用/i.test(theater.name);
+        hint('theater', random ? '作者随机小剧场' : '作者自定义小剧场',
+            random ? 'nmj-v3-theater-random' : ai ? 'nmj-v3-theater-ai' : undefined);
+    }
+    const language = active.find(p => /(?:修改语言|叙述语言|中文语言|语言设置|输出语言)/.test(p.name)
+        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|正文要求.{0,18}(?:简体中文|繁體中文|繁体中文)/i
+            .test(p.text.slice(0, 440)));
+    if (language) {
+        const sample = language.text.slice(0, 650);
+        const simplified = /(?:主要语言|叙述语言|正文语言)\s*::\s*简体中文|正文要求.{0,22}简体中文|只使用.{0,6}简体中文/i.test(sample);
+        const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|正文要求.{0,22}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)/i.test(sample);
+        if (simplified && !traditional) hint('language', '简体中文', 'nmj-v3-language-cn');
+        else if (traditional && !simplified) hint('language', '繁體中文', 'nmj-v3-language-tw');
+        else hint('language', '作者语言／翻译规则');
+    }
+    const length = active.find(p => /正文.{0,4}(?:字数|篇幅|长度)|字数.{0,5}(?:设定|要求|设置)|篇幅设定/i.test(p.name)
+        || /setvar\s*::\s*正文字数\s*::/i.test(p.text.slice(0, 240)));
+    if (length) {
+        const sample = length.text.slice(0, 750);
+        const range = /(\d{3,5})\s*(?:[-—–~～]|至|到)\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
+        const exact = /(?:字数要求|正文字数|篇幅)\s*[：:=]?\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
+        const minimum = range ? Number(range[1]) : exact ? Number(exact[1]) : 0;
+        const maximum = range ? Number(range[2]) : minimum;
+        if (minimum && maximum >= minimum) {
+            const id = maximum <= 1250 ? 'nmj-v3-length-short'
+                : minimum >= 1300 && maximum <= 2350 ? 'nmj-v3-length-medium'
+                : minimum >= 2250 ? 'nmj-v3-length-long' : undefined;
+            hint('length', range ? minimum + '–' + maximum + '字' : minimum + '字', id);
+        } else hint('length', '作者篇幅规则');
+    }
+    return { inferred, labels };
+};
 
 export const convertSillyTavernChatPreset = (value: any, fallbackName: string): StoryTheaterPresetDocument => {
     if (!isSillyTavernChatPreset(value)) throw new Error('无法识别为酒馆 Chat Completion 预设');
@@ -189,6 +305,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         name: fallbackName,
         description: '从酒馆 Chat Completion 预设适配；原有提示词、开关及顺序已保留。',
         sourceFormat: 'sillytavern',
+        tavernControls: detectTavernNativeControls(prompts),
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         // Other Chat Completion presets can use format strings without any
         // double-brace name macros. Keep these templates intact until runtime.
