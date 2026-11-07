@@ -57,6 +57,19 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
     const mediaFile = /\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|]|$)/i;
 
+    // Some Tavern cards wrap external players in a Chinese decorated
+    // shortcode: 【音乐|track|caption|[url|】](url|】). Its malformed-looking
+    // Markdown link must be consumed *together* with the wrapper, otherwise
+    // a dangling MP3 URL and "|】" remain in the first floor.
+    // A line-bounded match protects prose before/after the widget and avoids
+    // consuming neighboring paragraphs, even if an author's widget is broken.
+    text = text.replace(
+        /【\s*(音乐|背景音乐|音乐播放器|歌曲|音频|播放器|bgm|music|audio|song)\s*[|｜]([^\r\n【】]{0,3500})】(?:\]\(\s*https?:\/\/[^\r\n)]{1,4000}\))?/gi,
+        (full, _kind: string, payload: string) =>
+            /https?:\/\/|data:audio\/|[|｜]/i.test(payload) || /\]\(\s*https?:\/\//i.test(full)
+                ? '' : full,
+    );
+
     // [spotify: title | decoration | cover.gif | song.mp3] and similar
     // third-party status widgets, including unknown names carrying multiple
     // external media assets. Ordinary [线索: ...] stays intact.
