@@ -30,6 +30,33 @@ describe('剧情预设导入全链路与真实文件异常审计', () => {
         await DB.deleteStoryTheaterPreset(first.id);
     });
 
+    it('升级新增的正则和 HTML 小剧场兼容提示不能导致旧预设重复导入或覆盖编辑记录', () => {
+        const source = mk('<sidestory>HTML 小剧场仅作原文</sidestory>', {
+            extensions: { regex_scripts: [{
+                scriptName: '旧酒馆美化', disabled: false,
+                placement: [2], findRegex: '<sidestory>', replaceString: '<div>',
+            }] },
+        });
+        const imported = parse(source, '旧存档里的酒馆预设.json');
+        expect(imported.document.importWarnings?.join('')).toContain('正则');
+        expect(imported.document.importWarnings?.join('')).toContain('小剧场');
+        const legacyStored = { ...imported, document: {
+            ...imported.document, importWarnings: ['旧版导入时的提醒，不包含新版 HTML 检测'],
+        } };
+        const resolved = resolveStoryPresetImport(imported, [legacyStored]);
+        expect(resolved.duplicate).toBe(true);
+        expect(resolved.preset.id).toBe(legacyStored.id);
+        const changed = { ...legacyStored, document: {
+            ...legacyStored.document,
+            prompts: legacyStored.document.prompts.map(prompt => prompt.id === 'st-rule'
+                ? { ...prompt, content: '用户自己修改的剧情指令' } : prompt),
+        } };
+        const distinct = resolveStoryPresetImport(imported, [changed]);
+        expect(distinct.duplicate).toBe(false);
+        expect(distinct.preset.id).not.toBe(changed.id);
+        expect(changed.document.prompts[0].content).toBe('用户自己修改的剧情指令');
+    });
+
     it('用户编辑过同名预设后再次导入：旧数据不动，新版本分配独立 ID 和可区分的名称', () => {
         const before = parse(mk(), '同名冲突.json');
         const changed = { ...before, document: { ...before.document,
