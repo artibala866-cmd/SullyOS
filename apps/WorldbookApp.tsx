@@ -17,7 +17,7 @@ import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 import { parseLinkWorldbookJson } from '../utils/linkWorldbookImport';
 import { readLinkWorldbookJsonText } from '../utils/linkImportDocuments';
-import { readImportedTextDocument, isImportedTextDocument } from '../utils/importTextDocument';
+import { readImportedTextDocument, isImportedTextDocument, documentWorldbookImportKey } from '../utils/importTextDocument';
 import { trackEvent } from '../utils/analytics';
 
 const WorldbookApp: React.FC = () => {
@@ -214,6 +214,8 @@ const WorldbookApp: React.FC = () => {
                 const category = file.name.replace(/\.(json|png|txt|docx|doc|pdf|text)$/i, '').trim() || '导入世界书';
                 if (isImportedTextDocument(file)) {
                     const { text: content } = await readImportedTextDocument(file);
+                    if (content.length > 15000)
+                        warnings.push(file.name + '：整本文档常驻可能超出模型上下文，请核对世界书触发设置');
                     const now = Date.now();
                     imported.push({
                         id: 'wb-'+now+'-'+imported.length+'-'+Math.random().toString(36).slice(2, 8),
@@ -221,7 +223,8 @@ const WorldbookApp: React.FC = () => {
                         key: [], keysecondary: [], constant: true, selective: false,
                         selectiveLogic: 0, order: 100, position: 1, disable: false,
                         probability: 100, useProbability: false, depth: 4, role: null,
-                        scanDepth: null, caseSensitive: null, matchWholeWords: null, sourceUid: 0,
+                        scanDepth: null, caseSensitive: null, matchWholeWords: null,
+                        cardImportKey: documentWorldbookImportKey(file.name),
                     });
                     continue;
                 }
