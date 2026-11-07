@@ -56,6 +56,9 @@ async function run(){
     uploader.files=transfer.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
     document.body.dataset.storyImportUxStage='batch-dispatched';
     await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
+    // A real user cannot choose another file until the busy button re-enables.
+    // The synthetic DataTransfer event must respect the same UI transition.
+    await waitFor(()=>!document.querySelector<HTMLButtonElement>('button[aria-label="导入剧情预设"]')?.disabled);
     document.body.dataset.storyImportUxStage='batch-complete';
     const preserved=presetSelect()?.value===initial;
     const batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
