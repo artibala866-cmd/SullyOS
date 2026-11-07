@@ -56,14 +56,15 @@ const report = () => {
         && !doc.includes('attack()')
         && !doc.includes('storyHtmlHacked')
         && !doc.includes('<script');
-    const success = Boolean(frame && structure && secure && widthOk);
+    const compactHeight = Boolean(frame && frame.getBoundingClientRect().height <= 270);
+    const success = Boolean(frame && structure && secure && widthOk && compactHeight);
     document.body.dataset.storyTheaterHtmlReady = String(success);
     let output=document.getElementById('story-tavern-html-report');
     if (!output) {
         output=document.createElement('output');output.id='story-tavern-html-report';output.hidden=true;
         document.body.append(output);
     }
-    output.textContent=JSON.stringify({success,widthOk,structure,secure,iframe:!!frame,
+    output.textContent=JSON.stringify({success,widthOk,structure,secure,compactHeight,iframeHeight:frame?.getBoundingClientRect().height,iframe:!!frame,
         screen:[innerWidth,innerHeight],blocks:blocks.map(b=>b.kind)});
 };
 setTimeout(report,1600);
