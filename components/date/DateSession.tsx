@@ -1,6 +1,6 @@
 import {meetingAppearance, MEETING_READING_CSS} from '../../utils/meetingAppearance';
 import './date-session-landscape.css';
-import { isDateMobileLandscape, resolveDateSpriteConfig, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
+import { dateLandscapeSpriteFit, isDateMobileLandscape, resolveDateSpriteConfig, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CharacterProfile, Message, DateState, DialogueItem, UserProfile, DateObservation } from '../../types';
@@ -1289,7 +1289,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             {!isNovelMode && (
                 <>
                     <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none z-10 overflow-hidden ${visibleSpriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
-                        {currentSprite && <TokenImg value={currentSprite} className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 origin-bottom" style={{ filter: showInputBox ? 'brightness(1)' : (isTextAnimating ? 'brightness(1.05)' : 'brightness(1)'), transform: `translate(${visibleSpriteConfig.x}%, ${visibleSpriteConfig.y}%) scale(${isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale})`, '--date-landscape-fit-scale': String(1 / Math.max(1, (isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale))) } as React.CSSProperties} />}
+                        {currentSprite && <TokenImg value={currentSprite} className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 origin-bottom" style={{ filter: showInputBox ? 'brightness(1)' : (isTextAnimating ? 'brightness(1.05)' : 'brightness(1)'), transform: `translate(${visibleSpriteConfig.x}%, ${visibleSpriteConfig.y}%) scale(${isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale})`, '--date-landscape-fit-scale': String(dateLandscapeSpriteFit(isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale)) } as React.CSSProperties} />}
                     </div>
                     {!isTyping && (
                         <div className="date-session-dialogue-position absolute inset-x-0 bottom-8 z-30 flex justify-center">
