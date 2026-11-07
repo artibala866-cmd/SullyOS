@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { parseStoryDisplayBlocks } from '../utils/storyTheater';
 import { SafeStoryHtml } from '../components/date/story/StoryTheaterSession';
 
-const raw = [
+const defaultRaw = [
     '<content>雨夜，林星推开剧场的门。',
     '<sidestory>',
     '<style>.theater-sheet{background-color:#faf1fa;border:1px solid #dbc4ee;border-radius:14px;padding:14px}',
@@ -21,6 +21,31 @@ const raw = [
     '</div></sidestory>',
     '正文继续：她把信收进口袋。</content>',
 ].join('');
+const dialect = new URLSearchParams(location.search).get('dialect') || 'default';
+const dialectSamples: Record<string, string> = {
+    pluto: '<content>两人从剧场走出来。</content>'
+        + '<RandomTheater><details><summary>雨夜随机剧场</summary><div style="color:purple">随机频道来信</div></details></RandomTheater>'
+        + '<Episode><details><summary>主题附录</summary><div style="border-radius:8px">星光与风声</div></details></Episode>'
+        + '<content>正剧继续。</content>',
+    ako: '<content>她将书信放在桌上。</content>'
+        + '<writing_interlude>[Header|灯下留白|MIDNIGHT][Tags|书信|车站|夜色]'
+        + '[Meta|午夜|雨夜|二人][Content|旧信在桌面上慢慢展开。]'
+        + '[Dialogue|她问候|他回应|窗外雨声|没有人离开]'
+        + '[Quote|仍有余温|Still here.]</writing_interlude>'
+        + '<content>正文没有因此中断。</content>',
+    mur: '<content>雨已经停了。</content>'
+        + '<abstract_format><details><summary>摘要</summary><p>剧情概要保留。</p>'
+        + '<details><summary>伏笔</summary><div>门后的脚步声</div></details></details></abstract_format>',
+    janus: '<content>这里没有开启小剧场，只有正常剧情。</content>',
+};
+const raw = dialectSamples[dialect] || defaultRaw;
+const expectedPhrase: Record<string, string> = {
+    default:'雨夜来信',pluto:'随机频道来信',ako:'灯下留白',mur:'剧情概要保留。',
+};
+const expectedKinds: Record<string, string> = {
+    default:'story,tavern-extra,story',pluto:'story,tavern-extra,tavern-extra,story',
+    ako:'story,tavern-extra,story',mur:'story,tavern-extra',janus:'story',
+};
 const blocks = parseStoryDisplayBlocks(raw, true);
 const root = createRoot(document.getElementById('visual')!);
 root.render(
@@ -48,23 +73,30 @@ const report = () => {
     const frame = document.querySelector<HTMLIFrameElement>('iframe');
     const doc = frame?.srcdoc || '';
     const widthOk = document.documentElement.scrollWidth <= innerWidth;
-    const structure = blocks.map(b => b.kind).join(',') === 'story,tavern-extra,story';
-    const secure = frame?.getAttribute('sandbox') === ''
-        && doc.includes('Content-Security-Policy')
-        && doc.includes('story-theater-html-content')
-        && doc.includes('雨夜来信')
-        && !doc.includes('attack()')
-        && !doc.includes('storyHtmlHacked')
-        && !doc.includes('<script');
-    const compactHeight = Boolean(frame && frame.getBoundingClientRect().height <= 270);
-    const success = Boolean(frame && structure && secure && widthOk && compactHeight);
+    const structure = blocks.map(b => b.kind).join(',') === expectedKinds[dialect];
+    const expectedFrames = dialect === 'pluto' ? 2 : dialect === 'janus' ? 0 : 1;
+    const frameCount = document.querySelectorAll('iframe').length;
+    const secure = dialect === 'janus'
+        ? frameCount === 0
+        : frame?.getAttribute('sandbox') === ''
+            && doc.includes('Content-Security-Policy')
+            && doc.includes('story-theater-html-content')
+            && doc.includes(expectedPhrase[dialect])
+            && !doc.includes('attack()')
+            && !doc.includes('storyHtmlHacked')
+            && !doc.includes('<script')
+            && !doc.includes('tracker.invalid');
+    const compactHeight = dialect === 'janus'
+        || (dialect === 'ako' ? Boolean(frame && frame.getBoundingClientRect().height <= 520)
+            : Boolean(frame && frame.getBoundingClientRect().height <= 270));
+    const success = Boolean(frameCount === expectedFrames && structure && secure && widthOk && compactHeight);
     document.body.dataset.storyTheaterHtmlReady = String(success);
     let output=document.getElementById('story-tavern-html-report');
     if (!output) {
         output=document.createElement('output');output.id='story-tavern-html-report';output.hidden=true;
         document.body.append(output);
     }
-    output.textContent=JSON.stringify({success,widthOk,structure,secure,compactHeight,iframeHeight:frame?.getBoundingClientRect().height,iframe:!!frame,
+    output.textContent=JSON.stringify({dialect,success,widthOk,structure,secure,compactHeight,frameCount,iframeHeight:frame?.getBoundingClientRect().height,iframe:!!frame,
         screen:[innerWidth,innerHeight],blocks:blocks.map(b=>b.kind)});
 };
 setTimeout(report,1600);
