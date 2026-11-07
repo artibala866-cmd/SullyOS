@@ -79,7 +79,8 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
             const hasMediaResource = /(?:https?:\/\/|data:(?:image|audio|video)\/)[^\s|｜]{0,1800}\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|｜]|$)/i.test(fields)
                 || /data:(?:image|audio|video)\//i.test(fields);
             const playerOrMap = /https?:\/\/[^\s|｜]+\/(?:maps?|embed|player|widget)(?:[/?#]|$)/i.test(fields);
-            const knownComponent = mediaLabel.test(label) && (hasMediaResource || playerOrMap);
+            const knownComponent = mediaLabel.test(label)
+                && hasRemoteResource && (parts.length >= 2 || hasMediaResource || playerOrMap);
             const mediaFields = parts.length >= 3 && hasRemoteResource && hasMediaResource;
             return knownComponent || mediaFields ? '' : full;
         },
