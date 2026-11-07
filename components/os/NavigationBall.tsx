@@ -140,7 +140,7 @@ export function DraggableNavigationBall({
       onClick={() => run(() => onShortcut(shortcut))}>
       <span className="navigation-ball-row-icon"><Icon className="navigation-ball-action-icon" /></span>
       <span className="navigation-ball-row-label">{label.name}
-        {(shortcut.characterId || shortcut.worldId) && <small className="navigation-ball-target-kind">{label.detail.split(' › ').slice(0, -1).pop()}</small>}
+        {shortcut.characterId && <small className="navigation-ball-target-kind">{label.detail.split(' › ').slice(0, -1).pop()}</small>}
       </span><CaretRight className="navigation-ball-chevron" />
     </button>;
   };
