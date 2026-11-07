@@ -278,7 +278,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
 
     it('新剧情选择酒馆注释标题后自动填入剧情名称，切换和清空同步，保存仍读取选中正文', async () => {
         host = document.createElement('div'); document.body.append(host); root = createRoot(host);
-        const intro = '<!-- title: 开场白21 -->\\n<!-- desc: 另一条世界线 -->\\n\\n这是第一幕正文。';
+        const intro = '<!-- title: 开场白21 -->\n<!-- desc: 另一条世界线 -->\n\n这是第一幕正文。';
         const role = { ...actor, tavernGreetings: [
             {id:'meta-21',title:'默认开场',content:intro},
             {id:'meta-22',title:'第二幕',content:'另一条正文'},
@@ -365,7 +365,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
 
     it('无标题时 Link 选项使用原生标题，保留 Link 正文注释', async () => {
         host=document.createElement('div');document.body.append(host);root=createRoot(host);
-        const linkBody='<!-- title: Link 剧情正文，不是元数据 -->\\n角色在站台等候。';
+        const linkBody='<!-- title: Link 剧情正文，不是元数据 -->\n角色在站台等候。';
         const role={...actor,tavernGreetings:[],linkGreetings:[
             {id:'link-first',title:'Link 第一幕',content:linkBody},
         ]};
@@ -426,9 +426,9 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         });
         const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
         expect(title.value).toBe('雨夜');
-        await typeInto(field(),'<!-- title: 新的开场标题 -->\\n新的正文。');
+        await typeInto(field(),'<!-- title: 新的开场标题 -->\n新的正文。');
         await click('保存修改');
-        expect(change).toHaveBeenCalledWith(actor.id,'opening-1','<!-- title: 新的开场标题 -->\\n新的正文。');
+        expect(change).toHaveBeenCalledWith(actor.id,'opening-1','<!-- title: 新的开场标题 -->\n新的正文。');
         expect(field().value).toBe('新的正文。');
         expect(title.value).toBe('新的开场标题');
         await click('我先写');
