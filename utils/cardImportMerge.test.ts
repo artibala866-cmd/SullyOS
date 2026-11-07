@@ -190,6 +190,28 @@ describe('incremental character-card imports', () => {
         expect(() => findCardImportTarget([old], anotherId, '雨生')).toThrow('来源身份不同');
     });
 
+    it('keeps independent keyed lore with identical prose but different activation settings', () => {
+        const owned = lore('old-keyed', '同一句世界设定', {
+            cardImportKey: 'tavern:world:1', key: ['春天'], constant: false,
+        });
+        const existing = char('existing', {
+            cardImportOrigin: source,
+            mountedWorldbooks: [toMountedWorldbook(owned)],
+        });
+        const separatelyKeyed = lore('new-keyed', '同一句世界设定', {
+            cardImportKey: 'tavern:world:2', key: ['冬天'], constant: false,
+        });
+        const result = mergeCardImports([existing], [owned], [
+            card('discard', source, { systemPrompt: '人设版本不变' }, [separatelyKeyed], 'existing'),
+        ]);
+        expect(result.result.booksAdded).toBe(1);
+        expect(result.result.booksUpdated).toBe(0);
+        expect(result.characters.find(c => c.id === 'existing')?.mountedWorldbooks?.length).toBe(2);
+        expect(result.worldbooks).toContainEqual(expect.objectContaining({
+            id: 'new-keyed', cardImportKey: 'tavern:world:2', key: ['冬天'],
+        }));
+    });
+
     it('does not overwrite a user-written lore entry merely because its title matches the card', () => {
         const manuallyWritten = lore('manual-book', '玩家自己写的内容', {
             cardImportKey: undefined, sourceUid: undefined,
