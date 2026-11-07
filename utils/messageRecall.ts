@@ -15,7 +15,9 @@ export function splitCharacterRecallOutput(input: string): CharacterRecallStep[]
     const matcher = new RegExp(RECALL_ACTION.source, 'gi');
     let cursor = 0;
     let match: RegExpExecArray | null;
+    let matchedDirective = false;
     while ((match = matcher.exec(input)) !== null) {
+        matchedDirective = true;
         if (match.index > cursor) steps.push({ kind: 'text', content: input.slice(cursor, match.index) });
         let original = (match[1] || '').trim();
         if (match[2] !== undefined) {
@@ -28,5 +30,5 @@ export function splitCharacterRecallOutput(input: string): CharacterRecallStep[]
         cursor = matcher.lastIndex;
     }
     if (cursor < input.length) steps.push({ kind: 'text', content: input.slice(cursor) });
-    return steps.length ? steps : [{ kind: 'text', content: input }];
+    return matchedDirective ? steps : [{ kind: 'text', content: input }];
 }
