@@ -501,6 +501,90 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(continuation).not.toContain('系统内部继续命令');
     });
 
+
+    it('冥王星变体：中文本地变量按启用顺序读取，缺失赋值会明确告警', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'define', role: 'system', content: '{{setvar::主要语言::简体中文}}' },
+                { identifier: 'read', role: 'system', content: '语言={{getvar::主要语言}} 未定义={{getvar::不存在的配置}}' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'define', enabled: true },
+                { identifier: 'read', enabled: true },
+            ] }],
+        }), '冥王星结构回归.json');
+        expect(imported.document.importWarnings?.join('')).toContain('不存在的配置');
+        const generated = compileStoryPreset({ preset: imported,
+            slots: { ...slots, worldBefore: '' }, userName: '用户', characterNames: ['角色'] });
+        expect(generated.messages.map(m => m.content)).toContain('语言=简体中文 未定义=');
+    });
+
+    it('Akover 变体：逗号格式 random 正常选择，作者写的中文 {{模板文本}} 不能被当未知宏删除', () => {
+        const variables = new Map<string, string>();
+        expect(expandSillyTavernPromptText(
+            '镜头 {{random::first, second,final}}；{{角色名字}}', variables, undefined, new Map(), () => 0,
+        )).toBe('镜头 first；{{角色名字}}');
+        expect(expandSillyTavernPromptText(
+            '{{random::first::second::final}}', new Map(), undefined, new Map(), () => 0.99,
+        )).toBe('final');
+        expect(expandSillyTavernPromptText(
+            '{{//作者注释}}正文', new Map(),
+        )).toBe('正文');
+    });
+
+    it('Mur 变体：旧版 lastChatMessage 在 Continue Nudge 中使用角色原文，普通发送不多发', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [{ identifier: 'chatHistory', role: 'system', marker: true }],
+            prompt_order: [{ character_id: 100001,
+                order: [{ identifier: 'chatHistory', enabled: true }] }],
+            continue_nudge_prompt: '续写这条角色消息：{{lastChatMessage}}',
+            tool_reasoning_mode: 'disabled',
+        }), 'Mur 旧宏结构回归.json');
+        const args = { preset: imported, slots: { ...slots, worldBefore: '' },
+            userName: '用户', characterNames: ['鹿鹿'],
+            historyMessages: [
+                { role: 'user' as const, content: '用户最后一句' },
+                { role: 'assistant' as const, content: '角色上一段原文' },
+            ] };
+        const normal = compileStoryPreset(args);
+        expect(normal.continueNudge).toBeUndefined();
+        const continued = compileStoryPreset({ ...args, continueRequested: true });
+        expect(continued.continueNudge?.content).toBe('续写这条角色消息：角色上一段原文');
+        expect(continued.continueNudge?.content).not.toContain('{{lastChatMessage}}');
+    });
+
+    it('Janus 变体：全局变量只在本次请求共享，随机池生效，小写 <user> 标签不被偷换成名字', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'style', role: 'system', content:
+                    '{{setglobalvar::literary_style::<Dynamic_Writing_Style>}}<Dynamic_Writing_Style>作者池：{{random::甲::乙::丙}}</Dynamic_Writing_Style>' },
+                { identifier: 'instruction', role: 'system', content:
+                    '把{{getglobalvar::literary_style}}用于<user>的故事；{{char}}与<USER>可动态识别' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'style', enabled: true },
+                { identifier: 'instruction', enabled: true },
+            ] }],
+            squash_system_messages: true,
+        }), 'Janus 全局变量回归.json');
+        expect(imported.document.importWarnings?.join('')).toContain('globalvar');
+        const compile = (userName: string) => compileStoryPreset({ preset: imported,
+            slots: { ...slots, worldBefore: '' }, userName, characterNames: ['剧情角色'] });
+        const first = compile('甲用户').messages.map(m => m.content).join('\n');
+        const second = compile('乙用户').messages.map(m => m.content).join('\n');
+        expect(first).toMatch(/作者池：(甲|乙|丙)/);
+        expect(first).not.toContain('{{random');
+        expect(first).not.toContain('{{setglobalvar');
+        expect(first).toContain('把<Dynamic_Writing_Style>用于<user>的故事');
+        expect(first).toContain('剧情角色与甲用户可动态识别');
+        expect(second).toContain('剧情角色与乙用户可动态识别');
+        expect(second).toContain('<user>');
+        expect(imported.document.squashSystemMessages).toBe(true);
+        const emptyGlobals = new Map<string, string>();
+        expect(expandSillyTavernPromptText('{{getglobalvar::literary_style}}', new Map(), undefined, emptyGlobals)).toBe('');
+        expect(emptyGlobals.size).toBe(0);
+    });
+
     it('拒绝其它 completion JSON 与空排序伪装', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ prompts: [], prompt_order: [] }), 'empty.json')).toThrow();
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
