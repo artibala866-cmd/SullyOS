@@ -1676,6 +1676,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         // 让下面 getAllCharacters 拿到的就是改好的数据。见 utils/sharkpanAssetMigration.ts。
         await migrateSharkpanAssets();
 
+        // Old imported Tavern/Link cards stored whole personas in the local
+        // Neural Link remark. Correct only exactly identifiable generated
+        // remarks before characters are loaded, without requiring a reimport.
+        // Never reset manually edited notes or affect unrelated save profiles.
+        try {
+            await DB.repairImportedCardRemarks();
+        } catch (error) {
+            console.error('[Character Card] Legacy remark repair skipped, local data preserved', error);
+        }
+
         // 用 allSettled 而非 all：早期 Promise.all 只要任意一个 store 读取 reject，
         // 整批加载就全挂 → setCharacters / setWorldbooks 都不执行 → 角色和世界书"凭空消失"
         // （数据其实还在 IndexedDB 里，只是没读进 state）→ Chat 渲染时 char 为 undefined 直接崩。
