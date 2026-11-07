@@ -73,6 +73,20 @@ describe('Link 1.1.10 native worldbook JSON import compatibility',()=>{
         });
         expect(result.warnings.join(' ')).toContain('全局');
     });
+    it('also preserves older Sully/Tavern worlds with caseSensitive, UID and selective flags',()=>{
+        const standard={entries:{
+            0:{uid:21,comment:'原有设定',content:'保持原文',
+                key:['角色名字'],keysecondary:['别名'],
+                selectiveLogic:2,constant:false,caseSensitive:true,
+                enabled:false,useProbability:true,probability:80,
+            },
+        }};
+        const link=parseLinkWorldbookJson(standard,'现有世界书');
+        expect(link.recognized).toBe(false);
+        const parsed=parseStandardWorldbook(JSON.stringify(standard),'现有世界书');
+        expect(parsed).toMatchObject([{sourceUid:21,key:['角色名字'],keysecondary:['别名'],
+            selectiveLogic:2,caseSensitive:true,useProbability:true,probability:80}]);
+    });
     it('does not classify a standard Tavern book with enabled/keys alone as Link',()=>{
         const standard={entries:[
             {uid:15,comment:'原生条目',content:'正文',key:['触发'],enabled:true,constant:false,position:1},
