@@ -5,7 +5,7 @@ import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '..
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
-import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
+import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
@@ -362,7 +362,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     // completions. Keep the state for UI only and use this ref as the real mutex.
     const sendLock = useRef(false);
     const archiveLock = useRef(false);
-    const bottomRef = useRef<HTMLDivElement>(null);
     const readingScrollRef = useRef<HTMLElement>(null);
     const readingContentRef = useRef<HTMLDivElement>(null);
     const followLatestRef = useRef(true);
@@ -387,6 +386,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         setAffinityDrafts({});
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
+        followLatestRef.current = true;
+        setVisibleFloor(0);
         setMessageMenu(null);
         setEditingMessage(null);
         setDeletingMessage(null);
@@ -501,13 +502,20 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const handleReadingScroll = useCallback(() => {
         updateVisibleFloor();
     }, [updateVisibleFloor]);
+    const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
+        const viewport = readingScrollRef.current;
+        if (!viewport) return;
+        followLatestRef.current = true;
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+        if (behavior === 'auto') updateVisibleFloor();
+    }, [updateVisibleFloor]);
     // Fonts, media and archived-floor expansion change the height of older
     // content without emitting a scroll event. Keep the floor counter accurate.
     useEffect(() => {
         const content = readingContentRef.current;
         if (!content) return;
         const syncLayout = () => {
-            if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+            // Reflow while reading an older floor must not pull the reader away.
             updateVisibleFloor();
         };
         const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
@@ -524,12 +532,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         };
     }, [updateVisibleFloor]);
     useEffect(() => {
-        if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-        updateVisibleFloor();
-    }, [messages.length, sending, updateVisibleFloor]);
+        if (followLatestRef.current) scrollReadingToLatest();
+        else updateVisibleFloor();
+    }, [messages.length, sending, scrollReadingToLatest, updateVisibleFloor]);
     const archivedFloorIds = useMemo(() => messages.filter(message => mirrorArchived(message, entry)).map(message => message.id), [entry, messages]);
     const allArchivesExpanded = archivedFloorIds.length > 0 && archivedFloorIds.every(id => expandedArchivedIds.has(id));
     const toggleAllArchives = useCallback(() => {
+        followLatestRef.current = false;
         setExpandedArchivedIds(current => {
             const next = new Set(current);
             if (archivedFloorIds.every(id => next.has(id))) archivedFloorIds.forEach(id => next.delete(id));
@@ -538,6 +547,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         });
     }, [archivedFloorIds]);
     const setArchiveExpanded = useCallback((messageId: number, open: boolean) => {
+        followLatestRef.current = false;
         setExpandedArchivedIds(current => {
             if (current.has(messageId) === open) return current;
             const next = new Set(current);
@@ -967,13 +977,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 <StoryAppearanceButton />
                 <button onClick={onEdit} className='w-9 h-9 rounded-full grid place-items-center'><GearSix size={19} /></button>
             </div>
-            <details className='group'>
-                <summary className='list-none cursor-pointer px-5 pb-3 flex items-center gap-3'>
+            <div className='flex items-center gap-1 px-4 pb-3'>
+            <details className='group min-w-0 flex-1'>
+                <summary className='list-none cursor-pointer px-1 flex items-center gap-3'>
                     <span className='flex -space-x-1.5 shrink-0'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' /> : <span className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{mask.name.slice(0, 1)}</span>}{actors.slice(0, 2).map(actor => actor.avatar
                         ? <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />
                         : <span key={actor.id} aria-hidden='true' className='w-7 h-7 rounded-full bg-slate-200 text-slate-600 border-2 border-stone-100 grid place-items-center text-[9px] font-semibold'>{actor.name?.slice(0, 1) || '角'}</span>)}</span>
                     <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{actors.map(actor => actor.name).join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真实时间陪伴' : '虚构剧场'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小剧场[｜·]?\s*/, '')}` : ''}</span></span>
-                    <span className='shrink-0 text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本轮实际使用的完整上下文' : '按本轮完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
+                    <span className='shrink-0 text-right leading-tight'>
+                        <span className='block text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本轮实际使用的完整上下文' : '按本轮完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
+                        {messages.length > 0 && <span aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`} className='mt-1 block whitespace-nowrap text-[9px] font-medium tabular-nums text-slate-400'>第 {visibleFloor || 1}/{messages.length} 楼</span>}
+                    </span>
                     <CaretDown size={13} className='shrink-0 text-slate-400 transition-transform group-open:rotate-180' />
                 </summary>
                 <div className='mx-5 mb-3 pt-3 border-t border-slate-200 grid grid-cols-2 gap-x-6 gap-y-3 text-[10px]'>
@@ -985,9 +999,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     <div><span className='block text-[8px] font-bold text-slate-400'>采样参数</span><span className={`block mt-1 truncate ${entry.omitSamplingParams ? 'font-semibold text-amber-700' : 'text-slate-600'}`}>{entry.omitSamplingParams ? '不发送高级参数' : '完整发送预设参数'}</span></div>
                 </div>
             </details>
+            {messages.length > 0 && visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => scrollReadingToLatest('smooth')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
+            </div>
         </header>
 
-        <main ref={readingScrollRef} onScroll={handleReadingScroll} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 py-7'>
+        <main ref={readingScrollRef} onScroll={handleReadingScroll} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'>
             <div ref={readingContentRef} className='max-w-2xl mx-auto'>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
@@ -996,12 +1012,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     <p className='mt-6 text-[10px] text-slate-400'>{canWriteOpening ? '输入框留空，点击推进即可开场' : '这一幕由你先落笔'}</p>
                 </section> : entry.writesToCharacterMemory && <div className='mb-8 py-3 border-y border-amber-200 text-center text-[11px] text-amber-700'>和朋友们已经分别相处了一段时间……</div>}
 
-                {messages.length > 0 && <div className='sticky top-2 z-10 mb-8 flex justify-end pointer-events-none'>
-                    <div className='pointer-events-auto inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm'>
-                        <span className='shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-600' aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}>第 {visibleFloor || 1} / {messages.length} 楼</span>
-                        {visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => { followLatestRef.current = true; bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }} className='border-l border-slate-200 pl-3 text-[10px] font-semibold text-violet-600'>回到最新</button>}
-                    </div>
-                </div>}
                 {archivedFloorIds.length > 0 && <div className='mb-8 flex items-center justify-between gap-3 text-[10px] text-slate-400'><span>{archivedFloorIds.length} 楼旧正文已归档 · 可按楼展开</span><button onClick={toggleAllArchives} className='shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-violet-600'>{allArchivesExpanded ? '全部收起' : '全部展开'}</button></div>}
 
                 <div className='divide-y divide-slate-200'>
@@ -1047,7 +1057,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     })}
                 </div>
                 {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，仍会通过所选记忆方式参与续写</div>}
-                <div ref={bottomRef} className='h-6' />
+                <div className='h-6' />
             </div>
         </main>
 
