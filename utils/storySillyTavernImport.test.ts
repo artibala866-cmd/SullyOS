@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     buildBareTheaterActorContext,
     compileStoryPreset,
+    buildStoryMiniTheaterReminder,
+    getActiveStoryMiniTheaterPrompt,
     parseStoryDisplayBlocks,
     parseStoryTheaterPreset,
 } from './storyTheater';
@@ -583,6 +585,69 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const emptyGlobals = new Map<string, string>();
         expect(expandSillyTavernPromptText('{{getglobalvar::literary_style}}', new Map(), undefined, emptyGlobals)).toBe('');
         expect(emptyGlobals.size).toBe(0);
+    });
+
+    it('酒馆正则与 JS 扩展隔离：不执行、不存进剧情预设，仍保留作者启用的小剧场规则并警告', () => {
+        const sample = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [
+                { identifier: 'main', role: 'system', content:
+                    '<sidestory><details><summary>小剧场</summary>必须使用 HTML/CSS 美化</details></sidestory>' },
+                { identifier: 'chatHistory', marker: true, role: 'system' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'main', enabled: true }, { identifier: 'chatHistory', enabled: true },
+            ] }],
+            extensions: {
+                regex_scripts: [{
+                    scriptName: '测试- HTML 正则美化', disabled: false,
+                    findRegex: '<sidestory>([\\s\\S]*)</sidestory>',
+                    replaceString: '<iframe src="https://example.com/script"></iframe>',
+                    placement: [2], markdownOnly: true, promptOnly: false,
+                }],
+                tavern_helper: { scripts: [{
+                    name: '不执行的脚本', enabled: true,
+                    content: 'throw new Error("helper must never run")',
+                }] },
+            },
+        }), 'HTML小剧场带扩展.json');
+        const doc = sample.document;
+        expect(doc.sourceFormat).toBe('sillytavern');
+        expect(doc.importWarnings?.join('\n')).toContain('1 条启用正则');
+        expect(doc.importWarnings?.join('\n')).toContain('1 个启用脚本');
+        expect(doc.importWarnings?.join('\n')).toContain('小剧场/HTML 排版指令');
+        expect(doc.prompts[0].content).toContain('<sidestory>');
+        expect(JSON.stringify(doc)).not.toContain('helper must never run');
+        expect(JSON.stringify(doc)).not.toContain('https://example.com/script');
+        expect(buildStoryMiniTheaterReminder(doc, '用户', ['角色'])).toBe('');
+        expect(getActiveStoryMiniTheaterPrompt(doc)).toBeUndefined();
+    });
+
+    it('酒馆 HTML 小剧场不会误当原生小剧场或网页执行；文字可归入折叠附录', () => {
+        const tavernResponse = [
+            '<content>这是正篇。</content>',
+            '<sidestory><details><summary>小剧场：纸飞机</summary>',
+            '<div class="theater" style="color:red"><b>人物说：</b>你好</div></details></sidestory>',
+        ].join('');
+        const blocks = parseStoryDisplayBlocks(tavernResponse, true);
+        expect(blocks.map(block => block.kind)).toEqual(['story', 'tavern-extra']);
+        expect(blocks[0].text).toBe('这是正篇。');
+        expect(blocks[1].text).toContain('小剧场：纸飞机');
+        expect(blocks[1].text).toContain('你好');
+        expect(blocks[1].text).not.toContain('<div');
+        expect(blocks.some(block => block.kind === 'theater')).toBe(false);
+        const native = parseStoryDisplayBlocks(
+            '<mini_theater><mt_title>纸飞机</mt_title><mt_ai><name>角色</name><text>你好</text></mt_ai></mini_theater>',
+        );
+        expect(native[0].kind).toBe('theater');
+        expect(native[0].theater?.messages).toMatchObject([{ name: '角色', text: '你好' }]);
+    });
+
+    it('HTML 纯视觉标签没有文字时不会当代码执行，但当前可能显示空白，作为剩余兼容风险固定回归', () => {
+        const blocks = parseStoryDisplayBlocks(
+            '<sidestory><div><img src="https://example.org/image.png" /></div></sidestory>', true,
+        );
+        expect(blocks.every(block => block.kind !== 'theater')).toBe(true);
+        expect(blocks.map(block => block.text).join('')).not.toContain('<img');
     });
 
     it('拒绝其它 completion JSON 与空排序伪装', () => {
