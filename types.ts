@@ -2275,7 +2275,7 @@ export interface StoryTheaterEntry {
     archiveKeepRecent?: number;
     archiveStrategy: StoryTheaterArchiveStrategy;
     archives: StoryTheaterArchive[];
-    /** 从演员挂载世界书去重得到；只影响本剧情，不改外部挂载。 */
+    /** 当前剧情明确选中的全局/旧挂载世界书 ID；只影响本剧情，不改角色或世界书库。 */
     selectedWorldbookIds: string[];
     presetId?: string;
     /** 会话内快速预设只覆盖本剧场，不修改预设库。 */
