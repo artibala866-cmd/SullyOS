@@ -407,4 +407,48 @@ describe('incremental character-card imports', () => {
         expect(corrupted.tavernGreetings).toEqual([null]);
     });
 
+    it('保护手写开场和差异化链接：不同剧情网址不能因标签一样而被合并',()=>{
+        const handwritten={id:'story-custom-99',title:'我自己写的标题',
+            content:'<!-- title:这是对白中的一段注释 -->\n[旧日记](https://example.org/diary/one)'};
+        const old = char('old',{cardImportOrigin:source,tavernGreetings:[
+            handwritten,{id:'tavern-alt-1',title:'车站',content:
+                '[旧日记](https://example.org/diary/one)'},
+        ]});
+        const imported=card('discard',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'车站',content:
+                '[旧日记](https://example.org/diary/two)'},
+            {id:'tavern-alt-2',title:'作者同名标题',
+                content:handwritten.content},
+        ]},[],'old');
+        const once=mergeCardImports([old],[],[imported]).characters[0];
+        expect(once.tavernGreetings?.find(g=>g.id===handwritten.id)).toEqual(handwritten);
+        expect(once.tavernGreetings?.map(g=>g.content)).toContain('[旧日记](https://example.org/diary/two)');
+        expect(once.tavernGreetings?.map(g=>g.content)).toContain('[旧日记](https://example.org/diary/one)');
+        const twice=mergeCardImports([once],[],[imported]);
+        expect(twice.result.unchangedIds).toEqual(['old']);
+    });
+
+    it('批量导入重复姓名时整体拒绝，不会因同名合并误覆盖两张旧卡',()=>{
+        const first=card('a',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'开始',content:'第一幕'},
+        ]});
+        const second=card('b',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'开始',content:'另一幕'},
+        ]});
+        expect(()=>mergeCardImports([],[],[first,second])).toThrow('重复姓名');
+    });
+
+    it('坏的旧 Link 开场库与酒馆开场库不能在导入时被悄悄抹掉',()=>{
+        const brokenLink=char('old',{cardImportOrigin:source,
+            linkGreetings:{notAnArray:true} as any,
+            tavernGreetings:[{id:'tavern-first',title:'原稿',content:'保留文本'}]});
+        const incoming=card('x',source,{tavernGreetings:[
+            {id:'tavern-first',title:'更新',content:'新开场'},
+        ]},[],'old');
+        expect(()=>mergeCardImports([brokenLink],[],[incoming])).not.toThrow();
+        const brokenTavern=char('old',{cardImportOrigin:source,tavernGreetings:{bad:true} as any});
+        expect(()=>mergeCardImports([brokenTavern],[],[incoming]))
+            .toThrow('已有开场白数据结构异常');
+    });
+
 });
