@@ -212,6 +212,27 @@ describe('incremental character-card imports', () => {
         }));
     });
 
+    it('does not claim an unkeyed handwritten lorebook just because its title and prose match', () => {
+        const handwritten = lore('handwritten', '相同的正文', {
+            cardImportKey: undefined, sourceUid: undefined,
+        });
+        const existing = char('old', {
+            cardImportOrigin: source,
+            mountedWorldbooks: [toMountedWorldbook(handwritten)],
+        });
+        const imported = lore('source-owned', '相同的正文', {
+            cardImportKey: 'tavern:source-entry', sourceUid: 101,
+        });
+        const plan = mergeCardImports([existing], [handwritten], [
+            card('unused', source, { systemPrompt: '已更新的人设' }, [imported], existing.id),
+        ]);
+        expect(plan.result.booksAdded).toBe(1);
+        expect(plan.result.booksUpdated).toBe(0);
+        expect(plan.characters[0].mountedWorldbooks?.length).toBe(2);
+        expect(plan.worldbooks.find(b => b.id === 'source-owned')).toBeDefined();
+        expect(plan.worldbooks.find(b => b.id === 'handwritten')).toBeUndefined();
+    });
+
     it('does not overwrite a user-written lore entry merely because its title matches the card', () => {
         const manuallyWritten = lore('manual-book', '玩家自己写的内容', {
             cardImportKey: undefined, sourceUid: undefined,
