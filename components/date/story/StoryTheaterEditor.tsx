@@ -36,6 +36,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [memoryApiError, setMemoryApiError] = useState('');
     const [worldbookSearch, setWorldbookSearch] = useState('');
     const [greetingSearch, setGreetingSearch] = useState('');
     const [presetSearch, setPresetSearch] = useState('');
@@ -324,7 +325,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             || /(?:小剧场[\s\S]{0,200}(?:HTML|CSS)|(?:HTML|CSS)[\s\S]{0,200}小剧场)/i.test(prompt.content)
         )));
 
-    const update = <K extends keyof StoryTheaterEntry>(key: K, value: StoryTheaterEntry[K]) => setDraft(current => ({ ...current, [key]: value, updatedAt: Date.now() }));
+    const update = <K extends keyof StoryTheaterEntry>(key: K, value: StoryTheaterEntry[K]) => {
+        if (key === 'memorySummaryApi') setMemoryApiError('');
+        setDraft(current => ({ ...current, [key]: value, updatedAt: Date.now() }));
+    };
     const toggleCharacter = (char: CharacterProfile) => {
         // Once a first story floor exists, changing the cast corrupts its
         // immutable timeline, memory mirrors and selected opening provenance.
@@ -398,7 +402,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
         }
         if (draft.memorySummaryApi) {
             const issue = storyMemoryApiValidationError(normalizeStoryMemoryApi(draft.memorySummaryApi)!);
-            if (issue) { setSaveError(issue + '；本剧情没有保存，主 API 保持不变'); return; }
+            if (issue) { setSaveError(''); setMemoryApiError(issue + '；本剧情没有保存，主 API 保持不变'); return; }
         }
         setSaveError('');
         saveLock.current = true;
@@ -666,6 +670,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                                 placeholder='gemini-...' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
                         </label>
                         <p className='text-[10px] leading-5 text-slate-500'>选择预设只复制当前 URL / Key / Model；之后修改或删除预设也不会让本剧情暗中切换。副 API 不可用时会报错并保留原文，绝不偷偷回退到昂贵主 API。</p>
+                        {memoryApiError && <p role='alert' className='rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] leading-5 text-rose-700'>{memoryApiError}</p>}
                     </div>}
                 </div>
             </section>
