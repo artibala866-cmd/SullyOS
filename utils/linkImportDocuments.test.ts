@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
-import { docxXmlToText, readLinkPersonaDocument } from './linkImportDocuments';
+import { docxXmlToText, readLinkPersonaDocument, readLinkWorldbookJsonText } from './linkImportDocuments';
 import { readCharacterCardFile } from './sillyTavernCard';
 
 describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
@@ -35,6 +35,16 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(card.character.systemPrompt).toContain(text);
         expect(card.character.tavernGreetings).toBeUndefined();
         expect(card.worldbooks).toEqual([]);
+    });
+    it('still imports legacy 2MB+ worldbook JSON without persona truncation or encoding loss',async()=>{
+        const contents='世界观说明'.repeat(260000);
+        const json=JSON.stringify({entries:[{comment:'完整设定',content:contents,key:['触发']}]});
+        const file=new File([json],'大型世界书.json',{type:'application/json'});
+        expect(json.length).toBeGreaterThan(2_000_000);
+        expect(await readLinkWorldbookJsonText(file)).toBe(json);
+        const gbk=new File([new Uint8Array([0x7b,0x22,0xc4,0xe3,0xba,0xc3,0x22,0x3a,0x31,0x7d]).buffer],
+            '中文.json',{type:'application/json'});
+        expect(await readLinkWorldbookJsonText(gbk)).toBe('{"你好":1}');
     });
     it('does not corrupt legacy binary DOC or arbitrary ZIP lacking Word XML',async()=>{
         const binary=new File([new Uint8Array([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1,0,1,2]).buffer],'old.doc');
