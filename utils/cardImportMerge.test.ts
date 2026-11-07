@@ -248,6 +248,7 @@ describe('incremental character-card imports', () => {
             cardImportKey: undefined, sourceUid: undefined,
         });
         const original = char('existing', {
+            cardImportOrigin: source,
             mountedWorldbooks: [toMountedWorldbook(manuallyWritten)],
         });
         const imported = lore('external-book', '来源卡的新设定', { cardImportKey: 'tavern:44', sourceUid: 44 });
