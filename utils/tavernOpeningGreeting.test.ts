@@ -272,7 +272,9 @@ describe('SillyTavern opening metadata compatibility', () => {
             metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-alt-99'}}};
         expect(buildStoryHistory([oldOpening as any])[0].content).toBe('{{char}}在走廊等{{user}}。');
         expect(oldOpening.content).toBe(raw);
-        expect(storyOpeningReadingText(raw,'link-opening:existing','link')).toBe(raw);
+        const readableLinkHistory = storyOpeningReadingText(raw,'link-opening:existing','link');
+        expect(readableLinkHistory).not.toContain('spotify:');
+        expect(readableLinkHistory).toContain('<p>{{char}}在走廊等{{user}}。</p>');
         expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
         expect(stripUnsupportedTavernOpeningEmbeds(raw)).toContain('<!-- title:回到十八岁 -->');
         const preface = '[spotify: 午夜 | https://cdn.example/cover.gif | https://cdn.example/music.mp3]\n'
