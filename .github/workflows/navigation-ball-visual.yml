@@ -82,7 +82,7 @@ jobs:
               exit 1
             }
           done
-          for test_case in "short:main" "many:main" "invalid-preset:api" "switch:api" "keyboard-resize:main" "bad-url:manual"; do
+          for test_case in "short:main" "many:main" "invalid-preset:api" "switch:api" "keyboard-resize:main" "bad-url:manual" "outside-dismiss:main"; do
             scenario="${test_case%%:*}"
             view="${test_case##*:}"
             url="http://127.0.0.1:5179/navigation-ball-visual.html?view=$view&scenario=$scenario"
@@ -92,7 +92,7 @@ jobs:
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run \
               --window-size=430,900 --force-device-scale-factor=1 --virtual-time-budget=5200 --dump-dom "$url" > "/tmp/navigation-$scenario.html"
             grep -q 'data-nav-visual-ready="true"' "/tmp/navigation-$scenario.html" || { echo "Clipped mobile panel: $scenario"; exit 1; }
-            if [ "$scenario" = "switch" ] || [ "$scenario" = "invalid-preset" ] || [ "$scenario" = "keyboard-resize" ] || [ "$scenario" = "bad-url" ]; then
+            if [ "$scenario" = "switch" ] || [ "$scenario" = "invalid-preset" ] || [ "$scenario" = "keyboard-resize" ] || [ "$scenario" = "bad-url" ] || [ "$scenario" = "outside-dismiss" ]; then
               grep -q 'data-nav-scenario-result="pass"' "/tmp/navigation-$scenario.html" || {
                 echo "Interactive scenario failed: $scenario"
                 grep -o 'data-nav-[^ ]*' "/tmp/navigation-$scenario.html" | head -n 10 || true
@@ -100,7 +100,7 @@ jobs:
               }
             fi
           done
-          test "$(find /tmp/navigation-screenshots -name '*.png' | wc -l)" -eq 9
+          test "$(find /tmp/navigation-screenshots -name '*.png' | wc -l)" -eq 10
       - name: Upload mobile screenshots
         if: always()
         uses: actions/upload-artifact@v4
