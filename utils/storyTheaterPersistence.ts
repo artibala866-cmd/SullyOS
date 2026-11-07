@@ -7,6 +7,7 @@ interface StoryOpening {
     greetingId: string;
     content: string;
     source?: 'link' | 'tavern' | 'custom';
+    authorNote?: string;
 }
 
 /**
@@ -114,6 +115,7 @@ export async function saveStoryWithOpening(
                         theaterOpeningGreeting: {
                             characterId: opening.characterId, greetingId: opening.greetingId,
                             ...(opening.source ? { source: opening.source } : {}),
+                            ...(opening.authorNote ? { authorNote: opening.authorNote } : {}),
                         },
                     },
                 };
