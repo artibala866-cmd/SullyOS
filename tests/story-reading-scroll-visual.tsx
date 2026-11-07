@@ -60,9 +60,27 @@ const audit = () => {
         return;
     }
     const focus = params.get('focus');
-    if (focus === 'middle') floors[12].scrollIntoView({ block: 'start', behavior: 'instant' });
-    if (focus === 'top') scroll.scrollTop = 0;
-    if (focus === 'latest') scroll.scrollTop = scroll.scrollHeight;
+    const focusReading = () => {
+        if (focus === 'middle') floors[12].scrollIntoView({ block: 'start', behavior: 'instant' });
+        if (focus === 'top') scroll.scrollTop = 0;
+        if (focus === 'latest') {
+            // Exercise the real user interaction rather than mutating scrollTop
+            // after a font reflow and accidentally cancelling follow-latest.
+            scroll.scrollTop = 0;
+            scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
+            setTimeout(() => {
+                const button = document.querySelector<HTMLButtonElement>('button[aria-label="回到最新楼层"]');
+                if (button) button.click();
+                else {
+                    scroll.scrollTop = scroll.scrollHeight;
+                    scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
+                }
+            }, 120);
+        }
+    };
+    const settledFonts = document.fonts?.ready || Promise.resolve();
+    void Promise.race([settledFonts, new Promise(resolve => setTimeout(resolve, 850))])
+        .then(() => setTimeout(focusReading, 80));
     setTimeout(() => {
         const progress = document.querySelector<HTMLElement>('header.story-safe-header [aria-label^="当前第"]');
         const header = document.querySelector<HTMLElement>('header.story-safe-header');
@@ -91,9 +109,9 @@ const audit = () => {
             valid, count: floors.length, displayedProgress: progress?.textContent,
             indicatorInHeader: floorIndicatorClear, hasLatestButton: !!latestButton,
             scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
-            scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight,
+            scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight, scrollTop: scroll.scrollTop, nearEnd,
         });
         document.body.append(output);
-    }, 350);
+    }, 1800);
 };
 setTimeout(audit, 200);
