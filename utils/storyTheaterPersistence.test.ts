@@ -28,6 +28,25 @@ describe('剧情开场白与剧场条目原子持久化', () => {
         expect((await DB.getStoryTheaters()).find(row => row.id === entry.id)?.title).toBe('再次编辑');
     });
 
+    it('酒馆作者备注仅存进首幕元数据，剧情正文没有无效的 request/HTML 标记', async () => {
+        const entry = makeEntry('story-opening-author-note');
+        const scene = {
+            ...greeting,
+            source: 'tavern' as const,
+            content: '角色在街角相遇。',
+            authorNote: '两个季淮北的称呼都必须是季淮北',
+        };
+        await saveStoryWithOpening(entry, scene, []);
+        const [first] = await rows(entry);
+        expect(first.content).toBe('角色在街角相遇。');
+        expect(first.metadata?.theaterOpeningGreeting).toMatchObject({
+            characterId: scene.characterId, greetingId: scene.greetingId,
+            source: 'tavern', authorNote: '两个季淮北的称呼都必须是季淮北',
+        });
+        await saveStoryWithOpening(entry, scene, []);
+        expect(await rows(entry)).toHaveLength(1);
+    });
+
     it('真实陪伴的开场白和多角色镜像在同一次事务中提交', async () => {
         const entry = makeEntry('story-opening-atomic-mirrors', true);
         await saveStoryWithOpening(entry, greeting, entry.characterIds);
