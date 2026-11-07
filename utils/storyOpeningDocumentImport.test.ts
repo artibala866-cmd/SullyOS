@@ -89,6 +89,21 @@ describe('开场白文件多选导入', () => {
             {filename:'开场白2.txt',content:'X'.repeat(200_001)},
         ],[],nextIds())).toThrow('20 万字符');
     });
+    it('旧角色卡采用 CRLF、导入文件采用 LF 时不会产生重复开场，也不会修改旧数据', () => {
+        const existing = [
+            {id: 'story-custom-existing', title: '雨夜', content: '第一幕\r\n第二幕'},
+        ];
+        const incoming = [
+            {filename: '雨夜.txt', content: '第一幕\n第二幕'},
+            {filename: '另一幕.docx', content: '这是新的剧情'},
+        ];
+        const original = existing[0].content;
+        const result = planStoryOpeningDocumentImport(existing, incoming, [], nextIds());
+        expect(result.skipped).toBe(1);
+        expect(result.added.map(item => item.title)).toEqual(['另一幕']);
+        expect(existing[0].content).toBe(original);
+    });
+
     it('拒绝无效或冲突的唯一 ID，避免覆盖另一个已保存的剧情开场', () => {
         expect(() => planStoryOpeningDocumentImport([{id:'story-custom-same',title:'1',content:'旧'}],[
             {filename:'2.txt',content:'新'},
