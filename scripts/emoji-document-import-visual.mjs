@@ -65,6 +65,21 @@ try {
      if(!after?.cleaned || !after?.saveEnabled || after?.rows!==6) errors.push(c.name+': cleanup did not unlock saving: '+JSON.stringify(after));
      const cleanedSnap=await cmd('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
      writeFileSync(join(dir,c.name+'-cleaned.png'),Buffer.from(cleanedSnap.data,'base64'));
+     const scrolling=await run(`(async()=>{
+       const dialog=[...document.querySelectorAll('h3')].find(h=>h.textContent?.includes('表情注入'))?.closest('.relative');
+       const body=dialog?.querySelector('.overflow-y-auto');
+       const area=dialog?.querySelector('textarea');
+       const footer=[...dialog?.querySelectorAll('button')||[]].find(b=>b.textContent?.includes('添加至当前分类'));
+       if(!body||!area||!footer)return null;
+       body.scrollTop=body.scrollHeight;
+       await new Promise(r=>setTimeout(r,85));
+       return {scrollHeight:body.scrollHeight,clientHeight:body.clientHeight,
+         areaBottom:area.getBoundingClientRect().bottom,footerTop:footer.getBoundingClientRect().top,
+         canScroll:body.scrollHeight<=body.clientHeight+1||body.scrollTop>0};
+     })()`);
+     console.log('EMOJI_DOCUMENT_SCROLL '+c.name+' '+JSON.stringify(scrolling));
+     if(!scrolling?.canScroll || scrolling.areaBottom>scrolling.footerTop+3)
+       errors.push(c.name+': edit box unreachable below fixed footer '+JSON.stringify(scrolling));
      // Save via the actual modal button and write to real browser IndexedDB.
      const saved=await run(`(async()=>{
        [...document.querySelectorAll('button')].find(x=>x.textContent?.includes('添加至当前分类'))?.click();
