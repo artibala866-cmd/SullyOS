@@ -804,6 +804,12 @@ export const recognizeTavernPromptHeading = (
     if (closeBox) return { label: closeBox[1].trim(), edge: 'end' };
     const centered = /^✧─\s*(.{2,72}?)\s*─✧$/u.exec(name);
     if (centered) return { label: centered[1].trim(), edge: 'divider' };
+    // Generic paired decorative headings (author titles need not include
+    // any native keyword or use a known author emoji).
+    const pairedHeader = /^[╭╔┌┏]\s*[─═-]*\s*(.{2,78}?)\s*[─═-]*\s*[╮╗┐┓]$/u.exec(name);
+    if (pairedHeader) return { label: pairedHeader[1].trim(), edge: 'start' };
+    const pairedFooter = /^[╰╚└┗]\s*[─═-]*\s*(.{2,78}?)\s*[─═-]*\s*[╯╝┘┛]$/u.exec(name);
+    if (pairedFooter) return { label: pairedFooter[1].trim(), edge: 'end' };
     const bracket = /^<==(.{2,68}?)==>$/.exec(name);
     if (bracket && /[▣◈◀▶]/u.test(bracket[1])) {
         return { label: bracket[1].trim(), edge: 'start' };
@@ -961,8 +967,10 @@ const tavernAuthorChoiceName = (name: string): string => name
 
 const tavernAuthorValuePreview = (prompt: StoryTheaterPresetPrompt): string | undefined => {
     const source = prompt.content;
-    const literal = /\{\{\s*setvar\s*::\s*(?:正文字数|主要语言|正文语言|附录语言|叙述语言)\s*::\s*([^{}\n]{2,64})\}\}/i.exec(source)?.[1]?.trim();
-    if (literal) return literal;
+    // Show any author's explicit local variable value, never infer a
+    // built-in label. Omit long HTML/instruction bodies from compact chips.
+    const literal = /\{\{\s*setvar\s*::\s*[^:{}\n]{1,65}\s*::\s*([^{}\n]{1,64})\}\}/i.exec(source)?.[1]?.trim();
+    if (literal && !/[<>]/.test(literal)) return literal;
     const chineseRange = /(\d{2,5}\s*(?:-|—|–|~|～|至|到)\s*\d{2,5}\s*(?:个)?字)/u.exec(source)?.[1];
     if (chineseRange) return chineseRange;
     const exact = /(?:字数要求|正文.*?字数)\s*[：:]?\s*(\d{2,5}\s*(?:个)?字)/u.exec(source)?.[1];
