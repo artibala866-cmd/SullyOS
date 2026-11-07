@@ -10,6 +10,7 @@ const PREFIX_TAVERN = '【角色身份与背景】\n';
 const PREFIX_PERSONA = '【角色稳定人设】\n';
 const PREFIX_NICK = '【角色昵称】\n';
 const PREFIX_SIGNATURE = '【角色签名】\n';
+const PREFIX_DOCUMENT = '【导入人物原始文档】\n';
 
 const section = (prompt:string, heading:string, following:string[]):string=>{
     const start=prompt.indexOf(heading);
@@ -41,6 +42,12 @@ export function importedCardRemarkCorrection(char:Pick<CharacterProfile,
     if(kind==='tavern' && prompt.startsWith(PREFIX_TAVERN)){
         const expected=section(prompt,PREFIX_TAVERN,['【角色性格与行为设定】\n']);
         return expected && remark===expected ? '' : null;
+    }
+    if(kind==='document' && prompt.startsWith(PREFIX_DOCUMENT)){
+        // The first document importer copied the first 260 characters of the
+        // complete persona into the owner's remark. Only undo that exact bug.
+        const expected = prompt.slice(PREFIX_DOCUMENT.length).slice(0,260).trim();
+        return expected && remark === expected ? '' : null;
     }
     if(kind==='babylink'){
         const persona=section(prompt,PREFIX_PERSONA,[PREFIX_NICK,PREFIX_SIGNATURE]);
