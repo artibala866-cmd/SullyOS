@@ -60,7 +60,7 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         if (id) inferred[key] = id;
     };
     const style = active.find(p => /文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
-        .test(p.name + p.text.slice(0, 300)) && p.text.length > 40);
+        .test(p.name + p.text.slice(0, 300)) && p.text.length > 120);
     if (style) {
         const content = style.name + style.text.slice(0, 1000);
         const builtin: Array<[RegExp, string, string]> = [
@@ -129,19 +129,19 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         hint('theater', random ? '作者随机小剧场' : '作者自定义小剧场',
             random ? 'nmj-v3-theater-random' : ai ? 'nmj-v3-theater-ai' : undefined);
     }
-    const language = active.find(p => /(?:修改语言|叙述语言|中文语言|语言设置|输出语言)/.test(p.name)
-        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|正文要求.{0,18}(?:简体中文|繁體中文|繁体中文)/i
+    const language = active.find(p => /(?:修改语言|叙述语言|中文语言|叙事中文|对话中文|语言设置|输出语言)/.test(p.name)
+        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|(?:正文要求|叙事必须|叙述必须).{0,35}(?:简体中文|繁體中文|繁体中文)/i
             .test(p.text.slice(0, 440)));
     if (language) {
         const sample = language.text.slice(0, 650);
-        const simplified = /(?:主要语言|叙述语言|正文语言)\s*::\s*简体中文|正文要求.{0,22}简体中文|只使用.{0,6}简体中文/i.test(sample);
-        const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|正文要求.{0,22}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)/i.test(sample);
+        const simplified = /(?:主要语言|叙述语言|正文语言)\s*::\s*简体中文|(?:正文要求|叙事必须|叙述必须).{0,40}简体中文|只使用.{0,6}简体中文/i.test(sample);
+        const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|(?:正文要求|叙事必须|叙述必须).{0,40}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)/i.test(sample);
         if (simplified && !traditional) hint('language', '简体中文', 'nmj-v3-language-cn');
         else if (traditional && !simplified) hint('language', '繁體中文', 'nmj-v3-language-tw');
         else hint('language', '作者语言／翻译规则');
     }
-    const length = active.find(p => /正文.{0,4}(?:字数|篇幅|长度)|字数.{0,5}(?:设定|要求|设置)|篇幅设定/i.test(p.name)
-        || /setvar\s*::\s*正文字数\s*::/i.test(p.text.slice(0, 240)));
+    const length = active.find(p => /正文.{0,4}(?:字数|篇幅|长度)|字数.{0,5}(?:设定|要求|设置|修改|前置)|修改字数|篇幅设定/i.test(p.name)
+        || /setvar\s*::\s*正文字数\s*::|字数要求.{0,10}\d{3,5}\s*字/i.test(p.text.slice(0, 450)));
     if (length) {
         const sample = length.text.slice(0, 750);
         const range = /(\d{3,5})\s*(?:[-—–~～]|至|到)\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
