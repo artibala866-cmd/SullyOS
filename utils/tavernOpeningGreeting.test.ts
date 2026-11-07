@@ -224,6 +224,17 @@ describe('SillyTavern opening metadata compatibility', () => {
         ].join('\n');
         const visible = tavernOpeningReadableText(raw);
         expect(visible).toBe('这里才是{{char}}真正说的话。');
+        expect(tavernOpeningReadableText(
+            '[googlemaps: 地图 | https://example.org/maps/place/old-town]\n'
+            + '[custom-external: link | https://example.org/embed/scene]\n正文',
+        )).toBe('正文');
+        expect(tavernOpeningReadableText(
+            '<div><form><button>打开播放器</button><input value="播放" /></form>'
+            + '<details><summary>角色正在等待</summary><p>旧站台。</p></details></div>',
+        )).toContain('旧站台。');
+        expect(tavernOpeningReadableText(
+            '<div><form><button>播放音乐</button></form><p>这里是剧情。</p></div>',
+        )).toBe('这里是剧情。');
     });
 
     it('keeps narrative addresses, written location hints, dialogue, user links and story XML instead of globally deleting URLs', () => {
