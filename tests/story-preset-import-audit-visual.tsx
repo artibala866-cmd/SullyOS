@@ -19,12 +19,22 @@ const prompts = [
     { identifier:'chatHistory',name:'酒馆历史',role:'system',marker:true },
     ...Array.from({length:370},(_,i)=>({
         identifier:'p'+i,
-        name:i > 0 && i % 31 === 0 ? '<==' + titles[(i/31-1)%titles.length] + '==>' : '开关 '+i,
+        name:i > 0 && i % 31 === 0 ? '<==' + titles[(i/31-1)%titles.length] + '==>' :
+            ['视角体系','修改语言','正文篇幅','随机小剧场','文风设置'][i] || '开关 '+i,
         role:'system',
-        content:i > 0 && i % 31 === 0 ? '' : '<rule>作者正文 '+i+'</rule>',
+        content:i > 0 && i % 31 === 0 ? '' :
+            i === 0 ? '<pov_user>第二人称</pov_user><pov_npc>第三人称</pov_npc>' :
+            i === 1 ? '{{setvar::主要语言::简体中文}}' :
+            i === 2 ? '<rule>正文字数必须在1421到2023字之间。</rule>' :
+            i === 3 ? '<sidestory>每轮结尾生成一个随机小剧场，不改变正文事实。</sidestory>' :
+            i === 4 ? '采用电影化写实文风和生活化细节，避免空泛的情绪旁白。'.repeat(8) :
+                '<rule>作者正文 '+i+'</rule>',
     })),
 ];
-const imported = parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:[
+const imported = parseStoryTheaterPreset(JSON.stringify({
+    temperature: 1.05, top_p: 0.95, frequency_penalty: 0.4, presence_penalty: 0.4,
+    openai_max_tokens: 10000,
+    prompts,prompt_order:[
     {character_id:100001,order:prompts.map((p,i)=>({identifier:p.identifier,enabled:i<104}))}
 ]}),'373条模拟.json',1);
 const groups = getStoryPresetPromptGroups(imported.document);
@@ -101,9 +111,10 @@ const check = () => {
     const headingText = [...document.querySelectorAll('h2')].map(node => node.textContent || '');
     const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
+    const nativeAuthorMapping = native || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
     const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
         .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
-    const success = fit && (native ? !proOn && eightControls && generationControls : groupingSafe && (
+    const success = fit && nativeAuthorMapping && (native ? !proOn && eightControls && generationControls : groupingSafe && (
         focus === 'overview' ? !proOn && eightControls && generationControls
             : focus === 'slot' ? proOn && markerToggled && quickEditor : proOn && detailSelected));
     document.body.dataset.storyPresetAuditReady = String(success);
@@ -113,7 +124,7 @@ const check = () => {
         output.hidden = true; output.id = 'story-preset-audit-report'; document.body.append(output);
     }
     output.textContent = JSON.stringify({ native, focus, proOn, fit, groupCount: groups.length,
-        groupingSafe, eightControls, generationControls, markerToggled,
+        groupingSafe, eightControls, nativeAuthorMapping, generationControls, markerToggled,
         quickEditor, detailSelected, stage, success });
     if (!success && stage < 5) setTimeout(check, 200);
 };
