@@ -51,6 +51,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const [deletingEntry, setDeletingEntry] = useState<StoryTheaterEntry | null>(null);
     const [deletingStory, setDeletingStory] = useState(false);
     const importInput = useRef<HTMLInputElement>(null);
+    const presetBatchLock = useRef(false);
+    const [presetBatchBusy, setPresetBatchBusy] = useState(false);
+    const [presetBatchFeedback, setPresetBatchFeedback] = useState('');
     const presets = useMemo(() => withBuiltInStoryPresets(customPresets), [customPresets]);
 
     const reload = useCallback(async () => {
@@ -421,9 +424,29 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 </section>
 
                 <section className='pt-6 border-t border-slate-200'>
-                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><UploadSimple size={17} /></button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
+                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button type='button' title='批量导入剧情预设' aria-label='批量导入剧情预设' disabled={presetBatchBusy} onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetBatchBusy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}</button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
                     <p className='mt-2 text-[10px] leading-5 text-slate-500'>支持糯米机原生预设与酒馆 Chat Completion JSON 智能适配。保留提示词和开关顺序；酒馆外部脚本不会执行。导出统一为糯米机原生格式。</p>
-                    <input ref={importInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => { const files = Array.from(event.target.files || []); event.currentTarget.value = ''; for (const file of files) await importPreset(file); }} />
+                    <input ref={importInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
+                        const files = Array.from(event.currentTarget.files || []);
+                        event.currentTarget.value = '';
+                        if (!files.length || presetBatchLock.current) return;
+                        presetBatchLock.current = true;
+                        setPresetBatchBusy(true);
+                        setPresetBatchFeedback(`正在导入 ${files.length} 份预设……`);
+                        let succeeded = 0;
+                        let failed = 0;
+                        try {
+                            for (const file of files) {
+                                if (await importPreset(file)) succeeded++;
+                                else failed++;
+                            }
+                            setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。原有剧情没有被自动改动，请手动选择要用的预设。`);
+                        } finally {
+                            presetBatchLock.current = false;
+                            setPresetBatchBusy(false);
+                        }
+                    }} />
+                    {presetBatchFeedback && <p role='status' className='mt-2 break-words text-[10px] leading-5 text-slate-500'>{presetBatchFeedback}</p>}
                     <div className='mt-4 divide-y divide-slate-200'>{presets.map(preset => <div key={preset.id} className='flex items-center gap-2'><button onClick={() => { setEditingPreset(preset); setView('preset'); }} className='min-w-0 flex-1 py-3 flex items-center gap-3 text-left'><span className={`w-2 h-2 rounded-full ${preset.builtIn ? 'bg-amber-400' : 'bg-violet-500'}`} /><span className='min-w-0 flex-1 text-xs font-semibold truncate'>{preset.name}</span><span className='text-[9px] text-slate-400'>{preset.builtIn ? '内置只读' : `${preset.document.prompts.length} 条`}</span></button><button onClick={() => { void downloadStoryPreset(preset); }} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' title={`导出 ${preset.name}`}><DownloadSimple size={15} /></button></div>)}</div>
                 </section>
             </div>
