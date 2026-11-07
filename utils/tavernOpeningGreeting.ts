@@ -53,20 +53,23 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
  */
 export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     let text = String(source || '');
-    const mediaLabel = /^(?:spotify|music(?:[_ -]?player)?|song|audio|video|player|image|img|gif|picture|map|maps|location[_ -]?map|iframe|embed|widget|音乐(?:播放器)?|歌曲|音频|视频|图片|地图|播放器|外链组件)$/i;
+    const mediaLabel = /(?:spotify|(?:^|[_ -])(?:music|soundtrack|playlist|song|audio|video|player|image|img|gif|picture|map|maps|location|iframe|embed|widget)(?:$|[_ -])|音乐|歌曲|音频|视频|图片|地图|播放器|外链组件)/i;
     const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
     const mediaFile = /\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|]|$)/i;
 
     // [spotify: title | decoration | cover.gif | song.mp3] and similar
     // third-party status widgets, including unknown names carrying multiple
     // external media assets. Ordinary [线索: ...] stays intact.
-    text = text.replace(/\[([^\]\r\n:：|]{1,50})[ \t]*[:：]([^\]\r\n]{0,4000})\]/g,
+    text = text.replace(/\[([^\]\r\n:：|]{1,50})[ \t]*[:：]([^\]]{0,4000})\]/g,
         (full, rawLabel: string, payload: string) => {
             const label = rawLabel.trim();
             const urls = (payload.match(/https?:\/\//gi) || []).length;
             const mediaWidget = mediaLabel.test(label)
                 && (externalUrl.test(payload) || payload.includes('|') || /^spotify$/i.test(label));
             const unknownMediaWidget = urls >= 2 && payload.includes('|') && mediaFile.test(payload);
+            // Keep unrelated bracketed story metadata, and never consume a
+            // second bracket marker when authors place widgets on new lines.
+            if (payload.includes('[') && !mediaLabel.test(label)) return full;
             return mediaWidget || unknownMediaWidget ? '' : full;
         });
 
@@ -83,6 +86,7 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     // Raw standalone direct media URLs are decorative assets. Do NOT remove
     // normal URLs mentioned in a dialogue sentence or a source note.
     text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#][^\s]*)?[ \t]*$/gim, '');
+    text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\/(?:maps|embed|player|widget)(?:[/?#][^\s]*)?[ \t]*$/gim, '');
     return text;
 };
 
