@@ -1102,7 +1102,10 @@ export const getStoryTavernAuthorSections = (
             description: '原作者分组 · 切换原始条目，不附加内置规则',
             options, single: (/选\s*(?:一|1|①)|单选|择一/u.test(group.label)
                 && !options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label)))
-                || (options.length >= 2 && options.filter(p => p.enabled).length <= 1
+                // A generic optional "文风区" can start fully off. Do not
+                // trap the user in a selected style after the first toggle.
+                || (!/文风区|小剧场区|附加|可选|功能区|风格区/.test(group.label)
+                    && options.length >= 2 && options.filter(p => p.enabled).length === 1
                     && options.every(p => Boolean(p.cluster))
                     && new Set(options.map(p => p.cluster)).size === 1),
         });
