@@ -65,6 +65,7 @@ try{
   {name:'user-profile-pdf-390',source:'user-profile-pdf',w:390,h:844},
   {name:'user-profile-word-390',source:'user-profile-word',w:390,h:844},
   {name:'user-profile-saved-390',source:'user-profile-saved',w:390,h:844},
+  {name:'user-profile-whitespace-390',source:'user-profile-whitespace',w:390,h:844},
   {name:'user-profile-duplicate-390',source:'user-profile-duplicate',w:390,h:844},
   {name:'user-profile-cancel-320',source:'user-profile-cancel',w:320,h:690},
   {name:'user-profile-failure-320',source:'user-profile-failure',w:320,h:690},
