@@ -1,6 +1,6 @@
 
 import UserSaveSection from '../components/user/UserSaveSection';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
 import { processImage } from '../utils/file';
 import { migrateDataUrlToRef } from '../utils/blobRef';
@@ -10,10 +10,19 @@ import UserImageIdentitySection from '../components/user/UserImageIdentitySectio
 import TokenImg from '../components/os/TokenImg';
 import HomeFigureStudio from '../components/character/HomeFigureStudio';
 import { trackEvent } from '../utils/analytics';
+import { UploadSimple } from '@phosphor-icons/react';
+import { beginUserSaveOperation } from '../utils/userSaves';
+import { DOCUMENT_IMPORT_ACCEPT, readImportedTextDocument, planUserBioDocumentImport, type ImportedTextDocument, type UserBioImportMode } from '../utils/importTextDocument';
 
 const UserApp: React.FC = () => {
     const { closeApp, userProfile, updateUserProfile, addToast } = useOS();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const bioFileInputRef = useRef<HTMLInputElement>(null);
+    const bioImportRelease = useRef<null | (() => void)>(null);
+    const [pendingBioFile, setPendingBioFile] = useState<(ImportedTextDocument & {name:string}) | null>(null);
+    const [bioImportMode, setBioImportMode] = useState<UserBioImportMode>('append');
+    const [bioFileBusy, setBioFileBusy] = useState(false);
+    const [bioSaving, setBioSaving] = useState(false);
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
     const [showFigures, setShowFigures] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
@@ -32,6 +41,54 @@ const UserApp: React.FC = () => {
             } catch (err: any) {
                 addToast(err.message, 'error');
             } finally { setAvatarBusy(false); }
+        }
+    };
+
+    const releaseBioImport = () => {
+        bioImportRelease.current?.();
+        bioImportRelease.current = null;
+        setBioFileBusy(false);
+    };
+    useEffect(() => () => { bioImportRelease.current?.(); bioImportRelease.current = null; }, []);
+
+    const handleBioFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file || avatarBusy || identityBusy || bioFileBusy) return;
+        try {
+            const release = beginUserSaveOperation('导入个人档案');
+            bioImportRelease.current = release;
+            setBioFileBusy(true);
+            const parsed = await readImportedTextDocument(file);
+            setBioImportMode('append');
+            setPendingBioFile({ ...parsed, name: file.name });
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : '文件读取失败', 'error');
+            releaseBioImport();
+        }
+    };
+    const cancelBioImport = () => {
+        if (bioSaving) return;
+        setPendingBioFile(null);
+        releaseBioImport();
+    };
+    const confirmBioImport = async () => {
+        if (!pendingBioFile || bioSaving) return;
+        setBioSaving(true);
+        try {
+            let changed = false;
+            await updateUserProfile(prev => {
+                const planned = planUserBioDocumentImport(prev.bio, pendingBioFile.text, bioImportMode);
+                changed = planned.changed;
+                return changed ? { bio: planned.bio } : {};
+            });
+            addToast(changed ? '个人设定已导入' : '这份内容已存在，无需重复导入', 'success');
+            setPendingBioFile(null);
+            releaseBioImport();
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : '个人设定保存失败', 'error');
+        } finally {
+            setBioSaving(false);
         }
     };
 
@@ -82,7 +139,7 @@ const UserApp: React.FC = () => {
                     <div className="px-6 pb-6 -mt-12">
                         <div
                             data-testid="archive-avatar"
-                            onClick={() => { if (!identityBusy && !avatarBusy) fileInputRef.current?.click(); }}
+                            onClick={() => { if (!identityBusy && !avatarBusy && !bioFileBusy) fileInputRef.current?.click(); }}
                             className="relative w-24 h-24 rounded-full cursor-pointer group mx-auto"
                         >
                             <div className="w-full h-full rounded-full ring-4 ring-white bg-slate-100 overflow-hidden shadow-md">
@@ -96,10 +153,10 @@ const UserApp: React.FC = () => {
                                 </svg>
                             </div>
                         </div>
-                        <input type="file" aria-label="更换档案头像" disabled={identityBusy || avatarBusy} ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                        <input type="file" aria-label="更换档案头像" disabled={identityBusy || avatarBusy || bioFileBusy} ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
                         <p className="mt-2 text-center text-[10px] text-slate-400">整体头像：所有聊天的默认。想在某个角色那儿换一副面孔？下面「分角色聊天头像」里设。</p>
 
-                        <UserSaveSection disabled={avatarBusy} onBusyChange={setIdentityBusy} />
+                        <UserSaveSection disabled={avatarBusy || bioFileBusy} onBusyChange={setIdentityBusy} />
                     </div>
                 </div>
 
@@ -123,7 +180,7 @@ const UserApp: React.FC = () => {
                     <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">这些信息会发送给 AI，以便它更好地了解你（例如：大学生、喜欢吃辣、性格内向）。</p>
                     <textarea
                         aria-label="关于我 / 设定"
-                        disabled={identityBusy}
+                        disabled={identityBusy || bioFileBusy}
                         value={userProfile.bio}
                         onChange={(e) => { void updateUserProfile({ bio: e.target.value }).catch(error => addToast(error.message || '设定保存失败', 'error')); }}
                         className="w-full h-52 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-2xl px-4 py-3 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
