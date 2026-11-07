@@ -527,6 +527,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                                 <div className='text-[11px] font-semibold text-slate-700'>批量导入开场白</div>
                                 <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX · 每次最多 200 个 · 文件名按 1、2、10 排序</p>
                                 <p className='mt-0.5 text-[9px] leading-4 text-slate-400'>先校验整批，若有损坏文件则整批不保存，避免缺篇；DOCX 只读取文字，不保留图片和原排版</p>
+                                <p className='mt-0.5 text-[9px] leading-4 text-slate-400'>导入会保存到选中角色的开场库，其他使用该角色的剧情也能选用；不会覆盖已有剧情正文</p>
                             </div>
                             <button type='button' data-story-opening-import-button='true'
                                 disabled={!actors.length || !onImportGreetings || maskLocked || importGreetingBusy || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor}
