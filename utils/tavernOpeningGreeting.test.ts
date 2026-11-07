@@ -340,8 +340,8 @@ describe('SillyTavern opening metadata compatibility', () => {
         for (const snippet of examples) expect(stripUnsupportedTavernOpeningEmbeds(snippet).trim()).toBe('');
     });
 
-    it('never deletes ordinary prose and narrative data just because it contains music words, pipes or a useful URL', () => {
-        const original = [
+    it('drops all enclosed decorated content even without URLs and keeps literal quotes in free prose', () => {
+        const original=[
             '他说：“初雪这首歌很好听，Novocaine 也不错。”',
             '【音乐|他们在月下合唱】',
             '【音乐|曲目|并不是网址|】',
@@ -350,31 +350,31 @@ describe('SillyTavern opening metadata compatibility', () => {
             '[线索: 后门藏着一张地图]',
             '【旧车站的秘密：他看见了她】',
             '网址 https://example.org/map 是日记留下的线索。',
-            '<scene name="song">他继续说话。</scene>',
+            '<scene name="song">被包裹的台词。</scene>',
         ].join('\n');
-        expect(tavernOpeningReadableText(original)).toBe(original);
-        expect(stripUnsupportedTavernOpeningEmbeds('【音乐|没有完结括号|https://example.org/a.mp3'))
-            .toContain('没有完结括号');
+        expect(tavernOpeningReadableText(original)).toBe(
+            '他说：“初雪这首歌很好听，Novocaine 也不错。”\n\n'
+            +'网址 https://example.org/map 是日记留下的线索。',
+        );
     });
 
-    it('keeps the title, macros and original card bytes while filtering a scene and legacy first-floor message', () => {
-        const raw = '<!-- title:冬天的老车站 -->\n'
-            + '【音乐|冬之曲|提示|https://assets.example/song.mp3|】\n'
-            + '<p>{{char}}在雪里等{{user}}。</p>';
-        const card = {id:'tavern-alt-snow',title:'备用开场 25',content:raw};
-        const char = {id:'actor',name:'季淮北',tavernGreetings:[card]} as CharacterProfile;
-        const scene = listCharacterStoryOpenings(char)[0];
+    it('keeps actual title and outside macros, discarding HTML narrative inside a block', () => {
+        const raw='<!-- title:冬天的老车站 -->\n'
+            +'【音乐|冬之曲|提示|https://assets.example/song.mp3|】\n'
+            +'<p>标签里的剧情。</p>\n{{char}}在雪里等{{user}}。';
+        const card={id:'tavern-alt-snow',title:'备用开场 25',content:raw};
+        const char={id:'actor',name:'季淮北',tavernGreetings:[card]} as CharacterProfile;
+        const scene=listCharacterStoryOpenings(char)[0];
         expect(scene.title).toBe('冬天的老车站');
-        expect(scene.content).toBe('季淮北在雪里等{{user}}。'.replace('季淮北','{{char}}'));
+        expect(scene.content).toBe('{{char}}在雪里等{{user}}。');
         expect(card.content).toBe(raw);
-        expect(resolveStoryOpeningGreeting({
-            characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:card.id},
-        },[char],'玩家')?.content).toBe('季淮北在雪里等玩家。');
-        const oldMessage = {role:'assistant',content:raw,metadata:{
+        expect(resolveStoryOpeningGreeting({characterIds:['actor'],
+            openingGreeting:{characterId:'actor',greetingId:card.id}},[char],'玩家')?.content)
+            .toBe('季淮北在雪里等玩家。');
+        const old={role:'assistant',content:raw,metadata:{
             source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:card.id},
         }};
-        expect(buildStoryHistory([oldMessage as any])[0].content).toBe('{{char}}在雪里等{{user}}。');
-        expect(oldMessage.content).toBe(raw);
+        expect(buildStoryHistory([old as any])[0].content).toBe('{{char}}在雪里等{{user}}。');
         expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
     });
 
@@ -418,59 +418,43 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(old.content).toBe(raw);
     });
 
-    it('recognizes multiple unrelated metadata/status wrappers and structurally obvious custom panels without hardcoded author names', () => {
-        const content = [
+    it('removes arbitrary tag names regardless of whether the contents look like status data', () => {
+        const raw=[
             '<status_panel>[账号|user|甲|粉丝:120|关注:20]</status_panel>',
-            '<wb_lore><div>附带世界书临时状态</div></wb_lore>',
-            '<custom-portal>',
-            '[账号|user|小号|粉丝:1|关注:0]',
-            '[账号|char|大号|粉丝:9|关注:2]',
-            '【微博撰写要求】',
-            '- user：保持匿名',
-            '【其它初始化】',
-            '- 知情范围：无',
-            '</custom-portal>',
+            '<wb_lore><div>世界书数据</div></wb_lore>',
+            '<custom-portal>这里甚至没有结构化字段。</custom-portal>',
             '天色渐亮，故事继续。',
             '<!-- route: 3 -->',
-            '<scene role="assistant">这里是真正的叙事。</scene>',
+            '<scene role="assistant">标签包裹的对白也不要。</scene>',
         ].join('\n');
-        const visible = tavernOpeningReadableText(content);
-        expect(visible).toContain('天色渐亮，故事继续。');
-        expect(visible).toContain('<scene role="assistant">这里是真正的叙事。</scene>');
-        expect(visible).not.toMatch(/status_panel|wb_lore|custom-portal|粉丝:|微博撰写要求|其它初始化|route:/);
+        expect(tavernOpeningReadableText(raw)).toBe('天色渐亮，故事继续。');
     });
 
-    it('keeps ordinary fiction XML, standard HTML narrative, story comments and incomplete metadata blocks untouched', () => {
-        const prose = [
-            '<scene role="assistant">雨后，他走到了车站。</scene>',
+    it('keeps only prose outside paired markup and preserves incomplete non-paired text', () => {
+        const raw=[
+            '<scene role="assistant">包裹的对白。</scene>',
             '<dialogue speaker="char">你还好吗？</dialogue>',
-            '<div><p>他看见路灯下的{{user}}。</p></div>',
-            '<!-- 这里确实是剧情中的旁白 -->',
-            '<mystery_fragment>一封没有署名的旧信。</mystery_fragment>',
+            '<div><p>包裹的剧情。</p></div>',
+            '<!-- 作者注释 -->',
+            '<mystery_fragment>旧信。</mystery_fragment>',
             '《wb_lore》是她在书里看见的字样。',
         ].join('\n');
-        const visible = tavernOpeningReadableText(prose);
-        expect(visible).toContain('<scene role="assistant">雨后，他走到了车站。</scene>');
-        expect(visible).toContain('<dialogue speaker="char">你还好吗？</dialogue>');
-        expect(visible).toContain('他看见路灯下的{{user}}。');
-        expect(visible).toContain('<!-- 这里确实是剧情中的旁白 -->');
-        expect(visible).toContain('<mystery_fragment>一封没有署名的旧信。</mystery_fragment>');
-        expect(stripNonStoryOpeningBlocks('<wb_lore>只有开标签，不清楚后续内容')).toContain('只有开标签');
+        expect(tavernOpeningReadableText(raw)).toBe('《wb_lore》是她在书里看见的字样。');
+        expect(stripNonStoryOpeningBlocks('<wb_lore>只有开标签，不清楚后续内容'))
+            .toContain('只有开标签');
     });
 
-    it('filters auxiliary panels in a Link opening without rewriting its source or flattening native plot HTML', () => {
-        const raw = '<div class="native-link"><p>霓虹下两人再次相遇。</p></div>\n'
-            + '<wb_lore><account>这段是临时账号状态</account></wb_lore>\n'
-            + '<!-- route: 1 -->';
-        const card = {id:'babylink-opening-source-77',title:'重逢',content:raw};
-        const character = {id:'actor',name:'左宥之',linkGreetings:[card]} as CharacterProfile;
-        const [choice] = listCharacterStoryOpenings(character);
+    it('removes any complete wrapped Link block while keeping original saved bytes', () => {
+        const raw='<div class="native-link"><p>包裹的内容。</p></div>\n'
+            +'<wb_lore><account>临时账号状态</account></wb_lore>\n'
+            +'<!-- route: 1 -->\n霓虹下两人再次相遇。';
+        const card={id:'babylink-opening-source-77',title:'重逢',content:raw};
+        const char={id:'actor',name:'左宥之',linkGreetings:[card]} as CharacterProfile;
+        const [choice]=listCharacterStoryOpenings(char);
         expect(choice.source).toBe('link');
-        expect(choice.content).toContain('<div class="native-link"><p>霓虹下两人再次相遇。</p></div>');
-        expect(choice.content).not.toContain('wb_lore');
-        expect(choice.content).not.toContain('route:');
+        expect(choice.content).toBe('霓虹下两人再次相遇。');
         expect(card.content).toBe(raw);
-        expect(storyOpeningReadingText(raw,card.id,'link')).not.toContain('wb_lore');
+        expect(storyOpeningReadingText(raw,card.id,'link')).toBe('霓虹下两人再次相遇。');
         expect(storyOpeningReadingText(raw,'story-custom-2','custom')).toBe(raw);
     });
 
