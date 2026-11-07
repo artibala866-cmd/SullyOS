@@ -220,7 +220,8 @@ export function mergeCardImports(
         // reimport may safely remove ONLY a provably generated legacy remark.
         // Never erase a handwritten note or change a new character's identity.
         if (target && Object.prototype.hasOwnProperty.call(item.fields, 'description') &&
-            (item.origin.source === 'tavern' || item.origin.source === 'babylink')) {
+            (item.origin.source === 'tavern' || item.origin.source === 'babylink' ||
+             item.origin.source === 'document')) {
             const corrected = importedCardRemarkCorrection(target);
             if (corrected !== null) next.description = corrected;
         }
@@ -238,7 +239,8 @@ export function mergeCardImports(
         if (target) {
             for (const [key, value] of Object.entries(item.fields)) {
                 if (PRIVATE_FIELDS.has(key)) continue;
-                if (key === 'description' && item.origin.source === 'tavern') continue;
+                if (key === 'description' &&
+                    (item.origin.source === 'tavern' || item.origin.source === 'document')) continue;
                 if (key === 'description' && item.origin.source === 'babylink') {
                     if (!canReplaceImportedRemark(target, 'babylink')) continue;
                     next.description = typeof value === 'string' ? value : '';
