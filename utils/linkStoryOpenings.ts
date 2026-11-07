@@ -1,5 +1,5 @@
 import type { CharacterProfile, LinkOpeningGreeting, TavernOpeningGreeting } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningReadableText } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningReadableText, stripUnsupportedTavernOpeningEmbeds } from './tavernOpeningGreeting';
 
 export type StoryOpeningSource = 'link' | 'tavern' | 'custom';
 export interface StoryOpeningChoice extends LinkOpeningGreeting {
@@ -35,7 +35,13 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
     const add = (raw: LinkOpeningGreeting, source: StoryOpeningSource) => {
         if (!raw || typeof raw.id !== 'string' || typeof raw.content !== 'string' ||
             !raw.content.trim() || seen.has(raw.id)) return;
-        result.push({ ...raw, source });
+        // Link HTML and scene annotations stay native. Only unsupported
+        // third-party media widgets get the same non-destructive read filter.
+        const content = source === 'link'
+            ? stripUnsupportedTavernOpeningEmbeds(raw.content).trim()
+            : raw.content;
+        if (!content) return;
+        result.push({ ...raw, content, source });
         seen.add(raw.id);
     };
     // Native Link entries win over a shadow copy from pre-migration storage.
