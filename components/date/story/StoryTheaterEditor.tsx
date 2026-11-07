@@ -634,7 +634,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 <div className='mt-6 pt-5 border-t border-slate-200' data-story-memory-api-settings>
                     <div className='flex items-start justify-between gap-3'>
                         <div className='min-w-0'><div className='text-sm font-semibold'>剧情记忆总结副 API</div>
-                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>仅本剧情使用：事件盒自动总结、重新总结、独立向量提取、事件盒转记忆。正文续写依旧使用主 API；其他 App 和角色配置不受影响。</p>
+                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>只为本剧情的记忆处理使用：事件盒自动总结与重新总结、独立向量提取、事件盒转记忆，以及真实陪伴中的角色记忆整理。正文续写仍使用主 API，不修改其他 App、角色与全局设置。</p>
                         </div>
                         <Toggle label='使用剧情记忆副 API' value={!!draft.memorySummaryApi}
                             onChange={enabled => update('memorySummaryApi', enabled ? (draft.memorySummaryApi || { baseUrl: '', apiKey: '', model: '' }) : undefined)} />
