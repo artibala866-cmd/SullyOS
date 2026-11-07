@@ -145,7 +145,7 @@ jobs:
               "output/meet-story/story-global-lore-${width}.png" \
               "output/meet-story/global-lore-${width}-device.json"
             test -s "output/meet-story/story-global-lore-${width}.png"
-            grep -q '"width": ${width}' "output/meet-story/global-lore-${width}-device.json"
+            grep -q "\"width\": $width" "output/meet-story/global-lore-${width}-device.json"
           done
           # Regression: imported Tavern preset uses the original preset section, not an extra panel.
           tavernurl="${url}?scenario=tavern&focus=preset"
