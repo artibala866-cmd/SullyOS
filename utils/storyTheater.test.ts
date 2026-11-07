@@ -24,6 +24,7 @@ import {
     createStoryTheaterDraft,
     hasStoryTheaterParticipant,
     dedupeTheaterWorldbooks,
+    resolveStoryTheaterWorldbooks,
     describeEmptyStoryCompletion,
     describeStoryApiError,
     getStoryPresetPromptGroups,
@@ -430,6 +431,59 @@ describe('剧情沙盒辅助逻辑', () => {
         ] as CharacterProfile[];
 
         expect(dedupeTheaterWorldbooks(chars).map(book => book.id).sort()).toEqual(['a', 'b']);
+    });
+
+    it('没有选择演员也可直接列出全局世界书，且只注入被当前剧情选择的 ID', () => {
+        const worldbooks = [
+            { id: 'book-a', title: '平行世界·18岁', content: '十八岁世界线设定', category: 'IF' },
+            { id: 'book-b', title: '末世地图', content: '末世独立设定', category: '独立世界' },
+        ] as any[];
+        const snapshot = JSON.stringify(worldbooks);
+        const resolved = resolveStoryTheaterWorldbooks(worldbooks, []);
+        expect(resolved.map(book => book.id)).toEqual(['book-a', 'book-b']);
+        const selected = resolved.filter(book => new Set(['book-b']).has(book.id));
+        const request = ContextBuilder.buildWorldbookRequest({
+            books: selected, history: [{ role: 'user', content: '开始' }],
+            userName: '你', charName: '季淮北',
+            render: slots => [{ role: 'system', content: slots.before + '\\n' + slots.after }],
+        });
+        expect(JSON.stringify(request)).toContain('末世独立设定');
+        expect(JSON.stringify(request)).not.toContain('十八岁世界线设定');
+        expect(JSON.stringify(worldbooks)).toBe(snapshot);
+    });
+
+    it('全局同 ID 以最新库记录优先，挂载但未入库的旧世界书可单独选择，重名不同 ID 不丢', () => {
+        const globals = [
+            { id: 'shared', title: '共同', content: '全局最新版本', category: '主线' },
+            { id: 'unique-a', title: '同名', content: '世界 A', category: '小说' },
+            { id: 'unique-b', title: '同名', content: '世界 B', category: '小说' },
+        ] as any[];
+        const participants = [{
+            id: 'actor', name: '季淮北', mountedWorldbooks: [
+                { id: 'shared', title: '旧版', content: '旧挂载版本' },
+                { id: 'legacy-only', title: '旧挂载', content: '仅当前演员挂载' },
+            ],
+        }] as CharacterProfile[];
+        const resolved = resolveStoryTheaterWorldbooks(globals, participants);
+        expect(resolved).toHaveLength(4);
+        expect(resolved.find(book => book.id === 'shared')?.content).toBe('全局最新版本');
+        expect(resolved.find(book => book.id === 'legacy-only')?.content).toBe('仅当前演员挂载');
+        expect(resolved.filter(book => book.title === '同名')).toHaveLength(2);
+        expect(participants[0].mountedWorldbooks?.[0].content).toBe('旧挂载版本');
+    });
+
+    it('无效/缺失世界书不被加入 AI 输入，不将未选演员的旧挂载信息注入', () => {
+        const hiddenActor = [{id:'other',name:'未选择角色',mountedWorldbooks:[
+            {id:'private',title:'秘密书',content:'私聊不可见世界'}]}] as CharacterProfile[];
+        expect(resolveStoryTheaterWorldbooks([], [])).toEqual([]);
+        const books=resolveStoryTheaterWorldbooks([
+            {id:'',title:'无效',content:'错误内容',category:'错误'},
+            {id:'selected',title:'选择',content:'允许的世界',category:'外部'},
+        ] as any, []);
+        expect(books).toHaveLength(1);
+        expect(books[0].id).toBe('selected');
+        expect(resolveStoryTheaterWorldbooks([], hiddenActor).map(x=>x.id)).toEqual(['private']);
+        expect(resolveStoryTheaterWorldbooks([], [])).not.toContainEqual(hiddenActor[0].mountedWorldbooks?.[0]);
     });
 
     it('用当前轮输入立即触发关键词世界书，并保持最多二十条扫描窗口', () => {
