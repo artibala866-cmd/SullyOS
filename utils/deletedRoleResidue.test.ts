@@ -33,6 +33,7 @@ it('cleans role-owned data atomically while preserving group, central story and 
     expect(await DB.getMessageById(privateId)).toBeFalsy();
     expect(await DB.getMessageById(mirrorId)).toBeFalsy();
     expect(await DB.getMessageById(groupId)).toBeTruthy();
+    expect(await findDeletedRoleResidue()).not.toContain(roleId);
     expect((await DB.getMessageById(centralId))?.metadata?.theaterMirrorIds).toEqual({ other: 900 });
     expect(await DB.getAssetRaw(`voice_msg_${privateId}`)).toBeNull();
     expect(await DB.getAssetRaw(`voice_msg_${favoriteId}`)).toEqual({ favorite: true });

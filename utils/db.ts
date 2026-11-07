@@ -599,6 +599,10 @@ const ROLE_MEMORY_STORES = [
     'event_boxes', 'anticipations', 'room_plates', 'digest_reports',
 ];
 
+function isRoleOwnedMessage(message: Message): boolean {
+    return !message.groupId && message.metadata?.source !== 'story_theater';
+}
+
 /** Older role deletion left data in these stores. Only app-generated IDs are
  * eligible, since message and memory tables also contain synthetic threads. */
 export async function findDeletedRoleResidue(): Promise<string[]> {
@@ -620,7 +624,15 @@ export async function findDeletedRoleResidue(): Promise<string[]> {
                     const id = owner.key;
                     if (typeof id === 'string' && !liveIds.has(id)
                         && /^char-(?:\d{13}(?:-[a-z0-9]+)?|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.test(id)) {
-                        residue.add(id);
+                        if (name === STORE_MESSAGES) {
+                            const history = store.index('charId').openCursor(IDBKeyRange.only(id));
+                            history.onsuccess = () => {
+                                const row = history.result;
+                                if (!row) return;
+                                if (isRoleOwnedMessage(row.value)) residue.add(id);
+                                else row.continue();
+                            };
+                        } else residue.add(id);
                     }
                     owner.continue();
                 };
@@ -782,7 +794,7 @@ export const DB = {
               const cursor = request.result;
               if (!cursor) return;
               const message = cursor.value as Message;
-              if (!message.groupId && message.metadata?.source !== 'story_theater') {
+              if (isRoleOwnedMessage(message)) {
                   deleteLinkedSecretNotes(messages, message);
                   // A story mirror belongs to the role. The central story and its
                   // other mirrors belong to the story and keep their own records.
