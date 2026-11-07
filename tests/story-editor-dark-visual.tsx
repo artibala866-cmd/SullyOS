@@ -122,7 +122,9 @@ const validate=()=>{
         success:(scenario!=='tavern'||tavernVisible)
             && openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
-            && (['selected','editing','customSaved','legacy'].includes(scenario)
+            && (['autoNameTavern','autoNameLink','autoNameManual'].includes(scenario)
+                ? !!openingEditor
+                : ['selected','editing','customSaved','legacy'].includes(scenario)
                 ? openingSelect?.value===`${actor.id}::${scenario==='customSaved'?customGreeting.id:'tavern-first'}`
                     && openingEditor?.value===(scenario==='customSaved'?customContent:scenario==='legacy'?legacyScene:'雨夜的钟声响起，故事从这里开始。')
                     && (scenario!=='legacy' || (openingSelect?.textContent?.includes('开场白6') && openingSelect?.textContent?.includes('车站雨夜') && !openingEditor?.value.includes('<!--')))
