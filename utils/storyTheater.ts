@@ -1802,7 +1802,17 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
         }
         const meta = DISPLAY_BLOCK_META[sourceTag] || { kind: 'other' as const };
         if (meta.kind === 'theater') {
-            pushTheater(match[2], meta.title);
+            // Native <mini_theater> may also contain authored HTML layouts.
+            // Keep existing mt_ai/mt_user bubbles, but safely render visual-only
+            // HTML inside the same collapsed theater surface.
+            const hasNativeMessages = /<(?:mt_ai|mt_user)\b/i.test(match[2])
+                || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(match[2]);
+            if (hasStoryHtmlLayout(match[2]) && !hasNativeMessages) {
+                blocks.push({ kind: 'html', title: meta.title, text: formatTaggedStoryFragment(match[2]),
+                    htmlSource: match[2] });
+            } else {
+                pushTheater(match[2], meta.title);
+            }
         } else {
             push(meta.kind, match[2], meta.title);
         }
