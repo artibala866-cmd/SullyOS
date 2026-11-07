@@ -100,6 +100,24 @@ describe('incremental character-card imports', () => {
         expect(updated.characters[0].memories).toEqual(existing.memories);
     });
 
+    it('rejects cross-format same-named roles even when one side lacks an external ID',()=>{
+        const tavernRole=char('tavern-original',{
+            cardImportOrigin:{source:'tavern',originalName:'雨生'},
+            systemPrompt:'【角色身份与背景】\n原有酒馆人设',
+            description:'自己写的备注',
+            memories:[{id:'private-memory',content:'完整经历'}] as unknown as CharacterProfile['memories'],
+        });
+        const linkRole=char('link-original',{
+            cardImportOrigin:{source:'babylink',externalId:'link-a',originalName:'雨生'},
+            systemPrompt:'【角色稳定人设】\n原有 Link 人设',
+        });
+        expect(()=>findCardImportTarget([tavernRole],
+            {source:'babylink',originalName:'雨生'},'雨生')).toThrow('不同的卡片格式');
+        expect(()=>findCardImportTarget([linkRole],
+            {source:'tavern',originalName:'雨生'},'雨生')).toThrow('不同的卡片格式');
+        expect(tavernRole.description).toBe('自己写的备注');
+        expect(tavernRole.memories).toHaveLength(1);
+    });
     it('handles legacy imported cards by name and original Tavern UID', () => {
         const existingBook = lore('legacy-lore', '旧正文', { cardImportKey: undefined });
         const legacy = char('legacy-role', { mountedWorldbooks: [toMountedWorldbook(existingBook)] });
