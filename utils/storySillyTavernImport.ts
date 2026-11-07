@@ -142,6 +142,17 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
         ? value.extensions.tavern_helper.scripts.filter((script: any) => script?.enabled === true).length : 0;
     if (regexCount || helperCount) warnings.push(`酒馆扩展中的 ${regexCount} 条启用正则和 ${helperCount} 个启用脚本不会执行；仅导入预设文字`);
+    // Some imported presets demand HTML/CSS mini-theaters whose actual
+    // layout used Tavern Regex's display-only transformation. The story UI
+    // renders safe text/structured native <mini_theater>, not arbitrary HTML.
+    // Preserve author instructions and user toggles, but report the mismatch.
+    const htmlTheaterPrompts = prompts.filter(prompt => prompt.enabled && (
+        /<(?:sidestory|randomtheater|episode|writing_interlude|small_theater)\\b/i.test(prompt.content)
+        || /(?:小剧场[\\s\\S]{0,200}(?:HTML|CSS)|(?:HTML|CSS)[\\s\\S]{0,200}小剧场)/i.test(prompt.content)
+    ));
+    if (htmlTheaterPrompts.length) warnings.push(
+        `有 ${htmlTheaterPrompts.length} 条启用的酒馆小剧场/HTML 排版指令（如 ${htmlTheaterPrompts.slice(0, 2).map(prompt => prompt.name).join('、')}）不等价：正文会保留但不运行 HTML/CSS；<sidestory>/<RandomTheater> 不会变成糯米机原生小剧场。建议在预设制作器检查并按需关闭这些规则`
+    );
     const enabledText = prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content).join('\n');
     const setLocals = new Set([...enabledText.matchAll(/\{\{\s*setvar\s*::\s*([^{}:]+?)\s*::/gi)]
         .map(match => match[1].trim()));
