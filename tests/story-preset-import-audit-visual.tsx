@@ -211,14 +211,14 @@ const check = () => {
     const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
     const nativeAuthorMapping = dialect === 'baby' ? ['抢话权限','复述权限','人称选1个','拖拖📚文风',
-        '当前：完全','当前：不复述','当前：上帝：user你','当前：随机适配'].every(value =>
-            focus === 'author' && value === '当前：完全' ? true : document.body.textContent?.includes(value))
+        '完全','不复述','上帝：user你','随机适配'].every(value =>
+            focus === 'author' && value === '完全' ? true : document.body.textContent?.includes(value))
         : dialectCase && focus === 'overview'
         ? dialectCase.labels.every(value => document.body.textContent?.includes(value))
         : native || focus !== 'overview' || ['抢话权限', '语言设置', '视角设置'].every(value => document.body.textContent?.includes(value));
     const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
         .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
-    const authorOnly = document.body.textContent?.includes('原作者的选项')
+    const authorOnly = document.body.textContent?.includes('原作选择')
         && !document.body.textContent?.includes('汽水日常')
         && !document.body.textContent?.includes('冷峻正剧')
         && !document.body.textContent?.includes('低烧 I');
