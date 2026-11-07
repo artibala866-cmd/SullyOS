@@ -35,6 +35,10 @@ function VisualFixture() {
       setNavigationBallSlot(2, null);
       setNavigationBallSlot(3, null);
     }
+    if (scenario === 'keyboard-resize') {
+      const host = document.getElementById('root');
+      if (host) host.style.placeItems = 'start center'; // Mobile app is top-anchored, not vertically centered.
+    }
     const phone = document.querySelector<HTMLElement>('.visual-phone');
     if (scenario === 'short' && phone) phone.style.height = '420px';
     const mode = new URLSearchParams(window.location.search).get('view') || 'main';
@@ -82,9 +86,11 @@ function VisualFixture() {
             if (scenario === 'keyboard-resize' && container && bubble) {
               const originalTop = bubble.getBoundingClientRect().top;
               container.style.height = '350px';
+              window.visualViewport?.dispatchEvent(new Event('resize'));
               window.setTimeout(() => {
                 const narrowed = bubble.getBoundingClientRect().top;
                 container.style.height = '844px';
+                window.visualViewport?.dispatchEvent(new Event('resize'));
                 window.setTimeout(() => {
                   const restored = bubble.getBoundingClientRect().top;
                   document.documentElement.dataset.navResizeMetrics = [originalTop, narrowed, restored].join(',');
