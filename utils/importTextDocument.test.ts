@@ -94,6 +94,19 @@ describe('user archive document import merge', () => {
         });
         expect(planUserBioDocumentImport('','新档案','append')).toEqual({bio:'新档案',changed:true});
     });
+    it('preserves manually typed indentation, blank lines and trailing newlines while appending',()=>{
+        const original='  已经填写的介绍\n';
+        expect(planUserBioDocumentImport(original,'新一段资料','append')).toEqual({
+            bio:original+'\n新一段资料',changed:true,
+        });
+        const withParagraph='旧文字\n\n';
+        expect(planUserBioDocumentImport(withParagraph,'新资料','append')).toEqual({
+            bio:withParagraph+'新资料',changed:true,
+        });
+        expect(planUserBioDocumentImport(original,'新版本','replace')).toEqual({
+            bio:'新版本',changed:true,
+        });
+    });
     it('does not skip a new document merely because its words occur inside an existing sentence',()=>{
         const existing='我的旧设定里喜欢绘画，也喜欢旅游。';
         expect(planUserBioDocumentImport(existing,'喜欢绘画','append')).toEqual({
