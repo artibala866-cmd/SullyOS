@@ -143,6 +143,16 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(short.srcDoc).toContain('隐藏的长说明');
     });
 
+    it('超大 HTML 附录不能只显示前半段，必须退回完整可读正文', () => {
+        const large = '<sidestory><div>' + '很长的作者正文。'.repeat(18000) + '尾部必须保留</div></sidestory>';
+        const parsed = parseStoryDisplayBlocks(large, true);
+        expect(parsed).toHaveLength(1);
+        expect(parsed[0].text).toContain('尾部必须保留');
+        const safe = sanitizeStoryTheaterHtml(parsed[0].htmlSource!);
+        expect(safe.hasVisibleContent).toBe(false);
+        expect(safe.text).toContain('完整文字');
+    });
+
     it('未识别的旧式标签退回可读文字，不更改模型历史或原生迷你剧场协议', () => {
         const blocks = parseStoryDisplayBlocks('<unknown_theater>最重要的正文<b>不能丢</b></unknown_theater>', true);
         expect(blocks.map(b => b.text).join('')).toContain('最重要的正文');
