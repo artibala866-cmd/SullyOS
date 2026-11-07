@@ -54,7 +54,7 @@ function Harness() {
     exportAppearancePreset: () => {}, importAppearancePreset: () => {},
   } as any;
   const sessionProps = {
-    char, userProfile: { name: '用户' }, messages: [],
+    char, userProfile: { name: '用户' } as any, messages: [],
     peekStatus: '[normal]「横屏和竖屏的位置应该各自保存。」',
     encounterId: 'orientation-fixture', onSendMessage: async () => '',
     onReroll: async () => '', onExit: () => {}, onSettings: () => {},
