@@ -57,6 +57,34 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
     const mediaFile = /\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|]|$)/i;
 
+    // A family of third-party cards uses pipe-separated fields rather than
+    // the [spotify:...] shortcode:
+    // 【音乐|track|caption|
+    //   https://some-host/song.mp3|】 (also 〖...〗 / 〔...〕 / ［...］).
+    // Classify the STRUCTURE and media payload, not a track name, host,
+    // author's label or single-line layout. Bounded, paired delimiters keep
+    // narrative and neighboring tags safe even when the author wraps lines.
+    const closeFor: Record<string, string> = {
+        '【': '】', '〖': '〗', '〔': '〕', '［': '］', '[': ']',
+    };
+    text = text.replace(
+        /([【〖〔［\[])\s*([^|｜\r\n【】〖〗〔〕［］\[\]]{1,60})\s*[|｜]([^【】〖〗〔〕［］\[\]]{0,3500})([】〗〕］\]])/g,
+        (full, open: string, rawLabel: string, fields: string, close: string) => {
+            if (closeFor[open] !== close || (fields.match(/\n/g) || []).length > 8) return full;
+            const label = rawLabel.trim();
+            const parts = fields.split(/[|｜]/).map(part => part.trim());
+            const hasRemoteResource = externalUrl.test(fields);
+            // Require an actual media resource, not just a bracketed line
+            // containing a URL that could be a genuine plot clue.
+            const hasMediaResource = /(?:https?:\/\/|data:(?:image|audio|video)\/)[^\s|｜]{0,1800}\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|｜]|$)/i.test(fields)
+                || /data:(?:image|audio|video)\//i.test(fields);
+            const playerOrMap = /https?:\/\/[^\s|｜]+\/(?:maps?|embed|player|widget)(?:[/?#]|$)/i.test(fields);
+            const knownComponent = mediaLabel.test(label) && (hasMediaResource || playerOrMap);
+            const mediaFields = parts.length >= 3 && hasRemoteResource && hasMediaResource;
+            return knownComponent || mediaFields ? '' : full;
+        },
+    );
+
     // Some Tavern cards wrap external players in a Chinese decorated
     // shortcode: 【音乐|track|caption|[url|】](url|】). Its malformed-looking
     // Markdown link must be consumed *together* with the wrapper, otherwise
@@ -117,6 +145,10 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
  */
 export const tavernOpeningReadableText = (content: string): string => {
     let text = stripUnsupportedTavernOpeningEmbeds(content);
+    // Imported Tavern cards may prefix status widgets with metadata-only
+    // comments. These aren't plot prose. Do not strip arbitrary comments
+    // embedded in the narrative or instructions in the author's actual note.
+    text = text.replace(/^[ \t]*(?:<!--\s*tag\s*:[^\r\n]*-->|<!--\s*note\s*:\s*-->|!--\s*note\s*:\s*-->)[ \t]*(?:\r?\n|$)/gim, '');
     // Inline author requests are not a title, dialogue, or a story status bar.
     // Their raw text remains available in the imported source card.
     text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*(?:\r?\n|$)/gim, '');
