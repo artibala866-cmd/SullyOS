@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
+import { ArrowDown, ArrowLeft, ArrowUp, CaretDown, Copy, DownloadSimple, FloppyDisk, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
     applyStoryPresetChoice,
@@ -304,56 +304,56 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 {mode === 'simple' ? <>
                     <section className='pb-5 border-b border-slate-200'>
                         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div>
-                        <h1 className='mt-1 text-3xl font-serif font-semibold'>{tavernBrowse ? '原作者的选项' : '只调看得懂的部分'}</h1>
+                        <h1 className='mt-1 text-[25px] font-serif font-semibold'>{tavernBrowse ? '原作选择' : '只调看得懂的部分'}</h1>
                         <p className='mt-3 text-[11px] leading-6 text-slate-500'>{tavernBrowse
-                            ? '按原作者的分组选择。按钮直接切换原始规则，不套用内置文风、篇幅或小剧场。'
+                            ? '只显示这份预设自己的选择。点选即切换原文规则；长按选项可查看或编辑完整内容。'
                             : '角色、世界书、历史注入和底层发送结构由宝宝狗照管。这里的选择不会修改角色档案。'}</p>
                         {readOnly && <p className='mt-3 text-[10px] text-amber-700'>这是内置原版。点右上角“复制调整”后即可保存你的选择。</p>}
                     </section>
-                    {tavernBrowse ? <div className='divide-y divide-slate-200'>
+                    {tavernBrowse ? <div className='pt-4 space-y-2.5'>
                         {authorSections.length ? authorSections.map((section, index) => {
                             const on = section.options.filter(option => option.enabled);
-                            const expanded = expandedAuthorSections[section.key] ?? (index < 3 && section.options.length <= 12);
-                            return <section key={section.key} className='py-5'>
+                            const expanded = expandedAuthorSections[section.key] ?? (index === 0 && section.options.length <= 10);
+                            const current = on.length
+                                ? on.slice(0, 2).map(option => option.label).join('、') + (on.length > 2 ? ' 等' : '')
+                                : '未启用';
+                            return <section key={section.key} className='overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_9px_rgba(15,23,42,0.025)]'>
                                 <button type='button' aria-expanded={expanded}
                                     aria-label={`展开或收起${section.label}`}
                                     onClick={() => setExpandedAuthorSections(state => ({ ...state, [section.key]: !expanded }))}
-                                    className='flex w-full items-start gap-3 text-left'>
-                                    <span className='min-w-0 flex-1'>
-                                        <strong className='block text-sm text-slate-800'>{section.label}</strong>
-                                        <span className='block mt-1 text-[10px] text-slate-500 leading-5'>
-                                            {on.length ? `当前：${on.slice(0, 3).map(option => option.label + (option.preview ? ' · ' + option.preview : '')).join('、')}${on.length > 3 ? ` 等 ${on.length} 项` : ''}`
-                                                : '目前未开启选项'}
-                                        </span>
+                                    className='flex w-full items-center gap-3 px-4 pt-3.5 pb-2 text-left'>
+                                    <span className='min-w-0 flex-1 text-[13px] font-bold leading-5 text-slate-800 break-words'>{section.label}</span>
+                                    <span className='shrink-0 text-[10px] tabular-nums text-slate-400'>
+                                        {section.single ? '单选' : `${on.length} 项启用`}
                                     </span>
-                                    <span className='shrink-0 rounded-full bg-white border border-slate-200 px-2 py-1 text-[10px] text-slate-500'>
-                                        {on.length}/{section.options.length} {expanded ? '收起' : '展开'}
-                                    </span>
+                                    <CaretDown size={14} className={`shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                                 </button>
-                                {expanded && <div className='mt-4'>
-                                    <p className='text-[10px] leading-5 text-slate-400 mb-3'>{section.single ? '单选：切换时关闭同组其他档位' : '原作者允许的不同条目可分别开启'}</p>
+                                <p className='px-4 pb-3 text-[11px] leading-4 text-slate-500 line-clamp-1' title={current}>{current}</p>
+                                {expanded && <div className='border-t border-slate-100 px-3 pt-3 pb-2.5'>
                                     <div className='flex flex-wrap gap-2'>{section.options.map(option =>
-                                        <div key={option.id} className='inline-flex max-w-full items-stretch gap-0.5'>
-                                            <button type='button' disabled={readOnly}
-                                                aria-pressed={option.enabled}
-                                                aria-label={`${section.label}：${option.label}${option.enabled ? '（已启用）' : '（未启用）'}`}
-                                                onClick={() => chooseAuthorOption(section.key, option.id)}
-                                                className={`min-w-0 max-w-full break-words text-left px-3 py-2 rounded-l-full border text-[11px] font-semibold disabled:opacity-60 ${option.enabled
-                                                    ? 'bg-slate-900 border-slate-900 text-white'
-                                                    : 'bg-white border-slate-200 text-slate-600'}`}>
-                                                <span>{option.label}</span>
-                                                {option.preview && <span className={`block mt-0.5 text-[9px] font-normal ${option.enabled ? 'text-slate-200' : 'text-slate-400'}`}>{option.preview}</span>}
-                                            </button>
-                                            <button type='button' aria-label={`查看或编辑原作者条目：${option.name}`}
-                                                title='查看原文' onClick={() => jumpToAuthorPrompt(option.id)}
-                                                className='shrink-0 rounded-r-full border border-slate-200 bg-white px-2.5 text-violet-500 grid place-items-center'>
-                                                <PencilSimple size={12} weight='bold' />
-                                            </button>
-                                        </div>,
+                                        <button key={option.id} type='button' disabled={readOnly}
+                                            aria-pressed={option.enabled}
+                                            aria-label={`${section.label}：${option.label}${option.enabled ? '（已启用）' : '（未启用）'}`}
+                                            title={option.name + ' · 长按查看原文'}
+                                            onClick={() => chooseAuthorOption(section.key, option.id)}
+                                            onContextMenu={event => { event.preventDefault(); jumpToAuthorPrompt(option.id); }}
+                                            className={`min-h-9 max-w-full rounded-xl border px-3 py-2 text-left text-[11px] font-semibold leading-4 transition-colors disabled:opacity-60 ${option.enabled
+                                                ? 'border-slate-900 bg-slate-900 text-white'
+                                                : 'border-slate-200 bg-slate-50 text-slate-700 active:bg-slate-100'}`}>
+                                            <span className='block break-words [overflow-wrap:anywhere]'>{option.label}</span>
+                                            {option.preview && <span className={`mt-0.5 block text-[10px] font-normal ${option.enabled ? 'text-slate-300' : 'text-slate-500'}`}>{option.preview}</span>}
+                                        </button>,
                                     )}</div>
+                                    <div className='mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5'>
+                                        <span className='text-[10px] text-slate-400'>{section.single ? '按作者单选规则切换' : '按原作者条目独立开关'}</span>
+                                        <button type='button' onClick={() => jumpToAuthorPrompt((on[0] || section.options[0]).id)}
+                                            className='shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4'>
+                                            查看原文
+                                        </button>
+                                    </div>
                                 </div>}
                             </section>;
-                        }) : <p className='py-6 text-xs leading-6 text-slate-500'>这份预设没有可辨认的作者选择组；原始提示词都在专业版里，未被删除或替换。</p>}
+                        }) : <p className='py-6 text-xs leading-6 text-slate-500'>没有发现明确的原作者选择组；完整提示词保留在专业版里。</p>}
                     </div> : <div className='divide-y divide-slate-200'>{STORY_PRESET_SIMPLE_CHOICES.filter(choice =>
                         choice.ids.some(id => draft.document.prompts.some(prompt => prompt.id === id))).map(choice => {
                         const nativeActive = choice.ids.find(id => draft.document.prompts.find(prompt => prompt.id === id)?.enabled);
