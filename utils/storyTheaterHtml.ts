@@ -72,7 +72,7 @@ const sanitizeNode = (node: Node): string => {
     for (const attr of Array.from(element.attributes)) {
         const key = attr.name.toLowerCase();
         const value = attr.value.trim();
-        if (/^on/i.test(key) || value.length > 180000) continue;
+        if (/^on/i.test(key) || value.length > (tag === 'img' && key === 'src' ? 150000 : 600)) continue;
         if (tag === 'details' && key === 'open') {
             attributes.push('open');
             continue;
