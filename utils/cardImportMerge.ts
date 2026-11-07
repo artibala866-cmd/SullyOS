@@ -47,6 +47,21 @@ export function findCardImportTarget(
         found.cardImportOrigin?.source !== 'document') {
         throw new Error('同名角色已存在，但文档文件名无法证明是同一角色。为保护原有人设与记忆，已停止自动覆盖；可重命名文档后作为独立角色导入');
     }
+    if (found && !found.cardImportOrigin && origin.source !== 'sully') {
+        const prompt = found.systemPrompt || '';
+        const mounted = found.mountedWorldbooks || [];
+        const legacyTavern = origin.source === 'tavern' && (
+            prompt.startsWith('【角色身份与背景】\n') ||
+            prompt.startsWith('【角色性格与行为设定】\n') ||
+            mounted.some(book => book.sourceUid != null && !book.cardImportKey)
+        );
+        const legacyLink = origin.source === 'babylink' && (
+            prompt.startsWith('【角色稳定人设】\n') ||
+            mounted.some(book => (book.category || '').startsWith('BabyLink · '))
+        );
+        if (!legacyTavern && !legacyLink)
+            throw new Error('同名角色没有可核验的旧导入来源，可能是手动创建角色；为保护原有人设与记忆，已停止自动覆盖');
+    }
     // Names from different card ecosystems do not establish the same
     // identity. Even when only one side has an external ID, cross-source
     // import must not overwrite an existing person's memories or persona.
