@@ -17,6 +17,7 @@ import {
     buildStoryPrefillInstruction,
     buildStoryMultiAffinityGuide,
     buildStoryWorldbookScanMessages,
+    buildStoryHistory,
     compileStoryPreset,
     prepareStoryGenerationSettings,
     reconcileStoryAffinityScores,
@@ -49,6 +50,56 @@ import {
     makeStoryPresetFileName,
     makeStoryTheaterFileName,
 } from './storyTheater';
+
+describe('线下剧情多轮历史一致性', () => {
+    it('12 轮后仍按落库 ID 读取真正的上一条，不被旧时间戳反向排序', () => {
+        const recorded = Array.from({ length: 24 }, (_, index) => ({
+            id: index + 1,
+            charId: 'story:test',
+            role: index % 2 === 0 ? 'user' : 'assistant',
+            type: 'text',
+            content: `第${Math.floor(index / 2) + 1}轮${index % 2 === 0 ? '推进' : '正文'}`,
+            timestamp: 24000 - index,
+            metadata: { source: 'story_theater' },
+        } as Message));
+        const history = buildStoryHistory([...recorded].reverse());
+        expect(history).toHaveLength(24);
+        expect(history.at(-2)).toEqual({ role: 'user', content: '第12轮推进' });
+        expect(history.at(-1)).toEqual({ role: 'assistant', content: '第12轮正文' });
+    });
+
+    it('酒馆最近消息宏指向本轮用户输入，角色消息宏仍指向上一轮 AI 正文', () => {
+        const history = Array.from({ length: 24 }, (_, index) => ({
+            role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
+            content: `第${Math.floor(index / 2) + 1}轮${index % 2 === 0 ? '推进' : '正文'}`,
+        }));
+        const original = createBlankStoryPreset('宏定位回归', 1);
+        const preset: StoryTheaterPreset = {
+            ...original,
+            document: {
+                ...original.document,
+                sourceFormat: 'sillytavern',
+                prompts: [
+                    { id: 'history', name: '历史', enabled: true, role: 'system', content: '', marker: 'history' },
+                    { id: 'recent', name: '最近楼层', enabled: true, role: 'system',
+                        content: '最近={{lastChatMessage}}；角色={{lastCharMessage}}；用户={{lastUserMessage}}；末条={{lastMessage}}' },
+                ],
+            },
+        };
+        const slots = { actors: '', persona: '', scenario: '', worldBefore: '', worldAfter: '', history: '' };
+        const result = compileStoryPreset({
+            preset, slots, historyMessages: history,
+            currentInput: '第13轮推进', currentInputIsNewUserMessage: true,
+            userName: '用户', characterNames: ['角色'],
+        });
+        const macro = result.messages.find(message => message.content.includes('最近='));
+        expect(macro?.content).toContain('最近=第13轮推进');
+        expect(macro?.content).toContain('角色=第12轮正文');
+        expect(macro?.content).toContain('用户=第13轮推进');
+        expect(macro?.content).toContain('末条=第13轮推进');
+        expect(result.messages.filter(message => message.content.includes('第12轮正文'))).toHaveLength(2);
+    });
+});
 
 describe('剧情接口报错诊断', () => {
     it('保留上游 400 的具体原因', () => {
