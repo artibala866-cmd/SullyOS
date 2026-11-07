@@ -40,7 +40,12 @@ const styledGreeting={id:'tavern-style-raw',title:'备选开场白 25',
     content:'<request:两个季淮北的称呼都是季淮北，禁止出现本体/IF的称呼>\n'
         +'<div style="margin:15px 0;font-family:\'PingFang SC\',sans-serif;">'
         +'<h3 style="background-color:#f0f4f8;color:#4c6680;padding:8px">雨夜 · 铁锈街</h3>'
-        +'<p>烟头烫在水泥地上。{{char}}抬头看向{{user}}。</p></div>'};
+        +'<p>烟头烫在水泥地上。{{char}}抬头看向{{user}}。</p></div>\n'
+        +'[spotify: time machine | ˚˖ Music | https://assets.example.net/cover.gif | https://assets.example.net/track.mp3]\n'
+        +'[spotify: 初雪 | ˚˖ Music | https://assets.example.net/cover.gif | https://assets.example.net/snow.mp3]\n'
+        +'[地图显示: 旧城 | https://assets.example.net/maps/embed?id=4]\n'
+        +'<audio controls src="https://assets.example.net/sound.mp3"></audio>'
+        +'<iframe src="https://assets.example.net/maps/embed?id=4"></iframe>'};
 const linkGreeting={id:'link-visual-opening',title:'Link · 星河初遇',content:'<!-- Link 原始注释 -->\n{{char}}在星河下等待{{user}}。'};
 const characters=scenario==='empty'||scenario==='customReady'||scenario==='customRecovered'
     ? [{...actor,tavernGreetings:[]}]
@@ -165,7 +170,7 @@ const validate=()=>{
                     && !!openingEditor
                     && openingEditor.value.includes('雨夜 · 铁锈街')
                     && openingEditor.value.includes('烟头烫在水泥地上')
-                    && !/<request|<div|<h3|style=|font-family|PingFang/i.test(openingEditor.value)
+                    && !/<request|<div|<h3|style=|font-family|PingFang|spotify:|地图显示:|<iframe|<audio|assets\.example\.net|\.mp3|\.gif/i.test(openingEditor.value)
                     && !opening?.textContent?.includes('font-family')
                 : true)
             && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
