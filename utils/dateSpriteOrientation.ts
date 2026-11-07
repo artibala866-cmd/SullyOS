@@ -22,6 +22,12 @@ export function resolveDateSpriteConfig(
 
 /** Match the actual mobile landscape stage, not the visual viewport after
  * Android's IME opens (the IME must not switch the saved portrait/landscape setup). */
+/** Keep the 0.5–2.0 Meet size slider effective in landscape. Only cap an
+ * out-of-range legacy/imported zoom above 2 so the head stays on screen. */
+export function dateLandscapeSpriteFit(scale: number): number {
+  return Number.isFinite(scale) && scale > 2 ? 2 / scale : 1;
+}
+
 export function isDateMobileLandscape(): boolean {
   if (typeof window === 'undefined') return false;
   if (typeof window.matchMedia === 'function') {
