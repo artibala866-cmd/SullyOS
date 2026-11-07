@@ -1038,11 +1038,36 @@ export const selectStoryTavernAuthorOption = (
     // a zero-choice state by clicking its already active button.
     if (existingOn && section.single) return document;
     const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
+    const requiredWrappers = new Set<string>();
+    // Authors sometimes disable an entire XML-wrapped block until one of its
+    // child choices is selected (e.g. 宝宝我是char's <theater> ... </theater>).
+    // Activating the child must activate BOTH wrappers without rewriting text.
+    if (newEnabled && sectionKey.startsWith('source:')) {
+        const sourceGroup = getStoryPresetPromptGroups(document).find(group =>
+            'source:' + group.key === sectionKey);
+        if (sourceGroup) {
+            const members = document.prompts.filter(p => sourceGroup.promptIds.includes(p.id));
+            const start = members[0], end = members[members.length - 1];
+            const tag = /^\s*<([A-Za-z][\w:-]*)\b/.exec(start?.content || '')?.[1];
+            if (tag && new RegExp('^\\s*<\\/' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\    const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
     return {
         ...document,
         prompts: document.prompts.map(p =>
             p.id === optionId ? { ...p, enabled: newEnabled }
                 : off.has(p.id) ? { ...p, enabled: false } : p),
+    };') + '\\s*>', 'i')
+                .test(end?.content || '')) {
+                requiredWrappers.add(start.id);
+                requiredWrappers.add(end.id);
+            }
+        }
+    }
+    return {
+        ...document,
+        prompts: document.prompts.map(p =>
+            p.id === optionId ? { ...p, enabled: newEnabled }
+                : off.has(p.id) ? { ...p, enabled: false }
+                    : requiredWrappers.has(p.id) ? { ...p, enabled: true } : p),
     };
 };
 
@@ -1386,10 +1411,9 @@ export type StoryNarrationMode = 'second' | 'third' | 'custom';
 
 export const resolveStoryNarrationMode = (document: StoryTheaterPresetDocument): StoryNarrationMode => {
     if (document.sourceFormat === 'sillytavern') {
-        const pov = document.tavernControls?.overrides?.pov === null
-            ? detectTavernNativeControls(document.prompts).inferred.pov
-            : document.tavernControls?.overrides?.pov
-                ?? detectTavernNativeControls(document.prompts).inferred.pov;
+        // Legacy imported-native overrides are no longer applied. The
+        // selected AUTHOR prompt is now the one authoritative POV source.
+        const pov = detectTavernNativeControls(document.prompts).inferred.pov;
         if (pov === 'nmj-v3-pov-third') return 'third';
         if (pov === 'nmj-v3-pov-second') return 'second';
         return 'custom';
@@ -1431,41 +1455,15 @@ export const buildStoryIdentityGuard = (
     ].join('\n');
 };
 
-/** Only user-selected native controls get additional instructions.
- * Automatic recognition does NOT duplicate or overwrite the author text.
- * Keep native options in their existing source file: no alternate UI/modules.
+/** Old imports may still contain legacy native-option metadata. Retain it
+ * when loading/exporting for recovery, but never send copied Night Screening
+ * prompts over the original Tavern author rules.
  */
 export const buildTavernNativeOverrideMessages = (
-    document: StoryTheaterPresetDocument,
-    userName: string,
-    characterNames: string[],
-): StoryApiMessage[] => {
-    if (document.sourceFormat !== 'sillytavern') return [];
-    const overrides = document.tavernControls?.overrides;
-    if (!overrides) return [];
-    const output: StoryApiMessage[] = [];
-    for (const [key, option] of Object.entries(overrides)) {
-        if (option === null || option === undefined) continue;
-        if (option === '') {
-            if (key === 'theater') output.push({ role: 'system',
-                content: '本轮按制作器选择关闭小剧场：不生成小剧场、番外或小剧场 HTML，但保留作者要求的正文、状态栏和其他非小剧场附录。' });
-            if (key === 'tension') output.push({ role: 'system',
-                content: '本轮场景张力自然推进，不因叙事张力档位强行制造冲突、惊吓或关系升级。' });
-            continue;
-        }
-        const original = nightScreeningV627.prompts.find(prompt => prompt.id === option);
-        if (!original || !original.content || !isAllowedTavernNativeOverride(key, option)) continue;
-        // Imported Tavern often uses <content> instead of native <story_text>.
-        // Translate only the contract tag in the *extra native rule*, never
-        // in the author's original or in previously saved story turns.
-        const content = original.content.replace(/<\/?story_text>/g,
-            tag => tag.startsWith('</') ? '</content>' : '<content>');
-        output.push({ role: 'system', content: macroReplace(
-            '【本轮制作器自选 · 优先于同主题旧设定】\n' + content, userName, characterNames,
-        ) });
-    }
-    return output;
-};
+    _document: StoryTheaterPresetDocument,
+    _userName: string,
+    _characterNames: string[],
+): StoryApiMessage[] => [];
 
 const slotForMarker = (marker: StoryTheaterPresetPrompt['marker'], slots: StoryPromptSlots): string => {
     switch (marker) {
