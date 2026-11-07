@@ -60,7 +60,7 @@ const dialectCases: Record<string, {
             { id: 'unknownMist', name: '薄雾蓝', content: 'ONLY-UNKNOWN-MIST', enabled: false },
             { id: 'unknownCore', name: '必开底座', content: 'UNCHANGED-CORE' },
         ],
-        labels: ['月潮调色盘', '晨星', '晦夜', '星屿造景', '琥珀光', '薄雾蓝'],
+        labels: ['月潮调色盘', '晨星', '晦夜', '星屿造景', '琥珀光'],
     },
     gomora: {
         temperature: 1.05, top_p: .98, frequency_penalty: 0, presence_penalty: 0,
