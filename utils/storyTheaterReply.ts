@@ -1,5 +1,5 @@
 import type { CharacterProfile, Message } from '../types';
-import { openDB } from './db';
+import { DB, openDB } from './db';
 import { loadCharacterContextMessages } from './chatContextRange';
 
 /** 本剧情原文已有独立历史槽位，角色镜像不得重复注入或带回待重写回复。 */
@@ -125,4 +125,44 @@ export async function updateStoryTheaterFloor(original: Message, text: string): 
             req.onerror = () => abort('楼层读取失败，未修改任何消息');
         }
     });
+}
+
+
+/** Reject stale or cross-thread mirror references before deleting a floor. */
+export async function deleteStoryTheaterFloor(original: Message): Promise<void> {
+    const theaterId = original.metadata?.theaterId;
+    if (!theaterId || original.metadata?.source !== 'story_theater'
+        || original.charId !== `story-theater:${theaterId}`) {
+        throw new Error('不是有效的剧情楼层，未删除任何内容');
+    }
+    const mirrorById = new Map<number, string>();
+    for (const [charId, rawId] of Object.entries(
+        (original.metadata?.theaterMirrorIds || {}) as Record<string, unknown>,
+    )) {
+        const id = Number(rawId);
+        if (!charId || !Number.isSafeInteger(id) || id <= 0
+            || id === original.id || mirrorById.has(id)) {
+            throw new Error('角色镜像引用异常，未删除任何内容');
+        }
+        mirrorById.set(id, charId);
+    }
+    const ids = [original.id, ...mirrorById.keys()];
+    const rows = await Promise.all(ids.map(id => DB.getMessageById(id)));
+    for (let i = 0; i < ids.length; i++) {
+        const saved = rows[i];
+        const mirrorChar = mirrorById.get(ids[i]);
+        const identityMatches = ids[i] === original.id
+            ? saved?.charId === original.charId && saved?.metadata?.source === 'story_theater'
+                && saved?.metadata?.theaterId === theaterId
+            : saved?.charId === mirrorChar && saved?.metadata?.source === 'story_theater_memory'
+                && saved?.metadata?.theaterId === theaterId
+                && saved?.metadata?.theaterCentralId === original.id;
+        if (!identityMatches || saved?.role !== original.role
+            || saved?.content !== original.content) {
+            throw new Error('楼层或角色镜像已被其他操作修改，未执行删除，请重新进入剧情后重试');
+        }
+    }
+    // DB.deleteMessages handles linked favorites and secret notes in its own
+    // message-store transaction; do not bypass it with raw store.delete().
+    await DB.deleteMessages(ids);
 }
