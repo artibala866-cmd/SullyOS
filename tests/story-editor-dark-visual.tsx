@@ -35,6 +35,12 @@ const customContent='黄昏的车站里，我推开了那扇门。';
 const customGreeting={id:'custom-written',title:'黄昏车站',content:customContent};
 const legacyScene='{{char}}在夜色中走近。';
 const legacyGreeting={id:'tavern-first',title:'备选开场白 6',content:'<!-- title: 开场白6 -->\n<!-- desc: 车站雨夜。 -->\n\n'+legacyScene};
+const styledScene='雨夜 · 铁锈街\n烟头烫在水泥地上。{{char}}抬头看向{{user}}。';
+const styledGreeting={id:'tavern-style-raw',title:'备选开场白 25',
+    content:'<request:两个季淮北的称呼都是季淮北，禁止出现本体/IF的称呼>\n'
+        +'<div style="margin:15px 0;font-family:\'PingFang SC\',sans-serif;">'
+        +'<h3 style="background-color:#f0f4f8;color:#4c6680;padding:8px">雨夜 · 铁锈街</h3>'
+        +'<p>烟头烫在水泥地上。{{char}}抬头看向{{user}}。</p></div>'};
 const linkGreeting={id:'link-visual-opening',title:'Link · 星河初遇',content:'<!-- Link 原始注释 -->\n{{char}}在星河下等待{{user}}。'};
 const characters=scenario==='empty'||scenario==='customReady'||scenario==='customRecovered'
     ? [{...actor,tavernGreetings:[]}]
@@ -46,6 +52,8 @@ const characters=scenario==='empty'||scenario==='customReady'||scenario==='custo
     ? [{...actor,tavernGreetings:[legacyGreeting]}]
     : scenario==='autoNameLink'
     ? [{...actor,tavernGreetings:[],linkGreetings:[linkGreeting]}]
+    : scenario==='styledTavern'
+    ? [{...actor,tavernGreetings:[styledGreeting]}]
     : [actor];
 const entry={...createStoryTheaterDraft(),title:['autoNameTavern','autoNameLink'].includes(scenario)?'':
     scenario==='autoNameManual'?'我自己命名的剧情':'真实时间陪伴 · 视觉验收',
@@ -55,6 +63,7 @@ const entry={...createStoryTheaterDraft(),title:['autoNameTavern','autoNameLink'
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
     ...(scenario==='tavern'?{presetId:tavernPreset.id}:{}),
     openingGreeting:['selected','editing','legacy'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}
+        :scenario==='styledTavern'?{characterId:actor.id,greetingId:styledGreeting.id}
         :scenario==='customSaved'?{characterId:actor.id,greetingId:customGreeting.id}:undefined};
 root.render(React.createElement('div',{className:`story-theme ${light?'story-theme-light':'story-theme-dark'} story-decor-plain h-full w-full`},
     React.createElement(StoryTheaterEditor,{
@@ -138,8 +147,16 @@ const validate=()=>{
                     && (scenario!=='customMulti' || !!document.querySelector('[data-story-opening-target="true"]'))
                     && (scenario!=='customRecovered' || (openingSelect?.value==='' && openingSelect?.textContent?.includes('黄昏车站')))
                 : true)
-            && (['autoNameTavern','autoNameLink','autoNameManual'].includes(scenario)
-                ? titleInput?.value===(scenario==='autoNameTavern'?'开场白6':
+            && (scenario==='styledTavern'
+                ? openingSelect?.value===`${actor.id}::tavern-style-raw`
+                    && !!openingEditor
+                    && openingEditor.value.includes('雨夜 · 铁锈街')
+                    && openingEditor.value.includes('烟头烫在水泥地上')
+                    && !/<request|<div|<h3|style=|font-family|PingFang/i.test(openingEditor.value)
+                    && !opening?.textContent?.includes('font-family')
+                : true)
+            && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
+                ? scenario==='styledTavern' ? !!openingEditor : titleInput?.value===(scenario==='autoNameTavern'?'开场白6':
                     scenario==='autoNameLink'?'Link · 星河初遇':'我自己命名的剧情')
                     && openingSelect?.value===`${actor.id}::${scenario==='autoNameLink'?'link-visual-opening':'tavern-first'}`
                     && openingEditor?.value===(scenario==='autoNameLink'?linkGreeting.content:legacyScene)
