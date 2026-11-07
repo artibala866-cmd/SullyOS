@@ -1197,6 +1197,15 @@ export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | 
 export type StoryNarrationMode = 'second' | 'third' | 'custom';
 
 export const resolveStoryNarrationMode = (document: StoryTheaterPresetDocument): StoryNarrationMode => {
+    if (document.sourceFormat === 'sillytavern') {
+        const pov = document.tavernControls?.overrides?.pov === null
+            ? detectTavernNativeControls(document.prompts).inferred.pov
+            : document.tavernControls?.overrides?.pov
+                ?? detectTavernNativeControls(document.prompts).inferred.pov;
+        if (pov === 'nmj-v3-pov-third') return 'third';
+        if (pov === 'nmj-v3-pov-second') return 'second';
+        return 'custom';
+    }
     const third = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-third' && prompt.enabled);
     if (third) return 'third';
     const second = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-second' && prompt.enabled);
@@ -1225,6 +1234,44 @@ export const buildStoryIdentityGuard = (
         perspectiveRule,
         '- 历史助手回复只是已经发生的旧剧情：继承事实，不继承它过去使用的第一、第二或第三人称。当前启用的人称模式是本轮唯一标准。',
     ].join('\n');
+};
+
+/** Only user-selected native controls get additional instructions.
+ * Automatic recognition does NOT duplicate or overwrite the author text.
+ * Keep native options in their existing source file: no alternate UI/modules.
+ */
+export const buildTavernNativeOverrideMessages = (
+    document: StoryTheaterPresetDocument,
+    userName: string,
+    characterNames: string[],
+): StoryApiMessage[] => {
+    if (document.sourceFormat !== 'sillytavern') return [];
+    const overrides = document.tavernControls?.overrides;
+    if (!overrides) return [];
+    const output: StoryApiMessage[] = [];
+    for (const [key, option] of Object.entries(overrides)) {
+        if (option === null || option === undefined) continue;
+        if (option === '') {
+            if (key === 'theater') output.push({ role: 'system',
+                content: '本轮按制作器选择关闭小剧场：不生成小剧场、番外或小剧场 HTML，但保留作者要求的正文、状态栏和其他非小剧场附录。' });
+            if (key === 'tension') output.push({ role: 'system',
+                content: '本轮场景张力自然推进，不因叙事张力档位强行制造冲突、惊吓或关系升级。' });
+            continue;
+        }
+        const original = nightScreeningV627.prompts.find(prompt => prompt.id === option);
+        if (!original || !original.content || ![
+            'style', 'pov', 'retelling', 'agency', 'tension', 'theater', 'language', 'length',
+        ].includes(key)) continue;
+        // Imported Tavern often uses <content> instead of native <story_text>.
+        // Translate only the contract tag in the *extra native rule*, never
+        // in the author's original or in previously saved story turns.
+        const content = original.content.replace(/<\/?story_text>/g,
+            tag => tag.startsWith('</') ? '</content>' : '<content>');
+        output.push({ role: 'system', content: macroReplace(
+            '【本轮制作器自选 · 优先于同主题旧设定】\n' + content, userName, characterNames,
+        ) });
+    }
+    return output;
 };
 
 const slotForMarker = (marker: StoryTheaterPresetPrompt['marker'], slots: StoryPromptSlots): string => {
@@ -1256,7 +1303,7 @@ export const compileStoryPreset = (input: {
     continueRequested?: boolean;
     userName: string;
     characterNames: string[];
-}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[]; continueNudge?: StoryApiMessage } => {
+}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[]; continueNudge?: StoryApiMessage; nativeOverrideMessages?: StoryApiMessage[] } => {
     const { preset, slots, userName, characterNames } = input;
     const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
     const messages: StoryApiMessage[] = [];
@@ -1441,6 +1488,7 @@ export const compileStoryPreset = (input: {
             max_tokens: document.generation.maxTokens,
         },
         assistantPrefill,
+        ...(importedFromTavern ? { nativeOverrideMessages: buildTavernNativeOverrideMessages(document, userName, characterNames) } : {}),
         ...(continueNudge ? { continueNudge } : {}),
         ...(afterLatestUser.length ? { afterLatestUser } : {}),
     };
