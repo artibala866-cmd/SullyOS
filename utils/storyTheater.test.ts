@@ -726,7 +726,7 @@ describe('剧情首幕与酒馆开场白绑定', () => {
         const entry = { ...createStoryTheaterDraft(1), characterIds: [actor.id],
             openingGreeting: { characterId: actor.id, greetingId: 'tavern-first' } };
         expect(resolveStoryOpeningGreeting(entry, [actor], '阿宁')).toEqual({
-            characterId: actor.id, greetingId: 'tavern-first', content: '林澈在雨里等阿宁。',
+            characterId: actor.id, greetingId: 'tavern-first', source: 'tavern', content: '林澈在雨里等阿宁。',
         });
         expect(resolveStoryOpeningGreeting({ ...entry, openingGreeting: { characterId: actor.id, greetingId: 'tavern-alt-1' } }, [actor], '阿宁')?.content).toBe('备用场景');
     });
