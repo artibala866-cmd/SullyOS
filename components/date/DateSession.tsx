@@ -1,5 +1,6 @@
 import {meetingAppearance, MEETING_READING_CSS} from '../../utils/meetingAppearance';
 import './date-session-landscape.css';
+import { isDateMobileLandscape, resolveDateSpriteConfig, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { CharacterProfile, Message, DateState, DialogueItem, UserProfile, DateObservation } from '../../types';
@@ -288,6 +289,26 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [currentSprite, setCurrentSprite] = useState<string>('');
     const [currentSpriteKey, setCurrentSpriteKey] = useState<string>('');
     const [spriteConfig, setSpriteConfig] = useState(char.spriteConfig || { scale: 1, x: 0, y: 0 });
+    const [spriteOrientation, setSpriteOrientation] = useState<DateSpriteOrientation>(
+        () => isDateMobileLandscape() ? 'landscape' : 'portrait',
+    );
+    // Match the actual rotated phone, not the Android keyboard's visual viewport.
+    // Each orientation has its own saved composition; keyboard visibility never
+    // changes which sprite position is selected.
+    useLayoutEffect(() => {
+        const query = window.matchMedia?.('(orientation: landscape) and (min-width: 600px) and (max-height: 760px)');
+        const sync = () => setSpriteOrientation(isDateMobileLandscape() ? 'landscape' : 'portrait');
+        sync();
+        query?.addEventListener?.('change', sync);
+        window.addEventListener('resize', sync);
+        window.addEventListener('orientationchange', sync);
+        return () => {
+            query?.removeEventListener?.('change', sync);
+            window.removeEventListener('resize', sync);
+            window.removeEventListener('orientationchange', sync);
+        };
+    }, []);
+    const visibleSpriteConfig = resolveDateSpriteConfig(spriteOrientation, spriteConfig, char.spriteConfigLandscape);
     
     // Dialogue Engine State
     const [dialogueQueue, setDialogueQueue] = useState<DialogueItem[]>([]);
@@ -693,7 +714,7 @@ const DateSession: React.FC<DateSessionProps> = ({
 
     // Sprite & Config Sync (If user goes to settings and comes back, this helps)
     useEffect(() => {
-        if (char.spriteConfig) setSpriteConfig(char.spriteConfig);
+        setSpriteConfig(char.spriteConfig || { scale: 1, x: 0, y: 0 });
         const selectedBackground = currentSceneKey && char.dateSceneBackgrounds?.[currentSceneKey];
         if (selectedBackground || char.dateBackground || !initialState?.bgImage) setBgImage(selectedBackground || char.dateBackground || '');
         if (currentSpriteKey) {
@@ -963,7 +984,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     const canReroll = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
     return (
-        <div ref={sessionRootRef} className={`date-session-root h-full w-full relative bg-black overflow-hidden font-sans select-none ${decoratedReading ? 'meeting-reading' : ''} ${showInputBox ? 'date-session-input-open' : ''}`} data-reading-preset={readingStyle.id} onClick={handleScreenClick}><style>{MEETING_READING_CSS}</style>
+        <div ref={sessionRootRef} className={`date-session-root h-full w-full relative bg-black overflow-hidden font-sans select-none ${decoratedReading ? 'meeting-reading' : ''} ${showInputBox ? 'date-session-input-open' : ''}`} data-reading-preset={readingStyle.id} data-sprite-orientation={spriteOrientation} onClick={handleScreenClick}><style>{MEETING_READING_CSS}</style>
             
             {/* Background Layer */}
             <div 
@@ -1267,8 +1288,8 @@ const DateSession: React.FC<DateSessionProps> = ({
             {/* Visual Mode View */}
             {!isNovelMode && (
                 <>
-                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none z-10 overflow-hidden ${spriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
-                        {currentSprite && <TokenImg value={currentSprite} className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 origin-bottom" style={{ filter: showInputBox ? 'brightness(1)' : (isTextAnimating ? 'brightness(1.05)' : 'brightness(1)'), transform: `translate(${spriteConfig.x}%, ${spriteConfig.y}%) scale(${isTextAnimating ? spriteConfig.scale * 1.02 : spriteConfig.scale})`, '--date-landscape-fit-scale': String(1 / Math.max(1, (isTextAnimating ? spriteConfig.scale * 1.02 : spriteConfig.scale))) } as React.CSSProperties} />}
+                    <div className={`date-session-sprite-stage absolute inset-x-0 bottom-0 h-[90%] flex items-end justify-center pointer-events-none z-10 overflow-hidden ${visibleSpriteConfig.scale > 1.05 ? 'date-session-sprite-zoomed' : ''}`}>
+                        {currentSprite && <TokenImg value={currentSprite} className="max-h-full max-w-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all duration-300 origin-bottom" style={{ filter: showInputBox ? 'brightness(1)' : (isTextAnimating ? 'brightness(1.05)' : 'brightness(1)'), transform: `translate(${visibleSpriteConfig.x}%, ${visibleSpriteConfig.y}%) scale(${isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale})`, '--date-landscape-fit-scale': String(1 / Math.max(1, (isTextAnimating ? visibleSpriteConfig.scale * 1.02 : visibleSpriteConfig.scale))) } as React.CSSProperties} />}
                     </div>
                     {!isTyping && (
                         <div className="date-session-dialogue-position absolute inset-x-0 bottom-8 z-30 flex justify-center">
