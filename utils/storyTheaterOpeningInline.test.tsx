@@ -520,6 +520,26 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect((onSave as any).mock.calls[0][0].selectedWorldbookIds).toEqual(['old-only']);
     });
 
+    it('同名不同世界线显示各自正文线索，用户不会看到两项完全同样的勾选行', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),title:'同名世界线',characterIds:[]},
+            characters:[actor],worldbooks:[
+                {id:'a',title:'IF线',content:'回到十八岁的校园故事',category:'同人',createdAt:1,updatedAt:1},
+                {id:'b',title:'IF线',content:'七十年后的未来城市',category:'同人',createdAt:1,updatedAt:1},
+            ],user:{name:'你'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave:vi.fn(),
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const items=[...host!.querySelectorAll<HTMLButtonElement>('button[aria-label="世界书：IF线"]')];
+        expect(items).toHaveLength(2);
+        expect(items[0].textContent).toContain('回到十八岁');
+        expect(items[1].textContent).toContain('未来城市');
+        await act(async()=>items[1].click());
+        expect(items[0].getAttribute('aria-pressed')).toBe('false');
+        expect(items[1].getAttribute('aria-pressed')).toBe('true');
+    });
+
     it('大量世界书可搜索；删除原始全局条目不会静默清除旧剧情已经选中的 ID', async () => {
         host=document.createElement('div');document.body.append(host);root=createRoot(host);
         const many = Array.from({length:15},(_,n)=>({id:'world-'+n,title:'设定'+n,content:'内容'+n,category:'小说世界',createdAt:1,updatedAt:1}));
