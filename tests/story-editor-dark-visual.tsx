@@ -131,7 +131,7 @@ const validate=()=>{
         success:(scenario!=='tavern'||tavernVisible)
             && openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
-            && (['autoNameTavern','autoNameLink','autoNameManual'].includes(scenario)
+            && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
                 ? !!openingEditor
                 : ['selected','editing','customSaved','legacy'].includes(scenario)
                 ? openingSelect?.value===`${actor.id}::${scenario==='customSaved'?customGreeting.id:'tavern-first'}`
