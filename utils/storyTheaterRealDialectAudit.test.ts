@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { parseStoryDisplayBlocks, parseStoryTheaterPreset, compileStoryPreset } from './storyTheater';
+import { parseStoryDisplayBlocks, parseStoryTheaterPreset, compileStoryPreset, looksLikeLegacyTavernStoryOutput } from './storyTheater';
 import { adaptTavernWritingInterlude, sanitizeStoryTheaterHtml } from './storyTheaterHtml';
 
 // Synthetic protocol fragments from the user's five files. Their creative
@@ -75,6 +75,15 @@ describe('真实酒馆五份预设的输出格式交叉审计', () => {
         expect(found.map(b => b.title)).toEqual([undefined, '剧情摘要', '剧情选项', '小剧场附录']);
         expect(found[3].htmlSource).toContain('幕间正文');
     });
+    it('切换剧情预设后，旧消息按实际标签识别而不是被当前预设类型改写', () => {
+        expect(looksLikeLegacyTavernStoryOutput('<sidestory><details>旧番外</details></sidestory>')).toBe(true);
+        expect(looksLikeLegacyTavernStoryOutput('<content>旧酒馆正文</content>')).toBe(true);
+        expect(looksLikeLegacyTavernStoryOutput('<Episode><details><summary>主题</summary>内容</details></Episode>')).toBe(true);
+        expect(looksLikeLegacyTavernStoryOutput('<details data-info="archive">剧情档案</details>')).toBe(true);
+        expect(looksLikeLegacyTavernStoryOutput('<mini_theater><mt_ai><name>原生角色</name><text>说话</text></mt_ai></mini_theater>')).toBe(false);
+        expect(looksLikeLegacyTavernStoryOutput('没有任何标记的旧小说正文')).toBe(false);
+    });
+
     it('预设自带正则只告警，不执行替换或写入剧情发送内容', () => {
         const fixture = JSON.stringify({
             prompts: [
