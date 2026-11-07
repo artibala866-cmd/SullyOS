@@ -125,6 +125,19 @@ const validate=()=>{
         openingEditorVisible:!!openingEditor,openingEditorLength:openingEditor?.value.length||0,
         bookmarkVisible:!!bookmark,bookmarkDisabled:bookmark?.disabled||false,
         storyTitle:titleInput?.value||'',
+        tavernVisualDiagnostics: scenario === 'tavern' ? {
+            tavernVisible,
+            presetExists: !!presetSection,
+            presetOptions: presetSection?.querySelector('select')?.textContent?.slice(0, 240),
+            regexText: !!presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行'),
+            htmlText: !!presetSection?.textContent?.includes('小剧场支持隔离的安全 HTML 排版与原生卡片'),
+            hasAmberBorder: !!presetSection?.querySelector('.border-amber-200'),
+            openingSelect: !!openingSelect,
+            openingSelectCount: opening?.querySelectorAll('select[aria-label="选择已有开场"]').length,
+            castOpeningSelect: !!cast?.querySelector('select[aria-label="选择已有开场"]'),
+            openingHasExample: !!opening?.textContent?.includes('雨夜的钟声响起'),
+            bodyHasForbidden: !!document.body.textContent?.includes('酒馆卡') || !!document.body.textContent?.includes('Tavern opening'),
+        } : undefined,
         openingIntegrated:openingSelect!==null
             && cast?.querySelector('select[aria-label="选择已有开场"]')===null
             && !document.body.textContent?.includes('Tavern opening') && !document.body.textContent?.includes('酒馆卡'),
