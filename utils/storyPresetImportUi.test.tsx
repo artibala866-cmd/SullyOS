@@ -71,51 +71,63 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(persisted.some(p=>p.sourceFileName==='损坏.json')).toBe(false);
   for(const id of savedIds)await DB.deleteStoryTheaterPreset(id);
  });
- it('四类酒馆写法自动显示内置八组快捷控制，选择后实际保存并不覆盖原作者文本',async()=>{
+
+ it('真实 React 默认版：显示作者自己的选项，切换源提示词后保存数据库并重新打开',async()=>{
   host=document.createElement('div');document.body.append(host);root=createRoot(host);
+  const items=[
+   {identifier:'agency-head',name:'<==抢话▣▣权限==>',role:'system',content:''},
+   {identifier:'agency-full',name:'▢完全',role:'system',content:'<rule name="演绎权限·5档">作者自己的完全接管。</rule>'},
+   {identifier:'agency-none',name:'▢不抢',role:'system',content:'<rule name="演绎权限·1档">作者自己的不抢话。</rule>'},
+   {identifier:'pov-head',name:'<==人称▣▣选1个==>',role:'system',content:''},
+   {identifier:'pov-you',name:'▢上帝：user你',role:'system',content:'<rule name="上帝视角·User你">User用你。</rule>'},
+   {identifier:'pov-i',name:'▢上帝：user我',role:'system',content:'<rule name="上帝视角·User我">User用我。</rule>'},
+   {identifier:'style-head',name:'┏╔拖拖📚文风╗┓',role:'system',content:'<writing_style>'},
+   {identifier:'style-auto',name:'📩随机适配📩',role:'system',content:'<writing_style:随机适配>作者随机文风。</writing_style>'},
+   {identifier:'style-lemon',name:'🎵拖：柠檬糖',role:'system',content:'<writing_style:柠檬糖>作者柠檬糖文风。</writing_style>'},
+   {identifier:'style-end',name:'┗╚拖拖📚文风╝┛',role:'system',content:'</writing_style>'},
+  ];
+  const on=new Set(['agency-head','agency-full','pov-head','pov-you','style-head','style-auto','style-end']);
   const preset=parseStoryTheaterPreset(JSON.stringify({
-   temperature:1.05,top_p:0.95,frequency_penalty:0.4,presence_penalty:0.3,
-   prompts:[
-    {identifier:'pov',name:'✍️视角体系',role:'system',content:'<pov_user>第二人称</pov_user><pov_npc>第三人称</pov_npc>'},
-    {identifier:'style',name:'文风设置',role:'system',content:'请写出电影化写实的情绪与动作，不要堆砌比喻。'.repeat(7)},
-    {identifier:'length',name:'正文篇幅',role:'system',content:'正文必须在1421到2023字之间。'},
-    {identifier:'language',name:'修改语言',role:'system',content:'{{setvar::主要语言::简体中文}}'},
-    {identifier:'theater',name:'随机小剧场',role:'system',content:'每轮结尾生成一个随机小剧场。'},
-    {identifier:'user',name:'你',role:'user',content:'用户叙事偏好原文不能丢失'},
-   ],
-   prompt_order:[{character_id:100001,order:['pov','style','length','language','theater','user']
-    .map(identifier=>({identifier,enabled:true}))}],
-  }),'导入自动识别.json');
+   temperature:1.05,top_p:.95,frequency_penalty:.4,presence_penalty:.3,
+   prompts:items,prompt_order:[{character_id:100001,
+    order:items.map(item=>({identifier:item.identifier,enabled:on.has(item.identifier)}))}],
+  }),'宝宝我是char-原作者UI.json');
   const originalTexts=preset.document.prompts.map(p=>p.content);
-  const saved=vi.fn(async()=>{});
+  const saved=vi.fn(async(item:typeof preset)=>{await DB.saveStoryTheaterPreset(item);});
   await act(async()=>root!.render(React.createElement(StoryPresetMaker,{
    preset,onBack:()=>{},onSave:saved,onOpenCopy:async()=>{},onDelete:async()=>{},
   })));
-  expect(host!.textContent).toContain('只调看得懂的部分');
-  for(const label of ['文风','人称','输入转述','你的执笔权','场景张力','小剧场','语言','篇幅']){
-   expect([...host!.querySelectorAll('h2')].some(h=>h.textContent===label)).toBe(true);
-  }
-  expect(host!.textContent).toContain('1421–2023字');
-  expect(host!.textContent).toContain('简体中文');
-  expect(host!.textContent).toContain('第二人称');
-  for(const field of ['温度','候选范围','重复惩罚','话题惩罚','最大输出']){
+  expect(host!.textContent).toContain('原作者的选项');
+  expect(host!.textContent).toContain('抢话权限');
+  expect(host!.textContent).toContain('人称选1个');
+  expect(host!.textContent).toContain('拖拖📚文风');
+  expect(host!.textContent).toContain('不抢');
+  expect(host!.textContent).not.toContain('汽水日常');
+  expect(host!.textContent).not.toContain('低烧 I');
+  for(const field of ['温度','候选范围','重复惩罚','话题惩罚','最大输出'])
    expect(host!.textContent).toContain(field);
-  }
-  const theater=[...host!.querySelectorAll('h2')].find(h=>h.textContent==='小剧场')!.closest('section')!;
-  const shut=[...theater.querySelectorAll('button')].find(b=>b.textContent?.trim()==='关闭');
-  await act(async()=>shut!.click());
-  const perspective=[...host!.querySelectorAll('h2')].find(h=>h.textContent==='人称')!.closest('section')!;
-  const third=[...perspective.querySelectorAll('button')].find(b=>b.textContent?.trim()==='第三人称');
-  await act(async()=>third!.click());
+  const choice=host!.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（未启用）"]');
+  expect(choice).toBeDefined();
+  await act(async()=>choice!.click());
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（已启用）"]')?.getAttribute('aria-pressed')).toBe('true');
   const saveButton=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='保存');
   await act(async()=>saveButton!.click());
   expect(saved).toHaveBeenCalledTimes(1);
-  const doc=(saved.mock.calls[0] as any)[0].document;
-  expect(doc.tavernControls.overrides).toMatchObject({pov:'nmj-v3-pov-third',theater:''});
-  expect(doc.prompts.map((p:any)=>p.content)).toEqual(originalTexts);
+  const data=(saved.mock.calls[0] as any)[0] as typeof preset;
+  expect(data.document.prompts.map(p=>p.content)).toEqual(originalTexts);
+  expect(data.document.prompts.find(p=>p.id==='st-agency-full')?.enabled).toBe(false);
+  expect(data.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
+  expect(data.document.prompts.find(p=>p.id==='st-pov-you')?.enabled).toBe(true);
+  expect(data.document.generation).toMatchObject({temperature:1.05,topP:.95,frequencyPenalty:.4,presencePenalty:.3});
+  expect(data.document.tavernControls?.overrides).toBeUndefined();
+  const persisted=(await DB.getStoryTheaterPresets()).find(p=>p.id===data.id)!;
+  expect(persisted.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
+  expect(persisted.document.prompts.find(p=>p.id==='st-agency-full')?.enabled).toBe(false);
+  await DB.deleteStoryTheaterPreset(data.id);
   const pro=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='专业版');
   await act(async()=>pro!.click());
   expect(host!.textContent).toContain('先选大区，再看细节');
  });
+
 
 });
