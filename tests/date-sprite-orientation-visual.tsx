@@ -23,14 +23,15 @@ const bg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns=
 <rect width="1000" height="560" fill="#aca9a3"/><rect y="390" width="1000" height="170" fill="#575957"/>
 <rect x="60" y="90" width="240" height="280" fill="#d8d6cf"/>
 <rect x="650" y="60" width="240" height="290" fill="#7b7974"/></svg>`);
+const zoomed = scenario.includes('Zoom') || scenario.startsWith('zoom');
 const initialChar: any = {
   id: 'portrait-landscape-independent', name: '测试角色', avatar: sprite,
   sprites: { normal: sprite }, dateBackground: bg,
   dateAppearance: { preset: 'none' },
   // This reproduces the actual recorded -10% portrait placement.
-  spriteConfig: { scale: 1, x: 0, y: -10 },
+  spriteConfig: { scale: zoomed ? 1.3 : 1, x: 0, y: -10 },
   ...(scenario.includes('Legacy') || scenario === 'legacyLandscape'
-    ? {} : { spriteConfigLandscape: { scale: 1, x: 10, y: 15 } }),
+    ? {} : { spriteConfigLandscape: { scale: zoomed ? 1.3 : 1, x: 10, y: 15 } }),
 };
 const host = document.getElementById('visual')!;
 let latest = initialChar;
@@ -84,7 +85,7 @@ function report() {
   const ranges = [...(details?.querySelectorAll<HTMLInputElement>('input[type=range]') || [])];
   const slider = ranges[2]?.value ?? null;
   const orientation = preview?.dataset.spritePreviewOrientation ?? root?.dataset.spriteOrientation ?? null;
-  const expectedPortrait = scenario === 'portrait' || scenario === 'settingsPortrait' || scenario === 'settingsSave' || scenario === 'settingsLegacySave';
+  const expectedPortrait = ['portrait', 'zoomPortrait', 'settingsPortrait', 'settingsSave', 'settingsLegacySave'].includes(scenario);
   const expected = expectedPortrait ? 'portrait' : 'landscape';
   const cssTranslate = spriteImg?.style.transform || '';
   const y = latest.spriteConfig?.y;
@@ -95,15 +96,15 @@ function report() {
   const correctOrientation = orientation === expected;
   const expectedLayout = scenario === 'settingsSave' || scenario === 'settingsLegacySave'
     ? (y === -10 && landscapeY === 25 && updateCount > 0 && cssTranslate.includes('-10%'))
-    : scenario === 'settingsLandscape'
-      ? (slider === '15' && !!previewBounds && previewBounds.width > previewBounds.height)
+    : scenario === 'settingsLandscape' || scenario === 'settingsLandscapeZoom'
+      ? (slider === '15' && !!previewBounds && previewBounds.width > previewBounds.height && (!zoomed || cssTranslate.includes('scale(1.3)')))
       : scenario === 'settingsPortrait'
         ? (slider === '-10' && !!previewBounds && previewBounds.height > previewBounds.width)
         : scenario === 'legacyLandscape'
           ? cssTranslate.includes('0%, 0%')
-          : scenario === 'landscape'
-            ? cssTranslate.includes('10%, 15%')
-            : cssTranslate.includes('0%, -10%');
+          : scenario === 'landscape' || scenario === 'zoomLandscape'
+            ? (cssTranslate.includes('10%, 15%') && (!zoomed || cssTranslate.includes('scale(1.3)')))
+            : (cssTranslate.includes('0%, -10%') && (!zoomed || cssTranslate.includes('scale(1.3)')));
   const okay = correctOrientation && expectedLayout && !overflow && errors.length === 0 && !!stageBounds;
   document.body.dataset.dateOrientationReady = String(okay);
   let el = document.getElementById('date-orientation-report');
