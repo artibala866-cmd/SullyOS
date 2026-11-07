@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const sessionSource = readFileSync(new URL('../components/date/story/StoryTheaterSession.tsx', import.meta.url), 'utf8');
+const themeSource = readFileSync(new URL('../components/date/story/StoryTheaterTheme.tsx', import.meta.url), 'utf8');
+const visualSource = readFileSync(new URL('../tests/story-reading-scroll-visual.tsx', import.meta.url), 'utf8');
 
 describe('见面剧情连续楼层阅读', () => {
     it('不再按十条分页，保留每条消息原序与楼层定位', () => {
@@ -49,4 +51,18 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('<StoryOutput content={message.content}');
         expect(sessionSource).toContain('onClick={() => void send(message)}');
     });
+    it('花里胡哨在关闭外观面板后仍作用于真实阅读楼层，素雅及自定义阅读不受影响', () => {
+        expect(themeSource).toContain('setDecor: decor => setAppearance(current => ({ ...current, decor }))');
+        expect(themeSource).toContain('localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance))');
+        expect(themeSource).toContain('story-decor-${appearance.decor}');
+        expect(themeSource).toContain('.story-theme.story-decor-cinema:not(.meeting-reading) .meeting-reading-page');
+        expect(themeSource).toContain('.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor');
+        expect(themeSource).toContain(".story-reading-floor::before {");
+        expect(themeSource).not.toContain('.story-theme.story-decor-plain .story-reading-floor {');
+        expect(visualSource).toContain("if (mode === 'cinema')");
+        expect(visualSource).toContain("button[aria-label=\"剧情外观\"]");
+        expect(visualSource).toContain("button[aria-label=\"关闭剧情外观\"]");
+        expect(visualSource).toContain('cinemaReady');
+    });
+
 });
