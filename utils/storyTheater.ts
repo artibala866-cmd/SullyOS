@@ -1012,11 +1012,47 @@ export const getStoryTavernAuthorSections = (
             name: p.name, enabled: p.enabled, cluster: tavernChoiceCluster(p),
             preview: tavernAuthorValuePreview(p),
         }));
+    // Newer MoM presets ship a static entryGrouping index. Its names and
+    // members are the author's categories, not borrowed native options.
+    // This metadata is independent of scripts and must not change send order.
+    const byId = new Map(document.prompts.map((prompt, i) => [prompt.id, i]));
+    const metadataShown = (name: string): boolean =>
+        /文风|小说类型|小说基调|小剧场|选修|娱乐|功能分区|功能设置|基础需求|优化分区|额外设置|语言|篇幅|字数|视角|人称|抢话|复述|转述|选择|可选/i.test(name)
+        && !/^(?:预设头部|预设底部|预设信息|思维链区|思维链|缄默法则|请勿关闭|教学基石|剧情规范|预设尾部)$/i.test(name);
+    for (const meta of document.tavernEntryGroups || []) {
+        if (!metadataShown(meta.name)) continue;
+        const identifiers = new Set((meta.memberIdentifiers || []).map(id => 'st-' + id));
+        if (!identifiers.size && meta.startIdentifier && meta.endIdentifier) {
+            const start = byId.get('st-' + meta.startIdentifier);
+            const end = byId.get('st-' + meta.endIdentifier);
+            if (start !== undefined && end !== undefined && start <= end) {
+                for (const prompt of document.prompts.slice(start, end + 1)) identifiers.add(prompt.id);
+            }
+        }
+        const members = document.prompts.filter(prompt => identifiers.has(prompt.id) && !seen.has(prompt.id));
+        const options = makeOptions(members).filter(option =>
+            !/^(?:┌|└|╔|╚|┏|┗|—{2,}|[-—]{3,}|✧─|═|——|\/)/u.test(option.label)
+            && !/^(?:不要关|必开|别动|开始|结束|说明|获取变量|set-)/i.test(option.label));
+        if (!options.length) continue;
+        // Source genre/baseline/writing-style menus are mutually exclusive
+        // only if the source actually has at most one enabled choice.
+        const single = /选\s*(?:一|1|①)|单选|择一|(?:[二三四五六七八九]|[2-9])选一/u.test(meta.name)
+            || (/小说类型|小说基调|小说文风/.test(meta.name)
+                && options.length > 1 && options.filter(option => option.enabled).length <= 1);
+        out.push({
+            key: 'entry:' + meta.id, label: meta.name.trim(),
+            description: '', options, single,
+        });
+        options.forEach(option => seen.add(option.id));
+    }
     for (const group of groups) {
-        const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label);
+        const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label)
+            && (tavernAuthorTopic(group.label) !== undefined
+                || /选择|选一|择一|模式|额外设置|类型|基调|功能|娱乐|选修/i.test(group.label))
+            && !/预设头部|预设尾部|思维链|缄默法则|请勿关闭|教学基石|剧情规范/i.test(group.label);
         if (!named) continue;
         const items = document.prompts.filter(p => group.promptIds.includes(p.id));
-        const options = makeOptions(items);
+        const options = makeOptions(items.filter(prompt => !seen.has(prompt.id)));
         if (!options.length) continue;
         // A named source section is an author's real module, even when its
         // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
@@ -1054,6 +1090,11 @@ export const getStoryTavernAuthorSections = (
                 && new Set(options.map(p => p.cluster)).size === 1,
         });
     }
+    // Keep the author's effective prompt order, not arbitrary plugin JSON
+    // array ordering, even when the metadata lists sections out of order.
+    const firstIndex = (section: StoryTavernAuthorSection): number => Math.min(
+        ...section.options.map(option => byId.get(option.id) ?? document.prompts.length));
+    out.sort((a, b) => firstIndex(a) - firstIndex(b));
     return out;
 };
 
