@@ -5,6 +5,7 @@ import type {
     CharacterProfile,
     Message,
     MountedWorldbook,
+    Worldbook,
     StoryTheaterEntry,
     StoryTheaterMask,
     StoryTheaterMaskSelection,
@@ -1577,6 +1578,32 @@ export const dedupeTheaterWorldbooks = (characters: CharacterProfile[]): Mounted
         }
     }
     return output.sort((a, b) => (a.category || '').localeCompare(b.category || '', 'zh-CN') || a.title.localeCompare(b.title, 'zh-CN'));
+};
+
+/**
+ * The story sandbox can select any entry in the global worldbook library,
+ * without first mounting it on an actor. Prefer the canonical global record
+ * on duplicate IDs; keep participant-only legacy mounts as a fallback.
+ * Never write this list back to character mounts or the global library.
+ */
+export const resolveStoryTheaterWorldbooks = (
+    globalWorldbooks: readonly Worldbook[],
+    participants: readonly CharacterProfile[],
+): MountedWorldbook[] => {
+    const byId = new Map<string, MountedWorldbook>();
+    const add = (book: MountedWorldbook) => {
+        if (!book || typeof book.id !== 'string' || !book.id.trim() ||
+            typeof book.title !== 'string' || typeof book.content !== 'string') return;
+        if (!byId.has(book.id)) byId.set(book.id, { ...book });
+    };
+    for (const book of Array.isArray(globalWorldbooks) ? globalWorldbooks : []) add(book);
+    for (const person of participants) {
+        if (!Array.isArray(person.mountedWorldbooks)) continue;
+        for (const book of person.mountedWorldbooks) add(book);
+    }
+    return [...byId.values()].sort((a, b) =>
+        (a.category || '').localeCompare(b.category || '', 'zh-CN')
+        || a.title.localeCompare(b.title, 'zh-CN') || a.id.localeCompare(b.id));
 };
 
 export const buildStoryWorldbookScanMessages = (
