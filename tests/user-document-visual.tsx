@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import UserApp from '../apps/UserApp';
 import { makeImportFixturePdf } from './import-fixture-pdf';
+import { makeImportFixtureWord } from './import-fixture-word';
 import { OSPreviewProvider } from '../context/OSContext';
 import { DB } from '../utils/db';
 
@@ -96,7 +97,9 @@ async function run(){
             throw Error('UserApp input formats missing');
         const file=source==='user-profile-pdf'
             ?makeImportFixturePdf('PDF USER PROFILE TEXT','我的PDF档案.pdf')
-            :new File([imported],'我的真实资料.txt',{type:'text/plain'});
+            :source==='user-profile-word'
+                ?await makeImportFixtureWord('我的Word角色背景\n第二个段落','我的Word档案.docx')
+                :new File([imported],'我的真实资料.txt',{type:'text/plain'});
         const upload=()=>{
             const transfer=new DataTransfer();
             transfer.items.add(file);
@@ -126,9 +129,16 @@ async function run(){
         if(bounds.height<36||bounds.bottom>innerHeight+1)
             throw Error('Confirm button clipped by viewport');
         if(area.value!==InitialBio)throw Error('Preview changed saved bio without confirmation');
-        const sourcePreviewOk=source!=='user-profile-pdf'||
-            (dialog.textContent||'').includes('PDF USER PROFILE TEXT')&&
-            (dialog.textContent||'').includes('PDF · 1 页');
+        const sourcePreviewOk=
+            (source!=='user-profile-pdf' || (
+                (dialog.textContent||'').includes('PDF USER PROFILE TEXT') &&
+                (dialog.textContent||'').includes('PDF · 1 页')
+            )) &&
+            (source!=='user-profile-word' || (
+                (dialog.textContent||'').includes('我的Word角色背景') &&
+                (dialog.textContent||'').includes('第二个段落') &&
+                (dialog.textContent||'').includes('Word')
+            ));
 
         const expectedAppend=InitialBio+'\n\n'+imported;
         if(source==='user-profile-replace'){
@@ -180,10 +190,10 @@ async function run(){
         }
         const value=area.value;
         const stored=await DB.getUserProfile();
-        const previewOnly=['user-profile','user-profile-pdf','user-profile-cancel','user-profile-failure'].includes(source);
+        const previewOnly=['user-profile','user-profile-pdf','user-profile-word','user-profile-cancel','user-profile-failure'].includes(source);
         const expected=source==='user-profile-replace'?imported:
             previewOnly?InitialBio:expectedAppend;
-        const dialogExpected=['user-profile','user-profile-pdf','user-profile-failure'].includes(source);
+        const dialogExpected=['user-profile','user-profile-pdf','user-profile-word','user-profile-failure'].includes(source);
         const actualDialog=!!document.querySelector('[role="dialog"]');
         const buttonBox=trigger.getBoundingClientRect();
         const report={
