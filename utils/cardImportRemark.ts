@@ -69,6 +69,8 @@ export function canReplaceImportedRemark(
     if(source==='tavern')return false;
     if(!target.description?.trim())return true;
     if(target.cardImportOrigin?.source!=='babylink')return false;
+    if(target.cardImportOrigin.importedRemark !== undefined)
+        return target.description.trim() === target.cardImportOrigin.importedRemark.trim();
     const corrected=importedCardRemarkCorrection(target);
     if(corrected!==null)return true;
     const previousNickname=linkNicknameFromImportedPrompt(target.systemPrompt||'');
