@@ -1049,13 +1049,7 @@ export const selectStoryTavernAuthorOption = (
             const members = document.prompts.filter(p => sourceGroup.promptIds.includes(p.id));
             const start = members[0], end = members[members.length - 1];
             const tag = /^\s*<([A-Za-z][\w:-]*)\b/.exec(start?.content || '')?.[1];
-            if (tag && new RegExp('^\\s*<\\/' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\    const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
-    return {
-        ...document,
-        prompts: document.prompts.map(p =>
-            p.id === optionId ? { ...p, enabled: newEnabled }
-                : off.has(p.id) ? { ...p, enabled: false } : p),
-    };') + '\\s*>', 'i')
+            if (tag && new RegExp('^\\\\s*<\\\\/' + tag + '\\\\s*>', 'i')
                 .test(end?.content || '')) {
                 requiredWrappers.add(start.id);
                 requiredWrappers.add(end.id);
