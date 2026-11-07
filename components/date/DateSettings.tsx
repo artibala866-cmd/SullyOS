@@ -1,6 +1,6 @@
 import {meetingAppearance} from '../../utils/meetingAppearance';
 import './date-session-landscape.css';
-import { initialDateLandscapeSpriteConfig, isDateMobileLandscape, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
+import { dateLandscapeSpriteFit, initialDateLandscapeSpriteConfig, isDateMobileLandscape, type DateSpriteOrientation } from '../../utils/dateSpriteOrientation';
 import MeetingAppearanceControl from './MeetingAppearanceControl';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -362,7 +362,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         className="max-h-full max-w-full object-contain transition-transform origin-bottom"
                         style={{ 
                             transform: `translate(${editedSpriteConfig.x}%, ${editedSpriteConfig.y}%) scale(${editedSpriteConfig.scale})`,
-                            '--date-landscape-fit-scale': String(1 / Math.max(1, editedSpriteConfig.scale))
+                            '--date-landscape-fit-scale': String(dateLandscapeSpriteFit(editedSpriteConfig.scale))
                         } as React.CSSProperties}
                         />
                     </div>
