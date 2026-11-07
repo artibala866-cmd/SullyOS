@@ -69,7 +69,11 @@ export const planWorldbookImport = (existing:Worldbook[], incoming:Worldbook[]):
             book.category.trim()===raw.category.trim() &&
             book.content===raw.content);
         if(sameBody.some(book=>canonical(book)===signature)){skipped++;continue;}
-        if(sameBody.length){conflicts++;continue;}
+        // Two different Link source IDs may intentionally reuse the same
+        // prose under different trigger rules. Do not collapse distinct
+        // source-owned entries merely because their body is the same.
+        if(sameBody.length && !(key && sameBody.every(book =>
+            book.cardImportKey && book.cardImportKey!==key))){conflicts++;continue;}
         if(library.some(book=>book.id===raw.id))throw new Error('世界书条目 ID 与现有数据冲突');
         const next={...raw,...(key?{cardImportSnapshot:importedWorldbookSnapshot(raw)}:{})};
         library.push(next);added.push(next);
