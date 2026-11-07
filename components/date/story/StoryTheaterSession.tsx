@@ -774,9 +774,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const affinityAwarenessReminder = affinityInputs.map(item => buildStoryAffinityAwarenessReminder(item, item.characterName || '当前角色')).filter(Boolean).join('\n\n');
             const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, actors.map(actor => actor.name));
             const modelInput = appendStoryAffinityInputs(modelText, affinityInputs);
-            const historyMessages = buildStoryHistory(visibleHistory).map(message => ({
+            const storyHistory = buildStoryHistory(visibleHistory);
+            const latestAssistantIndex = storyHistory.map(message => message.role).lastIndexOf('assistant');
+            const historyMessages = storyHistory.map((message, index) => ({
                 ...message,
-                content: '[' + (message.role === 'user' ? promptIdentityName + '给出的推进（用户侧）' : '上一层剧场正文') + ']\n' + message.content,
+                // Older floors must not all masquerade as the immediately previous reply.
+                content: '[' + (message.role === 'user'
+                    ? promptIdentityName + '给出的推进（用户侧）'
+                    : index === latestAssistantIndex ? '最近一层剧场正文（上一条角色回复）' : '较早的剧场正文') + ']\n' + message.content,
             }));
             const pendingTurn = { role: 'user' as const, content: modelInput };
             let compiled!: ReturnType<typeof compileStoryPreset>;
