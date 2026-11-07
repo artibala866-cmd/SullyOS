@@ -306,7 +306,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div>
                         <h1 className='mt-1 text-[25px] font-serif font-semibold'>{tavernBrowse ? '原作选择' : '只调看得懂的部分'}</h1>
                         <p className='mt-3 text-[11px] leading-6 text-slate-500'>{tavernBrowse
-                            ? '只显示这份预设自己的选择。点选即切换原文规则；长按选项可查看或编辑完整内容。'
+                            ? '按原作者的选项切换真实规则；需要调整完整内容时，可打开专业版。'
                             : '角色、世界书、历史注入和底层发送结构由宝宝狗照管。这里的选择不会修改角色档案。'}</p>
                         {readOnly && <p className='mt-3 text-[10px] text-amber-700'>这是内置原版。点右上角“复制调整”后即可保存你的选择。</p>}
                     </section>
@@ -334,9 +334,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                         <button key={option.id} type='button' disabled={readOnly}
                                             aria-pressed={option.enabled}
                                             aria-label={`${section.label}：${option.label}${option.enabled ? '（已启用）' : '（未启用）'}`}
-                                            title={option.name + ' · 长按查看原文'}
+                                            title={option.name}
                                             onClick={() => chooseAuthorOption(section.key, option.id)}
-                                            onContextMenu={event => { event.preventDefault(); jumpToAuthorPrompt(option.id); }}
                                             className={`min-h-9 max-w-full rounded-xl border px-3 py-2 text-left text-[11px] font-semibold leading-4 transition-colors disabled:opacity-60 ${option.enabled
                                                 ? 'border-slate-900 bg-slate-900 text-white'
                                                 : 'border-slate-200 bg-slate-50 text-slate-700 active:bg-slate-100'}`}>
@@ -344,8 +343,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                             {option.preview && <span className={`mt-0.5 block text-[10px] font-normal ${option.enabled ? 'text-slate-300' : 'text-slate-500'}`}>{option.preview}</span>}
                                         </button>,
                                     )}</div>
-                                    <div className='mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5'>
-                                        <span className='text-[10px] text-slate-400'>{section.single ? '按作者单选规则切换' : '按原作者条目独立开关'}</span>
+                                    <div className='mt-3 flex justify-end border-t border-slate-100 pt-2.5'>
                                         <button type='button' onClick={() => jumpToAuthorPrompt((on[0] || section.options[0]).id)}
                                             className='shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4'>
                                             查看原文
