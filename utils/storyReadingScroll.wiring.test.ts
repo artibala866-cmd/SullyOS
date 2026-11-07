@@ -15,13 +15,13 @@ describe('见面剧情连续楼层阅读', () => {
 
     it('滚动时更新楼数，阅读旧楼层时不被生成或编辑动作拉回底部', () => {
         expect(sessionSource).toContain('onScroll={handleReadingScroll}');
-        expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {\n        updateVisibleFloor();');
+        expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {\n        updateVisibleFloor(true);');
         expect(sessionSource).not.toContain('requestAnimationFrame');
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
         expect(sessionSource).toContain('document.fonts.ready.then');
         expect(sessionSource).toContain('updateVisibleFloor');
-        expect(sessionSource).toContain('followLatestRef.current = nearBottom');
+        expect(sessionSource).toContain('if (trackReaderScroll) followLatestRef.current = nearBottom');
         expect(sessionSource).toContain("viewport.scrollTo({ top: viewport.scrollHeight, behavior });");
         expect(sessionSource).not.toContain('scrollIntoView');
         expect(sessionSource).toContain("aria-label='回到最新楼层'");
