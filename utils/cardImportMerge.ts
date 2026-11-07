@@ -47,9 +47,15 @@ export function findCardImportTarget(
         found.cardImportOrigin?.source !== 'document') {
         throw new Error('同名角色已存在，但文档文件名无法证明是同一角色。为保护原有人设与记忆，已停止自动覆盖；可重命名文档后作为独立角色导入');
     }
+    // Names from different card ecosystems do not establish the same
+    // identity. Even when only one side has an external ID, cross-source
+    // import must not overwrite an existing person's memories or persona.
+    if (found?.cardImportOrigin &&
+        found.cardImportOrigin.source !== origin.source) {
+        throw new Error('同名角色来自不同的卡片格式，不能只凭姓名合并；为保护已有内容已停止导入');
+    }
     if (found?.cardImportOrigin?.externalId && externalId &&
-        (found.cardImportOrigin.source !== origin.source ||
-         found.cardImportOrigin.externalId !== externalId)) {
+        found.cardImportOrigin.externalId !== externalId) {
         throw new Error('同名角色的来源身份不同，不能确定是同一角色；为避免误覆盖已停止导入');
     }
     return found;
