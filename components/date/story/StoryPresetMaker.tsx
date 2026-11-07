@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
@@ -97,6 +97,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [selectedId, setSelectedId] = useState('');
     const [saving, setSaving] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
+    const [promptQuery, setPromptQuery] = useState('');
+    const mainScrollRef = useRef<HTMLElement>(null);
+    const previousListScroll = useRef(0);
     const readOnly = preset.builtIn === true;
     const groups = useMemo(() => getStoryPresetPromptGroups(draft.document), [draft.document]);
     const activeGroup = groups.find(group => group.key === activeGroupKey) || null;
@@ -105,7 +108,34 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         const ids = new Set(activeGroup.promptIds);
         return draft.document.prompts.filter(prompt => ids.has(prompt.id) && !isStoryPresetSectionMarker(prompt));
     }, [activeGroup, draft.document.prompts]);
+
     const selected = activePrompts.find(prompt => prompt.id === selectedId) || null;
+    const tavernBrowse = draft.document.sourceFormat === 'sillytavern';
+    const quickEdit = tavernBrowse && Boolean(selected);
+    const query = promptQuery.trim().toLocaleLowerCase();
+    const allPromptsById = useMemo(() => new Map(draft.document.prompts.map(prompt => [prompt.id, prompt])), [draft.document.prompts]);
+    const matchingGroups = useMemo(() => !tavernBrowse || !query ? groups : groups.filter(group =>
+        group.label.toLocaleLowerCase().includes(query)
+        || group.promptIds.some(id => {
+            const prompt = allPromptsById.get(id);
+            return prompt && (prompt.name.toLocaleLowerCase().includes(query)
+                || prompt.content.toLocaleLowerCase().includes(query));
+        }),
+    ), [allPromptsById, groups, query, tavernBrowse]);
+    const matchingPrompts = useMemo(() => !tavernBrowse || !query
+        || activeGroup?.label.toLocaleLowerCase().includes(query) ? activePrompts
+        : activePrompts.filter(prompt => prompt.name.toLocaleLowerCase().includes(query)
+            || prompt.content.toLocaleLowerCase().includes(query)),
+    [activeGroup, activePrompts, query, tavernBrowse]);
+    const openPrompt = (id: string) => {
+        previousListScroll.current = mainScrollRef.current?.scrollTop || 0;
+        setSelectedId(id);
+        requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0; });
+    };
+    const closePrompt = () => {
+        setSelectedId('');
+        requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = previousListScroll.current; });
+    };
 
     const replaceDocument = (document: StoryTheaterPresetDocument) => setDraft(current => ({ ...current, name: document.name, document, updatedAt: Date.now() }));
     const patchDocument = (patch: Partial<StoryTheaterPresetDocument>) => replaceDocument({ ...draft.document, ...patch });
@@ -117,11 +147,11 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         replaceDocument(applyStoryPresetChoice(draft.document, choice.ids, id));
     };
     const moveGroup = (key: string, direction: -1 | 1) => {
-        if (readOnly) return;
+        if (readOnly || query) return;
         const ordered = [...groups];
         const index = ordered.findIndex(group => group.key === key);
         const target = index + direction;
-        if (index < 0 || target < 0 || target >= ordered.length) return;
+        if (index < 0 || target < 0 || target >= ordered.length || ordered[index].autoGrouped || ordered[target].autoGrouped) return;
         [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
         const byId = new Map(draft.document.prompts.map(prompt => [prompt.id, prompt]));
         patchDocument({ prompts: ordered.flatMap(group => group.promptIds.map(id => byId.get(id)).filter((prompt): prompt is StoryTheaterPresetPrompt => Boolean(prompt))) });
@@ -144,7 +174,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         const insertAt = last && isStoryPresetSectionMarker(last) ? activeGroup.endIndex : activeGroup.endIndex + 1;
         prompts.splice(insertAt, 0, next);
         patchDocument({ prompts });
-        setSelectedId(next.id);
+        tavernBrowse ? openPrompt(next.id) : setSelectedId(next.id);
     };
     const addGroup = () => {
         if (readOnly || !newGroupName.trim()) return;
@@ -229,7 +259,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             </div>
         </header>
 
-        <main className='story-page-scroll flex-1 overflow-y-auto px-5 py-6 pb-24'>
+        <main ref={mainScrollRef} className='story-page-scroll flex-1 overflow-y-auto px-5 py-6 pb-24'>
             <div className='max-w-2xl mx-auto'>
                 {mode === 'simple' ? <>
                     <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div><h1 className='mt-1 text-3xl font-serif font-semibold'>只调看得懂的部分</h1><p className='mt-3 text-[11px] leading-6 text-slate-500'>角色、世界书、历史注入和底层发送结构由宝宝狗照管。这里的选择不会修改角色档案。</p>{readOnly && <p className='mt-3 text-[10px] text-amber-700'>这是内置原版。点右上角“复制调整”后即可保存你的选择。</p>}</section>
