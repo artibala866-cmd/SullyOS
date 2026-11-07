@@ -29,7 +29,7 @@ import {
     compileStoryPreset,
     prepareStoryGenerationSettings,
     reconcileStoryAffinityScores,
-    dedupeTheaterWorldbooks,
+    resolveStoryTheaterWorldbooks,
     describeEmptyStoryCompletion,
     describeStoryApiError,
     estimateStoryTokens,
@@ -325,7 +325,7 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
-    const { characters, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
+    const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
     const memoryActors = useMemo(() => {
@@ -341,7 +341,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }), [entry.presetOverride, preset]);
     const activeMiniTheater = useMemo(() => getActiveStoryMiniTheaterPrompt(effectivePreset.document), [effectivePreset.document]);
     const affinityEnabled = useMemo(() => effectivePreset.document.prompts.some(prompt => prompt.id === 'nmj-v65-affinity-control' && prompt.enabled), [effectivePreset.document]);
-    const selectedBooks = useMemo(() => dedupeTheaterWorldbooks(memoryActors).filter(book => entry.selectedWorldbookIds.includes(book.id)), [memoryActors, entry.selectedWorldbookIds]);
+    // Resolve against the same global + participant-only fallback library as
+    // the editor. Never inject worldbooks merely because a role has mounted them.
+    const selectedBooks = useMemo(() => {
+        const ids = new Set(entry.selectedWorldbookIds);
+        return resolveStoryTheaterWorldbooks(worldbooks, memoryActors).filter(book => ids.has(book.id));
+    }, [worldbooks, memoryActors, entry.selectedWorldbookIds]);
     const canStart = hasStoryTheaterParticipant(entry, characters);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
