@@ -62,6 +62,7 @@ try{
   {name:'worldbook-landscape',source:'worldbook',w:844,h:390},
   {name:'user-profile-390',source:'user-profile',w:390,h:844},
   {name:'user-profile-320',source:'user-profile',w:320,h:690},
+  {name:'user-profile-pdf-390',source:'user-profile-pdf',w:390,h:844},
   {name:'user-profile-saved-390',source:'user-profile-saved',w:390,h:844},
   {name:'user-profile-replace-320',source:'user-profile-replace',w:320,h:690},
   {name:'user-profile-landscape',source:'user-profile',w:844,h:390},
