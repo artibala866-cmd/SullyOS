@@ -48,9 +48,11 @@ try{
  const cases=[
   {name:'tavern-390',source:'tavern',w:390,h:844},
   {name:'link-390',source:'link',w:390,h:844},
+  {name:'document-390',source:'document',w:390,h:844},
   {name:'link-openings-390',source:'link-openings',w:390,h:844},
   {name:'link-openings-320',source:'link-openings',w:320,h:690},
   {name:'tavern-320',source:'tavern',w:320,h:690},
+  {name:'document-320',source:'document',w:320,h:690},
   {name:'tavern-landscape',source:'tavern',w:844,h:390},
   {name:'link-landscape',source:'link',w:844,h:390},
   {name:'link-openings-landscape',source:'link-openings',w:844,h:390},
