@@ -16,6 +16,7 @@ import type {
     UserProfile,
 } from '../types';
 import nightScreeningV627 from '../assets/presets/night-screening-v6.14.sully.json';
+import { normalizeStoryMemoryApi } from './storyMemoryApi';
 import {
     type WorldbookScanMessage,
 } from './worldbook';
@@ -283,6 +284,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
         archives: Array.isArray(entry.archives) ? entry.archives : [],
+        memorySummaryApi: normalizeStoryMemoryApi(entry.memorySummaryApi),
         // Imported/older backups can contain duplicate or invalid IDs.
         // Preserve legitimate IDs, but never count one selected book twice.
         selectedWorldbookIds: Array.isArray(entry.selectedWorldbookIds)
