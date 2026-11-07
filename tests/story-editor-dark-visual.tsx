@@ -60,11 +60,16 @@ const characters=scenario==='empty'||scenario==='customReady'||scenario==='custo
     : scenario==='styledTavern'
     ? [{...actor,tavernGreetings:[styledGreeting]}]
     : [actor];
+const globalLoreBooks=Array.from({length:12},(_,i)=>({
+    id:'global-lore-'+i,title:i===3?'十八岁平行世界':i===7?'末世地图':'世界书 '+i,
+    content:'世界设定 '+i,category:i%2===0?'小说世界':'架空剧本',createdAt:1,updatedAt:1,
+}));
 const entry={...createStoryTheaterDraft(),title:['autoNameTavern','autoNameLink'].includes(scenario)?'':
     scenario==='autoNameManual'?'我自己命名的剧情':'真实时间陪伴 · 视觉验收',
-    characterIds:scenario==='unselected'?[]:scenario==='customMulti'?[actor.id,'visual-second']:[actor.id],
+    characterIds:['unselected','globalLore'].includes(scenario)?[]:scenario==='customMulti'?[actor.id,'visual-second']:[actor.id],
     premise:['customReady','customMulti','customRecovered'].includes(scenario)?customContent:'',
     writesToCharacterMemory:true,carryCharacterMemory:true,
+    selectedWorldbookIds:scenario==='globalLore'?['global-lore-3','global-lore-7']:[],
     openingMode:scenario==='manual'?'user' as const:'assistant' as const,
     ...(scenario==='tavern'?{presetId:tavernPreset.id}:{}),
     openingGreeting:['selected','editing','legacy'].includes(scenario)?{characterId:actor.id,greetingId:'tavern-first'}
@@ -72,7 +77,7 @@ const entry={...createStoryTheaterDraft(),title:['autoNameTavern','autoNameLink'
         :scenario==='customSaved'?{characterId:actor.id,greetingId:customGreeting.id}:undefined};
 root.render(React.createElement('div',{className:`story-theme ${light?'story-theme-light':'story-theme-dark'} story-decor-plain h-full w-full`},
     React.createElement(StoryTheaterEditor,{
-        initial:entry,characters,user:{name:'用户'} as any,masks:[],maskLocked:false,
+        initial:entry,characters,worldbooks:scenario==='globalLore'?globalLoreBooks:[],user:{name:'用户'} as any,masks:[],maskLocked:false,
         presets:scenario==='tavern'?[tavernPreset,BUILTIN_NIGHT_SCREENING_PRESET]:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:()=>{},onSave:async()=>{},
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
         onCreateGreeting:async (_id:string,_title:string,content:string)=>({...customGreeting,content}),
@@ -116,6 +121,15 @@ const validate=()=>{
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
+    const loreSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('世界书沙盒'));
+    const globalLoreOk=scenario!=='globalLore'||(
+        !!loreSection && loreSection.querySelectorAll('button[aria-label^="世界书："]').length===12
+        && loreSection.querySelector('button[aria-label="世界书：十八岁平行世界"]')?.getAttribute('aria-pressed')==='true'
+        && loreSection.querySelector('button[aria-label="世界书：末世地图"]')?.getAttribute('aria-pressed')==='true'
+        && !!loreSection.querySelector('input[aria-label="搜索剧情世界书"]')
+        && !loreSection.textContent?.includes('所选角色没有挂载世界书')
+        && !loreSection.textContent?.includes('暂无可选内容')
+    );
     const tavernVisible=!!presetSection?.querySelector('select')?.textContent?.includes('酒馆视觉测试')
         && !!presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行')
         && !!presetSection?.textContent?.includes('小剧场支持隔离的安全 HTML 排版与原生卡片')
@@ -123,7 +137,7 @@ const validate=()=>{
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
     const values={top:target(buttons[0]),bottom:target(buttons[1]),card:target(card),
         text:target(card.querySelector('.text-amber-700')),heading:target(card.querySelector('.text-amber-800'))};
-    const report={...values,viewport:{width:innerWidth,height:innerHeight},
+    const report={...values,globalLoreOk,viewport:{width:innerWidth,height:innerHeight},
         functionsKept:buttons.every(b=>!b.hasAttribute('disabled'))&&buttons.every(b=>b.tagName==='BUTTON'),
         fit:document.documentElement.scrollWidth<=innerWidth,
         light,scenario,rootBackground:getComputedStyle(rootTheme).backgroundColor,
@@ -146,7 +160,7 @@ const validate=()=>{
         openingIntegrated:openingSelect!==null
             && cast?.querySelector('select[aria-label="选择已有开场"]')===null
             && !document.body.textContent?.includes('Tavern opening') && !document.body.textContent?.includes('酒馆卡'),
-        success:(scenario!=='tavern'||tavernVisible)
+        success:globalLoreOk && (scenario!=='tavern'||tavernVisible)
             && openingSelect!==null
             && opening?.querySelectorAll('select[aria-label="选择已有开场"]').length===1
             && (['autoNameTavern','autoNameLink','autoNameManual','styledTavern'].includes(scenario)
@@ -202,6 +216,7 @@ const validate=()=>{
     if (focus === 'opening') (openingEditor || premiseEditor || opening).scrollIntoView({block:'center',behavior:'instant'});
     if (focus === 'bottom') buttons[1].scrollIntoView({block:'center',behavior:'instant'});
     if (focus === 'preset') presetSection?.scrollIntoView({block:'start',behavior:'instant'});
+    if (focus === 'lore') loreSection?.scrollIntoView({block:'start',behavior:'instant'});
     document.body.dataset.storyGrayReady=String(report.success);
     const output=document.createElement('output');output.id='story-gray-browser-report';output.hidden=true;
     output.textContent=JSON.stringify(report);document.body.append(output);
