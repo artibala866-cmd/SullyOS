@@ -253,6 +253,17 @@ describe('剧情预设发送器', () => {
             max_tokens: 8000,
         };
         expect(prepareStoryGenerationSettings(settings)).toEqual(settings);
+        expect(prepareStoryGenerationSettings({ temperature: 1.1, top_p: 0.88,
+            frequency_penalty: 0.2, presence_penalty: 0.3, max_tokens: 32000 },
+            false, 'claude-sonnet-4-6')).toMatchObject({
+            temperature: 1, top_p: 0.88, frequency_penalty: 0.2, presence_penalty: 0.3,
+        });
+        expect(prepareStoryGenerationSettings({ temperature: 1.1, max_tokens: 32000 },
+            false, 'gemini-4')).toMatchObject({ temperature: 1.1 });
+        expect(prepareStoryGenerationSettings({ temperature: 1.1, top_p: 0.88,
+            max_tokens: 32000 }, true, 'anthropic/claude')).toEqual({
+            temperature: 1, max_tokens: 32000,
+        });
         expect(prepareStoryGenerationSettings(settings, true)).toEqual({ temperature: 0.9, max_tokens: 8000 });
 
         expect(prepareStoryGenerationSettings({
