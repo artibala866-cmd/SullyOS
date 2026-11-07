@@ -347,6 +347,25 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         description: '从酒馆 Chat Completion 预设适配；原有提示词、开关及顺序已保留。',
         sourceFormat: 'sillytavern',
         tavernControls: detectTavernNativeControls(prompts),
+        // Static metadata supplied by some MoM Tavern exports. Import ONLY
+        // names and prompt references: never execute extension JS or regex.
+        tavernEntryGroups: (Array.isArray(value.extensions?.entryGrouping)
+            ? value.extensions.entryGrouping : [])
+            .filter((group: any) => group && typeof group.name === 'string'
+                && group.name.trim() && typeof group.id === 'string')
+            .slice(0, 120)
+            .map((group: any) => ({
+                id: group.id.slice(0, 120),
+                name: group.name.trim().slice(0, 100),
+                ...(Array.isArray(group.memberIdentifiers)
+                    ? { memberIdentifiers: group.memberIdentifiers
+                        .filter((id: unknown): id is string => typeof id === 'string'
+                            && sourceById.has(id)).slice(0, 600) } : {}),
+                ...(typeof group.startIdentifier === 'string' && sourceById.has(group.startIdentifier)
+                    ? { startIdentifier: group.startIdentifier } : {}),
+                ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
+                    ? { endIdentifier: group.endIdentifier } : {}),
+            })),
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         // Other Chat Completion presets can use format strings without any
         // double-brace name macros. Keep these templates intact until runtime.
