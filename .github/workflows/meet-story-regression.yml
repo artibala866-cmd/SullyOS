@@ -184,7 +184,7 @@ jobs:
           # Video reference: render the ACTUAL native preset maker with each
           # imported dialect, verifying auto-detected controls, token values,
           # native labels, and no horizontal overflow on a phone.
-          for dialect in pluto ako mur janus; do
+          for dialect in baby pluto ako mur janus; do
             auditurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=${dialect}&theme=light"
             prefix="output/meet-story/native-map-${dialect}-390"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
@@ -200,7 +200,21 @@ jobs:
               --screenshot="${prefix}.png" "$auditurl" > /dev/null 2>&1
             test -s "${prefix}.png"
           done
-          echo 'PASS: four mapped Tavern preset default views screenshot-checked on native maker'
+          # Source-choice interaction must change the actual authored option,
+          # not add a copied native instruction. Screenshot AFTER clicking.
+          authorurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=baby&focus=author&theme=light"
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
+            --dump-dom "$authorurl" > output/meet-story/baby-author-toggle.html 2> output/meet-story/baby-author-toggle.log
+          grep -q 'data-story-preset-audit-ready="true"' output/meet-story/baby-author-toggle.html || {
+            grep -o 'id="story-preset-audit-report"[^<]*' output/meet-story/baby-author-toggle.html | tail -c 2000 || true
+            exit 1
+          }
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
+            --screenshot=output/meet-story/native-map-baby-toggled-390.png "$authorurl" > /dev/null 2>&1
+          test -s output/meet-story/native-map-baby-toggled-390.png
+          echo 'PASS: five source-author modules plus real Baby Char toggle screenshot checked'
           # Screenshot the exact safe HTML viewer used by the real story output.
           for viewport in 390x844 844x390; do
             width="${viewport%x*}"; height="${viewport#*x}"
