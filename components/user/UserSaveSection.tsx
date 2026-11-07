@@ -49,30 +49,35 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
     };
     const remove = () => {
         if (registry.saves.length < 2 || busyRef.current || disabled) return;
-        if (!window.confirm(`删除「${userProfile.name || '当前身份'}」？角色和世界书会保留。`)) return;
+        if (!window.confirm(`移除「${userProfile.name || '当前身份'}」？本机存档会保留，可在身份列表中恢复。`)) return;
         void run(deleteCurrentUserSave);
     };
     return <div className="mt-4" aria-label="user 身份存档" aria-busy={busy}>
-        <div className="relative mb-1 h-5 flex items-center justify-center">
-            <label htmlFor="archive-user-name" className="text-[11px] font-bold text-slate-400 tracking-widest">你的名字</label>
-            <div className="absolute right-0 -top-1 flex items-center gap-0.5 text-slate-400">
-                <button type="button" aria-label="新建身份" title="新建身份" disabled={busy || disabled} onClick={create} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-50 disabled:opacity-30">
+        <div className="relative mb-1 h-8 flex items-center justify-center">
+            <label htmlFor="archive-user-name" className="text-[11px] font-bold text-slate-400 tracking-widest" aria-live="polite">{busy ? '切换中…' : '你的名字'}</label>
+            <div className="absolute -right-1 -top-1 flex items-center gap-0.5 text-slate-400">
+                <button type="button" aria-label="新建身份" title="新建身份" disabled={busy || disabled} onClick={create} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/30 disabled:opacity-30 transition-colors touch-manipulation">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4"><path strokeLinecap="round" d="M12 5v14M5 12h14"/></svg>
                 </button>
-                <button type="button" aria-label="删除当前身份" title={registry.saves.length < 2 ? '至少保留一个身份' : '删除当前身份'} disabled={busy || disabled || registry.saves.length < 2} onClick={remove} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-50 disabled:opacity-30">
+                <button type="button" aria-label="删除当前身份" title={registry.saves.length < 2 ? '至少保留一个身份' : '删除当前身份'} disabled={busy || disabled || registry.saves.length < 2} onClick={remove} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/30 disabled:opacity-30 transition-colors touch-manipulation">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7"/></svg>
                 </button>
             </div>
         </div>
-        <div className="relative">
+        <div className="relative group">
             <input id="archive-user-name" aria-label="你的名字" disabled={busy || disabled} value={userProfile.name}
                 onChange={event => { void updateUserProfile({name:event.target.value}).catch(error => addToast(error.message || '名字保存失败','error')); }}
-                placeholder="点击输入名字" className="w-full bg-slate-50 focus:bg-white border border-transparent focus:border-primary/30 rounded-2xl px-10 py-3 text-xl font-bold text-slate-800 text-center outline-none transition-all placeholder:text-slate-300 placeholder:font-normal"/>
-            <svg aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6"/></svg>
+                placeholder="点击输入名字" className="w-full bg-slate-50 focus:bg-white border border-transparent focus:border-primary/30 rounded-2xl px-14 py-3 text-xl font-bold text-slate-800 text-center outline-none transition-all placeholder:text-slate-300 placeholder:font-normal"/>
+            <span aria-hidden="true" className="absolute right-0 top-1 bottom-1 w-14 rounded-r-xl border-l border-slate-200/50 flex items-center justify-center text-slate-400 group-focus-within:text-slate-600 pointer-events-none">
+                {busy ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" className="opacity-20"/><path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round"/></svg> : <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6"/></svg>}
+            </span>
             <select id="user-save-select" aria-label="切换身份" title="切换身份" disabled={busy || disabled} value={USER_SAVE_ID}
-                onChange={event => { const id=event.target.value; if(id!==USER_SAVE_ID) void run(()=>activateUserSave(id)); }}
-                className="absolute right-0 top-0 bottom-0 w-10 h-full opacity-0 cursor-pointer">
+                onChange={event => { const id=event.target.value; if(id!==USER_SAVE_ID) void run(()=>activateUserSave(id, undefined, {restore: !!registry.deletedSaves?.some(save => save.id === id)})); }}
+                className="absolute right-0 top-0 bottom-0 w-14 h-full opacity-0 cursor-pointer touch-manipulation">
                 {registry.saves.map(save => <option key={save.id} value={save.id}>{save.id === USER_SAVE_ID ? userProfile.name || save.name : save.name}</option>)}
+                {!!registry.deletedSaves?.length && <optgroup label="恢复本机保留的身份">
+                    {registry.deletedSaves.map(save => <option key={save.id} value={save.id}>恢复：{save.name}</option>)}
+                </optgroup>}
             </select>
         </div>
     </div>;

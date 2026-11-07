@@ -177,7 +177,9 @@ it('deleting an identity switches safely, removes only its visible entry and pre
     const {openDB}=await import('./db'); const db=await openDB();
     await write(db,{characters:[{id:'c',name:'角色',avatar:'',description:'',systemPrompt:'',memories:[{summary:'原身份的记忆'}]}],messages:[{id:1,charId:'c',content:'原身份聊天'}]});
     const scope=await import('./userSaveScope');
+    await (await import('./userSaves')).activateUserSave(SECOND,{name:'另一个身份'});
     localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:'original',saves:[{id:'original',name:'原'},{id:SECOND,name:'另一个身份'}]}));
+    vi.resetModules();
     const {deleteCurrentUserSave}=await import('./userSaves');await deleteCurrentUserSave();
     const registry=scope.readUserSaves();expect(registry.activeId).toBe(SECOND);expect(registry.saves.map(s=>s.id)).toEqual([SECOND]);expect(registry.deletedSaves?.[0].id).toBe('original');
     expect((await rows(db,'messages'))[0].content).toBe('原身份聊天');const target=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(target,'messages')).toEqual([]);expect((await rows(target,'characters'))[0].name).toBe('角色');expect((await rows(target,'characters'))[0].memories).toEqual([]);target.close();db.close();
@@ -195,4 +197,80 @@ it('the profile return marker is one-shot, target-bound and does not change a no
     localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:SECOND,saves:[{id:SECOND,name:'新身份'}]}));vi.resetModules();
     expect((await import('./userSaveScope')).RETURN_TO_USER_PROFILE).toBe(true);vi.resetModules();
     expect((await import('./userSaveScope')).RETURN_TO_USER_PROFILE).toBe(false);
+});
+
+it('recovers a missing or corrupt primary index from its mirror without losing identity histories', async () => {
+    const {openDB}=await import('./db');const db=await openDB();
+    await write(db,{messages:[{id:1,charId:'c',content:'保留原来的经历'}]});
+    const scope=await import('./userSaveScope');const saves=await import('./userSaves');
+    await saves.activateUserSave(SECOND,{name:'独立身份'});
+    const expected=scope.readUserSaves();
+    localStorage.setItem(scope.USER_SAVES_KEY,'{broken');
+    expect(scope.readUserSaves()).toEqual(expected);
+    localStorage.removeItem(scope.USER_SAVES_KEY);
+    vi.resetModules();const recovered=await import('./userSaveScope');
+    expect(recovered.USER_SAVE_ID).toBe(SECOND);expect(recovered.readUserSaves()).toEqual(expected);
+    expect((await rows(db,'messages'))[0].content).toBe('保留原来的经历');db.close();
+});
+it('rejects a corrupt primary and recovery index instead of silently selecting an empty original save', async () => {
+    const scope=await import('./userSaveScope');
+    localStorage.setItem(scope.USER_SAVES_KEY,'broken');localStorage.setItem(scope.USER_SAVES_RECOVERY_KEY,'broken');
+    expect(()=>scope.readUserSaves()).toThrow('恢复失败');
+});
+it('a per-save storage clear cannot remove either identity index', async () => {
+    const scope=await import('./userSaveScope');
+    const raw=JSON.stringify(scope.readUserSaves());localStorage.setItem(scope.USER_SAVES_KEY,raw);localStorage.setItem(scope.USER_SAVES_RECOVERY_KEY,raw);
+    const facade=scope.createSaveStorage(localStorage,'original');facade.setItem('draft','私有草稿');facade.clear();
+    expect(localStorage.getItem(scope.USER_SAVES_KEY)).toBe(raw);expect(localStorage.getItem(scope.USER_SAVES_RECOVERY_KEY)).toBe(raw);
+});
+it('a missing registered database never becomes a silently recreated empty save', async () => {
+    const {openDB}=await import('./db');const db=await openDB();
+    await write(db,{messages:[{id:1,charId:'c',content:'A经历'}]});
+    const scope=await import('./userSaveScope');const saves=await import('./userSaves');
+    const registry={activeId:'original',saves:[{id:'original',name:'原'},{id:SECOND,name:'丢失的身份'}]};
+    scope.writeUserSaves(registry,null);
+    await expect(saves.activateUserSave(SECOND)).rejects.toThrow('数据库不存在');
+    expect(scope.readUserSaves()).toEqual(registry);expect(reload).not.toHaveBeenCalled();
+    expect((await rows(db,'messages'))[0].content).toBe('A经历');db.close();
+});
+it('a fresh id collision with an unlisted old database neither overwrites nor deletes its history', async () => {
+    const {openDB}=await import('./db');const source=await openDB();
+    const old=await open('AetherOS_Data__user_'+SECOND);old.close();
+    const {activateUserSave}=await import('./userSaves');
+    // The unlisted database exists at an older schema version. Creation must
+    // abort its upgrade rather than treating it as a fresh identity.
+    await expect(activateUserSave(SECOND,{name:'新'})).rejects.toThrow('已存在');
+    expect((await indexedDB.databases()).some(db=>db.name==='AetherOS_Data__user_'+SECOND)).toBe(true);source.close();
+});
+it('switching cannot overwrite a concurrent rename or additional identity in the manifest', async () => {
+    const {openDB}=await import('./db');const source=await openDB();
+    const scope=await import('./userSaveScope');const {activateUserSave}=await import('./userSaves');
+    const real=IDBObjectStore.prototype.put;let changed=false;
+    const spy=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementation(function(this:IDBObjectStore,...args:any[]) {
+        if(!changed&&this.transaction.db.name.includes(SECOND)) {
+            changed=true;localStorage.setItem(scope.USER_SAVES_KEY,JSON.stringify({activeId:'original',saves:[{id:'original',name:'另一页刚改的名称'},{id:THIRD,name:'另一页增加的身份'}]}));
+        }
+        return real.apply(this,args as any);
+    });
+    await expect(activateUserSave(SECOND,{name:'新身份'})).rejects.toThrow('列表已');spy.mockRestore();
+    expect(scope.readUserSaves().saves.map(s=>s.name)).toEqual(['另一页刚改的名称','另一页增加的身份']);expect(reload).not.toHaveBeenCalled();source.close();
+});
+it('mirror quota failure blocks publication and primary-write failure restores the previous mirror', async () => {
+    const scope=await import('./userSaveScope');const previous=scope.readUserSaves();scope.writeUserSaves(previous,null);
+    const next={...previous,saves:[...previous.saves,{id:SECOND,name:'新'}]};const raw=localStorage.getItem(scope.USER_SAVES_KEY);const real=localStorage.setItem.bind(localStorage);
+    for(const failKey of [scope.USER_SAVES_RECOVERY_KEY,scope.USER_SAVES_KEY]) {
+        const spy=vi.spyOn(localStorage,'setItem').mockImplementation((key,value)=>{if(key===failKey)throw new Error('quota');real(key,value);});
+        expect(()=>scope.writeUserSaves(next,raw)).toThrow('quota');spy.mockRestore();
+        expect(scope.readUserSaves()).toEqual(previous);expect(localStorage.getItem(scope.USER_SAVES_RECOVERY_KEY)).toBe(raw);
+    }
+});
+it('restores a soft-removed identity with its actual profile and interaction records intact', async () => {
+    const {openDB}=await import('./db');const db=await openDB();
+    const scope=await import('./userSaveScope');const saves=await import('./userSaves');
+    await saves.activateUserSave(SECOND,{name:'B'});const b=await open('AetherOS_Data__user_'+SECOND);
+    await write(b,{messages:[{id:1,charId:'c',content:'B多年的经历'}],user_profile:[{id:'me',name:'B自己的名字',bio:'B设定',avatar:'B头像'}]});b.close();db.close();
+    vi.resetModules();await (await import('./userSaves')).deleteCurrentUserSave();
+    vi.resetModules();await (await import('./userSaves')).activateUserSave(SECOND,undefined,{restore:true});
+    const restored=await open('AetherOS_Data__user_'+SECOND);expect((await rows(restored,'messages'))[0].content).toBe('B多年的经历');expect((await rows(restored,'user_profile'))[0].avatar).toBe('B头像');restored.close();
+    const latest=(await import('./userSaveScope')).readUserSaves();expect(latest.activeId).toBe(SECOND);expect(latest.deletedSaves).toEqual([]);
 });

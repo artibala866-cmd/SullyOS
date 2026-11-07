@@ -1,6 +1,6 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
-import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, type UserSaveRegistry } from './userSaveScope';
+import { DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
@@ -49,10 +49,13 @@ function all(db: IDBDatabase, name: string): Promise<any[]> {
         req.onsuccess = () => resolve(req.result); tx.onerror = tx.onabort = () => reject(tx.error);
     });
 }
-function openTarget(source: IDBDatabase, id: string): Promise<IDBDatabase> {
+function openTarget(source: IDBDatabase, id: string, create: boolean): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
+        let created = false;
         const request = indexedDB.open(scopedDatabaseName('AetherOS_Data', id), source.version);
-        request.onupgradeneeded = () => {
+        request.onupgradeneeded = event => {
+            if ((event.oldVersion === 0) !== create) { request.transaction!.abort(); return; }
+            created = event.oldVersion === 0;
             const schema = source.transaction(Array.from(source.objectStoreNames), 'readonly');
             for (const name of Array.from(source.objectStoreNames)) {
                 if (request.result.objectStoreNames.contains(name)) continue;
@@ -65,8 +68,8 @@ function openTarget(source: IDBDatabase, id: string): Promise<IDBDatabase> {
             }
         };
         let blocked = false;
-        request.onsuccess = () => { if (blocked) request.result.close(); else resolve(request.result); };
-        request.onerror = () => reject(request.error);
+        request.onsuccess = () => { if (blocked) request.result.close(); else if (create && !created) { request.result.close(); reject(new Error('身份数据库已存在，请重试')); } else resolve(request.result); };
+        request.onerror = () => reject(request.error?.name === 'AbortError' ? new Error(create ? '身份数据库已存在，请重试' : '这个身份的本地数据库不存在，已停止切换。请从备份恢复，不会创建空档覆盖它。') : request.error);
         request.onblocked = () => { blocked = true; reject(new Error('请关闭其他页面后再切换身份')); };
     });
 }
@@ -148,20 +151,29 @@ export function freshUserProfile(name: string): UserProfile {
 /** Copy base resources in a single target transaction, then commit the tiny
  * active-id manifest. Failure never selects an uninitialized/half-written save.
  * Reload is deliberate: every component, queue and singleton gets a new lifetime. */
-export async function activateUserSave(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean }): Promise<void> {
+export async function activateUserSave(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean; restore?: boolean }): Promise<void> {
+    // Serialize database preparation between browser tabs where Web Locks exist.
+    // The revision guard below remains mandatory for browsers without that API.
+    if (typeof navigator !== 'undefined' && navigator.locks?.request)
+        return navigator.locks.request('sully-user-save-switch', () => activateUserSaveLocked(targetId, create, options));
+    return activateUserSaveLocked(targetId, create, options);
+}
+async function activateUserSaveLocked(targetId: string, create?: { name: string }, options?: { deleteCurrent?: boolean; restore?: boolean }): Promise<void> {
     if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
+    let preparedNew = false;
     try {
         const registry = readUserSaves();
+        const revision = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
         if (registry.activeId !== USER_SAVE_ID) throw new Error('身份已在其他页面切换，请刷新后重试');
         if (!nativeLocalStorage) throw new Error('本地存储不可用，无法保存身份');
         if (options?.deleteCurrent && (targetId === USER_SAVE_ID || registry.saves.length < 2)) throw new Error('至少保留一个身份');
         if (targetId === USER_SAVE_ID) { switching = false; return; }
         if (create) {
-            if (!/^[a-f0-9-]{36}$/.test(targetId) || registry.saves.some(s => s.id === targetId)) throw new Error('身份编号无效');
+            if (!/^[a-f0-9-]{36}$/.test(targetId) || [...registry.saves, ...(registry.deletedSaves ?? [])].some(s => s.id === targetId)) throw new Error('身份编号无效');
             if (!create.name.trim() || create.name.trim().length > 40) throw new Error('身份名称请填写 1～40 个字');
-        } else if (!registry.saves.some(s => s.id === targetId)) throw new Error('找不到这个身份');
+        } else if (!(options?.restore ? registry.deletedSaves : registry.saves)?.some(s => s.id === targetId)) throw new Error('找不到这个身份');
         const source = await openDB();
         const storeNames = SHARED_STORES.filter(name => source.objectStoreNames.contains(name));
         const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
@@ -170,7 +182,9 @@ export async function activateUserSave(targetId: string, create?: { name: string
         await repairSharedAppearanceBlobs(source, sharedAssets);
         const newProfile = create ? freshUserProfile(create.name) : undefined;
         const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, ...sharedAppearancePreferences()]);
-        target = await openTarget(source, targetId);
+        target = await openTarget(source, targetId, !!create);
+        preparedNew = !!create;
+        if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
         const previous = await all(target, 'characters');
         const previousAssets = await all(target, 'assets');
         await new Promise<void>((resolve, reject) => {
@@ -190,13 +204,17 @@ export async function activateUserSave(targetId: string, create?: { name: string
             tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('身份存档保存失败'));
         });
         // Check for a concurrent tab again after the asynchronous preparation.
-        if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== null && readUserSaves().activeId !== USER_SAVE_ID) throw new Error('其他页面已切换身份，请刷新');
+        if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
         const next: UserSaveRegistry = { ...registry, activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
+        if (options?.restore) {
+            next.saves = [...next.saves, registry.deletedSaves!.find(save => save.id === targetId)!].map(({id,name}) => ({id,name}));
+            next.deletedSaves = registry.deletedSaves!.filter(save => save.id !== targetId);
+        }
         if (options?.deleteCurrent) {
             next.saves = next.saves.filter(save => save.id !== USER_SAVE_ID);
             next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now()}];
         }
-        nativeLocalStorage.setItem(USER_SAVES_KEY, JSON.stringify(next));
+        writeUserSaves(next, revision);
         target.close(); target = undefined;
         returnToProfileAfterUserSaveSwitch(targetId);
         window.location.reload();
@@ -204,7 +222,7 @@ export async function activateUserSave(targetId: string, create?: { name: string
         target?.close();
         // An unlisted fresh database has no user gameplay; remove failed preparation
         // so repeated quota errors cannot accumulate invisible copies of assets.
-        if (create && !readUserSaves().saves.some(save => save.id === targetId)) indexedDB.deleteDatabase(scopedDatabaseName('AetherOS_Data', targetId));
+        if (preparedNew && !readUserSaves().saves.some(save => save.id === targetId)) indexedDB.deleteDatabase(scopedDatabaseName('AetherOS_Data', targetId));
         switching = false;
         throw error;
     }
@@ -227,7 +245,7 @@ export function renameUserSave(id: string, name: string): void {
         if (!clean || clean.length > 40) throw new Error('身份名称请填写 1～40 个字');
         if (!registry.saves.some(save => save.id === id)) throw new Error('找不到这个身份');
         if (!nativeLocalStorage) throw new Error('本地存储不可用');
-        nativeLocalStorage.setItem(USER_SAVES_KEY, JSON.stringify({...registry, saves: registry.saves.map(save => save.id === id ? {...save, name: clean} : save)}));
+        writeUserSaves({...registry, saves: registry.saves.map(save => save.id === id ? {...save, name: clean} : save)}, nativeLocalStorage.getItem(USER_SAVES_KEY));
     } finally { release(); }
 }
 

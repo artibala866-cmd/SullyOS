@@ -89,7 +89,7 @@ try{
  await page.getByLabel('关于我 / 设定',{exact:true}).fill('原身份的独立设定');
  await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();
  const shape=await page.evaluate(()=>{const input=document.querySelector('#archive-user-name'),picker=document.querySelector('#user-save-select');return {sameField:input.parentElement===picker.parentElement,extraText:document.body.innerText.includes('重命名')||document.body.innerText.includes('切换后继续对应故事')};});
- assert(shape.sameField);assert(!shape.extraText);assert.equal(await page.getByRole('button',{name:'切换身份',exact:true}).count(),0);
+ assert(shape.sameField);const touch=await page.getByLabel('切换身份',{exact:true}).boundingBox();assert(touch.width>=48&&touch.height>=44);assert(!shape.extraText);assert.equal(await page.getByRole('button',{name:'切换身份',exact:true}).count(),0);
  await shot('name-picker-390');
  const originProfile=(await inspect()).profile;
  await checkDesktop('original');await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
@@ -123,6 +123,16 @@ try{
  const deleted=await inspect();assert.equal(deleted.id,'original');assert.equal(deleted.registry.saves.length,1);assert(deleted.registry.deletedSaves.some(s=>s.id===fresh.id));assert.equal(deleted.profile.name,'原来的名字');assert.equal(deleted.profile.bio,'原身份的独立设定');assert(deleted.books.some(w=>w.id==='qa-save-world'));
  assert.equal(await page.getByRole('button',{name:'删除当前身份',exact:true}).isEnabled(),false);
  await page.setViewportSize({width:390,height:844});await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('after-delete-390');
+ // Restore through the same native name picker, then corrupt/remove the primary
+ // index while preserving the mirror and all actual interaction data.
+ await page.getByLabel('切换身份',{exact:true}).selectOption(fresh.id);await ready();
+ const recovered=await inspect();assert.equal(recovered.id,fresh.id);assert.equal(recovered.profile.avatar,edited.profile.avatar);assert(recovered.messages.some(m=>m.content==='校园线独有的聊天'));assert.equal(recovered.transactions[0].note,'B档独立账单');
+ await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('restored-identity-390');
+ await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.setItem(s.USER_SAVES_KEY,'{damaged');});
+ await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert.equal((await inspect()).profile.avatar,edited.profile.avatar);
+ await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.removeItem(s.USER_SAVES_KEY);});
+ await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert((await inspect()).messages.some(m=>m.content==='校园线独有的聊天'));
+ await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'删除当前身份',exact:true}).click()]);await ready();
  // Keep all-identity backup/import regression through the real Settings controls.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();await page.getByLabel('备份范围',{exact:true}).selectOption('all');
  await page.getByRole('button',{name:/导出全部身份/}).scrollIntoViewIfNeeded();await shot('backup-all-390');

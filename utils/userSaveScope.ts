@@ -7,15 +7,58 @@ export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deleted
 export const nativeLocalStorage = typeof window === 'undefined' ? undefined : window.localStorage;
 export const nativeSessionStorage = typeof window === 'undefined' ? undefined : window.sessionStorage;
 const RETURN_KEY = 'sully:user-save-return-profile:v1';
+/** Kept outside every save facade so a per-save clear/export cannot remove it. */
+export const USER_SAVES_RECOVERY_KEY = 'sully:user-saves:recovery:v1';
+export function isUserSaveIndexKey(key: string): boolean {
+    return key === USER_SAVES_KEY || key === USER_SAVES_RECOVERY_KEY;
+}
+function parseRegistry(raw: string): UserSaveRegistry {
+    const value = JSON.parse(raw) as UserSaveRegistry;
+    const validSave = (s: UserSave) => s && typeof s.name === 'string' && /^(original|[a-f0-9-]{36})$/.test(s.id);
+    if (!value || !Array.isArray(value.saves) || !value.saves.length ||
+        !value.saves.every(validSave) || new Set(value.saves.map(s => s.id)).size !== value.saves.length ||
+        !value.saves.some(s => s.id === value.activeId) ||
+        (value.deletedSaves !== undefined && (!Array.isArray(value.deletedSaves) ||
+            !value.deletedSaves.every(s => validSave(s) && Number.isFinite(s.deletedAt) && !value.saves.some(live => live.id === s.id)) ||
+            new Set(value.deletedSaves.map(s => s.id)).size !== value.deletedSaves.length)))
+        throw new Error('身份存档索引无法读取，请保留本地数据后重试');
+    return value;
+}
 export function readUserSaves(): UserSaveRegistry {
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY);
-    if (!raw) return { activeId: DEFAULT_USER_SAVE, saves: [{ id: DEFAULT_USER_SAVE, name: '原有身份' }] };
-    const value = JSON.parse(raw) as UserSaveRegistry;
-    if (!Array.isArray(value.saves) || !value.saves.length ||
-        !value.saves.every(s => typeof s.name === 'string' && /^(original|[a-f0-9-]{36})$/.test(s.id)) ||
-        new Set(value.saves.map(s => s.id)).size !== value.saves.length ||
-        !value.saves.some(s => s.id === value.activeId)) throw new Error('身份存档索引无法读取，请保留本地数据后重试');
-    return value;
+    const recovery = nativeLocalStorage?.getItem(USER_SAVES_RECOVERY_KEY);
+    if (raw) {
+        try {
+            const value = parseRegistry(raw);
+            // Migrate existing installations without blocking reads on low storage.
+            if (!recovery) { try { nativeLocalStorage?.setItem(USER_SAVES_RECOVERY_KEY, raw); } catch { /* commit will require a mirror */ } }
+            return value;
+        } catch { /* Try the separately retained index before refusing startup. */ }
+    }
+    if (recovery) {
+        try {
+            const value = parseRegistry(recovery);
+            nativeLocalStorage?.setItem(USER_SAVES_KEY, recovery);
+            return value;
+        } catch { throw new Error('身份索引恢复失败，请保留本地数据，不要清空存储'); }
+    }
+    if (raw) throw new Error('身份存档索引无法读取，请保留本地数据后重试');
+    return { activeId: DEFAULT_USER_SAVE, saves: [{ id: DEFAULT_USER_SAVE, name: '原有身份' }] };
+}
+/** Prepare a recovery copy before publishing. A failed publication restores the
+ * old mirror; no caller can report success with an unprotected new identity. */
+export function writeUserSaves(value: UserSaveRegistry, expectedRaw: string | null): void {
+    if (!nativeLocalStorage) throw new Error('本地存储不可用');
+    if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== expectedRaw) throw new Error('身份列表已在其他页面变化，请重试');
+    const next = JSON.stringify(value); parseRegistry(next);
+    const previous = nativeLocalStorage.getItem(USER_SAVES_RECOVERY_KEY);
+    nativeLocalStorage.setItem(USER_SAVES_RECOVERY_KEY, next);
+    try { nativeLocalStorage.setItem(USER_SAVES_KEY, next); }
+    catch (error) {
+        if (previous === null) nativeLocalStorage.removeItem(USER_SAVES_RECOVERY_KEY);
+        else nativeLocalStorage.setItem(USER_SAVES_RECOVERY_KEY, previous);
+        throw error;
+    }
 }
 // Never silently fall back to the original save if an index is corrupt.
 export const USER_SAVE_ID = readUserSaves().activeId;
@@ -62,7 +105,7 @@ export function createSaveStorage(raw: Storage, id: string, shared = true): Stor
         const result: string[] = [];
         for (let i = 0; i < raw.length; i++) {
             const key = raw.key(i)!;
-            if (key === USER_SAVES_KEY) continue;
+            if (isUserSaveIndexKey(key)) continue;
             if (shared && isSharedPreference(key)) result.push(key);
             else if (id === DEFAULT_USER_SAVE && !key.startsWith(STORAGE_PREFIX)) result.push(key);
             else if (id !== DEFAULT_USER_SAVE && key.startsWith(prefix)) result.push(key.slice(prefix.length));

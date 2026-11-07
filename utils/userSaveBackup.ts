@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { createBackupArchive } from './backupArchive';
 import { openDB } from './db';
 import { baseCharacter, beginUserSaveOperation, isSharedAsset, referencedBlobs, sharedStoreRows, SHARED_STORES } from './userSaves';
-import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY } from './userSaveScope';
+import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY, isUserSaveIndexKey, writeUserSaves } from './userSaveScope';
 
 const FORMAT = 'sully-user-saves';
 const MANIFEST = 'user-saves.json';
@@ -222,7 +222,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                     // Restored copies must not reconnect to the source identity's remote
                     // memories, cloud backup target or unattended online account.
                     if(typeof value==='string' && isSharedPreference(key)) { if(nativeLocalStorage.getItem(key)===null) missingShared.set(key,value); continue; }
-                    if(typeof value!=='string' || isSharedPreference(key) || key===USER_SAVES_KEY || key.startsWith('sully:save-data:') || ['os_remote_vector_config','os_cloud_backup_config','os_realtime_config'].includes(key))continue;
+                    if(typeof value!=='string' || isSharedPreference(key) || isUserSaveIndexKey(key) || key.startsWith('sully:save-data:') || ['os_remote_vector_config','os_cloud_backup_config','os_realtime_config'].includes(key))continue;
                     const rawKey=`sully:save-data:${id}:${key}`;localKeys.push(rawKey);nativeLocalStorage.setItem(rawKey,value);
                 }
                 // Old mirrors must not re-enable the remote services excluded above.
@@ -259,7 +259,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             baseChanges={db:current,rows:[...additions].filter(([name])=>name!=='blob_assets').flatMap(([store,items])=>[...items].filter(([,value])=>value!==null).map(([key,value])=>({store,key:JSON.parse(key),text:JSON.stringify(value)})))};
             if(nativeLocalStorage.getItem(USER_SAVES_KEY)!==revision)throw new Error('身份列表已变化，请重新导入');
             for(const [key,value] of missingShared) if(nativeLocalStorage.getItem(key)===null) {localKeys.push(key);nativeLocalStorage.setItem(key,value);}
-            nativeLocalStorage.setItem(USER_SAVES_KEY,JSON.stringify({...registry,saves:[...registry.saves,...added]}));
+            writeUserSaves({...registry,saves:[...registry.saves,...added]}, revision);
             onProgress(`已恢复 ${added.length} 个身份副本，现有存档已保留`);
             return added.length;
         } catch(error) {
