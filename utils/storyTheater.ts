@@ -986,7 +986,7 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     const namedRule = /<rule\b[^>]*\bname=["']([^"']+)["']/i.exec(prompt.content)?.[1] || '';
     if (namedRule) {
         const root = namedRule.split(/[·｜|]/)[0].trim().replace(/(?:[一二三四五六七八九十\d]+档.*)$/u, '');
-        if (/^语言$/.test(root)) return /对话/.test(namedRule) ? '语言:对话' : '语言:叙事';
+        if (/^语言$/.test(root)) return /对话/.test(namedRule) ? 'rule:语言·对话' : 'rule:语言·叙事';
         if (root) return 'rule:' + root.toLocaleLowerCase();
     }
     if (/<writing_style\s*:/i.test(prompt.content)) return 'author:writing_style';
@@ -1078,9 +1078,10 @@ export const getStoryTavernAuthorSections = (
     const metadataShown = (name: string, options: StoryTavernAuthorOption[]): boolean => {
         const explicit = tavernOneOf(name) || tavernOptionalModule(name)
             || options.some(option => tavernOneOf(option.name) || tavernOptionalModule(option.name));
-        const hasDisabled = options.some(option => !option.enabled);
         if (tavernGroupIsRuntimeCore(name) && !explicit) return false;
-        return options.length > 1 || (options.length === 1 && (explicit || hasDisabled));
+        // Metadata existence is stable across toggle/save/reopen. Do NOT base
+        // visibility on whether this option happens to be off right now.
+        return options.length >= 1;
     };
     for (const meta of document.tavernEntryGroups || []) {
         const identifiers = new Set((meta.memberIdentifiers || []).map(id => 'st-' + id));
@@ -1098,7 +1099,7 @@ export const getStoryTavernAuthorSections = (
         if (!metadataShown(meta.name, options)) continue;
         // Source genre/baseline/writing-style menus are mutually exclusive
         // only if the source actually has at most one enabled choice.
-        const single = /选\s*(?:一|1|①)|单选|择一|(?:[二三四五六七八九]|[2-9])选一/u.test(meta.name)
+        const single = tavernOneOf(meta.name)
             || (/小说类型|小说基调|小说文风/.test(meta.name)
                 && options.length > 1 && options.filter(option => option.enabled).length <= 1);
         out.push({
@@ -1238,7 +1239,10 @@ export const selectStoryTavernAuthorOption = (
     const clusterIsSingle = sameCluster.length > 1
         && (targetCluster.startsWith('rule:') || targetCluster.startsWith('local:')
             || targetCluster.startsWith('global:') || targetCluster === 'author:theater-choice'
-            || targetCluster === 'primary:style' || tavernOneOf(selected.name))
+            || targetCluster === 'primary:style'
+            || targetCluster === 'author:writing_style' || targetCluster === 'author:style'
+            || targetCluster === 'author:theater-format'
+            || tavernOneOf(selected.name))
         && sameCluster.filter(option => option.enabled).length <= 1;
     // Some authors deliberately enable MULTIPLE related styles together.
     // Only auto-disable siblings when the author specifies one-of-N or
@@ -1266,7 +1270,7 @@ export const selectStoryTavernAuthorOption = (
             : undefined;
         const enclosing = (start: number, end: number): void => {
             if (start < 0 || end <= index || start >= index) return;
-            const open = /^\s*<([A-Za-z][\w:-]*)>\s*$/.exec(document.prompts[start].content)?.[1];
+            const open = /^\s*<([A-Za-z][\w:-]*)>/.exec(document.prompts[start].content)?.[1];
             const close = document.prompts[end]?.content || '';
             if (open && new RegExp('^\\s*<\\/' + open + '\\s*>\\s*$', 'i').test(close)) {
                 requiredWrappers.add(document.prompts[start].id);
@@ -1283,7 +1287,7 @@ export const selectStoryTavernAuthorOption = (
             const lower = Math.max(0, index - 80);
             const upper = Math.min(document.prompts.length - 1, index + 80);
             for (let start = index - 1; start >= lower; start--) {
-                const open = /^\s*<([A-Za-z][\w:-]*)>\s*$/.exec(document.prompts[start].content)?.[1];
+                const open = /^\s*<([A-Za-z][\w:-]*)>/.exec(document.prompts[start].content)?.[1];
                 if (!open) continue;
                 const end = document.prompts.findIndex((prompt, at) =>
                     at > index && at <= upper
