@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText, stripUnsupportedTavernOpeningEmbeds } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText, stripUnsupportedTavernOpeningEmbeds, stripNonStoryOpeningBlocks } from './tavernOpeningGreeting';
 import { normalizeCharacterCard } from './sillyTavernCard';
 import { mergeCardGreetings } from './cardImportMerge';
 import { buildStoryHistory, resolveStoryOpeningGreeting } from './storyTheater';
@@ -427,6 +427,102 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(buildStoryHistory([oldMessage as any])[0].content).toBe('{{char}}在雪里等{{user}}。');
         expect(oldMessage.content).toBe(raw);
         expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
+    });
+
+    it('removes an entire wb_lore status payload and route marker, never exposing accounts, rules or init fields as prose', () => {
+        const raw = [
+            '<!-- title:片场的第一天 -->',
+            '夜雨里，{{char}}推开片场的门。',
+            '<wb_lore>',
+            '[账号|user|{{user}}|粉丝:612|关注:48]',
+            '[账号|char|左宥之|粉丝:1087万|关注:86]',
+            '',
+            '【微博撰写要求】',
+            '- char：片场碎碎念/阴阳场务/装忙；绝不发「助理」「通告」实锤。',
+            '- user：剧组边缘小号，发博像随手记，禁止营业官宣口吻。',
+            '- 路人评：多数当普通路人。',
+            '- 伪图用 [伪图|描述]。',
+            '',
+            '【其它初始化】',
+            '- 关系：user = 新任助理；片场第一天；外界不知私线。',
+            '- 知情范围：公开=影帝人设。',
+            '</wb_lore>',
+            '<!-- route: 1 -->',
+            '他回头问：“你怎么还没走？”',
+        ].join('\n');
+        const expected = '夜雨里，{{char}}推开片场的门。\n\n他回头问：“你怎么还没走？”';
+        expect(tavernOpeningSceneText(raw)).toBe(expected);
+        expect(tavernOpeningReadableText(raw)).not.toMatch(/wb_lore|粉丝:|微博撰写要求|其它初始化|route:|伪图/);
+        const card = {id:'tavern-alt-wb',title:'备用开场',content:raw};
+        const character = {id:'actor',name:'左宥之',tavernGreetings:[card]} as CharacterProfile;
+        const option = listCharacterStoryOpenings(character)[0];
+        expect(option.title).toBe('片场的第一天');
+        expect(option.content).toBe(expected);
+        expect(card.content).toBe(raw);
+        expect(resolveStoryOpeningGreeting({
+            characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:card.id},
+        },[character],'玩家')?.content).toContain('左宥之推开片场的门。');
+        const old = {id:10,role:'assistant',content:raw,metadata:{
+            source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:card.id},
+        }};
+        expect(buildStoryHistory([old as any])[0].content).toBe(expected);
+        expect(old.content).toBe(raw);
+    });
+
+    it('recognizes multiple unrelated metadata/status wrappers and structurally obvious custom panels without hardcoded author names', () => {
+        const content = [
+            '<status_panel>[账号|user|甲|粉丝:120|关注:20]</status_panel>',
+            '<wb_lore><div>附带世界书临时状态</div></wb_lore>',
+            '<custom-portal>',
+            '[账号|user|小号|粉丝:1|关注:0]',
+            '[账号|char|大号|粉丝:9|关注:2]',
+            '【微博撰写要求】',
+            '- user：保持匿名',
+            '【其它初始化】',
+            '- 知情范围：无',
+            '</custom-portal>',
+            '天色渐亮，故事继续。',
+            '<!-- route: 3 -->',
+            '<scene role="assistant">这里是真正的叙事。</scene>',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(content);
+        expect(visible).toContain('天色渐亮，故事继续。');
+        expect(visible).toContain('<scene role="assistant">这里是真正的叙事。</scene>');
+        expect(visible).not.toMatch(/status_panel|wb_lore|custom-portal|粉丝:|微博撰写要求|其它初始化|route:/);
+    });
+
+    it('keeps ordinary fiction XML, standard HTML narrative, story comments and incomplete metadata blocks untouched', () => {
+        const prose = [
+            '<scene role="assistant">雨后，他走到了车站。</scene>',
+            '<dialogue speaker="char">你还好吗？</dialogue>',
+            '<div><p>他看见路灯下的{{user}}。</p></div>',
+            '<!-- 这里确实是剧情中的旁白 -->',
+            '<mystery_fragment>一封没有署名的旧信。</mystery_fragment>',
+            '《wb_lore》是她在书里看见的字样。',
+        ].join('\n');
+        const visible = tavernOpeningReadableText(prose);
+        expect(visible).toContain('<scene role="assistant">雨后，他走到了车站。</scene>');
+        expect(visible).toContain('<dialogue speaker="char">你还好吗？</dialogue>');
+        expect(visible).toContain('他看见路灯下的{{user}}。');
+        expect(visible).toContain('<!-- 这里确实是剧情中的旁白 -->');
+        expect(visible).toContain('<mystery_fragment>一封没有署名的旧信。</mystery_fragment>');
+        expect(stripNonStoryOpeningBlocks('<wb_lore>只有开标签，不清楚后续内容')).toContain('只有开标签');
+    });
+
+    it('filters auxiliary panels in a Link opening without rewriting its source or flattening native plot HTML', () => {
+        const raw = '<div class="native-link"><p>霓虹下两人再次相遇。</p></div>\n'
+            + '<wb_lore><account>这段是临时账号状态</account></wb_lore>\n'
+            + '<!-- route: 1 -->';
+        const card = {id:'babylink-opening-source-77',title:'重逢',content:raw};
+        const character = {id:'actor',name:'左宥之',linkGreetings:[card]} as CharacterProfile;
+        const [choice] = listCharacterStoryOpenings(character);
+        expect(choice.source).toBe('link');
+        expect(choice.content).toContain('<div class="native-link"><p>霓虹下两人再次相遇。</p></div>');
+        expect(choice.content).not.toContain('wb_lore');
+        expect(choice.content).not.toContain('route:');
+        expect(card.content).toBe(raw);
+        expect(storyOpeningReadingText(raw,card.id,'link')).not.toContain('wb_lore');
+        expect(storyOpeningReadingText(raw,'story-custom-2','custom')).toBe(raw);
     });
 
 });
