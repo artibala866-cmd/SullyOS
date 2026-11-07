@@ -283,7 +283,12 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
         archives: Array.isArray(entry.archives) ? entry.archives : [],
-        selectedWorldbookIds: Array.isArray(entry.selectedWorldbookIds) ? entry.selectedWorldbookIds.filter(Boolean) : [],
+        // Imported/older backups can contain duplicate or invalid IDs.
+        // Preserve legitimate IDs, but never count one selected book twice.
+        selectedWorldbookIds: Array.isArray(entry.selectedWorldbookIds)
+            ? Array.from(new Set(entry.selectedWorldbookIds.filter(
+                (id): id is string => typeof id === 'string' && !!id.trim())))
+            : [],
         presetId: /^builtin-night-screening-v\d/i.test(String(entry.presetId || '')) ? 'builtin-night-screening' : entry.presetId,
         presetOverride: entry.presetOverride?.schema === 'sullyos.story-preset' && Array.isArray(entry.presetOverride.prompts) ? entry.presetOverride : undefined,
         forceUserLastMessage: entry.forceUserLastMessage === true,
