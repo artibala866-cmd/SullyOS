@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>悬浮窗移动端组件验收</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#e5e8ee;color:#2f3643;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC","PingFang SC",sans-serif}
+    #root{min-height:100vh;display:grid;place-items:center}
+    .visual-phone{position:relative;width:min(390px,100vw);height:min(844px,100vh);overflow:hidden;background:#faf8f5;box-shadow:0 8px 30px #1a243021}
+    .visual-status{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#62646a;font-size:12px;background:#f8f7f5}
+    .visual-header{height:53px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e9e6e1;background:#fffdfa;font-size:14px;font-weight:600}
+    .visual-story{padding:18px 25px;font:14px/2 "Noto Serif CJK SC","Songti SC",serif;color:#5a554f}
+    .visual-story p{margin:0 0 23px;text-indent:2em}
+    .visual-footer{position:absolute;bottom:0;left:0;right:0;height:70px;background:#faf8f5;border-top:1px solid #eeeae5;display:flex;align-items:center;justify-content:space-evenly;color:#9b968e;font-size:12px}
+    .visual-caption{position:absolute;top:105px;left:24px;font:10px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#aaa39c}
+  </style>
+</head>
+<body><div id="root"></div><script type="module" src="/test/fixtures/navigation-ball-visual.tsx"></script></body>
+</html>
