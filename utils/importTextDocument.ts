@@ -18,6 +18,10 @@ export interface ImportedTextDocument {
 const isPdfFile = (file: Pick<File,'name'|'type'>): boolean =>
     file.type?.toLowerCase() === 'application/pdf' || /\.pdf$/i.test(file.name);
 export function isImportedTextDocument(file: Pick<File,'name'|'type'>): boolean {
+    // Android document providers sometimes assign "text/plain" to JSON card
+    // exports. A recognized structured extension must take precedence over
+    // generic MIME, otherwise the entire JSON becomes one constant lore entry.
+    if (/\.(?:json|png|jpe?g|webp|gif|zip)$/i.test(file.name)) return false;
     return isPdfFile(file) || isLinkPersonaDocument(file);
 }
 
@@ -75,7 +79,18 @@ export function planUserBioDocumentImport(
     const text = (incoming || '').trim();
     if (!text) throw new Error('文件正文为空');
     if (mode !== 'append' && mode !== 'replace') throw new Error('导入方式无效');
-    if (mode === 'append' && existing.includes(text)) return {bio:current,changed:false};
+    if (mode === 'append' && existing) {
+        // A partial substring is not an already-imported document. Only a
+        // whole `\n\n`-separated section can count as an existing import.
+        let at = existing.indexOf(text);
+        while (at >= 0) {
+            const before = at === 0 || existing.slice(at - 2, at) === '\n\n';
+            const end = at + text.length;
+            const after = end === existing.length || existing.slice(end, end + 2) === '\n\n';
+            if (before && after) return {bio:current,changed:false};
+            at = existing.indexOf(text, at + 1);
+        }
+    }
     const bio = mode === 'replace' || !existing ? text : existing + '\n\n' + text;
     if (bio.length > MAX_IMPORTED_DOCUMENT_CHARS)
         throw new Error('导入后内容超过 200 万字符，请减少内容后重试');
