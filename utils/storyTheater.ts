@@ -1,4 +1,4 @@
-import { adaptTavernOpeningGreeting, storyOpeningReadingText } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, storyOpeningReadingText, tavernOpeningAuthorNote } from './tavernOpeningGreeting';
 import { adaptTavernWritingInterlude, hasStoryHtmlLayout } from './storyTheaterHtml';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
@@ -822,7 +822,7 @@ export const resolveStoryOpeningGreeting = (
     entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
     characters: CharacterProfile[],
     identityName: string,
-): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom' } | null => {
+): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom'; authorNote?: string } | null => {
     const selection = entry.openingGreeting;
     if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
     const actor = characters.find(character => character.id === selection.characterId);
@@ -833,6 +833,12 @@ export const resolveStoryOpeningGreeting = (
         characterId: actor.id,
         greetingId: greeting.id,
         source: greeting.source,
+        ...(greeting.source === 'tavern'
+            ? (() => {
+                const raw = actor.tavernGreetings?.find(row => row.id === greeting.id);
+                const note = tavernOpeningAuthorNote(raw?.content || '');
+                return note ? { authorNote: macroReplace(note, identityName, [actor.name]) } : {};
+            })() : {}),
         content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
     };
 };
