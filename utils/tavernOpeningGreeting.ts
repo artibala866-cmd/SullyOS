@@ -97,3 +97,13 @@ export const tavernOpeningBodyKey = (greeting: TavernOpeningGreeting): string =>
 /** Runtime-only compatibility for story messages already written before the adapter. */
 export const tavernOpeningSceneText = (content: string): string =>
     tavernOpeningReadableText(adaptTavernOpeningGreeting({ id: '', title: '', content }).content);
+
+
+/** Legacy first-floor messages may predate the source label. Do not flatten
+ * Link or handwritten HTML when cleaning Tavern presentation artifacts.
+ */
+export const storyOpeningReadingText = (content: string, greetingId?: string, source?: string): string =>
+    source === 'link' || source === 'custom'
+    || /^(?:babylink-opening-|link-opening:|story-custom-)/.test(greetingId || '')
+        ? String(content || '')
+        : tavernOpeningSceneText(content);
