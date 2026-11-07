@@ -186,6 +186,17 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
     const preset = presets.find(item => item.id === draft.presetId) || presets[0] || null;
     const effectivePreset = preset ? { ...preset, document: resolveStoryPresetDocument(preset, draft.presetOverride) } : null;
     const presetStats = getPresetPromptStats(effectivePreset);
+    const sourceDoc = effectivePreset?.document;
+    const importedTavern = sourceDoc?.sourceFormat === 'sillytavern';
+    const skippedTavernRegex = importedTavern && Boolean(sourceDoc?.importWarnings?.some(note =>
+        /启用正则|启用脚本/.test(note)));
+    // Detect old already-imported presets too; their stored warnings predate
+    // this audit. This notice does not change any user's enabled toggles.
+    const htmlTavernTheater = importedTavern && Boolean(sourceDoc?.prompts.some(prompt =>
+        prompt.enabled && (
+            /<(?:sidestory|randomtheater|episode|writing_interlude|small_theater)\b/i.test(prompt.content)
+            || /(?:小剧场[\s\S]{0,200}(?:HTML|CSS)|(?:HTML|CSS)[\s\S]{0,200}小剧场)/i.test(prompt.content)
+        )));
 
     const update = <K extends keyof StoryTheaterEntry>(key: K, value: StoryTheaterEntry[K]) => setDraft(current => ({ ...current, [key]: value, updatedAt: Date.now() }));
     const toggleCharacter = (char: CharacterProfile) => {
@@ -427,6 +438,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 <div className='mt-3 flex gap-2'><select value={preset?.id || ''} onChange={event => setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() }))} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center'><UploadSimple size={18} /></button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
                 <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => { const files = Array.from(event.target.files || []); event.currentTarget.value = ''; for (const file of files) { const imported = await onImportPreset(file); if (imported) setDraft(current => ({ ...current, presetId: imported.id, presetOverride: undefined, updatedAt: Date.now() })); } }} />
                 {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条 · 按当前顺序与插入位置发送</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
+                {(skippedTavernRegex || htmlTavernTheater) && <p className='mt-2 text-[10px] leading-5 text-amber-700'>
+                    {skippedTavernRegex ? '酒馆附带的正则/脚本没有执行。' : ''}
+                    {htmlTavernTheater ? '酒馆 HTML 小剧场不会按网页排版，只能展示可解析的文字附录。' : ''}
+                    如需避免格式冲突，可在制作器检查并关闭相应的酒馆规则；不会自动删除你的预设内容。
+                </p>}
 
                 <div className='mt-5 pt-4 border-t border-slate-200'>
                     <div className='flex items-start justify-between gap-5'>
