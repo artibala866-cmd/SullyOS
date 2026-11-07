@@ -6,6 +6,7 @@ import { Icons } from '../../constants';
 import { ArrowUUpLeft, CaretLeft, CaretRight, Check, GearSix, House, PlugsConnected, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
 import { configFromPreset, findActivePresetId } from '../../utils/apiPresetSwitch';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
+import { normalizedQuickApiFields, quickApiConfigurationIssue } from '../../utils/quickApiValidation';
 import { requestSettingsFocus } from '../../utils/settingsNavigation';
 import { describeNavigationShortcut, type NavigationShortcut, type ShortcutCharacter } from '../../utils/navigationShortcuts';
 import { launchNavigationShortcut } from '../../utils/navigationShortcutLaunch';
@@ -25,11 +26,14 @@ function readPosition(): Position | null {
 }
 function measure(parent: HTMLElement) {
   const rect = parent.getBoundingClientRect(), style = getComputedStyle(parent), safe = readSafeAreaInsets();
+  const vv = window.visualViewport;
+  const visualBottom = vv ? vv.offsetTop + vv.height - rect.top : rect.height;
+  const visibleHeight = vv && visualBottom > SIZE + 20 ? Math.min(rect.height, visualBottom) : rect.height;
   const top = resolveSafeTopInset({
     standaloneSafeTop: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--standalone-safe-area-top')) || 0,
     probedSafeTop: safe.top, isIOSStandalone: isIOSStandaloneWebApp(),
   });
-  return { rect, bounds: { parentW: rect.width, parentH: rect.height, bubble: SIZE,
+  return { rect, bounds: { parentW: rect.width, parentH: visibleHeight, bubble: SIZE,
     insetTop: Math.max(parseFloat(style.paddingTop) || 0, top),
     insetBottom: Math.max(parseFloat(style.paddingBottom) || 0, safe.bottom) } };
 }
@@ -40,12 +44,13 @@ type NavigationActions = {
   onManualApi: (patch: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>) => void;
   apiPresets: ApiPreset[];
   apiConfig: APIConfig;
+  independentApiCharacterName?: string;
   characters?: readonly ShortcutCharacter[];
 };
 type MenuView = 'main' | 'api' | 'manual';
 export function DraggableNavigationBall({
   onBack, onHome, onApi, onShortcut, onConfigure, onSwitchPreset, onManualApi,
-  apiPresets, apiConfig, characters = [],
+  apiPresets, apiConfig, independentApiCharacterName, characters = [],
 }: NavigationActions) {
   const slots = useNavigationBallSlots();
   const root = useRef<HTMLDivElement>(null);
@@ -59,6 +64,8 @@ export function DraggableNavigationBall({
   const activePresetId = findActivePresetId(apiPresets, apiConfig);
   const [parentSize, setParentSize] = useState({ width: 0, height: 0, top: 0, bottom: 0 });
   const latest = useRef(position); latest.current = position;
+  // Keep the desired position when the keyboard briefly shrinks the visible viewport.
+  const preferredPosition = useRef(position);
   const suppressClick = useRef(false);
   const drag = useRef<{ pointerId: number; startX: number; startY: number; origin: Position;
     bounds: ReturnType<typeof measure>['bounds']; moved: boolean } | null>(null);
@@ -68,17 +75,24 @@ export function DraggableNavigationBall({
     const constrain = () => {
       const { bounds } = measure(parent);
       setParentSize({ width: bounds.parentW, height: bounds.parentH, top: bounds.insetTop, bottom: bounds.insetBottom });
-      const value = latest.current || { x: bounds.parentW - SIZE - 12, y: bounds.parentH - SIZE - 96 };
+      const value = preferredPosition.current || { x: bounds.parentW - SIZE - 12, y: bounds.parentH - SIZE - 96 };
       const next = clampBubblePos(value.x, value.y, bounds);
       latest.current = next; setPosition(next);
     };
     constrain();
     const unsubscribeReset = subscribeNavigationBallPositionReset(() => {
       drag.current = null; suppressClick.current = false; setOpen(false);
-      latest.current = null; constrain();
+      preferredPosition.current = null; latest.current = null; constrain();
     });
     const observer = new ResizeObserver(constrain); observer.observe(parent);
-    return () => { observer.disconnect(); unsubscribeReset(); };
+    // Android/iOS keyboard can resize visualViewport without resizing the shell.
+    window.visualViewport?.addEventListener('resize', constrain);
+    window.visualViewport?.addEventListener('scroll', constrain);
+    return () => {
+      observer.disconnect(); unsubscribeReset();
+      window.visualViewport?.removeEventListener('resize', constrain);
+      window.visualViewport?.removeEventListener('scroll', constrain);
+    };
   }, []);
   useEffect(() => {
     if (!open) return;
@@ -113,10 +127,9 @@ export function DraggableNavigationBall({
     setView(next);
   };
   const saveManual = () => {
-    if (!manual.baseUrl.trim() || !manual.model.trim()) {
-      setManualError('请先填写 URL 和模型名称'); return;
-    }
-    run(() => onManualApi(manual));
+    const issue = quickApiConfigurationIssue(manual);
+    if (issue) { setManualError(issue); return; }
+    run(() => onManualApi(normalizedQuickApiFields(manual)));
   };
   const panelWidth = Math.max(120, Math.min(232, parentSize.width - 16));
   const availableHeight = Math.min(288, Math.max(80, parentSize.height - parentSize.top - parentSize.bottom - 20));
@@ -160,6 +173,7 @@ export function DraggableNavigationBall({
         if (!state.moved && Math.hypot(dx, dy) <= 4) return;
         state.moved = true; setOpen(false);
         const next = clampBubblePos(state.origin.x + dx, state.origin.y + dy, state.bounds);
+        preferredPosition.current = next;
         latest.current = next; setPosition(next);
       }} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}
       onClick={event => {
@@ -207,21 +221,28 @@ export function DraggableNavigationBall({
         </div>
         <div className="navigation-ball-section navigation-ball-preset-list" aria-label="可用 API 预设">
           {apiPresets.length === 0 && <p className="navigation-ball-empty">还没有保存的 API 预设，可以先手动填写。</p>}
-          {apiPresets.map(preset => <button type="button" key={preset.id}
-            className={'navigation-ball-row navigation-ball-preset' + (activePresetId === preset.id ? ' is-active' : '')}
-            aria-label={'切换到' + preset.name} aria-current={activePresetId === preset.id ? 'true' : undefined}
-            onClick={() => run(() => onSwitchPreset(preset))}>
-            <span className="navigation-ball-row-label">{preset.name}
-              <small>{preset.config.model || '未设置模型'}{preset.group ? ' · ' + preset.group : ''}</small>
-            </span>
-            {activePresetId === preset.id ? <Check className="navigation-ball-selected" size={18} /> : <CaretRight className="navigation-ball-chevron" />}
-          </button>)}
+          {apiPresets.map(preset => {
+            const issue = quickApiConfigurationIssue(preset.config);
+            return <button type="button" key={preset.id}
+              disabled={!!issue} title={issue || preset.name}
+              className={'navigation-ball-row navigation-ball-preset' + (activePresetId === preset.id && !issue ? ' is-active' : '')}
+              aria-label={issue ? preset.name + '（' + issue + '，请在完整设置里修正）' : '切换到' + preset.name}
+              aria-current={activePresetId === preset.id && !issue ? 'true' : undefined}
+              onClick={() => run(() => onSwitchPreset(preset))}>
+              <span className="navigation-ball-row-label">{preset.name}
+                <small>{issue || preset.config.model || '未设置模型'}{!issue && preset.group ? ' · ' + preset.group : ''}</small>
+              </span>
+              {activePresetId === preset.id && !issue ? <Check className="navigation-ball-selected" size={18} /> : <CaretRight className="navigation-ball-chevron" />}
+            </button>;
+          })}
         </div>
         <div className="navigation-ball-panel-footer navigation-ball-api-actions">
           <button type="button" onClick={() => showView('manual')}>手动填写</button>
           <button type="button" onClick={() => run(onApi)}>完整设置</button>
         </div>
-        <p className="navigation-ball-hint">只切换全局对话 API；角色或玩法独立 API 不会被覆盖。</p>
+        <p className="navigation-ball-hint">{independentApiCharacterName
+          ? `${independentApiCharacterName} 有独立 API：普通见面继续使用角色配置；剧情剧场使用此处的全局配置。`
+          : '切换全局 API 仅影响下一次请求；独立的角色或玩法 API 不会被覆盖。'}</p>
       </>}
       {view === 'manual' && <div className="navigation-ball-manual">
         <label>URL<input type="url" inputMode="url" autoComplete="off" value={manual.baseUrl}
@@ -240,18 +261,21 @@ export function DraggableNavigationBall({
 export default function NavigationBall() {
   const enabled = useNavigationBallEnabled();
   const pickerOpen = useNavigationPickerOpen();
-  const { isLocked, handleBack, closeApp, openApp, characters = [], setActiveCharacterId, addToast,
+  const { isLocked, isDataLoaded, activeApp, activeCharacterId, handleBack, closeApp, openApp, characters = [], setActiveCharacterId, addToast,
     apiConfig, updateApiConfig, apiPresets } = useOS();
   const openSettingsAt = (target: 'api' | 'navigation') => { requestSettingsFocus(target); openApp(AppID.Settings); };
   // Keep the global-config and cloud-credential writes together, as Settings does.
-  const applyApi = (patch: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> | ReturnType<typeof configFromPreset>) => {
-    updateApiConfig(patch);
+  const applyApi = (patch: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> | ReturnType<typeof configFromPreset>): boolean => {
+    if (updateApiConfig(patch) === false) return false;
     syncAmsgLlmCredentials({ ...apiConfig, ...patch });
+    return true;
   };
-  return enabled && !isLocked && !pickerOpen ? <DraggableNavigationBall onBack={handleBack} onHome={closeApp}
+  const activeCharacter = characters.find(char => char.id === activeCharacterId);
+  return enabled && isDataLoaded && !isLocked && !pickerOpen ? <DraggableNavigationBall onBack={handleBack} onHome={closeApp}
     onApi={() => openSettingsAt('api')} apiConfig={apiConfig} apiPresets={apiPresets} characters={characters}
-    onSwitchPreset={preset => { applyApi(configFromPreset(preset)); addToast('已切换到「' + preset.name + '」，立即生效', 'success'); }}
-    onManualApi={patch => { applyApi(patch); addToast('API 配置已保存，立即生效', 'success'); }}
+    independentApiCharacterName={activeApp === AppID.Date && activeCharacter?.dialogueApi ? activeCharacter.name : undefined}
+    onSwitchPreset={preset => { if (applyApi(configFromPreset(preset))) addToast('已切换到「' + preset.name + '」，下一次请求生效', 'success'); }}
+    onManualApi={patch => { if (applyApi(patch)) addToast('API 已保存，下一次请求生效', 'success'); }}
     onShortcut={shortcut => launchNavigationShortcut(shortcut, { characters, openApp, setActiveCharacterId,
       onMissingTarget: () => { addToast('这个角色已不存在，请重新设置槽位', 'error'); openSettingsAt('navigation'); } })}
     onConfigure={() => openSettingsAt('navigation')} /> : null;
