@@ -1256,7 +1256,7 @@ export const buildStoryIdentityGuard = (
     const narrationTag = document.sourceFormat === 'sillytavern' ? '<content>' : '<story_text>';
     const perspectiveRule = document.sourceFormat === 'sillytavern'
         ? mode === 'third'
-            ? `- 当前酒馆原预设指定第三人称。${narrationTag} 中用户侧身份是「${identity}」；保持作者原有的全知／有限、多线叙事与代写权限，不额外强制成内置“第三人称有限”。`
+            ? `- 当前酒馆原预设指定第三人称。${narrationTag} 的旁白中用户侧身份是「${identity}」；保持作者原有的全知／有限、多线叙事与代写权限，不额外强制成内置“第三人称有限”。`
             : mode === 'second'
                 ? `- 当前酒馆原预设指定用户侧第二人称。${narrationTag} 中“你／你的”指「${identity}」；其他角色的人称及叙事视角仍服从作者原文，不强制改写为内置有限视角。`
                 : '- 酒馆原预设使用作者自定义／混合视角；不得强改成内置第二或第三人称有限，只固定用户侧身份与角色的对应关系。'
