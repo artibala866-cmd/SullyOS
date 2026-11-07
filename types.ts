@@ -2809,6 +2809,9 @@ export interface CardImportOrigin {
   originalName: string;
   avatarFingerprint?: string;
   imageFingerprint?: string;
+  /** Last Link nickname actually applied to the local remark. Allows updates
+   * without overwriting a user-edited remark, including nickname === name. */
+  importedRemark?: string;
 }
 
 export interface CharacterProfile {
