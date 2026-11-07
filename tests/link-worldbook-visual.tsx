@@ -72,7 +72,7 @@ async function run(){
         for(let n=0;n<100&&lastImported.length!==3;n++)await new Promise(r=>setTimeout(r,100));
         await new Promise(r=>setTimeout(r,150));
         const root=document.documentElement,view=[innerWidth,innerHeight];
-        const cards=[...document.querySelectorAll('button')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事'));
+        const cards=[...document.querySelectorAll('h3')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事'));
         const doc=document.body.textContent||'';
         const result={
             viewport:view,selectedFileCount:2,importedCount:lastImported.length,
