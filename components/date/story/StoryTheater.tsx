@@ -15,7 +15,6 @@ import {
     storyTheaterMemoryRecipientIds,
     parseStoryTheaterPreset,
     resolveStoryPresetImport,
-    dedupeTheaterWorldbooks,
     resolveStoryTheaterMask,
     storyTheaterThreadId,
     withBuiltInStoryPresets,
@@ -40,7 +39,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, userProfile, addToast, remoteVectorConfig, updateCharacter } = useOS();
+    const { characters, worldbooks, userProfile, addToast, remoteVectorConfig, updateCharacter } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -282,8 +281,6 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             const characterIds = selection.type === 'character'
                 ? current.characterIds.filter(id => id !== selection.id)
                 : current.characterIds;
-            const remainingActors = characters.filter(char => characterIds.includes(char.id) || (selection.type === 'character' && selection.id === char.id));
-            const validBookIds = new Set(dedupeTheaterWorldbooks(remainingActors).map(book => book.id));
 
             const characterContextLimits = { ...current.characterContextLimits };
             if (selection.type === 'character') {
@@ -295,9 +292,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 characterIds,
                 openingGreeting: current.openingGreeting && characterIds.includes(current.openingGreeting.characterId)
                     ? current.openingGreeting : undefined,
-                selectedWorldbookIds: Array.from(new Set([...current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
-                    ...(selection.type === 'character' && (current.mask?.type !== 'character' || current.mask.id !== selection.id)
-                        ? (characters.find(char => char.id === selection.id)?.mountedWorldbooks || []).map(book => book.id) : [])])), 
+                // Identity changes do not rewrite this story's manual lore selection.
+                selectedWorldbookIds: current.selectedWorldbookIds,
                 characterContextLimits,
                 updatedAt: Date.now(),
             };
@@ -338,6 +334,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     if (view === 'editor' && activeEntry) return <StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
         initial={activeEntry}
         characters={characters}
+        worldbooks={worldbooks}
         user={userProfile}
         masks={masks}
         maskLocked={maskLocked}
