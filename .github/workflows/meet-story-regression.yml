@@ -185,7 +185,7 @@ jobs:
           # Video reference: render the ACTUAL native preset maker with each
           # imported dialect, verifying auto-detected controls, token values,
           # native labels, and no horizontal overflow on a phone.
-          for dialect in baby pluto ako mur janus gomora ivory yuki phantasm; do
+          for dialect in baby pluto ako mur janus gomora ivory yuki phantasm unseen; do
             auditurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=${dialect}&theme=light"
             prefix="output/meet-story/native-map-${dialect}-390"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
