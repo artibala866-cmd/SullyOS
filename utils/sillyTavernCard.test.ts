@@ -4,6 +4,7 @@ import type { CharacterProfile, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { normalizeCharacterCard, readCharacterCardFile } from './sillyTavernCard';
+import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import { embedShareInPng, type ShareCardMetadata } from './pngShare';
 import { isWorldbookEntryActive, resolveWorldbookEntries, toMountedWorldbook } from './worldbook';
 
@@ -434,4 +435,40 @@ describe('Deep audit: real-world card compatibility', () => {
         const internationalCard = await readCharacterCardFile(file(itxtBytes));
         expect(internationalCard.source).toBe('tavern-v3');
     });
+    it('V1/V2/V3 原卡保留 Spotify/地图原文，剧情选择只显示可阅读正文',()=>{
+        const raw = '[spotify: 初雪 | https://cdn.test/cover.gif | https://cdn.test/track.mp3]\n'
+            + '[map: 公园 | https://cdn.test/maps/embed/route]\n'
+            + '<div style="color:blue"><p>{{char}}把旧日记交给{{user}}。</p></div>';
+        const cardTypes = [
+            {name:'林澈',description:'摄影师',first_mes:raw},
+            v2({first_mes:raw}),
+            v3({first_mes:raw}),
+        ];
+        for(const payload of cardTypes){
+            const prepared=normalizeCharacterCard(payload);
+            const opening=prepared.character.tavernGreetings?.[0];
+            expect(opening?.content).toContain('spotify:');
+            const cardActor={id:'actor',name:'林澈',tavernGreetings:prepared.character.tavernGreetings} as CharacterProfile;
+            const choices=listCharacterStoryOpenings(cardActor);
+            expect(choices).toHaveLength(1);
+            expect(choices[0].content).toBe('{{char}}把旧日记交给{{user}}。');
+            expect(listCharacterStoryOpenings(cardActor)[0]).toEqual(choices[0]);
+            expect(opening?.content).toContain('track.mp3');
+        }
+    });
+
+    it('原生备份里的手写开场包含 title 注释也不能被酒馆解析器改掉',()=>{
+        const handWritten='<!-- title:故事正文内的注释 -->\n这是我自己写的完整开场。';
+        const prepared=normalizeCharacterCard({
+            type:'sully_character_card',
+            name:'回忆角色',description:'我的注释',systemPrompt:'我的设定',worldview:'',
+            avatar:'',mountedWorldbooks:[],tavernGreetings:[
+                {id:'story-custom-preserved',title:'我自己命名',content:handWritten},
+            ],
+        });
+        expect(prepared.character.tavernGreetings?.[0]).toEqual({
+            id:'story-custom-preserved',title:'我自己命名',content:handWritten,
+        });
+    });
+
 });
