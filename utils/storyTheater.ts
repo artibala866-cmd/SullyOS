@@ -1771,7 +1771,7 @@ export const compileStoryPreset = (input: {
             lastMessage: lastHistoryMessage?.content,
             lastUserMessage: lastUserMessage?.content,
             lastCharMessage: lastCharMessage?.content,
-            lastChatMessage: lastCharMessage?.content ?? previousHistoryMessage?.content ?? '',
+            lastChatMessage: lastHistoryMessage?.content ?? '',
             input: input.currentInput,
             model: input.modelName,
             variables,
@@ -2508,7 +2508,7 @@ export const formatActorRecentMessages = (
 
 export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
     .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .sort((a, b) => a.id - b.id)
     .map(message => ({
         role: message.role as StoryApiRole,
         // Already-started stories may have saved a Tavern header as the first
