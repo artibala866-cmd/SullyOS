@@ -71,6 +71,12 @@ export async function readImportedTextDocument(file: File): Promise<ImportedText
         /msword|wordprocessingml/i.test(file.type) ? 'Word' : 'TXT' };
 }
 
+/** A filename is the only identity exported by a plain document.
+ * Namespaced per kind; changed versions of the same file update safely,
+ * while an unrelated Link/Tavern source can never be matched by its title. */
+export const documentWorldbookImportKey = (filename: string): string =>
+    'document-worldbook:' + filename.trim().normalize('NFC').toLocaleLowerCase('en-US');
+
 export type UserBioImportMode = 'append' | 'replace';
 export function planUserBioDocumentImport(
     current: string, incoming: string, mode: UserBioImportMode,
