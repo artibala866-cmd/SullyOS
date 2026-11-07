@@ -358,4 +358,75 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(listCharacterStoryOpenings({linkGreetings:[{...raw,content:spotify}]} as CharacterProfile)).toEqual([]);
     });
 
+    it('recognizes the real Chinese pipe-delimited music schema with newlines, not names or domains', () => {
+        const original = [
+            '!-- note:  -->',
+            '<!-- tag: sib -->',
+            '季淮北站在旧车站，看着窗外的初雪。',
+            '【音乐|Tictoc|"째깍."|',
+            'https://s3plus.meituan.net/opapisdk/op_ticket_1_5677168484_1774827739752_eAozMMt0_vip.mp3|】',
+            '',
+            '【音乐|Novocaine|"Overdosing over U."|https://s3plus.meituan.net/opapisdk/op_ticket_1_5673241091_1774826875736_MQkRpr3p_vip.mp3|】',
+            '{{char}}低声说：“要不要听歌？”',
+        ].join('\n');
+        const clean = tavernOpeningReadableText(original);
+        expect(clean).toBe('季淮北站在旧车站，看着窗外的初雪。\n\n{{char}}低声说：“要不要听歌？”');
+        expect(clean).not.toMatch(/Tictoc|Novocaine|meituan|mp3|<\!-- tag|!\-\- note|【音乐/);
+        expect(tavernOpeningReadableText(clean)).toBe(clean);
+        expect(original).toContain('s3plus.meituan.net');
+    });
+
+    it('filters identical component schema with alternate brackets, fullwidth separators, streams and unrelated hosts', () => {
+        const examples = [
+            '【音乐｜夏夜｜<em>播放</em>｜https://another-host.example/sound?id=890｜】',
+            '〖背景音乐|两个人|https://cdn.example/stream/89|〗',
+            '〔音频|录音|说明|https://cdn.example/recording.ogg|〕',
+            '［music｜rain｜https://cdn.example/rain.m4a｜］',
+            '[audio|风声|https://cdn.example/audio.mp3|]',
+            '【media-card|窗边播放|黑胶|https://cdn.example/music.mp3|】',
+            '【音乐|这段解释跨三行| \nhttps://cdn.example/c.mp3\n|】',
+        ];
+        const combined = '第一幕，钟声响起。\n' + examples.join('\n') + '\n他停下脚步。';
+        expect(tavernOpeningReadableText(combined)).toBe('第一幕，钟声响起。\n\n他停下脚步。');
+        for (const snippet of examples) expect(stripUnsupportedTavernOpeningEmbeds(snippet).trim()).toBe('');
+    });
+
+    it('never deletes ordinary prose and narrative data just because it contains music words, pipes or a useful URL', () => {
+        const original = [
+            '他说：“初雪这首歌很好听，Novocaine 也不错。”',
+            '【音乐|他们在月下合唱】',
+            '【音乐|曲目|并不是网址|】',
+            '【线索|音乐盒里藏了钥匙|】',
+            '【地点|旧站台|https://example.org/diary/story-3|】',
+            '[线索: 后门藏着一张地图]',
+            '【旧车站的秘密：他看见了她】',
+            '网址 https://example.org/map 是日记留下的线索。',
+            '<scene name="song">他继续说话。</scene>',
+        ].join('\n');
+        expect(tavernOpeningReadableText(original)).toBe(original);
+        expect(stripUnsupportedTavernOpeningEmbeds('【音乐|没有完结括号|https://example.org/a.mp3'))
+            .toContain('没有完结括号');
+    });
+
+    it('keeps the title, macros and original card bytes while filtering a scene and legacy first-floor message', () => {
+        const raw = '<!-- title:冬天的老车站 -->\n'
+            + '【音乐|冬之曲|提示|https://assets.example/song.mp3|】\n'
+            + '<p>{{char}}在雪里等{{user}}。</p>';
+        const card = {id:'tavern-alt-snow',title:'备用开场 25',content:raw};
+        const char = {id:'actor',name:'季淮北',tavernGreetings:[card]} as CharacterProfile;
+        const scene = listCharacterStoryOpenings(char)[0];
+        expect(scene.title).toBe('冬天的老车站');
+        expect(scene.content).toBe('季淮北在雪里等{{user}}。'.replace('季淮北','{{char}}'));
+        expect(card.content).toBe(raw);
+        expect(resolveStoryOpeningGreeting({
+            characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:card.id},
+        },[char],'玩家')?.content).toBe('季淮北在雪里等玩家。');
+        const oldMessage = {role:'assistant',content:raw,metadata:{
+            source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:card.id},
+        }};
+        expect(buildStoryHistory([oldMessage as any])[0].content).toBe('{{char}}在雪里等{{user}}。');
+        expect(oldMessage.content).toBe(raw);
+        expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
+    });
+
 });
