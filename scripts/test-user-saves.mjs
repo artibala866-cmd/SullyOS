@@ -93,7 +93,12 @@ try{
  await shot('name-picker-390');
  const originProfile=(await inspect()).profile;
  await checkDesktop('original');await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
- await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'新建身份',exact:true}).click()]);await ready();
+ // Hold the profile transaction to verify a real touch produces visible
+ // feedback and disables a second action while data is still being saved.
+ await page.evaluate(async()=>{const {DB}=await import('/utils/db.ts');const save=DB.saveUserProfile;DB.saveUserProfile=async profile=>{await new Promise(resolve=>{window.qaReleaseProfileSave=resolve;});return save(profile);};});
+ await page.getByRole('button',{name:'新建身份',exact:true}).tap();await page.getByText('切换中…',{exact:true}).waitFor();
+ assert.equal(await page.getByLabel('切换身份',{exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'新建身份',exact:true}).isEnabled(),false);await shot('switching-390');
+ await Promise.all([page.waitForEvent('framenavigated'),page.evaluate(()=>window.qaReleaseProfileSave())]);await ready();
  const fresh=await inspect();assert.notEqual(fresh.id,'original');assert.equal(fresh.profile.name,'新身份');assert.equal(fresh.profile.bio,'');assert.equal(fresh.messages.length,0);assert.equal(fresh.hwm,null);assert(fresh.books.some(w=>w.id==='qa-save-world'));assert.deepEqual(fresh.chars.find(c=>c.id==='qa-save-char').memories,[]);
  assert.notEqual(fresh.profile.avatar,originProfile.avatar);
  for(const key of ['life','plans','lifeSettings','transactions','bank'])assert.deepEqual(fresh[key],[],key+' starts empty');
@@ -118,20 +123,21 @@ try{
  await switchTo(fresh.id);const again=await inspect();assert.equal(again.profile.name,edited.profile.name);assert.equal(again.profile.bio,edited.profile.bio);assert.equal(again.profile.avatar,edited.profile.avatar);assert.equal(again.lifeSettings[0].cycleLength,35);assert.equal(again.transactions.length,1);assert.equal(again.transactions[0].note,'B档独立账单');assert.equal(again.profile.chibiStudio,undefined);assert.equal(again.hwm,'9');assert(again.messages.some(m=>m.content==='校园线独有的聊天'));
  const other=await context.newPage();other.on('pageerror',e=>errors.push(e.message));await other.goto(origin+'/test/fixtures/user-saves.html');await other.getByLabel('你的名字',{exact:true}).waitFor();
  await switchTo('original');await other.waitForFunction(()=>document.querySelector('#user-save-select')?.value==='original');await other.close();
- await switchTo(fresh.id);page.on('dialog',d=>d.accept());
+ await switchTo(fresh.id);page.once('dialog',d=>d.accept());
  await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'删除当前身份',exact:true}).click()]);await ready();
  const deleted=await inspect();assert.equal(deleted.id,'original');assert.equal(deleted.registry.saves.length,1);assert(deleted.registry.deletedSaves.some(s=>s.id===fresh.id));assert.equal(deleted.profile.name,'原来的名字');assert.equal(deleted.profile.bio,'原身份的独立设定');assert(deleted.books.some(w=>w.id==='qa-save-world'));
  assert.equal(await page.getByRole('button',{name:'删除当前身份',exact:true}).isEnabled(),false);
  await page.setViewportSize({width:390,height:844});await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('after-delete-390');
  // Restore through the same native name picker, then corrupt/remove the primary
  // index while preserving the mirror and all actual interaction data.
- await page.getByLabel('切换身份',{exact:true}).selectOption(fresh.id);await ready();
+ await switchTo(fresh.id);
  const recovered=await inspect();assert.equal(recovered.id,fresh.id);assert.equal(recovered.profile.avatar,edited.profile.avatar);assert(recovered.messages.some(m=>m.content==='校园线独有的聊天'));assert.equal(recovered.transactions[0].note,'B档独立账单');
  await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('restored-identity-390');
  await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.setItem(s.USER_SAVES_KEY,'{damaged');});
  await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert.equal((await inspect()).profile.avatar,edited.profile.avatar);
  await page.evaluate(async()=>{const s=await import('/utils/userSaveScope.ts');s.nativeLocalStorage.removeItem(s.USER_SAVES_KEY);});
  await page.reload();await ready();assert.equal((await inspect()).id,fresh.id);assert((await inspect()).messages.some(m=>m.content==='校园线独有的聊天'));
+ page.once('dialog',d=>d.accept());
  await Promise.all([page.waitForEvent('framenavigated'),page.getByRole('button',{name:'删除当前身份',exact:true}).click()]);await ready();
  // Keep all-identity backup/import regression through the real Settings controls.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();await page.getByLabel('备份范围',{exact:true}).selectOption('all');
@@ -139,6 +145,14 @@ try{
  const dlPromise=page.waitForEvent('download');await page.getByRole('button',{name:/导出全部身份/}).click();const dl=await dlPromise;const file={name:dl.suggestedFilename(),mimeType:'application/zip',buffer:await readFile(await dl.path())};
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
  await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
- await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');assert.deepEqual(errors,[]);
+ await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');
+ const copy=imported.registry.saves.find(save=>save.id!=='original');await switchTo(copy.id);const restoredCopy=await inspect();assert.equal(restoredCopy.profile.bio,'原身份的独立设定');assert.deepEqual(restoredCopy.messages,imported.messages);await switchTo('original');
+ // Dismissing the current-identity replacement warning must leave the rich
+ // original untouched. The independent ZIP above never uses this warning.
+ await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
+ let confirmMessage='';page.once('dialog',async d=>{confirmMessage=d.message();await d.dismiss();});
+ await page.locator('input[type=file][accept=".json,.zip"]').setInputFiles({name:'old-backup.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+ await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出')&&!b.disabled));assert.match(confirmMessage,/可能替换当前档案及互动记录/);
+ await page.goto(origin+'/test/fixtures/user-saves.html');await ready();assert.deepEqual((await inspect()).messages,imported.messages);assert.deepEqual(errors,[]);
  console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}

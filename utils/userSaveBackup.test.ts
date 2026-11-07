@@ -65,3 +65,15 @@ it('a generated id collision cannot delete or overwrite an existing identity dat
  await expect((await prepareUserSaveRestore(backup))!.restore()).rejects.toThrow('编号重复');spy.mockRestore();
  const second=await open('AetherOS_Data__user_'+SECOND);expect((await rows(second,'messages'))[0].content).toBe('B聊天');expect(JSON.parse(localStorage.getItem(key)!)).toEqual(registry);second.close();db.close();
 });
+
+it('restores missing shared theme settings with their theme-only photo bytes on a device without those assets',async()=>{
+ const {db}=await seed();const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
+ const theme=JSON.stringify({launcherWidgets:{filmPhoto1:'blobref:theme-only-photo'}});
+ localStorage.setItem('os_theme',theme);await put(db,{blob_assets:[{id:'theme-only-photo',blob:new Blob(['film bytes'],{type:'image/png'})}]});
+ const backup=await createAllUserSaveBackup();localStorage.removeItem('os_theme');
+ await new Promise<void>((resolve,reject)=>{const tx=db.transaction('blob_assets','readwrite');tx.objectStore('blob_assets').delete('theme-only-photo');tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error);});
+ await (await prepareUserSaveRestore(backup))!.restore();
+ expect(localStorage.getItem('os_theme')).toBe(theme);
+ expect(await (await rows(db,'blob_assets')).find(row=>row.id==='theme-only-photo').blob.text()).toBe('film bytes');
+ expect((await rows(db,'messages'))[0].content).toBe('A聊天');db.close();
+});

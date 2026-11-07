@@ -240,7 +240,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                 const incoming=await existingDatabase(scopedDatabaseName(KINDS.main,save.id));
                 if(!incoming)throw new Error('恢复副本不完整');
                 try {
-                    const common: any[]=[];
+                    const common: any[]=[...missingShared.values()];
                     for(const {schema,rows} of await snapshot(incoming,names.filter(name=>name!=='blob_assets' && incoming.objectStoreNames.contains(name)))) {
                         const items=additions.get(schema.name);if(!items)continue;
                         for(const row of rows) {
