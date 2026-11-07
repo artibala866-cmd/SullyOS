@@ -64,15 +64,30 @@ const audit = () => {
     if (focus === 'top') scroll.scrollTop = 0;
     if (focus === 'latest') scroll.scrollTop = scroll.scrollHeight;
     setTimeout(() => {
+        const progress = document.querySelector<HTMLElement>('header.story-safe-header [aria-label^="当前第"]');
+        const header = document.querySelector<HTMLElement>('header.story-safe-header');
+        const progressInReadingArea = scroll.querySelector('[aria-label^="当前第"]');
+        const floorIndicatorClear = !!progress && !!header
+            && progress.getBoundingClientRect().bottom <= scroll.getBoundingClientRect().top + 3
+            && !progressInReadingArea
+            && !scroll.querySelector('.sticky');
+        const visibleCount = progress?.getAttribute('aria-label') || '';
+        const nearEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 96;
+        const latestButton = document.querySelector<HTMLButtonElement>('button[aria-label="回到最新楼层"]');
         const valid = floors.length === 26
             && !document.querySelector('button[aria-label="更早一页"]')
+            && floorIndicatorClear
+            && (focus === 'latest' ? (nearEnd && visibleCount.includes('第 26 楼') && !latestButton)
+                : (focus === 'middle' || focus === 'top') ? (!nearEnd && !!latestButton)
+                : true)
             && (document.querySelector('.story-reading-floor')?.getBoundingClientRect().width || 0) > 200
             && document.documentElement.scrollWidth <= innerWidth;
         document.body.dataset.storyScrollReady = String(valid);
         const output = document.createElement('output');output.hidden = true;
         output.id = 'story-scroll-report';
         output.textContent = JSON.stringify({
-            valid, count: floors.length, displayedProgress: scroll.querySelector('[aria-label^="当前第"]')?.textContent,
+            valid, count: floors.length, displayedProgress: progress?.textContent,
+            indicatorInHeader: floorIndicatorClear, hasLatestButton: !!latestButton,
             scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
             scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight,
         });
