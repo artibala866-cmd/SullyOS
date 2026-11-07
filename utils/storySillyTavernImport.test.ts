@@ -732,6 +732,37 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         }]).labels.theater).toBeUndefined();
     });
 
+    it('复杂酒馆：文风选择要优先作者开关，不能被很长的语言禁词表或其它写作段落夺走', () => {
+        const detected = detectTavernNativeControls([
+            { id: 'ban', name: '语言审查@禁词表', role: 'system', enabled: true,
+                content: '写作风格不得包含这些冗余词语。'.repeat(180) },
+            { id: 'pluto-style', name: '通用-光影美学', role: 'system', enabled: true,
+                content: '以光影美学设计镜头，通过光线、动作与气息来表现氛围。'.repeat(8) },
+            { id: 'design', name: '文风设计', role: 'system', enabled: true,
+                content: '保持上述选择的文风与人物个性。'.repeat(8) },
+        ]);
+        expect(detected.labels.style).toBe('作者光影美学文风');
+        expect(detected.inferred.style).toBeUndefined();
+        const ako = detectTavernNativeControls([
+            { id: 'huge', name: '写作后处理', role: 'system', enabled: true,
+                content: '文本需要遵守其它写作风格的附加注意事项。'.repeat(180) },
+            { id: 'selected', name: '✅主文风: 严肃', role: 'system', enabled: true,
+                content: '创作中参考严肃文学与世界名著的语言质地。'.repeat(7) },
+        ]);
+        expect(ako.labels.style).toBe('作者严肃文学文风');
+    });
+
+    it('冥王星：真正的随机小剧场优先于提到 sidestory 的幕后花絮协议', () => {
+        const detected = detectTavernNativeControls([
+            { id: 'appendix', name: '幕后花絮', role: 'system', enabled: true,
+                content: '<sidestory>附录可能包含的小剧场输出整理合同，输出方式与排版规则。</sidestory>' },
+            { id: 'random', name: '随机小剧场', role: 'system', enabled: true,
+                content: '<RandomTheaterProtocols>每轮生成一个随机小剧场，随机选择独立题材。</RandomTheaterProtocols>' },
+        ]);
+        expect(detected.labels.theater).toBe('作者随机小剧场');
+        expect(detected.inferred.theater).toBe('nmj-v3-theater-random');
+    });
+
     it('Mur 的 Word_budget 与 bare Chinese 语言识别不会捏造汉字单位或简体选项', () => {
         const detected = detectTavernNativeControls([
             { id: 'language', role: 'system', enabled: true, name: '语言',
