@@ -16,7 +16,8 @@ import { confirmExportSafety } from '../utils/exportGuard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 import { parseLinkWorldbookJson } from '../utils/linkWorldbookImport';
-import { readLinkPersonaDocument, readLinkWorldbookJsonText } from '../utils/linkImportDocuments';
+import { readLinkWorldbookJsonText } from '../utils/linkImportDocuments';
+import { readImportedTextDocument, isImportedTextDocument } from '../utils/importTextDocument';
 import { trackEvent } from '../utils/analytics';
 
 const WorldbookApp: React.FC = () => {
@@ -210,9 +211,9 @@ const WorldbookApp: React.FC = () => {
                 if (!file.size || file.size > 32 * 1024 * 1024)
                     throw new Error('世界书「' + file.name + '」为空或超过 32 MB');
                 const extension = file.name.split('.').pop()?.toLowerCase();
-                const category = file.name.replace(/\.(json|png|txt|docx|doc)$/i, '').trim() || '导入世界书';
-                if (['txt', 'doc', 'docx'].includes(extension || '')) {
-                    const content = await readLinkPersonaDocument(file);
+                const category = file.name.replace(/\.(json|png|txt|docx|doc|pdf|text)$/i, '').trim() || '导入世界书';
+                if (isImportedTextDocument(file)) {
+                    const { text: content } = await readImportedTextDocument(file);
                     const now = Date.now();
                     imported.push({
                         id: 'wb-'+now+'-'+imported.length+'-'+Math.random().toString(36).slice(2, 8),
@@ -683,7 +684,7 @@ const WorldbookApp: React.FC = () => {
                                     {isSelecting ? '取消' : '管理'}
                                 </button>
                             )}
-                            <input ref={importRef} type="file" multiple accept=".json,.png,.txt,.docx,.doc,application/json,image/png,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
+                            <input ref={importRef} type="file" multiple accept=".json,.png,.txt,.docx,.doc,.pdf,application/json,image/png,text/plain,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
                             <button
                                 onClick={() => { setShowImportConfirm(true); trackEvent('打开导入世界书弹窗'); }}
                                 className="w-9 h-9 bg-white/80 text-neutral-500 border border-white rounded-full shadow-sm flex items-center justify-center active:scale-90 transition-transform"
