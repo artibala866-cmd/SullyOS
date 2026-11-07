@@ -184,6 +184,29 @@ jobs:
               --screenshot="${prefix}.png" "$htmlurl" > /dev/null 2>&1
             test -s "${prefix}.png"
           done
+          # Real protocol dialects derived from the four supplied Tavern
+          # exports: photo-free HTML styling, multiple side appendices and
+          # the non-theater case. Screenshot each portrait and landscape.
+          for dialect in pluto ako mur janus; do
+            for viewport in 390x844 844x390; do
+              width="${viewport%x*}"; height="${viewport#*x}"
+              htmlurl="http://127.0.0.1:5193/test/fixtures/story-tavern-html-visual.html?dialect=${dialect}"
+              prefix="output/meet-story/tavern-${dialect}-${viewport}"
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --window-size="${width},${height}" --force-device-scale-factor=1 --virtual-time-budget=7000 \
+                --dump-dom "$htmlurl" > "${prefix}.html" 2> "${prefix}.log"
+              grep -q 'data-story-theater-html-ready="true"' "${prefix}.html" || {
+                grep -o 'id="story-tavern-html-report"[^<]*' "${prefix}.html" | tail -c 1800 || true
+                tail -n 30 "${prefix}.log"
+                exit 1
+              }
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --window-size="${width},${height}" --force-device-scale-factor=1 --virtual-time-budget=7000 \
+                --screenshot="${prefix}.png" "$htmlurl" > /dev/null 2>&1
+              test -s "${prefix}.png"
+            done
+          done
+          echo 'PASS: 4 supplied Tavern dialects screenshot verified in portrait and landscape'
           echo 'PASS: real Tavern nested HTML theater, CSP-locked iframe, no scripts, portrait and landscape'
           echo 'PASS: real imported and native preset maker screenshots, 373-entry fit, enabled source marker toggle'
           echo 'PASS: dark and light story editor, mobile viewport, manual/auto/prewritten opening, no duplicate cast options'
