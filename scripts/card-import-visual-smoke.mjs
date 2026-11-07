@@ -60,6 +60,11 @@ try{
   {name:'worldbook-390',source:'worldbook',w:390,h:844},
   {name:'worldbook-320',source:'worldbook',w:320,h:690},
   {name:'worldbook-landscape',source:'worldbook',w:844,h:390},
+  {name:'user-profile-390',source:'user-profile',w:390,h:844},
+  {name:'user-profile-320',source:'user-profile',w:320,h:690},
+  {name:'user-profile-saved-390',source:'user-profile-saved',w:390,h:844},
+  {name:'user-profile-replace-320',source:'user-profile-replace',w:320,h:690},
+  {name:'user-profile-landscape',source:'user-profile',w:844,h:390},
   {name:'tavern-landscape',source:'tavern',w:844,h:390},
   {name:'link-landscape',source:'link',w:844,h:390},
   {name:'link-openings-landscape',source:'link-openings',w:844,h:390},
@@ -67,7 +72,7 @@ try{
  const failures=[];
  for(const c of cases){
   await cmd('Emulation.setDeviceMetricsOverride',{width:c.w,height:c.h,deviceScaleFactor:1,mobile:true});
-  const page=c.source==='worldbook'?'link-worldbook-visual.html':'card-import-visual.html';
+  const page=c.source==='worldbook'?'link-worldbook-visual.html':c.source.startsWith('user-profile')?'user-document-visual.html':'card-import-visual.html';
   const uri='http://127.0.0.1:5173/tests/'+page+'?source='+c.source+'&nonce='+Math.random();
   await cmd('Page.navigate',{url:uri});
   let ready=null;
