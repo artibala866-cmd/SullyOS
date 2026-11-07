@@ -48,6 +48,18 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
             '中文.json',{type:'application/json'});
         expect(await readLinkWorldbookJsonText(gbk)).toBe('{"你好":1}');
     });
+    it('recovers Chinese paragraphs from a Word RTF .doc and fails instead of silently dropping invalid byte escapes',async()=>{
+        const contents=String.raw`{\rtf1\ansi\ansicpg936 \'d6\'d0\'ce\'c4\par 这里是第二段。}`;
+        const decoded=await readLinkPersonaDocument(new File([contents],'中文设定.doc',{type:'application/msword'}));
+        expect(decoded).toContain('中文');
+        expect(decoded).toContain('这里是第二段');
+        const wrong=String.raw`{\rtf1\ansi\ansicpg99999 \'d6\'d0}`;
+        await expect(readLinkPersonaDocument(new File([wrong],'无效编码.doc')))
+            .rejects.toThrow('未支持的文字编码');
+        const damaged=String.raw`{\rtf1\ansi\ansicpg936 \'d6}`;
+        await expect(readLinkPersonaDocument(new File([damaged],'被截断的字.doc')))
+            .rejects.toThrow('旧编码文字无法完整还原');
+    });
     it('does not corrupt legacy binary DOC or arbitrary ZIP lacking Word XML',async()=>{
         const binary=new File([new Uint8Array([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1,0,1,2]).buffer],'old.doc');
         await expect(readLinkPersonaDocument(binary)).rejects.toThrow('二进制 DOC');
