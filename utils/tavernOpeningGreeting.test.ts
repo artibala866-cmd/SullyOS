@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterProfile } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText, stripUnsupportedTavernOpeningEmbeds, stripNonStoryOpeningBlocks } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningReadableText, tavernOpeningAuthorNote, tavernOpeningSceneText, storyOpeningReadingText, stripUnsupportedTavernOpeningEmbeds, stripNonStoryOpeningBlocks, stripWrappedOpeningPayloads } from './tavernOpeningGreeting';
 import { normalizeCharacterCard } from './sillyTavernCard';
 import { mergeCardGreetings } from './cardImportMerge';
 import { buildStoryHistory, resolveStoryOpeningGreeting } from './storyTheater';
@@ -456,6 +456,52 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(card.content).toBe(raw);
         expect(storyOpeningReadingText(raw,card.id,'link')).toBe('霓虹下两人再次相遇。');
         expect(storyOpeningReadingText(raw,'story-custom-2','custom')).toBe(raw);
+    });
+
+    it('removes every unfamiliar XML, HTML, decorated or fenced envelope without recognizing author names', () => {
+        const raw=[
+            '真正的第一句。',
+            '<unseen_author_object brand="xx"><new_name>整个未知状态。</new_name></unseen_author_object>',
+            '<scene role="assistant">标签里的剧情。</scene>',
+            '<div><p>HTML 里的剧情。</p></div>',
+            '【不认识的专有模块|一整段】',
+            '〖没有 URL 的外壳〗',
+            '〔其他配置〕',
+            '［装饰文字］',
+            '[包装中的旁白]',
+            '~~~json',
+            '{"unknown":"包装代码"}',
+            '~~~',
+            '<!-- 不属于外部正文的注释 -->',
+            '<unused-widget enabled="yes" />',
+            '只留下最后的{{char}}对白。',
+        ].join('\n');
+        expect(tavernOpeningReadableText(raw))
+            .toBe('真正的第一句。\n\n只留下最后的{{char}}对白。');
+        expect(tavernOpeningReadableText(tavernOpeningReadableText(raw)))
+            .toBe(tavernOpeningReadableText(raw));
+    });
+
+    it('keeps only literal outside narration and macros even when new unknown wrappers appear inline', () => {
+        const raw='他看到【随意模块|内容】后转身。'
+            +'{{char}}说：“我没有说谎。”'
+            +'<new_schema>不该显示的情节。</new_schema>'
+            +'我还想说点别的。';
+        expect(tavernOpeningReadableText(raw))
+            .toBe('他看到后转身。{{char}}说：“我没有说谎。”我还想说点别的。');
+        expect(stripWrappedOpeningPayloads('一 < 2，而 4 > 3。')).toBe('一 < 2，而 4 > 3。');
+        expect(stripWrappedOpeningPayloads('前文 <unfinished>未闭合的正文'))
+            .toBe('前文 未闭合的正文');
+    });
+
+    it('never invents a greeting when the imported text contains only wrapped data', () => {
+        const raw='<only-new-schema><another-level>所有内容均包装</another-level></only-new-schema>';
+        const card={id:'tavern-alt-empty',title:'备用开场',content:raw};
+        const actor={id:'actor',name:'角色',tavernGreetings:[card]} as CharacterProfile;
+        expect(listCharacterStoryOpenings(actor)).toEqual([]);
+        expect(card.content).toBe(raw);
+        expect(stripWrappedOpeningPayloads(raw).trim()).toBe('');
+        expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
     });
 
 });
