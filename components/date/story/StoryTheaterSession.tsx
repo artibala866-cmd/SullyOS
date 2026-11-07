@@ -999,6 +999,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     <div><span className='block text-[8px] font-bold text-slate-400'>采样参数</span><span className={`block mt-1 truncate ${entry.omitSamplingParams ? 'font-semibold text-amber-700' : 'text-slate-600'}`}>{entry.omitSamplingParams ? '不发送高级参数' : '完整发送预设参数'}</span></div>
                 </div>
             </details>
+            <button type='button' onClick={() => setShowQuickPreset(true)} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' title='本剧情快速预设' aria-label='本剧情快速预设'><SlidersHorizontal size={16} /></button>
             {messages.length > 0 && visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => scrollReadingToLatest('smooth')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
             </div>
         </header>
@@ -1060,12 +1061,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 <div className='h-6' />
             </div>
         </main>
-
-        <div className='story-quick-preset pointer-events-none absolute inset-x-0 z-20 px-4'>
-            <div className='max-w-2xl mx-auto flex justify-end pr-2'>
-                <button onClick={() => setShowQuickPreset(true)} className='pointer-events-auto w-11 h-11 rounded-xl bg-violet-600 text-white shadow-lg grid place-items-center active:scale-95 transition-transform' title='本剧情快速预设' aria-label='本剧情快速预设'><SlidersHorizontal size={19} weight='bold' /></button>
-            </div>
-        </div>
 
         <footer className='story-safe-footer shrink-0 px-4 pt-3 bg-stone-100/95 backdrop-blur border-t border-slate-200'>
             <div className='max-w-2xl mx-auto'>
