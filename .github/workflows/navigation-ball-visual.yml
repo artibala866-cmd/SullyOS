@@ -9,6 +9,7 @@ on:
       - utils/navigationBallQuickApi.wiring.test.ts
       - utils/quickApiValidation.ts
       - utils/quickApiValidation.test.ts
+      - utils/apiPresetSwitch.wiring.test.ts
       - utils/apiConfigNormalize.ts
       - context/OSContext.tsx
       - apps/Settings.tsx
