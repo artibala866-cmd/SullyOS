@@ -72,7 +72,11 @@ const sanitizeNode = (node: Node): string => {
     for (const attr of Array.from(element.attributes)) {
         const key = attr.name.toLowerCase();
         const value = attr.value.trim();
-        if (/^on/i.test(key) || value.length > 600) continue;
+        if (/^on/i.test(key) || value.length > 180000) continue;
+        if (tag === 'details' && key === 'open') {
+            attributes.push('open');
+            continue;
+        }
         if (key === 'style') {
             const styles = cleanDeclarations(value);
             if (styles) attributes.push('style="' + escapeHtml(styles) + '"');
@@ -81,7 +85,9 @@ const sanitizeNode = (node: Node): string => {
         } else if (['width', 'height', 'colspan', 'rowspan'].includes(key)) {
             if (/^\d{1,4}$/.test(value)) attributes.push(key + '="' + value + '"');
         } else if (tag === 'img' && key === 'src') {
-            if (/^https:\/\/[^\s"'<>]+$/i.test(value) || /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(value)) {
+            // Only embedded images: external URLs would leak the user's
+            // browsing IP/referrer to arbitrary author-controlled hosts.
+            if (value.length < 150000 && /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(value)) {
                 attributes.push('src="' + escapeHtml(value) + '"');
             }
         }
@@ -96,7 +102,12 @@ export const hasStoryHtmlLayout = (source: string): boolean =>
     /<(?:div|section|article|table|thead|tbody|tr|td|th|style|img|figure|figcaption|p|h[1-6]|ul|ol|li|blockquote|pre|details|summary)\b/i.test(source);
 
 export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
-    const raw = String(source || '').slice(0, 150000);
+    // A Tavern display-regex often produces fenced ```html blocks.
+    // The regex executor is deliberately absent, but the renderer can safely
+    // parse HTML already present inside a code fence without showing the ticks.
+    const raw = String(source || '').slice(0, 150000)
+        .replace(/```html\s*\r?\n([\s\S]*?)\r?\n```/gi, (_whole, inner: string) =>
+            hasStoryHtmlLayout(inner) ? inner : _whole);
     if (typeof DOMParser === 'undefined') {
         const escaped = escapeHtml(raw.replace(/<[^>]*>/g, ' ').trim());
         return {
@@ -142,7 +153,7 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
         '.story-theater-html-content pre{white-space:pre-wrap;overflow-wrap:anywhere}',
         css,
     ].join('\n');
-    const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; script-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
     const srcDoc = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         + '<meta name="viewport" content="width=device-width,initial-scale=1">'
         + '<meta http-equiv="Content-Security-Policy" content="' + escapeHtml(csp) + '">'
