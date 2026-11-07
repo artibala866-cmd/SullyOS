@@ -1131,6 +1131,8 @@ export interface WorldbookEntryConfig {
     sourceUid?: number;
     /** Stable key of an imported Tavern/Link worldbook entry. Not a local binding ID. */
     cardImportKey?: string;
+    /** Fingerprint of last imported standalone row, allowing safe updates without overwriting user edits. */
+    cardImportSnapshot?: string;
 }
 
 export interface MountedWorldbook extends WorldbookEntryConfig {
