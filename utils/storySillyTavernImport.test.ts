@@ -1019,6 +1019,23 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(sent).toContain('</theater>');
     });
 
+    it('作者原本同时启用多个文风时，不得错误当作单选覆盖已有两个文风', () => {
+        const prompts=[
+            {identifier:'start',name:'┏╔文风设定╗┓',role:'system',content:'<writing_style>'},
+            ...['海风','星夜','田野'].map((name,i)=>({
+                identifier:'style'+i,name:'🎵拖：'+name,role:'system',
+                content:'<writing_style:'+name+'>作者专属：'+name+'</writing_style>',
+            })),
+            {identifier:'end',name:'┗╚文风设定╝┛',role:'system',content:'</writing_style>'},
+        ];
+        const doc=parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:[{character_id:100001,
+            order:prompts.map(p=>({identifier:p.identifier,enabled:p.identifier!=='style2'}))}]}),'多文风源.json').document;
+        const group=getStoryTavernAuthorSections(doc).find(x=>x.label.includes('文风'))!;
+        expect(group.single).toBe(false);
+        const changed=selectStoryTavernAuthorOption(doc,group.key,'st-style2');
+        expect(changed.prompts.filter(p=>p.id.startsWith('st-style') && p.enabled)).toHaveLength(3);
+    });
+
     it('旧版内置选择元数据仍可读回，但不再强行覆盖作者原文', () => {
         const raw = JSON.stringify({
             prompts: [
