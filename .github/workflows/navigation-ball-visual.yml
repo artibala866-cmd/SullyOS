@@ -1,0 +1,82 @@
+name: Floating navigation API and mobile visual QA
+on:
+  push:
+    branches:
+      - remove-checkphone-vrworld-lifesim
+    paths:
+      - components/os/NavigationBall.tsx
+      - components/os/NavigationBall.css
+      - utils/navigationBallQuickApi.wiring.test.ts
+      - navigation-ball-visual.html
+      - test/fixtures/navigation-ball-visual.tsx
+      - .github/workflows/navigation-ball-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  floating-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install packages
+        run: pnpm install --frozen-lockfile
+      - name: Run floating menu, API preset and boundary regression tests
+        run: pnpm exec vitest run utils/navigationBallQuickApi.wiring.test.ts utils/apiPresetSwitch.test.ts utils/floatingBallBounds.test.ts
+      - name: Check changed TypeScript files without hiding unrelated legacy diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/navigation-tsc.log 2>&1 || true
+          grep -E '^(components/os/NavigationBall\.tsx|test/fixtures/navigation-ball-visual\.tsx|utils/navigationBallQuickApi\.wiring\.test\.ts)\(' /tmp/navigation-tsc.log > /tmp/navigation-target-errors.log || true
+          if [ -s /tmp/navigation-target-errors.log ]; then
+            cat /tmp/navigation-target-errors.log
+            exit 1
+          fi
+          echo 'Floating navigation target files have no TypeScript diagnostics.'
+      - name: Capture mobile screenshots from the actual React component
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/navigation-screenshots
+          pnpm exec vite --host 127.0.0.1 --port 5179 --strictPort > /tmp/navigation-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5179/navigation-ball-visual.html > /dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/navigation-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for view in main api manual; do
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run \
+              --window-size=430,900 --force-device-scale-factor=1 --virtual-time-budget=3800 \
+              --screenshot="/tmp/navigation-screenshots/navigation-$view.png" \
+              "http://127.0.0.1:5179/navigation-ball-visual.html?view=$view"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run \
+              --window-size=430,900 --force-device-scale-factor=1 --virtual-time-budget=3800 --dump-dom \
+              "http://127.0.0.1:5179/navigation-ball-visual.html?view=$view" > "/tmp/navigation-$view.html"
+            grep -q 'data-nav-visual-ready="true"' "/tmp/navigation-$view.html" || {
+              echo "Floating component failed to render: $view"
+              tail -n 30 /tmp/navigation-vite.log
+              exit 1
+            }
+          done
+          test "$(find /tmp/navigation-screenshots -name '*.png' | wc -l)" -eq 3
+      - name: Upload mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floating-navigation-mobile-qa
+          path: /tmp/navigation-screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 7
