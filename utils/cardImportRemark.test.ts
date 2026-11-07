@@ -117,7 +117,9 @@ describe('Tavern & Link import keeps Neural Link remarks independent',()=>{
         expect(mergeCardImports([existing],[],[onlyGreetings]).characters[0].description).toBe('我写的备注');
         const onlyWorldbook=item(parsed,existing.cardImportOrigin!,existing.id,
             {persona:false,worldbooks:true,greetings:false});
-        expect(mergeCardImports([existing],[],[onlyWorldbook]).characters[0].description).toBe('我写的备注');
+        const loreResult=mergeCardImports([existing],[],[onlyWorldbook]);
+        expect((loreResult.characters[0]||existing).description).toBe('我写的备注');
+        expect(loreResult.result.unchangedIds).toEqual([existing.id]);
     });
 });
 describe('persisted old imported-card remark migration',()=>{
