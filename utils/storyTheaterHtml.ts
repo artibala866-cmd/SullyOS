@@ -93,7 +93,17 @@ const sanitizeNode = (node: Node): string => {
         }
         // No href, srcdoc, custom events or executable protocols.
     }
-    if (tag === 'img') attributes.push('loading="lazy"');
+    if (tag === 'img') {
+        // Never leave a broken <img> when the author's URL is intentionally
+        // blocked: show its alt text, or an understandable short placeholder.
+        if (!attributes.some(attribute => attribute.startsWith('src="'))) {
+            const alt = (element.getAttribute('alt') || '').trim().slice(0, 120);
+            return '<span class="story-html-image-fallback">['
+                + escapeHtml(alt ? '图片：' + alt : '外部图片未加载')
+                + ']</span>';
+        }
+        attributes.push('loading="lazy"');
+    }
     if (['br', 'hr', 'img', 'col'].includes(tag)) return '<' + tag + (attributes.length ? ' ' + attributes.join(' ') : '') + '>';
     return '<' + tag + (attributes.length ? ' ' + attributes.join(' ') : '') + '>' + children + '</' + tag + '>';
 };
