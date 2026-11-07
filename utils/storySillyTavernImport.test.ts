@@ -689,6 +689,98 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
         expect(() => convertSillyTavernChatPreset({ prompts: [], prompt_order: [] }, 'empty')).toThrow();
     });
+
+    it('视频默认版参数：四份酒馆导出里的温度、Top P、两项惩罚和输出上限实际映射到请求设置', () => {
+        const samples = [
+            { title: '冥王星', t: 1, topP: .9, freq: 0, pres: 0, tokens: 60000, effective: 32000 },
+            { title: 'Akover', t: 1, topP: .97, freq: .32, pres: .48, tokens: 65535, effective: 32000 },
+            { title: 'Mur', t: 1, topP: 1, freq: 0, pres: 0, tokens: 20000, effective: 20000 },
+            { title: 'Janus', t: 1.05, topP: .95, freq: .4, pres: .4, tokens: 10000, effective: 10000 },
+        ];
+        for (const sample of samples) {
+            const imported = parseStoryTheaterPreset(JSON.stringify({
+                prompts: [{ identifier: 'rule', name: '系统规则', role: 'system', content: '续写角色与用户的故事。' }],
+                prompt_order: [{ character_id: 100001, order: [{ identifier: 'rule', enabled: true }] }],
+                temperature: sample.t, top_p: sample.topP,
+                frequency_penalty: sample.freq, presence_penalty: sample.pres,
+                openai_max_tokens: sample.tokens,
+            }), sample.title + '.json');
+            expect(imported.document.generation).toMatchObject({
+                temperature: sample.t, topP: sample.topP, frequencyPenalty: sample.freq,
+                presencePenalty: sample.pres, maxTokens: sample.effective,
+            });
+            const output = compileStoryPreset({ preset: imported,
+                slots: { ...slots, worldBefore: '' }, userName: '玩家', characterNames: ['角色'] });
+            expect(output.settings).toMatchObject({
+                temperature: sample.t, top_p: sample.topP,
+                frequency_penalty: sample.freq, presence_penalty: sample.pres, max_tokens: sample.effective,
+            });
+            if (sample.tokens > 32000) expect(imported.document.importWarnings?.join('\n')).toContain('32000');
+        }
+    });
+
+    it('Mur 的 Word_budget 与 bare Chinese 语言识别不会捏造汉字单位或简体选项', () => {
+        const detected = detectTavernNativeControls([
+            { id: 'language', role: 'system', enabled: true, name: '语言',
+                content: '<language_forms>\n language: Chinese.\n</language_forms>' },
+            { id: 'length', role: 'system', enabled: true, name: '字数要求',
+                content: '<creation_form>\n Word_budget: 900~1000\n</creation_form>' },
+            { id: 'off', role: 'system', enabled: false, name: '繁體中文规则',
+                content: '正文必须使用繁體中文。' },
+        ]);
+        expect(detected.labels.language).toBe('中文（简繁未指定）');
+        expect(detected.inferred.language).toBeUndefined();
+        expect(detected.labels.length).toBe('900–1000（Word_budget，按作者单位）');
+        expect(detected.inferred.length).toBeUndefined();
+    });
+
+    it('冥王星的 Char 第三人称＋user 第二人称是作者混合视角，不能被内置有限视角抢掉', () => {
+        const raw = JSON.stringify({
+            prompts: [
+                { identifier: 'perspective', name: 'Char视角-TA&你', role: 'system',
+                    content: '{{setvar::Perspective::POV: Immersive Third-Person. (He/She & You). 用“你/您”指代<user>，角色使用第三人称。}}' },
+                { identifier: 'main', name: '主叙事', role: 'system', content: '{{getvar::Perspective}}' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'perspective', enabled: true }, { identifier: 'main', enabled: true },
+            ] }],
+        });
+        const imported = parseStoryTheaterPreset(raw, 'Pluto-混合视角.json');
+        expect(imported.document.tavernControls?.labels.pov).toContain('混合视角');
+        expect(imported.document.tavernControls?.inferred.pov).toBeUndefined();
+        const guard = buildStoryIdentityGuard(imported.document, '主角', ['演员']);
+        expect(guard).toContain('自定义／混合视角');
+        expect(guard).not.toContain('当前启用第三人称有限');
+        const result = compileStoryPreset({
+            preset: imported, slots: { ...slots, worldBefore: '' },
+            userName: '主角', characterNames: ['演员'],
+        });
+        expect(result.messages.map(m => m.content).join('\n')).toContain('Immersive Third-Person');
+        expect(result.nativeOverrideMessages).toEqual([]);
+    });
+
+    it('Akover 的规则／正文／我按真实 role 保留，不误改消息顺序或代写权限', () => {
+        const raw = JSON.stringify({
+            prompts: [
+                { identifier: 's', role: 'system', name: '规则', content: '这是系统创作协议。' },
+                { identifier: 'u', role: 'user', name: '输入确认', content: '这是作者的用户消息。' },
+                { identifier: 'a', role: 'assistant', name: '正文示例', content: '这是作者的助手消息。' },
+                { identifier: 'agency', role: 'system', name: '🆖不抢话',
+                    content: '不可代替Editor描述{{user}}，禁止代写。' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 's', enabled: true }, { identifier: 'u', enabled: true },
+                { identifier: 'a', enabled: true }, { identifier: 'agency', enabled: true },
+            ] }],
+        });
+        const preset = parseStoryTheaterPreset(raw, 'Ako-role.json');
+        expect(preset.document.prompts.map(p => p.role)).toEqual(['system', 'user', 'assistant', 'system']);
+        expect(preset.document.tavernControls?.inferred.agency).toBe('nmj-v63-user-agency-locked');
+        const compiled = compileStoryPreset({ preset,
+            slots: { ...slots, worldBefore: '' }, userName: '玩家', characterNames: ['角色'] });
+        expect(compiled.messages.slice(0,3).map(m => m.role)).toEqual(['system', 'user', 'assistant']);
+    });
+
     it('真实酒馆写法：自动识别语言、原样数字篇幅、文风与随机小剧场，不捏造不匹配的内置选择', () => {
         const texts = [
             { id: 'style', name: '文风设计', content: '采用电影化写实风格，强调环境、动作与人物性格中的生活质感。'.repeat(6) },
