@@ -457,4 +457,65 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!.disabled).toBe(true);
     });
 
+    it('不用选角色也可勾选全局世界书，选/换/移除角色不会改选项，存档能保留', async () => {
+        host = document.createElement('div'); document.body.append(host); root = createRoot(host);
+        const onSave = vi.fn(async (_entry: any) => {});
+        const globalBooks = [
+            {id:'standalone-a',title:'十八岁平行线',content:'独立剧情背景',category:'平行宇宙',createdAt:1,updatedAt:1},
+            {id:'standalone-b',title:'末世规则',content:'独立生存规则',category:'平行宇宙',createdAt:1,updatedAt:1},
+        ];
+        const actorWithMount = { ...actor, mountedWorldbooks: [
+            {id:'mounted-only',title:'演员挂载但未主动选择',content:'不该自动带入'},
+        ] };
+        const original = JSON.stringify(globalBooks);
+        await act(async () => root!.render(React.createElement(StoryTheaterEditor,{
+            initial: {...createStoryTheaterDraft(),title:'独立长篇',characterIds:[]},
+            characters:[actorWithMount], worldbooks:globalBooks,
+            user:{name:'用户'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave,
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const a = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：十八岁平行线"]')!;
+        const b = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：末世规则"]')!;
+        const mounted = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：演员挂载但未主动选择"]');
+        expect(a()).toBeTruthy();expect(b()).toBeTruthy();expect(mounted()).toBeNull();
+        await act(async()=>a().click());
+        expect(a().getAttribute('aria-pressed')).toBe('true');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        expect(a().getAttribute('aria-pressed')).toBe('true');
+        expect(b().getAttribute('aria-pressed')).toBe('false');
+        expect(mounted()?.getAttribute('aria-pressed')).toBe('false');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        expect(a().getAttribute('aria-pressed')).toBe('true');
+        expect(mounted()).toBeNull();
+        await act(async()=>b().click());
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        await click('保存并进入');
+        expect(onSave).toHaveBeenCalledTimes(1);
+        expect(onSave.mock.calls[0][0].selectedWorldbookIds).toEqual(['standalone-a','standalone-b']);
+        expect(actorWithMount.mountedWorldbooks).toEqual([{id:'mounted-only',title:'演员挂载但未主动选择',content:'不该自动带入'}]);
+        expect(JSON.stringify(globalBooks)).toBe(original);
+    });
+
+    it('大量世界书可搜索；删除原始全局条目不会静默清除旧剧情已经选中的 ID', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const many = Array.from({length:15},(_,n)=>({id:'world-'+n,title:'设定'+n,content:'内容'+n,category:'小说世界',createdAt:1,updatedAt:1}));
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),title:'旧剧情',characterIds:[actor.id],selectedWorldbookIds:['world-13','deleted-book']},
+            characters:[actor],worldbooks:many,user:{name:'用户'} as any,masks:[],maskLocked:false,
+            presets:[BUILTIN_NIGHT_SCREENING_PRESET],onCancel:vi.fn(),onSave:vi.fn(),
+            onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const search=host!.querySelector<HTMLInputElement>('input[aria-label="搜索剧情世界书"]')!;
+        expect(search).toBeTruthy();
+        await act(async()=>{
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(search,'设定13');
+            search.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+        expect(host!.querySelector('button[aria-label="世界书：设定13"]')).toBeTruthy();
+        expect(host!.querySelector('button[aria-label="世界书：设定12"]')).toBeNull();
+        expect(host!.textContent).toContain('1 条已选世界书当前不存在');
+        expect(host!.querySelector('button[aria-label="世界书：设定13"]')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
 });
