@@ -68,7 +68,7 @@ describe('SillyTavern card normalization', () => {
             first_mes: '不要出现的开场', mes_example: '不导入的例子',
         });
         expect(result.source).toBe('tavern-v1');
-        expect(result.character).toMatchObject({ name: '角色A', description: '森林居民', worldview: '魔法世界' });
+        expect(result.character).toMatchObject({ name: '角色A', description: '', worldview: '魔法世界' });
         expect(result.character.systemPrompt).toContain('谨慎');
         expect(result.character.systemPrompt).toContain('森林居民');
         expect(result.character.tavernGreetings).toEqual([{ id: 'tavern-first', title: '默认开场白', content: '不要出现的开场' }]);
