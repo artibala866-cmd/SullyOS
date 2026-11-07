@@ -233,6 +233,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         const removedSelectedOpening = draft.characterIds.includes(char.id)
             && draft.openingGreeting?.characterId === char.id;
         const updateTitle = removedSelectedOpening ? titleFromOpening(undefined) : (value: string) => value;
+        if (removedSelectedOpening) setShowOpeningInIntro(false);
         setDraft(current => {
         const adding = !current.characterIds.includes(char.id);
         const characterIds = adding ? [...current.characterIds, char.id] : current.characterIds.filter(id => id !== char.id);
@@ -242,6 +243,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
             ...current,
             characterIds,
             title: updateTitle(current.title),
+            premise: !adding && current.openingGreeting?.characterId === char.id
+                && !current.premise.trim()
+                && promotedPremise.current?.characterId === char.id
+                && promotedPremise.current?.greetingId === current.openingGreeting.greetingId
+                ? promotedPremise.current.content : current.premise,
             openingGreeting: !adding && current.openingGreeting?.characterId === char.id ? undefined : current.openingGreeting,
             selectedWorldbookIds: adding ? Array.from(new Set([...current.selectedWorldbookIds, ...(char.mountedWorldbooks || []).map(book => book.id)])) : current.selectedWorldbookIds.filter(id => validBooks.has(id)),
             characterContextLimits: { ...current.characterContextLimits, ...(adding && !current.characterContextLimits[char.id] ? { [char.id]: 100 } : {}) },
