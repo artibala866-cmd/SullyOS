@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import UserApp from '../apps/UserApp';
+import { makeImportFixturePdf } from './import-fixture-pdf';
 import { OSPreviewProvider } from '../context/OSContext';
 
 const source=new URLSearchParams(location.search).get('source')||'user-profile';
@@ -46,7 +47,7 @@ async function run(){
     const input=document.querySelector<HTMLInputElement>('input[aria-label="选择 TXT Word PDF 个人设定文件"]')!;
     if(!input||!input.accept.includes('.pdf')||!input.accept.includes('.docx'))throw Error('UserApp input formats missing');
     const files=new DataTransfer();
-    files.items.add(new File([imported],'我的真实资料.txt',{type:'text/plain'}));
+    files.items.add(source==='user-profile-pdf' ? makeImportFixturePdf('PDF USER PROFILE TEXT','我的PDF档案.pdf') : new File([imported],'我的真实资料.txt',{type:'text/plain'}));
     input.files=files.files;
     input.dispatchEvent(new Event('change',{bubbles:true}));
     const dialog=await waitFor(()=>document.querySelector<HTMLElement>('[role="dialog"][aria-label="导入个人设定"]'),'actual import confirmation');
@@ -83,8 +84,8 @@ async function run(){
     const bounds=trigger.getBoundingClientRect();
     const report={
         source,viewport:[innerWidth,innerHeight],
-        beforeUnchanged:source==='user-profile'||source==='user-profile-saved'||source==='user-profile-replace',
-        contentCorrect:source==='user-profile'?value===InitialBio:source==='user-profile-replace'
+        beforeUnchanged:source.startsWith('user-profile'),
+        contentCorrect:(source==='user-profile'||source==='user-profile-pdf')?value===InitialBio:source==='user-profile-replace'
             ?value===imported:value===InitialBio+'\n\n'+imported,
         noHorizontalOverflow:document.documentElement.scrollWidth<=innerWidth+2,
         triggerVisible:bounds.width>50&&bounds.right<=innerWidth,
@@ -92,10 +93,13 @@ async function run(){
         dialogShown:source==='user-profile'?!!document.querySelector('[role="dialog"]'):!document.querySelector('[role="dialog"]'),
         appendDefault:append.textContent?.trim()==='追加',
         wordAndPdfLabel:allText.includes('TXT · Word · PDF'),
+        actualPdfParsed:source!=='user-profile-pdf' || (dialog.textContent||'').includes('PDF USER PROFILE TEXT'),
+        pdfPages:source!=='user-profile-pdf' || (dialog.textContent||'').includes('PDF · 1 页'),
         errors:observed,
     };
     const pass=report.beforeUnchanged&&report.contentCorrect&&report.noHorizontalOverflow&&
-        report.triggerVisible&&report.dialogShown&&report.appendDefault&&report.wordAndPdfLabel&&!observed.length;
+        report.triggerVisible&&report.dialogShown&&report.appendDefault&&report.wordAndPdfLabel&&
+        report.actualPdfParsed&&report.pdfPages&&!observed.length;
     document.body.dataset.cardImportVisualReady=String(pass);
     document.getElementById('qa-report')!.textContent=JSON.stringify(report);
  }catch(error){
