@@ -1601,11 +1601,36 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
     const source = String(content || '');
     const blocks: StoryDisplayBlock[] = [];
     const topLevel = fromTavern
-        ? /<(thinking|think|thought|content|details|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        ? /<(thinking|think|thought|content|details|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
         : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let cursor = 0;
     let match: RegExpExecArray | null;
+    const foreignTavernTheaters: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+    };
     const push = (kind: StoryDisplayBlockKind, text: string, title?: string) => {
+        // A Tavern <content> block may itself wrap foreign theater modules.
+        // Keep those in their own collapsed text appendix, NOT the main story.
+        // No embedded HTML, CSS, scripts or regex replacements are executed.
+        if (fromTavern && kind === 'story') {
+            const embedded = /<(sidestory|randomtheater|writing_interlude|partner_sidestory)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+            let cursor = 0;
+            let matched = false;
+            for (const foreign of text.matchAll(embedded)) {
+                const start = foreign.index!;
+                if (start > cursor) push('story', text.slice(cursor, start));
+                push('tavern-extra', foreign[2], foreignTavernTheaters[foreign[1].toLowerCase()]);
+                cursor = start + foreign[0].length;
+                matched = true;
+            }
+            if (matched) {
+                if (cursor < text.length) push('story', text.slice(cursor));
+                return;
+            }
+        }
         const clean = formatTaggedStoryFragment(text);
         if (!clean) return;
         const previous = blocks[blocks.length - 1];
@@ -1631,6 +1656,11 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
         }
         if (fromTavern && sourceTag === 'content') {
             push('story', match[2]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag in foreignTavernTheaters) {
+            push('tavern-extra', match[2], foreignTavernTheaters[sourceTag]);
             cursor = match.index + match[0].length;
             continue;
         }
