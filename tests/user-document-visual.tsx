@@ -12,7 +12,7 @@ window.addEventListener('error',e=>observed.push(e.message));
 window.addEventListener('unhandledrejection',e=>observed.push(String(e.reason)));
 const imported='从文件导入的经历。\n我喜欢旅行和画画。';
 const InitialBio='原本的个人资料不能被意外覆盖。';
-const initialProfile={name:'测试档案',avatar:'',bio:InitialBio};
+const initialProfile={name:'测试档案',avatar:'',bio:InitialBio, imageAppearance:'我自己写的生图外貌', imageLockEnabled:false, perCharAvatars:{'test-role':'manual-avatar-ref'}};
 const isReloaded=source==='user-profile-persist' &&
     sessionStorage.getItem('qa-doc-import-reloaded')==='1';
 if (!isReloaded) await DB.saveUserProfile(initialProfile);
@@ -74,7 +74,9 @@ async function run(){
             area.scrollIntoView({block:'center'});
             const stored=await DB.getUserProfile();
             const expected=InitialBio+'\n\n'+imported;
-            const pass=area.value===expected&&stored?.bio===expected;
+            const pass=area.value===expected&&stored?.bio===expected &&
+                stored?.imageAppearance===initialProfile.imageAppearance &&
+                stored?.perCharAvatars?.['test-role']==='manual-avatar-ref';
             sessionStorage.removeItem('qa-doc-import-reloaded');
             mark(pass,{source,afterReload:true,persisted:true,displayedBio:area.value,
                 noOverflow:document.documentElement.scrollWidth<=innerWidth+2,
@@ -188,6 +190,8 @@ async function run(){
             source,viewport:[innerWidth,innerHeight],
             contentCorrect:value===expected,storedCorrect:stored?.bio===expected,
             originalNameUntouched:stored?.name==='测试档案',
+            independentFieldsPreserved:stored?.imageAppearance===initialProfile.imageAppearance &&
+                stored?.perCharAvatars?.['test-role']==='manual-avatar-ref',
             dialogCorrect:actualDialog===dialogExpected,
             noOverflow:document.documentElement.scrollWidth<=innerWidth+2,
             buttonVisible:buttonBox.width>50&&buttonBox.right<=innerWidth,
@@ -195,7 +199,7 @@ async function run(){
             pdfParsed:sourcePreviewOk,importWriteCount:writeCount,
             fileFormats:input.accept,errors:observed,
         };
-        const pass=report.contentCorrect&&report.storedCorrect&&report.originalNameUntouched&&
+        const pass=report.contentCorrect&&report.storedCorrect&&report.originalNameUntouched&&report.independentFieldsPreserved&&
             report.dialogCorrect&&report.noOverflow&&report.buttonVisible&&
             report.appendDefault&&report.pdfParsed&&!observed.length;
         mark(pass,report);
