@@ -61,3 +61,68 @@ export async function replaceStoryTheaterReply(original: Message, content: strin
         }
     });
 }
+
+
+/**
+ * User-edited story floors may have one canonical message and several character
+ * memory mirrors. Never update those with independent DB.updateMessage calls:
+ * quota failure or an invalid mirror could otherwise leave conflicting stories.
+ */
+export async function updateStoryTheaterFloor(original: Message, text: string): Promise<void> {
+    const content = text.trim();
+    if (!content) throw new Error('楼层正文不能为空');
+    const theaterId = original.metadata?.theaterId;
+    if (!theaterId || original.charId !== `story-theater:${theaterId}`
+        || original.metadata?.source !== 'story_theater'
+        || (original.role !== 'user' && original.role !== 'assistant')) {
+        throw new Error('这不是有效的剧情楼层，拒绝修改关联记忆');
+    }
+    const mirrorById = new Map<number, string>();
+    for (const [charId, rawId] of Object.entries(
+        (original.metadata?.theaterMirrorIds || {}) as Record<string, unknown>,
+    )) {
+        const id = Number(rawId);
+        if (!charId || !Number.isSafeInteger(id) || id <= 0
+            || id === original.id || mirrorById.has(id)) {
+            throw new Error('剧情镜像引用异常，未修改任何消息');
+        }
+        mirrorById.set(id, charId);
+    }
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('messages', 'readwrite');
+        const store = tx.objectStore('messages');
+        let failure: Error | undefined;
+        const abort = (why: string) => {
+            if (failure) return;
+            failure = new Error(why);
+            try { tx.abort(); } catch { /* already aborted */ }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(failure || tx.error || new Error('剧情楼层修改失败'));
+        tx.onabort = () => reject(failure || tx.error || new Error('修改已回滚；原楼层保留'));
+        for (const id of [original.id, ...mirrorById.keys()]) {
+            const req = store.get(id);
+            req.onsuccess = () => {
+                if (failure) return;
+                const saved = req.result as Message | undefined;
+                const mirrorChar = mirrorById.get(id);
+                const sameIdentity = id === original.id
+                    ? saved?.charId === original.charId
+                        && saved?.metadata?.source === 'story_theater'
+                        && saved?.metadata?.theaterId === theaterId
+                    : saved?.charId === mirrorChar
+                        && saved?.metadata?.source === 'story_theater_memory'
+                        && saved?.metadata?.theaterId === theaterId
+                        && saved?.metadata?.theaterCentralId === original.id;
+                if (!saved || !sameIdentity || saved.role !== original.role
+                    || saved.content !== original.content) {
+                    abort('楼层或角色镜像在编辑期间已改变，未保存任何修改，请刷新后重试');
+                    return;
+                }
+                store.put({ ...saved, content });
+            };
+            req.onerror = () => abort('楼层读取失败，未修改任何消息');
+        }
+    });
+}
