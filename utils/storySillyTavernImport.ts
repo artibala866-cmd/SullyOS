@@ -142,6 +142,21 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
         ? value.extensions.tavern_helper.scripts.filter((script: any) => script?.enabled === true).length : 0;
     if (regexCount || helperCount) warnings.push(`酒馆扩展中的 ${regexCount} 条启用正则和 ${helperCount} 个启用脚本不会执行；仅导入预设文字`);
+    const enabledText = prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content).join('\n');
+    const setLocals = new Set([...enabledText.matchAll(/\{\{\s*setvar\s*::\s*([^{}:]+?)\s*::/gi)]
+        .map(match => match[1].trim()));
+    const readLocals = new Set([...enabledText.matchAll(/\{\{\s*getvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi)]
+        .map(match => match[1].trim()));
+    const missingLocals = [...readLocals].filter(key => !setLocals.has(key));
+    if (missingLocals.length) {
+        warnings.push(`有 ${missingLocals.length} 个 getvar 变量在当前启用条目中没有对应 setvar：${missingLocals.slice(0, 6).join('、')}${missingLocals.length > 6 ? ' 等' : ''}；外部酒馆变量不会自动导入`);
+    }
+    if (/\{\{\s*(?:setglobalvar|getglobalvar)\s*::/i.test(enabledText)) {
+        warnings.push('酒馆 globalvar 在糯米机仅限本轮剧情请求内可用，不会写入其它身份、聊天或应用全局配置');
+    }
+    if (/\{\{\s*random\s*::/i.test(enabledText)) {
+        warnings.push('random 随机分支在每轮发送时重新选择；不保证与酒馆使用相同随机序列');
+    }
     if (prompts.some(prompt => prompt.enabled && /\{\{\s*setvar::/i.test(prompt.content))) {
         warnings.push('已启用的 setvar 规则型正文会转为糯米机实际提示词；只有插件脚本才能实现的变量联动仍不执行');
     }
