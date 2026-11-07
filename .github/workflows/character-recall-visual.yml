@@ -86,8 +86,13 @@ jobs:
             http://127.0.0.1:5173/tests/user-recall-menu-visual.html
           test -s user-recall-menu-390.png
           grep -q 'data-manual-recall-ready="true"' /tmp/manual-recall-390.html || {
-            grep -o 'data-manual-recall-error="[^"]*"' /tmp/manual-recall-390.html | head -c 1200 || true
+            grep -o 'data-manual-recall-error="[^"]*"' /tmp/manual-recall-390.html | head -c 2400 || true
             grep -o '<output id="manual-recall-checks"[^<]*[^<]*' /tmp/manual-recall-390.html | head -c 1200 || true
+            echo "Diagnostic markup excerpt:"
+            grep -o '<body[^>]*' /tmp/manual-recall-390.html | head -c 500 || true
+            grep -o '<div id="manual-recall-menu-root"[^<]*' /tmp/manual-recall-390.html | head -c 1800 || true
+            echo "Vite server errors:"
+            tail -50 /tmp/recall-vite.log || true
             exit 1
           }
           "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \

@@ -1,10 +1,9 @@
 /**
  * Real ChatModals menu, not a hand-drawn mock. The click assertion runs
- * against a mounted React button and the assistant-role comparison is SSR.
+ * against mounted React buttons for both user and character roles.
  */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
 import ChatModals from '../components/chat/ChatModals';
 import type { Message } from '../types';
 
@@ -39,18 +38,23 @@ const props={
     apiPresets:[],
 } as unknown as React.ComponentProps<typeof ChatModals>;
 
+const failures:string[]=[];
+window.addEventListener('error', e => { failures.push(String(e.error?.stack || e.message)); document.body.dataset.manualRecallError=failures.join(' | ').slice(0,1500); });
+window.addEventListener('unhandledrejection', e => { failures.push(String(e.reason)); document.body.dataset.manualRecallError=failures.join(' | ').slice(0,1500); });
 const root=createRoot(host);
+const hiddenHost=document.createElement('div');
+hiddenHost.hidden=true;
+document.body.appendChild(hiddenHost);
+const hiddenRoot=createRoot(hiddenHost);
 try {
-    const assistantMenu = renderToStaticMarkup(React.createElement(ChatModals,{
-        ...props,selectedMessage:{...m,role:'assistant'}
-    }));
     root.render(React.createElement(ChatModals,props));
+    hiddenRoot.render(React.createElement(ChatModals,{...props,selectedMessage:{...m,role:'assistant'}}));
     window.setTimeout(()=>{
         const all=[...host.querySelectorAll('button')];
         const action=all.find(b=>b.textContent?.trim()==='撤回消息');
         const heading=[...host.querySelectorAll('h3')].find(h=>h.textContent?.trim()==='消息操作');
         const hasDelete=all.some(b=>b.textContent?.trim()==='删除消息');
-        const noRecallForAssistant=!assistantMenu.includes('撤回消息');
+        const noRecallForAssistant=![...hiddenHost.querySelectorAll('button')].some(b=>b.textContent?.trim()==='撤回消息');
         const hasRecallForUser=!!action && action.getBoundingClientRect().height>=32;
         // Simulate real user tapping the actual mounted React menu control.
         action?.click();
@@ -62,7 +66,8 @@ try {
         output.hidden=true;output.id='manual-recall-checks';output.textContent=JSON.stringify(checks);
         document.body.append(output);
         document.body.dataset.manualRecallReady=Object.values(checks).every(Boolean)?'true':'false';
-    },200);
+        if(failures.length) document.body.dataset.manualRecallError=failures.join(' | ').slice(0,1500);
+    },650);
 }catch(e){
     document.body.dataset.manualRecallReady='false';
     document.body.dataset.manualRecallError=String(e instanceof Error?e.stack||e.message:e);
