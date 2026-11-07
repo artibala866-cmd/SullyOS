@@ -18,7 +18,7 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(docxXmlToText(xml)).toBe('第一段\t设定\n第二段\n第三行');
         const zip=new JSZip();zip.file('word/document.xml',xml);
         const content=await zip.generateAsync({type:'uint8array'});
-        const file=new File([content],'洛川.docx',{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+        const file=new File([Uint8Array.from(content).buffer],'洛川.docx',{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
         const card=await readCharacterCardFile(file);
         expect(card.source).toBe('document');
         if(card.source==='babylink')throw Error('Document must not parse as Link PNG');
@@ -37,10 +37,10 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(card.worldbooks).toEqual([]);
     });
     it('does not corrupt legacy binary DOC or arbitrary ZIP lacking Word XML',async()=>{
-        const binary=new File([new Uint8Array([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1,0,1,2])],'old.doc');
+        const binary=new File([new Uint8Array([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1,0,1,2]).buffer],'old.doc');
         await expect(readLinkPersonaDocument(binary)).rejects.toThrow('二进制 DOC');
         const zip=new JSZip();zip.file('not-word.txt','hello');
-        await expect(readLinkPersonaDocument(new File([await zip.generateAsync({type:'uint8array'})],'wrong.docx')))
+        await expect(readLinkPersonaDocument(new File([Uint8Array.from(await zip.generateAsync({type:'uint8array'})).buffer],'wrong.docx')))
             .rejects.toThrow('没有 Word 正文');
     });
     it('rejects blank, too large and invalid name documents without changing database',async()=>{
