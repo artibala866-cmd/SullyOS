@@ -138,7 +138,15 @@ export function mergeCardGreetings(
         const body = tavernOpeningSceneText(g.content);
         if (!body) return '';
         // Author requests affect role behavior even if not shown as dialogue.
-        return JSON.stringify([body, tavernOpeningAuthorNote(g.content)]);
+        // The display layer intentionally renders a Markdown/HTML link as
+        // its label. Its destination still matters to story identity: two
+        // diary clues with the same label but different destinations must not
+        // be merged just because their visible text matches.
+        const references = [
+            ...Array.from(g.content.matchAll(/(?<!!)\[[^\]\r\n]+\]\(\s*(https?:\/\/[^\s)]+)\s*\)/gi), match => match[1]),
+            ...Array.from(g.content.matchAll(/<a\b[^>]*\bhref\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>/gi), match => match[1]),
+        ];
+        return JSON.stringify([body, tavernOpeningAuthorNote(g.content), references]);
     };
     for (const original of incoming) {
         if (!original?.content?.trim()) continue;
