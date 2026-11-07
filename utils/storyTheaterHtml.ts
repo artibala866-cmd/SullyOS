@@ -187,8 +187,11 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     const lines = Math.ceil(visibleChars / charsPerLine);
     const blockLines = visibleDoc.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,tr,summary,blockquote,pre').length;
     const images = visibleDoc.querySelectorAll('img').length;
-    const estimatedHeight = Math.max(180, Math.min(520,
-        76 + lines * 22 + blockLines * 15 + images * 145));
+    // Closed <details> may show only a 1-line summary. Keep the sandbox
+    // compact rather than reserving a tall empty panel for hidden content;
+    // expanded content remains scrollable within the iframe.
+    const estimatedHeight = Math.max(76, Math.min(520,
+        22 + lines * 22 + blockLines * 17 + images * 145));
     const baseCss = [
         'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere}',
         '.story-theater-html-content{box-sizing:border-box;max-width:100%;overflow-x:auto;padding:8px 2px}',
