@@ -58,7 +58,7 @@ const dialectCases: Record<string, {
     ako: {
         temperature: 1, top_p: .97, frequency_penalty: .32, presence_penalty: .48, openai_max_tokens: 65535,
         items: [
-            { name: '主文风: 严肃', content: '主要参考严肃文学与世界名著，保持客观文字和真实的节奏。'.repeat(4) },
+            { name: '主文风: 严肃', content: '主要参考严肃文学与世界名著，保持客观文字和真实的节奏。'.repeat(8) },
             { name: '第三人称上帝视角', content: '<POV>正文使用第三人称写作。</POV>' },
             { name: 'RP转述', content: '<转述>把用户输入扩写回放，再开始新剧情。</转述>' },
             { name: '不抢话', content: '禁止代写用户台词，不可代替玩家决定。' },
