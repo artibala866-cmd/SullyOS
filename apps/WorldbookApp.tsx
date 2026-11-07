@@ -659,15 +659,15 @@ const WorldbookApp: React.FC = () => {
 
             {/* Header */}
             <div className="bg-white/70 backdrop-blur-xl border-b border-white/40 shrink-0 sticky top-0 z-20 shadow-sm" style={{ paddingTop: 'var(--safe-top)' }}>
-                <div className="flex items-center px-6 py-3">
-                    <div className="flex justify-between items-center w-full">
+                <div className="flex items-center px-3 min-[390px]:px-6 py-3">
+                    <div className="flex justify-between items-center w-full gap-1">
                         <button onClick={closeApp} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-neutral-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <span className="font-bold text-neutral-700 text-lg tracking-wide flex items-center gap-2">
-                            <DiamondsFour size={18} className="text-neutral-500" /> 世界书
+                        <span className="font-bold text-neutral-700 text-base min-[390px]:text-lg tracking-wide flex items-center gap-1 min-[390px]:gap-2 whitespace-nowrap shrink-0">
+                            <DiamondsFour size={18} className="text-neutral-500 shrink-0" /> 世界书
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 min-[390px]:gap-2 shrink-0">
                             {worldbooks.length > 0 && (
                                 <button
                                     onClick={() => {
@@ -676,7 +676,7 @@ const WorldbookApp: React.FC = () => {
                                         setIsSelecting(true);
                                         trackEvent('进入批量管理模式');
                                     }}
-                                    className={`h-9 px-3 rounded-full border text-xs font-bold shadow-sm flex items-center gap-1.5 active:scale-90 transition-all ${isSelecting ? 'bg-neutral-100 text-neutral-600 border-neutral-200' : 'bg-white/80 text-neutral-500 border-white'}`}
+                                    className={`h-9 px-2 min-[390px]:px-3 rounded-full border text-xs font-bold shadow-sm flex items-center whitespace-nowrap gap-1 min-[390px]:gap-1.5 active:scale-90 transition-all ${isSelecting ? 'bg-neutral-100 text-neutral-600 border-neutral-200' : 'bg-white/80 text-neutral-500 border-white'}`}
                                     title={isSelecting ? '退出批量管理' : '批量管理世界书'}
                                 >
                                     {isSelecting ? <X size={15} weight="bold" /> : <Check size={15} weight="bold" />}
