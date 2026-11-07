@@ -152,7 +152,7 @@ const matchedMountedBook = (
                 // unkeyed worldbook must never become imported source data.
                 (source === 'tavern' && row.sourceUid != null &&
                     row.category === incoming.category) ||
-                (source === 'babylink' && row.category.startsWith('BabyLink · ')) ||
+                (source === 'babylink' && (row.category || '').startsWith('BabyLink · ')) ||
                 source === 'sully'
             )) : mounted;
     const identical = candidates.filter(row => bookSignature(row) === bookSignature(incoming));
