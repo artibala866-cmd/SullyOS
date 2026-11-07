@@ -63,6 +63,7 @@ const audit = () => {
     const focusReading = () => {
         if (focus === 'middle') floors[12].scrollIntoView({ block: 'start', behavior: 'instant' });
         if (focus === 'top') scroll.scrollTop = 0;
+        if (focus === 'middle' || focus === 'top') scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
         if (focus === 'latest') {
             // Exercise the real user interaction rather than mutating scrollTop
             // after a font reflow and accidentally cancelling follow-latest.
