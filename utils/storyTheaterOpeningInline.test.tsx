@@ -478,7 +478,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         const a = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：十八岁平行线"]')!;
         const b = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：末世规则"]')!;
         const mounted = () => host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：演员挂载但未主动选择"]');
-        expect(a()).toBeTruthy();expect(b()).toBeTruthy();expect(mounted()).toBeNull();
+        expect(a()).toBeTruthy();expect(b()).toBeTruthy();expect(mounted()?.getAttribute('aria-pressed')).toBe('false');
         await act(async()=>a().click());
         expect(a().getAttribute('aria-pressed')).toBe('true');
         await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
@@ -487,7 +487,7 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(mounted()?.getAttribute('aria-pressed')).toBe('false');
         await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
         expect(a().getAttribute('aria-pressed')).toBe('true');
-        expect(mounted()).toBeNull();
+        expect(mounted()?.getAttribute('aria-pressed')).toBe('false');
         await act(async()=>b().click());
         await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
         await click('保存并进入');
@@ -495,6 +495,29 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(onSave.mock.calls[0][0].selectedWorldbookIds).toEqual(['standalone-a','standalone-b']);
         expect(actorWithMount.mountedWorldbooks).toEqual([{id:'mounted-only',title:'演员挂载但未主动选择',content:'不该自动带入'}]);
         expect(JSON.stringify(globalBooks)).toBe(original);
+    });
+
+    it('角色挂载书没有入全局库也能在选角前选中，移除该角色后仍可用于同一剧情', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const onSave=vi.fn();
+        const lone={...actor,mountedWorldbooks:[{id:'old-only',title:'旧时空',content:'十七岁时空'}]};
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),title:'独立番外',characterIds:[]},
+            characters:[lone],worldbooks:[],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave,onImportPreset:async()=>null,onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),
+        })));
+        const btn=()=>host!.querySelector<HTMLButtonElement>('button[aria-label="世界书：旧时空"]')!;
+        expect(btn()).toBeTruthy();
+        await act(async()=>btn().click());
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        expect(btn().getAttribute('aria-pressed')).toBe('true');
+        expect(host!.textContent).not.toContain('已失效');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        await click('保存并进入');
+        expect(onSave).toHaveBeenCalledTimes(1);
+        expect((onSave as any).mock.calls[0][0].selectedWorldbookIds).toEqual(['old-only']);
     });
 
     it('大量世界书可搜索；删除原始全局条目不会静默清除旧剧情已经选中的 ID', async () => {
@@ -514,7 +537,12 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         });
         expect(host!.querySelector('button[aria-label="世界书：设定13"]')).toBeTruthy();
         expect(host!.querySelector('button[aria-label="世界书：设定12"]')).toBeNull();
-        expect(host!.textContent).toContain('1 条已选世界书当前不存在');
+        expect(host!.textContent).toContain('1 条已选世界书已失效');
+        expect(host!.querySelector('button[aria-label="世界书：设定13"]')?.getAttribute('aria-pressed')).toBe('true');
+        const remove=[...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('清除失效选择'))!;
+        expect(remove).toBeTruthy();
+        await act(async()=>{remove.click()});
+        expect(host!.textContent).not.toContain('1 条已选世界书已失效');
         expect(host!.querySelector('button[aria-label="世界书：设定13"]')?.getAttribute('aria-pressed')).toBe('true');
     });
 
