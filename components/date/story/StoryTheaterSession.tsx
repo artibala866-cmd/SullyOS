@@ -341,12 +341,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }), [entry.presetOverride, preset]);
     const activeMiniTheater = useMemo(() => getActiveStoryMiniTheaterPrompt(effectivePreset.document), [effectivePreset.document]);
     const affinityEnabled = useMemo(() => effectivePreset.document.prompts.some(prompt => prompt.id === 'nmj-v65-affinity-control' && prompt.enabled), [effectivePreset.document]);
-    // Resolve against the same global + participant-only fallback library as
-    // the editor. Never inject worldbooks merely because a role has mounted them.
+    // Same global + legacy-mount library as the editor, independent of cast.
+    // Only explicitly selected IDs are supplied to this story's AI context.
     const selectedBooks = useMemo(() => {
         const ids = new Set(entry.selectedWorldbookIds);
-        return resolveStoryTheaterWorldbooks(worldbooks, memoryActors).filter(book => ids.has(book.id));
-    }, [worldbooks, memoryActors, entry.selectedWorldbookIds]);
+        return resolveStoryTheaterWorldbooks(worldbooks, characters).filter(book => ids.has(book.id));
+    }, [worldbooks, characters, entry.selectedWorldbookIds]);
     const canStart = hasStoryTheaterParticipant(entry, characters);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
