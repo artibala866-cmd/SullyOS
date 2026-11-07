@@ -35,16 +35,20 @@ const customContent='黄昏的车站里，我推开了那扇门。';
 const customGreeting={id:'custom-written',title:'黄昏车站',content:customContent};
 const legacyScene='{{char}}在夜色中走近。';
 const legacyGreeting={id:'tavern-first',title:'备选开场白 6',content:'<!-- title: 开场白6 -->\n<!-- desc: 车站雨夜。 -->\n\n'+legacyScene};
+const linkGreeting={id:'link-visual-opening',title:'Link · 星河初遇',content:'<!-- Link 原始注释 -->\n{{char}}在星河下等待{{user}}。'};
 const characters=scenario==='empty'||scenario==='customReady'||scenario==='customRecovered'
     ? [{...actor,tavernGreetings:[]}]
     : scenario==='customSaved'
     ? [{...actor,tavernGreetings:[customGreeting]}]
     : scenario==='customMulti'
     ? [{...actor,tavernGreetings:[]},{...actor,id:'visual-second',name:'第二角色',tavernGreetings:[]}]
-    : scenario==='legacy'
+    : ['legacy','autoNameTavern','autoNameManual'].includes(scenario)
     ? [{...actor,tavernGreetings:[legacyGreeting]}]
+    : scenario==='autoNameLink'
+    ? [{...actor,tavernGreetings:[],linkGreetings:[linkGreeting]}]
     : [actor];
-const entry={...createStoryTheaterDraft(),title:'真实时间陪伴 · 视觉验收',
+const entry={...createStoryTheaterDraft(),title:['autoNameTavern','autoNameLink'].includes(scenario)?'':
+    scenario==='autoNameManual'?'我自己命名的剧情':'真实时间陪伴 · 视觉验收',
     characterIds:scenario==='unselected'?[]:scenario==='customMulti'?[actor.id,'visual-second']:[actor.id],
     premise:['customReady','customMulti','customRecovered'].includes(scenario)?customContent:'',
     writesToCharacterMemory:true,carryCharacterMemory:true,
@@ -59,6 +63,15 @@ root.render(React.createElement('div',{className:`story-theme ${light?'story-the
         onImportPreset:async()=>null,onEditPreset:()=>{},onOpenMaskBox:()=>{},
         onCreateGreeting:async (_id:string,_title:string,content:string)=>({...customGreeting,content}),
     })));
+if(['autoNameTavern','autoNameLink','autoNameManual'].includes(scenario))setTimeout(()=>{
+    const selector=document.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]');
+    if(!selector)return;
+    const option=[...selector.options].find(option=>option.value.endsWith(scenario==='autoNameLink'?'::link-visual-opening':'::tavern-first'));
+    if(option){
+        selector.value=option.value;
+        selector.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+},650);
 if(scenario==='customRecovered')setTimeout(()=>{
     document.querySelector<HTMLButtonElement>('button[data-story-opening-save="true"]')?.click();
     setTimeout(()=>{
@@ -85,6 +98,7 @@ const validate=()=>{
     const openingEditor=document.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
     const premiseEditor=document.querySelector<HTMLTextAreaElement>('textarea[aria-label="剧情介绍"]');
     const bookmark=document.querySelector<HTMLButtonElement>('button[data-story-opening-save="true"]');
+    const titleInput=document.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]');
     const cast=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('让谁参与'));
     const rootTheme=document.querySelector<HTMLElement>('.story-theme');
     const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
@@ -101,6 +115,7 @@ const validate=()=>{
         light,scenario,rootBackground:getComputedStyle(rootTheme).backgroundColor,
         openingEditorVisible:!!openingEditor,openingEditorLength:openingEditor?.value.length||0,
         bookmarkVisible:!!bookmark,bookmarkDisabled:bookmark?.disabled||false,
+        storyTitle:titleInput?.value||'',
         openingIntegrated:openingSelect!==null
             && cast?.querySelector('select[aria-label="选择已有开场"]')===null
             && !document.body.textContent?.includes('Tavern opening') && !document.body.textContent?.includes('酒馆卡'),
@@ -120,6 +135,12 @@ const validate=()=>{
                 ? premiseEditor?.value===customContent && !!bookmark && !bookmark.disabled
                     && (scenario!=='customMulti' || !!document.querySelector('[data-story-opening-target="true"]'))
                     && (scenario!=='customRecovered' || (openingSelect?.value==='' && openingSelect?.textContent?.includes('黄昏车站')))
+                : true)
+            && (['autoNameTavern','autoNameLink','autoNameManual'].includes(scenario)
+                ? titleInput?.value===(scenario==='autoNameTavern'?'开场白6':
+                    scenario==='autoNameLink'?'Link · 星河初遇':'我自己命名的剧情')
+                    && openingSelect?.value===`${actor.id}::${scenario==='autoNameLink'?'link-visual-opening':'tavern-first'}`
+                    && openingEditor?.value===(scenario==='autoNameLink'?linkGreeting.content:legacyScene)
                 : true)
             && (scenario==='manual'
                 ? !openingSelect?.hasAttribute('disabled') && openingSelect?.querySelector('option')?.textContent==='选择已有开场'
