@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
-import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt, StoryTavernChoiceKey } from '../../../types';
-import { detectTavernNativeControls } from '../../../utils/storySillyTavernImport';
+import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
     applyStoryPresetChoice,
     addStoryPresetGroup,
@@ -89,11 +88,6 @@ const STORY_GENERATION_FIELDS = [
     ['presencePenalty', '话题惩罚', 'Presence penalty', -2, 2, 0.05, '正值更愿意引入新内容，负值更愿意围绕已有内容继续。部分 Claude 中转会忽略这项。'],
     ['maxTokens', '最大输出', 'Max tokens', 256, 32000, 256, '只限制本轮最多能生成多少，不代表每次一定写满；篇幅仍主要由上面的“篇幅”选项决定。'],
 ] as const;
-
-const TAVERN_NATIVE_CHOICE_KEYS: Record<string, StoryTavernChoiceKey> = {
-    '文风': 'style', '人称': 'pov', '输入转述': 'retelling', '你的执笔权': 'agency',
-    '场景张力': 'tension', '小剧场': 'theater', '语言': 'language', '篇幅': 'length',
-};
 
 const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy, onDelete }) => {
     const [draft, setDraft] = useState<StoryTheaterPreset>(() => ({
