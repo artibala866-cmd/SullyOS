@@ -114,6 +114,24 @@ describe('Tavern & Link import keeps Neural Link remarks independent',()=>{
             item(prepared,{source:'babylink',originalName:old.name,externalId:'link-source-22'},old.id)]);
         expect(custom.characters[0].description).toBe('私人备注：这个角色叫哥哥');
     });
+    it('repairs only the exact legacy TXT/DOCX persona-prefix remark, never manual or native remarks',()=>{
+        const persona='第一个角色段落。'.repeat(85);
+        const prompt='【导入人物原始文档】\n'+persona;
+        const old=role('doc','document',persona.slice(0,260),prompt);
+        expect(importedCardRemarkCorrection(old)).toBe('');
+        const manual={...old,description:'自己手写的重要备注'};
+        expect(importedCardRemarkCorrection(manual)).toBeNull();
+        const native=role('sully-native','sully',persona.slice(0,260),prompt);
+        expect(importedCardRemarkCorrection(native)).toBeNull();
+        const normalized=mergeCardImports([old],[],[{
+            character:old, expectedTargetId:old.id,
+            fields:{name:old.name,description:'',systemPrompt:prompt},
+            worldbooks:[],origin:old.cardImportOrigin!,
+        }]);
+        expect(normalized.characters[0].description).toBe('');
+        expect(normalized.characters[0].systemPrompt).toBe(prompt);
+    });
+
     it('Link nickname changes on update but does not overwrite a user-edited remark',()=>{
         const old=role('link-name','babylink','阿北',link('阿北').character.systemPrompt!);
         const next=link('小北');
