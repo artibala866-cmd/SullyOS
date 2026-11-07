@@ -119,7 +119,7 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(data.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
   expect(data.document.prompts.find(p=>p.id==='st-pov-you')?.enabled).toBe(true);
   expect(data.document.generation).toMatchObject({temperature:1.05,topP:.95,frequencyPenalty:.4,presencePenalty:.3});
-  expect(data.document.tavernControls?.overrides).toBeUndefined();
+  expect(data.document.tavernControls?.overrides).toEqual({});
   const persisted=(await DB.getStoryTheaterPresets()).find(p=>p.id===data.id)!;
   expect(persisted.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
   expect(persisted.document.prompts.find(p=>p.id==='st-agency-full')?.enabled).toBe(false);
