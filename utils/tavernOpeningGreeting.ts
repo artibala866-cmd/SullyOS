@@ -88,6 +88,101 @@ export const stripNonStoryOpeningBlocks = (source: string): string => {
 };
 
 /**
+ * Story-only plain-body extraction for imported greeting formats.
+ *
+ * Anything explicitly wrapped in a paired tag or decorated bracket block is
+ * NOT the outside prose requested by the user. Remove the full contents,
+ * regardless of the author's tag name, language, schema or asset URLs.
+ *
+ * This is read-time only: raw Tavern/Link cards are never mutated, nor are
+ * user-authored greetings or ordinary chat messages. Unclosed structures
+ * only lose their marker, never an unbounded tail of story text.
+ */
+export const stripWrappedOpeningPayloads = (source: string): string => {
+    const input = String(source || '');
+    if (!input) return '';
+    const spans: Array<{ start: number; end: number }> = [];
+    const add = (start: number, end: number) => {
+        if (end > start) spans.push({ start, end });
+    };
+
+    // Code fences carry an embedded format, not the free-standing story.
+    for (const fence of [
+        /^[ \t]*\x60{3}[^\r\n]*\r?\n[\s\S]*?^[ \t]*\x60{3}[ \t]*$/gm,
+        /^[ \t]*~{3}[^\r\n]*\r?\n[\s\S]*?^[ \t]*~{3}[ \t]*$/gm,
+    ]) {
+        for (const match of input.matchAll(fence)) add(match.index!, match.index! + match[0].length);
+    }
+
+    // Markdown links/images are wrapped external material too. Removing only
+    // their [label] would leave stray (https://...) in the opening.
+    for (const match of input.matchAll(/!?\[[^\]\r\n]{0,1000}\]\([^\r\n)]{0,4000}\)/g)) {
+        add(match.index!, match.index! + match[0].length);
+    }
+
+    // All paired XML/HTML/custom tags, comments, instructions and declarations.
+    // This is a structural rule, NOT a list of specific "wb_lore" authors.
+    const tagToken = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<![^>\r\n]{0,4096}>|<\?[\s\S]{0,4096}?\?>|<\/?[a-z][\w:.-]*(?:\s+(?:"[^"]*"|'[^']*'|[^'"><])*)?\s*\/?>|<[a-z][\w-]*\s*[:：][^>\r\n]{0,4096}>/gi;
+    const opened: Array<{ name: string; start: number; end: number }> = [];
+    const voidTags = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+    for (const match of input.matchAll(tagToken)) {
+        const token = match[0], start = match.index!, end = start + token.length;
+        const tag = /^<\/?([a-z][\w:.-]*)/i.exec(token);
+        if (!tag || /^<request\s*[:：]/i.test(token) || /^<[a-z][\w-]*\s*[:：]/i.test(token)) {
+            add(start, end); continue;
+        }
+        const name = tag[1].toLowerCase();
+        if (token.startsWith('</')) {
+            const index = opened.findLastIndex(item => item.name === name);
+            if (index >= 0) {
+                add(opened[index].start, end);
+                opened.splice(index);
+            } else add(start, end);
+        } else if (/\/\s*>$/.test(token) || voidTags.has(name)) add(start, end);
+        else opened.push({ name, start, end });
+    }
+    // Missing a closing tag is not permission to erase the rest of a novel.
+    for (const item of opened) add(item.start, item.end);
+
+    // Paired ornamental brackets and [shortcodes], including nested/wrapped
+    // multiline media/status panels. Do NOT touch Chinese quote marks,
+    // parentheses or literal curly braces such as {{char}}.
+    const bracketPairs: Record<string, string> = {
+        '【': '】', '〖': '〗', '〔': '〕', '［': '］', '[': ']',
+    };
+    const closing = new Set(Object.values(bracketPairs));
+    const stack: Array<{ char: string; start: number }> = [];
+    for (let offset = 0; offset < input.length; offset++) {
+        const char = input[offset];
+        if (bracketPairs[char]) stack.push({ char, start: offset });
+        else if (closing.has(char)) {
+            const index = stack.findLastIndex(item => bracketPairs[item.char] === char);
+            if (index < 0) continue;
+            add(stack[index].start, offset + 1);
+            stack.splice(index);
+        }
+    }
+
+    if (!spans.length) return input;
+    spans.sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged: typeof spans = [];
+    for (const span of spans) {
+        const previous = merged[merged.length - 1];
+        if (previous && span.start <= previous.end) previous.end = Math.max(previous.end, span.end);
+        else merged.push({ ...span });
+    }
+    const parts: string[] = [];
+    let cursor = 0;
+    for (const span of merged) {
+        parts.push(input.slice(cursor, span.start));
+        parts.push(/[\r\n]/.test(input.slice(span.start, span.end)) ? '\n' : '');
+        cursor = span.end;
+    }
+    parts.push(input.slice(cursor));
+    return parts.join('');
+};
+
+/**
  * Discard third-party *display widgets*, not narrative links. This is format-
  * based: new authors/domains need no special-case list. Never fetch URLs.
  * A meaningful Markdown link keeps its label; prose and XML story tags survive.
@@ -173,7 +268,7 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     // normal URLs mentioned in a dialogue sentence or a source note.
     text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#][^\s]*)?[ \t]*$/gim, '');
     text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\/(?:maps|embed|player|widget)(?:[/?#][^\s]*)?[ \t]*$/gim, '');
-    return text;
+    return stripWrappedOpeningPayloads(text);
 };
 
 /**
