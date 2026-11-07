@@ -1075,6 +1075,28 @@ export const getStoryTavernAuthorSections = (
         // A named source section is an author's real module, even when its
         // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
         const key = 'source:' + group.key;
+        // Phantasm uses one titled block for three different SOURCE
+        // subchapters. A "择一" primary style must never make overlays or
+        // rhetoric exclusive. Split only at the author's actual headings.
+        const overlayIndex = /文风.*择一/.test(group.label)
+            ? options.findIndex(option => /可叠加/.test(option.label)) : -1;
+        const rhetoricIndex = overlayIndex > 0
+            ? options.findIndex((option, i) => i > overlayIndex && /表现.*修辞手法/.test(option.label))
+            : -1;
+        if (overlayIndex > 0) {
+            const primary = options.slice(0, overlayIndex);
+            const overlays = options.slice(overlayIndex, rhetoricIndex > overlayIndex ? rhetoricIndex : undefined);
+            const rhetoric = rhetoricIndex > overlayIndex ? options.slice(rhetoricIndex + 1) : [];
+            out.push({ key: key + ':primary', label: group.label.trim(),
+                description: '', options: primary, single: true });
+            if (overlays.length) out.push({ key: key + ':overlay', label: '可叠加文体',
+                description: '', options: overlays, single: false });
+            if (rhetoric.length) out.push({ key: key + ':rhetoric',
+                label: options[rhetoricIndex].label, description: '',
+                options: rhetoric, single: false });
+            options.forEach(option => seen.add(option.id));
+            continue;
+        }
         out.push({
             key, label: group.label.replace(/[▣◈▶◀︎◌]/gu, '').replace(/\s+/g, ' ').trim(),
             description: '原作者分组 · 切换原始条目，不附加内置规则',
