@@ -85,6 +85,22 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
         expect(changed.prompts.find(o => o.id === 'st-base')?.enabled).toBe(true);
     });
 
+    it('MoM5.40 默认关闭的可选文风：能开启也能关闭，不能误当作者必选', () => {
+        const p = make('MoM5.40-可选风格.json', [
+            { id: 'head', name: '——📌⬇️文风区⬇️——', content: '<writing_style>', enabled: true },
+            { id: 'light', name: '⌨️轻松文风', content: '作者轻松文风', enabled: false },
+            { id: 'dark', name: '⌨️现实文风', content: '作者现实文风', enabled: false },
+            { id: 'end', name: '——📌⬆️文风区⬆️——', content: '</writing_style>', enabled: true },
+        ]);
+        const section = getStoryTavernAuthorSections(p.document).find(s => s.options.some(o => o.id === 'st-light'))!;
+        expect(section.single).toBe(false);
+        const on = selectStoryTavernAuthorOption(p.document, section.key, 'st-light');
+        expect(on.prompts.find(x => x.id === 'st-light')?.enabled).toBe(true);
+        const off = selectStoryTavernAuthorOption(on, section.key, 'st-light');
+        expect(off.prompts.find(x => x.id === 'st-light')?.enabled).toBe(false);
+        expect(off.prompts.find(x => x.id === 'st-head')?.enabled).toBe(true);
+    });
+
     it('MoM5.40：同组的四选一小剧场切换，不应关闭独立开启的随机小剧场', () => {
         const p = make('MoM5.40.json', [
             { id: 'open', name: '===💡⬇️小剧场区⬇️💡===', content: '<theater>', enabled: true },
