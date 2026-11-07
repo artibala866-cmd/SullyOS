@@ -47,6 +47,46 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
 };
 
 /**
+ * Discard third-party *display widgets*, not narrative links. This is format-
+ * based: new authors/domains need no special-case list. Never fetch URLs.
+ * A meaningful Markdown link keeps its label; prose and XML story tags survive.
+ */
+export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
+    let text = String(source || '');
+    const mediaLabel = /^(?:spotify|music(?:[_ -]?player)?|song|audio|video|player|image|img|gif|picture|map|maps|location[_ -]?map|iframe|embed|widget|音乐(?:播放器)?|歌曲|音频|视频|图片|地图|播放器|外链组件)$/i;
+    const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
+    const mediaFile = /\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|]|$)/i;
+
+    // [spotify: title | decoration | cover.gif | song.mp3] and similar
+    // third-party status widgets, including unknown names carrying multiple
+    // external media assets. Ordinary [线索: ...] stays intact.
+    text = text.replace(/\[([^\]\r\n:：|]{1,50})[ \t]*[:：]([^\]\r\n]{0,4000})\]/g,
+        (full, rawLabel: string, payload: string) => {
+            const label = rawLabel.trim();
+            const urls = (payload.match(/https?:\/\//gi) || []).length;
+            const mediaWidget = mediaLabel.test(label)
+                && (externalUrl.test(payload) || payload.includes('|') || /^spotify$/i.test(label));
+            const unknownMediaWidget = urls >= 2 && payload.includes('|') && mediaFile.test(payload);
+            return mediaWidget || unknownMediaWidget ? '' : full;
+        });
+
+    // Inline/fenced media is presentation code, not a playable SullyOS item.
+    text = text.replace(/<(audio|video|picture|iframe|object|embed|canvas|svg|map)\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/\1\s*>/gi, '');
+    text = text.replace(/<(?:audio|video|source|track|picture|iframe|object|embed|canvas|svg|area|param)\b(?:"[^"]*"|'[^']*'|[^'">])*\/?>/gi, '');
+
+    // Inline images contribute no usable story text without the external
+    // image renderer; ordinary hyperlinks preserve their visible label.
+    text = text.replace(/!\[[^\]\r\n]{0,300}\]\(\s*(?:https?:\/\/|data:image\/)[^\r\n)]{1,4000}\)/gi, '');
+    text = text.replace(/\[([^\]\r\n]{1,300})\]\(\s*https?:\/\/[^\r\n)]{1,4000}\)/gi,
+        (_whole, label: string) => label);
+
+    // Raw standalone direct media URLs are decorative assets. Do NOT remove
+    // normal URLs mentioned in a dialogue sentence or a source note.
+    text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#][^\s]*)?[ \t]*$/gim, '');
+    return text;
+};
+
+/**
  * Presentation-only adapter for authored Tavern greeting scenes.
  * Keep the original card bytes in IndexedDB; callers use this for the Story
  * editor, the first floor and the old first-floor reader. Never run imported
@@ -56,7 +96,7 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
  * user messages, and it does not reinterpret arbitrary XML narrative tags.
  */
 export const tavernOpeningReadableText = (content: string): string => {
-    let text = String(content || '');
+    let text = stripUnsupportedTavernOpeningEmbeds(content);
     // Inline author requests are not a title, dialogue, or a story status bar.
     // Their raw text remains available in the imported source card.
     text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*(?:\r?\n|$)/gim, '');
