@@ -11,6 +11,7 @@ import type {
     StoryTheaterPreset,
     StoryTheaterPresetDocument,
     StoryTheaterPresetPrompt,
+    StoryTavernChoiceKey,
     UserProfile,
 } from '../types';
 import nightScreeningV627 from '../assets/presets/night-screening-v6.14.sully.json';
@@ -40,6 +41,28 @@ export interface StoryPromptSlots {
     tavernDescription?: string;
     tavernPersonality?: string;
 }
+
+/** Exact built-in options allowed for user-initiated Tavern overrides.
+ * Never allow arbitrary imported IDs to pick an unrelated native directive.
+ */
+const TAVERN_NATIVE_CONTROL_IDS: Record<StoryTavernChoiceKey, readonly string[]> = {
+    style: ['nmj-v3-style-soda', 'nmj-v3-style-corridor', 'nmj-v3-style-comedy',
+        'nmj-v3-style-darkcomedy', 'nmj-v3-style-syrup', 'nmj-v3-style-dullknife', 'nmj-v3-style-drama'],
+    pov: ['nmj-v3-pov-second', 'nmj-v3-pov-third'],
+    retelling: ['nmj-v62-retelling-replay', 'nmj-v62-retelling-direct'],
+    agency: ['nmj-v63-user-agency-locked', 'nmj-v63-user-agency-assist', 'nmj-v63-user-agency-auto'],
+    tension: ['nmj-v64-tension-lowfever-1', 'nmj-v64-tension-lowfever-2', 'nmj-v64-tension-lowfever-3'],
+    theater: ['nmj-v3-theater-ai', 'nmj-v3-theater-user-sim', 'nmj-v3-theater-group',
+        'nmj-v3-theater-random', 'nmj-v6-side-channel-terminal', 'nmj-v6-side-channel-evidence',
+        'nmj-v6-side-channel-public', 'nmj-v6-side-channel-wrong-reel'],
+    language: ['nmj-v3-language-cn', 'nmj-v3-language-tw'],
+    length: ['nmj-v3-length-short', 'nmj-v3-length-medium', 'nmj-v3-length-long'],
+};
+export const isAllowedTavernNativeOverride = (key: string, choice: unknown): boolean =>
+    (choice === null || ((key === 'theater' || key === 'tension') && choice === '')
+        || (typeof choice === 'string'
+            && Object.prototype.hasOwnProperty.call(TAVERN_NATIVE_CONTROL_IDS, key)
+            && TAVERN_NATIVE_CONTROL_IDS[key as StoryTavernChoiceKey].includes(choice)));
 
 export interface StoryGenerationSettings {
     temperature?: number;
@@ -367,10 +390,7 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
                 ...detectTavernNativeControls(prompts),
                 overrides: Object.fromEntries(
                     Object.entries(value.tavernControls?.overrides || {})
-                        .filter(([key, choice]) => ['style', 'pov', 'retelling', 'agency', 'tension', 'theater', 'language', 'length'].includes(key)
-                            && (choice === null || choice === '' ||
-                                (typeof choice === 'string' && /^nmj-v[0-9]+[-a-z0-9]+$/.test(choice)
-                                    && nightScreeningV627.prompts.some((prompt: any) => prompt.id === choice)))),
+                        .filter(([key, choice]) => isAllowedTavernNativeOverride(key, choice)),
                 ),
             },
         } : {}),
@@ -1259,9 +1279,7 @@ export const buildTavernNativeOverrideMessages = (
             continue;
         }
         const original = nightScreeningV627.prompts.find(prompt => prompt.id === option);
-        if (!original || !original.content || ![
-            'style', 'pov', 'retelling', 'agency', 'tension', 'theater', 'language', 'length',
-        ].includes(key)) continue;
+        if (!original || !original.content || !isAllowedTavernNativeOverride(key, option)) continue;
         // Imported Tavern often uses <content> instead of native <story_text>.
         // Translate only the contract tag in the *extra native rule*, never
         // in the author's original or in previously saved story turns.
