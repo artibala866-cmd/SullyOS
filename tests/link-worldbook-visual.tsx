@@ -72,12 +72,13 @@ async function run(){
         for(let n=0;n<100&&lastImported.length!==3;n++)await new Promise(r=>setTimeout(r,100));
         await new Promise(r=>setTimeout(r,150));
         const root=document.documentElement,view=[innerWidth,innerHeight];
-        const cards=[...document.querySelectorAll('summary')].map(el=>el.textContent?.trim()||'');
+        const cards=[...document.querySelectorAll('button')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事'));
         const doc=document.body.textContent||'';
         const result={
             viewport:view,selectedFileCount:2,importedCount:lastImported.length,
             grouped:cards,warningCount:errors.length,
             noOverflowX:root.scrollWidth<=innerWidth+2,
+            titleFits:!([...document.querySelectorAll('span')].filter(x=>x.textContent?.trim()==='世界书').some(el=>el.getBoundingClientRect().height>40)),
             inputMulti:input.multiple,acceptedWord:input.accept.includes('.docx'),
             uiVisible:!!document.querySelector('button[title="导入标准世界书"]'),
             linkedBook:cards.some(x=>x.includes('Link世界设定')),
@@ -86,7 +87,7 @@ async function run(){
             keywordImported:lastImported.some(x=>x.title==='好友背景'&&x.key?.includes('旧友')),
             errors,
         };
-        const pass=result.importedCount===3&&result.noOverflowX&&result.inputMulti&&
+        const pass=result.importedCount===3&&result.noOverflowX&&result.titleFits&&result.inputMulti&&
             result.acceptedWord&&result.uiVisible&&result.linkedBook&&result.documentBook&&
             result.disabledBookImported&&result.keywordImported&&!errors.length;
         document.body.dataset.cardImportVisualReady=String(pass);
