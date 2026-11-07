@@ -24,6 +24,7 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         if(card.source==='babylink')throw Error('Document must not parse as Link PNG');
         expect(card.character.name).toBe('洛川');
         expect(card.character.systemPrompt).toContain('第一段\t设定\n第二段\n第三行');
+        expect(card.character.description).toBe(''); // Neural Link note is never document text
         expect(card.worldbooks).toEqual([]);
         expect(card.character.tavernGreetings).toBeUndefined();
     });
@@ -33,6 +34,7 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(card.source).toBe('document');
         if(card.source==='babylink')throw Error('Wrong format');
         expect(card.character.systemPrompt).toContain(text);
+        expect(card.character.description).toBe(''); // Long persona stays outside local remark
         expect(card.character.tavernGreetings).toBeUndefined();
         expect(card.worldbooks).toEqual([]);
     });
