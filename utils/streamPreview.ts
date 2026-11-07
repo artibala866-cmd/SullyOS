@@ -15,6 +15,7 @@
  */
 
 import { ChatParser } from './chatParser';
+import { splitCharacterRecallOutput } from './messageRecall';
 import type { Message } from '../types';
 
 /** 跨行块规则：open 命中进入抑制态，直到 close 命中（含闭合行本身）。 */
@@ -38,7 +39,7 @@ function isLinePreviewable(line: string): boolean {
     if (!line) return false;
     if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
     if (/^\[BLOCK_USER:/i.test(line)) return false;           // 角色自主拉黑是内部动作，不能闪成气泡
-    if (/^\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user)\"/i.test(line)) return false; // 原版结构化动作
+    if (/^\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user|recall)\"/i.test(line)) return false; // 原版结构化动作
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令
     if (/%%BILINGUAL%%|%%TRANS%%/i.test(line)) return false;
     if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought|sully_phone_events)\b/i.test(line)) return false;
@@ -99,7 +100,13 @@ export function computeStreamPreviewBubbles(fullText: string): string[] {
         const clean = ChatParser.sanitize(chunk).trim();
         if (clean && ChatParser.hasDisplayContent(clean)) bubbles.push(clean);
     }
-    return bubbles;
+    // While the model streams "said it → recalled it → corrected itself",
+    // stop showing the now-recalled preview bubble as soon as the directive
+    // has arrived. It is still committed/withdrawn by the real DB pipeline.
+    const recalled = new Set(splitCharacterRecallOutput(fullText)
+        .filter((s): s is { kind: 'recall'; original: string } => s.kind === 'recall')
+        .map(s => s.original.trim()));
+    return recalled.size ? bubbles.filter(value => !recalled.has(value.trim())) : bubbles;
 }
 
 /** 提取普通 content 通道里已闭合或仍在增长的内嵌思考块。 */

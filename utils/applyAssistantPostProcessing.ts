@@ -53,6 +53,7 @@ import {
 import { getLocalDateKey } from './localDate';
 import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
+import { splitCharacterRecallOutput } from './messageRecall';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { isBlobRef } from './blobRef';
 import { stripLeakedSourceTags } from './sanitize';
@@ -1022,6 +1023,29 @@ export async function applyAssistantPostProcessing(
         }
     };
 
+    // The model can recall a message from the SAME turn: persist that text first,
+    // then atomically replace its row with a tombstone before the next bubble.
+    // Unlike inserting a system log, the original bubble can never remain shown.
+    const renderWithCharacterRecall = async (raw: string, chain: string | null): Promise<void> => {
+        let pendingChain = chain;
+        for (const step of splitCharacterRecallOutput(raw)) {
+            if (step.kind === 'text') {
+                if (step.content.trim()) {
+                    await replyStep(async () => renderAndPersist(step.content, pendingChain));
+                    pendingChain = null;
+                }
+                continue;
+            }
+            const recalledId = await replyStep(async () => DB.recallAssistantPrivateMessage(char.id, step.original));
+            if (recalledId !== null) {
+                // Ensure already cached/generated TTS cannot play withdrawn text.
+                setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+                // Cloud snapshots may still contain the pre-recall text.
+                markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
+            }
+        }
+    };
+
     // 「执行功能前的本轮正文 A」: 在二轮重生开始前先把 A 渲染成气泡, 这样用户看到的顺序是
     // A 气泡 → "正在搜索/调阅…" 状态 → 二轮结果 B 气泡 (而不是等 B 回来才一起冒出来)。
     // XHS_*/READ_NOTE 标签 sanitize 不剥, 这里先剥掉; 其余 RECALL/SEARCH/DIARY... 由 renderAndPersist
@@ -1031,7 +1055,7 @@ export async function applyAssistantPostProcessing(
     const renderLeadIn = async (raw: string): Promise<void> => {
         if (leadInRendered) return;
         leadInRendered = true;
-        await replyStep(async () => renderAndPersist(
+        await replyStep(async () => renderWithCharacterRecall(
             raw.replace(/\[\[READ_NOTE:[\s\S]*?\]\]/g, '').replace(/\[\[XHS_[A-Z_]+(?::[\s\S]*?)?\]\]/g, ''),
             round1ThinkingChain,
         ));
@@ -2380,8 +2404,8 @@ export async function applyAssistantPostProcessing(
         const sanitizedBody = ChatParser.sanitize(aiContent, { keepCitations: true })
             .replace(/\[\[INNER_STATE:\s*[\s\S]*?\]\]/g, '')
             .trim();
-        if (sanitizedBody) {
-            await replyStep(async () => renderAndPersist(aiContent, pendingThinkingChain));
+        if (sanitizedBody || splitCharacterRecallOutput(aiContent).some(step => step.kind === 'recall')) {
+            await replyStep(async () => renderWithCharacterRecall(aiContent, pendingThinkingChain));
         } else if (!leadInRendered && (data !== initialData || recallMatch || searchMatch || readDiaryMatch || fsReadDiaryMatch)) {
             // 跑过二轮却吐空, 且本轮还没展示过任何内容 → 至少补一句, 避免整轮静默。
             await replyStep(async () => renderAndPersist('嗯...', pendingThinkingChain));

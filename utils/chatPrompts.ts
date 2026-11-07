@@ -1147,6 +1147,12 @@ ${voiceActingGuide()}`;
 
         return {
             apiMessages: historySlice.map((m, index) => {
+                // A recalled bubble keeps its own ID/order but its original text is
+                // no longer a visible utterance. Never leak the stored original.
+                if (m.metadata?.recalledAt) return {
+                    role: 'system',
+                    content: '[系统记录：角色撤回了先前发送的一条消息；原文已隐藏。]',
+                };
                 if (m.type === 'secret_note') return {role: m.role, content: secretNoteContext(m.content)};
                 let content: any = m.content;
                 const timeStr = timeAwarenessOn ? `[${ChatPrompts.formatDate(m.timestamp, charTz)}]` : '';

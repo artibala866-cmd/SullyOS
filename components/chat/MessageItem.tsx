@@ -1420,6 +1420,19 @@ const MessageItem = React.memo(({
     // Secrets are revealed on entering the home, or inspected in history management.
     if (m.type === 'secret_note') return null;
 
+    // Recalled content replaces the original bubble; it is never rendered
+    // alongside the withdrawn text or an extra system message.
+    if (m.metadata?.recalledAt) {
+        return (
+            <div className="flex w-full justify-center px-3 py-2 my-1.5" role="status"
+                 aria-label={`${m.role === 'assistant' ? charName : '你'}撤回了一条消息`}>
+                <span className="inline-flex max-w-[85%] items-center justify-center rounded-full bg-neutral-500/[0.06] px-3.5 py-1.5 text-center text-[11px] leading-relaxed font-medium tracking-wide text-neutral-400">
+                    {m.role === 'assistant' ? charName : '你'}撤回了一条消息
+                </span>
+            </div>
+        );
+    }
+
     // --- SYSTEM MESSAGE RENDERING ---
     if (isSystem) {
         const isCallSummary = m.metadata?.source === 'call-end-popup';

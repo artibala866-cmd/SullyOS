@@ -1428,6 +1428,71 @@ export const DB = {
     });
   },
 
+  /**
+   * Character-initiated recall for a private-chat text bubble.
+   * This atomically converts the ORIGINAL row into a hidden tombstone; adding a
+   * separate system row would leave the original text visible, which is wrong.
+   * Matching and mutation share a readwrite transaction to prevent races between tabs.
+   * No frequency limiter: the character decides when to use this action.
+   */
+  recallAssistantPrivateMessage: async (charId: string, original: string): Promise<number | null> => {
+    const expected = original.trim();
+    if (!charId || !expected) return null;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      const index = store.index('charId');
+      let recalledId: number | null = null;
+      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result;
+        if (!cursor || recalledId !== null) return;
+        const msg = cursor.value as Message;
+        if (!msg.groupId && msg.role === 'assistant' && msg.type === 'text'
+            && !msg.metadata?.recalledAt && msg.content.trim() === expected) {
+          recalledId = msg.id;
+          store.put({
+            ...msg,
+            content: '[消息已撤回]',
+            metadata: {
+              ...(msg.metadata || {}),
+              recalledAt: Date.now(),
+              recalledBy: 'assistant',
+              recalledOriginalContent: msg.content,
+            },
+          });
+          // Reply cards store a separate snapshot of the quoted message.
+          // Scrub those copies in this same transaction, or the withdrawn text
+          // would remain visible underneath other bubbles after refresh/import.
+          const refs = index.openCursor(IDBKeyRange.only(charId));
+          refs.onsuccess = () => {
+            const current = refs.result;
+            if (!current) return;
+            const cited = current.value as Message;
+            if (cited.replyTo?.id === recalledId && !cited.groupId) {
+              current.update({
+                ...cited,
+                replyTo: { ...cited.replyTo, content: '[消息已撤回]' },
+              });
+            }
+            current.continue();
+          };
+          return;
+        }
+        cursor.continue();
+      };
+      tx.oncomplete = () => {
+        if (recalledId !== null) {
+          try { localStorage.removeItem(`mp_lastMsgId_${charId}`); } catch {}
+        }
+        resolve(recalledId);
+      };
+      tx.onerror = () => reject(tx.error || new Error('Message recall failed'));
+      tx.onabort = () => reject(tx.error || new Error('Message recall aborted'));
+    });
+  },
+
   deleteMessage: async (id: number): Promise<void> => {
     const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
     await preserveContentFavoritesBeforeMessageDeletion({ ids: [id] });

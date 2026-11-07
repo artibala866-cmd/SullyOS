@@ -450,6 +450,13 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
 </翻译>`;
     }
 
+    // Private chat only: the model may request a genuine recall mutation.
+    // No extra API calls, timer, background task, or arbitrary frequency rule.
+    if (!input.appPrompt && input.recallEntryPoint === 'chat_app') {
+        systemPrompt += `\n\n### 私聊消息撤回
+如果你确实想收回自己刚发出的某一条文字消息（如笔误、说漏嘴、后悔），可以单独写一行 [[MESSAGE_RECALL:原消息完整文字]]。原文必须和你已发出的那条文字消息一致；系统会将那条消息本身隐藏，并替换成“撤回了一条消息”，不是再补发一条提示。如果同一次回复里想先说一句、收回、再说别的，将这三部分分别换行输出即可。是否撤回由你自己根据情境决定；这不是必须执行的回复模板。不可撤回用户的消息。此指令不是向对方发送的文字。`;
+    }
+
     // ── 5. HTML 卡片模式 ─────────────────────────────────
     const htmlActive = !input.appPrompt && !!htmlMode?.enabled;
     if (htmlActive) {
