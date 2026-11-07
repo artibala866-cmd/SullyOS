@@ -67,6 +67,26 @@ describe('story summary final channel', () => {
 });
 
 describe('story archive regeneration', () => {
+    it('regenerates with only this story\'s cheap API, without touching the expensive main provider', async () => {
+        entry.memorySummaryApi = { baseUrl: 'https://cheap.invalid/v1/', apiKey: 'cheap-secret', model: 'economy-model' };
+        await DB.saveStoryTheater(entry);
+        const updated = await regenerate();
+        const request = fetchMock.mock.calls[0];
+        expect(request[0]).toBe('https://cheap.invalid/v1/chat/completions');
+        expect(request[1].headers.Authorization).toBe('Bearer cheap-secret');
+        expect(JSON.parse(request[1].body).model).toBe('economy-model');
+        expect(updated.archives[0].summary).toContain('车站');
+        expect(api).toEqual({ baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' });
+    });
+    it('rejects a failing secondary API without retrying on the expensive main API, leaving old summary intact', async () => {
+        entry.memorySummaryApi = { baseUrl: 'https://cheap.invalid/v1', apiKey: '', model: 'economy-model' };
+        await DB.saveStoryTheater(entry);
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'cheap provider unavailable' } }), { status: 503 }));
+        await expect(regenerate()).rejects.toThrow('cheap provider unavailable');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock.mock.calls[0][0]).toContain('cheap.invalid');
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+    });
     it('regenerates only the exact archived source, saves in place and preserves concurrent unrelated edits/receipts', async () => {
         const { id: _id, ...newMessage } = messages[0];
         await DB.saveMessage({ ...newMessage, content: '盒外的新剧情' });
