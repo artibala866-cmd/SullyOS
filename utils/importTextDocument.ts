@@ -81,7 +81,8 @@ export type UserBioImportMode = 'append' | 'replace';
 export function planUserBioDocumentImport(
     current: string, incoming: string, mode: UserBioImportMode,
 ): { bio: string; changed: boolean } {
-    const existing = (current || '').trim();
+    const original = current || '';
+    const existing = original.trim();
     const text = (incoming || '').trim();
     if (!text) throw new Error('文件正文为空');
     if (mode !== 'append' && mode !== 'replace') throw new Error('导入方式无效');
@@ -97,7 +98,11 @@ export function planUserBioDocumentImport(
             at = existing.indexOf(text, at + 1);
         }
     }
-    const bio = mode === 'replace' || !existing ? text : existing + '\n\n' + text;
+    // Keep handwritten indentation and trailing spacing intact. Trimming
+    // the original biography before appending silently discarded user text.
+    const separator = /\n\s*\n$/.test(original) ? ''
+        : original.endsWith('\n') ? '\n' : '\n\n';
+    const bio = mode === 'replace' || !existing ? text : original + separator + text;
     if (bio.length > MAX_IMPORTED_DOCUMENT_CHARS)
         throw new Error('导入后内容超过 200 万字符，请减少内容后重试');
     return {bio,changed:bio!==current};
