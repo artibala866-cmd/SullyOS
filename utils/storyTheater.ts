@@ -998,6 +998,35 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     return '';
 };
 
+/** Structural hints work even when the author uses an unknown language,
+ * invented section title or custom variable name. These never change
+ * authored prompt content; they only organize real source prompt switches. */
+const tavernOneOf = (value: string): boolean =>
+    /(?:选\s*(?:一|1|①)|择一|单选|任选其一|(?:[2-9]|[二三四五六七八九])\s*选\s*(?:一|1)|one[\s-]*of|choose\s+one|mutually\s+exclusive)/iu.test(value);
+
+const tavernOptionalModule = (value: string): boolean =>
+    /(?:可选|选修|任意开关|多选|可叠加|叠加|optional|toggle|enable|disable)/iu.test(value);
+
+const tavernMandatoryName = (value: string): boolean =>
+    /^(?:必开|必须开启|别动|不要关|请勿关闭|核心规则|系统核心|原作者声明|免责声明|版权声明|作者声明|启动核心|不可关闭|勿关闭|set-不要关|教程|使用教程|使用说明|免责|^main$)/iu.test(
+        tavernAuthorChoiceName(value));
+
+const tavernGroupIsRuntimeCore = (name: string): boolean =>
+    /(?:预设头部|预设底部|预设尾部|预设信息|教学基石|缄默法则|运行核心|角色连接|历史连接|系统骨架|剧情规范|请勿关闭)/iu.test(name);
+
+/** Stable same-source choice identity; never infer a category from a fixed
+ * set of native preset names. A shared setvar key or authored name prefix
+ * supplies the actual category, whatever the author calls it. */
+const tavernStructuralFamily = (prompt: StoryTheaterPresetPrompt): string => {
+    const cluster = tavernChoiceCluster(prompt);
+    if (/^(?:rule:|local:|global:)/.test(cluster)) return cluster;
+    const name = tavernAuthorChoiceName(prompt.name).replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/gu, '');
+    const prefixed = /^(.{2,35}?)[：:·｜|／/]\s*(.{1,80})$/u.exec(name);
+    if (prefixed && !/^(?:系统|说明|规则|注意|配置|章节|模块|代码)$/u.test(prefixed[1]))
+        return 'author-prefix:' + prefixed[1].trim().toLocaleLowerCase();
+    return '';
+};
+
 const tavernAuthorTopic = (name: string): string | undefined => {
     // Only map CATEGORY names. Never map an imported author's choices onto
     // fixed native style IDs or make up a missing author option.
@@ -1022,6 +1051,7 @@ export const getStoryTavernAuthorSections = (
         !p.marker && !p.section && Boolean(p.content.trim())
         && !recognizeTavernPromptHeading(p)
         && !/^<\/?[\w:-]+(?:\s*[^>]*)?>\s*$/i.test(p.content.trim())
+        && !tavernMandatoryName(p.name)
         && !/^(?:说明|使用教程|免责|注意事项)/.test(tavernAuthorChoiceName(p.name));
     const makeOptions = (items: StoryTheaterPresetPrompt[]): StoryTavernAuthorOption[] => items
         .filter(eligible)
@@ -1034,11 +1064,17 @@ export const getStoryTavernAuthorSections = (
     // members are the author's categories, not borrowed native options.
     // This metadata is independent of scripts and must not change send order.
     const byId = new Map(document.prompts.map((prompt, i) => [prompt.id, i]));
-    const metadataShown = (name: string): boolean =>
-        /文风|小说类型|小说基调|小剧场|选修|娱乐|功能分区|功能设置|基础需求|优化分区|额外设置|语言|篇幅|字数|视角|人称|抢话|复述|转述|选择|可选/i.test(name)
-        && !/^(?:预设头部|预设底部|预设信息|思维链区|思维链|缄默法则|请勿关闭|教学基石|剧情规范|预设尾部)$/i.test(name);
+    // Entry-group names are arbitrary author data. Never require a
+    // known native category: inspect the *members*, then exclude only
+    // clearly protected infrastructure or non-selectable explanations.
+    const metadataShown = (name: string, options: StoryTavernAuthorOption[]): boolean => {
+        const explicit = tavernOneOf(name) || tavernOptionalModule(name)
+            || options.some(option => tavernOneOf(option.name) || tavernOptionalModule(option.name));
+        const hasDisabled = options.some(option => !option.enabled);
+        if (tavernGroupIsRuntimeCore(name) && !explicit) return false;
+        return options.length > 1 || (options.length === 1 && (explicit || hasDisabled));
+    };
     for (const meta of document.tavernEntryGroups || []) {
-        if (!metadataShown(meta.name)) continue;
         const identifiers = new Set((meta.memberIdentifiers || []).map(id => 'st-' + id));
         if (!identifiers.size && meta.startIdentifier && meta.endIdentifier) {
             const start = byId.get('st-' + meta.startIdentifier);
@@ -1051,7 +1087,7 @@ export const getStoryTavernAuthorSections = (
         const options = makeOptions(members).filter(option =>
             !/^(?:┌|└|╔|╚|┏|┗|—{2,}|[-—]{3,}|✧─|═|——|\/)/u.test(option.label)
             && !/^(?:不要关|必开|别动|开始|结束|说明|获取变量|set-)/i.test(option.label));
-        if (!options.length) continue;
+        if (!metadataShown(meta.name, options)) continue;
         // Source genre/baseline/writing-style menus are mutually exclusive
         // only if the source actually has at most one enabled choice.
         const single = /选\s*(?:一|1|①)|单选|择一|(?:[二三四五六七八九]|[2-9])选一/u.test(meta.name)
@@ -1064,14 +1100,20 @@ export const getStoryTavernAuthorSections = (
         options.forEach(option => seen.add(option.id));
     }
     for (const group of groups) {
-        const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label)
-            && (tavernAuthorTopic(group.label) !== undefined
-                || /选择|选一|择一|模式|额外设置|类型|基调|功能|娱乐|选修/i.test(group.label))
-            && !/预设头部|预设尾部|思维链|缄默法则|请勿关闭|教学基石|剧情规范/i.test(group.label);
+        const named = group.autoGrouped && !/^(?:预设开头|其他条目)$/.test(group.label);
         if (!named) continue;
         const items = document.prompts.filter(p => group.promptIds.includes(p.id));
         const options = makeOptions(items.filter(prompt => !seen.has(prompt.id)));
-        if (!options.length) continue;
+        // A novel writer can call the section absolutely anything. Paired
+        // decorative headings + real enabled/disabled choice entries count.
+        const explicit = tavernOneOf(group.label) || tavernOptionalModule(group.label);
+        const mixed = options.some(option => option.enabled)
+            && options.some(option => !option.enabled);
+        if (!options.length || (tavernGroupIsRuntimeCore(group.label) && !explicit)
+            || (options.length < 2 && !explicit)
+            || (options.length > 1 && !mixed && !explicit
+                && !options.some(option => tavernStructuralFamily(
+                    document.prompts.find(prompt => prompt.id === option.id)!) !== ''))) continue;
         // A named source section is an author's real module, even when its
         // title is not one of the native eight (e.g. 结尾落点/剧情节奏).
         const key = 'source:' + group.key;
@@ -1111,8 +1153,37 @@ export const getStoryTavernAuthorSections = (
         });
         options.forEach(p => seen.add(p.id));
     }
-    // Older/loosely formatted author presets have no explicit section
-    // separators. Detect ONLY the category; take every option name verbatim.
+    // Generic last resort for presets with NO entryGrouping or recognized
+    // heading: consecutive alternate setvar/getvar choices or a repeated
+    // literal name prefix form a real section, even with an invented name.
+    const structural = new Map<string, StoryTheaterPresetPrompt[]>();
+    for (const prompt of document.prompts) {
+        if (seen.has(prompt.id) || !eligible(prompt)) continue;
+        const family = tavernStructuralFamily(prompt);
+        if (!family) continue;
+        const items = structural.get(family) || [];
+        items.push(prompt);
+        structural.set(family, items);
+    }
+    for (const [family, items] of structural) {
+        if (items.length < 2) continue;
+        // Avoid merging unrelated distant chapters that happen to reuse
+        // "mode" or "tone" as a variable name.
+        const indexes = items.map(item => byId.get(item.id) ?? 0);
+        if (Math.max(...indexes) - Math.min(...indexes) > 50) continue;
+        const options = makeOptions(items);
+        const groupLabel = family.replace(/^(?:author-prefix:|rule:|local:|global:)/, '');
+        out.push({
+            key: 'structure:' + family, label: groupLabel,
+            description: '', options,
+            single: items.some(item => tavernOneOf(item.name))
+                || (family.startsWith('local:') || family.startsWith('global:'))
+                    && options.filter(option => option.enabled).length <= 1,
+        });
+        options.forEach(option => seen.add(option.id));
+    }
+    // Single uncategorized prompts remain in the professional editor, where
+    // users can inspect them without risking a core-rule toggle.
     const fallback = new Map<string, StoryTheaterPresetPrompt[]>();
     for (const prompt of document.prompts) {
         if (seen.has(prompt.id) || !eligible(prompt)) continue;
