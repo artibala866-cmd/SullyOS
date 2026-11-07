@@ -109,7 +109,7 @@ describe('standalone Link worldbook safe incremental import',()=>{
             title:'世界',category:'世界',content:'用户写的世界',key:[],constant:true,
         });
         const imported=planWorldbookImport([handmade],[second]);
-        expect(imported.added).toHaveLength(1);
+        expect(imported).toMatchObject({conflicts:1,added:[],updated:[]});
         expect(imported.library.find(book=>book.id==='custom-id')?.content).toBe('用户写的世界');
     });
     it('a locally edited imported document blocks automatic replacement',()=>{
