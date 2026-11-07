@@ -47,12 +47,53 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
 };
 
 /**
+ * Story-opening payloads sometimes contain an auxiliary XML-like data panel:
+ * <wb_lore> ... account records, generation rules, state ... </wb_lore>.
+ * Drop the WHOLE panel (not only its wrapper), without touching source-card
+ * bytes, ordinary HTML content, dialogue/XML scene tags, or user messages.
+ *
+ * Treat well-known non-story wrapper names as auxiliary. For unfamiliar names,
+ * require strongly structured status/rule content instead of a per-card list.
+ */
+export const stripNonStoryOpeningBlocks = (source: string): string => {
+    let text = String(source || '');
+    // These standalone comments are routing/component metadata, not dialogue.
+    // Author comments inside actual prose, including title/desc, stay intact.
+    text = text.replace(/^[ \t]*(?:<!--[ \t]*(?:route|routing|tag|slot|widget-id|panel-id)[ \t]*[:：=][^\r\n]*-->|<!--[ \t]*note[ \t]*[:：][ \t]*-->|!--[ \t]*note[ \t]*[:：][ \t]*-->)[ \t]*$/gim, '');
+
+    // Skip standard HTML and narrative tags so nested status blocks are still
+    // discoverable (and story prose wrapped in <scene> is not swallowed).
+    const auxiliary = /<(?!\/)(?!(?:a|article|aside|b|blockquote|body|br|button|canvas|center|code|dd|details|div|dl|dt|em|figcaption|figure|font|footer|form|h[1-6]|head|header|hr|html|i|iframe|img|input|label|li|link|main|mark|meta|nav|ol|option|p|picture|pre|script|section|select|small|source|span|strong|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|u|ul|video|audio|scene|dialogue|narration|speech|quote|thought|action)\b)([a-z][a-z0-9_-]{1,60})\b(?:"[^"]*"|'[^']*'|[^'">]){0,600}>([\s\S]{0,80000}?)<\/\1\s*>/gi;
+    const isAuxiliaryName = /(?:^|[_-])(?:wb|lore|worldbook|status|state|stats|meta|metadata|config|settings|init|hud|sidebar|panel|schema|registry|account|profile|social|routing|route|display|template)(?:$|[_-])/i;
+    const looksStructured = (body: string): boolean => {
+        const lines = body.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        if (lines.length < 3) return false;
+        const records = lines.filter(line =>
+            /^[\[【][^\]】\r\n]{1,150}[|｜][^\]】\r\n]{1,300}[\]】]$/.test(line)).length;
+        const headings = lines.filter(line =>
+            /^【[^】\r\n]{1,60}(?:要求|配置|初始化|设定|规则|状态|数据|记录|资料)[^】\r\n]*】$/.test(line)).length;
+        const fields = lines.filter(line =>
+            /^(?:[-*]\s*)?(?:[\w\u4e00-\u9fff]{1,24})\s*[:：=]/.test(line)).length;
+        return (records >= 2 || headings >= 2) && (records + headings + fields) / lines.length >= 0.6;
+    };
+    // Multiple nested custom tags are possible. Re-run with a strict bound so
+    // one retained (narrative) outer wrapper cannot suppress an inner panel.
+    for (let pass = 0; pass < 4; pass++) {
+        const next = text.replace(auxiliary, (whole, name: string, body: string) =>
+            isAuxiliaryName.test(name) || looksStructured(body) ? '' : whole);
+        if (next === text) break;
+        text = next;
+    }
+    return text;
+};
+
+/**
  * Discard third-party *display widgets*, not narrative links. This is format-
  * based: new authors/domains need no special-case list. Never fetch URLs.
  * A meaningful Markdown link keeps its label; prose and XML story tags survive.
  */
 export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
-    let text = String(source || '');
+    let text = stripNonStoryOpeningBlocks(source);
     const mediaLabel = /(?:spotify|(?:^|[_ -])(?:music|soundtrack|playlist|song|audio|video|player|image|img|gif|picture|map|maps|location|iframe|embed|widget)(?:$|[_ -])|音乐|歌曲|音频|视频|图片|地图|播放器|外链组件)/i;
     const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
     const mediaFile = /\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#\s|]|$)/i;
