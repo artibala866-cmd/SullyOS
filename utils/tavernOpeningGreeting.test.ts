@@ -190,6 +190,58 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(resolved?.authorNote).toBe('两位季淮北都只能叫季淮北');
         expect(resolved?.source).toBe('tavern');
     });
+    it('removes Chinese music shortcode together with malformed Markdown MP3 link, without leaving English or URL fragments', () => {
+        const raw = '【音乐|Novocaine|"Overdosing over U."|[https://s3plus.meituan.net/opapisdk/op_ticket_1_5673241091_1774826875736_MQkRpr3p_vip.mp3|】](https://s3plus.meituan.net/opapisdk/op_ticket_1_5673241091_1774826875736_MQkRpr3p_vip.mp3|】)';
+        const story = [
+            '夜色里，季淮北打开了门。',
+            raw,
+            '他说：“我回来了。”',
+        ].join('\n');
+        const cleaned = tavernOpeningReadableText(story);
+        expect(cleaned).toBe('夜色里，季淮北打开了门。\n\n他说：“我回来了。”');
+        expect(cleaned).not.toMatch(/Novocaine|Overdosing|mp3|meituan|[|]】|【音乐/i);
+        expect(stripUnsupportedTavernOpeningEmbeds(raw).trim()).toBe('');
+        expect(tavernOpeningReadableText(cleaned)).toBe(cleaned);
+        expect(story).toContain(raw);
+    });
+
+    it('filters music/map widget variants inside a story without deleting ordinary plot titles, lyrics, links or user-written greetings', () => {
+        const url = 'https://cdn.example.net/one.mp3';
+        const widget = '【背景音乐|初雪|[' + url + '|】](' + url + '|】)';
+        const source = '开场。' + widget + '剧情继续。\n'
+            + '【音乐|这是故事中的描述】\n'
+            + '他留下线索【旧地图|藏在床下】。\n'
+            + '他说要听 Novocaine，这句话是剧情。\n'
+            + '这条 https://example.org/diary 是日记线索。';
+        const visible = tavernOpeningReadableText(source);
+        expect(visible).toContain('开场。剧情继续。');
+        expect(visible).toContain('【音乐|这是故事中的描述】');
+        expect(visible).toContain('【旧地图|藏在床下】');
+        expect(visible).toContain('他说要听 Novocaine，这句话是剧情。');
+        expect(visible).toContain('https://example.org/diary');
+        expect(visible).not.toContain('cdn.example.net/one.mp3');
+        const first = {id: 'tavern-alt-42', title:'钢琴夜', content: source};
+        const character = {id:'actor',name:'季淮北',tavernGreetings:[first]} as CharacterProfile;
+        expect(listCharacterStoryOpenings(character)[0].content).toBe(visible);
+        expect(character.tavernGreetings?.[0].content).toBe(source);
+        expect(storyOpeningReadingText(source,'tavern-alt-42','tavern')).toBe(visible);
+        expect(storyOpeningReadingText(source,'link-story-1','link')).not.toContain(url);
+        expect(storyOpeningReadingText(source,'story-custom-1','custom')).toBe(source);
+    });
+
+    it('cleans the Chinese player shortcode from older stored opening messages only, leaving user dialogue untouched', () => {
+        const music = '【音乐|Novocaine|链接|[https://static.example/a.mp3|】](https://static.example/a.mp3|】)';
+        const old = {id:1,charId:'story-theater:test',role:'assistant',type:'text',timestamp:1,
+            content:music+'\n{{char}}说要下雪了。',
+            metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-first'}}};
+        const reply = { ...old, id:2,role:'user',content:'我在对话里写下 '+music,
+            metadata:{source:'story_theater'}};
+        const history = buildStoryHistory([reply,old] as any);
+        expect(history[0].content).toBe('{{char}}说要下雪了。');
+        expect(history[1].content).toContain(music);
+        expect(old.content).toContain('【音乐|Novocaine');
+    });
+
     it('external media widgets are stripped regardless of author or hosting domain, leaving real plot prose', () => {
         const opening = [
             '暮色降临，他推开了旧车站的门。',
