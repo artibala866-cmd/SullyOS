@@ -52,9 +52,12 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
             // The library retains the complete imported card. The Story
             // selector exposes readable prose only for true Tavern greetings.
             const adapted = adaptTavernOpeningGreeting(greeting);
-            add(source === 'tavern'
-                ? { ...adapted, content: tavernOpeningReadableText(adapted.content) }
-                : adapted, source);
+            // Author request markers may precede a real title comment. Once
+            // presentation wrappers are hidden, recognize that metadata too.
+            const readable = source === 'tavern'
+                ? adaptTavernOpeningGreeting({ ...adapted, content: tavernOpeningReadableText(adapted.content) })
+                : adapted;
+            add(readable, source);
         }
     }
     return result;
