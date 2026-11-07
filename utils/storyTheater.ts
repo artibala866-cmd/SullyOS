@@ -681,19 +681,33 @@ export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string,
 export const resolveStoryPresetImport = (
     imported: StoryTheaterPreset,
     savedPresets: readonly StoryTheaterPreset[],
-): { preset: StoryTheaterPreset; duplicate: boolean } => {
+): { preset: StoryTheaterPreset; duplicate: boolean; upgraded?: boolean } => {
     const canonical = (document: StoryTheaterPresetDocument): string => {
-        // Import warnings are derived diagnostics, not user-authored content.
-        // New compatibility checks must never create a second copy of a file
-        // previously imported by an older app version.
-        const { importWarnings: _warnings, ...content } = document;
-        return JSON.stringify({ ...content, name: '', description: content.description || '' });
+        // Auto-detected UI hints and static source groups are derived metadata,
+        // not authored prompt choices. Upgrading the importer must not produce
+        // identical second copies, but a user's explicit overrides still matter.
+        const { importWarnings: _warnings, tavernEntryGroups: _groups,
+            tavernControls: _controls, ...content } = document;
+        const overrides = document.tavernControls?.overrides || {};
+        return JSON.stringify({ ...content, name: '', description: content.description || '',
+            ...(Object.keys(overrides).length ? { authorOverrides: overrides } : {}) });
     };
     const fingerprint = canonical(imported.document);
     const duplicate = savedPresets.find(saved => saved && !saved.builtIn && saved.document?.prompts
         && saved.sourceFileName === imported.sourceFileName
         && canonical(saved.document) === fingerprint);
-    if (duplicate) return { preset: duplicate, duplicate: true };
+    if (duplicate) {
+        // Same source file already saved by an older app version: restore its
+        // newly recognized safe author groups IN PLACE. Keep original ID,
+        // prompts, enabled flags, saved name, and existing narrative sessions.
+        const newerGroups = imported.document.tavernEntryGroups || [];
+        if (newerGroups.length && !duplicate.document.tavernEntryGroups?.length) {
+            return { preset: { ...duplicate, document: {
+                ...duplicate.document, tavernEntryGroups: newerGroups,
+            } }, duplicate: true, upgraded: true };
+        }
+        return { preset: duplicate, duplicate: true };
+    }
 
     const usedNames = new Set(savedPresets.filter(preset => preset && typeof preset.name === 'string').map(preset => preset.name));
     if (!usedNames.has(imported.name)) return { preset: imported, duplicate: false };
