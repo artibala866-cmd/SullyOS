@@ -8,6 +8,11 @@ import MessageItem from '../components/chat/MessageItem';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import type { Message } from '../types';
 
+// Inline fixture avatars keep screenshots deterministic without missing assets.
+const charAvatar = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="#a7b5ce"/><text x="48" y="61" text-anchor="middle" font-size="38" fill="#fff" font-family="Noto Sans CJK SC, sans-serif">林</text></svg>');
+const userAvatar = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="#b7c8b9"/><text x="48" y="61" text-anchor="middle" font-size="38" fill="#fff" font-family="Noto Sans CJK SC, sans-serif">我</text></svg>');
 const charId='visual-character-recall';
 const now=Date.now();
 const messages: Message[]=[
@@ -26,7 +31,7 @@ try{
     wrap.dataset.messageId=String(msg.id);
     wrap.innerHTML=renderToStaticMarkup(React.createElement(MessageItem,{
       msg,activeTheme:PRESET_THEMES.forest,isFirstInGroup:true,isLastInGroup:true,
-      charAvatar:'',charName:'林屿',userAvatar:'',onLongPress:()=>{},
+      charAvatar,charName:'林屿',userAvatar,onLongPress:()=>{},
       onReply:()=>{},selectionMode:false,isSelected:false,onToggleSelect:()=>{},
       showTimestamp:'never',
     }));

@@ -40,6 +40,8 @@ jobs:
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with: {chrome-version: stable}
+      - name: Install Chinese fonts for accurate mobile screenshot
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Mobile screenshot of real MessageItem recall status
         shell: bash
         run: |
