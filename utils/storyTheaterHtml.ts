@@ -150,6 +150,11 @@ export const hasStoryHtmlLayout = (source: string): boolean =>
     /<(?:div|section|article|table|thead|tbody|tr|td|th|style|img|figure|figcaption|p|h[1-6]|ul|ol|li|blockquote|pre|details|summary)\b/i.test(source);
 
 export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
+    // Do not silently truncate a large authored appendix. Keep all its text
+    // in the existing plain-text fallback rather than showing a partial card.
+    if (String(source || '').length > 150000) {
+        return { srcDoc: '', text: 'HTML 附录过长，已使用完整文字展示', hasVisibleContent: false, estimatedHeight: 76 };
+    }
     // A Tavern display-regex often produces fenced ```html blocks.
     // The regex executor is deliberately absent, but the renderer can safely
     // parse HTML already present inside a code fence without showing the ticks.
