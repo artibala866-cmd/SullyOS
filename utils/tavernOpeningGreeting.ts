@@ -168,7 +168,8 @@ export const tavernOpeningSceneText = (content: string): string =>
  * Link or handwritten HTML when cleaning Tavern presentation artifacts.
  */
 export const storyOpeningReadingText = (content: string, greetingId?: string, source?: string): string =>
-    source === 'link' || source === 'custom'
-    || /^(?:babylink-opening-|link-|story-custom-)/.test(greetingId || '')
+    source === 'custom' || /^story-custom-/.test(greetingId || '')
         ? String(content || '')
-        : tavernOpeningSceneText(content);
+        : source === 'link' || /^(?:babylink-opening-|link-)/.test(greetingId || '')
+            ? stripUnsupportedTavernOpeningEmbeds(String(content || ''))
+            : tavernOpeningSceneText(content);
