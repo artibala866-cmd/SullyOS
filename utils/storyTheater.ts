@@ -1247,10 +1247,11 @@ export const buildStoryIdentityGuard = (
     const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '当前用户侧角色（未命名）';
     const cast = characterNames.filter(Boolean).join('、') || '暂无其他角色';
     const mode = resolveStoryNarrationMode(document);
+    const narrationTag = document.sourceFormat === 'sillytavern' ? '<content>' : '<story_text>';
     const perspectiveRule = mode === 'third'
-        ? `- 当前启用第三人称有限。<story_text> 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
+        ? `- 当前启用第三人称有限。${narrationTag} 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
         : mode === 'second'
-            ? `- 当前启用第二人称有限。<story_text> 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
+            ? `- 当前启用第二人称有限。${narrationTag} 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
             : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
     return [
         '### 糯米机运行时身份与人称锚点（覆盖旧楼层的写法，不覆盖角色卡事实）',
