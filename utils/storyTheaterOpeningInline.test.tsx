@@ -435,4 +435,26 @@ describe('剧情开场白复用上方剧情介绍输入框', () => {
         expect(title.value).toBe('');
     });
 
+    it('取消参与角色时自动标题和刚收藏的正文一起恢复到草稿，不会丢失故事内容', async () => {
+        host=document.createElement('div');document.body.append(host);root=createRoot(host);
+        const create=vi.fn(async (_id:string,_title:string,content:string)=>({
+            id:'custom-role-removed',title:'角色开场标题',content,
+        }));
+        await act(async()=>root!.render(React.createElement(StoryTheaterEditor,{
+            initial:{...createStoryTheaterDraft(),characterIds:[actor.id]},
+            characters:[{...actor,tavernGreetings:[]}],user:{name:'用户'} as any,
+            masks:[],maskLocked:false,presets:[BUILTIN_NIGHT_SCREENING_PRESET],
+            onCancel:vi.fn(),onSave:vi.fn(),onImportPreset:async()=>null,
+            onEditPreset:vi.fn(),onOpenMaskBox:vi.fn(),onCreateGreeting:create,
+        })));
+        const title=host!.querySelector<HTMLInputElement>('input[placeholder="剧情名称"]')!;
+        await typeInto(field(),'这段不能丢失的开场');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('[data-story-opening-save]')!.click());
+        expect(title.value).toBe('角色开场标题');
+        await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="测试角色"]')!.click());
+        expect(title.value).toBe('');
+        expect(field().value).toBe('这段不能丢失的开场');
+        expect(host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!.disabled).toBe(true);
+    });
+
 });
