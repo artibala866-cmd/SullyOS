@@ -59,9 +59,20 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         labels[key] = label.slice(0, 75);
         if (id) inferred[key] = id;
     };
-    const style = active.filter(p => /文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
-        .test(p.name + p.text.slice(0, 300)) && p.text.length > 120)
-        .sort((a, b) => b.text.length - a.text.length)[0];
+    // Titles identify the selected style; the longest prose entry might just
+    // be a language banlist that happens to mention "writing style".
+    const stylePriority = (p: { name: string; text: string }): number => {
+        if (/禁词|词表|语言审查|^说明|免责|禁止词/.test(p.name)) return -1;
+        if (/主文风|内置文风|当前文风/i.test(p.name)) return 6;
+        if (/光影美学|光影风格/.test(p.name)) return 5;
+        if (/文风|写作风格|叙事风格|writing[_ ]style/i.test(p.name)) return 4;
+        if (/美学|审美风格/.test(p.name)) return 3;
+        if (/文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
+            .test(p.text.slice(0, 300))) return 1;
+        return 0;
+    };
+    const style = active.filter(p => p.text.length > 120 && stylePriority(p) > 0)
+        .sort((a, b) => stylePriority(b) - stylePriority(a) || b.text.length - a.text.length)[0];
     if (style) {
         const content = style.name + style.text.slice(0, 1000);
         const builtin: Array<[RegExp, string, string]> = [
@@ -77,6 +88,7 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         if (matches.length === 1) hint('style', matches[0][1], matches[0][2]);
         else if (/动态|随机适配|Dynamic_Writing_Style/.test(content)) hint('style', '作者动态文风');
         else if (/严肃文学|古典文学|文学名著/.test(content)) hint('style', '作者严肃文学文风');
+        else if (/光影美学|光影叙事|光影风格/.test(content)) hint('style', '作者光影美学文风');
         else if (/电影化|电影创作|Cinematic|白描/.test(content)) hint('style', '作者电影化文风');
         else hint('style', '作者自定义文风');
     }
@@ -123,13 +135,19 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
             : /低烧\s*(?:Ⅰ|I|1)/i.test(tension.name) ? 'nmj-v64-tension-lowfever-1' : undefined;
         hint('tension', id ? '作者低烧张力' : '作者场景张力', id);
     }
-    const theater = active.find(p => (
+    const theaterCandidates = active.filter(p => (
         /小剧场|sidestory|mini_theater|randomtheater|side.theater/i.test(p.name)
         // The author may title this section "附录/输出合同" instead of 小剧场.
         || /<(?:sidestory|randomtheater|mini_theater|small_theater|side_theater)\b|(?:正文结束后|每轮结尾).{0,90}小剧场/i
             .test(p.text.slice(0, 1800))
     ) && /(?:小剧场|sidestory|mini_theater|randomtheater|输出|生成)/i.test(p.text)
         && !/^(?:关闭|不生成|禁用)小剧场/.test(p.name));
+    const theaterPriority = (p: { name: string; text: string }): number =>
+        /随机小剧场|随机换台/i.test(p.name) ? 6
+            : /主题小剧场|自由小剧场/i.test(p.name) ? 5
+                : /小剧场|sidestory|randomtheater|mini_theater/i.test(p.name) ? 4 : 1;
+    const theater = theaterCandidates.sort((a, b) =>
+        theaterPriority(b) - theaterPriority(a) || b.text.length - a.text.length)[0];
     if (theater) {
         const random = /随机小剧场|随机换台|random.theater/i.test(theater.name);
         const ai = /AI客服|AI聊天|角色与AI|AI应用/i.test(theater.name);
