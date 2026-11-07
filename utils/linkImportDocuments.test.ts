@@ -37,7 +37,7 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(card.worldbooks).toEqual([]);
     });
     it('still imports legacy 2MB+ worldbook JSON without persona truncation or encoding loss',async()=>{
-        const contents='世界观说明'.repeat(260000);
+        const contents='世界观说明'.repeat(420000);
         const json=JSON.stringify({entries:[{comment:'完整设定',content:contents,key:['触发']}]});
         const file=new File([json],'大型世界书.json',{type:'application/json'});
         expect(json.length).toBeGreaterThan(2_000_000);
