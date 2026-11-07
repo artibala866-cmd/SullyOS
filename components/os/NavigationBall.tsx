@@ -118,8 +118,8 @@ export function DraggableNavigationBall({
     }
     run(() => onManualApi(manual));
   };
-  const panelWidth = Math.max(120, Math.min(244, parentSize.width - 16));
-  const availableHeight = Math.max(80, parentSize.height - parentSize.top - parentSize.bottom - 20);
+  const panelWidth = Math.max(120, Math.min(232, parentSize.width - 16));
+  const availableHeight = Math.min(288, Math.max(80, parentSize.height - parentSize.top - parentSize.bottom - 20));
   const posX = position?.x ?? Math.max(8, parentSize.width - SIZE - 12);
   const posY = position?.y ?? Math.max(8, parentSize.height - SIZE - 96);
   const preferredX = posX > parentSize.width / 2 ? posX - panelWidth - 10 : posX + SIZE + 10;
