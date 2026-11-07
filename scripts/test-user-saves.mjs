@@ -142,6 +142,7 @@ try{
  // Keep all-identity backup/import regression through the real Settings controls.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();await page.getByLabel('备份范围',{exact:true}).selectOption('all');
  await page.getByRole('button',{name:/导出全部身份/}).scrollIntoViewIfNeeded();await shot('backup-all-390');
+ page.once('dialog',d=>d.accept());
  const dlPromise=page.waitForEvent('download');await page.getByRole('button',{name:/导出全部身份/}).click();const dl=await dlPromise;const file={name:dl.suggestedFilename(),mimeType:'application/zip',buffer:await readFile(await dl.path())};
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
  await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
@@ -150,9 +151,9 @@ try{
  // Dismissing the current-identity replacement warning must leave the rich
  // original untouched. The independent ZIP above never uses this warning.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
- let confirmMessage='';page.once('dialog',async d=>{confirmMessage=d.message();await d.dismiss();});
+ const confirmation=page.waitForEvent('dialog').then(async d=>{const message=d.message();await d.dismiss();return message;});
  await page.locator('input[type=file][accept=".json,.zip"]').setInputFiles({name:'old-backup.json',mimeType:'application/json',buffer:Buffer.from('{}')});
- await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出')&&!b.disabled));assert.match(confirmMessage,/可能替换当前档案及互动记录/);
+ await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出')&&!b.disabled));assert.match(await confirmation,/可能替换当前档案及互动记录/);
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();assert.deepEqual((await inspect()).messages,imported.messages);assert.deepEqual(errors,[]);
- console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; final identity protected; multi-tab and all-save backup/import; 390/320/landscape screenshots; no page errors.');
+ console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash removes current identity and retains base library; recovery preserves both identities and index corruption heals; final identity protected; multi-tab, all-save backup/import and cancelled legacy replacement; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}
