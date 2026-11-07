@@ -1142,14 +1142,10 @@ export const getStoryTavernAuthorSections = (
         out.push({
             key, label: group.label.replace(/[▣◈▶◀︎◌]/gu, '').replace(/\s+/g, ' ').trim(),
             description: '原作者分组 · 切换原始条目，不附加内置规则',
-            options, single: (/选\s*(?:一|1|①)|单选|择一/u.test(group.label)
-                && !options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label)))
-                // A generic optional "文风区" can start fully off. Do not
-                // trap the user in a selected style after the first toggle.
-                || (!/文风区|小剧场区|附加|可选|功能区|风格区/.test(group.label)
-                    && options.length >= 2 && options.filter(p => p.enabled).length === 1
-                    && options.every(p => Boolean(p.cluster))
-                    && new Set(options.map(p => p.cluster)).size === 1),
+            // A single active entry is NOT proof that the author requires one.
+            // Only explicit one-of-N metadata may make this section mandatory.
+            options, single: tavernOneOf(group.label)
+                && !options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label)),
         });
         options.forEach(p => seen.add(p.id));
     }
@@ -1176,9 +1172,10 @@ export const getStoryTavernAuthorSections = (
         out.push({
             key: 'structure:' + family, label: groupLabel,
             description: '', options,
-            single: items.some(item => tavernOneOf(item.name))
-                || (family.startsWith('local:') || family.startsWith('global:'))
-                    && options.filter(option => option.enabled).length <= 1,
+            // A shared variable key makes switches mutually exclusive, but
+            // doesn't mean at least one MUST stay on. The initial "all off"
+            // state must remain reachable unless the author says "选一".
+            single: items.some(item => tavernOneOf(item.name)),
         });
         options.forEach(option => seen.add(option.id));
     }
@@ -1200,9 +1197,7 @@ export const getStoryTavernAuthorSections = (
             key: 'author:' + topic, label: topic,
             description: '按原作者条目归类 · 名称与内容均不改写',
             options,
-            single: options.length > 1 && options.filter(p => p.enabled).length <= 1
-                && options.every(p => Boolean(p.cluster))
-                && new Set(options.map(p => p.cluster)).size === 1,
+            single: tavernOneOf(topic) || options.some(option => tavernOneOf(option.name)),
         });
     }
     // Keep the author's effective prompt order, not arbitrary plugin JSON
@@ -1241,6 +1236,9 @@ export const selectStoryTavernAuthorOption = (
     const sameCluster = targetCluster
         ? section.options.filter(option => clusterOf(option) === targetCluster) : [];
     const clusterIsSingle = sameCluster.length > 1
+        && (targetCluster.startsWith('rule:') || targetCluster.startsWith('local:')
+            || targetCluster.startsWith('global:') || targetCluster === 'author:theater-choice'
+            || targetCluster === 'primary:style' || tavernOneOf(selected.name))
         && sameCluster.filter(option => option.enabled).length <= 1;
     // Some authors deliberately enable MULTIPLE related styles together.
     // Only auto-disable siblings when the author specifies one-of-N or
@@ -1248,8 +1246,7 @@ export const selectStoryTavernAuthorOption = (
     const siblings = section.options.filter(o => o.id !== optionId
         && (section.single || (clusterIsSingle && targetCluster && clusterOf(o) === targetCluster)));
     const existingOn = selected.enabled;
-    const isExplicitOneOf = /择一|单选|选\s*(?:一|1)|(?:[2-9]|[二三四五六七八九])选1/u.test(section.label)
-        || /(?:[2-9]|[二三四五六七八九])选1/u.test(selected.label);
+    const isExplicitOneOf = tavernOneOf(section.label) || tavernOneOf(selected.name);
     const mustKeepOne = section.single || (isExplicitOneOf && clusterIsSingle);
     const newEnabled = existingOn && !mustKeepOne ? false : true;
     // If a source section is explicitly exclusive, do not turn it into
@@ -1260,17 +1257,2672 @@ export const selectStoryTavernAuthorOption = (
     // Authors sometimes disable an entire XML-wrapped block until one of its
     // child choices is selected (e.g. 宝宝我是char's <theater> ... </theater>).
     // Activating the child must activate BOTH wrappers without rewriting text.
-    if (newEnabled && sectionKey.startsWith('source:')) {
-        const sourceGroup = getStoryPresetPromptGroups(document).find(group =>
-            'source:' + group.key === sectionKey);
-        if (sourceGroup) {
-            const members = document.prompts.filter(p => sourceGroup.promptIds.includes(p.id));
-            const start = members[0], end = members[members.length - 1];
-            const tag = /^\s*<([A-Za-z][\w:-]*)\b/.exec(start?.content || '')?.[1];
-            if (tag && new RegExp('^\\s*<\\/' + tag + '\\s*>', 'i')
-                .test(end?.content || '')) {
-                requiredWrappers.add(start.id);
-                requiredWrappers.add(end.id);
+    if (newEnabled) {
+        // Generic XML wrapper support for unknown authors, including static
+        // entryGrouping ranges and local variable-family sections.
+        // Only a PURE matching <tag> / </tag> envelope is activated; never
+        // execute its contents or invent any extra instruction.
+        const index = document.prompts.findIndex(prompt => prompt.id === optionId);
+        const entryGroup = sectionKey.startsWith('entry:')
+            ? document.tavernEntryGroups?.find(group => 'entry:' + group.id === sectionKey)
+            : undefined;
+        const enclosing = (start: number, end: number): void => {
+            if (start < 0 || end <= index || start >= index) return;
+            const open = /^\s*<([A-Za-z][\w:-]*)>\s*$/.exec(document.prompts[start].content)?.[1];
+            const close = document.prompts[end]?.content || '';
+            if (open && new RegExp('^\\s*<\\/' + open + '\\s*>\\s*
+    return {
+        ...document,
+        prompts: document.prompts.map(p =>
+            p.id === optionId ? { ...p, enabled: newEnabled }
+                : off.has(p.id) ? { ...p, enabled: false }
+                    : requiredWrappers.has(p.id) ? { ...p, enabled: true } : p),
+    };
+};
+
+export const addStoryPresetGroup = (document: StoryTheaterPresetDocument, name: string): StoryTheaterPresetDocument => {
+    const id = makeStoryTheaterId();
+    return { ...document, prompts: [...document.prompts, ...(['start', 'end'] as const).map(edge => ({
+        id: makeStoryTheaterId(), name: name.trim() || '自定义分组', enabled: false, role: 'system' as const, content: '',
+        section: { id, name: name.trim() || '自定义分组', edge },
+    }))] };
+};
+
+export const renameStoryPresetGroup = (document: StoryTheaterPresetDocument, sectionId: string, name: string): StoryTheaterPresetDocument => ({
+    ...document, prompts: document.prompts.map(prompt => prompt.section?.id === sectionId
+        ? { ...prompt, section: { ...prompt.section, name } } : prompt),
+});
+
+export const ungroupStoryPresetGroup = (document: StoryTheaterPresetDocument, sectionId: string): StoryTheaterPresetDocument => ({
+    ...document, prompts: document.prompts.filter(prompt => prompt.section?.id !== sectionId),
+});
+
+export const moveStoryPresetPromptToGroup = (document: StoryTheaterPresetDocument, promptId: string, groupKey: string): StoryTheaterPresetDocument => {
+    const groups = getStoryPresetPromptGroups(document);
+    const source = groups.find(group => group.promptIds.includes(promptId));
+    const target = groups.find(group => group.key === groupKey);
+    const prompt = document.prompts.find(item => item.id === promptId);
+    if (!prompt || !target || target.protected || target.autoGrouped || source?.protected || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
+    const next = { ...document, prompts: document.prompts.filter(item => item.id !== promptId) };
+    const destination = getStoryPresetPromptGroups(next).find(group => group.key === groupKey);
+    if (!destination) return document;
+    const last = next.prompts[destination.endIndex];
+    next.prompts.splice(isStoryPresetSectionMarker(last) ? destination.endIndex : destination.endIndex + 1, 0, prompt);
+    return next;
+};
+
+export const applyStoryPresetChoice = (
+    document: StoryTheaterPresetDocument,
+    optionIds: readonly string[],
+    selectedId?: string,
+): StoryTheaterPresetDocument => ({
+    ...document,
+    prompts: document.prompts.map(prompt => optionIds.includes(prompt.id) ? { ...prompt, enabled: prompt.id === selectedId } : prompt),
+});
+
+/** Runtime binding for user/character names. Never bake identity names into an imported preset. */
+const macroReplace = (text: string, userName: string, characterNames: string[]): string => {
+    const user = userName || '你';
+    const char = characterNames.join('、') || '角色';
+    const inGroup = characterNames.length > 1;
+    const values: Record<string, string> = {
+        user, char, group: char, groupnotmuted: char,
+        charifnotgroup: inGroup ? '' : char,
+        notchar: inGroup ? char : user,
+    };
+    return text
+        .replace(/\{\{\s*(user|char|group|groupnotmuted|charifnotgroup|notchar)\s*\}\}/gi,
+            (raw, name: string) => values[name.toLowerCase()] ?? raw)
+        .replace(/<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>/g, (raw, name: string) => ({
+            USER: user, BOT: char, CHAR: char, GROUP: char,
+            CHARIFNOTGROUP: inGroup ? '' : char,
+        }[name.toUpperCase()] ?? raw));
+};
+
+/** Both native Link and Tavern stored openings enter only the Story first floor,
+ * never the private chat prompt or dialogue history. Each format was normalized
+ * by its own importer before reaching this common story-only selector.
+ */
+export const resolveStoryOpeningGreeting = (
+    entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
+    characters: CharacterProfile[],
+    identityName: string,
+): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom'; authorNote?: string } | null => {
+    const selection = entry.openingGreeting;
+    if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
+    const actor = characters.find(character => character.id === selection.characterId);
+    if (!actor) return null;
+    const greeting = listCharacterStoryOpenings(actor).find(item => item.id === selection.greetingId);
+    if (!greeting?.content.trim()) return null;
+    return {
+        characterId: actor.id,
+        greetingId: greeting.id,
+        source: greeting.source,
+        ...(greeting.source === 'tavern'
+            ? (() => {
+                const raw = actor.tavernGreetings?.find(row => row.id === greeting.id);
+                const note = tavernOpeningAuthorNote(raw?.content || '');
+                return note ? { authorNote: macroReplace(note, identityName, [actor.name]) } : {};
+            })() : {}),
+        content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
+    };
+};
+
+export const STORY_MINI_THEATER_PROMPT_IDS = [
+    'nmj-v3-theater-ai',
+    'nmj-v3-theater-user-sim',
+    'nmj-v3-theater-group',
+    'nmj-v3-theater-random',
+    'nmj-v6-side-channel-terminal',
+    'nmj-v6-side-channel-evidence',
+    'nmj-v6-side-channel-public',
+    'nmj-v6-side-channel-wrong-reel',
+    'nmj-v3-theater-custom',
+] as const;
+
+export const getActiveStoryMiniTheaterPrompt = (document: StoryTheaterPresetDocument): StoryTheaterPresetPrompt | undefined => {
+    const ids = new Set<string>(STORY_MINI_THEATER_PROMPT_IDS);
+    return document.prompts.find(prompt => prompt.enabled && ids.has(prompt.id));
+};
+
+/** 将当前沙盒启用的小剧场规则重复放到本轮输入前，避免被较后的输出协议忽略。 */
+export const buildStoryMiniTheaterReminder = (
+    document: StoryTheaterPresetDocument,
+    userName: string,
+    characterNames: string[],
+): string => {
+    const prompt = getActiveStoryMiniTheaterPrompt(document);
+    if (!prompt?.content.trim()) return '';
+    return [
+        `### 本轮结尾模块：${prompt.name}`,
+        '这一模块已经由用户在本剧情的快捷预设中启用。本轮必须在主正文之后完整执行，不得因其它输出规则而省略。',
+        '格式守门：每个 <mt_ai> / <mt_user> 内都必须同时写出一组完整的 <name> 与 <text>，闭合所有标签；不得把“… / ... / 按需要继续排列”等示例占位符当成实际消息输出。',
+        macroReplace(prompt.content, userName, characterNames),
+        '无论上方条目是完整模板还是简写说明，最终都必须使用这个可渲染外壳：',
+        '<mini_theater>',
+        '<mt_title>本轮实际标题</mt_title>',
+        '<mt_system>可省略的短界面提示</mt_system>',
+        '<mt_ai><name>左侧显示名</name><text>完整消息</text></mt_ai>',
+        '<mt_user><name>右侧显示名</name><text>完整消息</text></mt_user>',
+        '</mini_theater>',
+    ].join('\n');
+};
+
+/** 兼容旧沙盒覆盖：只要暗格或镜头债任一开关仍在，就统一为连续的组合模块。 */
+export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPresetDocument): string => {
+    const backstage = document.prompts.find(prompt => prompt.id === 'nmj-v48-backstage');
+    const legacyDebts = document.prompts.find(prompt => prompt.id === 'nmj-v61-shot-debts');
+    const backstageEnabled = backstage?.enabled === true;
+    const debtsEnabled = legacyDebts?.enabled === true || Boolean(backstageEnabled && backstage?.content.includes('<shot_debts>'));
+    if (!backstageEnabled && !debtsEnabled) return '';
+    return [
+        '### 本轮组合模块：幕后与余波',
+        '幕后暗格与镜头债在糯米机中属于同一个折叠模块，不得拆成相隔很远的两个结尾区，也不得重复生成。',
+        backstageEnabled ? '- 正文结束后输出一组完整且闭合的 <backstage>；心境、秘密与稀有真话都按已启用预设执行。' : '',
+        debtsEnabled ? '- 紧接 </backstage>（若暗格关闭则紧接正文）输出一组完整且闭合的 <shot_debts>；之后才输出世界线、小剧场、选项和关系温度。' : '',
+        '- 两组原始标签仍分别保留用于稳定解析，但界面只显示一个“幕后与余波”折叠区。',
+    ].filter(Boolean).join('\n');
+};
+
+const escapeStoryXml = (value: string): string => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+/** 关系备注只随本轮用户输入送入模型，不混进可见正文。 */
+export const appendStoryAffinityInput = (content: string, input?: StoryAffinityInput): string => {
+    if (!input) return content;
+    const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
+    const reason = String(input.reason || '').trim().slice(0, 200);
+    if (delta === 0 && !reason) return content;
+    const signed = delta >= 0 ? `+${delta}` : String(delta);
+    const awareness = input.awareness === 'noticed' ? 'noticed' : 'unnoticed';
+    return `${content}\n\n<u_affinity>\n<delta>${signed}</delta>\n<reason>${escapeStoryXml(reason || '未填写原因')}</reason>\n<awareness>${awareness}</awareness>\n</u_affinity>`;
+};
+
+/** 多人剧场使用带角色身份的独立 U→C 更新，禁止把几位角色共用成一个槽。 */
+export const appendStoryAffinityInputs = (content: string, inputs: StoryAffinityInput[]): string => {
+    const rows = inputs.map(input => {
+        const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
+        const reason = String(input.reason || '').trim().slice(0, 200);
+        if (delta === 0 && !reason) return '';
+        const signed = delta >= 0 ? `+${delta}` : String(delta);
+        const awareness = input.awareness === 'noticed' ? 'noticed' : 'unnoticed';
+        return [
+            '<u_affinity>',
+            `<character_id>${escapeStoryXml(String(input.characterId || ''))}</character_id>`,
+            `<character_name>${escapeStoryXml(String(input.characterName || '当前角色'))}</character_name>`,
+            `<delta>${signed}</delta>`,
+            `<reason>${escapeStoryXml(reason || '未填写原因')}</reason>`,
+            `<awareness>${awareness}</awareness>`,
+            '</u_affinity>',
+        ].join('\n');
+    }).filter(Boolean);
+    if (rows.length === 0) return content;
+    return `${content}\n\n<u_affinity_updates>\n${rows.join('\n')}\n</u_affinity_updates>`;
+};
+
+interface StoryAffinityScoreState {
+    cToU: number;
+    uToC: number;
+}
+
+const affinityTagValue = (source: string, tag: string): string => (
+    new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(source)?.[1]?.replace(/<[^>]+>/g, '').trim() || ''
+);
+
+const affinityInteger = (value: unknown, fallback: number): number => {
+    const parsed = Number(String(value ?? '').replace(/[^+\d.-]/g, ''));
+    return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
+};
+
+const clampAffinityScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
+const clampAffinityDelta = (value: number): number => Math.max(-100, Math.min(100, Math.round(value)));
+const affinityIdentityKey = (value: string): string => value.trim().toLocaleLowerCase().normalize('NFKC');
+
+const setAffinityTagValue = (source: string, tag: string, value: string): string => {
+    const pattern = new RegExp(`(<${tag}\\b[^>]*>)[\\s\\S]*?(<\\/${tag}\\s*>)`, 'i');
+    if (pattern.test(source)) return source.replace(pattern, `$1${value}$2`);
+    return `${source.trimEnd()}\n<${tag}>${value}</${tag}>`;
+};
+
+const readAffinityScoreStates = (
+    content: string,
+    actors: Array<{ id: string; name: string }>,
+): Map<string, StoryAffinityScoreState> => {
+    const states = new Map<string, StoryAffinityScoreState>();
+    const personPattern = /<affinity_person\b[^>]*>([\s\S]*?)<\/affinity_person\s*>/gi;
+    for (const match of content.matchAll(personPattern)) {
+        const body = match[1];
+        const state = {
+            cToU: clampAffinityScore(affinityInteger(affinityTagValue(body, 'c_to_u_score'), 50)),
+            uToC: clampAffinityScore(affinityInteger(affinityTagValue(body, 'u_to_c_score'), 50)),
+        };
+        const id = affinityIdentityKey(affinityTagValue(body, 'character_id'));
+        const name = affinityIdentityKey(affinityTagValue(body, 'character_name'));
+        if (id) states.set(`id:${id}`, state);
+        if (name) states.set(`name:${name}`, state);
+    }
+    // 兼容升级前的单角色根级面板；多人时绝不猜这一个旧槽属于谁。
+    if (states.size === 0 && actors.length === 1) {
+        const cScore = affinityTagValue(content, 'c_score');
+        const uScore = affinityTagValue(content, 'u_score');
+        if (cScore || uScore) {
+            const state = {
+                cToU: clampAffinityScore(affinityInteger(cScore, 50)),
+                uToC: clampAffinityScore(affinityInteger(uScore, 50)),
+            };
+            states.set(`id:${affinityIdentityKey(actors[0].id)}`, state);
+            states.set(`name:${affinityIdentityKey(actors[0].name)}`, state);
+        }
+    }
+    return states;
+};
+
+/**
+ * 模型只决定“本轮变化多少”，绝对值由前端按上一轮 + delta 复算。
+ * 这样 U→C 的用户输入与 C→U 的模型变化都不会再依赖 LLM 心算。
+ */
+export const reconcileStoryAffinityScores = (
+    generated: string,
+    previousAssistantContent: string,
+    inputs: StoryAffinityInput[],
+    actors: Array<{ id: string; name: string }>,
+): string => {
+    const previous = readAffinityScoreStates(previousAssistantContent, actors);
+    const actorById = new Map(actors.map(actor => [affinityIdentityKey(actor.id), actor]));
+    const actorByName = new Map(actors.map(actor => [affinityIdentityKey(actor.name), actor]));
+    const inputById = new Map(inputs.filter(input => input.characterId).map(input => [affinityIdentityKey(input.characterId || ''), input]));
+    const inputByName = new Map(inputs.filter(input => input.characterName).map(input => [affinityIdentityKey(input.characterName || ''), input]));
+    const personPattern = /(<affinity_person\b[^>]*>)([\s\S]*?)(<\/affinity_person\s*>)/gi;
+
+    return generated.replace(personPattern, (_whole, opening: string, rawBody: string, closing: string) => {
+        const rawId = affinityIdentityKey(affinityTagValue(rawBody, 'character_id'));
+        const rawName = affinityIdentityKey(affinityTagValue(rawBody, 'character_name'));
+        const actor = actorById.get(rawId) || actorByName.get(rawName);
+        const id = affinityIdentityKey(actor?.id || rawId);
+        const name = affinityIdentityKey(actor?.name || rawName);
+        const prior = previous.get(`id:${id}`) || previous.get(`name:${name}`) || { cToU: 50, uToC: 50 };
+        const input = inputById.get(id) || inputByName.get(name);
+        const cDelta = clampAffinityDelta(affinityInteger(affinityTagValue(rawBody, 'c_to_u_delta'), 0));
+        const uDelta = clampAffinityDelta(input?.delta == null ? 0 : affinityInteger(input.delta, 0));
+        const cScore = clampAffinityScore(prior.cToU + cDelta);
+        const uScore = clampAffinityScore(prior.uToC + uDelta);
+        let body = rawBody;
+        body = setAffinityTagValue(body, 'c_to_u_score', String(cScore));
+        body = setAffinityTagValue(body, 'c_to_u_delta', cDelta >= 0 ? `+${cDelta}` : String(cDelta));
+        body = setAffinityTagValue(body, 'u_to_c_score', String(uScore));
+        body = setAffinityTagValue(body, 'u_to_c_delta', uDelta >= 0 ? `+${uDelta}` : String(uDelta));
+        return `${opening}${body}${closing}`;
+    });
+};
+
+export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; name: string }>): string => {
+    if (characters.length === 0) return '';
+    const cast = characters.map(character => `- ${character.id}：${character.name}`).join('\n');
+    return [
+        '### 糯米机多人双向关系温度（覆盖旧的单一“当前 C”槽）',
+        '本剧场为每一位角色分别记录 C→U、U→C、五维关系混音、察觉状态与关系质地。禁止共享数值、串用事实、平均多人状态或只输出第一位角色。',
+        '当前需要逐一维护的角色：',
+        cast,
+        '',
+        '【更新】',
+        '- 从最近一次多人 <affinity_panel> 中按 character_id 读取各自完整状态；没有旧记录时，该角色的 C→U、U→C 从 50 开始，五维依据角色卡与共同经历建立。旧历史只有单人面板时，只能迁移给姓名明确匹配的角色。',
+        '- C→U 与 trust、security、possessive_pull、emotional_pressure、repair_will 只读取对应角色的亲历事实、性格、处境与后果；不得用某个角色的变化影响另一位角色。',
+        '- 最新 <u_affinity_updates> 只出现本轮由用户填写变化的角色。某角色没有对应更新时，其 U→C 绝对值保持不变，delta 记 +0，原因写“本轮未填写”。',
+        '- U→C 新值 = 该角色上一轮 U→C + 对应 delta，并限制在 0—100。不得用某个角色的变化影响另一位角色。',
+        '- 你只需正确决定每个 delta；前端会依据上一轮绝对值复算 C→U 与 U→C score，防止心算错误。',
+        '- 察觉规则只作用于同一条 u_affinity 指向的角色；其他角色不会因为同伴被选择为“已察觉”而共享透视。',
+        '',
+        '【输出】',
+        '用一个 <affinity_panel> 包住全部角色，并严格按当前角色名单顺序为每人输出一段：',
+        '<affinity_person>',
+        '<character_id>角色 ID</character_id>',
+        '<character_name>角色名</character_name>',
+        '<c_to_u_score>50</c_to_u_score>',
+        '<c_to_u_delta>+0</c_to_u_delta>',
+        '<c_to_u_note>改变角色 C→U 的本轮事实</c_to_u_note>',
+        '<u_to_c_score>50</u_to_c_score>',
+        '<u_to_c_delta>+0</u_to_c_delta>',
+        '<u_to_c_note>用户填写的原因；没有则写“本轮未填写”</u_to_c_note>',
+        '<awareness_state>已察觉或未察觉</awareness_state>',
+        '<trust>50</trust><security>50</security><possessive_pull>50</possessive_pull>',
+        '<emotional_pressure>50</emotional_pressure><repair_will>50</repair_will>',
+        '<state_note>最明显的内部拉扯、选择代价或修复动作</state_note>',
+        '<relation_note>这一段双向关系当前的质地</relation_note>',
+        '<relation_fragment>可选的一条具体关系碎片</relation_fragment>',
+        '</affinity_person>',
+        '按角色继续排列 affinity_person，最后闭合 </affinity_panel>。不要再输出旧版根级 c_score / u_score 单槽字段。',
+    ].join('\n');
+};
+
+/** 用户对本轮关系变化的知情边界拥有最终决定权。 */
+export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | undefined, primaryCharacterName: string): string => {
+    if (!input || (Number(input.delta) === 0 && !String(input.reason || '').trim())) return '';
+    if (input.awareness === 'noticed') return [
+        '### 本轮 U→C 关系变化 · 角色完全透视（用户明确指定，覆盖常规感知档）',
+        `- ${primaryCharacterName || '当前主要角色'}明确知道用户→自己的关系温度发生了数值层面的变化；这是直接、确定的透视信息，不是观察气氛、猜测态度或只知道“似乎有变化”。`,
+        '- 角色完整知道最新 delta 的正负、准确幅度、更新后的 U→C 绝对值，以及 <reason> 表达的原因；不得把它降级成模糊感应。',
+        '- 本轮正文必须给出一次符合人物性格、现场节拍与边界的明确反应；可以克制或隐藏，但行为、判断或内心必须真实接住这项已知变化。',
+        '- 角色拥有数值层面的知识，但默认将其自然翻译为人物认知，不照念 XML 标签或系统面板；世界观本来存在数值界面时才可直接谈具体数字。',
+        '- 这项用户选择只覆盖本轮的察觉边界，不授权角色逼问、控制、越界亲密或抢走原剧情主线。',
+    ].join('\n');
+    return [
+        '### 本轮 U→C 关系变化 · 角色未察觉（用户明确指定）',
+        `- ${primaryCharacterName || '对应角色'}不能读取用户→自己的这条 <u_affinity> 的 delta、reason 或准确方向，也不能凭空表演成已经知道；这条限制不覆盖用户对其他角色单独设置的察觉状态。`,
+        '- 其他角色更不能借此读取不属于自己的关系数值；多人之间不得共享这条变化。',
+        '- 这次变化只作为模型维持关系连续性与叙事氛围的低权重背景，不强制制造角色反应。',
+        '- 若用户正文另有真实可见的台词或动作，角色仍可只依据那些现场证据正常推断。',
+    ].join('\n');
+};
+
+export type StoryNarrationMode = 'second' | 'third' | 'custom';
+
+export const resolveStoryNarrationMode = (document: StoryTheaterPresetDocument): StoryNarrationMode => {
+    if (document.sourceFormat === 'sillytavern') {
+        // Legacy imported-native overrides are no longer applied. The
+        // selected AUTHOR prompt is now the one authoritative POV source.
+        const pov = detectTavernNativeControls(document.prompts).inferred.pov;
+        if (pov === 'nmj-v3-pov-third') return 'third';
+        if (pov === 'nmj-v3-pov-second') return 'second';
+        return 'custom';
+    }
+    const third = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-third' && prompt.enabled);
+    if (third) return 'third';
+    const second = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-second' && prompt.enabled);
+    return second ? 'second' : 'custom';
+};
+
+/** 最后贴近用户输入发送，消除系统指令里的“你”与故事用户侧身份之间的歧义。 */
+export const buildStoryIdentityGuard = (
+    document: StoryTheaterPresetDocument,
+    identityName: string,
+    characterNames: string[],
+): string => {
+    const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '当前用户侧角色（未命名）';
+    const cast = characterNames.filter(Boolean).join('、') || '暂无其他角色';
+    const mode = resolveStoryNarrationMode(document);
+    const narrationTag = document.sourceFormat === 'sillytavern' ? '<content>' : '<story_text>';
+    const perspectiveRule = document.sourceFormat === 'sillytavern'
+        ? mode === 'third'
+            ? `- 当前酒馆原预设指定第三人称。${narrationTag} 的旁白中用户侧身份是「${identity}」；保持作者原有的全知／有限、多线叙事与代写权限，不额外强制成内置“第三人称有限”。`
+            : mode === 'second'
+                ? `- 当前酒馆原预设指定用户侧第二人称。${narrationTag} 中“你／你的”指「${identity}」；其他角色的人称及叙事视角仍服从作者原文，不强制改写为内置有限视角。`
+                : '- 酒馆原预设使用作者自定义／混合视角；不得强改成内置第二或第三人称有限，只固定用户侧身份与角色的对应关系。'
+        : mode === 'third'
+            ? `- 当前启用第三人称有限。${narrationTag} 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
+            : mode === 'second'
+                ? `- 当前启用第二人称有限。${narrationTag} 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
+                : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
+    return [
+        '### 糯米机运行时身份与人称锚点（覆盖旧楼层的写法，不覆盖角色卡事实）',
+        `- 用户侧剧情身份：${identity}。本轮参与角色：${cast}。关系协议中的 U 只指「${identity}」，C 才指名单中的各个角色。`,
+        '- 生成回复的一方不属于故事人物。系统指令为方便表达而出现的“你”，只是执行语法，不能据此把生成端写进故事，也不能把故事里的“你”解释成生成端自己。',
+        document.sourceFormat === 'sillytavern'
+            ? '- 最新用户输入按实际句法辨认说话人与受话人；剧情旁白的“我／你／他”由当前启用的原作者人称条目决定，不得用糯米机内置有限视角覆盖它。关系字段中的 U 仍只表示用户侧身份。'
+            : '- 用户最新输入仍按实际句法辨认说话人与受话人；但在最终输出的叙事旁白、场景条和关系面板中，未另行点名的“你／你的”只允许指用户侧剧情身份。',
+        perspectiveRule,
+        '- 历史助手回复只是已经发生的旧剧情：继承事实，不继承它过去使用的第一、第二或第三人称。当前启用的人称模式是本轮唯一标准。',
+    ].join('\n');
+};
+
+/** Old imports may still contain legacy native-option metadata. Retain it
+ * when loading/exporting for recovery, but never send copied Night Screening
+ * prompts over the original Tavern author rules.
+ */
+export const buildTavernNativeOverrideMessages = (
+    _document: StoryTheaterPresetDocument,
+    _userName: string,
+    _characterNames: string[],
+): StoryApiMessage[] => [];
+
+const slotForMarker = (marker: StoryTheaterPresetPrompt['marker'], slots: StoryPromptSlots): string => {
+    switch (marker) {
+        case 'characters': return slots.actors;
+        case 'world_before': return slots.worldBefore;
+        case 'user': return slots.persona;
+        case 'world_after': return slots.worldAfter;
+        case 'scenario': return slots.scenario;
+        case 'examples': return slots.examples || '';
+        case 'history': return slots.history || '';
+        default: return '';
+    }
+};
+
+const pushPromptMessage = (messages: StoryApiMessage[], role: StoryApiRole, content: string) => {
+    const clean = content.trim();
+    if (!clean) return;
+    messages.push({ role, content: clean });
+};
+
+export const compileStoryPreset = (input: {
+    preset?: StoryTheaterPreset | null;
+    slots: StoryPromptSlots;
+    historyMessages?: StoryApiMessage[];
+    currentInput?: string;
+    currentInputIsNewUserMessage?: boolean;
+    modelName?: string;
+    continueRequested?: boolean;
+    userName: string;
+    characterNames: string[];
+}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[]; continueNudge?: StoryApiMessage; nativeOverrideMessages?: StoryApiMessage[] } => {
+    const { preset, slots, userName, characterNames } = input;
+    const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
+    const messages: StoryApiMessage[] = [];
+    const importedFromTavern = document.sourceFormat === 'sillytavern';
+    const variables = new Map<string, string>();
+    // A Tavern global is shared across chats in Tavern. Imported presets use
+    // a REQUEST-LOCAL map instead to preserve SullyOS identity separation.
+    const globalVariables = new Map<string, string>();
+    // The imported Tavern preset may set a rich rule via {{setvar}} without any
+    // active {{getvar}} consumer: its original helper script is not runnable here.
+    // Inline just those standalone XML rule bodies so an enabled toggle actually
+    // affects the model, while normal getvar references keep their source location.
+    const referencedVariables = new Set<string>();
+    if (importedFromTavern) {
+        const enabledContents = [
+            ...document.prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content),
+            document.assistantPrefill || '',
+        ];
+        for (const value of enabledContents) {
+            for (const match of value.matchAll(/\{\{\s*getvar(?:\s*::\s*|\s+)([^{}]+?)\s*\}\}/gi)) {
+                referencedVariables.add(match[1].trim());
+            }
+        }
+    }
+    const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
+    let historyStart: number | null = null;
+    let historyLength = 0;
+    const previousHistoryMessage = input.historyMessages?.at(-1);
+    const pendingUserContent = input.currentInputIsNewUserMessage && input.currentInput?.trim()
+        ? input.currentInput : undefined;
+    const lastHistoryMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent } : previousHistoryMessage;
+    const lastUserMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent }
+        : [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
+    const lastCharMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'assistant');
+    const expandImported = (value: string): string => importedFromTavern
+        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables, globalVariables), {
+            description: slots.tavernDescription ?? slots.actors,
+            personality: slots.tavernPersonality ?? slots.actors,
+            persona: slots.persona,
+            scenario: slots.scenario,
+            examples: slots.examples,
+            lastMessage: lastHistoryMessage?.content,
+            lastUserMessage: lastUserMessage?.content,
+            lastCharMessage: lastCharMessage?.content,
+            lastChatMessage: lastCharMessage?.content ?? previousHistoryMessage?.content ?? '',
+            input: input.currentInput,
+            model: input.modelName,
+            variables,
+        })
+        : value;
+
+    const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
+    const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
+    const firstEnabledCharacterIndex = document.prompts.findIndex(prompt => prompt.enabled && prompt.marker === 'characters');
+    const formatTavernSlot = (value: string, template: string | undefined, placeholder: string): string => {
+        if (!importedFromTavern || !template?.trim() || !value.trim()) return value;
+        if (!template.includes(placeholder)) return value;
+        return template.split(placeholder).join(value);
+    };
+    const formatWorldBefore = (value: string): string => formatTavernSlot(value, document.tavernFormats?.worldInfo, '{0}');
+    const shouldBackfillWorldBefore = worldBeforePrompts.length === 0 && Boolean(slots.worldBefore.trim());
+    const shouldMoveWorldBeforeAheadOfCharacters = Boolean(
+        enabledWorldBeforePrompt
+        && firstEnabledCharacterIndex >= 0
+        && document.prompts.indexOf(enabledWorldBeforePrompt) > firstEnabledCharacterIndex
+        && slots.worldBefore.trim(),
+    );
+
+    // Native presets inject a character marker once. Imported Tavern presets
+    // can carry two distinct, independently switchable card slots: description
+    // and personality. Split only when both are active AND both source values
+    // are available; otherwise keep the complete actor context intact.
+    const splitCharacterSlots = importedFromTavern
+        && Boolean(slots.tavernDescription?.trim() && slots.tavernPersonality?.trim())
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charDescription')
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charPersonality');
+    const injectedMarkers = new Set<string>();
+    for (let index = 0; index < document.prompts.length; index += 1) {
+        const prompt = document.prompts[index];
+        if (
+            index === firstEnabledCharacterIndex
+            && (shouldBackfillWorldBefore || shouldMoveWorldBeforeAheadOfCharacters)
+        ) {
+            pushPromptMessage(
+                messages,
+                enabledWorldBeforePrompt?.role || 'system',
+                macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames),
+            );
+            injectedMarkers.add('world_before');
+        }
+        if (!prompt.enabled || prompt.section) continue;
+        let raw = prompt.content;
+        if (prompt.marker) {
+            const separateTavernCardSlot = splitCharacterSlots && prompt.marker === 'characters'
+                && (prompt.id === 'st-charDescription' || prompt.id === 'st-charPersonality');
+            if (injectedMarkers.has(prompt.marker) && !separateTavernCardSlot) continue;
+            injectedMarkers.add(prompt.marker);
+            if (separateTavernCardSlot) {
+                raw = prompt.id === 'st-charDescription'
+                    ? slots.tavernDescription!
+                    : formatTavernSlot(slots.tavernPersonality!, document.tavernFormats?.personality, '{{personality}}');
+            } else if (prompt.marker === 'history' && input.historyMessages) {
+                const newGroupHeader = characterNames.length > 1 && typeof document.tavernOptions?.new_group_chat_prompt === 'string'
+                    ? document.tavernOptions.new_group_chat_prompt : '';
+                const chatHeader = newGroupHeader || document.tavernFormats?.newChat || '';
+                if (importedFromTavern && chatHeader.trim()) {
+                    pushPromptMessage(messages, 'system', macroReplace(expandImported(chatHeader), userName, characterNames));
+                }
+                historyStart = messages.length;
+                historyLength = input.historyMessages.length;
+                messages.push(...input.historyMessages);
+                continue;
+            } else {
+                raw = slotForMarker(prompt.marker, slots);
+                if (prompt.marker === 'world_before' || prompt.marker === 'world_after') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.worldInfo, '{0}');
+                } else if (prompt.marker === 'scenario') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.scenario, '{{scenario}}');
+                } else if (prompt.marker === 'examples' && raw.trim() && importedFromTavern
+                    && document.tavernFormats?.newExampleChat?.trim()) {
+                    raw = `${document.tavernFormats.newExampleChat}\n${raw}`;
+                }
+            }
+        }
+        raw = expandImported(raw);
+        if (!raw.trim()) continue;
+        const content = macroReplace(raw, userName, characterNames).trim();
+        if (prompt.injection?.position === 'chat' && !prompt.marker) {
+            inChatPrompts.push({ message: { role: prompt.role, content }, depth: prompt.injection.depth, order: prompt.injection.order, sourceIndex: index });
+            continue;
+        }
+        if (prompt.marker === 'history') {
+            historyStart = messages.length;
+            historyLength = 1;
+        }
+        pushPromptMessage(messages, prompt.role, content);
+    }
+
+    // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
+    if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
+        messages.unshift({ role: 'system', content: macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames).trim() });
+        if (historyStart !== null) historyStart += 1;
+    }
+
+    // The pending user turn is appended by StoryTheaterSession after compilation.
+    // SillyTavern depth=0 goes AFTER that pending turn, depth=1 goes immediately BEFORE it.
+    const afterLatestUser: StoryApiMessage[] = [];
+    if (inChatPrompts.length) {
+        const rolePriority: Record<StoryApiRole, number> = { user: 0, assistant: 1, system: 2 };
+        const byOrder = (a: typeof inChatPrompts[number], b: typeof inChatPrompts[number]) =>
+            a.order - b.order || rolePriority[a.message.role] - rolePriority[b.message.role] || a.sourceIndex - b.sourceIndex;
+        inChatPrompts.sort(byOrder);
+        afterLatestUser.push(...inChatPrompts.filter(prompt => prompt.depth === 0).map(prompt => prompt.message));
+        const insertionStart = historyStart ?? messages.length;
+        const insertionLength = historyStart === null ? 0 : historyLength;
+        const inserts = inChatPrompts.filter(prompt => prompt.depth > 0).map(prompt => ({
+            ...prompt,
+            index: insertionStart + Math.max(0, insertionLength - (prompt.depth - 1)),
+        }));
+        inserts.sort((a, b) => b.index - a.index || -byOrder(a, b));
+        for (const item of inserts) messages.splice(item.index, 0, item.message);
+    }
+
+    const prefill = expandImported(String(document.assistantPrefill || '')).trim();
+    const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames) } : undefined;
+    const requestedContinue = importedFromTavern && input.continueRequested
+        ? expandImported(document.tavernFormats?.continueNudge || '').trim()
+        : '';
+    const continueNudge = requestedContinue
+        ? { role: 'system' as const, content: macroReplace(requestedContinue, userName, characterNames) }
+        : undefined;
+
+    return {
+        messages,
+        settings: {
+            temperature: document.generation.temperature,
+            top_p: document.generation.topP,
+            frequency_penalty: document.generation.frequencyPenalty,
+            presence_penalty: document.generation.presencePenalty,
+            max_tokens: document.generation.maxTokens,
+        },
+        assistantPrefill,
+        ...(importedFromTavern ? { nativeOverrideMessages: buildTavernNativeOverrideMessages(document, userName, characterNames) } : {}),
+        ...(continueNudge ? { continueNudge } : {}),
+        ...(afterLatestUser.length ? { afterLatestUser } : {}),
+    };
+};
+
+/**
+ * 部分 OpenAI 兼容模型硬性要求请求最后一条消息必须是 user，不能接受
+ * SillyTavern 常用的 assistant prefill。把预填充改写成紧邻用户消息前的
+ * system 约束，调用方仍可在返回文本缺失前缀时本地补齐。
+ */
+export const buildStoryPrefillInstruction = (assistantPrefill?: StoryApiMessage): StoryApiMessage | undefined => {
+    const content = assistantPrefill?.content?.trim();
+    if (!content) return undefined;
+    return {
+        role: 'system',
+        content: [
+            '### 回复起始文本（兼容模式）',
+            '你的最终回复必须直接以下列文本开头；不要解释、转述或把它放进代码块：',
+            content,
+        ].join('\n'),
+    };
+};
+
+/**
+ * 默认完整保留原生 assistant prefill；只有用户为当前剧情显式开启 400 兼容模式时，
+ * 才把预填改成 system 约束并让最终消息保持 user。这样个别严格接口不会改变所有人的预设效果。
+ */
+export const appendStoryUserTurn = (
+    messages: StoryApiMessage[],
+    userContent: string,
+    assistantPrefill?: StoryApiMessage,
+    forceUserLastMessage = false,
+): StoryApiMessage[] => {
+    if (forceUserLastMessage) {
+        const instruction = buildStoryPrefillInstruction(assistantPrefill);
+        return [
+            ...messages,
+            ...(instruction ? [instruction] : []),
+            { role: 'user', content: userContent },
+        ];
+    }
+    return [
+        ...messages,
+        { role: 'user', content: userContent },
+        ...(assistantPrefill ? [assistantPrefill] : []),
+    ];
+};
+
+export const dedupeTheaterWorldbooks = (characters: CharacterProfile[]): MountedWorldbook[] => {
+    const seen = new Set<string>();
+    const output: MountedWorldbook[] = [];
+    for (const char of characters) {
+        for (const book of (char.mountedWorldbooks || [])) {
+            const keys = [
+                book.id ? `id:${book.id}` : '',
+                `body:${book.title.trim().toLocaleLowerCase()}\u0000${book.content.trim()}`,
+            ].filter(Boolean);
+            if (keys.length === 0 || keys.some(key => seen.has(key))) continue;
+            keys.forEach(key => seen.add(key));
+            output.push({ ...book });
+        }
+    }
+    return output.sort((a, b) => (a.category || '').localeCompare(b.category || '', 'zh-CN') || a.title.localeCompare(b.title, 'zh-CN'));
+};
+
+/**
+ * Available to *this story*, independent of who participates: the canonical
+ * global library plus legacy character-only mounts from the user's library.
+ * The actual model context still uses ONLY the IDs checked by this story.
+ *
+ * A legacy ID reused for two different character-only texts is ambiguous.
+ * Suppress it rather than quietly injecting the first character's unrelated
+ * world. An actual global record always takes priority over legacy copies.
+ */
+export const resolveStoryTheaterWorldbooks = (
+    globalWorldbooks: readonly Worldbook[],
+    characters: readonly CharacterProfile[],
+): MountedWorldbook[] => {
+    const byId = new Map<string, MountedWorldbook>();
+    const canonicalIds = new Set<string>();
+    const ambiguousLegacyIds = new Set<string>();
+    // Same ID but different trigger/order rules is a different usable book.
+    // Ignoring that mismatch would silently alter which world becomes active.
+    const meaning = (book: MountedWorldbook) => JSON.stringify([
+        book.title, book.content, book.category ?? null,
+        book.key ?? [], book.keysecondary ?? [], book.constant ?? null,
+        book.selective ?? null, book.selectiveLogic ?? null, book.order ?? null,
+        book.position ?? null, book.disable ?? null, book.probability ?? null,
+        book.useProbability ?? null, book.depth ?? null, book.role ?? null,
+        book.scanDepth ?? null, book.caseSensitive ?? null,
+        book.matchWholeWords ?? null,
+    ]);
+    const valid = (book: MountedWorldbook | null | undefined): book is MountedWorldbook =>
+        !!book && typeof book.id === 'string' && !!book.id.trim()
+        && typeof book.title === 'string' && typeof book.content === 'string';
+    for (const book of Array.isArray(globalWorldbooks) ? globalWorldbooks : []) {
+        if (!valid(book)) continue;
+        if (!canonicalIds.has(book.id)) {
+            canonicalIds.add(book.id);
+            byId.set(book.id, { ...book });
+        }
+    }
+    for (const person of Array.isArray(characters) ? characters : []) {
+        if (!person || !Array.isArray(person.mountedWorldbooks)) continue;
+        for (const book of person.mountedWorldbooks) {
+            if (!valid(book) || canonicalIds.has(book.id) || ambiguousLegacyIds.has(book.id)) continue;
+            const previous = byId.get(book.id);
+            if (!previous) byId.set(book.id, { ...book });
+            else if (meaning(previous) !== meaning(book)) {
+                byId.delete(book.id);
+                ambiguousLegacyIds.add(book.id);
+            }
+        }
+    }
+    return [...byId.values()].sort((a, b) =>
+        (a.category || '').localeCompare(b.category || '', 'zh-CN')
+        || a.title.localeCompare(b.title, 'zh-CN') || a.id.localeCompare(b.id));
+};
+
+export const buildStoryWorldbookScanMessages = (
+    history: WorldbookScanMessage[],
+    currentUserContent: string,
+    limit = 20,
+): WorldbookScanMessage[] => {
+    const safeLimit = Math.max(1, Math.floor(limit));
+    const current = currentUserContent.trim();
+    if (!current) return history.slice(-safeLimit);
+    const historyLimit = safeLimit - 1;
+    return [
+        ...(historyLimit > 0 ? history.slice(-historyLimit) : []),
+        { role: 'user', content: current },
+    ];
+};
+
+export const buildBareTheaterActorContext = (char: CharacterProfile, includeDescription = false): string => [
+    `### 剧情角色：${char.name}`,
+    `- 名字：${char.name}`,
+    ...(includeDescription && char.description?.trim() ? [`- 角色描述：\n${char.description.trim()}`] : []),
+    `- 核心指令：\n${char.systemPrompt || '无额外核心指令'}`,
+    char.worldview?.trim() ? `- 世界观：\n${char.worldview.trim()}` : '',
+].filter(Boolean).join('\n');
+
+export const buildStoryActorMemoryEnvelope = (
+    characterName: string,
+    recalled: string,
+    originalUserName: string,
+    currentIdentityName: string,
+): string => {
+    const content = recalled.trim();
+    if (!content) return '';
+    const owner = characterName.trim() || '当前角色';
+    const originalUser = originalUserName.trim() || '原本的你';
+    const currentIdentity = currentIdentityName.trim() || originalUser;
+    const identityReminder = currentIdentity === originalUser
+        ? `- 本剧情当前用户侧身份仍是「${originalUser}」；记忆原文里的“你”继续指这个身份。`
+        : `- 本剧情当前用户侧执笔身份是「${currentIdentity}」，不得因此把旧记忆里的“你”从「${originalUser}」改绑到当前身份。`;
+
+    return [
+        `### ${owner} 的专属既有记忆`,
+        `归属规则：以下内容只属于角色「${owner}」，不得归给、共享给或改写成其他角色的亲历记忆。`,
+        `- 记忆片段里的第一人称“我/我的”，默认指「${owner}」。`,
+        `- 记忆片段里的第二人称“你/你的”，若片段没有另行点名，默认指形成记忆时的原互动对象「${originalUser}」。`,
+        identityReminder,
+        `【${owner}专属记忆开始】`,
+        content,
+        `【${owner}专属记忆结束】`,
+    ].join('\n');
+};
+
+export const buildStoryArchiveMemoryEnvelope = (recalled: string): string => {
+    const content = recalled.trim();
+    if (!content) return '';
+    return [
+        '### 本剧情共享档案召回',
+        '归属规则：以下内容是本剧情自己的叙事档案，只用于承接已经发生的剧情；它不属于任何一位角色的个人记忆，也不得写入或冒充角色的神经链接记忆。',
+        '- 片段中的第一、第二人称只保留原文叙事视角；应依据片段内明确出现的姓名与事件判断身份。',
+        '- 无法从片段确定指代时，保持模糊，不得擅自把“我/你”归给当前面具或任一角色。',
+        '【本剧情共享档案开始】',
+        content,
+        '【本剧情共享档案结束】',
+    ].join('\n');
+};
+
+export const buildTheaterPersona = (mask: ResolvedStoryTheaterMask): string => [
+    '### 当前用户侧执笔身份',
+    `- 名字：${mask.name || '你'}`,
+    `- 身份/外在设定：${mask.description || '无'}`,
+    mask.coreInstruction?.trim() ? `- 核心性格与行动边界：\n${mask.coreInstruction.trim()}` : '',
+    mask.worldview?.trim() ? `- 所属世界观：\n${mask.worldview.trim()}` : '',
+    '- 这是用户侧本轮亲自执笔的故事身份，不是生成回复的一方。除非预设明确允许代写，续写不得把该身份当作普通角色擅自决定重大选择。',
+].join('\n');
+
+export const storyTheaterMemoryRecipientIds = (entry: StoryTheaterEntry): string[] => {
+    const ids = new Set(entry.characterIds);
+    if (entry.mask?.type === 'character') ids.add(entry.mask.id);
+    return [...ids];
+};
+
+const DISPLAY_BLOCK_META: Record<string, { kind: StoryDisplayBlockKind; title?: string }> = {
+    scene_header: { kind: 'scene', title: '这一幕' },
+    story_text: { kind: 'story' },
+    backstage: { kind: 'backstage', title: '幕后层' },
+    mind_weather: { kind: 'backstage', title: '内心气象' },
+    worldline: { kind: 'worldline', title: '世界线' },
+    world_line: { kind: 'worldline', title: '世界线' },
+    shot_debts: { kind: 'debts', title: '尚未偿还的镜头' },
+    mini_theater: { kind: 'theater', title: '幕间剧场' },
+    reply_choices: { kind: 'choices', title: '可以这样推进' },
+    affinity_panel: { kind: 'affinity', title: '关系变化' },
+};
+
+const DISPLAY_TAG_LABELS: Record<string, string> = {
+    time: '时间', place: '地点', situation: '场面', owner: '主体', surface: '表层反应', undertow: '潜流',
+    secret: '秘密', hidden: '隐藏事实', true_monologue: '真正的独白', voice: '心声', red: '危险信号',
+    fracture: '裂纹', surge: '情绪峰值', world_line_title: '世界线', worldline_title: '世界线', world_event: '事件',
+    scope: '影响范围', change: '变化', debt_title: '镜头债', debt: '未结事项', origin: '起因', unpaid: '尚未偿还',
+    trigger: '触发条件', mt_title: '幕间', mt_system: '旁白', mt_ai: '人物', mt_user: '右侧', name: '人物',
+    choice: '备选', label: '方向', reply: '推进', relation_note: '关系天气', u_note: '你的说明', c_note: '变化原因',
+    c_score: '关系温度', u_score: '你的关系温度', u_affinity: '你的关系备注', u_delta: '你的变化', c_delta: '本轮变化', relation_fragment: '关系碎片',
+    character_id: '角色 ID', character_name: '人物',
+    c_to_u_score: '角色对你的温度', c_to_u_delta: '角色本轮变化', c_to_u_note: '角色变化依据',
+    u_to_c_score: '你对角色的温度', u_to_c_delta: '你本轮的变化', u_to_c_note: '你的变化原因', awareness_state: '察觉状态',
+    trust: '信任', security: '安全感', possessive_pull: '占有拉力', emotional_pressure: '情绪压强', repair_will: '修复意愿', state_note: '关系合力',
+};
+
+const HIDDEN_STORY_DISPLAY_TAGS = new Set(['u_score', 'u_delta', 'u_note']);
+
+const decodeStoryCodePoint = (match: string, code: string, radix: number): string => {
+    const value = parseInt(code, radix);
+    return Number.isFinite(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : match;
+};
+
+const decodeStoryEntities = (value: string): string => value
+    .replace(/&#(\d+);/g, (match, code) => decodeStoryCodePoint(match, code, 10))
+    .replace(/&#x([0-9a-f]+);/gi, (match, code) => decodeStoryCodePoint(match, code, 16))
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, String.fromCharCode(34)).replace(/&#39;/gi, String.fromCharCode(39)).replace(/&amp;/gi, '&');
+
+const cleanStoryMarkupText = (value: string): string => decodeStoryEntities(String(value || ''))
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/?[a-z][^>]*>/gi, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const firstStoryTagValue = (source: string, tag: string): string => {
+    const closed = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(source)?.[1];
+    if (closed !== undefined) return cleanStoryMarkupText(closed);
+    const openOnly = new RegExp(`<${tag}\\b[^>]*>([^<\\n]*)`, 'i').exec(source)?.[1];
+    return cleanStoryMarkupText(openOnly || '');
+};
+
+/**
+ * 小剧场单独按语义解析：把 name/text 合并成一条消息，并容忍缺失闭合标签、
+ * 省略消息外壳或直接退化为纯文本，避免把每个 XML 标签渲染成一张卡。
+ */
+export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay => {
+    const source = decodeStoryEntities(String(fragment || '')).replace(/\r\n?/g, '\n');
+    const title = firstStoryTagValue(source, 'mt_title') || '幕间频道';
+    const systems = [...source.matchAll(/<mt_system\b[^>]*>([\s\S]*?)(?:<\/mt_system\s*>|(?=<(?:mt_ai|mt_user|mt_title)\b)|$)/gi)]
+        .map(match => cleanStoryMarkupText(match[1]))
+        .filter(Boolean);
+    const messages: StoryMiniTheaterDisplayMessage[] = [];
+    const messagePattern = /<(mt_ai|mt_user)\b[^>]*>([\s\S]*?)(?:<\/\1\s*>|(?=<(?:mt_ai|mt_user|mt_system|mt_title)\b)|$)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = messagePattern.exec(source)) !== null) {
+        const side = match[1].toLowerCase() === 'mt_user' ? 'right' : 'left';
+        const body = match[2];
+        const name = firstStoryTagValue(body, 'name') || (side === 'right' ? '右侧' : '左侧');
+        const taggedText = firstStoryTagValue(body, 'text');
+        const fallbackText = cleanStoryMarkupText(body).replace(name, '').trim();
+        const text = taggedText || fallbackText;
+        if (text) messages.push({ side, name, text });
+    }
+
+    if (messages.length === 0) {
+        const pairPattern = /<name\b[^>]*>([\s\S]*?)<\/name\s*>\s*<text\b[^>]*>([\s\S]*?)<\/text\s*>/gi;
+        for (const pair of source.matchAll(pairPattern)) {
+            const name = cleanStoryMarkupText(pair[1]) || '频道消息';
+            const text = cleanStoryMarkupText(pair[2]);
+            if (text) messages.push({ side: 'left', name, text });
+        }
+    }
+
+    if (messages.length === 0) {
+        const plain = cleanStoryMarkupText(source)
+            .split(/\n+/)
+            .map(line => line.trim())
+            .filter(line => line && line !== title && !systems.includes(line));
+        for (const line of plain) {
+            const labeled = /^([^：:]{1,20})[：:]\s*(.+)$/.exec(line);
+            messages.push({ side: 'left', name: labeled?.[1]?.trim() || '频道消息', text: labeled?.[2]?.trim() || line });
+        }
+    }
+
+    return { title, ...(systems.length > 0 ? { system: systems.join(' · ') } : {}), messages };
+};
+
+const formatTaggedStoryFragment = (fragment: string): string => {
+    let clean = decodeStoryEntities(String(fragment || '')).replace(/\r\n?/g, '\n');
+    const pair = /<([a-z][\w-]*)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    for (let pass = 0; pass < 8 && pair.test(clean); pass += 1) {
+        pair.lastIndex = 0;
+        clean = clean.replace(pair, (_whole, rawTag: string, body: string) => {
+            const tag = rawTag.toLowerCase();
+            const label = DISPLAY_TAG_LABELS[tag];
+            const inner = body.trim();
+            if (!inner) return '';
+            if (HIDDEN_STORY_DISPLAY_TAGS.has(tag)) return '';
+            if (tag === 'story_text' || tag === 'text') return inner;
+            return label ? `\n${label}：${inner}\n` : `\n${inner}\n`;
+        });
+    }
+    clean = clean
+        .replace(/<\/?[a-z][^>]*>/gi, '\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    return clean;
+};
+
+/**
+ * Tavern output may nest <details> inside <sidestory>, or append side-theaters
+ * inside a <content> body. Matching the first closing tag with a regex loses
+ * nested information. Use the browser's HTML tree for imported output only;
+ * original SullyOS preset parsing remains untouched.
+ */
+const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
+    const document = new DOMParser().parseFromString(source, 'text/html');
+    const blocks: StoryDisplayBlock[] = [];
+    const foreignNames: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+        small_theater: '酒馆小剧场',
+        side_theater: '酒馆小剧场',
+        episode: '酒馆主题小剧场',
+        draft: '酒馆剧情摘要',
+        microlist: '酒馆临时待办',
+        ink: '酒馆补充信息',
+        count: '酒馆字数记录',
+    };
+    const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
+    const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
+    const structural = meaningfulTags.join(',');
+    // Styles inside a particular appendix must NOT be copied into every
+    // other appendix. Each sandbox should retain its own local CSS. Only
+    // genuinely top-level author styles can be shared with all appendices.
+    const sharedStyles = Array.from(document.querySelectorAll('style'))
+        .filter(style => !style.closest('sidestory,randomtheater,writing_interlude,partner_sidestory,small_theater,side_theater,episode,draft,microlist,details,mini_theater'))
+        .map(style => '<style>' + (style.textContent || '') + '</style>')
+        .join('\n').slice(0, 26000);
+    const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
+        const displayRaw = raw.replace(
+            /<(?:script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|embed|svg|math)\s*>/gi, '',
+        );
+        const text = formatTaggedStoryFragment(displayRaw);
+        if (!text && !htmlSource) return;
+        const last = blocks[blocks.length - 1];
+        if (kind === 'story' && last?.kind === 'story') {
+            last.text = last.text + '\n\n' + text;
+        } else {
+            blocks.push({ kind, text, ...(title ? { title } : {}),
+                ...(htmlSource ? { htmlSource } : {}) });
+        }
+    };
+    const pushStructuredTheater = (raw: string, title: string): boolean => {
+        // Only explicit chat semantics map to native bubbles. Ordinary prose,
+        // tables and stylized appendices must never be guessed as dialogue.
+        const containsChat = /<(?:mt_ai|mt_user)\b/i.test(raw)
+            || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(raw);
+        if (!containsChat) return false;
+        const theater = parseStoryMiniTheater(raw);
+        if (!theater.messages.length) return false;
+        const text = [
+            theater.title ? '幕间：' + theater.title : '',
+            theater.system ? '旁白：' + theater.system : '',
+            ...theater.messages.map(message => message.name + '：' + message.text),
+        ].filter(Boolean).join('\n');
+        blocks.push({ kind: 'theater', title, text, theater });
+        return true;
+    };
+    const pushAppendix = (element: Element, title: string) => {
+        const raw = element.innerHTML;
+        if (pushStructuredTheater(raw, title)) return;
+        const adapted = element.tagName.toLowerCase() === 'writing_interlude'
+            ? adaptTavernWritingInterlude(raw) : undefined;
+        const htmlSource = adapted || (hasStoryHtmlLayout(raw) ? sharedStyles + '\n' + raw : undefined);
+        push('tavern-extra', raw, title, htmlSource);
+    };
+    const visit = (node: Node): void => {
+        if (node.nodeType === 3) {
+            const content = node.textContent || '';
+            if (content.trim()) push('story', content);
+            return;
+        }
+        if (node.nodeType !== 1) return;
+        const element = node as Element;
+        const tag = element.tagName.toLowerCase();
+        if (['style', 'script', 'noscript', 'iframe', 'object', 'embed', 'svg', 'math', 'template'].includes(tag)) return;
+        if (['thinking', 'think', 'thought'].includes(tag)) {
+            push('thinking', element.innerHTML, '思考过程');
+            return;
+        }
+        if (tag === 'content') {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(foreignNames, tag)) {
+            pushAppendix(element, foreignNames[tag]);
+            return;
+        }
+        if (tag === 'details') {
+            const fate = (element.getAttribute('data-fate') || '').toLowerCase();
+            const info = (element.getAttribute('data-info') || '').toLowerCase();
+            const title = info === 'archive' ? '剧情摘要'
+                : fate === 'destiny' ? '剧情选项'
+                : fate.includes('side_theater') ? '小剧场附录'
+                : element.querySelector('summary')?.textContent?.trim().slice(0, 80) || '酒馆附录';
+            pushAppendix(element, title);
+            return;
+        }
+        if (nativeNames.has(tag)) {
+            // Reuse existing native card parser, including original mini theater,
+            // relationship and choices behavior, without changing native presets.
+            blocks.push(...parseStoryDisplayBlocks(element.outerHTML, false));
+            return;
+        }
+        const nested = element.querySelector(structural);
+        if (nested) {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        // Full HTML layouts are never injected into the SullyOS page itself:
+        // they are rendered in a separate CSP-locked sandboxed document.
+        if (hasStoryHtmlLayout(element.outerHTML)
+            && (['div', 'table', 'section', 'article', 'figure', 'img', 'ul', 'ol', 'pre', 'blockquote'].includes(tag)
+                || element.hasAttribute('style') || element.hasAttribute('class'))) {
+            push('html', element.outerHTML, '酒馆排版', sharedStyles + '\n' + element.outerHTML);
+            return;
+        }
+        push('story', element.outerHTML);
+    };
+    Array.from(document.body.childNodes).forEach(visit);
+    if (!blocks.length) {
+        // Invalid/mismatched foreign tags must still produce readable fallback,
+        // but discard untrusted executable markup rather than displaying JS.
+        const fallback = source.replace(/<(?:script|style|iframe|object|svg)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|svg)\s*>/gi, '');
+        push('story', fallback);
+    }
+    return blocks;
+};
+
+/**
+ * Old story messages predate theaterSourceFormat metadata. Detect their
+ * output dialect from stable markup instead of reinterpreting every old
+ * reply whenever the active preset is switched to another source.
+ */
+export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
+    /<\s*(?:thinking|think|thought|content|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
+    || /<details\b[^>]*>\s*<summary\b/i.test(value);
+
+/** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
+export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
+    const source = String(content || '');
+    if (fromTavern && typeof DOMParser !== 'undefined') return parseTavernStoryDisplayBlocks(source);
+    const blocks: StoryDisplayBlock[] = [];
+    const topLevel = fromTavern
+        ? /<(thinking|think|thought|content|details|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    const foreignTavernTheaters: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+    };
+    const push = (kind: StoryDisplayBlockKind, text: string, title?: string) => {
+        // A Tavern <content> block may itself wrap foreign theater modules.
+        // Keep those in their own collapsed text appendix, NOT the main story.
+        // No embedded HTML, CSS, scripts or regex replacements are executed.
+        if (fromTavern && kind === 'story') {
+            const embedded = /<(sidestory|randomtheater|writing_interlude|partner_sidestory)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+            let cursor = 0;
+            let matched = false;
+            for (const foreign of text.matchAll(embedded)) {
+                const start = foreign.index!;
+                if (start > cursor) push('story', text.slice(cursor, start));
+                push('tavern-extra', foreign[2], foreignTavernTheaters[foreign[1].toLowerCase()]);
+                cursor = start + foreign[0].length;
+                matched = true;
+            }
+            if (matched) {
+                if (cursor < text.length) push('story', text.slice(cursor));
+                return;
+            }
+        }
+        const clean = formatTaggedStoryFragment(text);
+        if (!clean) return;
+        const previous = blocks[blocks.length - 1];
+        if (kind === 'story' && previous?.kind === 'story') previous.text = `${previous.text}\n\n${clean}`;
+        else blocks.push({ kind, text: clean, ...(title ? { title } : {}) });
+    };
+    const pushTheater = (fragment: string, title?: string) => {
+        const theater = parseStoryMiniTheater(fragment);
+        const text = [
+            theater.title ? `幕间：${theater.title}` : '',
+            theater.system ? `旁白：${theater.system}` : '',
+            ...theater.messages.map(message => `${message.name}：${message.text}`),
+        ].filter(Boolean).join('\n');
+        if (text) blocks.push({ kind: 'theater', ...(title ? { title } : {}), text, theater });
+    };
+    while ((match = topLevel.exec(source)) !== null) {
+        if (match.index > cursor) push('story', source.slice(cursor, match.index));
+        const sourceTag = match[1].toLowerCase();
+        if (fromTavern && ['thinking', 'think', 'thought'].includes(sourceTag)) {
+            push('thinking', match[2], '思考过程');
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'content') {
+            push('story', match[2]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag in foreignTavernTheaters) {
+            push('tavern-extra', match[2], foreignTavernTheaters[sourceTag]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'details') {
+            const opening = match[0].slice(0, match[0].indexOf('>') + 1);
+            const title = /data-info\s*=\s*["']archive["']/i.test(opening) ? '剧情摘要'
+                : /data-fate\s*=\s*["']destiny["']/i.test(opening) ? '剧情选项'
+                : /data-fate\s*=\s*["']side_theater["']/i.test(opening) ? '小剧场附录'
+                : '酒馆附录';
+            push('tavern-extra', match[2], title);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        const meta = DISPLAY_BLOCK_META[sourceTag] || { kind: 'other' as const };
+        if (meta.kind === 'theater') {
+            // Native <mini_theater> may also contain authored HTML layouts.
+            // Keep existing mt_ai/mt_user bubbles, but safely render visual-only
+            // HTML inside the same collapsed theater surface.
+            const hasNativeMessages = /<(?:mt_ai|mt_user)\b/i.test(match[2])
+                || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(match[2]);
+            if (hasStoryHtmlLayout(match[2]) && !hasNativeMessages) {
+                blocks.push({ kind: 'html', title: meta.title, text: formatTaggedStoryFragment(match[2]),
+                    htmlSource: match[2] });
+            } else {
+                pushTheater(match[2], meta.title);
+            }
+        } else {
+            push(meta.kind, match[2], meta.title);
+        }
+        cursor = match.index + match[0].length;
+    }
+    if (cursor < source.length) {
+        const tail = source.slice(cursor);
+        const unclosedTheater = /<mini_theater\b[^>]*>([\s\S]*)$/i.exec(tail);
+        if (unclosedTheater) {
+            if (unclosedTheater.index > 0) push('story', tail.slice(0, unclosedTheater.index));
+            pushTheater(unclosedTheater[1], DISPLAY_BLOCK_META.mini_theater.title);
+        } else {
+            push('story', tail);
+        }
+    }
+    if (blocks.length === 0) push('story', source);
+    return blocks;
+};
+
+export const formatActorRecentMessages = (
+    char: CharacterProfile,
+    messages: Message[],
+    originalUserName?: string,
+    currentIdentityName?: string,
+): string => {
+    if (messages.length === 0) return '';
+    const originalUser = originalUserName?.trim() || '你';
+    const currentIdentity = currentIdentityName?.trim() || originalUser;
+    const rows = messages.map(message => {
+        const speaker = message.role === 'user' ? `记忆中的你（${originalUser}）` : message.role === 'assistant' ? char.name : '系统';
+        const clean = String(message.content || '').replace(/data:[^\s]+/gi, '[媒体]').slice(0, 4000);
+        return `- [${new Date(message.timestamp).toLocaleString()}] ${speaker}：${clean}`;
+    });
+    const identityReminder = currentIdentity === originalUser
+        ? ''
+        : `\n当前执笔身份是「${currentIdentity}」；不得把下列“记忆中的你”重新解释成当前身份。`;
+    return `### ${char.name} 最近携带的专属原文上下文（${messages.length} 条）\n以下记录只属于「${char.name}」与原互动对象「${originalUser}」，不得并入其他角色的经历。${identityReminder}\n${rows.join('\n')}`;
+};
+
+export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
+    .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(message => ({
+        role: message.role as StoryApiRole,
+        // Already-started stories may have saved a Tavern header as the first
+        // assistant floor before this adapter existed. Only sanitize that
+        // marked opening in AI context; never rewrite historical DB messages.
+        content: message.metadata?.theaterOpeningGreeting
+            ? storyOpeningReadingText(String(message.content || ''),
+                message.metadata.theaterOpeningGreeting.greetingId,
+                message.metadata.theaterOpeningGreeting.source)
+            : String(message.content || ''),
+    }));
+
+/** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
+export const getPendingStoryRetryInput = (messages: Message[]): string => {
+    const latest = messages[messages.length - 1];
+    if (!latest || latest.role !== 'user' || latest.metadata?.theaterArchived) return '';
+    return String(latest.content || '').trim();
+};
+
+export const estimateStoryTokens = (text: string): number => {
+    const cjk = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+    const rest = Math.max(0, text.length - cjk);
+    return cjk + Math.ceil(rest / 4);
+};
+
+const storyApiDetail = (value: unknown): string => {
+    if (typeof value === 'string') return value.trim();
+    if (!value || typeof value !== 'object') return '';
+    const record = value as Record<string, unknown>;
+    return storyApiDetail(record.message)
+        || storyApiDetail(record.detail)
+        || storyApiDetail(record.error)
+        || storyApiDetail(record.code);
+};
+
+/** 保留上游 4xx 的真正原因，避免调试日志里只剩一条没有信息量的 “API Error 400”。 */
+export const describeStoryApiError = (status: number, data: unknown): string => {
+    const detail = storyApiDetail((data as Record<string, unknown> | null)?.error)
+        || storyApiDetail((data as Record<string, unknown> | null)?.message)
+        || storyApiDetail((data as Record<string, unknown> | null)?.detail);
+    return `API Error ${status}${detail ? `：${detail.slice(0, 500)}` : ''}`;
+};
+
+export const isStoryUserLastCompatibilityError = (message: string): boolean => (
+    /(?:last|final)[^\n]{0,80}(?:message|role)[^\n]{0,80}user/i.test(message)
+    || /(?:最后|末尾)[^\n]{0,40}(?:消息|角色)[^\n]{0,40}user/i.test(message)
+);
+
+/** 200 但正文为空时把 finish_reason 带出来，区分截断、内容过滤和代理空包。 */
+export const describeEmptyStoryCompletion = (data: unknown): string => {
+    const record = data as Record<string, any> | null;
+    const choice = record?.choices?.[0];
+    const finishReason = String(choice?.finish_reason || choice?.finishReason || '').trim();
+    const providerDetail = storyApiDetail(record?.error) || storyApiDetail(record?.message);
+    if (providerDetail) return `没有生成正文：${providerDetail.slice(0, 500)}`;
+    if (finishReason === 'length' || finishReason === 'max_tokens') {
+        return '没有生成正文：模型在写出正文前已用完输出额度（finish_reason=length）。请提高“最大输出”，或降低模型思考量后重试';
+    }
+    if (finishReason === 'content_filter') return '没有生成正文：上游内容过滤拦截了本次回复（finish_reason=content_filter）';
+    return `没有生成正文${finishReason ? `（finish_reason=${finishReason}）` : '：上游返回了空内容'}，请重试`;
+};
+
+export const memoryTimestampForCharacter = (entry: StoryTheaterEntry, charId: string, realTimestamp: number): number => {
+    const anchorText = entry.characterMemoryDates?.[charId];
+    const storyAnchor = anchorText ? new Date(anchorText).getTime() : NaN;
+    if (!Number.isFinite(storyAnchor)) return realTimestamp;
+    return storyAnchor + Math.max(0, realTimestamp - entry.createdAt);
+};
+
+/** Story time stays in metadata; receipt time controls chat ordering. */
+export const storyTimelineTimestampForCharacter = memoryTimestampForCharacter;
+export const createStoryTheaterMirrorMessage = (
+    entry: StoryTheaterEntry, charId: string,
+    central: Pick<Message, 'id' | 'role' | 'content' | 'timestamp'>,
+): Omit<Message, 'id'> => ({
+    charId, role: central.role, type: 'text', content: central.content, timestamp: central.timestamp,
+    metadata: { source: 'story_theater_memory', theaterId: entry.id, theaterTitle: entry.title,
+        theaterCentralId: central.id, theaterTimestampVersion: 1, theaterReceivedAt: central.timestamp,
+        theaterTimelineTimestamp: storyTimelineTimestampForCharacter(entry, charId, central.timestamp) },
+});
+
+export const makeStoryPresetFileName = (name: string): string => {
+    const safeName = name.replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || '剧情预设';
+    return `${safeName}.json`;
+};
+
+export const downloadStoryPreset = async (preset: StoryTheaterPreset): Promise<'shared' | 'downloaded' | 'cancelled'> => (
+    shareOrDownloadFile({
+        card: { kind: 'story', title: preset.name || '剧情预设' },
+        content: JSON.stringify(preset.document, null, 2),
+        fileName: makeStoryPresetFileName(preset.name),
+        mimeType: 'application/json',
+        shareTitle: `剧情预设：${preset.name || '未命名'}`,
+    })
+);
+, 'i').test(close)) {
+                requiredWrappers.add(document.prompts[start].id);
+                requiredWrappers.add(document.prompts[end].id);
+            }
+        };
+        if (entryGroup?.startIdentifier && entryGroup.endIdentifier) {
+            enclosing(
+                document.prompts.findIndex(prompt => prompt.id === 'st-' + entryGroup.startIdentifier),
+                document.prompts.findIndex(prompt => prompt.id === 'st-' + entryGroup.endIdentifier),
+            );
+        }
+        // Unlabeled / custom-heading groups may enclose XML as separate
+        // prompts. Choose the NEAREST valid envelope, not the first XML tag.
+        if (!requiredWrappers.size && index > 0) {
+            const lower = Math.max(0, index - 80);
+            const upper = Math.min(document.prompts.length - 1, index + 80);
+            for (let start = index - 1; start >= lower; start--) {
+                const open = /^\s*<([A-Za-z][\w:-]*)>\s*$/.exec(document.prompts[start].content)?.[1];
+                if (!open) continue;
+                const end = document.prompts.findIndex((prompt, at) =>
+                    at > index && at <= upper
+                    && new RegExp('^\\s*<\\/' + open + '\\s*>\\s*
+    return {
+        ...document,
+        prompts: document.prompts.map(p =>
+            p.id === optionId ? { ...p, enabled: newEnabled }
+                : off.has(p.id) ? { ...p, enabled: false }
+                    : requiredWrappers.has(p.id) ? { ...p, enabled: true } : p),
+    };
+};
+
+export const addStoryPresetGroup = (document: StoryTheaterPresetDocument, name: string): StoryTheaterPresetDocument => {
+    const id = makeStoryTheaterId();
+    return { ...document, prompts: [...document.prompts, ...(['start', 'end'] as const).map(edge => ({
+        id: makeStoryTheaterId(), name: name.trim() || '自定义分组', enabled: false, role: 'system' as const, content: '',
+        section: { id, name: name.trim() || '自定义分组', edge },
+    }))] };
+};
+
+export const renameStoryPresetGroup = (document: StoryTheaterPresetDocument, sectionId: string, name: string): StoryTheaterPresetDocument => ({
+    ...document, prompts: document.prompts.map(prompt => prompt.section?.id === sectionId
+        ? { ...prompt, section: { ...prompt.section, name } } : prompt),
+});
+
+export const ungroupStoryPresetGroup = (document: StoryTheaterPresetDocument, sectionId: string): StoryTheaterPresetDocument => ({
+    ...document, prompts: document.prompts.filter(prompt => prompt.section?.id !== sectionId),
+});
+
+export const moveStoryPresetPromptToGroup = (document: StoryTheaterPresetDocument, promptId: string, groupKey: string): StoryTheaterPresetDocument => {
+    const groups = getStoryPresetPromptGroups(document);
+    const source = groups.find(group => group.promptIds.includes(promptId));
+    const target = groups.find(group => group.key === groupKey);
+    const prompt = document.prompts.find(item => item.id === promptId);
+    if (!prompt || !target || target.protected || target.autoGrouped || source?.protected || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
+    const next = { ...document, prompts: document.prompts.filter(item => item.id !== promptId) };
+    const destination = getStoryPresetPromptGroups(next).find(group => group.key === groupKey);
+    if (!destination) return document;
+    const last = next.prompts[destination.endIndex];
+    next.prompts.splice(isStoryPresetSectionMarker(last) ? destination.endIndex : destination.endIndex + 1, 0, prompt);
+    return next;
+};
+
+export const applyStoryPresetChoice = (
+    document: StoryTheaterPresetDocument,
+    optionIds: readonly string[],
+    selectedId?: string,
+): StoryTheaterPresetDocument => ({
+    ...document,
+    prompts: document.prompts.map(prompt => optionIds.includes(prompt.id) ? { ...prompt, enabled: prompt.id === selectedId } : prompt),
+});
+
+/** Runtime binding for user/character names. Never bake identity names into an imported preset. */
+const macroReplace = (text: string, userName: string, characterNames: string[]): string => {
+    const user = userName || '你';
+    const char = characterNames.join('、') || '角色';
+    const inGroup = characterNames.length > 1;
+    const values: Record<string, string> = {
+        user, char, group: char, groupnotmuted: char,
+        charifnotgroup: inGroup ? '' : char,
+        notchar: inGroup ? char : user,
+    };
+    return text
+        .replace(/\{\{\s*(user|char|group|groupnotmuted|charifnotgroup|notchar)\s*\}\}/gi,
+            (raw, name: string) => values[name.toLowerCase()] ?? raw)
+        .replace(/<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>/g, (raw, name: string) => ({
+            USER: user, BOT: char, CHAR: char, GROUP: char,
+            CHARIFNOTGROUP: inGroup ? '' : char,
+        }[name.toUpperCase()] ?? raw));
+};
+
+/** Both native Link and Tavern stored openings enter only the Story first floor,
+ * never the private chat prompt or dialogue history. Each format was normalized
+ * by its own importer before reaching this common story-only selector.
+ */
+export const resolveStoryOpeningGreeting = (
+    entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
+    characters: CharacterProfile[],
+    identityName: string,
+): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom'; authorNote?: string } | null => {
+    const selection = entry.openingGreeting;
+    if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
+    const actor = characters.find(character => character.id === selection.characterId);
+    if (!actor) return null;
+    const greeting = listCharacterStoryOpenings(actor).find(item => item.id === selection.greetingId);
+    if (!greeting?.content.trim()) return null;
+    return {
+        characterId: actor.id,
+        greetingId: greeting.id,
+        source: greeting.source,
+        ...(greeting.source === 'tavern'
+            ? (() => {
+                const raw = actor.tavernGreetings?.find(row => row.id === greeting.id);
+                const note = tavernOpeningAuthorNote(raw?.content || '');
+                return note ? { authorNote: macroReplace(note, identityName, [actor.name]) } : {};
+            })() : {}),
+        content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
+    };
+};
+
+export const STORY_MINI_THEATER_PROMPT_IDS = [
+    'nmj-v3-theater-ai',
+    'nmj-v3-theater-user-sim',
+    'nmj-v3-theater-group',
+    'nmj-v3-theater-random',
+    'nmj-v6-side-channel-terminal',
+    'nmj-v6-side-channel-evidence',
+    'nmj-v6-side-channel-public',
+    'nmj-v6-side-channel-wrong-reel',
+    'nmj-v3-theater-custom',
+] as const;
+
+export const getActiveStoryMiniTheaterPrompt = (document: StoryTheaterPresetDocument): StoryTheaterPresetPrompt | undefined => {
+    const ids = new Set<string>(STORY_MINI_THEATER_PROMPT_IDS);
+    return document.prompts.find(prompt => prompt.enabled && ids.has(prompt.id));
+};
+
+/** 将当前沙盒启用的小剧场规则重复放到本轮输入前，避免被较后的输出协议忽略。 */
+export const buildStoryMiniTheaterReminder = (
+    document: StoryTheaterPresetDocument,
+    userName: string,
+    characterNames: string[],
+): string => {
+    const prompt = getActiveStoryMiniTheaterPrompt(document);
+    if (!prompt?.content.trim()) return '';
+    return [
+        `### 本轮结尾模块：${prompt.name}`,
+        '这一模块已经由用户在本剧情的快捷预设中启用。本轮必须在主正文之后完整执行，不得因其它输出规则而省略。',
+        '格式守门：每个 <mt_ai> / <mt_user> 内都必须同时写出一组完整的 <name> 与 <text>，闭合所有标签；不得把“… / ... / 按需要继续排列”等示例占位符当成实际消息输出。',
+        macroReplace(prompt.content, userName, characterNames),
+        '无论上方条目是完整模板还是简写说明，最终都必须使用这个可渲染外壳：',
+        '<mini_theater>',
+        '<mt_title>本轮实际标题</mt_title>',
+        '<mt_system>可省略的短界面提示</mt_system>',
+        '<mt_ai><name>左侧显示名</name><text>完整消息</text></mt_ai>',
+        '<mt_user><name>右侧显示名</name><text>完整消息</text></mt_user>',
+        '</mini_theater>',
+    ].join('\n');
+};
+
+/** 兼容旧沙盒覆盖：只要暗格或镜头债任一开关仍在，就统一为连续的组合模块。 */
+export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPresetDocument): string => {
+    const backstage = document.prompts.find(prompt => prompt.id === 'nmj-v48-backstage');
+    const legacyDebts = document.prompts.find(prompt => prompt.id === 'nmj-v61-shot-debts');
+    const backstageEnabled = backstage?.enabled === true;
+    const debtsEnabled = legacyDebts?.enabled === true || Boolean(backstageEnabled && backstage?.content.includes('<shot_debts>'));
+    if (!backstageEnabled && !debtsEnabled) return '';
+    return [
+        '### 本轮组合模块：幕后与余波',
+        '幕后暗格与镜头债在糯米机中属于同一个折叠模块，不得拆成相隔很远的两个结尾区，也不得重复生成。',
+        backstageEnabled ? '- 正文结束后输出一组完整且闭合的 <backstage>；心境、秘密与稀有真话都按已启用预设执行。' : '',
+        debtsEnabled ? '- 紧接 </backstage>（若暗格关闭则紧接正文）输出一组完整且闭合的 <shot_debts>；之后才输出世界线、小剧场、选项和关系温度。' : '',
+        '- 两组原始标签仍分别保留用于稳定解析，但界面只显示一个“幕后与余波”折叠区。',
+    ].filter(Boolean).join('\n');
+};
+
+const escapeStoryXml = (value: string): string => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+/** 关系备注只随本轮用户输入送入模型，不混进可见正文。 */
+export const appendStoryAffinityInput = (content: string, input?: StoryAffinityInput): string => {
+    if (!input) return content;
+    const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
+    const reason = String(input.reason || '').trim().slice(0, 200);
+    if (delta === 0 && !reason) return content;
+    const signed = delta >= 0 ? `+${delta}` : String(delta);
+    const awareness = input.awareness === 'noticed' ? 'noticed' : 'unnoticed';
+    return `${content}\n\n<u_affinity>\n<delta>${signed}</delta>\n<reason>${escapeStoryXml(reason || '未填写原因')}</reason>\n<awareness>${awareness}</awareness>\n</u_affinity>`;
+};
+
+/** 多人剧场使用带角色身份的独立 U→C 更新，禁止把几位角色共用成一个槽。 */
+export const appendStoryAffinityInputs = (content: string, inputs: StoryAffinityInput[]): string => {
+    const rows = inputs.map(input => {
+        const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
+        const reason = String(input.reason || '').trim().slice(0, 200);
+        if (delta === 0 && !reason) return '';
+        const signed = delta >= 0 ? `+${delta}` : String(delta);
+        const awareness = input.awareness === 'noticed' ? 'noticed' : 'unnoticed';
+        return [
+            '<u_affinity>',
+            `<character_id>${escapeStoryXml(String(input.characterId || ''))}</character_id>`,
+            `<character_name>${escapeStoryXml(String(input.characterName || '当前角色'))}</character_name>`,
+            `<delta>${signed}</delta>`,
+            `<reason>${escapeStoryXml(reason || '未填写原因')}</reason>`,
+            `<awareness>${awareness}</awareness>`,
+            '</u_affinity>',
+        ].join('\n');
+    }).filter(Boolean);
+    if (rows.length === 0) return content;
+    return `${content}\n\n<u_affinity_updates>\n${rows.join('\n')}\n</u_affinity_updates>`;
+};
+
+interface StoryAffinityScoreState {
+    cToU: number;
+    uToC: number;
+}
+
+const affinityTagValue = (source: string, tag: string): string => (
+    new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(source)?.[1]?.replace(/<[^>]+>/g, '').trim() || ''
+);
+
+const affinityInteger = (value: unknown, fallback: number): number => {
+    const parsed = Number(String(value ?? '').replace(/[^+\d.-]/g, ''));
+    return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
+};
+
+const clampAffinityScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
+const clampAffinityDelta = (value: number): number => Math.max(-100, Math.min(100, Math.round(value)));
+const affinityIdentityKey = (value: string): string => value.trim().toLocaleLowerCase().normalize('NFKC');
+
+const setAffinityTagValue = (source: string, tag: string, value: string): string => {
+    const pattern = new RegExp(`(<${tag}\\b[^>]*>)[\\s\\S]*?(<\\/${tag}\\s*>)`, 'i');
+    if (pattern.test(source)) return source.replace(pattern, `$1${value}$2`);
+    return `${source.trimEnd()}\n<${tag}>${value}</${tag}>`;
+};
+
+const readAffinityScoreStates = (
+    content: string,
+    actors: Array<{ id: string; name: string }>,
+): Map<string, StoryAffinityScoreState> => {
+    const states = new Map<string, StoryAffinityScoreState>();
+    const personPattern = /<affinity_person\b[^>]*>([\s\S]*?)<\/affinity_person\s*>/gi;
+    for (const match of content.matchAll(personPattern)) {
+        const body = match[1];
+        const state = {
+            cToU: clampAffinityScore(affinityInteger(affinityTagValue(body, 'c_to_u_score'), 50)),
+            uToC: clampAffinityScore(affinityInteger(affinityTagValue(body, 'u_to_c_score'), 50)),
+        };
+        const id = affinityIdentityKey(affinityTagValue(body, 'character_id'));
+        const name = affinityIdentityKey(affinityTagValue(body, 'character_name'));
+        if (id) states.set(`id:${id}`, state);
+        if (name) states.set(`name:${name}`, state);
+    }
+    // 兼容升级前的单角色根级面板；多人时绝不猜这一个旧槽属于谁。
+    if (states.size === 0 && actors.length === 1) {
+        const cScore = affinityTagValue(content, 'c_score');
+        const uScore = affinityTagValue(content, 'u_score');
+        if (cScore || uScore) {
+            const state = {
+                cToU: clampAffinityScore(affinityInteger(cScore, 50)),
+                uToC: clampAffinityScore(affinityInteger(uScore, 50)),
+            };
+            states.set(`id:${affinityIdentityKey(actors[0].id)}`, state);
+            states.set(`name:${affinityIdentityKey(actors[0].name)}`, state);
+        }
+    }
+    return states;
+};
+
+/**
+ * 模型只决定“本轮变化多少”，绝对值由前端按上一轮 + delta 复算。
+ * 这样 U→C 的用户输入与 C→U 的模型变化都不会再依赖 LLM 心算。
+ */
+export const reconcileStoryAffinityScores = (
+    generated: string,
+    previousAssistantContent: string,
+    inputs: StoryAffinityInput[],
+    actors: Array<{ id: string; name: string }>,
+): string => {
+    const previous = readAffinityScoreStates(previousAssistantContent, actors);
+    const actorById = new Map(actors.map(actor => [affinityIdentityKey(actor.id), actor]));
+    const actorByName = new Map(actors.map(actor => [affinityIdentityKey(actor.name), actor]));
+    const inputById = new Map(inputs.filter(input => input.characterId).map(input => [affinityIdentityKey(input.characterId || ''), input]));
+    const inputByName = new Map(inputs.filter(input => input.characterName).map(input => [affinityIdentityKey(input.characterName || ''), input]));
+    const personPattern = /(<affinity_person\b[^>]*>)([\s\S]*?)(<\/affinity_person\s*>)/gi;
+
+    return generated.replace(personPattern, (_whole, opening: string, rawBody: string, closing: string) => {
+        const rawId = affinityIdentityKey(affinityTagValue(rawBody, 'character_id'));
+        const rawName = affinityIdentityKey(affinityTagValue(rawBody, 'character_name'));
+        const actor = actorById.get(rawId) || actorByName.get(rawName);
+        const id = affinityIdentityKey(actor?.id || rawId);
+        const name = affinityIdentityKey(actor?.name || rawName);
+        const prior = previous.get(`id:${id}`) || previous.get(`name:${name}`) || { cToU: 50, uToC: 50 };
+        const input = inputById.get(id) || inputByName.get(name);
+        const cDelta = clampAffinityDelta(affinityInteger(affinityTagValue(rawBody, 'c_to_u_delta'), 0));
+        const uDelta = clampAffinityDelta(input?.delta == null ? 0 : affinityInteger(input.delta, 0));
+        const cScore = clampAffinityScore(prior.cToU + cDelta);
+        const uScore = clampAffinityScore(prior.uToC + uDelta);
+        let body = rawBody;
+        body = setAffinityTagValue(body, 'c_to_u_score', String(cScore));
+        body = setAffinityTagValue(body, 'c_to_u_delta', cDelta >= 0 ? `+${cDelta}` : String(cDelta));
+        body = setAffinityTagValue(body, 'u_to_c_score', String(uScore));
+        body = setAffinityTagValue(body, 'u_to_c_delta', uDelta >= 0 ? `+${uDelta}` : String(uDelta));
+        return `${opening}${body}${closing}`;
+    });
+};
+
+export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; name: string }>): string => {
+    if (characters.length === 0) return '';
+    const cast = characters.map(character => `- ${character.id}：${character.name}`).join('\n');
+    return [
+        '### 糯米机多人双向关系温度（覆盖旧的单一“当前 C”槽）',
+        '本剧场为每一位角色分别记录 C→U、U→C、五维关系混音、察觉状态与关系质地。禁止共享数值、串用事实、平均多人状态或只输出第一位角色。',
+        '当前需要逐一维护的角色：',
+        cast,
+        '',
+        '【更新】',
+        '- 从最近一次多人 <affinity_panel> 中按 character_id 读取各自完整状态；没有旧记录时，该角色的 C→U、U→C 从 50 开始，五维依据角色卡与共同经历建立。旧历史只有单人面板时，只能迁移给姓名明确匹配的角色。',
+        '- C→U 与 trust、security、possessive_pull、emotional_pressure、repair_will 只读取对应角色的亲历事实、性格、处境与后果；不得用某个角色的变化影响另一位角色。',
+        '- 最新 <u_affinity_updates> 只出现本轮由用户填写变化的角色。某角色没有对应更新时，其 U→C 绝对值保持不变，delta 记 +0，原因写“本轮未填写”。',
+        '- U→C 新值 = 该角色上一轮 U→C + 对应 delta，并限制在 0—100。不得用某个角色的变化影响另一位角色。',
+        '- 你只需正确决定每个 delta；前端会依据上一轮绝对值复算 C→U 与 U→C score，防止心算错误。',
+        '- 察觉规则只作用于同一条 u_affinity 指向的角色；其他角色不会因为同伴被选择为“已察觉”而共享透视。',
+        '',
+        '【输出】',
+        '用一个 <affinity_panel> 包住全部角色，并严格按当前角色名单顺序为每人输出一段：',
+        '<affinity_person>',
+        '<character_id>角色 ID</character_id>',
+        '<character_name>角色名</character_name>',
+        '<c_to_u_score>50</c_to_u_score>',
+        '<c_to_u_delta>+0</c_to_u_delta>',
+        '<c_to_u_note>改变角色 C→U 的本轮事实</c_to_u_note>',
+        '<u_to_c_score>50</u_to_c_score>',
+        '<u_to_c_delta>+0</u_to_c_delta>',
+        '<u_to_c_note>用户填写的原因；没有则写“本轮未填写”</u_to_c_note>',
+        '<awareness_state>已察觉或未察觉</awareness_state>',
+        '<trust>50</trust><security>50</security><possessive_pull>50</possessive_pull>',
+        '<emotional_pressure>50</emotional_pressure><repair_will>50</repair_will>',
+        '<state_note>最明显的内部拉扯、选择代价或修复动作</state_note>',
+        '<relation_note>这一段双向关系当前的质地</relation_note>',
+        '<relation_fragment>可选的一条具体关系碎片</relation_fragment>',
+        '</affinity_person>',
+        '按角色继续排列 affinity_person，最后闭合 </affinity_panel>。不要再输出旧版根级 c_score / u_score 单槽字段。',
+    ].join('\n');
+};
+
+/** 用户对本轮关系变化的知情边界拥有最终决定权。 */
+export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | undefined, primaryCharacterName: string): string => {
+    if (!input || (Number(input.delta) === 0 && !String(input.reason || '').trim())) return '';
+    if (input.awareness === 'noticed') return [
+        '### 本轮 U→C 关系变化 · 角色完全透视（用户明确指定，覆盖常规感知档）',
+        `- ${primaryCharacterName || '当前主要角色'}明确知道用户→自己的关系温度发生了数值层面的变化；这是直接、确定的透视信息，不是观察气氛、猜测态度或只知道“似乎有变化”。`,
+        '- 角色完整知道最新 delta 的正负、准确幅度、更新后的 U→C 绝对值，以及 <reason> 表达的原因；不得把它降级成模糊感应。',
+        '- 本轮正文必须给出一次符合人物性格、现场节拍与边界的明确反应；可以克制或隐藏，但行为、判断或内心必须真实接住这项已知变化。',
+        '- 角色拥有数值层面的知识，但默认将其自然翻译为人物认知，不照念 XML 标签或系统面板；世界观本来存在数值界面时才可直接谈具体数字。',
+        '- 这项用户选择只覆盖本轮的察觉边界，不授权角色逼问、控制、越界亲密或抢走原剧情主线。',
+    ].join('\n');
+    return [
+        '### 本轮 U→C 关系变化 · 角色未察觉（用户明确指定）',
+        `- ${primaryCharacterName || '对应角色'}不能读取用户→自己的这条 <u_affinity> 的 delta、reason 或准确方向，也不能凭空表演成已经知道；这条限制不覆盖用户对其他角色单独设置的察觉状态。`,
+        '- 其他角色更不能借此读取不属于自己的关系数值；多人之间不得共享这条变化。',
+        '- 这次变化只作为模型维持关系连续性与叙事氛围的低权重背景，不强制制造角色反应。',
+        '- 若用户正文另有真实可见的台词或动作，角色仍可只依据那些现场证据正常推断。',
+    ].join('\n');
+};
+
+export type StoryNarrationMode = 'second' | 'third' | 'custom';
+
+export const resolveStoryNarrationMode = (document: StoryTheaterPresetDocument): StoryNarrationMode => {
+    if (document.sourceFormat === 'sillytavern') {
+        // Legacy imported-native overrides are no longer applied. The
+        // selected AUTHOR prompt is now the one authoritative POV source.
+        const pov = detectTavernNativeControls(document.prompts).inferred.pov;
+        if (pov === 'nmj-v3-pov-third') return 'third';
+        if (pov === 'nmj-v3-pov-second') return 'second';
+        return 'custom';
+    }
+    const third = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-third' && prompt.enabled);
+    if (third) return 'third';
+    const second = document.prompts.some(prompt => prompt.id === 'nmj-v3-pov-second' && prompt.enabled);
+    return second ? 'second' : 'custom';
+};
+
+/** 最后贴近用户输入发送，消除系统指令里的“你”与故事用户侧身份之间的歧义。 */
+export const buildStoryIdentityGuard = (
+    document: StoryTheaterPresetDocument,
+    identityName: string,
+    characterNames: string[],
+): string => {
+    const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '当前用户侧角色（未命名）';
+    const cast = characterNames.filter(Boolean).join('、') || '暂无其他角色';
+    const mode = resolveStoryNarrationMode(document);
+    const narrationTag = document.sourceFormat === 'sillytavern' ? '<content>' : '<story_text>';
+    const perspectiveRule = document.sourceFormat === 'sillytavern'
+        ? mode === 'third'
+            ? `- 当前酒馆原预设指定第三人称。${narrationTag} 的旁白中用户侧身份是「${identity}」；保持作者原有的全知／有限、多线叙事与代写权限，不额外强制成内置“第三人称有限”。`
+            : mode === 'second'
+                ? `- 当前酒馆原预设指定用户侧第二人称。${narrationTag} 中“你／你的”指「${identity}」；其他角色的人称及叙事视角仍服从作者原文，不强制改写为内置有限视角。`
+                : '- 酒馆原预设使用作者自定义／混合视角；不得强改成内置第二或第三人称有限，只固定用户侧身份与角色的对应关系。'
+        : mode === 'third'
+            ? `- 当前启用第三人称有限。${narrationTag} 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
+            : mode === 'second'
+                ? `- 当前启用第二人称有限。${narrationTag} 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
+                : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
+    return [
+        '### 糯米机运行时身份与人称锚点（覆盖旧楼层的写法，不覆盖角色卡事实）',
+        `- 用户侧剧情身份：${identity}。本轮参与角色：${cast}。关系协议中的 U 只指「${identity}」，C 才指名单中的各个角色。`,
+        '- 生成回复的一方不属于故事人物。系统指令为方便表达而出现的“你”，只是执行语法，不能据此把生成端写进故事，也不能把故事里的“你”解释成生成端自己。',
+        document.sourceFormat === 'sillytavern'
+            ? '- 最新用户输入按实际句法辨认说话人与受话人；剧情旁白的“我／你／他”由当前启用的原作者人称条目决定，不得用糯米机内置有限视角覆盖它。关系字段中的 U 仍只表示用户侧身份。'
+            : '- 用户最新输入仍按实际句法辨认说话人与受话人；但在最终输出的叙事旁白、场景条和关系面板中，未另行点名的“你／你的”只允许指用户侧剧情身份。',
+        perspectiveRule,
+        '- 历史助手回复只是已经发生的旧剧情：继承事实，不继承它过去使用的第一、第二或第三人称。当前启用的人称模式是本轮唯一标准。',
+    ].join('\n');
+};
+
+/** Old imports may still contain legacy native-option metadata. Retain it
+ * when loading/exporting for recovery, but never send copied Night Screening
+ * prompts over the original Tavern author rules.
+ */
+export const buildTavernNativeOverrideMessages = (
+    _document: StoryTheaterPresetDocument,
+    _userName: string,
+    _characterNames: string[],
+): StoryApiMessage[] => [];
+
+const slotForMarker = (marker: StoryTheaterPresetPrompt['marker'], slots: StoryPromptSlots): string => {
+    switch (marker) {
+        case 'characters': return slots.actors;
+        case 'world_before': return slots.worldBefore;
+        case 'user': return slots.persona;
+        case 'world_after': return slots.worldAfter;
+        case 'scenario': return slots.scenario;
+        case 'examples': return slots.examples || '';
+        case 'history': return slots.history || '';
+        default: return '';
+    }
+};
+
+const pushPromptMessage = (messages: StoryApiMessage[], role: StoryApiRole, content: string) => {
+    const clean = content.trim();
+    if (!clean) return;
+    messages.push({ role, content: clean });
+};
+
+export const compileStoryPreset = (input: {
+    preset?: StoryTheaterPreset | null;
+    slots: StoryPromptSlots;
+    historyMessages?: StoryApiMessage[];
+    currentInput?: string;
+    currentInputIsNewUserMessage?: boolean;
+    modelName?: string;
+    continueRequested?: boolean;
+    userName: string;
+    characterNames: string[];
+}): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage; afterLatestUser?: StoryApiMessage[]; continueNudge?: StoryApiMessage; nativeOverrideMessages?: StoryApiMessage[] } => {
+    const { preset, slots, userName, characterNames } = input;
+    const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
+    const messages: StoryApiMessage[] = [];
+    const importedFromTavern = document.sourceFormat === 'sillytavern';
+    const variables = new Map<string, string>();
+    // A Tavern global is shared across chats in Tavern. Imported presets use
+    // a REQUEST-LOCAL map instead to preserve SullyOS identity separation.
+    const globalVariables = new Map<string, string>();
+    // The imported Tavern preset may set a rich rule via {{setvar}} without any
+    // active {{getvar}} consumer: its original helper script is not runnable here.
+    // Inline just those standalone XML rule bodies so an enabled toggle actually
+    // affects the model, while normal getvar references keep their source location.
+    const referencedVariables = new Set<string>();
+    if (importedFromTavern) {
+        const enabledContents = [
+            ...document.prompts.filter(prompt => prompt.enabled).map(prompt => prompt.content),
+            document.assistantPrefill || '',
+        ];
+        for (const value of enabledContents) {
+            for (const match of value.matchAll(/\{\{\s*getvar(?:\s*::\s*|\s+)([^{}]+?)\s*\}\}/gi)) {
+                referencedVariables.add(match[1].trim());
+            }
+        }
+    }
+    const inChatPrompts: Array<{ message: StoryApiMessage; depth: number; order: number; sourceIndex: number }> = [];
+    let historyStart: number | null = null;
+    let historyLength = 0;
+    const previousHistoryMessage = input.historyMessages?.at(-1);
+    const pendingUserContent = input.currentInputIsNewUserMessage && input.currentInput?.trim()
+        ? input.currentInput : undefined;
+    const lastHistoryMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent } : previousHistoryMessage;
+    const lastUserMessage = pendingUserContent !== undefined
+        ? { role: 'user' as const, content: pendingUserContent }
+        : [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
+    const lastCharMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'assistant');
+    const expandImported = (value: string): string => importedFromTavern
+        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables, globalVariables), {
+            description: slots.tavernDescription ?? slots.actors,
+            personality: slots.tavernPersonality ?? slots.actors,
+            persona: slots.persona,
+            scenario: slots.scenario,
+            examples: slots.examples,
+            lastMessage: lastHistoryMessage?.content,
+            lastUserMessage: lastUserMessage?.content,
+            lastCharMessage: lastCharMessage?.content,
+            lastChatMessage: lastCharMessage?.content ?? previousHistoryMessage?.content ?? '',
+            input: input.currentInput,
+            model: input.modelName,
+            variables,
+        })
+        : value;
+
+    const worldBeforePrompts = document.prompts.filter(prompt => prompt.marker === 'world_before');
+    const enabledWorldBeforePrompt = worldBeforePrompts.find(prompt => prompt.enabled);
+    const firstEnabledCharacterIndex = document.prompts.findIndex(prompt => prompt.enabled && prompt.marker === 'characters');
+    const formatTavernSlot = (value: string, template: string | undefined, placeholder: string): string => {
+        if (!importedFromTavern || !template?.trim() || !value.trim()) return value;
+        if (!template.includes(placeholder)) return value;
+        return template.split(placeholder).join(value);
+    };
+    const formatWorldBefore = (value: string): string => formatTavernSlot(value, document.tavernFormats?.worldInfo, '{0}');
+    const shouldBackfillWorldBefore = worldBeforePrompts.length === 0 && Boolean(slots.worldBefore.trim());
+    const shouldMoveWorldBeforeAheadOfCharacters = Boolean(
+        enabledWorldBeforePrompt
+        && firstEnabledCharacterIndex >= 0
+        && document.prompts.indexOf(enabledWorldBeforePrompt) > firstEnabledCharacterIndex
+        && slots.worldBefore.trim(),
+    );
+
+    // Native presets inject a character marker once. Imported Tavern presets
+    // can carry two distinct, independently switchable card slots: description
+    // and personality. Split only when both are active AND both source values
+    // are available; otherwise keep the complete actor context intact.
+    const splitCharacterSlots = importedFromTavern
+        && Boolean(slots.tavernDescription?.trim() && slots.tavernPersonality?.trim())
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charDescription')
+        && document.prompts.some(prompt => prompt.enabled && prompt.marker === 'characters' && prompt.id === 'st-charPersonality');
+    const injectedMarkers = new Set<string>();
+    for (let index = 0; index < document.prompts.length; index += 1) {
+        const prompt = document.prompts[index];
+        if (
+            index === firstEnabledCharacterIndex
+            && (shouldBackfillWorldBefore || shouldMoveWorldBeforeAheadOfCharacters)
+        ) {
+            pushPromptMessage(
+                messages,
+                enabledWorldBeforePrompt?.role || 'system',
+                macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames),
+            );
+            injectedMarkers.add('world_before');
+        }
+        if (!prompt.enabled || prompt.section) continue;
+        let raw = prompt.content;
+        if (prompt.marker) {
+            const separateTavernCardSlot = splitCharacterSlots && prompt.marker === 'characters'
+                && (prompt.id === 'st-charDescription' || prompt.id === 'st-charPersonality');
+            if (injectedMarkers.has(prompt.marker) && !separateTavernCardSlot) continue;
+            injectedMarkers.add(prompt.marker);
+            if (separateTavernCardSlot) {
+                raw = prompt.id === 'st-charDescription'
+                    ? slots.tavernDescription!
+                    : formatTavernSlot(slots.tavernPersonality!, document.tavernFormats?.personality, '{{personality}}');
+            } else if (prompt.marker === 'history' && input.historyMessages) {
+                const newGroupHeader = characterNames.length > 1 && typeof document.tavernOptions?.new_group_chat_prompt === 'string'
+                    ? document.tavernOptions.new_group_chat_prompt : '';
+                const chatHeader = newGroupHeader || document.tavernFormats?.newChat || '';
+                if (importedFromTavern && chatHeader.trim()) {
+                    pushPromptMessage(messages, 'system', macroReplace(expandImported(chatHeader), userName, characterNames));
+                }
+                historyStart = messages.length;
+                historyLength = input.historyMessages.length;
+                messages.push(...input.historyMessages);
+                continue;
+            } else {
+                raw = slotForMarker(prompt.marker, slots);
+                if (prompt.marker === 'world_before' || prompt.marker === 'world_after') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.worldInfo, '{0}');
+                } else if (prompt.marker === 'scenario') {
+                    raw = formatTavernSlot(raw, document.tavernFormats?.scenario, '{{scenario}}');
+                } else if (prompt.marker === 'examples' && raw.trim() && importedFromTavern
+                    && document.tavernFormats?.newExampleChat?.trim()) {
+                    raw = `${document.tavernFormats.newExampleChat}\n${raw}`;
+                }
+            }
+        }
+        raw = expandImported(raw);
+        if (!raw.trim()) continue;
+        const content = macroReplace(raw, userName, characterNames).trim();
+        if (prompt.injection?.position === 'chat' && !prompt.marker) {
+            inChatPrompts.push({ message: { role: prompt.role, content }, depth: prompt.injection.depth, order: prompt.injection.order, sourceIndex: index });
+            continue;
+        }
+        if (prompt.marker === 'history') {
+            historyStart = messages.length;
+            historyLength = 1;
+        }
+        pushPromptMessage(messages, prompt.role, content);
+    }
+
+    // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
+    if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
+        messages.unshift({ role: 'system', content: macroReplace(formatWorldBefore(slots.worldBefore), userName, characterNames).trim() });
+        if (historyStart !== null) historyStart += 1;
+    }
+
+    // The pending user turn is appended by StoryTheaterSession after compilation.
+    // SillyTavern depth=0 goes AFTER that pending turn, depth=1 goes immediately BEFORE it.
+    const afterLatestUser: StoryApiMessage[] = [];
+    if (inChatPrompts.length) {
+        const rolePriority: Record<StoryApiRole, number> = { user: 0, assistant: 1, system: 2 };
+        const byOrder = (a: typeof inChatPrompts[number], b: typeof inChatPrompts[number]) =>
+            a.order - b.order || rolePriority[a.message.role] - rolePriority[b.message.role] || a.sourceIndex - b.sourceIndex;
+        inChatPrompts.sort(byOrder);
+        afterLatestUser.push(...inChatPrompts.filter(prompt => prompt.depth === 0).map(prompt => prompt.message));
+        const insertionStart = historyStart ?? messages.length;
+        const insertionLength = historyStart === null ? 0 : historyLength;
+        const inserts = inChatPrompts.filter(prompt => prompt.depth > 0).map(prompt => ({
+            ...prompt,
+            index: insertionStart + Math.max(0, insertionLength - (prompt.depth - 1)),
+        }));
+        inserts.sort((a, b) => b.index - a.index || -byOrder(a, b));
+        for (const item of inserts) messages.splice(item.index, 0, item.message);
+    }
+
+    const prefill = expandImported(String(document.assistantPrefill || '')).trim();
+    const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames) } : undefined;
+    const requestedContinue = importedFromTavern && input.continueRequested
+        ? expandImported(document.tavernFormats?.continueNudge || '').trim()
+        : '';
+    const continueNudge = requestedContinue
+        ? { role: 'system' as const, content: macroReplace(requestedContinue, userName, characterNames) }
+        : undefined;
+
+    return {
+        messages,
+        settings: {
+            temperature: document.generation.temperature,
+            top_p: document.generation.topP,
+            frequency_penalty: document.generation.frequencyPenalty,
+            presence_penalty: document.generation.presencePenalty,
+            max_tokens: document.generation.maxTokens,
+        },
+        assistantPrefill,
+        ...(importedFromTavern ? { nativeOverrideMessages: buildTavernNativeOverrideMessages(document, userName, characterNames) } : {}),
+        ...(continueNudge ? { continueNudge } : {}),
+        ...(afterLatestUser.length ? { afterLatestUser } : {}),
+    };
+};
+
+/**
+ * 部分 OpenAI 兼容模型硬性要求请求最后一条消息必须是 user，不能接受
+ * SillyTavern 常用的 assistant prefill。把预填充改写成紧邻用户消息前的
+ * system 约束，调用方仍可在返回文本缺失前缀时本地补齐。
+ */
+export const buildStoryPrefillInstruction = (assistantPrefill?: StoryApiMessage): StoryApiMessage | undefined => {
+    const content = assistantPrefill?.content?.trim();
+    if (!content) return undefined;
+    return {
+        role: 'system',
+        content: [
+            '### 回复起始文本（兼容模式）',
+            '你的最终回复必须直接以下列文本开头；不要解释、转述或把它放进代码块：',
+            content,
+        ].join('\n'),
+    };
+};
+
+/**
+ * 默认完整保留原生 assistant prefill；只有用户为当前剧情显式开启 400 兼容模式时，
+ * 才把预填改成 system 约束并让最终消息保持 user。这样个别严格接口不会改变所有人的预设效果。
+ */
+export const appendStoryUserTurn = (
+    messages: StoryApiMessage[],
+    userContent: string,
+    assistantPrefill?: StoryApiMessage,
+    forceUserLastMessage = false,
+): StoryApiMessage[] => {
+    if (forceUserLastMessage) {
+        const instruction = buildStoryPrefillInstruction(assistantPrefill);
+        return [
+            ...messages,
+            ...(instruction ? [instruction] : []),
+            { role: 'user', content: userContent },
+        ];
+    }
+    return [
+        ...messages,
+        { role: 'user', content: userContent },
+        ...(assistantPrefill ? [assistantPrefill] : []),
+    ];
+};
+
+export const dedupeTheaterWorldbooks = (characters: CharacterProfile[]): MountedWorldbook[] => {
+    const seen = new Set<string>();
+    const output: MountedWorldbook[] = [];
+    for (const char of characters) {
+        for (const book of (char.mountedWorldbooks || [])) {
+            const keys = [
+                book.id ? `id:${book.id}` : '',
+                `body:${book.title.trim().toLocaleLowerCase()}\u0000${book.content.trim()}`,
+            ].filter(Boolean);
+            if (keys.length === 0 || keys.some(key => seen.has(key))) continue;
+            keys.forEach(key => seen.add(key));
+            output.push({ ...book });
+        }
+    }
+    return output.sort((a, b) => (a.category || '').localeCompare(b.category || '', 'zh-CN') || a.title.localeCompare(b.title, 'zh-CN'));
+};
+
+/**
+ * Available to *this story*, independent of who participates: the canonical
+ * global library plus legacy character-only mounts from the user's library.
+ * The actual model context still uses ONLY the IDs checked by this story.
+ *
+ * A legacy ID reused for two different character-only texts is ambiguous.
+ * Suppress it rather than quietly injecting the first character's unrelated
+ * world. An actual global record always takes priority over legacy copies.
+ */
+export const resolveStoryTheaterWorldbooks = (
+    globalWorldbooks: readonly Worldbook[],
+    characters: readonly CharacterProfile[],
+): MountedWorldbook[] => {
+    const byId = new Map<string, MountedWorldbook>();
+    const canonicalIds = new Set<string>();
+    const ambiguousLegacyIds = new Set<string>();
+    // Same ID but different trigger/order rules is a different usable book.
+    // Ignoring that mismatch would silently alter which world becomes active.
+    const meaning = (book: MountedWorldbook) => JSON.stringify([
+        book.title, book.content, book.category ?? null,
+        book.key ?? [], book.keysecondary ?? [], book.constant ?? null,
+        book.selective ?? null, book.selectiveLogic ?? null, book.order ?? null,
+        book.position ?? null, book.disable ?? null, book.probability ?? null,
+        book.useProbability ?? null, book.depth ?? null, book.role ?? null,
+        book.scanDepth ?? null, book.caseSensitive ?? null,
+        book.matchWholeWords ?? null,
+    ]);
+    const valid = (book: MountedWorldbook | null | undefined): book is MountedWorldbook =>
+        !!book && typeof book.id === 'string' && !!book.id.trim()
+        && typeof book.title === 'string' && typeof book.content === 'string';
+    for (const book of Array.isArray(globalWorldbooks) ? globalWorldbooks : []) {
+        if (!valid(book)) continue;
+        if (!canonicalIds.has(book.id)) {
+            canonicalIds.add(book.id);
+            byId.set(book.id, { ...book });
+        }
+    }
+    for (const person of Array.isArray(characters) ? characters : []) {
+        if (!person || !Array.isArray(person.mountedWorldbooks)) continue;
+        for (const book of person.mountedWorldbooks) {
+            if (!valid(book) || canonicalIds.has(book.id) || ambiguousLegacyIds.has(book.id)) continue;
+            const previous = byId.get(book.id);
+            if (!previous) byId.set(book.id, { ...book });
+            else if (meaning(previous) !== meaning(book)) {
+                byId.delete(book.id);
+                ambiguousLegacyIds.add(book.id);
+            }
+        }
+    }
+    return [...byId.values()].sort((a, b) =>
+        (a.category || '').localeCompare(b.category || '', 'zh-CN')
+        || a.title.localeCompare(b.title, 'zh-CN') || a.id.localeCompare(b.id));
+};
+
+export const buildStoryWorldbookScanMessages = (
+    history: WorldbookScanMessage[],
+    currentUserContent: string,
+    limit = 20,
+): WorldbookScanMessage[] => {
+    const safeLimit = Math.max(1, Math.floor(limit));
+    const current = currentUserContent.trim();
+    if (!current) return history.slice(-safeLimit);
+    const historyLimit = safeLimit - 1;
+    return [
+        ...(historyLimit > 0 ? history.slice(-historyLimit) : []),
+        { role: 'user', content: current },
+    ];
+};
+
+export const buildBareTheaterActorContext = (char: CharacterProfile, includeDescription = false): string => [
+    `### 剧情角色：${char.name}`,
+    `- 名字：${char.name}`,
+    ...(includeDescription && char.description?.trim() ? [`- 角色描述：\n${char.description.trim()}`] : []),
+    `- 核心指令：\n${char.systemPrompt || '无额外核心指令'}`,
+    char.worldview?.trim() ? `- 世界观：\n${char.worldview.trim()}` : '',
+].filter(Boolean).join('\n');
+
+export const buildStoryActorMemoryEnvelope = (
+    characterName: string,
+    recalled: string,
+    originalUserName: string,
+    currentIdentityName: string,
+): string => {
+    const content = recalled.trim();
+    if (!content) return '';
+    const owner = characterName.trim() || '当前角色';
+    const originalUser = originalUserName.trim() || '原本的你';
+    const currentIdentity = currentIdentityName.trim() || originalUser;
+    const identityReminder = currentIdentity === originalUser
+        ? `- 本剧情当前用户侧身份仍是「${originalUser}」；记忆原文里的“你”继续指这个身份。`
+        : `- 本剧情当前用户侧执笔身份是「${currentIdentity}」，不得因此把旧记忆里的“你”从「${originalUser}」改绑到当前身份。`;
+
+    return [
+        `### ${owner} 的专属既有记忆`,
+        `归属规则：以下内容只属于角色「${owner}」，不得归给、共享给或改写成其他角色的亲历记忆。`,
+        `- 记忆片段里的第一人称“我/我的”，默认指「${owner}」。`,
+        `- 记忆片段里的第二人称“你/你的”，若片段没有另行点名，默认指形成记忆时的原互动对象「${originalUser}」。`,
+        identityReminder,
+        `【${owner}专属记忆开始】`,
+        content,
+        `【${owner}专属记忆结束】`,
+    ].join('\n');
+};
+
+export const buildStoryArchiveMemoryEnvelope = (recalled: string): string => {
+    const content = recalled.trim();
+    if (!content) return '';
+    return [
+        '### 本剧情共享档案召回',
+        '归属规则：以下内容是本剧情自己的叙事档案，只用于承接已经发生的剧情；它不属于任何一位角色的个人记忆，也不得写入或冒充角色的神经链接记忆。',
+        '- 片段中的第一、第二人称只保留原文叙事视角；应依据片段内明确出现的姓名与事件判断身份。',
+        '- 无法从片段确定指代时，保持模糊，不得擅自把“我/你”归给当前面具或任一角色。',
+        '【本剧情共享档案开始】',
+        content,
+        '【本剧情共享档案结束】',
+    ].join('\n');
+};
+
+export const buildTheaterPersona = (mask: ResolvedStoryTheaterMask): string => [
+    '### 当前用户侧执笔身份',
+    `- 名字：${mask.name || '你'}`,
+    `- 身份/外在设定：${mask.description || '无'}`,
+    mask.coreInstruction?.trim() ? `- 核心性格与行动边界：\n${mask.coreInstruction.trim()}` : '',
+    mask.worldview?.trim() ? `- 所属世界观：\n${mask.worldview.trim()}` : '',
+    '- 这是用户侧本轮亲自执笔的故事身份，不是生成回复的一方。除非预设明确允许代写，续写不得把该身份当作普通角色擅自决定重大选择。',
+].join('\n');
+
+export const storyTheaterMemoryRecipientIds = (entry: StoryTheaterEntry): string[] => {
+    const ids = new Set(entry.characterIds);
+    if (entry.mask?.type === 'character') ids.add(entry.mask.id);
+    return [...ids];
+};
+
+const DISPLAY_BLOCK_META: Record<string, { kind: StoryDisplayBlockKind; title?: string }> = {
+    scene_header: { kind: 'scene', title: '这一幕' },
+    story_text: { kind: 'story' },
+    backstage: { kind: 'backstage', title: '幕后层' },
+    mind_weather: { kind: 'backstage', title: '内心气象' },
+    worldline: { kind: 'worldline', title: '世界线' },
+    world_line: { kind: 'worldline', title: '世界线' },
+    shot_debts: { kind: 'debts', title: '尚未偿还的镜头' },
+    mini_theater: { kind: 'theater', title: '幕间剧场' },
+    reply_choices: { kind: 'choices', title: '可以这样推进' },
+    affinity_panel: { kind: 'affinity', title: '关系变化' },
+};
+
+const DISPLAY_TAG_LABELS: Record<string, string> = {
+    time: '时间', place: '地点', situation: '场面', owner: '主体', surface: '表层反应', undertow: '潜流',
+    secret: '秘密', hidden: '隐藏事实', true_monologue: '真正的独白', voice: '心声', red: '危险信号',
+    fracture: '裂纹', surge: '情绪峰值', world_line_title: '世界线', worldline_title: '世界线', world_event: '事件',
+    scope: '影响范围', change: '变化', debt_title: '镜头债', debt: '未结事项', origin: '起因', unpaid: '尚未偿还',
+    trigger: '触发条件', mt_title: '幕间', mt_system: '旁白', mt_ai: '人物', mt_user: '右侧', name: '人物',
+    choice: '备选', label: '方向', reply: '推进', relation_note: '关系天气', u_note: '你的说明', c_note: '变化原因',
+    c_score: '关系温度', u_score: '你的关系温度', u_affinity: '你的关系备注', u_delta: '你的变化', c_delta: '本轮变化', relation_fragment: '关系碎片',
+    character_id: '角色 ID', character_name: '人物',
+    c_to_u_score: '角色对你的温度', c_to_u_delta: '角色本轮变化', c_to_u_note: '角色变化依据',
+    u_to_c_score: '你对角色的温度', u_to_c_delta: '你本轮的变化', u_to_c_note: '你的变化原因', awareness_state: '察觉状态',
+    trust: '信任', security: '安全感', possessive_pull: '占有拉力', emotional_pressure: '情绪压强', repair_will: '修复意愿', state_note: '关系合力',
+};
+
+const HIDDEN_STORY_DISPLAY_TAGS = new Set(['u_score', 'u_delta', 'u_note']);
+
+const decodeStoryCodePoint = (match: string, code: string, radix: number): string => {
+    const value = parseInt(code, radix);
+    return Number.isFinite(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : match;
+};
+
+const decodeStoryEntities = (value: string): string => value
+    .replace(/&#(\d+);/g, (match, code) => decodeStoryCodePoint(match, code, 10))
+    .replace(/&#x([0-9a-f]+);/gi, (match, code) => decodeStoryCodePoint(match, code, 16))
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, String.fromCharCode(34)).replace(/&#39;/gi, String.fromCharCode(39)).replace(/&amp;/gi, '&');
+
+const cleanStoryMarkupText = (value: string): string => decodeStoryEntities(String(value || ''))
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/?[a-z][^>]*>/gi, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const firstStoryTagValue = (source: string, tag: string): string => {
+    const closed = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(source)?.[1];
+    if (closed !== undefined) return cleanStoryMarkupText(closed);
+    const openOnly = new RegExp(`<${tag}\\b[^>]*>([^<\\n]*)`, 'i').exec(source)?.[1];
+    return cleanStoryMarkupText(openOnly || '');
+};
+
+/**
+ * 小剧场单独按语义解析：把 name/text 合并成一条消息，并容忍缺失闭合标签、
+ * 省略消息外壳或直接退化为纯文本，避免把每个 XML 标签渲染成一张卡。
+ */
+export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay => {
+    const source = decodeStoryEntities(String(fragment || '')).replace(/\r\n?/g, '\n');
+    const title = firstStoryTagValue(source, 'mt_title') || '幕间频道';
+    const systems = [...source.matchAll(/<mt_system\b[^>]*>([\s\S]*?)(?:<\/mt_system\s*>|(?=<(?:mt_ai|mt_user|mt_title)\b)|$)/gi)]
+        .map(match => cleanStoryMarkupText(match[1]))
+        .filter(Boolean);
+    const messages: StoryMiniTheaterDisplayMessage[] = [];
+    const messagePattern = /<(mt_ai|mt_user)\b[^>]*>([\s\S]*?)(?:<\/\1\s*>|(?=<(?:mt_ai|mt_user|mt_system|mt_title)\b)|$)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = messagePattern.exec(source)) !== null) {
+        const side = match[1].toLowerCase() === 'mt_user' ? 'right' : 'left';
+        const body = match[2];
+        const name = firstStoryTagValue(body, 'name') || (side === 'right' ? '右侧' : '左侧');
+        const taggedText = firstStoryTagValue(body, 'text');
+        const fallbackText = cleanStoryMarkupText(body).replace(name, '').trim();
+        const text = taggedText || fallbackText;
+        if (text) messages.push({ side, name, text });
+    }
+
+    if (messages.length === 0) {
+        const pairPattern = /<name\b[^>]*>([\s\S]*?)<\/name\s*>\s*<text\b[^>]*>([\s\S]*?)<\/text\s*>/gi;
+        for (const pair of source.matchAll(pairPattern)) {
+            const name = cleanStoryMarkupText(pair[1]) || '频道消息';
+            const text = cleanStoryMarkupText(pair[2]);
+            if (text) messages.push({ side: 'left', name, text });
+        }
+    }
+
+    if (messages.length === 0) {
+        const plain = cleanStoryMarkupText(source)
+            .split(/\n+/)
+            .map(line => line.trim())
+            .filter(line => line && line !== title && !systems.includes(line));
+        for (const line of plain) {
+            const labeled = /^([^：:]{1,20})[：:]\s*(.+)$/.exec(line);
+            messages.push({ side: 'left', name: labeled?.[1]?.trim() || '频道消息', text: labeled?.[2]?.trim() || line });
+        }
+    }
+
+    return { title, ...(systems.length > 0 ? { system: systems.join(' · ') } : {}), messages };
+};
+
+const formatTaggedStoryFragment = (fragment: string): string => {
+    let clean = decodeStoryEntities(String(fragment || '')).replace(/\r\n?/g, '\n');
+    const pair = /<([a-z][\w-]*)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    for (let pass = 0; pass < 8 && pair.test(clean); pass += 1) {
+        pair.lastIndex = 0;
+        clean = clean.replace(pair, (_whole, rawTag: string, body: string) => {
+            const tag = rawTag.toLowerCase();
+            const label = DISPLAY_TAG_LABELS[tag];
+            const inner = body.trim();
+            if (!inner) return '';
+            if (HIDDEN_STORY_DISPLAY_TAGS.has(tag)) return '';
+            if (tag === 'story_text' || tag === 'text') return inner;
+            return label ? `\n${label}：${inner}\n` : `\n${inner}\n`;
+        });
+    }
+    clean = clean
+        .replace(/<\/?[a-z][^>]*>/gi, '\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    return clean;
+};
+
+/**
+ * Tavern output may nest <details> inside <sidestory>, or append side-theaters
+ * inside a <content> body. Matching the first closing tag with a regex loses
+ * nested information. Use the browser's HTML tree for imported output only;
+ * original SullyOS preset parsing remains untouched.
+ */
+const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
+    const document = new DOMParser().parseFromString(source, 'text/html');
+    const blocks: StoryDisplayBlock[] = [];
+    const foreignNames: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+        small_theater: '酒馆小剧场',
+        side_theater: '酒馆小剧场',
+        episode: '酒馆主题小剧场',
+        draft: '酒馆剧情摘要',
+        microlist: '酒馆临时待办',
+        ink: '酒馆补充信息',
+        count: '酒馆字数记录',
+    };
+    const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
+    const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
+    const structural = meaningfulTags.join(',');
+    // Styles inside a particular appendix must NOT be copied into every
+    // other appendix. Each sandbox should retain its own local CSS. Only
+    // genuinely top-level author styles can be shared with all appendices.
+    const sharedStyles = Array.from(document.querySelectorAll('style'))
+        .filter(style => !style.closest('sidestory,randomtheater,writing_interlude,partner_sidestory,small_theater,side_theater,episode,draft,microlist,details,mini_theater'))
+        .map(style => '<style>' + (style.textContent || '') + '</style>')
+        .join('\n').slice(0, 26000);
+    const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
+        const displayRaw = raw.replace(
+            /<(?:script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|embed|svg|math)\s*>/gi, '',
+        );
+        const text = formatTaggedStoryFragment(displayRaw);
+        if (!text && !htmlSource) return;
+        const last = blocks[blocks.length - 1];
+        if (kind === 'story' && last?.kind === 'story') {
+            last.text = last.text + '\n\n' + text;
+        } else {
+            blocks.push({ kind, text, ...(title ? { title } : {}),
+                ...(htmlSource ? { htmlSource } : {}) });
+        }
+    };
+    const pushStructuredTheater = (raw: string, title: string): boolean => {
+        // Only explicit chat semantics map to native bubbles. Ordinary prose,
+        // tables and stylized appendices must never be guessed as dialogue.
+        const containsChat = /<(?:mt_ai|mt_user)\b/i.test(raw)
+            || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(raw);
+        if (!containsChat) return false;
+        const theater = parseStoryMiniTheater(raw);
+        if (!theater.messages.length) return false;
+        const text = [
+            theater.title ? '幕间：' + theater.title : '',
+            theater.system ? '旁白：' + theater.system : '',
+            ...theater.messages.map(message => message.name + '：' + message.text),
+        ].filter(Boolean).join('\n');
+        blocks.push({ kind: 'theater', title, text, theater });
+        return true;
+    };
+    const pushAppendix = (element: Element, title: string) => {
+        const raw = element.innerHTML;
+        if (pushStructuredTheater(raw, title)) return;
+        const adapted = element.tagName.toLowerCase() === 'writing_interlude'
+            ? adaptTavernWritingInterlude(raw) : undefined;
+        const htmlSource = adapted || (hasStoryHtmlLayout(raw) ? sharedStyles + '\n' + raw : undefined);
+        push('tavern-extra', raw, title, htmlSource);
+    };
+    const visit = (node: Node): void => {
+        if (node.nodeType === 3) {
+            const content = node.textContent || '';
+            if (content.trim()) push('story', content);
+            return;
+        }
+        if (node.nodeType !== 1) return;
+        const element = node as Element;
+        const tag = element.tagName.toLowerCase();
+        if (['style', 'script', 'noscript', 'iframe', 'object', 'embed', 'svg', 'math', 'template'].includes(tag)) return;
+        if (['thinking', 'think', 'thought'].includes(tag)) {
+            push('thinking', element.innerHTML, '思考过程');
+            return;
+        }
+        if (tag === 'content') {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        if (Object.prototype.hasOwnProperty.call(foreignNames, tag)) {
+            pushAppendix(element, foreignNames[tag]);
+            return;
+        }
+        if (tag === 'details') {
+            const fate = (element.getAttribute('data-fate') || '').toLowerCase();
+            const info = (element.getAttribute('data-info') || '').toLowerCase();
+            const title = info === 'archive' ? '剧情摘要'
+                : fate === 'destiny' ? '剧情选项'
+                : fate.includes('side_theater') ? '小剧场附录'
+                : element.querySelector('summary')?.textContent?.trim().slice(0, 80) || '酒馆附录';
+            pushAppendix(element, title);
+            return;
+        }
+        if (nativeNames.has(tag)) {
+            // Reuse existing native card parser, including original mini theater,
+            // relationship and choices behavior, without changing native presets.
+            blocks.push(...parseStoryDisplayBlocks(element.outerHTML, false));
+            return;
+        }
+        const nested = element.querySelector(structural);
+        if (nested) {
+            Array.from(element.childNodes).forEach(visit);
+            return;
+        }
+        // Full HTML layouts are never injected into the SullyOS page itself:
+        // they are rendered in a separate CSP-locked sandboxed document.
+        if (hasStoryHtmlLayout(element.outerHTML)
+            && (['div', 'table', 'section', 'article', 'figure', 'img', 'ul', 'ol', 'pre', 'blockquote'].includes(tag)
+                || element.hasAttribute('style') || element.hasAttribute('class'))) {
+            push('html', element.outerHTML, '酒馆排版', sharedStyles + '\n' + element.outerHTML);
+            return;
+        }
+        push('story', element.outerHTML);
+    };
+    Array.from(document.body.childNodes).forEach(visit);
+    if (!blocks.length) {
+        // Invalid/mismatched foreign tags must still produce readable fallback,
+        // but discard untrusted executable markup rather than displaying JS.
+        const fallback = source.replace(/<(?:script|style|iframe|object|svg)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|iframe|object|svg)\s*>/gi, '');
+        push('story', fallback);
+    }
+    return blocks;
+};
+
+/**
+ * Old story messages predate theaterSourceFormat metadata. Detect their
+ * output dialect from stable markup instead of reinterpreting every old
+ * reply whenever the active preset is switched to another source.
+ */
+export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
+    /<\s*(?:thinking|think|thought|content|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
+    || /<details\b[^>]*>\s*<summary\b/i.test(value);
+
+/** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
+export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
+    const source = String(content || '');
+    if (fromTavern && typeof DOMParser !== 'undefined') return parseTavernStoryDisplayBlocks(source);
+    const blocks: StoryDisplayBlock[] = [];
+    const topLevel = fromTavern
+        ? /<(thinking|think|thought|content|details|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    const foreignTavernTheaters: Record<string, string> = {
+        sidestory: '酒馆小剧场',
+        randomtheater: '酒馆随机小剧场',
+        writing_interlude: '酒馆写作间隙',
+        partner_sidestory: '酒馆伙伴剧场',
+    };
+    const push = (kind: StoryDisplayBlockKind, text: string, title?: string) => {
+        // A Tavern <content> block may itself wrap foreign theater modules.
+        // Keep those in their own collapsed text appendix, NOT the main story.
+        // No embedded HTML, CSS, scripts or regex replacements are executed.
+        if (fromTavern && kind === 'story') {
+            const embedded = /<(sidestory|randomtheater|writing_interlude|partner_sidestory)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+            let cursor = 0;
+            let matched = false;
+            for (const foreign of text.matchAll(embedded)) {
+                const start = foreign.index!;
+                if (start > cursor) push('story', text.slice(cursor, start));
+                push('tavern-extra', foreign[2], foreignTavernTheaters[foreign[1].toLowerCase()]);
+                cursor = start + foreign[0].length;
+                matched = true;
+            }
+            if (matched) {
+                if (cursor < text.length) push('story', text.slice(cursor));
+                return;
+            }
+        }
+        const clean = formatTaggedStoryFragment(text);
+        if (!clean) return;
+        const previous = blocks[blocks.length - 1];
+        if (kind === 'story' && previous?.kind === 'story') previous.text = `${previous.text}\n\n${clean}`;
+        else blocks.push({ kind, text: clean, ...(title ? { title } : {}) });
+    };
+    const pushTheater = (fragment: string, title?: string) => {
+        const theater = parseStoryMiniTheater(fragment);
+        const text = [
+            theater.title ? `幕间：${theater.title}` : '',
+            theater.system ? `旁白：${theater.system}` : '',
+            ...theater.messages.map(message => `${message.name}：${message.text}`),
+        ].filter(Boolean).join('\n');
+        if (text) blocks.push({ kind: 'theater', ...(title ? { title } : {}), text, theater });
+    };
+    while ((match = topLevel.exec(source)) !== null) {
+        if (match.index > cursor) push('story', source.slice(cursor, match.index));
+        const sourceTag = match[1].toLowerCase();
+        if (fromTavern && ['thinking', 'think', 'thought'].includes(sourceTag)) {
+            push('thinking', match[2], '思考过程');
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'content') {
+            push('story', match[2]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag in foreignTavernTheaters) {
+            push('tavern-extra', match[2], foreignTavernTheaters[sourceTag]);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        if (fromTavern && sourceTag === 'details') {
+            const opening = match[0].slice(0, match[0].indexOf('>') + 1);
+            const title = /data-info\s*=\s*["']archive["']/i.test(opening) ? '剧情摘要'
+                : /data-fate\s*=\s*["']destiny["']/i.test(opening) ? '剧情选项'
+                : /data-fate\s*=\s*["']side_theater["']/i.test(opening) ? '小剧场附录'
+                : '酒馆附录';
+            push('tavern-extra', match[2], title);
+            cursor = match.index + match[0].length;
+            continue;
+        }
+        const meta = DISPLAY_BLOCK_META[sourceTag] || { kind: 'other' as const };
+        if (meta.kind === 'theater') {
+            // Native <mini_theater> may also contain authored HTML layouts.
+            // Keep existing mt_ai/mt_user bubbles, but safely render visual-only
+            // HTML inside the same collapsed theater surface.
+            const hasNativeMessages = /<(?:mt_ai|mt_user)\b/i.test(match[2])
+                || /<name\b[^>]*>[\s\S]*?<\/name\s*>\s*<text\b/i.test(match[2]);
+            if (hasStoryHtmlLayout(match[2]) && !hasNativeMessages) {
+                blocks.push({ kind: 'html', title: meta.title, text: formatTaggedStoryFragment(match[2]),
+                    htmlSource: match[2] });
+            } else {
+                pushTheater(match[2], meta.title);
+            }
+        } else {
+            push(meta.kind, match[2], meta.title);
+        }
+        cursor = match.index + match[0].length;
+    }
+    if (cursor < source.length) {
+        const tail = source.slice(cursor);
+        const unclosedTheater = /<mini_theater\b[^>]*>([\s\S]*)$/i.exec(tail);
+        if (unclosedTheater) {
+            if (unclosedTheater.index > 0) push('story', tail.slice(0, unclosedTheater.index));
+            pushTheater(unclosedTheater[1], DISPLAY_BLOCK_META.mini_theater.title);
+        } else {
+            push('story', tail);
+        }
+    }
+    if (blocks.length === 0) push('story', source);
+    return blocks;
+};
+
+export const formatActorRecentMessages = (
+    char: CharacterProfile,
+    messages: Message[],
+    originalUserName?: string,
+    currentIdentityName?: string,
+): string => {
+    if (messages.length === 0) return '';
+    const originalUser = originalUserName?.trim() || '你';
+    const currentIdentity = currentIdentityName?.trim() || originalUser;
+    const rows = messages.map(message => {
+        const speaker = message.role === 'user' ? `记忆中的你（${originalUser}）` : message.role === 'assistant' ? char.name : '系统';
+        const clean = String(message.content || '').replace(/data:[^\s]+/gi, '[媒体]').slice(0, 4000);
+        return `- [${new Date(message.timestamp).toLocaleString()}] ${speaker}：${clean}`;
+    });
+    const identityReminder = currentIdentity === originalUser
+        ? ''
+        : `\n当前执笔身份是「${currentIdentity}」；不得把下列“记忆中的你”重新解释成当前身份。`;
+    return `### ${char.name} 最近携带的专属原文上下文（${messages.length} 条）\n以下记录只属于「${char.name}」与原互动对象「${originalUser}」，不得并入其他角色的经历。${identityReminder}\n${rows.join('\n')}`;
+};
+
+export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
+    .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(message => ({
+        role: message.role as StoryApiRole,
+        // Already-started stories may have saved a Tavern header as the first
+        // assistant floor before this adapter existed. Only sanitize that
+        // marked opening in AI context; never rewrite historical DB messages.
+        content: message.metadata?.theaterOpeningGreeting
+            ? storyOpeningReadingText(String(message.content || ''),
+                message.metadata.theaterOpeningGreeting.greetingId,
+                message.metadata.theaterOpeningGreeting.source)
+            : String(message.content || ''),
+    }));
+
+/** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
+export const getPendingStoryRetryInput = (messages: Message[]): string => {
+    const latest = messages[messages.length - 1];
+    if (!latest || latest.role !== 'user' || latest.metadata?.theaterArchived) return '';
+    return String(latest.content || '').trim();
+};
+
+export const estimateStoryTokens = (text: string): number => {
+    const cjk = (text.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length;
+    const rest = Math.max(0, text.length - cjk);
+    return cjk + Math.ceil(rest / 4);
+};
+
+const storyApiDetail = (value: unknown): string => {
+    if (typeof value === 'string') return value.trim();
+    if (!value || typeof value !== 'object') return '';
+    const record = value as Record<string, unknown>;
+    return storyApiDetail(record.message)
+        || storyApiDetail(record.detail)
+        || storyApiDetail(record.error)
+        || storyApiDetail(record.code);
+};
+
+/** 保留上游 4xx 的真正原因，避免调试日志里只剩一条没有信息量的 “API Error 400”。 */
+export const describeStoryApiError = (status: number, data: unknown): string => {
+    const detail = storyApiDetail((data as Record<string, unknown> | null)?.error)
+        || storyApiDetail((data as Record<string, unknown> | null)?.message)
+        || storyApiDetail((data as Record<string, unknown> | null)?.detail);
+    return `API Error ${status}${detail ? `：${detail.slice(0, 500)}` : ''}`;
+};
+
+export const isStoryUserLastCompatibilityError = (message: string): boolean => (
+    /(?:last|final)[^\n]{0,80}(?:message|role)[^\n]{0,80}user/i.test(message)
+    || /(?:最后|末尾)[^\n]{0,40}(?:消息|角色)[^\n]{0,40}user/i.test(message)
+);
+
+/** 200 但正文为空时把 finish_reason 带出来，区分截断、内容过滤和代理空包。 */
+export const describeEmptyStoryCompletion = (data: unknown): string => {
+    const record = data as Record<string, any> | null;
+    const choice = record?.choices?.[0];
+    const finishReason = String(choice?.finish_reason || choice?.finishReason || '').trim();
+    const providerDetail = storyApiDetail(record?.error) || storyApiDetail(record?.message);
+    if (providerDetail) return `没有生成正文：${providerDetail.slice(0, 500)}`;
+    if (finishReason === 'length' || finishReason === 'max_tokens') {
+        return '没有生成正文：模型在写出正文前已用完输出额度（finish_reason=length）。请提高“最大输出”，或降低模型思考量后重试';
+    }
+    if (finishReason === 'content_filter') return '没有生成正文：上游内容过滤拦截了本次回复（finish_reason=content_filter）';
+    return `没有生成正文${finishReason ? `（finish_reason=${finishReason}）` : '：上游返回了空内容'}，请重试`;
+};
+
+export const memoryTimestampForCharacter = (entry: StoryTheaterEntry, charId: string, realTimestamp: number): number => {
+    const anchorText = entry.characterMemoryDates?.[charId];
+    const storyAnchor = anchorText ? new Date(anchorText).getTime() : NaN;
+    if (!Number.isFinite(storyAnchor)) return realTimestamp;
+    return storyAnchor + Math.max(0, realTimestamp - entry.createdAt);
+};
+
+/** Story time stays in metadata; receipt time controls chat ordering. */
+export const storyTimelineTimestampForCharacter = memoryTimestampForCharacter;
+export const createStoryTheaterMirrorMessage = (
+    entry: StoryTheaterEntry, charId: string,
+    central: Pick<Message, 'id' | 'role' | 'content' | 'timestamp'>,
+): Omit<Message, 'id'> => ({
+    charId, role: central.role, type: 'text', content: central.content, timestamp: central.timestamp,
+    metadata: { source: 'story_theater_memory', theaterId: entry.id, theaterTitle: entry.title,
+        theaterCentralId: central.id, theaterTimestampVersion: 1, theaterReceivedAt: central.timestamp,
+        theaterTimelineTimestamp: storyTimelineTimestampForCharacter(entry, charId, central.timestamp) },
+});
+
+export const makeStoryPresetFileName = (name: string): string => {
+    const safeName = name.replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || '剧情预设';
+    return `${safeName}.json`;
+};
+
+export const downloadStoryPreset = async (preset: StoryTheaterPreset): Promise<'shared' | 'downloaded' | 'cancelled'> => (
+    shareOrDownloadFile({
+        card: { kind: 'story', title: preset.name || '剧情预设' },
+        content: JSON.stringify(preset.document, null, 2),
+        fileName: makeStoryPresetFileName(preset.name),
+        mimeType: 'application/json',
+        shareTitle: `剧情预设：${preset.name || '未命名'}`,
+    })
+);
+, 'i').test(prompt.content));
+                if (end > index) { enclosing(start, end); break; }
             }
         }
     }
