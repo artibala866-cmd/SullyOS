@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
-import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile } from '../../../types';
+import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
-import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
+import { resolveStoryTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
     initial: StoryTheaterEntry;
     characters: CharacterProfile[];
+    /** Complete global library. Old test fixtures can omit it. */
+    worldbooks?: Worldbook[];
     user: UserProfile;
     masks: StoryTheaterMask[];
     maskLocked: boolean;
@@ -24,10 +26,11 @@ interface Props {
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [worldbookSearch, setWorldbookSearch] = useState('');
     const [editingGreeting, setEditingGreeting] = useState(false);
     const [showOpeningInIntro, setShowOpeningInIntro] = useState(!!initial.openingGreeting);
     const saveLock = useRef(false);
@@ -203,7 +206,16 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         if (draft.mask?.type === 'character') participantIds.add(draft.mask.id);
         return characters.filter(char => participantIds.has(char.id));
     }, [characters, draft.characterIds, draft.mask]);
-    const books = useMemo(() => dedupeTheaterWorldbooks(memoryParticipants), [memoryParticipants]);
+    const books = useMemo(() =>
+        resolveStoryTheaterWorldbooks(worldbooks, memoryParticipants),
+        [worldbooks, memoryParticipants]);
+    const visibleBooks = useMemo(() => books.filter(book =>
+        !worldbookSearch.trim()
+        || (book.title + ' ' + (book.category || '')).toLocaleLowerCase().includes(worldbookSearch.trim().toLocaleLowerCase())),
+        [books, worldbookSearch]);
+    const missingSelectedBooks = useMemo(() =>
+        draft.selectedWorldbookIds.filter(id => !books.some(book => book.id === id)),
+        [draft.selectedWorldbookIds, books]);
     const canStart = hasStoryTheaterParticipant(draft, characters);
     const preset = presets.find(item => item.id === draft.presetId) || presets[0] || null;
     const effectivePreset = preset ? { ...preset, document: resolveStoryPresetDocument(preset, draft.presetOverride) } : null;
@@ -237,8 +249,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
         setDraft(current => {
         const adding = !current.characterIds.includes(char.id);
         const characterIds = adding ? [...current.characterIds, char.id] : current.characterIds.filter(id => id !== char.id);
-        const remaining = characters.filter(item => characterIds.includes(item.id) || (current.mask?.type === 'character' && current.mask.id === item.id));
-        const validBooks = new Set(dedupeTheaterWorldbooks(remaining).map(book => book.id));
         return {
             ...current,
             characterIds,
@@ -249,7 +259,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 && promotedPremise.current?.greetingId === current.openingGreeting.greetingId
                 ? promotedPremise.current.content : current.premise,
             openingGreeting: !adding && current.openingGreeting?.characterId === char.id ? undefined : current.openingGreeting,
-            selectedWorldbookIds: adding ? Array.from(new Set([...current.selectedWorldbookIds, ...(char.mountedWorldbooks || []).map(book => book.id)])) : current.selectedWorldbookIds.filter(id => validBooks.has(id)),
+            // Worldbooks are explicitly chosen for this story. Changing the
+            // cast must never silently add or drop an unrelated worldbook.
+            selectedWorldbookIds: current.selectedWorldbookIds,
             characterContextLimits: { ...current.characterContextLimits, ...(adding && !current.characterContextLimits[char.id] ? { [char.id]: 100 } : {}) },
             updatedAt: Date.now(),
         };
@@ -469,8 +481,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 </div>}
             </section>
             <section className='pt-6 border-t border-slate-200'>
-                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>04 / Lore</div><h2 className='mt-1 text-lg font-semibold'>世界书沙盒</h2><p className='text-[10px] text-slate-500'>从角色挂载项同步并去重；勾选只属于本剧情。</p>
-                <div className='mt-3 divide-y divide-slate-100 border-y border-slate-200'>{books.length === 0 ? <div className='py-6 text-center text-xs text-slate-400'>所选角色没有挂载世界书</div> : books.map(book => { const selected = draft.selectedWorldbookIds.includes(book.id); return <button key={book.id} onClick={() => update('selectedWorldbookIds', selected ? draft.selectedWorldbookIds.filter(id => id !== book.id) : [...draft.selectedWorldbookIds, book.id])} className='w-full py-3 flex items-center gap-3 text-left'><span className={`w-4 h-4 rounded border text-[10px] text-center text-white ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`}>{selected ? '✓' : ''}</span><span className='min-w-0'><span className='block text-xs font-semibold truncate'>{book.title}</span><span className='block text-[9px] text-slate-400'>{book.category || '未分类'}</span></span></button>; })}</div>
+                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>04 / Lore</div><h2 className='mt-1 text-lg font-semibold'>世界书沙盒</h2><p className='text-[10px] text-slate-500'>从全局世界书库选择，仅对本剧情生效，不改变角色挂载。</p>
+                {books.length > 8 && <input type='search' aria-label='搜索剧情世界书' value={worldbookSearch} onChange={event => setWorldbookSearch(event.target.value)} placeholder='搜索世界书名称或分类' className='mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />}
+                <div className='mt-3 divide-y divide-slate-100 border-y border-slate-200'>{books.length === 0 ? <div className='py-6 text-center text-xs text-slate-400'>全局世界书库暂无可选内容</div> : visibleBooks.length === 0 ? <div className='py-6 text-center text-xs text-slate-400'>没有匹配的世界书</div> : visibleBooks.map(book => { const selected = draft.selectedWorldbookIds.includes(book.id); return <button type='button' key={book.id} aria-pressed={selected} aria-label={`世界书：${book.title}`} onClick={() => setDraft(current => ({ ...current, selectedWorldbookIds: current.selectedWorldbookIds.includes(book.id) ? current.selectedWorldbookIds.filter(id => id !== book.id) : [...current.selectedWorldbookIds, book.id], updatedAt: Date.now() }))} className='w-full py-3 flex items-center gap-3 text-left'><span className={`w-4 h-4 shrink-0 rounded border text-[10px] text-center text-white ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`}>{selected ? '✓' : ''}</span><span className='min-w-0'><span className='block text-xs font-semibold truncate'>{book.title}</span><span className='block text-[9px] text-slate-400'>{book.category || '未分类'}{book.disable ? ' · 已停用' : ''}</span></span></button>; })}</div>
+                {missingSelectedBooks.length > 0 && <p className='mt-2 text-[10px] text-amber-700'>有 {missingSelectedBooks.length} 条已选世界书当前不存在，暂不发送；原选择已保留。</p>}
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；导入后直接选中，内置预设复制后可编辑。</p>
