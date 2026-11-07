@@ -1012,7 +1012,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         const group=getStoryTavernAuthorSections(doc).find(x=>x.label.includes('剧场'))!;
         const changed=selectStoryTavernAuthorOption(doc,group.key,'st-a');
         expect(changed.prompts.filter(p=>p.enabled).map(p=>p.id)).toEqual(['st-theater-start','st-a','st-theater-end']);
-        const sent=compileStoryPreset({preset:{id:'x',name:'小剧场',document:changed,updatedAt:0},
+        const sent=compileStoryPreset({preset:{id:'x',name:'小剧场',format:'sullyos-story-preset',document:changed,createdAt:0,updatedAt:0},
             slots:{...slots,worldBefore:''},userName:'玩家',characterNames:['角色']}).messages.map(m=>m.content).join('\n');
         expect(sent).toContain('<theater>');
         expect(sent).toContain('弹幕剧场');
