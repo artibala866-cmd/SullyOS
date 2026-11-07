@@ -1,4 +1,4 @@
-import { adaptTavernOpeningGreeting, storyOpeningReadingText, tavernOpeningAuthorNote } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, storyOpeningReadingText } from './tavernOpeningGreeting';
 import { adaptTavernWritingInterlude, hasStoryHtmlLayout } from './storyTheaterHtml';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
@@ -1381,12 +1381,8 @@ export const resolveStoryOpeningGreeting = (
         characterId: actor.id,
         greetingId: greeting.id,
         source: greeting.source,
-        ...(greeting.source === 'tavern'
-            ? (() => {
-                const raw = actor.tavernGreetings?.find(row => row.id === greeting.id);
-                const note = tavernOpeningAuthorNote(raw?.content || '');
-                return note ? { authorNote: macroReplace(note, identityName, [actor.name]) } : {};
-            })() : {}),
+        // Imported wrapped notes are not promoted to hidden model instructions:
+        // the author requested story prose outside imported wrappers only.
         content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
     };
 };
