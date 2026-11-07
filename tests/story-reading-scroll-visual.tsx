@@ -39,7 +39,7 @@ const mockOS = {
     characters: [actor], worldbooks: [], userProfile: { name: '玩家', avatar: '' },
     apiConfig: { baseUrl: '', apiKey: '', model: '' },
     memoryPalaceConfig: {}, remoteVectorConfig: {},
-    theme: { storyAppearance: { preset: mode === 'dark' ? 'night' : mode === 'plain' ? 'none' : 'novel' } },
+    theme: { storyAppearance: { preset: mode === 'dark' ? 'night' : (mode === 'plain' || mode === 'cinema') ? 'none' : 'novel' } },
     updateCharacter: () => {}, addToast: () => {}, registerBackHandler: () => () => {},
 } as any;
 createRoot(document.getElementById('visual')!).render(
@@ -51,6 +51,23 @@ createRoot(document.getElementById('visual')!).render(
         </StoryTheaterThemeProvider>
     </OSPreviewProvider>,
 );
+// Exercise the actual portal controls: select 花里胡哨, close the portal, and
+// audit only the real reading screen. This catches the original regression.
+if (mode === 'cinema') {
+    const selectCinemaAndClose = () => {
+        const open = document.querySelector<HTMLButtonElement>('button[aria-label="剧情外观"]');
+        if (!open) { setTimeout(selectCinemaAndClose, 80); return; }
+        open.click();
+        setTimeout(() => {
+            const option = [...document.querySelectorAll<HTMLButtonElement>('button')]
+                .find(button => button.textContent?.includes('花里胡哨'));
+            if (!option) { document.body.dataset.storyScrollReady = 'false'; return; }
+            option.click();
+            document.querySelector<HTMLButtonElement>('button[aria-label="关闭剧情外观"]')?.click();
+        }, 120);
+    };
+    setTimeout(selectCinemaAndClose, 250);
+}
 const begin = Date.now();
 const audit = () => {
     const scroll = document.querySelector<HTMLElement>('.story-page-scroll');
@@ -96,7 +113,14 @@ const audit = () => {
         const visibleCount = progress?.getAttribute('aria-label') || '';
         const nearEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 96;
         const latestButton = document.querySelector<HTMLButtonElement>('button[aria-label="回到最新楼层"]');
-        const valid = floors.length === floorCount
+        const readerTheme = document.querySelector<HTMLElement>('#visual .story-theme.story-decor-cinema:not(.meeting-reading)');
+        const floorDecoration = getComputedStyle(floors[0], '::before').content;
+        const cinemaReady = !!readerTheme
+            && !document.querySelector('[aria-labelledby="story-appearance-title"]')
+            && getComputedStyle(scroll).backgroundImage.includes('radial-gradient')
+            && floorDecoration.includes('✦');
+        const valid = (mode !== 'cinema' || cinemaReady)
+            && floors.length === floorCount
             && !document.querySelector('button[aria-label="更早一页"]')
             && floorIndicatorClear
             && (focus === 'latest' ? (nearEnd && visibleCount.includes(`第 ${floorCount} 楼`) && !latestButton)
@@ -108,7 +132,7 @@ const audit = () => {
         const output = document.createElement('output');output.hidden = true;
         output.id = 'story-scroll-report';
         output.textContent = JSON.stringify({
-            valid, count: floors.length, displayedProgress: progress?.textContent,
+            valid, cinemaReady, floorDecoration, count: floors.length, displayedProgress: progress?.textContent,
             indicatorInHeader: floorIndicatorClear, hasLatestButton: !!latestButton,
             scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
             scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight, scrollTop: scroll.scrollTop, nearEnd,
