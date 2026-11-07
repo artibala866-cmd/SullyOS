@@ -193,6 +193,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         // imported character must not overwrite the locally saved one.
         const existing = {
             id: 'existing-link-role', name: '何谈爱', description: '旧简介',
+            cardImportOrigin: { source: 'babylink', originalName: '何谈爱' },
             systemPrompt: '原设定', avatar: '', mountedWorldbooks: [], memories: [],
             tavernGreetings: [{ id: 'existing-opening', title: '原有开场白', content: '原本的开场正文' }],
         } as CharacterProfile;
