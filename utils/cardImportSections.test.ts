@@ -31,6 +31,7 @@ const linkFixture = () => normalizeBabyLinkShare({
 }).cards[0];
 const createRole = (name: string): CharacterProfile => ({
     id: 'existing', name, avatar: 'user-avatar', description: '原有描述',
+    cardImportOrigin: {source:'tavern',originalName:name},
     systemPrompt: '原有人设', worldview: '原有世界背景',
     memories: [{ id: 'saved-memory' }] as unknown as CharacterProfile['memories'],
     tavernGreetings: [{ id: 'my-greeting', title: '我的开场', content: '我的开场内容' }],
