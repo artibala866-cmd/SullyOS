@@ -5,7 +5,7 @@ import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '..
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
-import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
+import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
@@ -81,16 +81,6 @@ interface Props {
     onEntryChange: (entry: StoryTheaterEntry) => Promise<void> | void;
     onArchiveCommitted: (entry: StoryTheaterEntry) => void;
 }
-
-const STORY_PAGE_SIZE = 10;
-
-const StoryPagination: React.FC<{ page: number; pageCount: number; onChange: (page: number) => void; className?: string }> = ({ page, pageCount, onChange, className = '' }) => (
-    <nav className={`${className} py-2 border-y border-slate-200 flex items-center justify-between`}>
-        <button disabled={page === 0} onClick={() => onChange(Math.max(0, page - 1))} className='w-9 h-9 rounded-full grid place-items-center disabled:opacity-20' aria-label='更早一页'><CaretLeft size={17} /></button>
-        <div className='text-center'><div className='text-[10px] font-bold text-slate-600'>第 {page + 1} / {pageCount} 页</div><div className='mt-0.5 text-[9px] text-slate-400'>每页最多 {STORY_PAGE_SIZE} 条内容</div></div>
-        <button disabled={page >= pageCount - 1} onClick={() => onChange(Math.min(pageCount - 1, page + 1))} className='w-9 h-9 rounded-full grid place-items-center disabled:opacity-20' aria-label='更新一页'><CaretRight size={17} /></button>
-    </nav>
-);
 
 const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffinityInput | undefined => {
     if (!value || typeof value !== 'object') return undefined;
@@ -357,7 +347,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const [showAffinityInput, setShowAffinityInput] = useState(false);
     const [affinityDrafts, setAffinityDrafts] = useState<Record<string, AffinityDraft>>({});
     const [selectedAffinityActorId, setSelectedAffinityActorId] = useState('');
-    const [messagePage, setMessagePage] = useState(0);
+    const [visibleFloor, setVisibleFloor] = useState(0);
     const [expandedArchivedIds, setExpandedArchivedIds] = useState<Set<number>>(() => new Set());
     const [exporting, setExporting] = useState(false);
     const [showQuickPreset, setShowQuickPreset] = useState(false);
@@ -373,6 +363,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const sendLock = useRef(false);
     const archiveLock = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const readingScrollRef = useRef<HTMLElement>(null);
+    const scrollFrameRef = useRef<number | null>(null);
+    const followLatestRef = useRef(true);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
 
@@ -472,20 +465,50 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setMutatingMessage(false);
         }
     }, [addToast, deletingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage, relatedMessageIds]);
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages.length, sending]);
-    const pageCount = Math.max(1, Math.ceil(messages.length / STORY_PAGE_SIZE));
-    useEffect(() => { setMessagePage(Math.max(0, pageCount - 1)); }, [messages.length, pageCount]);
-    const pageMessages = useMemo(() => messages.slice(messagePage * STORY_PAGE_SIZE, (messagePage + 1) * STORY_PAGE_SIZE), [messagePage, messages]);
-    const pageArchivedIds = useMemo(() => pageMessages.filter(message => mirrorArchived(message, entry)).map(message => message.id), [entry, pageMessages]);
-    const allPageArchivesExpanded = pageArchivedIds.length > 0 && pageArchivedIds.every(id => expandedArchivedIds.has(id));
-    const togglePageArchives = useCallback(() => {
+    // Reading is one continuous scroll. Only follow new replies while the reader
+    // is already near the end; editing or expanding an older floor must not jump away.
+    const updateVisibleFloor = useCallback(() => {
+        const viewport = readingScrollRef.current;
+        if (!viewport) return;
+        const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+        const nearBottom = distanceFromBottom <= 96;
+        followLatestRef.current = nearBottom;
+        let floor = messages.length > 0 ? 1 : 0;
+        if (nearBottom) {
+            floor = messages.length;
+        } else {
+            const readingLine = viewport.getBoundingClientRect().top + Math.min(120, viewport.clientHeight * 0.24);
+            for (const element of viewport.querySelectorAll<HTMLElement>('[data-story-floor]')) {
+                if (element.getBoundingClientRect().top > readingLine) break;
+                floor = Number(element.dataset.storyFloor) || floor;
+            }
+        }
+        setVisibleFloor(current => current === floor ? current : floor);
+    }, [messages.length]);
+    const handleReadingScroll = useCallback(() => {
+        if (scrollFrameRef.current !== null) return;
+        scrollFrameRef.current = window.requestAnimationFrame(() => {
+            scrollFrameRef.current = null;
+            updateVisibleFloor();
+        });
+    }, [updateVisibleFloor]);
+    useEffect(() => () => {
+        if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    }, []);
+    useEffect(() => {
+        if (followLatestRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+        updateVisibleFloor();
+    }, [messages.length, sending, updateVisibleFloor]);
+    const archivedFloorIds = useMemo(() => messages.filter(message => mirrorArchived(message, entry)).map(message => message.id), [entry, messages]);
+    const allArchivesExpanded = archivedFloorIds.length > 0 && archivedFloorIds.every(id => expandedArchivedIds.has(id));
+    const toggleAllArchives = useCallback(() => {
         setExpandedArchivedIds(current => {
             const next = new Set(current);
-            if (pageArchivedIds.every(id => next.has(id))) pageArchivedIds.forEach(id => next.delete(id));
-            else pageArchivedIds.forEach(id => next.add(id));
+            if (archivedFloorIds.every(id => next.has(id))) archivedFloorIds.forEach(id => next.delete(id));
+            else archivedFloorIds.forEach(id => next.add(id));
             return next;
         });
-    }, [pageArchivedIds]);
+    }, [archivedFloorIds]);
     const setArchiveExpanded = useCallback((messageId: number, open: boolean) => {
         setExpandedArchivedIds(current => {
             if (current.has(messageId) === open) return current;
@@ -936,7 +959,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             </details>
         </header>
 
-        <main className='meeting-reading-page story-page-scroll flex-1 overflow-y-auto px-5 py-7'>
+        <main ref={readingScrollRef} onScroll={handleReadingScroll} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 py-7'>
             <div className='max-w-2xl mx-auto'>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
@@ -945,12 +968,23 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     <p className='mt-6 text-[10px] text-slate-400'>{canWriteOpening ? '输入框留空，点击推进即可开场' : '这一幕由你先落笔'}</p>
                 </section> : entry.writesToCharacterMemory && <div className='mb-8 py-3 border-y border-amber-200 text-center text-[11px] text-amber-700'>和朋友们已经分别相处了一段时间……</div>}
 
-                {pageCount > 1 && <StoryPagination className='mb-4' page={messagePage} pageCount={pageCount} onChange={setMessagePage} />}
-                {pageArchivedIds.length > 0 && <div className='mb-7 px-1 flex items-center justify-between gap-3 text-[9px] text-slate-400'><span>本页 {pageArchivedIds.length} 条归档原文 · 展开时才渲染正文</span><button onClick={togglePageArchives} className='shrink-0 px-3 py-1.5 rounded-full bg-white border border-slate-200 font-bold text-violet-600'>{allPageArchivesExpanded ? '全部收起' : '全部展开'}</button></div>}
+                {messages.length > 0 && <div className='sticky top-2 z-10 mb-8 flex justify-end pointer-events-none'>
+                    <div className='pointer-events-auto inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm'>
+                        <span className='text-[10px] font-semibold tabular-nums text-slate-600' aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}>第 {visibleFloor || 1} / {messages.length} 楼</span>
+                        {visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => { followLatestRef.current = true; bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }} className='border-l border-slate-200 pl-3 text-[10px] font-semibold text-violet-600'>回到最新</button>}
+                    </div>
+                </div>}
+                {archivedFloorIds.length > 0 && <div className='mb-8 flex items-center justify-between gap-3 text-[10px] text-slate-400'><span>{archivedFloorIds.length} 楼旧正文已归档 · 可按楼展开</span><button onClick={toggleAllArchives} className='shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-violet-600'>{allArchivesExpanded ? '全部收起' : '全部展开'}</button></div>}
 
-                <div className='space-y-8'>
-                    {pageMessages.map(message => {
+                <div className='divide-y divide-slate-200'>
+                    {messages.map((message, floorIndex) => {
                         const archived = mirrorArchived(message, entry);
+                        const floorHeading = <div className='mb-5 flex items-baseline gap-2.5 text-[10px] tracking-[.08em] text-slate-400'>
+                            <span className='font-semibold tabular-nums text-slate-500'>{String(floorIndex + 1).padStart(2, '0')}</span>
+                            <span aria-hidden='true' className='text-slate-300'>/</span>
+                            <span>{message.role === 'user' ? '你的推进' : '剧场正文'}</span>
+                        </div>;
+                        const floorBody = (() => {
                         if (archived) {
                             const archiveLabel = entry.writesToCharacterMemory
                                 ? '已作为正常记忆归档'
@@ -958,7 +992,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                     ? '已存入本剧情向量分区'
                                     : '已收进剧场事件盒';
                             const isExpanded = expandedArchivedIds.has(message.id);
-                            return <details key={message.id} open={isExpanded} onToggle={event => setArchiveExpanded(message.id, event.currentTarget.open)} className='group border-y border-slate-200'>
+                            return <details open={isExpanded} onToggle={event => setArchiveExpanded(message.id, event.currentTarget.open)} className='group rounded-xl border border-slate-200 px-4'>
                                 <summary className='list-none cursor-pointer py-3 flex items-center gap-3 text-slate-400 [&::-webkit-details-marker]:hidden'>
                                     <Archive size={13} className='shrink-0' />
                                     <span className='min-w-0 flex-1'>
@@ -974,12 +1008,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                 </div>}
                             </details>;
                         }
-                        if (message.role === 'user') return <section key={message.id} {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><p className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
+                        if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><p className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
-                        return <article key={message.id} {...pressHandlersFor(message)}><StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={sending} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
+                        return <article {...pressHandlersFor(message)}><StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={sending} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
+                        })();
+                        return <div key={message.id} data-story-floor={floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
+                            {floorHeading}
+                            {floorBody}
+                        </div>;
                     })}
                 </div>
-                {pageCount > 1 && <StoryPagination className='mt-8' page={messagePage} pageCount={pageCount} onChange={setMessagePage} />}
                 {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，仍会通过所选记忆方式参与续写</div>}
                 <div ref={bottomRef} className='h-6' />
             </div>
