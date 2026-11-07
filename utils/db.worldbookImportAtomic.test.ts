@@ -51,6 +51,30 @@ describe('real IndexedDB standalone Link worldbook import transaction',()=>{
         const stored=await DB.getAllWorldbooks();
         expect(stored.filter(book=>rows.some(x=>book.cardImportKey===x.cardImportKey))).toHaveLength(0);
     });
+    it('reimports a revised Word document atomically, retains book ID, and survives reload',async()=>{
+        const stamp='word-durable-'+Date.now().toString(36);
+        const fileKey='document-worldbook:'+stamp+'.docx';
+        const original=make(stamp,{title:stamp,category:stamp,content:'初次导入的整个章节',
+            cardImportKey:fileKey,key:[],constant:true});
+        const first=await DB.importWorldbooksSmartAtomic([original]);
+        expect(first).toMatchObject({added:1,updated:0});
+        const second=await DB.importWorldbooksSmartAtomic([make(stamp+'-other',{
+            title:stamp,category:stamp,content:'修改后的完整章节',
+            cardImportKey:fileKey,key:[],constant:true,
+        })]);
+        expect(second).toMatchObject({added:0,updated:1,conflicts:0});
+        const all=await DB.getAllWorldbooks();
+        expect(all.filter(b=>b.cardImportKey===fileKey)).toHaveLength(1);
+        expect(all.find(b=>b.cardImportKey===fileKey)).toMatchObject({
+            id:original.id,content:'修改后的完整章节',
+        });
+        const repeated=await DB.importWorldbooksSmartAtomic([make(stamp+'-duplicate',{
+            title:stamp,category:stamp,content:'修改后的完整章节',
+            cardImportKey:fileKey,key:[],constant:true,
+        })]);
+        expect(repeated).toMatchObject({added:0,updated:0,skipped:1});
+    });
+
     it('concurrent repeated imports serialize and share a single durable entry',async()=>{
         const suffix='race-'+Date.now().toString(36),row=make(suffix);
         const [a,b]=await Promise.all([
