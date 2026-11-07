@@ -13,6 +13,7 @@ const errors:string[]=[];
 window.addEventListener('error',event=>errors.push(event.message));
 window.addEventListener('unhandledrejection',event=>errors.push(String(event.reason)));
 let lastImported:Worldbook[]=[];
+let batchCommitCount=0;
 const sys={
     closeApp:()=>{},characters:[],activeCharacterId:'',addCharacter:async()=>null,
     updateCharacter:()=>{},setActiveCharacterId:()=>{},
@@ -25,6 +26,7 @@ const LiveWorldbook=()=>{
     return <OSPreviewProvider value={{
         ...sys,worldbooks:books,
         importWorldbooks:async(rows:Worldbook[])=>{
+            batchCommitCount++;
             lastImported=rows;
             setBooks(old=>[...old,...rows]);
             return {added:rows.length,updated:0,skipped:0,conflicts:0};
@@ -75,11 +77,27 @@ async function run(){
         input.dispatchEvent(new Event('change',{bubbles:true}));
         for(let n=0;n<100&&lastImported.length!==5;n++)await new Promise(r=>setTimeout(r,100));
         await new Promise(r=>setTimeout(r,150));
+        if(batchCommitCount!==1)throw Error('Valid batch committed more than once');
+        // A broken Word document in a mixed batch must not leave its TXT
+        // companion partially saved; parsing is completed before IDB commit.
+        const brokenBatch=new DataTransfer();
+        brokenBatch.items.add(new File(['合法的世界观'],'可用世界书.txt',{type:'text/plain'}));
+        brokenBatch.items.add(new File(['definitely not a ZIP'],'损坏.docx',{
+            type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        }));
+        input.files=brokenBatch.files;
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+        for(let retry=0;retry<100&&!String((window as any).__worldbookToast).includes('DOCX');retry++)
+            await new Promise(r=>setTimeout(r,50));
+        if(!String((window as any).__worldbookToast).includes('DOCX')||
+            batchCommitCount!==1||lastImported.length!==5)
+            throw Error('Corrupted DOCX batch caused partial import or no error notification');
         const root=document.documentElement,view=[innerWidth,innerHeight];
         const cards=[...document.querySelectorAll('h3')].map(el=>el.textContent?.trim()||'').filter(value=>value.includes('Link世界设定')||value.includes('旅行故事')||value.includes('PDF世界书')||value.includes('Word世界书'));
         const doc=document.body.textContent||'';
         const result={
             viewport:view,selectedFileCount:4,importedCount:lastImported.length,
+            corruptBatchRollback:batchCommitCount===1,
             grouped:cards,warningCount:errors.length,
             noOverflowX:root.scrollWidth<=innerWidth+2,
             titleFits:!([...document.querySelectorAll('span')].filter(x=>x.textContent?.trim()==='世界书').some(el=>el.getBoundingClientRect().height>40)),
@@ -94,7 +112,7 @@ async function run(){
             keywordImported:lastImported.some(x=>x.title==='好友背景'&&x.key?.includes('旧友')),
             errors,
         };
-        const pass=result.importedCount===5&&result.pdfBook&&result.wordBook&&result.acceptedPdf&&result.noOverflowX&&result.titleFits&&result.inputMulti&&
+        const pass=result.importedCount===5&&result.corruptBatchRollback&&result.pdfBook&&result.wordBook&&result.acceptedPdf&&result.noOverflowX&&result.titleFits&&result.inputMulti&&
             result.acceptedWord&&result.uiVisible&&result.linkedBook&&result.documentBook&&
             result.disabledBookImported&&result.keywordImported&&!errors.length;
         document.body.dataset.cardImportVisualReady=String(pass);
