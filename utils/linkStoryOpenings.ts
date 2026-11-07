@@ -1,5 +1,5 @@
 import type { CharacterProfile, LinkOpeningGreeting, TavernOpeningGreeting } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningReadableText, stripUnsupportedTavernOpeningEmbeds } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningReadableText, stripUnsupportedTavernOpeningEmbeds, stripWrappedOpeningPayloads } from './tavernOpeningGreeting';
 
 export type StoryOpeningSource = 'link' | 'tavern' | 'custom';
 export interface StoryOpeningChoice extends LinkOpeningGreeting {
@@ -60,9 +60,21 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
             const adapted = adaptTavernOpeningGreeting(greeting);
             // Author request markers may precede a real title comment. Once
             // presentation wrappers are hidden, recognize that metadata too.
+            const outside = source === 'tavern' ? tavernOpeningReadableText(adapted.content) : adapted.content;
             const readable = source === 'tavern'
-                ? adaptTavernOpeningGreeting({ ...adapted, content: tavernOpeningReadableText(adapted.content) })
+                ? adaptTavernOpeningGreeting({ ...adapted, content: outside })
                 : adapted;
+            // A genuine title comment can follow wrapped author preambles.
+            // Preserve it as selector metadata before the presentation-only
+            // filter discards all comment wrappers from the visible scene.
+            if (source === 'tavern') {
+                for (const match of adapted.content.matchAll(/<!--[ 	]*title[ 	]*[:：]([\s\S]*?)-->/gi)) {
+                    if (stripWrappedOpeningPayloads(adapted.content.slice(0, match.index!)).trim()) continue;
+                    const title = match[1].trim();
+                    if (title) readable.title = title;
+                    break;
+                }
+            }
             add(readable, source);
         }
     }
