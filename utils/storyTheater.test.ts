@@ -487,6 +487,12 @@ describe('剧情沙盒辅助逻辑', () => {
         expect(canonical.find(b=>b.id==='collide')?.content).toBe('只采用全局正式版');
         expect(chars[0].mountedWorldbooks?.[0].content).toBe('A 时空规则');
         expect(chars[1].mountedWorldbooks?.[0].content).toBe('B 时空规则');
+        const differentTrigger = [
+            {id:'a',mountedWorldbooks:[{id:'same-text',title:'同一段',content:'城市',constant:true}]},
+            {id:'b',mountedWorldbooks:[{id:'same-text',title:'同一段',content:'城市',constant:false,key:['城市']}]},
+        ] as CharacterProfile[];
+        expect(resolveStoryTheaterWorldbooks([],differentTrigger)
+            .find(book=>book.id==='same-text')).toBeUndefined();
         const selected=canonical.filter(book=>['independent'].includes(book.id));
         const payload=ContextBuilder.buildWorldbookRequest({
             books:selected,history:[{role:'user',content:'继续独立剧情'}],
