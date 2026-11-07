@@ -9,26 +9,34 @@ export type CharacterRecallStep =
 
 const RECALL_ACTION = /\[\[MESSAGE_RECALL:([\s\S]*?)\]\]|\{\s*"t"\s*:\s*"recall"\s*,\s*"orig"\s*:\s*"((?:\\.|[^"\\])*)"\s*\}/gi;
 
-export function splitCharacterRecallOutput(input: string): CharacterRecallStep[] {
-    if (!input) return [];
-    const steps: CharacterRecallStep[] = [];
-    const matcher = new RegExp(RECALL_ACTION.source, 'gi');
-    let cursor = 0;
-    let match: RegExpExecArray | null;
-    let matchedDirective = false;
-    while ((match = matcher.exec(input)) !== null) {
-        matchedDirective = true;
-        if (match.index > cursor) steps.push({ kind: 'text', content: input.slice(cursor, match.index) });
-        let original = (match[1] || '').trim();
-        if (match[2] !== undefined) {
+export interface CharacterRecallDirective { original: string; start: number; end: number; }
+export function findCharacterRecallDirectives(input: string): CharacterRecallDirective[] {
+    const result: CharacterRecallDirective[] = [];
+    const re = new RegExp(RECALL_ACTION.source, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(input)) !== null) {
+        let original = (m[1] || '').trim();
+        if (m[2] !== undefined) {
             try {
-                const directive = JSON.parse(match[0]) as { t?: string; orig?: string };
-                original = typeof directive.orig === 'string' ? directive.orig.trim() : '';
+                const obj = JSON.parse(m[0]) as { orig?: unknown };
+                original = typeof obj.orig === 'string' ? obj.orig.trim() : '';
             } catch { original = ''; }
         }
-        if (original) steps.push({ kind: 'recall', original });
-        cursor = matcher.lastIndex;
+        result.push({ original, start: m.index, end: re.lastIndex });
+    }
+    return result;
+}
+export function splitCharacterRecallOutput(input: string): CharacterRecallStep[] {
+    if (!input) return [];
+    const directives = findCharacterRecallDirectives(input);
+    if (!directives.length) return [{ kind: 'text', content: input }];
+    const steps: CharacterRecallStep[] = [];
+    let cursor = 0;
+    for (const item of directives) {
+        if (item.start > cursor) steps.push({ kind: 'text', content: input.slice(cursor, item.start) });
+        if (item.original) steps.push({ kind: 'recall', original: item.original });
+        cursor = item.end;
     }
     if (cursor < input.length) steps.push({ kind: 'text', content: input.slice(cursor) });
-    return matchedDirective ? steps : [{ kind: 'text', content: input }];
+    return steps;
 }

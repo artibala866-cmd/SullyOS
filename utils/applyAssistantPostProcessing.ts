@@ -847,6 +847,14 @@ export async function applyAssistantPostProcessing(
 
     // 把一段文本 (parseAndExecuteActions / HTML 之外的部分) 渲染成气泡并落库 —— 双语 / 表情 / 引用 / 分段
     // 与原 inline 末尾逻辑一致。抽出来是为了让"执行功能前的本轮正文 A"能在二轮前先展示, 二轮结果 B 复用同一套。
+    // Do not flash a sentence that the character withdraws later in this response.
+    let bufferUntilRecall = false;
+    const refreshRenderedRecallMessages = async () => {
+        if (!bufferUntilRecall) {
+            setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+        }
+    };
+
     const renderAndPersist = async (rawContent: string, firstThinkingChain: string | null): Promise<void> => {
         rawContent = parseImageDirective(rawContent).text;
         let firstMeta: any = firstThinkingChain ? { thinkingChain: firstThinkingChain } : null;
@@ -871,7 +879,7 @@ export async function applyAssistantPostProcessing(
                 console.warn('[emoji] 表情库里没有这个名字，落降级文本气泡', { name, charId: char.id });
                 await replyStep(async () => persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: `[表情：${name}]`, metadata: takeMeta(mcdInheritMeta) } as any));
             }
-            setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+            await refreshRenderedRecallMessages();
         };
 
         // 把 [[QUOTE: ...]] / [回复 "..."] 的引用文本解析成"被回复的那条用户消息"。
@@ -936,7 +944,7 @@ export async function applyAssistantPostProcessing(
                         const replyData = globalMsgIndex === 0 ? aiReplyTarget : undefined;
                         await replyStep(async () => typingPause(Math.min(Math.max(chunk.length * 50, 500), 2000)));
                         await replyStep(async () => persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: chunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, chunk) } as any));
-                        setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+                        await refreshRenderedRecallMessages();
                         globalMsgIndex++;
                     }
                 }
@@ -962,7 +970,7 @@ export async function applyAssistantPostProcessing(
                     const replyData = globalMsgIndex === 0 ? aiReplyTarget : undefined;
                     await replyStep(async () => typingPause(Math.min(Math.max(biContent.length * 30, 400), 2000)));
                     await replyStep(async () => persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: biContent, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, biContent) } as any));
-                    setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+                    await refreshRenderedRecallMessages();
                     globalMsgIndex++;
                 }
                 for (const name of inlineEmojis) await replyStep(async () => sendEmojiBubble(name));
@@ -1011,7 +1019,7 @@ export async function applyAssistantPostProcessing(
                             const cleanChunk = ChatParser.sanitize(chunk);
                             if (cleanChunk) {
                                 await replyStep(async () => persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: cleanChunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, cleanChunk) } as any));
-                                setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
+                                await refreshRenderedRecallMessages();
                                 globalMsgIndex++;
                                 chunkSaved = true;
                             }
@@ -1028,20 +1036,34 @@ export async function applyAssistantPostProcessing(
     // Unlike inserting a system log, the original bubble can never remain shown.
     const renderWithCharacterRecall = async (raw: string, chain: string | null): Promise<void> => {
         let pendingChain = chain;
-        for (const step of splitCharacterRecallOutput(raw)) {
-            if (step.kind === 'text') {
-                if (step.content.trim()) {
-                    await replyStep(async () => renderAndPersist(step.content, pendingChain));
-                    pendingChain = null;
+        const steps = splitCharacterRecallOutput(raw);
+        try {
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                if (step.kind === 'text') {
+                    if (step.content.trim()) {
+                        const futureRecall = steps.slice(i + 1).find(
+                            s => s.kind === 'recall' && step.content.includes(s.original),
+                        );
+                        if (futureRecall) bufferUntilRecall = true;
+                        await replyStep(async () => renderAndPersist(step.content, pendingChain));
+                        pendingChain = null;
+                    }
+                    continue;
                 }
-                continue;
-            }
-            const recalledId = await replyStep(async () => DB.recallAssistantPrivateMessage(char.id, step.original));
-            if (recalledId !== null) {
-                // Ensure already cached/generated TTS cannot play withdrawn text.
+                const recalledId = await replyStep(async () => DB.recallAssistantPrivateMessage(char.id, step.original));
+                bufferUntilRecall = false;
+                // Commit the original row replacement before updating React:
+                // users never see the withdrawn sentence flicker into a bubble.
                 setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
-                // Cloud snapshots may still contain the pre-recall text.
-                markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
+                if (recalledId !== null) {
+                    markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
+                }
+            }
+        } finally {
+            if (bufferUntilRecall) {
+                bufferUntilRecall = false;
+                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
             }
         }
     };

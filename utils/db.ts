@@ -1439,7 +1439,7 @@ export const DB = {
     const expected = original.trim();
     if (!charId || !expected) return null;
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    const recalledId = await new Promise<number | null>((resolve, reject) => {
       const tx = db.transaction(STORE_MESSAGES, 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
       const index = store.index('charId');
@@ -1449,17 +1449,22 @@ export const DB = {
         const cursor = cursorReq.result;
         if (!cursor || recalledId !== null) return;
         const msg = cursor.value as Message;
+        const rawText = msg.content.trim();
+        // Translation stores one visible bubble with both language variants.
+        const originalLanguageText = rawText.includes('%%BILINGUAL%%')
+          ? rawText.split(/\s*%%BILINGUAL%%\s*/)[0].trim() : '';
         if (!msg.groupId && msg.role === 'assistant' && msg.type === 'text'
-            && !msg.metadata?.recalledAt && msg.content.trim() === expected) {
+            && !msg.metadata?.recalledAt && (rawText === expected || originalLanguageText === expected)) {
           recalledId = msg.id;
+          // Never preserve the withdrawn original in a backup-visible metadata field.
+          const { recalledOriginalContent: _discarded, ...safeMetadata } = msg.metadata || {};
           store.put({
             ...msg,
             content: '[消息已撤回]',
             metadata: {
-              ...(msg.metadata || {}),
+              ...safeMetadata,
               recalledAt: Date.now(),
               recalledBy: 'assistant',
-              recalledOriginalContent: msg.content,
             },
           });
           // Reply cards store a separate snapshot of the quoted message.
@@ -1491,6 +1496,17 @@ export const DB = {
       tx.onerror = () => reject(tx.error || new Error('Message recall failed'));
       tx.onabort = () => reject(tx.error || new Error('Message recall aborted'));
     });
+    if (recalledId !== null) {
+      // Favorites store independent text copies; clear those after the DB commit.
+      try {
+        const { redactRecalledMessageFavorites } = await import('./contentFavorites');
+        await redactRecalledMessageFavorites(charId, recalledId);
+      } catch (error) {
+        // The original mutation already succeeded, so never retry/undo recall.
+        console.warn('[Chat recall] Favorite snapshot reconciliation failed', error);
+      }
+    }
+    return recalledId;
   },
 
   deleteMessage: async (id: number): Promise<void> => {

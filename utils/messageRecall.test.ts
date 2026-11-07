@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitCharacterRecallOutput } from './messageRecall';
+import { findCharacterRecallDirectives, splitCharacterRecallOutput } from './messageRecall';
 
 describe('private chat message recall directive', () => {
     it('retains speech order while allowing a message from this very response to be recalled', () => {
@@ -8,6 +8,12 @@ describe('private chat message recall directive', () => {
             { kind: 'recall', original: '喜欢你' },
             { kind: 'text', content: '\n……你少自恋' },
         ]);
+    });
+    it('reports positions of control actions for accurate streaming order', () => {
+        const source = '嗯\n[[MESSAGE_RECALL:嗯]]\n再说';
+        const actions = findCharacterRecallDirectives(source);
+        expect(actions).toHaveLength(1);
+        expect(source.slice(actions[0].start, actions[0].end)).toBe('[[MESSAGE_RECALL:嗯]]');
     });
     it('accepts the original structured form without showing it as a chat bubble', () => {
         expect(splitCharacterRecallOutput('我说错了\n{"t":"recall","orig":"我说错了"}')).toEqual([

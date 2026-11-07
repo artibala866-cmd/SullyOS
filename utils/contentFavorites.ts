@@ -209,13 +209,18 @@ export const saveConversationContentFavorite = async (
     const selected = [...new Map(messages.filter(message => message.charId === charId && Number.isSafeInteger(message.id))
         .map(message => [message.id, message])).values()].sort((a, b) => a.id - b.id);
     if (!selected.length) throw new Error('请先选择要收藏的聊天消息');
-    const conversation = await Promise.all(selected.map(async message => ({
-        messageId: message.id, senderName: message.role === 'user' ? (userName || '我') : message.role === 'assistant' ? charName : '系统',
-        role: message.role, type: message.type,
-        content: message.type === 'image' && message.content.startsWith('data:')
-            ? await migrateDataUrlToRef(message.content) : message.content,
-        timestamp: message.timestamp, replyTo: message.replyTo,
-    })));
+    const conversation = await Promise.all(selected.map(async message => {
+        // A stale React selection must not re-save a recalled original.
+        const stored = await DB.getMessageById(message.id).catch(() => null);
+        const live = stored?.charId === charId ? stored : message;
+        return {
+            messageId: live.id, senderName: live.role === 'user' ? (userName || '我') : live.role === 'assistant' ? charName : '系统',
+            role: live.role, type: live.type,
+            content: live.type === 'image' && live.content.startsWith('data:')
+                ? await migrateDataUrlToRef(live.content) : live.content,
+            timestamp: live.timestamp, replyTo: live.replyTo,
+        };
+    }));
     const current = await loadIndex();
     const id = `conversation_${compactHash(JSON.stringify([charId, selected.map(message => message.id)]))}`;
     const favorite: ChatContentFavorite = {
@@ -236,6 +241,8 @@ export const saveMessageContentFavorite = async (
 ): Promise<ContentFavorite> => withWriteLock(async () => {
     const now = Date.now();
     const current = await loadIndex();
+    const stored = await DB.getMessageById(message.id).catch(() => null);
+    if (stored?.charId === message.charId) message = stored;
     const id = contentFavoriteIdForMessage(message);
     const existing = current.find(item => item.id === id);
 
@@ -435,6 +442,62 @@ const preserveImageFavoritesBeforeDeletion = async (
         notifyChanged();
     }
 });
+
+/**
+ * Redact preexisting single-message favorites and combined conversations when
+ * the character withdraws a message. Preserve user favorites and unrelated IDs.
+ */
+export const redactRecalledMessageFavorites = async (charId: string, messageId: number): Promise<void> =>
+    withWriteLock(async () => {
+        const items = await loadIndex();
+        let changed = false;
+        const next = items.map(item => {
+            if (item.kind !== 'chat' || item.charId !== charId) return item;
+            const redactQuote = (replyTo?: ChatFavoriteSnapshot['replyTo']) =>
+                replyTo?.id === messageId ? { ...replyTo, content: '[消息已撤回]' } : replyTo;
+            let updated = false;
+            let conversation = item.conversation;
+            if (conversation?.length) {
+                conversation = conversation.map(entry => {
+                    const replyTo = redactQuote(entry.replyTo);
+                    if (entry.messageId !== messageId && replyTo === entry.replyTo) return entry;
+                    updated = true;
+                    return {
+                        ...entry,
+                        ...(entry.messageId === messageId ? { content: '[消息已撤回]' } : {}),
+                        replyTo,
+                    };
+                });
+            }
+            let snapshot = item.snapshot;
+            if (snapshot) {
+                const replyTo = redactQuote(snapshot.replyTo);
+                if (item.messageId === messageId || replyTo !== snapshot.replyTo) {
+                    snapshot = {
+                        ...snapshot,
+                        ...(item.messageId === messageId && !conversation ? { content: '[消息已撤回]' } : {}),
+                        replyTo,
+                    };
+                    updated = true;
+                }
+            }
+            if (!updated) return item;
+            if (conversation && snapshot) {
+                snapshot = {
+                    ...snapshot,
+                    content: conversation.map(entry =>
+                        `${entry.senderName}：${entry.type === 'image' ? '[图片]' : entry.content}`
+                    ).join('\n'),
+                };
+            }
+            changed = true;
+            return { ...item, conversation, snapshot };
+        });
+        if (changed) {
+            await saveIndex(next);
+            notifyChanged();
+        }
+    });
 
 /** Called by DB deletion paths before removing original chat rows. */
 export const preserveContentFavoritesBeforeMessageDeletion = async (

@@ -15,7 +15,7 @@
  */
 
 import { ChatParser } from './chatParser';
-import { splitCharacterRecallOutput } from './messageRecall';
+import { findCharacterRecallDirectives } from './messageRecall';
 import type { Message } from '../types';
 
 /** 跨行块规则：open 命中进入抑制态，直到 close 命中（含闭合行本身）。 */
@@ -39,7 +39,7 @@ function isLinePreviewable(line: string): boolean {
     if (!line) return false;
     if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
     if (/^\[BLOCK_USER:/i.test(line)) return false;           // 角色自主拉黑是内部动作，不能闪成气泡
-    if (/^\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user|recall)\"/i.test(line)) return false; // 原版结构化动作
+    if (/\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user|recall)\"/i.test(line)) return false; // 原版结构化动作
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令
     if (/%%BILINGUAL%%|%%TRANS%%/i.test(line)) return false;
     if (/<\/?(?:[语語]音|字幕|翻译|原文|译文|think|thinking|thought|sully_phone_events)\b/i.test(line)) return false;
@@ -52,7 +52,7 @@ function isLinePreviewable(line: string): boolean {
  * 已完成行按既有规则过滤；未完成尾句也会持续增长，但在 `[`, `<`, `%%`
  * 这类控制标记前截断，避免半截指令或标签泄漏到聊天气泡。
  */
-export function computeStreamPreviewBubbles(fullText: string): string[] {
+function collectPlainStreamPreviewBubbles(fullText: string): string[] {
     if (!fullText) return [];
     const lastNl = fullText.lastIndexOf('\n');
     const completed = lastNl < 0 ? '' : fullText.slice(0, lastNl);
@@ -100,13 +100,24 @@ export function computeStreamPreviewBubbles(fullText: string): string[] {
         const clean = ChatParser.sanitize(chunk).trim();
         if (clean && ChatParser.hasDisplayContent(clean)) bubbles.push(clean);
     }
-    // While the model streams "said it → recalled it → corrected itself",
-    // stop showing the now-recalled preview bubble as soon as the directive
-    // has arrived. It is still committed/withdrawn by the real DB pipeline.
-    const recalled = new Set(splitCharacterRecallOutput(fullText)
-        .filter((s): s is { kind: 'recall'; original: string } => s.kind === 'recall')
-        .map(s => s.original.trim()));
-    return recalled.size ? bubbles.filter(value => !recalled.has(value.trim())) : bubbles;
+    return bubbles;
+}
+
+/** Recall only the latest matching preview bubble BEFORE each control action. */
+export function computeStreamPreviewBubbles(fullText: string): string[] {
+    const bubbles = collectPlainStreamPreviewBubbles(fullText);
+    if (!bubbles.length) return bubbles;
+    const hidden = new Set<number>();
+    for (const directive of findCharacterRecallDirectives(fullText)) {
+        if (!directive.original) continue;
+        const precedingCount = collectPlainStreamPreviewBubbles(fullText.slice(0, directive.start)).length;
+        for (let i = Math.min(precedingCount, bubbles.length) - 1; i >= 0; i--) {
+            if (hidden.has(i) || bubbles[i].trim() !== directive.original) continue;
+            hidden.add(i);
+            break;
+        }
+    }
+    return hidden.size ? bubbles.filter((_item, i) => !hidden.has(i)) : bubbles;
 }
 
 /** 提取普通 content 通道里已闭合或仍在增长的内嵌思考块。 */

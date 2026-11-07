@@ -115,6 +115,19 @@ describe('computeStreamPreviewBubbles', () => {
     });
 });
 
+describe('character recall live preview', () => {
+    it('keeps older and newer repeated phrases while hiding only the latest preceding bubble', () => {
+        expect(computeStreamPreviewBubbles('嗯\n嗯\n[[MESSAGE_RECALL:嗯]]\n嗯')).toEqual(['嗯', '嗯']);
+    });
+    it('two recall actions hide exactly two matching bubbles', () => {
+        expect(computeStreamPreviewBubbles('嗯\n嗯\n[[MESSAGE_RECALL:嗯]]\n[[MESSAGE_RECALL:嗯]]\n好')).toEqual(['好']);
+    });
+    it('never previews JSON recall action text', () => {
+        expect(computeStreamPreviewBubbles('喜欢\n{"t":"recall","orig":"喜欢"}\n不是')).toEqual(['不是']);
+        expect(computeStreamPreviewBubbles('哼 {"t":"recall","orig":"上一条"}')).toEqual(['哼']);
+    });
+});
+
 describe('extractStreamingEmbeddedThinking', () => {
     it('实时提取仍未闭合的 think 尾块', () => {
         expect(extractStreamingEmbeddedThinking('<think>刚想到这里')).toBe('刚想到这里');
