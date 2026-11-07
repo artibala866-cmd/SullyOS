@@ -59,8 +59,9 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
         labels[key] = label.slice(0, 75);
         if (id) inferred[key] = id;
     };
-    const style = active.find(p => /文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
-        .test(p.name + p.text.slice(0, 300)) && p.text.length > 120);
+    const style = active.filter(p => /文风|写作风格|writing[_ ]style|AKOSTYLE|CREATIVE_STYLE|叙事风格/i
+        .test(p.name + p.text.slice(0, 300)) && p.text.length > 120)
+        .sort((a, b) => b.text.length - a.text.length)[0];
     if (style) {
         const content = style.name + style.text.slice(0, 1000);
         const builtin: Array<[RegExp, string, string]> = [
@@ -102,13 +103,15 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
     else if (direct && !replay) hint('retelling', '直接接戏', 'nmj-v62-retelling-direct');
     else if (retelling.length) hint('retelling', '作者自定义转述规则');
 
-    const agency = active.filter(p => /不抢话|执笔权|演绎权限|玩家自主|禁止代写|user.agency/i.test(p.name)
-        || /(?:不可|不得|禁止|不允许).{0,22}(?:代替|替.*?决定|控制).{0,14}(?:用户|玩家|user)/i
-            .test(p.text.slice(0, 420)));
+    const agency = active.filter(p => /抢话|执笔权|演绎权限|玩家自主|禁止代写|user.agency/i.test(p.name)
+        || /(?:不可|不得|禁止|不允许).{0,22}(?:代替|替.*?决定|控制).{0,14}(?:用户|玩家|user)|make major decisions.{0,22}behalf of (?:the )?user/i
+            .test(p.text.slice(0, 620)));
     const locked = agency.some(p => /不抢话|绝对不抢|完全不代写|不可代替|不得代替|禁止代写/i
         .test(p.name + p.text.slice(0, 400)));
-    const auto = agency.some(p => /全自动演绎|完全接管用户|自动代写|允许.{0,15}完整.{0,10}用户行动/i
-        .test(p.name + p.text.slice(0, 350)));
+    const auto = agency.some(p => /全自动演绎|完全接管用户|自动代写|允许.{0,15}完整.{0,10}用户行动|make major decisions.{0,22}behalf of (?:the )?user/i
+        .test(p.name + p.text.slice(0, 650))
+        || (/抢话/.test(p.name) && !/不抢话|禁止抢话/.test(p.name)
+            && /on behalf of the user|both user and Character|both user and char/i.test(p.text.slice(0, 650))));
     if (locked && !auto) hint('agency', '完全不代写', 'nmj-v63-user-agency-locked');
     else if (auto && !locked) hint('agency', '全自动演绎', 'nmj-v63-user-agency-auto');
     else if (agency.length) hint('agency', '作者限定的执笔权');
