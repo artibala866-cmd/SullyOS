@@ -8,6 +8,7 @@ import {exportBeautyPreferences,importBeautyPreferences} from './beautyPreferenc
 import {exportBeautyAuthorBackup,importBeautyAuthorBackup} from './beautyAuthorBackup';
 import { toMountedWorldbook } from './worldbook';
 import { mergeCardImports, type CardImportItem, type CardImportResult } from './cardImportMerge';
+import { planWorldbookImport } from './worldbookImportPlan';
 import { persistCharacterWithHomeMessages } from './homeMessageBridge';
 import {deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
@@ -3079,6 +3080,67 @@ export const DB = {
           tx.oncomplete = () => resolve(result!);
           tx.onabort = () => reject(mergeError || tx.error || new Error('增量导入失败，修改已全部撤销'));
           tx.onerror = () => { /* onabort is the single failure path */ };
+      });
+  },
+
+  /**
+   * Standalone Link/Tavern/doc worldbook imports: all-or-nothing.
+   * Planning reads the live library INSIDE one IndexedDB readwrite transaction.
+   * Existing mounted copies are refreshed for updated entries, but untouched
+   * local-only books and character data are never modified.
+   */
+  importWorldbooksSmartAtomic: async (incoming: Worldbook[]): Promise<{
+      library: Worldbook[]; characters: CharacterProfile[];
+      added: number; updated: number; skipped: number; conflicts: number;
+  }> => {
+      if (!incoming.length) throw new Error('没有可导入的世界书条目');
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_WORLDBOOKS, STORE_CHARACTERS], 'readwrite');
+          const booksStore = tx.objectStore(STORE_WORLDBOOKS);
+          const charStore = tx.objectStore(STORE_CHARACTERS);
+          const readBooks = booksStore.getAll();
+          let planError: Error | null = null;
+          let payload: {
+              library:Worldbook[];characters:CharacterProfile[];
+              added:number;updated:number;skipped:number;conflicts:number;
+          } | null = null;
+          readBooks.onsuccess = () => {
+              try {
+                  const plan = planWorldbookImport(readBooks.result as Worldbook[], incoming);
+                  const replacements = new Map(plan.updated.map(book => [book.id, toMountedWorldbook(book)]));
+                  payload = {
+                      library: plan.library,
+                      characters: [], added: plan.added.length, updated: plan.updated.length,
+                      skipped: plan.skipped, conflicts: plan.conflicts,
+                  };
+                  for (const book of plan.added) booksStore.add(book);
+                  for (const book of plan.updated) booksStore.put(book);
+                  if (replacements.size) {
+                      const readChars = charStore.getAll();
+                      readChars.onsuccess = () => {
+                          try {
+                              for (const char of readChars.result as CharacterProfile[]) {
+                                  if (!(char.mountedWorldbooks || []).some(row => replacements.has(row.id))) continue;
+                                  const next = { ...char, mountedWorldbooks: (char.mountedWorldbooks || [])
+                                      .map(row => replacements.get(row.id) || row) };
+                                  payload!.characters.push(next);
+                                  charStore.put(next);
+                              }
+                          } catch (error) {
+                              planError = error instanceof Error ? error : new Error('挂载同步失败');
+                              tx.abort();
+                          }
+                      };
+                  }
+              } catch (error) {
+                  planError = error instanceof Error ? error : new Error('世界书导入检查失败');
+                  tx.abort();
+              }
+          };
+          tx.oncomplete = () => resolve(payload!);
+          tx.onabort = () => reject(planError || tx.error || new Error('世界书批量导入失败，已撤销全部修改'));
+          tx.onerror = () => { /* handled by onabort */ };
       });
   },
 
