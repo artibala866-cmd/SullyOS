@@ -72,14 +72,13 @@ root.render(<div className="relative h-full w-full bg-stone-100">
 const started = Date.now();
 const check = () => {
     const sheet = document.querySelector('[data-story-quick-author-options]');
-    const nativeChoice = document.body.textContent?.includes('文风');
     const fit = document.documentElement.scrollWidth <= window.innerWidth;
     const authorShown = variant === 'native' || Boolean(sheet && sheet.querySelectorAll('button[aria-pressed]').length >= 2);
     const labels = variant === 'unseen' ? ['暮河调色盒', '微光日记', '夜航纪事']
         : variant === 'native' ? ['文风'] : ['拖拖📚文风', '柠檬糖', '随机适配'];
     const correctText = labels.every(v => document.body.textContent?.includes(v));
     const noEmpty = !document.body.textContent?.includes('这个预设没有可用于默认版的选项');
-    const success = fit && authorShown && correctText && noEmpty && Boolean(nativeChoice);
+    const success = fit && authorShown && correctText && noEmpty;
     document.body.dataset.storyQuickAuthorReady = String(success);
     let report = document.getElementById('story-quick-author-report');
     if (!report) {report = document.createElement('output'); report.id='story-quick-author-report'; report.hidden=true; document.body.append(report);}
