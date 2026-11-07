@@ -359,6 +359,20 @@ describe('Deep audit: real-world card compatibility', () => {
         expect(result.warnings.length).toBeLessThan(7);
     });
 
+    it('reports unsupported Tavern instruction channels without placing them into the local remark or persona',()=>{
+        const prepared=normalizeCharacterCard(v3({
+            system_prompt:'作者额外系统提示，外部格式',
+            post_history_instructions:'作者后置指令',
+            mes_example:'<START>\n{{char}}: 示例台词',
+        }));
+        expect(prepared.character.description).toBe('');
+        expect(prepared.character.systemPrompt).toContain('出生在海边的摄影师');
+        expect(prepared.character.systemPrompt).not.toContain('作者额外系统提示');
+        expect(prepared.character.systemPrompt).not.toContain('作者后置指令');
+        expect(prepared.warnings.join(' · ')).toContain('酒馆系统提示词');
+        expect(prepared.warnings.join(' · ')).toContain('酒馆后置历史指令');
+        expect(prepared.warnings.join(' · ')).toContain('示例对话');
+    });
     it('does not treat ordinary name/description JSON as verified Tavern V1', () => {
         expect(() => normalizeCharacterCard({ name: '列表项', description: '说明' })).toThrow('无法识别');
     });
