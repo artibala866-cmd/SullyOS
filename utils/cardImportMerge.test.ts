@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CardImportOrigin, CharacterProfile, Worldbook } from '../types';
 import { DB } from './db';
-import { mergeCardImports, findCardImportTarget, type CardImportItem } from './cardImportMerge';
+import { mergeCardImports, findCardImportTarget, cardContentFingerprint, type CardImportItem } from './cardImportMerge';
 import { toMountedWorldbook } from './worldbook';
 
 const source: CardImportOrigin = { source: 'tavern', originalName: '雨生' };
@@ -93,7 +93,7 @@ describe('incremental character-card imports', () => {
         expect(existingLink.systemPrompt).toBe('原始 Link 人设');
     });
     it('same-named updates of the SAME document source preserve the role ID and memories',()=>{
-        const identity:CardImportOrigin={source:'document',originalName:'雨生'};
+        const identity:CardImportOrigin={source:'document',originalName:'雨生',personaFingerprint:cardContentFingerprint('文档旧版')};
         const existing=char('doc-existing',{cardImportOrigin:identity,
             systemPrompt:'文档旧版',
             memories:[{id:'doc-memory',content:'聊天记录'}] as unknown as CharacterProfile['memories']});
@@ -102,6 +102,47 @@ describe('incremental character-card imports', () => {
         expect(updated.result.updatedIds).toEqual(['doc-existing']);
         expect(updated.characters[0].systemPrompt).toBe('文档新版');
         expect(updated.characters[0].memories).toEqual(existing.memories);
+    });
+
+    it('preserves manually modified imported document persona and private chat on repeat import',()=>{
+        const origin:CardImportOrigin={source:'document',originalName:'雨生'};
+        const first=mergeCardImports([],[],[card('document-new',origin,{
+            systemPrompt:'【导入人物原始文档】\n第一版故事',
+        })]);
+        const saved=first.characters[0];
+        expect(saved.cardImportOrigin?.personaFingerprint).toBe(
+            cardContentFingerprint(saved.systemPrompt));
+        const manual={...saved,
+            systemPrompt:'【导入人物原始文档】\n我手写修改的版本',
+            memories:[{id:'private-history',content:'不准丢失'}] as unknown as CharacterProfile['memories'],
+        };
+        const next=card('discard',origin,{
+            systemPrompt:'【导入人物原始文档】\n第二版故事',
+        },[],saved.id);
+        expect(()=>mergeCardImports([manual],[],[next])).toThrow('无法确认安全覆盖');
+        expect(manual.memories).toHaveLength(1);
+        expect(manual.systemPrompt).toContain('我手写修改');
+        // No edit: updated versions of the same imported document do update.
+        const clean=mergeCardImports([saved],[],[next]);
+        expect(clean.result.updatedIds).toEqual([saved.id]);
+        expect(clean.characters[0].systemPrompt).toContain('第二版故事');
+    });
+    it('a legacy document without a persona baseline must not silently overwrite differences',()=>{
+        const origin:CardImportOrigin={source:'document',originalName:'雨生'};
+        const legacy=char('legacy-doc',{
+            cardImportOrigin:origin,
+            systemPrompt:'【导入人物原始文档】\n无法确定是否修改',
+        });
+        const different=card('ignored',origin,{
+            systemPrompt:'【导入人物原始文档】\n不同的文件',
+        },[],legacy.id);
+        expect(()=>mergeCardImports([legacy],[],[different])).toThrow('无法确认安全覆盖');
+        const identical=card('ignored',origin,{
+            systemPrompt:legacy.systemPrompt,
+        },[],legacy.id);
+        const migrated=mergeCardImports([legacy],[],[identical]);
+        expect(migrated.characters[0].cardImportOrigin?.personaFingerprint).toBe(
+            cardContentFingerprint(legacy.systemPrompt));
     });
 
     it('rejects cross-format same-named roles even when one side lacks an external ID',()=>{
