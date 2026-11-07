@@ -1739,6 +1739,16 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
     return blocks;
 };
 
+/**
+ * Old story messages predate theaterSourceFormat metadata. Detect their
+ * output dialect from stable markup instead of reinterpreting every old
+ * reply whenever the active preset is switched to another source.
+ */
+export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
+    /<\s*(?:thinking|think|thought|content|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
+    || /<details\b[^>]*>\s*<summary\b/i.test(value);
+
 /** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
 export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
     const source = String(content || '');
