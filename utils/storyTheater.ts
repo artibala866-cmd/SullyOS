@@ -1050,8 +1050,15 @@ export const selectStoryTavernAuthorOption = (
     const section = getStoryTavernAuthorSections(document).find(s => s.key === sectionKey);
     const selected = section?.options.find(o => o.id === optionId);
     if (!section || !selected) return document;
+    const sameCluster = selected.cluster
+        ? section.options.filter(o => o.cluster === selected.cluster) : [];
+    const clusterIsSingle = sameCluster.length > 1
+        && sameCluster.filter(option => option.enabled).length <= 1;
+    // Some authors deliberately enable MULTIPLE related styles together.
+    // Only auto-disable siblings when the author specifies one-of-N or
+    // their existing enabled pattern shows a single-choice cluster.
     const siblings = section.options.filter(o => o.id !== optionId
-        && (section.single || (selected.cluster && o.cluster === selected.cluster)));
+        && (section.single || (clusterIsSingle && o.cluster === selected.cluster)));
     const existingOn = selected.enabled;
     const newEnabled = existingOn && !section.single ? false : true;
     // If a source section is explicitly exclusive, do not turn it into
