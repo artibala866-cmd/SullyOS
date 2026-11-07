@@ -95,7 +95,7 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     text = text.replace(
         /【\s*(音乐|背景音乐|音乐播放器|歌曲|音频|播放器|bgm|music|audio|song)\s*[|｜]([^\r\n【】]{0,3500})】(?:\]\(\s*https?:\/\/[^\r\n)]{1,4000}\))?/gi,
         (full, _kind: string, payload: string) =>
-            /https?:\/\/|data:audio\/|[|｜]/i.test(payload) || /\]\(\s*https?:\/\//i.test(full)
+            /https?:\/\/|data:(?:image|audio|video)\//i.test(payload) || /\]\(\s*https?:\/\//i.test(full)
                 ? '' : full,
     );
 
