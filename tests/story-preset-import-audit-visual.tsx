@@ -82,7 +82,8 @@ const check=()=>{
         clickByText('返回提示词列表') && !document.querySelector('input[aria-label="搜索组内提示词"]'));
     const selectedTextarea=document.querySelector<HTMLTextAreaElement>('textarea');
     detailSelected=focus==='deep' && quickEditor
-        && Boolean(selectedTextarea?.value.includes('作者正文 369'));
+        && Boolean(selectedTextarea?.value.includes('作者正文 369'))
+        && !document.querySelector('select[aria-label="移动到分组"]');
     const success=fit && (native ? !proOn : proOn && groupingSafe && (
         focus==='overview' ? overview : focus==='slot'
             ? markerToggled && quickEditor
