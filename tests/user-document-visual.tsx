@@ -1,9 +1,10 @@
 /** Actual UserApp import control and confirmation dialog in Chromium, not a mock layout. */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import UserApp from '../apps/UserApp';
 import { makeImportFixturePdf } from './import-fixture-pdf';
 import { OSPreviewProvider } from '../context/OSContext';
+import { DB } from '../utils/db';
 
 const source=new URLSearchParams(location.search).get('source')||'user-profile';
 const observed:string[]=[];
@@ -11,20 +12,33 @@ window.addEventListener('error',e=>observed.push(e.message));
 window.addEventListener('unhandledrejection',e=>observed.push(String(e.reason)));
 const imported='从文件导入的经历。\n我喜欢旅行和画画。';
 const InitialBio='原本的个人资料不能被意外覆盖。';
+const initialProfile={name:'测试档案',avatar:'',bio:InitialBio};
+const isReloaded=source==='user-profile-persist' &&
+    sessionStorage.getItem('qa-doc-import-reloaded')==='1';
+if (!isReloaded) await DB.saveUserProfile(initialProfile);
+const initial= isReloaded ? (await DB.getUserProfile()) || initialProfile : initialProfile;
+let failNextSave=source==='user-profile-failure';
+let writeCount=0;
 const Preview=()=>{
-    const [profile,setProfile]=useState({name:'测试档案',avatar:'',bio:InitialBio});
+    const [profile,setProfile]=useState(initial);
+    const profileRef=useRef(initial);
     const context={
         closeApp:()=>{},
         userProfile:profile,
         characters:[],
         addToast:(message:string)=>{(window as any).__userImportToast=message},
         updateUserProfile:async(update:any)=>{
-            setProfile(prev=>{
-                const patch=typeof update==='function'?update(prev):update;
-                const next={...prev,...patch};
-                (window as any).__savedUserBio=next.bio;
-                return next;
-            });
+            const patch=typeof update==='function'?update(profileRef.current):update;
+            const next={...profileRef.current,...patch};
+            profileRef.current=next;
+            setProfile(next);
+            (window as any).__savedUserBio=next.bio;
+            if (failNextSave) {
+                failNextSave=false;
+                throw new Error('qa-disk-full');
+            }
+            writeCount++;
+            await DB.saveUserProfile(next);
         },
         theme:{},
     } as any;
@@ -32,7 +46,7 @@ const Preview=()=>{
 };
 createRoot(document.getElementById('root')!).render(<Preview/>);
 async function waitFor<T>(fn:()=>T,what:string):Promise<T>{
-    for(let i=0;i<110;i++){
+    for(let i=0;i<160;i++){
         const result=fn();
         if(result)return result;
         await new Promise(r=>setTimeout(r,80));
