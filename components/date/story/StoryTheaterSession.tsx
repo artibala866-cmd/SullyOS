@@ -523,7 +523,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
     const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<string> => {
         assertStoryApiConfigured(apiConfig);
-        const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true);
+        const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model);
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
