@@ -479,7 +479,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, user, masks,
                 {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条 · 按当前顺序与插入位置发送</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
                 {(skippedTavernRegex || htmlTavernTheater) && <p className='mt-2 text-[10px] leading-5 text-amber-700'>
                     {skippedTavernRegex ? '酒馆附带的正则/脚本没有执行。' : ''}
-                    {htmlTavernTheater ? '酒馆 HTML 小剧场不会按网页排版，只能展示可解析的文字附录。' : ''}
+                    {htmlTavernTheater ? '小剧场支持隔离的安全 HTML 排版与原生卡片；酒馆插件特效无法完全复刻。' : ''}
                     如需避免格式冲突，可在制作器检查并关闭相应的酒馆规则；不会自动删除你的预设内容。
                 </p>}
 
