@@ -109,7 +109,7 @@ describe('PDF 文本提取', () => {
         })).rejects.toThrow('超过 200 页');
         expect(getPage).not.toHaveBeenCalled();
         await expect(extractPdfDocumentText({numPages:2,getPage},{
-            maxChars:10,
+            maxChars:9,
         })).rejects.toThrow('超过 200 万字符');
         expect(getPage).toHaveBeenCalledTimes(1);
     });
