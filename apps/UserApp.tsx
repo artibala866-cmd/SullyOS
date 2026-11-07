@@ -219,12 +219,12 @@ const UserApp: React.FC = () => {
                                 <button key={value} type="button" aria-pressed={bioImportMode===value}
                                     onClick={() => setBioImportMode(value)}
                                     className={'h-10 rounded-xl border text-sm font-semibold transition ' + (bioImportMode===value
-                                        ? 'border-primary/40 bg-primary/10 text-primary'
+                                        ? 'border-slate-700 bg-slate-700 text-white shadow-sm'
                                         : 'border-slate-100 bg-slate-50 text-slate-500')}>{label}</button>
                             ))}
                         </div>
                         <button type="button" disabled={bioSaving} onClick={confirmBioImport}
-                            className="w-full h-11 mt-3 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-50 active:scale-[0.99] transition">
+                            className="w-full h-11 mt-3 rounded-xl bg-slate-700 text-white text-sm font-bold disabled:opacity-50 active:scale-[0.99] active:bg-slate-800 transition">
                             {bioSaving ? '保存中…' : '确认导入'}
                         </button>
                     </div>
