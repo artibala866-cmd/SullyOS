@@ -40,11 +40,12 @@ export async function readImportedTextDocument(file: File): Promise<ImportedText
         try {
             result = await extractPdfText(await file.arrayBuffer(), {
                 maxPages: MAX_PDF_PAGES,
+                requireAllPages: true,
                 maxChars: MAX_IMPORTED_DOCUMENT_CHARS,
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : '';
-            if (message.includes('正文超过')) throw error;
+            if (message.includes('正文超过') || message.includes('超过 200 页')) throw error;
             throw new Error(/password|encrypted/i.test(message)
                 ? 'PDF 已加密，请先解除密码保护后导入'
                 : 'PDF 文件损坏、受保护或暂时无法读取');
