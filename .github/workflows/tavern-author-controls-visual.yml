@@ -27,8 +27,25 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Source selector, actual compiler, source persistence and React controls
-        run: pnpm exec vitest run utils/storySillyTavernImport.test.ts utils/storyPresetImportUi.test.tsx
+      - name: Original source selector and compiler unit regression
+        run: pnpm exec vitest run utils/storySillyTavernImport.test.ts
+      - name: Real React + IndexedDB browser-component regression
+        shell: bash
+        run: |
+          # Main project Vitest config intentionally includes only *.test.ts.
+          # Test this focused imported-preset TSX test using a temporary,
+          # uncommitted config so other project test coverage is unaffected.
+          cat > vitest.tavern-author-temp.config.ts <<'EOF'
+          import { mergeConfig } from 'vitest/config';
+          import defaultConfig from './vitest.config';
+          export default mergeConfig(defaultConfig, {
+              test: {
+                  include: ['utils/storyPresetImportUi.test.tsx'],
+                  environment: 'jsdom',
+              },
+          });
+          EOF
+          pnpm exec vitest run --config vitest.tavern-author-temp.config.ts utils/storyPresetImportUi.test.tsx
       - name: Screenshot actual imported and built-in preset makers at phone viewport
         shell: bash
         run: |
