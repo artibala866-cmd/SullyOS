@@ -472,6 +472,30 @@ describe('剧情沙盒辅助逻辑', () => {
         expect(participants[0].mountedWorldbooks?.[0].content).toBe('旧挂载版本');
     });
 
+    it('不同角色出现同 ID 不同内容的旧挂载时禁止串世界，优先使用正式全局版本', () => {
+        const chars = [
+            {id:'role-a',name:'A',mountedWorldbooks:[{id:'collide',title:'末日',content:'A 时空规则',constant:true}]},
+            {id:'role-b',name:'B',mountedWorldbooks:[{id:'collide',title:'校园',content:'B 时空规则',constant:true}]},
+            {id:'role-c',name:'C',mountedWorldbooks:[{id:'independent',title:'故事',content:'独立剧情'}]},
+        ] as CharacterProfile[];
+        const ambiguous=resolveStoryTheaterWorldbooks([],chars);
+        expect(ambiguous.find(b=>b.id==='collide')).toBeUndefined();
+        expect(ambiguous.find(b=>b.id==='independent')?.content).toBe('独立剧情');
+        const canonical=resolveStoryTheaterWorldbooks([
+            {id:'collide',title:'正式版',content:'只采用全局正式版',category:'设定',createdAt:1,updatedAt:1},
+        ],chars);
+        expect(canonical.find(b=>b.id==='collide')?.content).toBe('只采用全局正式版');
+        expect(chars[0].mountedWorldbooks?.[0].content).toBe('A 时空规则');
+        expect(chars[1].mountedWorldbooks?.[0].content).toBe('B 时空规则');
+        const selected=canonical.filter(book=>['independent'].includes(book.id));
+        const payload=ContextBuilder.buildWorldbookRequest({
+            books:selected,history:[{role:'user',content:'继续独立剧情'}],
+            userName:'你',charName:'当前角色',render:slots=>[{role:'system',content:slots.before+'\\n'+slots.after}],
+        });
+        expect(JSON.stringify(payload)).toContain('独立剧情');
+        expect(JSON.stringify(payload)).not.toMatch(/A 时空规则|B 时空规则|只采用全局正式版/);
+    });
+
     it('无效/缺失世界书不被加入 AI 输入，不将未选演员的旧挂载信息注入', () => {
         const hiddenActor = [{id:'other',name:'未选择角色',mountedWorldbooks:[
             {id:'private',title:'秘密书',content:'私聊不可见世界'}]}] as CharacterProfile[];
