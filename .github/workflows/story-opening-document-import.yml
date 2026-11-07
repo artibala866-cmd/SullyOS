@@ -1,0 +1,84 @@
+name: Story opening TXT DOCX multi-file import validation
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/story-opening-document-import.yml'
+      - 'components/date/story/StoryTheaterEditor.tsx'
+      - 'components/date/story/StoryTheater.tsx'
+      - 'utils/storyOpeningDocumentImport.ts'
+      - 'utils/storyOpeningDocumentImport.test.ts'
+      - 'utils/storyOpeningDocumentImport.ui.test.tsx'
+      - 'tests/story-opening-document-import-visual.tsx'
+      - 'test/fixtures/story-opening-document-import.html'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: story-opening-import-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  opening-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run importer and real React editor regression
+        run: |
+          pnpm exec vitest run utils/storyOpeningDocumentImport.test.ts utils/storyOpeningDocumentImport.ui.test.tsx utils/storyTheaterOpeningInline.test.tsx utils/importTextDocument.test.ts
+      - name: Confirm touched TypeScript files have no diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/story-opening-import-tsc.log 2>&1 || true
+          grep -E '^(components/date/story/StoryTheater(Editor)?\.tsx|utils/storyOpeningDocumentImport(\.test|\.ui\.test)?\.tsx?|tests/story-opening-document-import-visual\.tsx)[(]' /tmp/story-opening-import-tsc.log > /tmp/story-opening-import-errors.log || true
+          if [ -s /tmp/story-opening-import-errors.log ]; then cat /tmp/story-opening-import-errors.log; exit 1; fi
+          echo 'No TypeScript errors in updated opening-import code'
+      - uses: browser-actions/setup-chrome@v1
+      - name: Install fonts for readable Chinese screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-microhei
+      - name: Screenshot actual editor with real TXT and DOCX multi-select
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-opening-docs
+          pnpm exec vite --host 127.0.0.1 --port 5189 --strictPort > /tmp/story-opening-vite.log 2>&1 &
+          for n in $(seq 1 90); do
+            if curl -fsSL http://127.0.0.1:5189/test/fixtures/story-opening-document-import.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for width in 390 320; do
+            page='http://127.0.0.1:5189/test/fixtures/story-opening-document-import.html'
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size="${width},844" --force-device-scale-factor=1 --virtual-time-budget=18000 \
+              --dump-dom "$page" > "output/story-opening-docs/dom-${width}.html" 2> "output/story-opening-docs/chrome-${width}.log" || true
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --window-size="${width},844" --force-device-scale-factor=1 --virtual-time-budget=18000 \
+              --screenshot="$GITHUB_WORKSPACE/output/story-opening-docs/story-opening-${width}.png" "$page"
+            test -s "output/story-opening-docs/story-opening-${width}.png"
+            if ! grep -q 'data-story-opening-import-ready="true"' "output/story-opening-docs/dom-${width}.html"; then
+              grep -o 'data-story-opening-import-error="[^"]*"' "output/story-opening-docs/dom-${width}.html" | head -c 2000 || true
+              grep -o '<output id="story-opening-document-report"[^<]*[^<]*' "output/story-opening-docs/dom-${width}.html" | head -c 2000 || true
+              tail -50 /tmp/story-opening-vite.log || true
+              exit 1
+            fi
+            grep -o '<output id="story-opening-document-report"[^<]*[^<]*' "output/story-opening-docs/dom-${width}.html" | head -c 1000 || true
+          done
+          echo 'PASS: 320px and 390px actual editor, real TXT+DOCX, natural ordering, no overflow'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: story-opening-docs-mobile-screenshots
+          path: output/story-opening-docs/
+          if-no-files-found: ignore
+          retention-days: 7

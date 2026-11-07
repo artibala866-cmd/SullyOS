@@ -4,6 +4,7 @@ import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
+import { sortCustomStoryOpenings, STORY_OPENING_ACCEPT } from '../../../utils/storyOpeningDocumentImport';
 import { resolveStoryTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
@@ -22,11 +23,12 @@ interface Props {
     onOpenMaskBox: (draft: StoryTheaterEntry) => void;
     onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>;
     onCreateGreeting?: (characterId: string, title: string, content: string) => Promise<TavernOpeningGreeting>;
+    onImportGreetings?: (characterId: string, files: File[]) => Promise<{ added: TavernOpeningGreeting[]; skipped: number }>;
 }
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -45,6 +47,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const [createTargetActor, setCreateTargetActor] = useState('');
     const [recentGreeting, setRecentGreeting] = useState<(StoryOpeningChoice & { characterId: string; characterName: string }) | null>(null);
     const createGreetingLock = useRef(false);
+    const importGreetingLock = useRef(false);
+    const openingFileInput = useRef<HTMLInputElement>(null);
+    const [importGreetingBusy, setImportGreetingBusy] = useState(false);
+    const [importGreetingFeedback, setImportGreetingFeedback] = useState<{ error: boolean; text: string } | null>(null);
+    const [importTargetActor, setImportTargetActor] = useState('');
     // Keep the authored scene recoverable if the user changes their mind after
     // bookmarking it. Persisted stories still store the scene only once.
     const promotedPremise = useRef<{ characterId: string; greetingId: string; content: string } | null>(null);
@@ -67,7 +74,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             if (index >= 0) all[index] = recentGreeting;
             else all.push(recentGreeting);
         }
-        return all;
+        // Imported custom openings display in file-number order: 1, 2, 10.
+        // Keep the original author-controlled Link/Tavern ordering intact.
+        return actors.flatMap(actor => sortCustomStoryOpenings(
+            all.filter(item => item.characterId === actor.id),
+        ));
     }, [actors, recentGreeting]);
     useEffect(() => {
         if (!recentGreeting) return;
@@ -140,7 +151,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
         } finally { greetingLock.current = false; setGreetingBusy(false); }
     };
     const createCustomGreeting = async (targetCharacterId?: string) => {
-        if (createGreetingLock.current || editingGreeting || confirmGreetingDelete || maskLocked) return;
+        if (createGreetingLock.current || importGreetingLock.current || editingGreeting || confirmGreetingDelete || maskLocked) return;
         const content = draft.premise.trim();
         if (!content) {
             setCreateGreetingError('先填写开场内容');
@@ -201,6 +212,38 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             setCreateGreetingBusy(false);
         }
     };
+    const handleOpeningDocumentsSelected = async (files: File[]) => {
+        if (!files.length || importGreetingLock.current) return;
+        if (maskLocked || editingGreeting || greetingLock.current || createGreetingLock.current) {
+            setImportGreetingFeedback({ error: true, text: '请先完成当前开场白的编辑，再导入文件' });
+            return;
+        }
+        const actor = actors.find(item => item.id === importTargetActor) || actors[0];
+        if (!actor) {
+            setImportGreetingFeedback({ error: true, text: '请先在下方选择参与角色，再导入开场白' });
+            return;
+        }
+        importGreetingLock.current = true;
+        setImportGreetingBusy(true);
+        setImportGreetingFeedback(null);
+        try {
+            if (!onImportGreetings) throw new Error('当前页面未连接开场白批量导入');
+            const result = await onImportGreetings(actor.id, files);
+            setImportGreetingFeedback({
+                error: false,
+                text: result.added.length
+                    ? `已导入 ${result.added.length} 条开场白${result.skipped ? `，跳过重复 ${result.skipped} 条` : ''}；已按名称自然排序`
+                    : `没有新增开场白，${result.skipped} 个文件的正文已存在`,
+            });
+            setSaveError('');
+        } catch (error) {
+            setImportGreetingFeedback({ error: true,
+                text: error instanceof Error ? error.message : '导入失败；原开场库没有被覆盖' });
+        } finally {
+            importGreetingLock.current = false;
+            setImportGreetingBusy(false);
+        }
+    };
     const memoryParticipants = useMemo(() => {
         const participantIds = new Set(draft.characterIds);
         if (draft.mask?.type === 'character') participantIds.add(draft.mask.id);
@@ -250,7 +293,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const toggleCharacter = (char: CharacterProfile) => {
         // Once a first story floor exists, changing the cast corrupts its
         // immutable timeline, memory mirrors and selected opening provenance.
-        if (maskLocked || createGreetingLock.current || greetingLock.current) return;
+        if (maskLocked || createGreetingLock.current || greetingLock.current || importGreetingLock.current) return;
         setSaveError('');
         // A pending target selection is no longer trustworthy once cast changes.
         setChooseGreetingActor(false);
@@ -290,7 +333,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     }, [actors, books, draft, effectivePreset, resolvedMask]);
     const save = async () => {
         if (saveLock.current) return;
-        if (greetingLock.current || createGreetingLock.current) {
+        if (greetingLock.current || createGreetingLock.current || importGreetingLock.current) {
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
         }
@@ -350,7 +393,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         </div>}
                         {(!selectedGreeting || !showOpeningInIntro) && <button type='button' data-story-opening-save='true'
                             aria-label='收藏为可选开场' title='存入已有开场'
-                            disabled={createGreetingBusy || maskLocked || editingGreeting || confirmGreetingDelete || !draft.premise.trim()}
+                            disabled={createGreetingBusy || importGreetingBusy || maskLocked || editingGreeting || confirmGreetingDelete || !draft.premise.trim()}
                             onClick={() => void createCustomGreeting()}
                             className='grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 active:scale-95 disabled:opacity-35'>
                             {createGreetingBusy ? <SpinnerGap size={17} className='animate-spin' /> : <BookmarkSimple size={17} />}
@@ -368,7 +411,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                                 setGreetingError('');
                             } else { setCreateGreetingError(''); update('premise', event.target.value); }
                         }}
-                        disabled={createGreetingBusy || (!!selectedGreeting && showOpeningInIntro && (greetingBusy || confirmGreetingDelete))}
+                        disabled={createGreetingBusy || importGreetingBusy || (!!selectedGreeting && showOpeningInIntro && (greetingBusy || confirmGreetingDelete))}
                         maxLength={selectedGreeting && showOpeningInIntro ? 200000 : undefined}
                         placeholder={selectedGreeting && showOpeningInIntro ? '在这里修改选中的开场白……' : '不填写也能直接开场；也可以写地点、冲突或必须守住的设定……'}
                         rows={4} className='mt-2 block w-full min-h-28 max-h-64 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none disabled:opacity-60' />
@@ -415,7 +458,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     <div className='mt-3'>
                     <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
-                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor || greetingChoices.length === 0}
+                    <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || importGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor || greetingChoices.length === 0}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
                             const selected = greetingChoices.find(item => `${item.characterId}::${item.id}` === event.target.value);
@@ -444,6 +487,43 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
                         {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>[{item.source === 'link' ? 'Link' : item.source === 'custom' ? '自定义' : '酒馆'}] {item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
                     </select>
+                    <div data-story-opening-document-import='true' className='mt-3 rounded-2xl border border-slate-200 bg-white/75 px-3 py-3'>
+                        <div className='flex flex-wrap items-center justify-between gap-2'>
+                            <div className='min-w-0'>
+                                <div className='text-[11px] font-semibold text-slate-700'>批量导入开场白</div>
+                                <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX 可多选 · 文件名按 1、2、10 排序</p>
+                            </div>
+                            <button type='button' data-story-opening-import-button='true'
+                                disabled={!actors.length || !onImportGreetings || maskLocked || importGreetingBusy || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor}
+                                onClick={() => openingFileInput.current?.click()}
+                                className='inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 shadow-sm transition-colors active:bg-slate-100 disabled:opacity-40'>
+                                {importGreetingBusy ? <SpinnerGap size={15} className='animate-spin' /> : <UploadSimple size={15} />}
+                                {importGreetingBusy ? '导入中…' : '选择文件'}
+                            </button>
+                        </div>
+                        {actors.length > 1 && <div className='mt-3 flex items-center gap-2'>
+                            <label htmlFor='story-opening-import-actor' className='shrink-0 text-[10px] text-slate-500'>导入给</label>
+                            <select id='story-opening-import-actor' aria-label='导入开场归属角色'
+                                value={actors.some(actor => actor.id === importTargetActor) ? importTargetActor : actors[0].id}
+                                disabled={importGreetingBusy}
+                                onChange={event => setImportTargetActor(event.target.value)}
+                                className='min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700'>
+                                {actors.map(actor => <option key={actor.id} value={actor.id}>{actor.name}</option>)}
+                            </select>
+                        </div>}
+                        {!actors.length && <p className='mt-2 text-[10px] text-amber-600'>先在下方选择参与角色，导入的开场白才有归属。</p>}
+                        <input type='file' ref={openingFileInput} multiple accept={STORY_OPENING_ACCEPT}
+                            aria-label='批量选择开场白文件' className='hidden'
+                            onChange={event => {
+                                const files = Array.from(event.currentTarget.files || []);
+                                event.currentTarget.value = '';
+                                void handleOpeningDocumentsSelected(files);
+                            }} />
+                        {importGreetingFeedback && <p role={importGreetingFeedback.error ? 'alert' : 'status'}
+                            className={`mt-2 break-words text-[10px] leading-5 ${importGreetingFeedback.error ? 'text-rose-600' : 'text-emerald-700'}`}>
+                            {importGreetingFeedback.text}
+                        </p>}
+                    </div>
                     {actors.length > 0 && greetingChoices.length === 0 && !draft.openingGreeting && <p className='mt-1.5 text-[10px] text-slate-400'>也可在上方写好正文，点书签存为开场。</p>}
                     {draft.openingGreeting && !selectedGreeting && <div className='mt-2 text-[10px] text-amber-700'>
                         {maskLocked ? '已写出的第一幕不受原素材删除影响。' : '原开场已失效，请重新选择。'}

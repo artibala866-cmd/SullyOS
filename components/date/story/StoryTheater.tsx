@@ -30,6 +30,7 @@ import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
 import { deleteUnusedStoryMask, saveStoryWithOpening } from '../../../utils/storyTheaterPersistence';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from '../../../utils/tavernOpeningGreeting';
 import { isLegacyLinkOpening, listCharacterStoryOpenings } from '../../../utils/linkStoryOpenings';
+import { planStoryOpeningDocumentImport, readStoryOpeningDocuments } from '../../../utils/storyOpeningDocumentImport';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -201,6 +202,22 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         return greeting;
     }, [updateCharacter]);
 
+    const importGreetingDocuments = useCallback(async (characterId: string, files: File[]) => {
+        // Read and validate the entire batch first. A corrupt DOCX or oversized
+        // story must not leave half the user's new opening library imported.
+        const documents = await readStoryOpeningDocuments(files);
+        if (!documents.length) return { added: [] as TavernOpeningGreeting[], skipped: 0 };
+        const latest = await DB.getCharacter(characterId);
+        if (!latest) throw new Error('参与角色已不存在，开场白没有导入');
+        const existing = Array.isArray(latest.tavernGreetings) ? latest.tavernGreetings : [];
+        const result = planStoryOpeningDocumentImport(existing, documents, latest.linkGreetings || []);
+        if (result.added.length) {
+            await DB.saveCharacter({ ...latest, tavernGreetings: result.greetings });
+            updateCharacter(characterId, { tavernGreetings: result.greetings });
+        }
+        return { added: result.added, skipped: result.skipped };
+    }, [updateCharacter]);
+
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
         await DB.saveStoryTheater(normalized);
@@ -345,6 +362,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onSave={saveEntry}
         onChangeGreeting={changeGreeting}
         onCreateGreeting={createGreeting}
+        onImportGreetings={importGreetingDocuments}
         onImportPreset={importPreset}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}

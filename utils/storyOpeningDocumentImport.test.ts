@@ -1,0 +1,97 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
+import {
+    compareStoryOpeningNames, MAX_STORY_OPENING_FILES, planStoryOpeningDocumentImport,
+    readStoryOpeningDocuments, sortCustomStoryOpenings,
+} from './storyOpeningDocumentImport';
+
+const txt = (name: string, body: string) => new File([body], name, { type: 'text/plain' });
+const nextIds = () => {
+    let index=0;
+    return () => `story-custom-import-${++index}`;
+};
+const docx = async (name: string, paragraphs: string[]) => {
+    const zip = new JSZip();
+    const xml = '<w:document><w:body>' + paragraphs.map(p =>
+        `<w:p><w:r><w:t>${p}</w:t></w:r></w:p>`).join('') + '</w:body></w:document>';
+    zip.file('word/document.xml', xml);
+    return new File([Uint8Array.from(await zip.generateAsync({type:'uint8array'})).buffer],name);
+};
+
+describe('开场白文件多选导入', () => {
+    it('按自然数字顺序读取 TXT 与 DOCX，每个文件完整保留多段正文', async () => {
+        const files = [
+            txt('开场白10.txt','第十幕\n第二段'),
+            await docx('开场白2.docx',['第二幕','雨下得很大']),
+            txt('开场白1.TXT','第一幕'),
+        ];
+        const incoming = await readStoryOpeningDocuments(files);
+        expect(incoming.map(x=>x.filename)).toEqual(['开场白1.TXT','开场白2.docx','开场白10.txt']);
+        expect(incoming.map(x=>x.content)).toEqual(['第一幕','第二幕\n雨下得很大','第十幕\n第二段']);
+        const plan = planStoryOpeningDocumentImport([],incoming,[],nextIds());
+        expect(plan.greetings.map(g=>g.title)).toEqual(['开场白1','开场白2','开场白10']);
+        expect(plan.greetings.map(g=>g.content)).toEqual(incoming.map(x=>x.content));
+    });
+    it('批量导入保留已有酒馆顺序，只有自定义开场使用 1、2、10 排序', () => {
+        const existing = [
+            {id:'tavern-a',title:'原作者结局',content:'第一段作者内容'},
+            {id:'story-custom-old',title:'开场白10',content:'旧第十幕'},
+            {id:'tavern-b',title:'原作者序章',content:'第二段作者内容'},
+            {id:'story-custom-two',title:'开场白2',content:'旧第二幕'},
+        ];
+        const planned = planStoryOpeningDocumentImport(existing,[
+            {filename:'开场白3.txt',content:'第三幕'},
+            {filename:'开场白1.docx',content:'第一幕'},
+        ],[],nextIds());
+        expect(planned.greetings.map(g=>g.title)).toEqual([
+            '原作者结局','原作者序章','开场白1','开场白2','开场白3','开场白10',
+        ]);
+        expect(planned.greetings.filter(g=>!g.id.startsWith('story-custom-')))
+            .toEqual([existing[0],existing[2]]);
+        expect(existing[1].title).toBe('开场白10'); // pure, does not change stored source
+    });
+    it('跳过完全相同正文；同名不同内容安全建立编号副本，决不覆盖旧开场', () => {
+        const existing=[{id:'story-custom-1',title:'开场白1',content:'旧内容'}];
+        const docs=[
+            {filename:'开场白1.docx',content:'新内容'},
+            {filename:'开场白1.txt',content:'新内容'},
+            {filename:'开场白10.txt',content:'原有 Link 开场'},
+            {filename:'开场白2.txt',content:'别的正文'},
+        ];
+        const p = planStoryOpeningDocumentImport(existing,docs,[{title:'Link序章',content:'原有 Link 开场'}],nextIds());
+        expect(p.skipped).toBe(2);
+        expect(p.added.map(x=>x.title)).toEqual(['开场白1 (2)','开场白2']);
+        expect(p.greetings.find(x=>x.id==='story-custom-1')?.content).toBe('旧内容');
+        const again = planStoryOpeningDocumentImport(p.greetings, docs,[{title:'Link序章',content:'原有 Link 开场'}],nextIds());
+        expect(again.added).toEqual([]);
+        expect(again.skipped).toBe(4);
+    });
+    it('文件名数字排序不把 10 排到 2 前；同名文件不会丢正文', () => {
+        expect(compareStoryOpeningNames('开场白2','开场白10')).toBeLessThan(0);
+        const a = [{id:'story-custom-10',title:'开场白10'}, {id:'tavern-2',title:'原作者'},
+            {id:'story-custom-1',title:'开场白1'}, {id:'story-custom-2',title:'开场白2'}];
+        expect(sortCustomStoryOpenings(a).map(x=>x.title)).toEqual(['原作者','开场白1','开场白2','开场白10']);
+    });
+    it('损坏 DOCX、伪装扩展名、空文本、过长内容明确失败，不可产生半截结果', async () => {
+        await expect(readStoryOpeningDocuments([txt('开场白1.txt','正常'), txt('空白.txt','')]))
+            .rejects.toThrow('空白.txt');
+        await expect(readStoryOpeningDocuments([txt('开场白1.txt','正常'),txt('伪装.docx','坏文件')]))
+            .rejects.toThrow('伪装.docx');
+        await expect(readStoryOpeningDocuments([txt('非法.json','{}')]))
+            .rejects.toThrow('TXT 或 DOCX');
+        await expect(readStoryOpeningDocuments([txt('过长.txt','X'.repeat(200_001))]))
+            .rejects.toThrow('20 万字符');
+        await expect(readStoryOpeningDocuments(Array.from({length:MAX_STORY_OPENING_FILES+1},
+            (_,i)=>txt(`编号${i}.txt`,'正文')))).rejects.toThrow('最多导入');
+        expect(() => planStoryOpeningDocumentImport([],[
+            {filename:'开场白1.txt',content:'正常'},
+            {filename:'开场白2.txt',content:'X'.repeat(200_001)},
+        ],[],nextIds())).toThrow('20 万字符');
+    });
+    it('拒绝无效或冲突的唯一 ID，避免覆盖另一个已保存的剧情开场', () => {
+        expect(() => planStoryOpeningDocumentImport([{id:'story-custom-same',title:'1',content:'旧'}],[
+            {filename:'2.txt',content:'新'},
+        ],[],()=> 'story-custom-same')).toThrow('标识');
+    });
+});
