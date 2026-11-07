@@ -343,6 +343,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+    // An already selected quote can be recalled while the user is composing.
+    // Replace the composer snapshot with the tombstone before they send.
+    useEffect(() => {
+        if (!replyTarget || replyTarget.metadata?.recalledAt) return;
+        const live = messages.find(m => m.id === replyTarget.id && m.charId === replyTarget.charId);
+        if (live?.metadata?.recalledAt) setReplyTarget(live);
+    }, [messages, replyTarget]);
 
     const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block'>('none');
     // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
@@ -1668,12 +1675,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const msgPayload: any = { charId: char.id, role: 'user', type, content: storedContent, metadata };
         
         if (replyTarget) {
+            // React's quote target may lag a just-committed character recall.
+            // Use the current stored row at send time so the new reply never
+            // revives the withdrawn text via its replyTo.content snapshot.
+            const latest = await DB.getMessageById(replyTarget.id).catch(() => null);
+            const quoted = latest?.charId === char.id ? latest : replyTarget;
             msgPayload.replyTo = {
-                // 引用图片 / 表情时快照存 '[图片]' 之类的占位符，不把令牌原样带进这条消息
-                // （跟角色侧的引用快照同一个函数，口径一致）
-                id: replyTarget.id,
-                content: buildReplySnapshotContent(replyTarget),
-                name: replyTarget.role === 'user' ? '我' : char.name
+                id: quoted.id,
+                content: buildReplySnapshotContent(quoted),
+                name: quoted.role === 'user' ? '我' : char.name
             };
             setReplyTarget(null);
         }

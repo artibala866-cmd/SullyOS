@@ -10,6 +10,8 @@ on:
       - 'utils/chatPrompts.ts'
       - 'utils/streamPreview.ts'
       - 'components/chat/MessageItem.tsx'
+      - 'apps/Chat.tsx'
+      - 'utils/contentFavorites.ts'
       - 'tests/character-recall-visual.*'
       - '.github/workflows/character-recall-visual.yml'
   workflow_dispatch:
@@ -30,12 +32,12 @@ jobs:
         with: {node-version: '22', cache: pnpm}
       - run: pnpm install --frozen-lockfile
       - name: Run real IndexedDB mutation, matching and parser regression
-        run: pnpm exec vitest run utils/messageRecall.test.ts utils/messageRecall.integration.test.ts
+        run: pnpm exec vitest run utils/messageRecall.test.ts utils/messageRecall.integration.test.ts utils/streamPreview.test.ts
       - name: Check TypeScript diagnostics for all affected code
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false >/tmp/recall-tsc.log 2>&1 || true
-          grep -E '^(utils/(db|messageRecall|applyAssistantPostProcessing|chatRequestPayload|chatPrompts|streamPreview)\\.ts|components/chat/MessageItem\\.tsx|tests/character-recall-visual\\.ts)\\(' /tmp/recall-tsc.log >/tmp/recall-tsc-errors.log || true
+          grep -E '^(utils/(db|messageRecall|applyAssistantPostProcessing|chatRequestPayload|chatPrompts|streamPreview)\\.ts|components/chat/MessageItem\\.tsx|apps/Chat\\.tsx|utils/contentFavorites\\.ts|tests/character-recall-visual\\.ts)\\(' /tmp/recall-tsc.log >/tmp/recall-tsc-errors.log || true
           if [ -s /tmp/recall-tsc-errors.log ]; then cat /tmp/recall-tsc-errors.log; exit 1; fi
       - uses: browser-actions/setup-chrome@v1
         id: chrome
@@ -62,6 +64,15 @@ jobs:
             --screenshot="$GITHUB_WORKSPACE/character-recall-real-390.png" \
             http://127.0.0.1:5173/tests/character-recall-visual.html
           test -s character-recall-real-390.png
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=320,750 --virtual-time-budget=12000 --dump-dom \
+            http://127.0.0.1:5173/tests/character-recall-visual.html >/tmp/recall-dom-320.html 2>/tmp/recall-chrome-320.log || true
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=320,750 --hide-scrollbars --virtual-time-budget=12000 \
+            --screenshot="$GITHUB_WORKSPACE/character-recall-real-320.png" \
+            http://127.0.0.1:5173/tests/character-recall-visual.html
+          test -s character-recall-real-320.png
+          grep -q 'data-recall-visual-ready="true"' /tmp/recall-dom-320.html
           if ! grep -q 'data-recall-visual-ready="true"' /tmp/recall-dom.html; then
             grep -o '<output id="recall-visual-checks"[^<]*[^<]*' /tmp/recall-dom.html | head -c 1200 || true
             grep -o 'data-recall-visual-error="[^"]*"' /tmp/recall-dom.html | head -c 1500 || true
@@ -72,6 +83,8 @@ jobs:
         if: always()
         with:
           name: character-recall-real-ui
-          path: character-recall-real-390.png
+          path: |
+            character-recall-real-390.png
+            character-recall-real-320.png
           if-no-files-found: ignore
           retention-days: 7
