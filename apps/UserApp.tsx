@@ -54,17 +54,22 @@ const UserApp: React.FC = () => {
     const handleBioFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
-        if (!file || avatarBusy || identityBusy || bioFileBusy) return;
+        // A second file picker change can arrive before React renders busy.
+        // The synchronous ref also protects the first lock from being
+        // accidentally released by the second request's error handler.
+        if (!file || avatarBusy || identityBusy || bioFileBusy || bioImportRelease.current) return;
+        let ownsLock = false;
         try {
             const release = beginUserSaveOperation('导入个人档案');
             bioImportRelease.current = release;
+            ownsLock = true;
             setBioFileBusy(true);
             const parsed = await readImportedTextDocument(file);
             setBioImportMode('append');
             setPendingBioFile({ ...parsed, name: file.name });
         } catch (error) {
             addToast(error instanceof Error ? error.message : '文件读取失败', 'error');
-            releaseBioImport();
+            if (ownsLock) releaseBioImport();
         }
     };
     const cancelBioImport = () => {
