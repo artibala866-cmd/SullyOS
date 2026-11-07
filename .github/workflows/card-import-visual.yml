@@ -12,6 +12,7 @@ on:
       - 'tests/card-import-visual.*'
       - 'tests/link-worldbook-visual.*'
       - 'tests/user-document-visual.*'
+      - 'tests/import-fixture-pdf.ts'
       - 'apps/UserApp.tsx'
       - 'utils/importTextDocument.ts'
       - 'utils/pdfText.ts'
