@@ -5,15 +5,27 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import Character from '../apps/Character';
 import {OSPreviewProvider} from '../context/OSContext';
+import {normalizeCharacterCard} from '../utils/sillyTavernCard';
+import {normalizeBabyLinkShare} from '../utils/babyLinkCard';
 
 const query=new URLSearchParams(location.search);
 const source=query.get('source')||'tavern';
 const observed: string[]=[];
 addEventListener('error',e=>observed.push(e.message));
 addEventListener('unhandledrejection',e=>observed.push(String(e.reason)));
+const sampleTavern=source==='remark-tavern'
+  ?normalizeCharacterCard({spec:'chara_card_v3',spec_version:'3.0',data:{
+      name:'季淮北',description:'关于季淮北的完整人设，必须只留在 AI 上下文',
+      personality:'沉稳',first_mes:'雪夜见面'}}).character:null;
+const sampleLink=source==='remark-link'
+  ?normalizeBabyLinkShare({magic:'LINK_CHARACTER_SHARE_PNG_V1',version:1,
+      characters:[{name:'季淮北',nickname:'阿北',
+        description:'Link 人设详细设定，不允许进入备注',
+        signature:'签名内容不允许进入备注',avatar:'',localWorldBookIds:[]}],worldBooks:[]}).cards[0].character:null;
+const importedRemarkRole=sampleTavern||sampleLink;
 const role={id:'fixture-original',name:source.startsWith('link')?'车恩熙':'谢嬴',
  avatar:'',description:'原有简介',systemPrompt:'原有稳定人设',memories:[],
- mountedWorldbooks:[],tavernGreetings:[]} as any;
+ mountedWorldbooks:[],tavernGreetings:[],...(importedRemarkRole||{})} as any;
 const os={
   closeApp:()=>{},openApp:()=>{},characters:[role],activeCharacterId:role.id,
   setActiveCharacterId:()=>{},addCharacter:async()=>role,updateCharacter:()=>{},
@@ -68,6 +80,39 @@ function box(element:Element|null){
 }
 async function run(){
  try{
+  // Open the actual 神经链接 role detail, not a recreated remark field.
+  // Persona must remain in systemPrompt while the remark input is blank
+  // for Tavern and exactly nickname for Link.
+  if(source.startsWith('remark-')){
+    const want=source==='remark-tavern'?'':'阿北';
+    let card:HTMLElement|null=null;
+    for(let n=0;n<100&&!card;n++){
+      const title=[...document.querySelectorAll('h3')].find(x=>x.textContent?.trim()==='季淮北');
+      card=title?.closest<HTMLElement>('.cursor-pointer')||null;
+      if(!card)await new Promise(r=>setTimeout(r,80));
+    }
+    if(!card)throw Error('Character card row not found');
+    card.click();
+    let input:HTMLInputElement|null=null;
+    for(let n=0;n<100&&!input;n++){
+      input=document.querySelector<HTMLInputElement>('input[aria-label="输入备注"]');
+      if(!input)await new Promise(r=>setTimeout(r,80));
+    }
+    if(!input)throw Error('Real Neural Link remark input not mounted');
+    const result={source,viewport:[innerWidth,innerHeight],
+      remark:input.value,expected:want,
+      placeholder:input.placeholder,
+      personaSaved:role.systemPrompt.includes(source==='remark-tavern'
+        ?'关于季淮北的完整人设':'Link 人设详细设定'),
+      noOverflowX:document.documentElement.scrollWidth<=innerWidth+2,
+      inputVisible:input.getBoundingClientRect().width>40,
+      errors:observed.filter(v=>!v.startsWith('toast:'))};
+    document.body.dataset.cardImportVisualReady=String(
+      result.remark===want&&result.personaSaved&&result.inputVisible&&
+      result.noOverflowX&&!result.errors.length);
+    document.getElementById('qa-report')!.textContent=JSON.stringify(result);
+    return;
+  }
   const input=await new Promise<HTMLInputElement>((resolve,reject)=>{
    let n=0;const poll=()=>{
      const node=document.querySelector<HTMLInputElement>('input[type=file][accept*=".json"]');
