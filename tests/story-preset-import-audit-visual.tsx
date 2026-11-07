@@ -6,6 +6,7 @@ import { BUILTIN_NIGHT_SCREENING_PRESET, getStoryPresetPromptGroups, parseStoryT
 
 const q = new URLSearchParams(location.search);
 const native = q.get('variant') === 'native';
+const dialect = q.get('dialect') || '';
 const focus = q.get('focus') || 'overview';
 const style = document.createElement('style');
 style.textContent = STORY_THEME_CSS;
@@ -37,16 +38,76 @@ const imported = parseStoryTheaterPreset(JSON.stringify({
     prompts,prompt_order:[
     {character_id:100001,order:prompts.map((p,i)=>({identifier:p.identifier,enabled:i<104}))}
 ]}),'373条模拟.json',1);
-const groups = getStoryPresetPromptGroups(imported.document);
+// Realistic, minimal excerpts (not the uploaded authors' full presets).
+// Test the same eight existing controls in the maker for independent exports.
+const dialectCases: Record<string, {
+    temperature: number; top_p: number; frequency_penalty: number;
+    presence_penalty: number; openai_max_tokens: number;
+    items: Array<{ name: string; content: string }>; labels: string[];
+}> = {
+    pluto: {
+        temperature: 1, top_p: .9, frequency_penalty: 0, presence_penalty: 0, openai_max_tokens: 60000,
+        items: [
+            { name: '修改语言', content: '{{setvar::主要语言::简体中文}}' },
+            { name: '修改字数', content: '{{setvar::正文字数::800-1500字}}' },
+            { name: 'Char视角-TA&你', content: 'POV: Immersive Third-Person. (He/She & You). 用“你/您”指代<user>。' },
+            { name: '随机小剧场', content: '每轮生成一段随机小剧场，保留<RandomTheater>作者格式</RandomTheater>。' },
+        ],
+        labels: ['简体中文', '800–1500字', '作者混合视角'],
+    },
+    ako: {
+        temperature: 1, top_p: .97, frequency_penalty: .32, presence_penalty: .48, openai_max_tokens: 65535,
+        items: [
+            { name: '主文风: 严肃', content: '主要参考严肃文学与世界名著，保持客观文字和真实的节奏。'.repeat(4) },
+            { name: '第三人称上帝视角', content: '<POV>正文使用第三人称写作。</POV>' },
+            { name: 'RP转述', content: '<转述>把用户输入扩写回放，再开始新剧情。</转述>' },
+            { name: '不抢话', content: '禁止代写用户台词，不可代替玩家决定。' },
+            { name: '中文语言', content: '正文要求使用简体中文。' },
+            { name: '正文篇幅', content: '字数要求：1500字。' },
+        ],
+        labels: ['作者严肃文学文风', '第三人称', '回放扩写', '完全不代写', '简体中文', '1500字'],
+    },
+    mur: {
+        temperature: 1, top_p: 1, frequency_penalty: 0, presence_penalty: 0, openai_max_tokens: 20000,
+        items: [
+            { name: '语言', content: '<language_forms>language: Chinese.</language_forms>' },
+            { name: '字数要求', content: '<creation_form>Word_budget: 900~1000</creation_form>' },
+            { name: '抢话 · 第三人称', content: 'Narrative must unfold from an immersive third-person perspective. Make major decisions and deliver key dialogue on behalf of the user.' },
+        ],
+        labels: ['中文（简繁未指定）', '900–1000（Word_budget，按作者单位）', '第三人称', '全自动演绎'],
+    },
+    janus: {
+        temperature: 1.05, top_p: .95, frequency_penalty: .4, presence_penalty: .4, openai_max_tokens: 10000,
+        items: [
+            { name: '动态-内置文风', content: '<Dynamic_Writing_Style>动态随机文风，依情景选不同文字风格。</Dynamic_Writing_Style>'.repeat(3) },
+            { name: '视角体系', content: '<Perspective_System><pov_user>第二人称</pov_user><pov_npc>第三人称</pov_npc></Perspective_System>' },
+            { name: '字数设置', content: 'Then write a 800-1,200-word pure plot story in zh-CN, and close </content>.' },
+        ],
+        labels: ['作者动态文风', '第二人称', '800–1200 words（英文计数）', '简体中文'],
+    },
+};
+const dialectCase = dialectCases[dialect];
+const mappedPreset = dialectCase
+    ? parseStoryTheaterPreset(JSON.stringify({
+        temperature: dialectCase.temperature, top_p: dialectCase.top_p,
+        frequency_penalty: dialectCase.frequency_penalty, presence_penalty: dialectCase.presence_penalty,
+        openai_max_tokens: dialectCase.openai_max_tokens,
+        prompts: dialectCase.items.map((item, i) => ({
+            identifier: 'v' + i, role: 'system', name: item.name, content: item.content,
+        })),
+        prompt_order: [{ character_id: 100001,
+            order: dialectCase.items.map((_, i) => ({ identifier: 'v' + i, enabled: true })) }],
+    }), dialect + '.json') : imported;
+const groups = getStoryPresetPromptGroups(mappedPreset.document);
 const authoredIds = imported.document.prompts.map(p=>p.id);
-const groupingSafe = groups.length >= 11
+const groupingSafe = Boolean(dialectCase) || groups.length >= 11
     && groups.flatMap(group=>group.promptIds).join('|')===authoredIds.join('|')
     && groups.every(group=>group.autoGrouped)
     && imported.document.prompts.filter(p=>p.enabled).length===104;
 createRoot(document.getElementById('visual')!).render(
     React.createElement('div',{className:'story-theme story-theme-dark story-decor-plain h-full w-full'},
         React.createElement(StoryPresetMaker,{
-            preset:native ? BUILTIN_NIGHT_SCREENING_PRESET : imported,
+            preset:native ? BUILTIN_NIGHT_SCREENING_PRESET : mappedPreset,
             onBack:()=>{},onSave:async()=>{},onOpenCopy:async()=>{},onDelete:async()=>{},
         }),
     ),
@@ -111,7 +172,9 @@ const check = () => {
     const headingText = [...document.querySelectorAll('h2')].map(node => node.textContent || '');
     const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
-    const nativeAuthorMapping = native || focus !== 'overview' || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
+    const nativeAuthorMapping = dialectCase && focus === 'overview'
+        ? dialectCase.labels.every(value => document.body.textContent?.includes(value))
+        : native || focus !== 'overview' || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
     const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
         .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
     const success = fit && nativeAuthorMapping && (native ? !proOn && eightControls && generationControls : groupingSafe && (
