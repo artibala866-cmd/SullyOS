@@ -866,7 +866,7 @@ export const moveStoryPresetPromptToGroup = (document: StoryTheaterPresetDocumen
     const source = groups.find(group => group.promptIds.includes(promptId));
     const target = groups.find(group => group.key === groupKey);
     const prompt = document.prompts.find(item => item.id === promptId);
-    if (!prompt || !target || target.protected || target.autoGrouped || source?.protected || source?.autoGrouped || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
+    if (!prompt || !target || target.protected || target.autoGrouped || source?.protected || source?.key === target.key || isProtectedStoryPrompt(prompt) || isStoryPresetSectionMarker(prompt)) return document;
     const next = { ...document, prompts: document.prompts.filter(item => item.id !== promptId) };
     const destination = getStoryPresetPromptGroups(next).find(group => group.key === groupKey);
     if (!destination) return document;
