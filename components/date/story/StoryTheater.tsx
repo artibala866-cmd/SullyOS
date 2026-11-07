@@ -443,6 +443,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                                 else failed++;
                             }
                             setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。原有剧情没有被自动改动，请手动选择要用的预设。`);
+                        } catch (error) {
+                            setPresetBatchFeedback(`导入中断：${error instanceof Error ? error.message : '文件读取失败'}。已成功导入的预设仍保留，当前剧情没有被替换。`);
                         } finally {
                             presetBatchLock.current = false;
                             setPresetBatchBusy(false);
