@@ -729,6 +729,17 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(controls.inferred.pov).toBe('nmj-v3-pov-second');
     });
 
+    it('Mur 真实第三人称抢话条目必须识别为全自动演绎，而不是误判不抢话', () => {
+        const detected = detectTavernNativeControls([{
+            id: 'mur-pov', name: '抢话 · 第三人称', role: 'system', enabled: true,
+            content: '<multi_perspective_pov> Narrative must unfold from an immersive third-person perspective. ' +
+                'Simultaneously describe the dialogue, decisions, and actions of both user and Character. ' +
+                'Make major decisions and deliver key dialogue on behalf of the user.</multi_perspective_pov>',
+        }]);
+        expect(detected.inferred.pov).toBe('nmj-v3-pov-third');
+        expect(detected.inferred.agency).toBe('nmj-v63-user-agency-auto');
+    });
+
     it('真正的回放扩写、不复述、不抢话分别匹配内置规则，模糊的旁白不误推断', () => {
         const akover = detectTavernNativeControls([
             { id: 'rp', name: '✅RP转述', role: 'system', enabled: true,
