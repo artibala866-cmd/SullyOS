@@ -46,10 +46,54 @@ export const adaptTavernOpeningGreeting = (greeting: TavernOpeningGreeting): Tav
     };
 };
 
+/**
+ * Presentation-only adapter for authored Tavern greeting scenes.
+ * Keep the original card bytes in IndexedDB; callers use this for the Story
+ * editor, the first floor and the old first-floor reader. Never run imported
+ * regex/JS/CSS. Retain the prose inside ordinary HTML formatting tags.
+ *
+ * This deliberately does not handle Link greetings, custom stories or regular
+ * user messages, and it does not reinterpret arbitrary XML narrative tags.
+ */
+export const tavernOpeningReadableText = (content: string): string => {
+    let text = String(content || '');
+    // Inline author requests are not a title, dialogue, or a story status bar.
+    // Their raw text remains available in the imported source card.
+    text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*(?:\r?\n|$)/gim, '');
+    text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*/i, '');
+
+    // Fenced HTML is authored presentation; fenced CSS is purely visual.
+    text = text.replace(/^[ \t]*\x60{3}(?:css|scss)\s*\r?\n[\s\S]*?^[ \t]*\x60{3}[ \t]*$/gim, '');
+    text = text.replace(/^[ \t]*\x60{3}(?:html|htm)\s*\r?\n([\s\S]*?)\r?\n[ \t]*\x60{3}[ \t]*$/gim, '$1');
+
+    // Never expose executable/style-only material to the opening editor or AI.
+    text = text.replace(/<(script|style|noscript|template|svg|canvas|iframe|object|embed)\b(?:"[^"]*"|'[^']*'|[^'">])*>\s*[\s\S]*?<\/\1\s*>/gi, '');
+    text = text.replace(/<!doctype\s+html[^>]*>/gi, '');
+
+    // Remove just HTML presentation markup. This is quote-aware so CSS
+    // attributes containing > do not leave broken fragments. The text nodes
+    // remain intact, including dialogue, names and macro placeholders.
+    const layoutTag = /<\/?(div|span|p|br|hr|h[1-6]|section|article|main|header|footer|aside|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|strong|b|em|i|u|small|mark|blockquote|figure|figcaption|center|font|a|pre|html|head|body|img)\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
+    const block = /^(?:div|p|br|hr|h[1-6]|section|article|main|header|footer|aside|ul|ol|li|table|thead|tbody|tfoot|tr|blockquote|figure|figcaption|pre|body|html)$/i;
+    text = text.replace(layoutTag, (_whole, tag: string) => block.test(tag) ? '\n' : '');
+
+    // A handful of common entities need decoding even without DOMParser
+    // (the archive and background tests run outside a browser).
+    text = text.replace(/&(?:nbsp|amp|lt|gt|quot|apos|#39|#x27);/gi, entity => {
+        const table: Record<string, string> = {
+            '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&apos;': "'", '&#39;': "'", '&#x27;': "'",
+        };
+        return table[entity.toLowerCase()] ?? entity;
+    });
+    return text.replace(/[ \t]+\r?\n/g, '\n').replace(/\r\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
 /** Use the same text identity for legacy and newly normalized imports. */
 export const tavernOpeningBodyKey = (greeting: TavernOpeningGreeting): string =>
     adaptTavernOpeningGreeting(greeting).content.trim();
 
 /** Runtime-only compatibility for story messages already written before the adapter. */
 export const tavernOpeningSceneText = (content: string): string =>
-    adaptTavernOpeningGreeting({ id: '', title: '', content }).content;
+    tavernOpeningReadableText(adaptTavernOpeningGreeting({ id: '', title: '', content }).content);
