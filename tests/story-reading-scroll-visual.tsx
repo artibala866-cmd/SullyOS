@@ -70,7 +70,9 @@ const audit = () => {
         const floorIndicatorClear = !!progress && !!header
             && progress.getBoundingClientRect().bottom <= scroll.getBoundingClientRect().top + 3
             && !progressInReadingArea
-            && !scroll.querySelector('.sticky');
+            && !scroll.querySelector('.sticky')
+            && !document.querySelector('.story-quick-preset')
+            && !!header.querySelector('button[aria-label="本剧情快速预设"]');
         const visibleCount = progress?.getAttribute('aria-label') || '';
         const nearEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 96;
         const latestButton = document.querySelector<HTMLButtonElement>('button[aria-label="回到最新楼层"]');
