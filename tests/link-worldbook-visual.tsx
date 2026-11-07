@@ -58,6 +58,12 @@ async function run(){
         await new Promise(r=>setTimeout(r,180));
         const modal=[...document.querySelectorAll('h3')].find(x=>x.textContent?.includes('导入世界书'));
         if(!modal)throw Error('Import confirmation modal not displayed');
+        const confirm=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='确定') as HTMLButtonElement|undefined;
+        if(!confirm)throw Error('Import confirmation action missing');
+        confirm.click();
+        await new Promise(r=>setTimeout(r,100));
+        if([...document.querySelectorAll('h3')].some(x=>x.textContent?.includes('导入世界书')))
+            throw Error('Import confirmation modal did not close after clicking confirm');
         const transfer=new DataTransfer();
         transfer.items.add(new File([JSON.stringify(link)],'link-worldbooks.json',{type:'application/json'}));
         transfer.items.add(new File(['这是一份完整世界观文档。'],'旅行故事.txt',{type:'text/plain'}));
