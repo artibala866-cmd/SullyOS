@@ -88,7 +88,8 @@ describe('保存配置不反写预设', () => {
     expect(handleUpdatePreset).toMatch(
       /const wasActive = activePresetId === preset\.id;[\s\S]*updateApiPreset\(/,
     );
-    expect(handleUpdatePreset).toMatch(/if \(wasActive\) commitApiConfig\(/);
+    expect(handleUpdatePreset).toMatch(/wasActive \? commitApiConfig\(configFromPreset\(/);
+    expect(handleUpdatePreset).toMatch(/if \(wasActive && !activeUpdated\) return/);
   });
 
   it('铅笔编辑会读取并保存每条预设自己的流式与温度', () => {
