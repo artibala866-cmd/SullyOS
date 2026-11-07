@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import StoryQuickPresetPanel from '../components/date/story/StoryQuickPresetPanel';
-import { BUILTIN_NIGHT_SCREENING_PRESET, parseStoryTheaterPreset, selectStoryTavernAuthorOption } from '../utils/storyTheater';
+import { BUILTIN_NIGHT_SCREENING_PRESET, getStoryTavernAuthorSections, parseStoryTheaterPreset, selectStoryTavernAuthorOption } from '../utils/storyTheater';
 
 const qs = new URLSearchParams(location.search);
 const variant = qs.get('variant') || 'baby';
@@ -48,7 +48,7 @@ const preset = parseStoryTheaterPreset(JSON.stringify(authorData), variant + '.j
 const sourceDocument = preset.document;
 let documentToShow = variant === 'native' ? BUILTIN_NIGHT_SCREENING_PRESET.document : sourceDocument;
 if (variant !== 'native' && selected) {
-    const section = (await import('../utils/storyTheater')).getStoryTavernAuthorSections(sourceDocument)
+    const section = getStoryTavernAuthorSections(sourceDocument)
         .find(s => /文风|暮河调色盒/.test(s.label))!;
     const alternative = section.options.find(o => !o.enabled);
     if (alternative) documentToShow = selectStoryTavernAuthorOption(sourceDocument, section.key, alternative.id);
