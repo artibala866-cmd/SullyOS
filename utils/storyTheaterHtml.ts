@@ -32,6 +32,9 @@ const cleanDeclarations = (value: string): string => value.split(';')
         if (index < 1) return '';
         const prop = part.slice(0, index).trim().toLowerCase();
         const raw = part.slice(index + 1).trim();
+        // Preserve readable text even when imported styles try to hide it.
+        if (['display', 'visibility', 'opacity', 'width', 'height', 'max-height', 'font-size', 'line-height']
+            .includes(prop) && /^(?:none|hidden|collapse|transparent|0(?:px|em|rem|%)?)$/i.test(raw)) return '';
         return SAFE_CSS_PROPERTIES.has(prop) && safeCssValue(raw) ? prop + ':' + raw : '';
     }).filter(Boolean).join(';');
 
@@ -104,7 +107,8 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     const styles = Array.from(document.querySelectorAll('style')).map(element => element.textContent || '').join('\n');
     const css = sanitizeStoryScopedCss(styles);
     const html = Array.from(document.body.childNodes).map(sanitizeNode).join('');
-    const text = document.body.textContent?.replace(/\s+/g, ' ').trim() || '';
+    // Fallback text comes from the sanitized subtree, never script/style text.
+    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() || '';
     const hasVisibleContent = Boolean(html.replace(/<[^>]*>/g, '').trim() || /<(?:img|hr|table)\b/i.test(html));
     const baseCss = [
         'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere}',
