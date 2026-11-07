@@ -129,6 +129,20 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(blocks[0].text).not.toContain('secretPayload');
     });
 
+    it('短篇小剧场沙箱不会撑出半屏空白，长篇仍可在限定高度内阅读', () => {
+        const short = sanitizeStoryTheaterHtml(
+            '<div><h3>短篇剧场</h3><p>一句台词。</p><details><summary>可展开附录</summary><p>隐藏的长说明</p></details></div>',
+        );
+        const long = sanitizeStoryTheaterHtml(
+            '<div>' + Array.from({ length: 90 }, (_, index) => '<p>故事段落 ' + index + '：延续人物的剧情内容。</p>').join('') + '</div>',
+        );
+        expect(short.estimatedHeight).toBeGreaterThanOrEqual(180);
+        expect(short.estimatedHeight).toBeLessThanOrEqual(260);
+        expect(long.estimatedHeight).toBeGreaterThan(short.estimatedHeight);
+        expect(long.estimatedHeight).toBeLessThanOrEqual(520);
+        expect(short.srcDoc).toContain('隐藏的长说明');
+    });
+
     it('未识别的旧式标签退回可读文字，不更改模型历史或原生迷你剧场协议', () => {
         const blocks = parseStoryDisplayBlocks('<unknown_theater>最重要的正文<b>不能丢</b></unknown_theater>', true);
         expect(blocks.map(b => b.text).join('')).toContain('最重要的正文');
