@@ -1,5 +1,5 @@
 import { adaptTavernOpeningGreeting, tavernOpeningSceneText } from './tavernOpeningGreeting';
-import { hasStoryHtmlLayout } from './storyTheaterHtml';
+import { adaptTavernWritingInterlude, hasStoryHtmlLayout } from './storyTheaterHtml';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
     CharacterProfile,
@@ -1615,6 +1615,11 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
         partner_sidestory: '酒馆伙伴剧场',
         small_theater: '酒馆小剧场',
         side_theater: '酒馆小剧场',
+        episode: '酒馆主题小剧场',
+        draft: '酒馆剧情摘要',
+        microlist: '酒馆临时待办',
+        ink: '酒馆补充信息',
+        count: '酒馆字数记录',
     };
     const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
     const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
@@ -1655,7 +1660,9 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
     const pushAppendix = (element: Element, title: string) => {
         const raw = element.innerHTML;
         if (pushStructuredTheater(raw, title)) return;
-        const htmlSource = hasStoryHtmlLayout(raw) ? sharedStyles + '\n' + raw : undefined;
+        const adapted = element.tagName.toLowerCase() === 'writing_interlude'
+            ? adaptTavernWritingInterlude(raw) : undefined;
+        const htmlSource = adapted || (hasStoryHtmlLayout(raw) ? sharedStyles + '\n' + raw : undefined);
         push('tavern-extra', raw, title, htmlSource);
     };
     const visit = (node: Node): void => {
