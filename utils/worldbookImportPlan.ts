@@ -85,6 +85,14 @@ export const planWorldbookImport = (existing:Worldbook[], incoming:Worldbook[]):
                 updated.push(adopted);
                 continue;
             }
+            // A handwritten or older unkeyed entry with the same title could
+            // be unrelated. Do not create a visually identical second book
+            // just because its body differs; user must resolve that conflict.
+            if (library.some(book => !book.cardImportKey &&
+                book.title === raw.title && book.category === raw.category &&
+                canonical(book) !== signature)) {
+                conflicts++;continue;
+            }
             // Same document title across formats or folders is not a proven
             // identity. Report conflict, rather than silently adding another
             // indistinguishable book or overwriting a different source.
