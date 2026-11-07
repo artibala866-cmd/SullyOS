@@ -144,7 +144,7 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
     });
 
     it('超大 HTML 附录不能只显示前半段，必须退回完整可读正文', () => {
-        const large = '<sidestory><div>' + '很长的作者正文。'.repeat(18000) + '尾部必须保留</div></sidestory>';
+        const large = '<sidestory><div>' + '很长的作者正文。'.repeat(20000) + '尾部必须保留</div></sidestory>';
         const parsed = parseStoryDisplayBlocks(large, true);
         expect(parsed).toHaveLength(1);
         expect(parsed[0].text).toContain('尾部必须保留');
