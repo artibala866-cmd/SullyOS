@@ -79,15 +79,21 @@ export interface StoryGenerationSettings {
 export const prepareStoryGenerationSettings = (
     settings?: Partial<StoryGenerationSettings>,
     omitSamplingParams = false,
+    modelName = '',
 ): Partial<StoryGenerationSettings> => {
     if (!settings) return {};
-    if (!omitSamplingParams) return { ...settings };
+    // Claude-compatible APIs commonly reject temperature above 1. Other
+    // models keep the preset's original value unchanged.
+    const modelAdjusted = /claude|anthropic/i.test(modelName) && typeof settings.temperature === 'number'
+        ? { ...settings, temperature: Math.max(0, Math.min(1, settings.temperature)) }
+        : { ...settings };
+    if (!omitSamplingParams) return modelAdjusted;
     const {
         top_p: _topP,
         frequency_penalty: _frequencyPenalty,
         presence_penalty: _presencePenalty,
         ...compatible
-    } = settings;
+    } = modelAdjusted;
     return compatible;
 };
 
