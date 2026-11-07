@@ -1073,6 +1073,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                     <span className='min-w-0 flex-1'>
                                         <strong className='block text-[10px] font-semibold tracking-wide'>{archiveLabel}</strong>
                                         <span className='block mt-0.5 text-[9px]'>{message.role === 'user' ? '你的推进' : '剧场正文'} · 展开查看原文</span>
+                                        <span className='block mt-1 text-[9px] leading-4'>已归档楼层仅供回看，暂不直接编辑，以免原文与记忆摘要不一致</span>
                                     </span>
                                     <CaretDown size={14} className='shrink-0 transition-transform group-open:rotate-180' />
                                 </summary>
