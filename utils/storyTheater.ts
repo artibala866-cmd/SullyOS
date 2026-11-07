@@ -1,4 +1,4 @@
-import { adaptTavernOpeningGreeting, tavernOpeningSceneText } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, storyOpeningReadingText } from './tavernOpeningGreeting';
 import { adaptTavernWritingInterlude, hasStoryHtmlLayout } from './storyTheaterHtml';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import type {
@@ -822,7 +822,7 @@ export const resolveStoryOpeningGreeting = (
     entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
     characters: CharacterProfile[],
     identityName: string,
-): { characterId: string; greetingId: string; content: string } | null => {
+): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom' } | null => {
     const selection = entry.openingGreeting;
     if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
     const actor = characters.find(character => character.id === selection.characterId);
@@ -832,6 +832,7 @@ export const resolveStoryOpeningGreeting = (
     return {
         characterId: actor.id,
         greetingId: greeting.id,
+        source: greeting.source,
         content: macroReplace(greeting.content.trim(), identityName, [actor.name]),
     };
 };
@@ -1872,7 +1873,9 @@ export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => mes
         // assistant floor before this adapter existed. Only sanitize that
         // marked opening in AI context; never rewrite historical DB messages.
         content: message.metadata?.theaterOpeningGreeting
-            ? tavernOpeningSceneText(String(message.content || ''))
+            ? storyOpeningReadingText(String(message.content || ''),
+                message.metadata.theaterOpeningGreeting.greetingId,
+                message.metadata.theaterOpeningGreeting.source)
             : String(message.content || ''),
     }));
 
