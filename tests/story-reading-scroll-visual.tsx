@@ -10,6 +10,7 @@ import type { Message } from '../types';
 // Isolated real-component visual fixture: fake local story data, no API calls.
 const params = new URLSearchParams(location.search);
 const mode = params.get('mode') || 'novel';
+const floorCount = Math.max(2, Math.min(240, Number(params.get('count')) || 26));
 const storySamples = [
     '他走到门口，像是还在犹豫要不要开口。',
     '雨声从屋檐滑下来，沿着窗框积起细小的水痕。\\n\\n林星没有立刻追问。他把伞放在玄关，手指在木柄上停了一瞬。',
@@ -20,7 +21,7 @@ const storySamples = [
     '「为什么？」我把杯子往他面前推了推。',
     '林星望向那杯水，指尖轻轻碰了碰杯沿。\\n\\n「想了很多事，最后还是觉得应该亲自告诉你。」',
 ];
-const rows = Array.from({ length: 26 }, (_, i) => ({
+const rows = Array.from({ length: floorCount }, (_, i) => ({
     id: i + 1, charId: 'story-theater:visual-story', role: i % 2 === 0 ? 'user' : 'assistant',
     type: 'text', content: storySamples[i % storySamples.length].replaceAll('\\n', '\n'),
     timestamp: 1700000000000 + i * 60000,
@@ -54,14 +55,14 @@ const begin = Date.now();
 const audit = () => {
     const scroll = document.querySelector<HTMLElement>('.story-page-scroll');
     const floors = scroll?.querySelectorAll<HTMLElement>('[data-story-floor]');
-    if (!scroll || floors?.length !== 26) {
+    if (!scroll || floors?.length !== floorCount) {
         if (Date.now() - begin < 10000) setTimeout(audit, 90);
         else document.body.dataset.storyScrollReady = 'false';
         return;
     }
     const focus = params.get('focus');
     const focusReading = () => {
-        if (focus === 'middle') floors[12].scrollIntoView({ block: 'start', behavior: 'instant' });
+        if (focus === 'middle') floors[Math.floor(floorCount / 2)].scrollIntoView({ block: 'start', behavior: 'instant' });
         if (focus === 'top') scroll.scrollTop = 0;
         if (focus === 'middle' || focus === 'top') scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
         if (focus === 'latest') {
@@ -95,10 +96,10 @@ const audit = () => {
         const visibleCount = progress?.getAttribute('aria-label') || '';
         const nearEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 96;
         const latestButton = document.querySelector<HTMLButtonElement>('button[aria-label="回到最新楼层"]');
-        const valid = floors.length === 26
+        const valid = floors.length === floorCount
             && !document.querySelector('button[aria-label="更早一页"]')
             && floorIndicatorClear
-            && (focus === 'latest' ? (nearEnd && visibleCount.includes('第 26 楼') && !latestButton)
+            && (focus === 'latest' ? (nearEnd && visibleCount.includes(`第 ${floorCount} 楼`) && !latestButton)
                 : (focus === 'middle' || focus === 'top') ? (!nearEnd && !!latestButton)
                 : true)
             && (document.querySelector('.story-reading-floor')?.getBoundingClientRect().width || 0) > 200
