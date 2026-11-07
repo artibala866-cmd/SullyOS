@@ -2,6 +2,7 @@ import type { CardImportOrigin, CharacterProfile, MountedWorldbook, TavernOpenin
 import { toMountedWorldbook } from './worldbook';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from './tavernOpeningGreeting';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
+import { canReplaceImportedRemark, importedCardRemarkCorrection } from './cardImportRemark';
 
 /**
  * Card identity lives on the character, not in a permanent import registry.
@@ -196,6 +197,15 @@ export function mergeCardImports(
             throw new Error('导入期间角色列表发生变化，请重新选择角色卡，避免覆盖错误角色');
         }
         const next: CharacterProfile = target ? { ...target } : { ...item.character, mountedWorldbooks: [] };
+        // Previously imported Tavern/Link cards can have an auto-generated
+        // persona summary in the editable Neural Link remark. A selective
+        // reimport may safely remove ONLY a provably generated legacy remark.
+        // Never erase a handwritten note or change a new character's identity.
+        if (target && Object.prototype.hasOwnProperty.call(item.fields, 'description') &&
+            (item.origin.source === 'tavern' || item.origin.source === 'babylink')) {
+            const corrected = importedCardRemarkCorrection(target);
+            if (corrected !== null) next.description = corrected;
+        }
         const importingPersona = ['avatar','description','systemPrompt','worldview']
             .some(key => Object.prototype.hasOwnProperty.call(item.fields, key));
         if (!target && next.tavernGreetings?.length) {
@@ -209,7 +219,14 @@ export function mergeCardImports(
         }
         if (target) {
             for (const [key, value] of Object.entries(item.fields)) {
-                if (PRIVATE_FIELDS.has(key) || !nonBlank(value)) continue;
+                if (PRIVATE_FIELDS.has(key)) continue;
+                if (key === 'description' && item.origin.source === 'tavern') continue;
+                if (key === 'description' && item.origin.source === 'babylink') {
+                    if (!canReplaceImportedRemark(target, 'babylink')) continue;
+                    next.description = typeof value === 'string' ? value : '';
+                    continue;
+                }
+                if (!nonBlank(value)) continue;
                 // Replacing source text is idempotent. Appending would duplicate the persona.
                 (next as any)[key] = value;
             }
