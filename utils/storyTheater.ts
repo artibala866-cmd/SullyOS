@@ -623,8 +623,13 @@ export const resolveStoryPresetImport = (
     imported: StoryTheaterPreset,
     savedPresets: readonly StoryTheaterPreset[],
 ): { preset: StoryTheaterPreset; duplicate: boolean } => {
-    const canonical = (document: StoryTheaterPresetDocument): string =>
-        JSON.stringify({ ...document, name: '', description: document.description || '' });
+    const canonical = (document: StoryTheaterPresetDocument): string => {
+        // Import warnings are derived diagnostics, not user-authored content.
+        // New compatibility checks must never create a second copy of a file
+        // previously imported by an older app version.
+        const { importWarnings: _warnings, ...content } = document;
+        return JSON.stringify({ ...content, name: '', description: content.description || '' });
+    };
     const fingerprint = canonical(imported.document);
     const duplicate = savedPresets.find(saved => saved && !saved.builtIn && saved.document?.prompts
         && saved.sourceFileName === imported.sourceFileName
