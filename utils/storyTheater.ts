@@ -800,7 +800,7 @@ const macroReplace = (text: string, userName: string, characterNames: string[]):
     return text
         .replace(/\{\{\s*(user|char|group|groupnotmuted|charifnotgroup|notchar)\s*\}\}/gi,
             (raw, name: string) => values[name.toLowerCase()] ?? raw)
-        .replace(/<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>/gi, (raw, name: string) => ({
+        .replace(/<(USER|BOT|CHAR|GROUP|CHARIFNOTGROUP)>/g, (raw, name: string) => ({
             USER: user, BOT: char, CHAR: char, GROUP: char,
             CHARIFNOTGROUP: inGroup ? '' : char,
         }[name.toUpperCase()] ?? raw));
@@ -1144,6 +1144,9 @@ export const compileStoryPreset = (input: {
     const messages: StoryApiMessage[] = [];
     const importedFromTavern = document.sourceFormat === 'sillytavern';
     const variables = new Map<string, string>();
+    // A Tavern global is shared across chats in Tavern. Imported presets use
+    // a REQUEST-LOCAL map instead to preserve SullyOS identity separation.
+    const globalVariables = new Map<string, string>();
     // The imported Tavern preset may set a rich rule via {{setvar}} without any
     // active {{getvar}} consumer: its original helper script is not runnable here.
     // Inline just those standalone XML rule bodies so an enabled toggle actually
@@ -1173,7 +1176,7 @@ export const compileStoryPreset = (input: {
         : [...(input.historyMessages || [])].reverse().find(message => message.role === 'user');
     const lastCharMessage = [...(input.historyMessages || [])].reverse().find(message => message.role === 'assistant');
     const expandImported = (value: string): string => importedFromTavern
-        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables), {
+        ? expandSillyTavernContextMacros(expandSillyTavernPromptText(macroReplace(value, userName, characterNames), variables, referencedVariables, globalVariables), {
             description: slots.tavernDescription ?? slots.actors,
             personality: slots.tavernPersonality ?? slots.actors,
             persona: slots.persona,
@@ -1182,6 +1185,7 @@ export const compileStoryPreset = (input: {
             lastMessage: lastHistoryMessage?.content,
             lastUserMessage: lastUserMessage?.content,
             lastCharMessage: lastCharMessage?.content,
+            lastChatMessage: lastCharMessage?.content ?? previousHistoryMessage?.content ?? '',
             input: input.currentInput,
             model: input.modelName,
             variables,
