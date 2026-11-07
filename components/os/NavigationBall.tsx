@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { NAVIGATION_SLOT_APPS, NAVIGATION_BALL_POSITION_KEY, subscribeNavigationBallPositionReset, useNavigationBallEnabled, useNavigationBallSlots, useNavigationPickerOpen } from '../../utils/navigationBall';
-import { AppID } from '../../types';
+import { AppID, type APIConfig, type ApiPreset } from '../../types';
 import { Icons } from '../../constants';
-import { ArrowUUpLeft, GearSix, House, PlugsConnected, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowUUpLeft, CaretLeft, CaretRight, Check, GearSix, House, PlugsConnected, Plus, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { configFromPreset, findActivePresetId } from '../../utils/apiPresetSwitch';
+import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { requestSettingsFocus } from '../../utils/settingsNavigation';
 import { describeNavigationShortcut, type NavigationShortcut, type ShortcutCharacter } from '../../utils/navigationShortcuts';
 import { launchNavigationShortcut } from '../../utils/navigationShortcutLaunch';
@@ -12,7 +14,7 @@ import { isIOSStandaloneWebApp, readSafeAreaInsets } from '../../utils/iosStanda
 import './NavigationBall.css';
 
 const POSITION_KEY = NAVIGATION_BALL_POSITION_KEY;
-const SIZE = 44;
+const SIZE = 40;
 type Position = { x: number; y: number };
 function readPosition(): Position | null {
   try {
@@ -34,13 +36,27 @@ function measure(parent: HTMLElement) {
 type NavigationActions = {
   onBack: () => void; onHome: () => void; onApi: () => void;
   onShortcut: (shortcut: NavigationShortcut) => void; onConfigure: () => void;
+  onSwitchPreset: (preset: ApiPreset) => void;
+  onManualApi: (patch: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>) => void;
+  apiPresets: ApiPreset[];
+  apiConfig: APIConfig;
   characters?: readonly ShortcutCharacter[];
 };
-export function DraggableNavigationBall({ onBack, onHome, onApi, onShortcut, onConfigure, characters = [] }: NavigationActions) {
+type MenuView = 'main' | 'api' | 'manual';
+export function DraggableNavigationBall({
+  onBack, onHome, onApi, onShortcut, onConfigure, onSwitchPreset, onManualApi,
+  apiPresets, apiConfig, characters = [],
+}: NavigationActions) {
   const slots = useNavigationBallSlots();
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(readPosition);
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<MenuView>('main');
+  const [panelHeight, setPanelHeight] = useState(0);
+  const [manual, setManual] = useState({ baseUrl: '', apiKey: '', model: '' });
+  const [manualError, setManualError] = useState('');
+  const activePresetId = findActivePresetId(apiPresets, apiConfig);
   const [parentSize, setParentSize] = useState({ width: 0, height: 0, top: 0, bottom: 0 });
   const latest = useRef(position); latest.current = position;
   const suppressClick = useRef(false);
@@ -71,6 +87,12 @@ export function DraggableNavigationBall({ onBack, onHome, onApi, onShortcut, onC
     document.addEventListener('pointerdown', dismiss); document.addEventListener('keydown', escape);
     return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', escape); };
   }, [open]);
+  // No layout reads during drag; recalculate panel bounds after view changes only.
+  useLayoutEffect(() => {
+    if (!open || !panel.current) return;
+    const height = panel.current.getBoundingClientRect().height;
+    setPanelHeight(previous => Math.abs(previous - height) < 1 ? previous : height);
+  }, [open, view, parentSize.width, parentSize.height, apiPresets.length, slots]);
   const finish = (event: React.PointerEvent<HTMLButtonElement>, cancelled = false) => {
     if (!drag.current || drag.current.pointerId !== event.pointerId) return;
     suppressClick.current = cancelled || drag.current.moved;
@@ -80,22 +102,46 @@ export function DraggableNavigationBall({ onBack, onHome, onApi, onShortcut, onC
     drag.current = null;
     try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* Already released. */ }
   };
-  const run = (action: () => void) => { setOpen(false); action(); };
-  const panelWidth = Math.min(288, Math.max(144, parentSize.width - 24));
-  const panelHeight = 288;
-  const availableHeight = Math.max(44, parentSize.height - parentSize.top - parentSize.bottom - 24);
-  const panelLeft = (parentSize.width - panelWidth) / 2 - (position?.x || 0);
-  const panelTop = parentSize.top + 12 + Math.max(0, (availableHeight - panelHeight) / 2) - (position?.y || 0);
+  const close = () => { setOpen(false); setView('main'); setManualError(''); };
+  const run = (action: () => void) => { close(); action(); };
+  const showView = (next: MenuView) => {
+    setPanelHeight(0);
+    if (next === 'manual') {
+      setManual({ baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model });
+      setManualError('');
+    }
+    setView(next);
+  };
+  const saveManual = () => {
+    if (!manual.baseUrl.trim() || !manual.model.trim()) {
+      setManualError('请先填写 URL 和模型名称'); return;
+    }
+    run(() => onManualApi(manual));
+  };
+  const panelWidth = Math.max(120, Math.min(244, parentSize.width - 16));
+  const availableHeight = Math.max(80, parentSize.height - parentSize.top - parentSize.bottom - 20);
+  const posX = position?.x ?? Math.max(8, parentSize.width - SIZE - 12);
+  const posY = position?.y ?? Math.max(8, parentSize.height - SIZE - 96);
+  const preferredX = posX > parentSize.width / 2 ? posX - panelWidth - 10 : posX + SIZE + 10;
+  const panelX = Math.max(8, Math.min(preferredX, parentSize.width - panelWidth - 8));
+  const visiblePanelHeight = Math.min(panelHeight || (view === 'main' ? 240 : 320), availableHeight);
+  const panelY = Math.max(parentSize.top + 10, Math.min(
+    posY + SIZE / 2 - visiblePanelHeight / 2,
+    parentSize.height - parentSize.bottom - visiblePanelHeight - 10,
+  ));
   const slotButton = (index: number) => {
     const shortcut = slots[index];
-    const app = NAVIGATION_SLOT_APPS.find(item => item.id === shortcut?.appId);
+    if (!shortcut) return null; // Empty slots are edited in Settings, not displayed in this compact list.
+    const app = NAVIGATION_SLOT_APPS.find(item => item.id === shortcut.appId);
     const label = describeNavigationShortcut(shortcut, characters);
     const Icon = app ? Icons[app.icon] || GearSix : Plus;
-    return <button type="button" key={index} aria-label={app ? `打开${label.detail}` : `设置 App 槽位 ${index + 1}`} title={label.detail}
-      onClick={() => run(() => shortcut ? onShortcut(shortcut) : onConfigure())}>
-      <Icon className="navigation-ball-action-icon" /><span>{app ? label.name : `槽位 ${index + 1}`}
-        {(shortcut?.characterId || shortcut?.worldId) && <small className="navigation-ball-target-kind">{label.detail.split(' › ').slice(0, -1).pop()}</small>}
-      </span>
+    return <button type="button" className="navigation-ball-row" key={index}
+      aria-label={'打开' + label.detail} title={label.detail}
+      onClick={() => run(() => onShortcut(shortcut))}>
+      <span className="navigation-ball-row-icon"><Icon className="navigation-ball-action-icon" /></span>
+      <span className="navigation-ball-row-label">{label.name}
+        {(shortcut.characterId || shortcut.worldId) && <small className="navigation-ball-target-kind">{label.detail.split(' › ').slice(0, -1).pop()}</small>}
+      </span><CaretRight className="navigation-ball-chevron" />
     </button>;
   };
   return <div ref={root} className="navigation-ball" style={position ? { left: position.x, top: position.y } : { right: 12, bottom: 96 }}>
@@ -116,30 +162,96 @@ export function DraggableNavigationBall({ onBack, onHome, onApi, onShortcut, onC
         const next = clampBubblePos(state.origin.x + dx, state.origin.y + dy, state.bounds);
         latest.current = next; setPosition(next);
       }} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}
-      onClick={event => { if (event.detail !== 0 && suppressClick.current) { suppressClick.current = false; return; } setOpen(value => !value); }}>
+      onClick={event => {
+        if (event.detail !== 0 && suppressClick.current) { suppressClick.current = false; return; }
+        if (!open) { setView('main'); setPanelHeight(0); }
+        setOpen(value => !value);
+      }}>
       <span aria-hidden="true" />
     </button>
-    {open && <div className="navigation-ball-panel" role="group" aria-label="快捷导航"
-      style={{ left: panelLeft, top: panelTop, width: panelWidth, maxHeight: availableHeight, overflowY: 'auto' }}>
-      {slotButton(0)}
-      <button type="button" onClick={() => run(onApi)}><PlugsConnected className="navigation-ball-action-icon" /><span>API 配置</span></button>
-      <button type="button" aria-label="返回上一级" onClick={() => run(onBack)}><ArrowUUpLeft className="navigation-ball-action-icon" /><span>上一级</span></button>
-      {slotButton(1)}
-      <button type="button" aria-label="回到桌面" onClick={() => run(onHome)}><House className="navigation-ball-action-icon" /><span>桌面</span></button>
-      {slotButton(2)}
-      {slotButton(3)}
-      <button type="button" onClick={() => run(onConfigure)}><SlidersHorizontal className="navigation-ball-action-icon" /><span>自定义</span></button>
-      <button type="button" onClick={() => setOpen(false)}><X className="navigation-ball-action-icon" /><span>收起</span></button>
+    {open && <div ref={panel} className="navigation-ball-panel" role="dialog" aria-label="快捷导航"
+      style={{ left: panelX - posX, top: panelY - posY, width: panelWidth, maxHeight: availableHeight }}>
+      <div className="navigation-ball-panel-header">
+        {view !== 'main' && <button type="button" className="navigation-ball-header-back" aria-label="返回快捷操作"
+          onClick={() => showView(view === 'manual' ? 'api' : 'main')}><CaretLeft size={16} /></button>}
+        <strong>{view === 'main' ? '快捷操作' : view === 'api' ? '切换对话 API' : '手动设置 API'}</strong>
+        <button type="button" className="navigation-ball-header-close" aria-label="收起悬浮窗"
+          onClick={close}><X size={14} /></button>
+      </div>
+      {view === 'main' && <>
+        <div className="navigation-ball-section">
+          <button type="button" className="navigation-ball-row navigation-ball-api-entry" onClick={() => showView('api')}>
+            <span className="navigation-ball-row-icon"><PlugsConnected className="navigation-ball-action-icon" /></span>
+            <span className="navigation-ball-row-label">切换 API<small>{apiConfig.model || '尚未配置模型'}</small></span>
+            <CaretRight className="navigation-ball-chevron" />
+          </button>
+          <button type="button" className="navigation-ball-row" onClick={() => run(onBack)}>
+            <span className="navigation-ball-row-icon"><ArrowUUpLeft className="navigation-ball-action-icon" /></span>
+            <span className="navigation-ball-row-label">上一级</span><CaretRight className="navigation-ball-chevron" />
+          </button>
+          <button type="button" className="navigation-ball-row" onClick={() => run(onHome)}>
+            <span className="navigation-ball-row-icon"><House className="navigation-ball-action-icon" /></span>
+            <span className="navigation-ball-row-label">回到桌面</span><CaretRight className="navigation-ball-chevron" />
+          </button>
+        </div>
+        {slots.some(Boolean) && <div className="navigation-ball-section navigation-ball-shortcuts">
+          {slots.map((_, index) => slotButton(index))}
+        </div>}
+        <div className="navigation-ball-panel-footer">
+          <button type="button" onClick={() => run(onConfigure)}><SlidersHorizontal size={15} /> 自定义快捷入口</button>
+        </div>
+      </>}
+      {view === 'api' && <>
+        <div className="navigation-ball-api-current"><span>当前全局模型</span>
+          <strong title={apiConfig.model}>{apiConfig.model || '尚未设置'}</strong>
+        </div>
+        <div className="navigation-ball-section navigation-ball-preset-list" aria-label="可用 API 预设">
+          {apiPresets.length === 0 && <p className="navigation-ball-empty">还没有保存的 API 预设，可以先手动填写。</p>}
+          {apiPresets.map(preset => <button type="button" key={preset.id}
+            className={'navigation-ball-row navigation-ball-preset' + (activePresetId === preset.id ? ' is-active' : '')}
+            aria-label={'切换到' + preset.name} aria-current={activePresetId === preset.id ? 'true' : undefined}
+            onClick={() => run(() => onSwitchPreset(preset))}>
+            <span className="navigation-ball-row-label">{preset.name}
+              <small>{preset.config.model || '未设置模型'}{preset.group ? ' · ' + preset.group : ''}</small>
+            </span>
+            {activePresetId === preset.id ? <Check className="navigation-ball-selected" size={18} /> : <CaretRight className="navigation-ball-chevron" />}
+          </button>)}
+        </div>
+        <div className="navigation-ball-panel-footer navigation-ball-api-actions">
+          <button type="button" onClick={() => showView('manual')}>手动填写</button>
+          <button type="button" onClick={() => run(onApi)}>完整设置</button>
+        </div>
+        <p className="navigation-ball-hint">只切换全局对话 API；角色或玩法独立 API 不会被覆盖。</p>
+      </>}
+      {view === 'manual' && <div className="navigation-ball-manual">
+        <label>URL<input type="url" inputMode="url" autoComplete="off" value={manual.baseUrl}
+          onChange={event => setManual(previous => ({ ...previous, baseUrl: event.target.value }))} placeholder="https://..." /></label>
+        <label>KEY<input type="password" autoComplete="off" value={manual.apiKey}
+          onChange={event => setManual(previous => ({ ...previous, apiKey: event.target.value }))} placeholder="sk-..." /></label>
+        <label>MODEL<input type="text" autoComplete="off" value={manual.model}
+          onChange={event => setManual(previous => ({ ...previous, model: event.target.value }))} placeholder="输入模型名称" /></label>
+        {manualError && <p className="navigation-ball-manual-error" role="alert">{manualError}</p>}
+        <button type="button" className="navigation-ball-manual-save" onClick={saveManual}>保存并切换</button>
+        <p className="navigation-ball-hint">仅修改主对话 URL、Key、模型；其他 API 保持不变。</p>
+      </div>}
     </div>}
   </div>;
 }
 export default function NavigationBall() {
   const enabled = useNavigationBallEnabled();
   const pickerOpen = useNavigationPickerOpen();
-  const { isLocked, handleBack, closeApp, openApp, characters = [], setActiveCharacterId, addToast } = useOS();
+  const { isLocked, handleBack, closeApp, openApp, characters = [], setActiveCharacterId, addToast,
+    apiConfig, updateApiConfig, apiPresets } = useOS();
   const openSettingsAt = (target: 'api' | 'navigation') => { requestSettingsFocus(target); openApp(AppID.Settings); };
+  // Keep the global-config and cloud-credential writes together, as Settings does.
+  const applyApi = (patch: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> | ReturnType<typeof configFromPreset>) => {
+    updateApiConfig(patch);
+    syncAmsgLlmCredentials({ ...apiConfig, ...patch });
+  };
   return enabled && !isLocked && !pickerOpen ? <DraggableNavigationBall onBack={handleBack} onHome={closeApp}
-    onApi={() => openSettingsAt('api')} characters={characters}
+    onApi={() => openSettingsAt('api')} apiConfig={apiConfig} apiPresets={apiPresets} characters={characters}
+    onSwitchPreset={preset => { applyApi(configFromPreset(preset)); addToast('已切换到「' + preset.name + '」，立即生效', 'success'); }}
+    onManualApi={patch => { applyApi(patch); addToast('API 配置已保存，立即生效', 'success'); }}
     onShortcut={shortcut => launchNavigationShortcut(shortcut, { characters, openApp, setActiveCharacterId,
       onMissingTarget: () => { addToast('这个角色已不存在，请重新设置槽位', 'error'); openSettingsAt('navigation'); } })}
     onConfigure={() => openSettingsAt('navigation')} /> : null;
