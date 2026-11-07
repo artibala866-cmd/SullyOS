@@ -90,7 +90,7 @@ async function run(){
         noHorizontalOverflow:document.documentElement.scrollWidth<=innerWidth+2,
         triggerVisible:bounds.width>50&&bounds.right<=innerWidth,
         fileFormats:input.accept,
-        dialogShown:source==='user-profile'?!!document.querySelector('[role="dialog"]'):!document.querySelector('[role="dialog"]'),
+        dialogShown:(source==='user-profile'||source==='user-profile-pdf')?!!document.querySelector('[role="dialog"]'):!document.querySelector('[role="dialog"]'),
         appendDefault:append.textContent?.trim()==='追加',
         wordAndPdfLabel:allText.includes('TXT · Word · PDF'),
         actualPdfParsed:source!=='user-profile-pdf' || (dialog.textContent||'').includes('PDF USER PROFILE TEXT'),
