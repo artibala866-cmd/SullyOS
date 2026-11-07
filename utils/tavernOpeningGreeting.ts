@@ -183,9 +183,10 @@ export const stripWrappedOpeningPayloads = (source: string): string => {
 };
 
 /**
- * Discard third-party *display widgets*, not narrative links. This is format-
- * based: new authors/domains need no special-case list. Never fetch URLs.
- * A meaningful Markdown link keeps its label; prose and XML story tags survive.
+ * Story-only import display adapter: discard unsupported external media,
+ * then remove every complete wrapped markup/bracket envelope, regardless of
+ * labels or URLs. Only *outside* prose remains. Never fetch external URLs.
+ * The original imported card and authored chat content stay untouched.
  */
 export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     let text = stripNonStoryOpeningBlocks(source);
@@ -274,10 +275,10 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
  * Presentation-only adapter for authored Tavern greeting scenes.
  * Keep the original card bytes in IndexedDB; callers use this for the Story
  * editor, the first floor and the old first-floor reader. Never run imported
- * regex/JS/CSS. Retain the prose inside ordinary HTML formatting tags.
- *
- * This deliberately does not handle Link greetings, custom stories or regular
- * user messages, and it does not reinterpret arbitrary XML narrative tags.
+ * regex/JS/CSS. Remove the contents of *all* paired XML/HTML/decorative
+ * wrappers, including apparent story prose inside HTML; keep only outside text.
+ * Link uses the same structural filter without rewriting its source card.
+ * Handwritten custom openings and ordinary user messages are never filtered.
  */
 export const tavernOpeningReadableText = (content: string): string => {
     let text = stripUnsupportedTavernOpeningEmbeds(content);
@@ -345,8 +346,8 @@ export const tavernOpeningSceneText = (content: string): string =>
     }).content;
 
 
-/** Legacy first-floor messages may predate the source label. Do not flatten
- * Link or handwritten HTML when cleaning Tavern presentation artifacts.
+/** Legacy first floors may predate the source label; clean only imported
+ * Tavern/Link openings and leave custom/user-authored messages unchanged.
  */
 export const storyOpeningReadingText = (content: string, greetingId?: string, source?: string): string =>
     source === 'custom' || /^story-custom-/.test(greetingId || '')
