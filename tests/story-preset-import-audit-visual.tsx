@@ -7,6 +7,7 @@ import { BUILTIN_NIGHT_SCREENING_PRESET, getStoryPresetPromptGroups, parseStoryT
 const q = new URLSearchParams(location.search);
 const native = q.get('variant') === 'native';
 const dialect = q.get('dialect') || '';
+const light = q.get('theme') === 'light';
 const focus = q.get('focus') || 'overview';
 const style = document.createElement('style');
 style.textContent = STORY_THEME_CSS;
@@ -105,7 +106,7 @@ const groupingSafe = Boolean(dialectCase) || groups.length >= 11
     && groups.every(group=>group.autoGrouped)
     && imported.document.prompts.filter(p=>p.enabled).length===104;
 createRoot(document.getElementById('visual')!).render(
-    React.createElement('div',{className:'story-theme story-theme-dark story-decor-plain h-full w-full'},
+    React.createElement('div',{className:`story-theme story-theme-${light ? 'light' : 'dark'} story-decor-plain h-full w-full`},
         React.createElement(StoryPresetMaker,{
             preset:native ? BUILTIN_NIGHT_SCREENING_PRESET : mappedPreset,
             onBack:()=>{},onSave:async()=>{},onOpenCopy:async()=>{},onDelete:async()=>{},
