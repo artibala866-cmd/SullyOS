@@ -69,7 +69,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         }, [actor], '小瞿');
         expect(opening?.greetingId).toBe('tavern-alt-6');
         expect(opening?.content).toContain('测试角色撑开伞');
-        expect(opening?.content).toContain('<scene role="assistant">');
+        expect(opening?.content).not.toContain('<scene role="assistant">');
         expect(opening?.content).not.toMatch(/<!--\s*(title|desc)\s*:/i);
     });
     it('keeps old saved first-message history untouched while removing only metadata from future AI context', () => {
