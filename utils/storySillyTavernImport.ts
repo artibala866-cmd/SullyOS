@@ -210,6 +210,8 @@ export const expandSillyTavernPromptText = (
     raw: string,
     variables: Map<string, string>,
     referencedVariables?: ReadonlySet<string>,
+    globalVariables: Map<string, string> = new Map(),
+    randomValue: () => number = Math.random,
 ): string => raw
     .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '')
     .replace(/(?:\r?\n)*\{\{\s*trim\s*\}\}(?:\r?\n)*/gi, '')
@@ -223,10 +225,26 @@ export const expandSillyTavernPromptText = (
             ? value.trim()
             : '';
     })
+    .replace(/\{\{\s*setglobalvar\s*::\s*([^{}:]+?)\s*::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
+        // Global values must never leak into other SullyOS stories/identities.
+        globalVariables.set(key.trim(), value);
+        return '';
+    })
     .replace(/\{\{\s*getvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '')
-    // SillyTavern's local-variable shorthand: {{.variableName}}.
+    .replace(/\{\{\s*getglobalvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) =>
+        globalVariables.get(key.trim()) || '')
     .replace(/\{\{\s*\.([\w\p{L}\p{N}-]+)\s*\}\}/gu, (original, key: string) =>
-        variables.has(key) ? variables.get(key) || '' : original);
+        variables.has(key) ? variables.get(key) || '' : original)
+    .replace(/\{\{\s*\$([\w\p{L}\p{N}-]+)\s*\}\}/gu, (original, key: string) =>
+        globalVariables.has(key) ? globalVariables.get(key) || '' : original)
+    // Random choices are safe text macros, rerolled for each generation.
+    .replace(/\{\{\s*random\s*(?:::|\s+)([^{}]+?)\s*\}\}/gi, (original, options: string) => {
+        const choices = options.includes('::') ? options.split('::') : options.split(',');
+        const usable = choices.map(value => value.trim()).filter(Boolean);
+        if (usable.length < 2) return original;
+        const index = Math.min(usable.length - 1, Math.max(0, Math.floor(randomValue() * usable.length)));
+        return usable[index];
+    });
 
 /** Resolve supported Tavern card/persona/history macros against the actual story
  * runtime. Unsupported syntax is preserved literally for editing instead of
@@ -243,6 +261,7 @@ export const expandSillyTavernContextMacros = (
         lastMessage?: string;
         lastUserMessage?: string;
         lastCharMessage?: string;
+        lastChatMessage?: string;
         input?: string;
         model?: string;
         variables?: ReadonlyMap<string, string>;
@@ -259,6 +278,7 @@ export const expandSillyTavernContextMacros = (
         lastmessage: values.lastMessage,
         lastusermessage: values.lastUserMessage,
         lastcharmessage: values.lastCharMessage,
+        lastchatmessage: values.lastChatMessage ?? values.lastCharMessage ?? values.lastMessage,
         input: values.input,
         model: values.model,
     };
@@ -319,7 +339,7 @@ export const expandSillyTavernContextMacros = (
         return result;
     };
     const resolved = raw
-        .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|input|model)\s*\}\}/gi,
+        .replace(/\{\{\s*(description|personality|persona|scenario|mesexamples|mesexamplesraw|lastmessage|lastusermessage|lastcharmessage|lastchatmessage|input|model)\s*\}\}/gi,
             (original, key: string) => aliases[key.toLowerCase()] ?? original)
         .replace(/\{\{\s*newline(?:\s*::\s*(\d+))?\s*\}\}/gi,
             (_original, count?: string) => '\n'.repeat(Math.min(20, Math.max(0, Number(count || 1)))))
