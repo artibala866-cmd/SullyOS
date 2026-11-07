@@ -95,7 +95,7 @@ jobs:
             if [ "$scenario" = "switch" ] || [ "$scenario" = "invalid-preset" ] || [ "$scenario" = "keyboard-resize" ] || [ "$scenario" = "bad-url" ]; then
               grep -q 'data-nav-scenario-result="pass"' "/tmp/navigation-$scenario.html" || {
                 echo "Interactive scenario failed: $scenario"
-                grep -o 'data-nav-[^ ]*' "/tmp/navigation-$scenario.html" | head -n 5 || true
+                grep -o 'data-nav-[^ ]*' "/tmp/navigation-$scenario.html" | head -n 10 || true
                 exit 1
               }
             fi
