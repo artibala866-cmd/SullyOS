@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
 import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
-import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
+import { storyOpeningReadingText, tavernOpeningAuthorNote } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -757,8 +757,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 independentRecall(modelText, visibleHistory.slice(-8), promptEntry),
             ]);
             const summaries = promptEntry.archives.filter(archive => archive.summary).map((archive, index) => `事件盒 ${index + 1}：${archive.summary}`).join('\n\n');
+            const firstOpening = current.find(message => message.metadata?.theaterOpeningGreeting);
+            const originalOpening = firstOpening?.metadata?.theaterOpeningGreeting;
+            const rawAuthorNote = originalOpening?.authorNote
+                || (firstOpening && originalOpening?.source !== 'link' && originalOpening?.source !== 'custom'
+                    && !/^(?:babylink-opening-|link-opening:|story-custom-)/.test(originalOpening?.greetingId || '')
+                    ? tavernOpeningAuthorNote(firstOpening.content) : '');
+            const authorNote = String(rawAuthorNote || '').slice(0, 1600);
             const scenario = [
                 `### 当前剧情\n标题：${entry.title}\n前提：${entry.premise || '沿用已经发生的正文自然继续。'}`,
+                authorNote ? `### 原开场作者备注（非剧情对白；以当前用户要求为准）\n${authorNote}` : '',
                 summaries ? `### 常驻事件盒\n${summaries}` : '',
                 vectorRecall ? buildStoryArchiveMemoryEnvelope(vectorRecall) : '',
             ].filter(Boolean).join('\n\n');
