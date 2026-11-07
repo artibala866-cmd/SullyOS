@@ -52,6 +52,10 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
         if (!window.confirm(`移除「${userProfile.name || '当前身份'}」？本机存档会保留，可在身份列表中恢复。`)) return;
         void run(deleteCurrentUserSave);
     };
+    const labels = registry.saves.map(save => {
+        const name = save.id === USER_SAVE_ID ? userProfile.name.trim() || save.name : save.name;
+        return save.restored ? `${name} · 副本` : name;
+    });
     return <div className="mt-4" aria-label="user 身份存档" aria-busy={busy}>
         <div className="relative mb-1 h-8 flex items-center justify-center">
             <label htmlFor="archive-user-name" className="text-[11px] font-bold text-slate-400 tracking-widest" aria-live="polite">{busy ? '切换中…' : '你的名字'}</label>
@@ -74,7 +78,12 @@ export default function UserSaveSection({disabled = false, onBusyChange}: {disab
             <select id="user-save-select" aria-label="切换身份" title="切换身份" disabled={busy || disabled} value={USER_SAVE_ID}
                 onChange={event => { const id=event.target.value; if(id!==USER_SAVE_ID) void run(()=>activateUserSave(id, undefined, {restore: !!registry.deletedSaves?.some(save => save.id === id)})); }}
                 className="absolute right-0 top-0 bottom-0 w-14 h-full opacity-0 cursor-pointer touch-manipulation">
-                {registry.saves.map(save => <option key={save.id} value={save.id}>{save.id === USER_SAVE_ID ? userProfile.name || save.name : save.name}</option>)}
+                {registry.saves.map((save, index) => {
+                    const label = labels[index];
+                    const number = labels.filter(value => value === label).length > 1
+                        ? ` · ${labels.slice(0, index + 1).filter(value => value === label).length}` : '';
+                    return <option key={save.id} value={save.id}>{label}{number}{save.id === USER_SAVE_ID ? ' · 当前' : ''}</option>;
+                })}
                 {!!registry.deletedSaves?.length && <optgroup label="恢复本机保留的身份">
                     {registry.deletedSaves.map(save => <option key={save.id} value={save.id}>恢复：{save.name}</option>)}
                 </optgroup>}

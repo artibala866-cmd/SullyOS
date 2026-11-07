@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { createBackupArchive } from './backupArchive';
 import { openDB } from './db';
 import { baseCharacter, beginUserSaveOperation, isSharedAsset, referencedBlobs, sharedStoreRows, SHARED_STORES } from './userSaves';
-import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY, isUserSaveIndexKey, writeUserSaves } from './userSaveScope';
+import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY, isUserSaveIndexKey, writeUserSaves, type UserSave } from './userSaveScope';
 
 const FORMAT = 'sully-user-saves';
 const MANIFEST = 'user-saves.json';
@@ -182,10 +182,10 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             if(!nativeLocalStorage)throw new Error('本地存储不可用');
             const registry=readUserSaves(), revision=nativeLocalStorage.getItem(USER_SAVES_KEY);
             if(registry.activeId!==USER_SAVE_ID)throw new Error('身份已在其他页面切换，请刷新');
-            const added: {id:string;name:string}[]=[], missingShared = new Map<string,string>();
+            const added: UserSave[]=[], missingShared = new Map<string,string>();
             for(const [index,save] of manifest.saves.entries()) {
                 onProgress(`正在恢复身份 ${index+1}/${manifest.saves.length}：${save.name}`);
-                const id=crypto.randomUUID();if(registry.saves.some(save=>save.id===id)||added.some(save=>save.id===id))throw new Error('身份编号重复，请重新导入');added.push({id,name:(save.name+' · 恢复').slice(0,100)});
+                const id=crypto.randomUUID();if(registry.saves.some(save=>save.id===id)||added.some(save=>save.id===id))throw new Error('身份编号重复，请重新导入');added.push({id,name:save.name.slice(0,100),restored:true});
                 for(const database of save.databases) {
                     const name=scopedDatabaseName(KINDS[database.kind],id);
                     const db=await new Promise<IDBDatabase>((resolve,reject)=>{

@@ -220,7 +220,7 @@ it('rejects a corrupt primary and recovery index instead of silently selecting a
 it('a per-save storage clear cannot remove either identity index', async () => {
     const scope=await import('./userSaveScope');
     const raw=JSON.stringify(scope.readUserSaves());localStorage.setItem(scope.USER_SAVES_KEY,raw);localStorage.setItem(scope.USER_SAVES_RECOVERY_KEY,raw);
-    const facade=scope.createSaveStorage(localStorage,'original');facade.setItem('draft','私有草稿');facade.clear();
+    const facade=scope.createSaveStorage(localStorage,'original');facade.setItem('draft','私有草稿');facade.setItem(scope.USER_SAVES_KEY,'伪造索引');facade.removeItem(scope.USER_SAVES_RECOVERY_KEY);facade.clear();
     expect(localStorage.getItem(scope.USER_SAVES_KEY)).toBe(raw);expect(localStorage.getItem(scope.USER_SAVES_RECOVERY_KEY)).toBe(raw);
 });
 it('a missing registered database never becomes a silently recreated empty save', async () => {

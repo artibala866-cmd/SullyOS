@@ -146,7 +146,7 @@ try{
  await page.getByRole('button',{name:'关闭',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出全部身份')&&!b.disabled));
  await Promise.all([page.waitForEvent('framenavigated'),page.locator('input[type=file][accept=".json,.zip"]').setInputFiles(file)]);await page.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');
- const copy=imported.registry.saves.find(save=>save.id!=='original');await switchTo(copy.id);const restoredCopy=await inspect();assert.equal(restoredCopy.profile.bio,'原身份的独立设定');assert.deepEqual(restoredCopy.messages,imported.messages);await switchTo('original');
+ const copy=imported.registry.saves.find(save=>save.id!=='original');await switchTo(copy.id);const restoredCopy=await inspect();assert.equal(restoredCopy.profile.bio,'原身份的独立设定');assert.deepEqual(restoredCopy.messages,imported.messages);assert.match(await page.locator('#user-save-select option:checked').textContent(),/副本 · 当前/);await switchTo('original');
  // Dismissing the current-identity replacement warning must leave the rich
  // original untouched. The independent ZIP above never uses this warning.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();

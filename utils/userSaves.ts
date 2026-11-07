@@ -207,7 +207,8 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
         const next: UserSaveRegistry = { ...registry, activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
         if (options?.restore) {
-            next.saves = [...next.saves, registry.deletedSaves!.find(save => save.id === targetId)!].map(({id,name}) => ({id,name}));
+            const {deletedAt: _removedAt, ...restored} = registry.deletedSaves!.find(save => save.id === targetId)!;
+            next.saves = [...next.saves, restored];
             next.deletedSaves = registry.deletedSaves!.filter(save => save.id !== targetId);
         }
         if (options?.deleteCurrent) {

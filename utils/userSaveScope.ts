@@ -2,7 +2,7 @@
  * write to that save, even while another tab changes the selected identity. */
 export const USER_SAVES_KEY = 'sully:user-saves:v1';
 export const DEFAULT_USER_SAVE = 'original';
-export interface UserSave { id: string; name: string }
+export interface UserSave { id: string; name: string; restored?: boolean }
 export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deletedSaves?: (UserSave & { deletedAt: number })[] }
 export const nativeLocalStorage = typeof window === 'undefined' ? undefined : window.localStorage;
 export const nativeSessionStorage = typeof window === 'undefined' ? undefined : window.sessionStorage;
@@ -115,9 +115,9 @@ export function createSaveStorage(raw: Storage, id: string, shared = true): Stor
     const api: Storage = {
         get length() { return keys().length; },
         key: index => keys()[index] ?? null,
-        getItem: key => raw.getItem(map(String(key))),
-        setItem: (key, value) => raw.setItem(map(String(key)), String(value)),
-        removeItem: key => raw.removeItem(map(String(key))),
+        getItem: key => isUserSaveIndexKey(String(key)) ? null : raw.getItem(map(String(key))),
+        setItem: (key, value) => { if (!isUserSaveIndexKey(String(key))) raw.setItem(map(String(key)), String(value)); },
+        removeItem: key => { if (!isUserSaveIndexKey(String(key))) raw.removeItem(map(String(key))); },
         clear: () => { for (const key of keys()) raw.removeItem(map(key)); },
     };
     // Support the few legacy property/enumeration callers as well as Storage methods.
