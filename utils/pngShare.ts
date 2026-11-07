@@ -47,11 +47,10 @@ function crc32(bytes: Uint8Array): number {
 export function isPng(bytes: Uint8Array): boolean {
     return SIGNATURE.every((b, i) => bytes[i] === b);
 }
-function chunks(bytes: Uint8Array): { type: string; start: number; end: number; data: Uint8Array }[] {
+function* chunks(bytes: Uint8Array): Generator<{ type: string; start: number; end: number; data: Uint8Array }> {
     if (!isPng(bytes)) throw new Error('请选择 PNG 原文件；截图或转换格式后的图片无法导入');
     if (bytes.length > MAX_PNG_BYTES) throw new Error('图片过大，请使用原格式文件导入');
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const result = [];
     let hasImage = false;
     for (let start = 8; start < bytes.length;) {
         if (start + 12 > bytes.length) throw new Error('PNG 文件不完整');
@@ -61,13 +60,11 @@ function chunks(bytes: Uint8Array): { type: string; start: number; end: number; 
         const type = String.fromCharCode(...bytes.subarray(start + 4, start + 8));
         if (!/^[A-Za-z]{2}[A-Z][A-Za-z]$/.test(type)) throw new Error('PNG 数据块无效');
         if (crc32(bytes.subarray(start + 4, end - 4)) !== view.getUint32(end - 4)) throw new Error('PNG 校验失败，文件可能已损坏，请重新获取原文件');
-        if (result.length === 0 && (type !== 'IHDR' || length !== 13)) throw new Error('PNG 图片头无效');
+        if (start === 8 && (type !== 'IHDR' || length !== 13)) throw new Error('PNG 图片头无效');
         if (type === 'IDAT') hasImage = true;
-        result.push({ type, start, end, data: bytes.subarray(start + 8, end - 4) });
-        if (type === 'IEND') {
-            if (length !== 0 || end !== bytes.length || !hasImage) throw new Error('PNG 文件结构异常');
-            return result;
-        }
+        if (type === 'IEND' && (length !== 0 || end !== bytes.length || !hasImage)) throw new Error('PNG 文件结构异常');
+        yield { type, start, end, data: bytes.subarray(start + 8, end - 4) };
+        if (type === 'IEND') return;
         start = end;
     }
     throw new Error('PNG 文件不完整');
@@ -89,7 +86,7 @@ export function safeShareFileName(name: string): string {
 export function embedShareInPng(png: Uint8Array, metadata: ShareCardMetadata, payload: Uint8Array): Uint8Array {
     validateMetadata(metadata);
     if (!payload.length || payload.length > MAX_SHARE_BYTES) throw new Error('分享内容为空或超过 64 MB，请使用原格式导出');
-    const parsed = chunks(png);
+    const parsed = Array.from(chunks(png));
     const header = encoder.encode(JSON.stringify(metadata));
     const data = new Uint8Array(MAGIC.length + 4 + header.length + payload.length);
     data.set(MAGIC);
@@ -117,10 +114,13 @@ export function embedShareInPng(png: Uint8Array, metadata: ShareCardMetadata, pa
     return output;
 }
 export function extractShareFromPng(png: Uint8Array, expectedKind?: ShareKind): { metadata: ShareCardMetadata; payload: Uint8Array } {
-    const found = chunks(png).filter(c => c.type === CHUNK);
-    if (!found.length) throw new Error('图片中没有可导入的 SullyOS·糯米机 内容。请使用导出的 PNG 原文件，不要截图或压缩');
-    if (found.length !== 1) throw new Error('分享图片含有重复数据，无法导入');
-    const data = found[0].data;
+    let data: Uint8Array | undefined;
+    for (const chunk of chunks(png)) {
+        if (chunk.type !== CHUNK) continue;
+        if (data) throw new Error('分享图片含有重复数据，无法导入');
+        data = chunk.data;
+    }
+    if (!data) throw new Error('图片中没有可导入的 SullyOS·糯米机 内容。请使用导出的 PNG 原文件，不要截图或压缩');
     if (data.length < 12 || !MAGIC.every((b, i) => data[i] === b)) throw new Error('分享图片标识无效');
     const headerLength = new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(8);
     if (headerLength > 8192 || headerLength < 2 || 12 + headerLength >= data.length) throw new Error('分享图片数据不完整');
@@ -135,11 +135,20 @@ export function extractShareFromPng(png: Uint8Array, expectedKind?: ShareKind): 
 }
 
 /** Keep original files unchanged; unwrap only PNGs, then use the existing domain importer. */
-export async function readShareFile(file: File, expectedKind: ShareKind): Promise<File> {
+export async function readShareFile(file: File, expectedKind: ShareKind, maxPayloadBytes?: number): Promise<File> {
     const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-    if (!isPng(signature) && !/\.png$/i.test(file.name) && file.type !== 'image/png') return file;
+    const checkSize = (size: number) => {
+        if (maxPayloadBytes !== undefined && size > maxPayloadBytes) {
+            throw new Error(`${SHARE_KINDS[expectedKind]}超过 ${maxPayloadBytes / (1024 * 1024)} MB`);
+        }
+    };
+    if (!isPng(signature) && !/\.png$/i.test(file.name) && file.type !== 'image/png') {
+        checkSize(file.size);
+        return file;
+    }
     if (file.size > MAX_PNG_BYTES) throw new Error('图片过大，请使用原格式文件导入');
     const { metadata, payload } = extractShareFromPng(new Uint8Array(await file.arrayBuffer()), expectedKind);
+    checkSize(payload.length);
     return new File([new Uint8Array(payload).buffer], metadata.fileName, { type: metadata.mimeType });
 }
 export async function readShareText(file: File, expectedKind: ShareKind): Promise<string> {
@@ -147,4 +156,8 @@ export async function readShareText(file: File, expectedKind: ShareKind): Promis
 }
 
 /** Distinguish a plain PNG from a share card; corrupt cards still fail validation. */
-export function pngHasShare(bytes:Uint8Array):boolean { return chunks(bytes).some(chunk=>chunk.type===CHUNK); }
+export function pngHasShare(bytes: Uint8Array): boolean {
+    let found = false;
+    for (const chunk of chunks(bytes)) if (chunk.type === CHUNK) found = true;
+    return found;
+}

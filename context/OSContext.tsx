@@ -367,6 +367,7 @@ interface OSContextType {
   characters: CharacterProfile[];
   activeCharacterId: string;
   addCharacter: () => Promise<CharacterProfile>;
+  importStoryOpeningDocuments: typeof DB.importStoryOpeningDocuments;
   updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
   /**
    * 删角色。名下有 amsg2 任务的角色会先 await 云端任务取消 + client_state 清理，
@@ -3193,6 +3194,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     await DB.saveCharacter(newChar);
     return newChar;
   };
+  const importStoryOpeningDocuments: typeof DB.importStoryOpeningDocuments = async (id, documents) => {
+    const result = await DB.importStoryOpeningDocuments(id, documents);
+    // The import already committed. A second full character save can overwrite
+    // another editor's changes or revive a character deleted during import.
+    if (result.added.length) {
+      setCharacters(prev => prev.map(char => char.id === id ? { ...char, tavernGreetings: result.greetings } : char));
+    }
+    return result;
+  };
+
   const updateCharacter = async (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
     if (typeof updates !== 'function' && Object.keys(updates).some(key => ['chatAppearance','chatFineTune','bubbleStyle','chatBackground','chromeCustomCss','chatSound','chatSoundBound','chatDecorationCssIsolated'].includes(key))) stopBeautyUsage('chat:' + id);
     setCharacters(prev => {
@@ -5476,6 +5487,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     activeCharacterId,
     addCharacter,
     updateCharacter,
+    importStoryOpeningDocuments,
     deleteCharacter,
     setActiveCharacterId,
     characterGroups,

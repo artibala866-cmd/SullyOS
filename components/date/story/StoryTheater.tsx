@@ -14,7 +14,7 @@ import {
     resolveStoryOpeningGreeting,
     storyTheaterMemoryRecipientIds,
     parseStoryTheaterPreset,
-    resolveStoryPresetImport,
+    MAX_STORY_PRESET_BYTES,
     resolveStoryTheaterMask,
     storyTheaterThreadId,
     withBuiltInStoryPresets,
@@ -30,7 +30,7 @@ import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
 import { deleteUnusedStoryMask, saveStoryWithOpening } from '../../../utils/storyTheaterPersistence';
 import { adaptTavernOpeningGreeting, tavernOpeningBodyKey } from '../../../utils/tavernOpeningGreeting';
 import { isLegacyLinkOpening, listCharacterStoryOpenings } from '../../../utils/linkStoryOpenings';
-import { planStoryOpeningDocumentImport, readStoryOpeningDocuments } from '../../../utils/storyOpeningDocumentImport';
+import { readStoryOpeningDocuments } from '../../../utils/storyOpeningDocumentImport';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -40,7 +40,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, worldbooks, userProfile, addToast, remoteVectorConfig, updateCharacter } = useOS();
+    const { characters, worldbooks, userProfile, addToast, remoteVectorConfig, updateCharacter, importStoryOpeningDocuments } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -72,13 +72,15 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const importPreset = useCallback(async (file: File): Promise<StoryTheaterPreset | null> => {
         try {
-            const source = await readShareFile(file, 'story');
-            const imported = parseStoryTheaterPreset(await source.text(), source.name);
-            // Read the committed state, not a potentially stale React closure:
-            // consecutive imports and imports after reload must behave the same.
-            const stored = await DB.getStoryTheaterPresets();
-            const result = resolveStoryPresetImport(imported, withBuiltInStoryPresets(stored));
-            if (!result.duplicate || result.upgraded) await DB.saveStoryTheaterPreset(result.preset);
+            const source = await readShareFile(file, 'story', MAX_STORY_PRESET_BYTES);
+            let text: string;
+            try {
+                text = new TextDecoder('utf-8', { fatal: true }).decode(await source.arrayBuffer());
+            } catch {
+                throw new Error('预设不是有效的 UTF-8 JSON，请重新导出原文件');
+            }
+            const imported = parseStoryTheaterPreset(text, source.name);
+            const result = await DB.importStoryTheaterPreset(imported);
             setCustomPresets(current => [result.preset, ...current.filter(item => item.id !== result.preset.id)]);
             addToast(result.upgraded
                 ? `已为「${result.preset.name}」补齐原作者分组，原预设及所有开关未改变`
@@ -99,7 +101,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             }
             return result.preset;
         } catch (error: any) {
-            addToast(error?.message || '预设导入失败', 'error');
+            addToast(`「${file.name}」导入失败：${error?.message || '无法读取剧情预设'}`, 'error');
             return null;
         }
     }, [addToast]);
@@ -210,16 +212,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         // story must not leave half the user's new opening library imported.
         const documents = await readStoryOpeningDocuments(files);
         if (!documents.length) return { added: [] as TavernOpeningGreeting[], skipped: 0 };
-        const latest = await DB.getCharacter(characterId);
-        if (!latest) throw new Error('参与角色已不存在，开场白没有导入');
-        const existing = Array.isArray(latest.tavernGreetings) ? latest.tavernGreetings : [];
-        const result = planStoryOpeningDocumentImport(existing, documents, latest.linkGreetings || []);
-        if (result.added.length) {
-            await DB.saveCharacter({ ...latest, tavernGreetings: result.greetings });
-            updateCharacter(characterId, { tavernGreetings: result.greetings });
-        }
-        return { added: result.added, skipped: result.skipped };
-    }, [updateCharacter]);
+        const { added, skipped } = await importStoryOpeningDocuments(characterId, documents);
+        return { added, skipped };
+    }, [importStoryOpeningDocuments]);
 
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);

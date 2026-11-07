@@ -1,5 +1,5 @@
 import type { TavernOpeningGreeting } from '../types';
-import { readImportedTextDocument } from './importTextDocument';
+import { readLinkPersonaDocument } from './linkImportDocuments';
 
 /** One source file is one complete opening. Never split on headings or paragraphs. */
 export interface StoryOpeningImportDocument {
@@ -19,7 +19,7 @@ const openingCollator = new Intl.Collator('zh-CN', { numeric: true, sensitivity:
 export const compareStoryOpeningNames = (a: string, b: string): number =>
     openingCollator.compare(a, b) || a.localeCompare(b, 'zh-CN');
 
-const isCustom = (item: { id: string }): boolean => item.id.startsWith('story-custom-');
+const isCustom = (item: { id: string; title: string }): boolean => typeof item?.id === 'string' && typeof item.title === 'string' && item.id.startsWith('story-custom-');
 
 /** Leave imported Tavern/Link author order alone; order only local custom openings. */
 export function sortCustomStoryOpenings<T extends { id: string; title: string }>(items: readonly T[]): T[] {
@@ -46,7 +46,7 @@ export async function readStoryOpeningDocuments(files: readonly File[]): Promise
         if (!getTitle(file.name)) throw new Error('有文件缺少可用名称，请重新命名后导入');
         let content: string;
         try {
-            content = (await readImportedTextDocument(file)).text;
+            content = await readLinkPersonaDocument(file, true);
         } catch (error) {
             const message = error instanceof Error ? error.message : '读取失败';
             throw new Error(`「${file.name}」无法导入：${message}`);
@@ -65,7 +65,7 @@ export async function readStoryOpeningDocuments(files: readonly File[]): Promise
 export function planStoryOpeningDocumentImport(
     existing: readonly TavernOpeningGreeting[],
     documents: readonly StoryOpeningImportDocument[],
-    otherSources: readonly { title?: string; content: string }[] = [],
+    otherSources: readonly { id?: string; title?: string; content: string }[] = [],
     makeId: () => string = () => `story-custom-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
 ): StoryOpeningImportPlan {
     const current = [...existing];
@@ -74,12 +74,13 @@ export function planStoryOpeningDocumentImport(
     // Existing card imports can retain CRLF whereas TXT/DOCX readers normalize
     // to LF. Treat those as the same opening, rather than quietly adding duplicates.
     const bodyKey = (value: string) => value.replace(/\r\n?/g, '\n').trim();
-    const seenBodies = new Set([...existing, ...otherSources]
+    const sources = [...existing, ...otherSources];
+    const seenBodies = new Set(sources
         .filter(row => typeof row?.content === 'string')
         .map(row => bodyKey(row.content)));
-    const seenNames = new Set([...existing, ...otherSources]
-        .map(row => (row.title || '').normalize('NFC').toLocaleLowerCase('zh-CN')));
-    const usedIds = new Set(current.map(row => row.id));
+    const seenNames = new Set(sources.filter(row => typeof row?.title === 'string')
+        .map(row => row.title!.trim().normalize('NFC').toLocaleLowerCase('zh-CN')));
+    const usedIds = new Set(sources.map(row => row?.id));
     for (const document of [...documents].sort((a,b) => compareStoryOpeningNames(a.filename,b.filename))) {
         const content = document.content.replace(/\r\n?/g, '\n').trim();
         if (!content || content.length > MAX_STORY_OPENING_LENGTH) {

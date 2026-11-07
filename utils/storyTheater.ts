@@ -20,7 +20,7 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
-import { convertSillyTavernChatPreset, detectTavernNativeControls, expandSillyTavernContextMacros, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, detectTavernNativeControls, expandSillyTavernContextMacros, expandSillyTavernPromptText, isSillyTavernChatPreset, normalizeTavernPresetOptions } from './storySillyTavernImport';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export function hasStoryTheaterParticipant(entry: StoryTheaterEntry, characters: CharacterProfile[]): boolean {
@@ -366,22 +366,35 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
     if (!value || value.schema !== 'sullyos.story-preset' || value.version !== 1 || !Array.isArray(value.prompts)) {
         throw new Error('不是受支持的糯米机剧情预设');
     }
-    const prompts: StoryTheaterPresetPrompt[] = value.prompts.map((prompt: any, index: number) => ({
-        id: String(prompt?.id || `prompt_${index + 1}`),
-        name: String(prompt?.name || `提示词 ${index + 1}`),
-        enabled: prompt?.enabled !== false,
-        role: normalizeRole(prompt?.role),
-        content: String(prompt?.content || ''),
-        ...(prompt?.section?.id && ['start', 'end'].includes(prompt.section.edge) ? {
-            section: { id: String(prompt.section.id), name: String(prompt.section.name || '自定义分组'), edge: prompt.section.edge },
-        } : {}),
-        ...(NATIVE_MARKERS.includes(prompt?.marker) ? { marker: prompt.marker } : {}),
-        ...(prompt?.injection?.position === 'chat' ? { injection: {
-            position: 'chat' as const,
-            depth: Math.round(clampNumber(prompt.injection.depth, 0, 10000, 4)),
-            order: clampNumber(prompt.injection.order, -100000, 100000, 100),
-        } } : {}),
-    }));
+    const ids = new Set<string>();
+    const prompts: StoryTheaterPresetPrompt[] = value.prompts.map((prompt: any, index: number) => {
+        if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)
+            || (prompt.id != null && !['string', 'number'].includes(typeof prompt.id))
+            || (prompt.content != null && typeof prompt.content !== 'string')
+            || (prompt.enabled != null && typeof prompt.enabled !== 'boolean')
+            || (prompt.role != null && !['system', 'user', 'assistant', 0, 1, 2].includes(prompt.role))) {
+            throw new Error(`剧情预设第 ${index + 1} 条提示词格式无效，请检查原文件`);
+        }
+        const id = String(prompt.id ?? `prompt_${index + 1}`);
+        if (!id.trim() || ids.has(id)) throw new Error(`剧情预设第 ${index + 1} 条提示词标识为空或重复`);
+        ids.add(id);
+        return {
+            id,
+            name: String(prompt?.name || `提示词 ${index + 1}`),
+            enabled: prompt?.enabled !== false,
+            role: normalizeRole(prompt?.role),
+            content: String(prompt?.content || ''),
+            ...(prompt?.section?.id && ['start', 'end'].includes(prompt.section.edge) ? {
+                section: { id: String(prompt.section.id), name: String(prompt.section.name || '自定义分组'), edge: prompt.section.edge },
+            } : {}),
+            ...(NATIVE_MARKERS.includes(prompt?.marker) ? { marker: prompt.marker } : {}),
+            ...(prompt?.injection?.position === 'chat' ? { injection: {
+                position: 'chat' as const,
+                depth: Math.round(clampNumber(prompt.injection.depth, 0, 10000, 4)),
+                order: clampNumber(prompt.injection.order, -100000, 100000, 100),
+            } } : {}),
+        };
+    });
     if (prompts.length === 0) throw new Error('预设中没有提示词条目');
     return {
         schema: 'sullyos.story-preset',
@@ -427,12 +440,7 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
                     ...(typeof group.endIdentifier === 'string' ? { endIdentifier: group.endIdentifier.slice(0, 120) } : {}),
                 })) } : {}),
         ...(value.sourceFormat === 'sillytavern' && value.tavernOptions && typeof value.tavernOptions === 'object'
-            && !Array.isArray(value.tavernOptions) ? { tavernOptions: Object.fromEntries(
-                Object.entries(value.tavernOptions)
-                    .filter(([key, option]) => key !== 'extensions' && key !== 'prompts' && key !== 'prompt_order'
-                        && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
-                        && (typeof option !== 'string' || option.length <= 65536)),
-            ) as Record<string, string | number | boolean | null> } : {}),
+            && !Array.isArray(value.tavernOptions) ? { tavernOptions: normalizeTavernPresetOptions(value.tavernOptions) } : {}),
         ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
     };
 };
@@ -656,8 +664,10 @@ export const resolveStoryPresetDocument = (
     };
 };
 
+export const MAX_STORY_PRESET_BYTES = 5 * 1024 * 1024;
+
 export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string, now: number = Date.now()): StoryTheaterPreset => {
-    if (rawText.length > 5 * 1024 * 1024) throw new Error('预设超过 5 MB，请先移除内嵌素材或脚本数据');
+    if (rawText.length > MAX_STORY_PRESET_BYTES) throw new Error('预设超过 5 MB，请先移除内嵌素材或脚本数据');
     let data: Record<string, any>;
     try { data = JSON.parse(rawText.replace(/^\uFEFF/, '')); } catch { throw new Error('不是有效的 JSON 预设'); }
     const fileBase = sourceFileName.replace(/\.(json|png)$/i, '').trim() || '导入预设';
@@ -2624,7 +2634,9 @@ export const makeStoryPresetFileName = (name: string): string => {
 export const downloadStoryPreset = async (preset: StoryTheaterPreset): Promise<'shared' | 'downloaded' | 'cancelled'> => (
     shareOrDownloadFile({
         card: { kind: 'story', title: preset.name || '剧情预设' },
-        content: JSON.stringify(preset.document, null, 2),
+        content: JSON.stringify(preset.document.tavernOptions
+            ? { ...preset.document, tavernOptions: normalizeTavernPresetOptions(preset.document.tavernOptions) }
+            : preset.document, null, 2),
         fileName: makeStoryPresetFileName(preset.name),
         mimeType: 'application/json',
         shareTitle: `剧情预设：${preset.name || '未命名'}`,

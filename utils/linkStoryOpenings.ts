@@ -57,23 +57,22 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
             const source: StoryOpeningSource = greeting.id.startsWith('story-custom-') ? 'custom' : 'tavern';
             // The library retains the complete imported card. The Story
             // selector exposes readable prose only for true Tavern greetings.
+            if (source === 'custom') {
+                add(greeting, source);
+                continue;
+            }
             const adapted = adaptTavernOpeningGreeting(greeting);
             // Author request markers may precede a real title comment. Once
             // presentation wrappers are hidden, recognize that metadata too.
-            const outside = source === 'tavern' ? tavernOpeningReadableText(adapted.content) : adapted.content;
-            const readable = source === 'tavern'
-                ? adaptTavernOpeningGreeting({ ...adapted, content: outside })
-                : adapted;
+            const readable = adaptTavernOpeningGreeting({ ...adapted, content: tavernOpeningReadableText(adapted.content) });
             // A genuine title comment can follow wrapped author preambles.
             // Preserve it as selector metadata before the presentation-only
             // filter discards all comment wrappers from the visible scene.
-            if (source === 'tavern') {
-                for (const match of adapted.content.matchAll(/<!--[ 	]*title[ 	]*[:：]([\s\S]*?)-->/gi)) {
-                    if (stripWrappedOpeningPayloads(adapted.content.slice(0, match.index!)).trim()) continue;
-                    const title = match[1].trim();
-                    if (title) readable.title = title;
-                    break;
-                }
+            for (const match of adapted.content.matchAll(/<!--[ \t]*title[ \t]*[:：]([\s\S]*?)-->/gi)) {
+                if (stripWrappedOpeningPayloads(adapted.content.slice(0, match.index!)).trim()) continue;
+                const title = match[1].trim();
+                if (title) readable.title = title;
+                break;
             }
             add(readable, source);
         }

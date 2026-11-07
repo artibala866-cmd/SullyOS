@@ -12,6 +12,9 @@ import { importedCardRemarkCorrection } from './cardImportRemark';
 import { planWorldbookImport } from './worldbookImportPlan';
 import { persistCharacterWithHomeMessages } from './homeMessageBridge';
 import {deleteLinkedSecretNotes, deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
+import { listCharacterStoryOpenings } from './linkStoryOpenings';
+import { planStoryOpeningDocumentImport, type StoryOpeningImportDocument, type StoryOpeningImportPlan } from './storyOpeningDocumentImport';
+import { resolveStoryPresetImport, withBuiltInStoryPresets } from './storyTheater';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
 
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
@@ -721,6 +724,31 @@ export const DB = {
     const cleanCharacter = { ...character };
     delete (cleanCharacter as any).proactiveConfig;
     return persistCharacterWithHomeMessages(db, cleanCharacter, clearStaleMemoryMirror);
+  },
+
+  importStoryOpeningDocuments: async (charId: string, documents: readonly StoryOpeningImportDocument[]): Promise<StoryOpeningImportPlan> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
+      const store = tx.objectStore(STORE_CHARACTERS);
+      const read = store.get(charId);
+      let result: StoryOpeningImportPlan;
+      let failure: unknown;
+      tx.oncomplete = () => resolve(result);
+      tx.onabort = () => reject(failure || tx.error || new Error('开场白导入未完成'));
+      read.onsuccess = () => {
+        try {
+          const character = read.result as CharacterProfile | undefined;
+          if (!character) throw new Error('参与角色已不存在，开场白没有导入');
+          const existing = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
+          result = planStoryOpeningDocumentImport(existing, documents, listCharacterStoryOpenings(character));
+          if (result.added.length) store.put({ ...character, tavernGreetings: result.greetings });
+        } catch (error) {
+          failure = error;
+          tx.abort();
+        }
+      };
+    });
   },
 
   /** Atomic append: read and write current character inside the same
@@ -3628,6 +3656,30 @@ export const DB = {
           request.onsuccess = () => resolve((request.result || []).sort((a: StoryTheaterPreset, b: StoryTheaterPreset) => b.updatedAt - a.updatedAt));
           request.onerror = () => reject(request.error);
       });
+  },
+
+  importStoryTheaterPreset: async (imported: StoryTheaterPreset): Promise<ReturnType<typeof resolveStoryPresetImport>> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
+      const store = tx.objectStore(STORE_STORY_THEATER_PRESETS);
+      const read = store.getAll();
+      let result: ReturnType<typeof resolveStoryPresetImport>;
+      let failure: unknown;
+      tx.oncomplete = () => resolve(result);
+      tx.onabort = () => reject(failure || tx.error || new Error('预设导入未完成'));
+      read.onsuccess = () => {
+        try {
+          const stored = (read.result as StoryTheaterPreset[]).sort((a, b) => b.updatedAt - a.updatedAt);
+          result = resolveStoryPresetImport(imported, withBuiltInStoryPresets(stored));
+          if (!result.duplicate) store.add(result.preset);
+          else if (result.upgraded) store.put(result.preset);
+        } catch (error) {
+          failure = error;
+          tx.abort();
+        }
+      };
+    });
   },
 
   saveStoryTheaterPreset: async (preset: StoryTheaterPreset): Promise<void> => {

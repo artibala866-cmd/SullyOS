@@ -305,6 +305,32 @@ describe('糯米机原生剧情预设边界', () => {
         expect(imported.document.generation.maxTokens).toBe(256);
         expect(imported.createdAt).toBe(42);
     });
+
+    it('拒绝损坏的原生提示词，避免空内容或重复 ID 悄悄进库', () => {
+        const parse = (prompts: unknown[]) => parseStoryTheaterPreset(JSON.stringify({
+            schema: 'sullyos.story-preset', version: 1, prompts,
+        }), '剧情.json');
+        expect(() => parse([null])).toThrow('第 1 条提示词格式无效');
+        expect(() => parse([{ content: { text: '正文' } }])).toThrow('格式无效');
+        expect(() => parse([{ content: '正文', enabled: 'false' }])).toThrow('格式无效');
+        expect(() => parse([{ id: 'a', content: '正文' }, { id: 'a', content: '另一条' }])).toThrow('重复');
+    });
+
+    it('酒馆有效开关按相同规则解析，生成的附加正文 ID 不与原文件冲突', () => {
+        const prompts = [
+            { identifier: 'main', role: 'system', content: '不发送', enabled: 'false' },
+            { identifier: 'chatHistory', marker: true, content: '历史旁的规则' },
+            { identifier: 'chatHistory-content', content: '独立提示词' },
+        ];
+        const parse = (payload: object) => parseStoryTheaterPreset(JSON.stringify(payload), '酒馆.json');
+        const imported = parse({ prompts, top_k: 40, openai_api_key: 'fixture', accessToken: 'fixture' });
+        expect(imported.document.prompts[0].enabled).toBe(false);
+        expect(new Set(imported.document.prompts.map(prompt => prompt.id)).size).toBe(4);
+        expect(imported.document.prompts.find(prompt => prompt.id === 'st-chatHistory-content')?.content).toBe('独立提示词');
+        expect(imported.document.tavernOptions).toEqual({ top_k: 40 });
+        expect(() => parse({ prompts, prompt_order: [{ order: [{ identifier: 'missing', enabled: 'true' }] }] }))
+            .toThrow('缺少正文定义');
+    });
 });
 
 describe('剧情预设发送器', () => {

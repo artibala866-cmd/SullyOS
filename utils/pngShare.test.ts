@@ -56,6 +56,13 @@ describe('PNG portable sharing', () => {
         expect(() => extractShareFromPng(png)).toThrow('没有可导入');
         await expect(readShareFile(file(encoder.encode('not png')), 'character')).rejects.toThrow('PNG 原文件');
     });
+    it('applies the domain limit to both direct JSON and embedded story payload', async () => {
+        const body = encoder.encode('X'.repeat(1024 * 1024 + 1));
+        await expect(readShareFile(file(body, 'story.json', 'application/json'), 'story', 1024 * 1024))
+            .rejects.toThrow('剧情预设超过 1 MB');
+        const shared = file(embedShareInPng(png, metadata('story'), body));
+        await expect(readShareFile(shared, 'story', 1024 * 1024)).rejects.toThrow('剧情预设超过 1 MB');
+    });
     it('rejects corrupted payloads, truncated data and impossible lengths', () => {
         const shared = embedShareInPng(png, metadata(), encoder.encode('actual character content'));
         const damaged = shared.slice(); damaged[damaged.length - 18] ^= 1;

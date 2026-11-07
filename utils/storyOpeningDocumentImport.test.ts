@@ -104,6 +104,35 @@ describe('开场白文件多选导入', () => {
         expect(existing[0].content).toBe(original);
     });
 
+    it('保留 Word 的自闭合空段，按扩展名读取误标 MIME 的 TXT', async () => {
+        const zip = new JSZip();
+        zip.file('word/document.xml', '<w:p><w:r><w:t>第一段</w:t></w:r></w:p><w:p/><w:p><w:r><w:t>第三段</w:t></w:r></w:p>');
+        const word = await zip.generateAsync({ type: 'arraybuffer' });
+        const files = [
+            new File(['文本'], '1.txt', { type: 'application/pdf' }),
+            new File([word], '2.docx'),
+        ];
+        expect((await readStoryOpeningDocuments(files)).map(doc => doc.content)).toEqual(['文本', '第一段\n\n第三段']);
+        await expect(readStoryOpeningDocuments([new File([word], '伪装.txt')])).rejects.toThrow('扩展名与文件内容不符');
+    });
+
+    it('连续未闭合的 Word 段落拒绝导入，不截取前面看起来正常的内容', async () => {
+        const zip = new JSZip();
+        zip.file('word/document.xml', '<w:p><w:t>正常段落</w:t></w:p>' + '<w:p>'.repeat(100_000));
+        const word = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+        await expect(readStoryOpeningDocuments([new File([word], '残缺.docx')])).rejects.toThrow('正文结构不完整');
+    });
+
+    it('实际 DOCX 解压量超限时拒绝伪造的较小声明', async () => {
+        const zip = new JSZip();
+        zip.file('word/document.xml', '<w:p><w:t>' + 'X'.repeat(8_000_100) + '</w:t></w:p>');
+        const word = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+        const view = new DataView(word);
+        const directoryOffset = view.getUint32(word.byteLength - 6, true);
+        view.setUint32(directoryOffset + 24, 64, true);
+        await expect(readStoryOpeningDocuments([new File([word], '超限.docx')])).rejects.toThrow('Word 文档正文过大');
+    });
+
     it('拒绝无效或冲突的唯一 ID，避免覆盖另一个已保存的剧情开场', () => {
         expect(() => planStoryOpeningDocumentImport([{id:'story-custom-same',title:'1',content:'旧'}],[
             {filename:'2.txt',content:'新'},

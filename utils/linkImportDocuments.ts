@@ -1,3 +1,5 @@
+import type JSZip from 'jszip';
+
 /**
  * LINK 1.1.10's AddFriend import accepts TXT/DOC/DOCX as independent persona
  * documents (not Tavern cards). No API call or interpreted script is involved.
@@ -5,6 +7,7 @@
  */
 const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const MAX_DOCUMENT_TEXT = 2_000_000;
+const MAX_WORD_XML_BYTES = MAX_DOCUMENT_TEXT * 4;
 const CFB_SIGNATURE = [0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1];
 const begins = (bytes: Uint8Array, sig: number[]) => sig.every((x,i)=>bytes[i]===x);
 
@@ -30,27 +33,69 @@ const unescapeXml = (s:string) => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|a
     const n=t.startsWith('#x')?parseInt(t.slice(2),16):parseInt(t.slice(1),10);
     return Number.isFinite(n)&&n>0&&n<=0x10ffff?String.fromCodePoint(n):all;
 });
-export const docxXmlToText = (xml:string):string => {
-    const paragraphs:string[]=[];
-    for(const match of xml.matchAll(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/gi)){
-        const parts:string[]=[];
-        const tokens=/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:(?:br|cr)\b[^>]*\/>/gi;
-        for(const token of match[0].matchAll(tokens))
-            parts.push(token[1]!==undefined?unescapeXml(token[1]):/^<w:tab/i.test(token[0])?'\t':'\n');
-        paragraphs.push(parts.join(''));
+export const docxXmlToText = (xml: string): string => {
+    const paragraphs: string[][] = [];
+    const open: Array<{ parts: string[]; textStart?: number }> = [];
+    // Tokenize boundaries once. Repeated unterminated <w:p> or <w:t> tags
+    // must not rescan the remainder of a large malformed document.
+    const tokens = /<\/(w:p|w:t)\s*>|<(w:p|w:t|w:tab|w:br|w:cr)(?=[\s/>])[^<>]*>/gi;
+    for (const token of xml.matchAll(tokens)) {
+        const end = token[1]?.toLowerCase();
+        const tag = token[2]?.toLowerCase();
+        const selfClosing = token[0].endsWith('/>');
+        if (tag === 'w:p') {
+            const parts: string[] = [];
+            paragraphs.push(parts);
+            if (!selfClosing) open.push({ parts });
+            continue;
+        }
+        const paragraph = open.at(-1);
+        if (!paragraph) continue;
+        if (end === 'w:p') {
+            if (paragraph.textStart !== undefined) throw new Error('DOCX 正文结构不完整');
+            open.pop();
+        } else if (tag === 'w:t' && !selfClosing) {
+            paragraph.textStart = token.index! + token[0].length;
+        } else if (end === 'w:t' && paragraph.textStart !== undefined) {
+            paragraph.parts.push(unescapeXml(xml.slice(paragraph.textStart, token.index)));
+            paragraph.textStart = undefined;
+        } else if (selfClosing && tag && tag !== 'w:t') {
+            paragraph.parts.push(tag === 'w:tab' ? '\t' : '\n');
+        }
     }
-    return paragraphs.join('\n').trim();
+    if (open.length) throw new Error('DOCX 正文结构不完整');
+    return paragraphs.map(parts => parts.join('')).join('\n').trim();
 };
 const readDocx = async (buffer:ArrayBuffer):Promise<string> => {
-    const JSZip=(await import('jszip')).default;
-    let archive:InstanceType<typeof JSZip>;
-    try { archive=await JSZip.loadAsync(buffer); }
+    const Zip=(await import('jszip')).default;
+    let archive:JSZip;
+    try { archive=await Zip.loadAsync(buffer); }
     catch { throw new Error('DOCX 文件损坏，无法安全解压'); }
     const file=archive.file('word/document.xml');
     if(!file) throw new Error('DOCX 中没有 Word 正文，请检查文件格式');
-    if((file as any)._data?.uncompressedSize>MAX_DOCUMENT_TEXT*4)throw new Error('Word 文档正文过大');
-    const xml=await file.async('string');
-    if(xml.length>MAX_DOCUMENT_TEXT*4) throw new Error('Word 文档正文过大');
+    // The ZIP directory's declared size can be wrong. Stop the actual
+    // decompression stream before it can accumulate an oversized document.
+    const stream = (file as typeof file & {
+        internalStream(type: 'uint8array'): JSZip.JSZipStreamHelper<Uint8Array>;
+    }).internalStream('uint8array');
+    const xml = await new Promise<string>((resolve, reject) => {
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        const parts: string[] = [];
+        let bytes = 0;
+        stream.on('data', chunk => {
+            bytes += chunk.length;
+            try {
+                if (bytes > MAX_WORD_XML_BYTES) throw new Error('Word 文档正文过大');
+                parts.push(decoder.decode(chunk, { stream: true }));
+            } catch (error) {
+                stream.pause();
+                reject(error);
+            }
+        }).on('error', reject).on('end', () => {
+            try { resolve(parts.join('') + decoder.decode()); }
+            catch (error) { reject(error); }
+        }).resume();
+    });
     return docxXmlToText(xml);
 };
 const removeHtmlFormatting=(html:string):string=>unescapeXml(html
@@ -133,12 +178,19 @@ export const isLinkPersonaDocument=(file:Pick<File,'name'|'type'>):boolean=>
  * Reads source bytes; never uses .text() alone because Chinese TXT may be GBK.
  * Old binary DOC needs a CFB parser. Avoid returning garbled garbage as persona.
  */
-export const readLinkPersonaDocument=async(file:File):Promise<string>=>{
+export const readLinkPersonaDocument=async(file:File, strictExtension = false):Promise<string>=>{
     if(file.size<=0||file.size>MAX_DOCUMENT_BYTES)throw new Error('角色文档为空或超过 25 MB');
     const bytes=new Uint8Array(await file.arrayBuffer());
     const name=file.name.toLowerCase();
     let text:string;
-    if(name.endsWith('.docx')||begins(bytes,[0x50,0x4b,0x03,0x04])){
+    const isZip = begins(bytes,[0x50,0x4b,0x03,0x04]);
+    if (strictExtension && /\.(txt|text)$/.test(name) && (isZip
+        || begins(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])
+        || begins(bytes, [0x89, 0x50, 0x4e, 0x47])
+        || begins(bytes, [0xff, 0xd8, 0xff]))) {
+        throw new Error('TXT 扩展名与文件内容不符，请另存为真正的文本文件');
+    }
+    if(name.endsWith('.docx')||isZip){
         text=await readDocx(bytes.buffer);
     }else if(begins(bytes,CFB_SIGNATURE)){
         throw new Error('旧版二进制 DOC 暂不支持直接提取，请在 Word/WPS 中另存为 DOCX 或 TXT 后导入；不会把乱码写进人设');

@@ -17,6 +17,23 @@ const MARKERS: Record<string, StoryTheaterPresetPrompt['marker']> = {
     chatHistory: 'history',
 };
 
+export function normalizeTavernPresetOptions(value: Record<string, unknown>): NonNullable<StoryTheaterPresetDocument['tavernOptions']> {
+    return Object.fromEntries(Object.entries(value).filter(([key, option]) => {
+        const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isCredential = /apikey|accesstoken|refreshtoken|authtoken|authorization|password|credential|secret/.test(normalizedKey);
+        return !['prompts', 'prompt_order', 'extensions'].includes(key) && !isCredential
+            && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
+            && (typeof option !== 'string' || option.length <= 65536);
+    })) as NonNullable<StoryTheaterPresetDocument['tavernOptions']>;
+}
+
+const promptEnabled = (value: unknown, fallback: boolean, identifier: string): boolean => {
+    if (value === undefined) return fallback;
+    if (value === true || value === 1 || value === 'true') return true;
+    if (value === false || value === 0 || value === 'false') return false;
+    throw new Error(`酒馆提示词「${identifier}」的 enabled 开关无效，请检查原文件`);
+};
+
 const numeric = (value: unknown, fallback: number, min: number, max: number): number => {
     if (value == null || value === '' || typeof value === 'boolean') return fallback;
     const n = Number(value);
@@ -209,7 +226,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     const eligibleOrderGroups = populated.length ? populated : orderGroups;
     const orderGroup = missingOrderTable
         ? { order: value.prompts.filter((prompt: any) => typeof prompt?.identifier === 'string')
-            .map((prompt: any) => ({ identifier: prompt.identifier, enabled: prompt.enabled !== false })) }
+            .map((prompt: any) => ({ identifier: prompt.identifier, enabled: prompt.enabled })) }
         : eligibleOrderGroups.find((group: any) => group.character_id === 100001)
             || eligibleOrderGroups.find((group: any) => group.character_id === 100000)
             || eligibleOrderGroups[0];
@@ -224,6 +241,9 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         if (sourceById.has(item.identifier)) {
             throw new Error(`酒馆预设的提示词标识「${item.identifier}」重复；无法安全判断排序和开关，未覆盖任何数据`);
         }
+        if (item.content != null && typeof item.content !== 'string') {
+            throw new Error(`酒馆提示词「${item.identifier}」的正文不是文本，请检查原文件`);
+        }
         sourceById.set(item.identifier, item);
     }
 
@@ -236,7 +256,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         const content = text(source.content);
         // Recognize standard SillyTavern placeholder IDs even in exports that
         // omit marker:true; only do so when the prompt has no custom text.
-        const mappedMarker = MARKERS[identifier] && (source.marker === true || !content.trim())
+        const mappedMarker = Object.prototype.hasOwnProperty.call(MARKERS, identifier) && (source.marker === true || !content.trim())
             ? MARKERS[identifier] : undefined;
         // Preserve unknown marker entries for lossless editing/export; do not execute them.
         const next: StoryTheaterPresetPrompt = {
@@ -259,8 +279,10 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
             // A non-empty marker also contains authored text. The slot must
             // remain dynamic AND its content must not disappear at runtime.
             // Preserve the authored text as an adjacent independent prompt.
+            let companionIdentifier = `${identifier}-content`;
+            while (sourceById.has(companionIdentifier)) companionIdentifier += '-content';
             prompts.push({
-                id: `st-${identifier}-content`, name: `${next.name} · 附加正文`,
+                id: `st-${companionIdentifier}`, name: `${next.name} · 附加正文`,
                 enabled: active, role: next.role, content,
             });
         }
@@ -276,15 +298,14 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         }
         seenOrderIds.add(item.identifier);
         const source = sourceById.get(item.identifier);
+        // A missing flag inherits the prompt's own setting when it exists.
+        const active = item.enabled === undefined
+            ? !!source && promptEnabled(source.enabled, true, item.identifier)
+            : promptEnabled(item.enabled, false, item.identifier);
         if (!source) {
-            if (item.enabled === true) throw new Error(`启用的提示词「${item.identifier}」缺少正文定义，为避免遗漏已取消导入`);
+            if (active) throw new Error(`启用的提示词「${item.identifier}」缺少正文定义，为避免遗漏已取消导入`);
             continue;
         }
-        // Older order tables can omit enabled: use the prompt's own explicit
-        // flag, instead of silently disabling the whole preset.
-        const active = item.enabled === undefined
-            ? source.enabled !== false
-            : item.enabled === true || item.enabled === 1 || item.enabled === 'true';
         append(item.identifier, active);
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
@@ -380,10 +401,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         // Retain safe scalar configuration fields (including unsupported sampler
         // options) so editing/exporting as a native preset does not silently erase
         // the source's configuration. Never copy extensions or execute scripts.
-        tavernOptions: Object.fromEntries(Object.entries(value)
-            .filter(([key, option]) => !['prompts', 'prompt_order', 'extensions'].includes(key)
-                && (option === null || ['string', 'number', 'boolean'].includes(typeof option))
-                && (typeof option !== 'string' || option.length <= 65536))) as Record<string, string | number | boolean | null>,
+        tavernOptions: normalizeTavernPresetOptions(value),
         importWarnings: warnings,
         generation: {
             temperature: numeric(value.temperature, 0.9, 0, 2),
