@@ -67,14 +67,18 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
             const mediaWidget = mediaLabel.test(label)
                 && (externalUrl.test(payload) || payload.includes('|') || /^spotify$/i.test(label));
             const unknownMediaWidget = urls >= 2 && payload.includes('|') && mediaFile.test(payload);
+            const inferredMediaWidget = urls > 0 && payload.includes('|')
+                && /(?:maps?|player|music|audio|video|embed|widget|image|soundtrack|photo|地图|音乐|视频|播放)/i.test(label);
+            const urlEmbeddedWidget = urls > 0 && payload.includes('|')
+                && /https?:\/\/[^\s|]+\/(?:maps|embed|player|widget)(?:[/?#]|$)/i.test(payload);
             // Ordinary story metadata is never erased just for containing
             // a colon. Only verified external-media widget shapes are dropped.
-            return mediaWidget || unknownMediaWidget ? '' : full;
+            return mediaWidget || unknownMediaWidget || inferredMediaWidget || urlEmbeddedWidget ? '' : full;
         });
 
     // Inline/fenced media is presentation code, not a playable SullyOS item.
-    text = text.replace(/<(audio|video|picture|iframe|object|embed|canvas|svg|map)\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/\1\s*>/gi, '');
-    text = text.replace(/<(?:audio|video|source|track|picture|iframe|object|embed|canvas|svg|area|param)\b(?:"[^"]*"|'[^']*'|[^'">])*\/?>/gi, '');
+    text = text.replace(/<(audio|video|picture|iframe|object|embed|canvas|svg|map|form|button|select|textarea)\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/\1\s*>/gi, '');
+    text = text.replace(/<(?:audio|video|source|track|picture|iframe|object|embed|canvas|svg|area|param|input|link|meta)\b(?:"[^"]*"|'[^']*'|[^'">])*\/?>/gi, '');
 
     // Inline images contribute no usable story text without the external
     // image renderer; ordinary hyperlinks preserve their visible label.
@@ -116,7 +120,7 @@ export const tavernOpeningReadableText = (content: string): string => {
     // Remove just HTML presentation markup. This is quote-aware so CSS
     // attributes containing > do not leave broken fragments. The text nodes
     // remain intact, including dialogue, names and macro placeholders.
-    const layoutTag = /<\/?(div|span|p|br|hr|h[1-6]|section|article|main|header|footer|aside|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|strong|b|em|i|u|small|mark|blockquote|figure|figcaption|center|font|a|pre|html|head|body|img)\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
+    const layoutTag = /<\/?(div|span|p|br|hr|h[1-6]|section|article|main|header|footer|aside|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|strong|b|em|i|u|small|mark|blockquote|figure|figcaption|center|font|a|pre|html|head|body|img|details|summary)\b(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
     const block = /^(?:div|p|br|hr|h[1-6]|section|article|main|header|footer|aside|ul|ol|li|table|thead|tbody|tfoot|tr|blockquote|figure|figcaption|pre|body|html)$/i;
     text = text.replace(layoutTag, (_whole, tag: string) => block.test(tag) ? '\n' : '');
 
