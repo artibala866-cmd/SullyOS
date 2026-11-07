@@ -57,7 +57,10 @@ export function findCardImportTarget(
         );
         const legacyLink = origin.source === 'babylink' && (
             prompt.startsWith('【角色稳定人设】\n') ||
-            mounted.some(book => (book.category || '').startsWith('BabyLink · '))
+            mounted.some(book => (book.category || '').startsWith('BabyLink · ')) ||
+            (Array.isArray(found.linkGreetings) && found.linkGreetings.length > 0) ||
+            (Array.isArray(found.tavernGreetings) &&
+                found.tavernGreetings.some(row => row && isLegacyLinkOpening(row)))
         );
         if (!legacyTavern && !legacyLink)
             throw new Error('同名角色没有可核验的旧导入来源，可能是手动创建角色；为保护原有人设与记忆，已停止自动覆盖');
