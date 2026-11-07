@@ -267,6 +267,17 @@ export function mergeCardImports(
         if ((target?.id || null) !== item.expectedTargetId) {
             throw new Error('导入期间角色列表发生变化，请重新选择角色卡，避免覆盖错误角色');
         }
+        // A document filename proves neither content authorship nor that a
+        // user-edited imported persona is safe to overwrite. New imports
+        // retain a baseline hash; legacy rows without a baseline may only
+        // establish one by reimporting unchanged content.
+        if (target && item.origin.source === 'document' &&
+            typeof item.fields.systemPrompt === 'string' &&
+            item.fields.systemPrompt !== target.systemPrompt) {
+            const baseline = target.cardImportOrigin?.personaFingerprint;
+            if (!baseline || baseline !== cardContentFingerprint(target.systemPrompt || ''))
+                throw new Error('已有文档角色的人设可能被手动修改，无法确认安全覆盖；本次未改动原有人设和聊天，请手动核对后再更新');
+        }
         const next: CharacterProfile = target ? { ...target } : { ...item.character, mountedWorldbooks: [] };
         // Previously imported Tavern/Link cards can have an auto-generated
         // persona summary in the editable Neural Link remark. A selective
@@ -354,6 +365,10 @@ export function mergeCardImports(
                 Object.prototype.hasOwnProperty.call(item.fields, 'description') &&
                 next.description === item.fields.description
                 ? next.description : target?.cardImportOrigin?.importedRemark,
+            personaFingerprint: item.origin.source === 'document' &&
+                Object.prototype.hasOwnProperty.call(item.fields, 'systemPrompt')
+                ? cardContentFingerprint(next.systemPrompt || '')
+                : target?.cardImportOrigin?.personaFingerprint,
         };
         const mounted: MountedWorldbook[] = [...(next.mountedWorldbooks || [])];
         for (const incoming of item.worldbooks) {
