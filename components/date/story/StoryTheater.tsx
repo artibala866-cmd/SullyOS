@@ -40,7 +40,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, worldbooks, userProfile, addToast, remoteVectorConfig, updateCharacter, importStoryOpeningDocuments } = useOS();
+    const { characters, worldbooks, userProfile, apiPresets, addToast, remoteVectorConfig, updateCharacter, importStoryOpeningDocuments } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -363,6 +363,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         masks={masks}
         maskLocked={maskLocked}
         presets={presets}
+        apiPresets={apiPresets}
         onCancel={() => setView(entries.some(item => item.id === activeEntry.id) ? 'session' : 'list')}
         onSave={saveEntry}
         onChangeGreeting={changeGreeting}
