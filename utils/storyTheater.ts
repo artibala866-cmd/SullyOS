@@ -1254,11 +1254,17 @@ export const buildStoryIdentityGuard = (
     const cast = characterNames.filter(Boolean).join('、') || '暂无其他角色';
     const mode = resolveStoryNarrationMode(document);
     const narrationTag = document.sourceFormat === 'sillytavern' ? '<content>' : '<story_text>';
-    const perspectiveRule = mode === 'third'
-        ? `- 当前启用第三人称有限。${narrationTag} 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
-        : mode === 'second'
-            ? `- 当前启用第二人称有限。${narrationTag} 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
-            : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
+    const perspectiveRule = document.sourceFormat === 'sillytavern'
+        ? mode === 'third'
+            ? `- 当前酒馆原预设指定第三人称。${narrationTag} 中用户侧身份是「${identity}」；保持作者原有的全知／有限、多线叙事与代写权限，不额外强制成内置“第三人称有限”。`
+            : mode === 'second'
+                ? `- 当前酒馆原预设指定用户侧第二人称。${narrationTag} 中“你／你的”指「${identity}」；其他角色的人称及叙事视角仍服从作者原文，不强制改写为内置有限视角。`
+                : '- 酒馆原预设使用作者自定义／混合视角；不得强改成内置第二或第三人称有限，只固定用户侧身份与角色的对应关系。'
+        : mode === 'third'
+            ? `- 当前启用第三人称有限。${narrationTag} 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
+            : mode === 'second'
+                ? `- 当前启用第二人称有限。${narrationTag} 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
+                : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
     return [
         '### 糯米机运行时身份与人称锚点（覆盖旧楼层的写法，不覆盖角色卡事实）',
         `- 用户侧剧情身份：${identity}。本轮参与角色：${cast}。关系协议中的 U 只指「${identity}」，C 才指名单中的各个角色。`,
