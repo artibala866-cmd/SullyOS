@@ -77,6 +77,7 @@ async function run(){
    };poll();
   });
   const file=source.startsWith('link')?await makeLinkPng():
+    source==='document'?new File(['完整人物人设。\n独立角色背景保持不拆分。'],'自定义角色人设.txt',{type:'text/plain'}):
     new File([JSON.stringify(v3)],'tavern-qa.json',{type:'application/json'});
   const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;
   input.dispatchEvent(new Event('change',{bubbles:true}));
@@ -105,22 +106,25 @@ async function run(){
       // character with no opening; the app may store it outside the export.
       omissionExplained:source!=='link'||Boolean(modal?.textContent?.includes('分享图未携带')
           &&modal?.textContent?.includes('不能据此判断')),
+      documentPersonaVisible:source!=='document'||Boolean(
+        modal?.textContent?.includes('自定义角色人设') &&
+        states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked),
       linkOpeningsRecognized:source!=='link-openings'||Boolean(
         modal?.textContent?.includes('独立开场白：2 条') &&
         modal?.textContent?.includes('车站相遇') &&
         modal?.textContent?.includes('午夜回信') &&
         modal?.textContent?.includes('开场白') &&
         modal?.textContent?.includes('2 条')),
-      allCheckedDefault:source==='link'?states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked:
+      allCheckedDefault:source==='link'||source==='document'?states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked:
           source==='link-openings'?states[0]?.checked&&!states[1]?.checked&&states[2]?.checked:
           states.every(x=>x.checked),
       amountString:(modal?.textContent||'').match(/世界书\s*13\s*条|世界书\s*0\s*条/)?.[0]||'',
       errors:observed.filter(v=>!v.startsWith('toast:')),
     };
     (document.body.dataset as any).cardImportVisualReady=String(
-      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.linkOpeningsRecognized&&layout.footerVisible&&
+      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.linkOpeningsRecognized&&layout.documentPersonaVisible&&layout.footerVisible&&
       layout.overflowX<=2&&states.every(x=>x.present)&&
-      (source==='link'?states[1].disabled&&states[2].disabled:
+      (source==='link'||source==='document'?states[1].disabled&&states[2].disabled:
         source==='link-openings'?states[1].disabled&&!states[2].disabled:states.every(x=>!x.disabled))&&
       !layout.errors.length
     );
