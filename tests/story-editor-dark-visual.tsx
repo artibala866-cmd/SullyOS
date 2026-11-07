@@ -60,7 +60,7 @@ const characters=scenario==='empty'||scenario==='customReady'||scenario==='custo
     : scenario==='styledTavern'
     ? [{...actor,tavernGreetings:[styledGreeting]}]
     : [actor];
-const globalLoreBooks=Array.from({length:12},(_,i)=>({
+const globalLoreBooks=Array.from({length:20},(_,i)=>({
     id:'global-lore-'+i,title:i===3?'十八岁平行世界':i===7?'末世地图':'世界书 '+i,
     content:'世界设定 '+i,category:i%2===0?'小说世界':'架空剧本',createdAt:1,updatedAt:1,
 }));
@@ -123,10 +123,12 @@ const validate=()=>{
     const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
     const loreSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('世界书沙盒'));
     const globalLoreOk=scenario!=='globalLore'||(
-        !!loreSection && loreSection.querySelectorAll('button[aria-label^="世界书："]').length===12
+        !!loreSection && loreSection.querySelectorAll('button[aria-label^="世界书："]').length===20
         && loreSection.querySelector('button[aria-label="世界书：十八岁平行世界"]')?.getAttribute('aria-pressed')==='true'
         && loreSection.querySelector('button[aria-label="世界书：末世地图"]')?.getAttribute('aria-pressed')==='true'
         && !!loreSection.querySelector('input[aria-label="搜索剧情世界书"]')
+        && !!loreSection.querySelector('[aria-label="剧情世界书列表"]')?.className.includes('max-h-[44vh]')
+        && loreSection.textContent?.includes('已选 2')
         && !loreSection.textContent?.includes('所选角色没有挂载世界书')
         && !loreSection.textContent?.includes('暂无可选内容')
     );
