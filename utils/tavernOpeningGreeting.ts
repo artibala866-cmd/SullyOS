@@ -86,8 +86,9 @@ export const tavernOpeningReadableText = (content: string): string => {
         };
         return table[entity.toLowerCase()] ?? entity;
     });
-    // An author request may appear *inside* a decorative HTML wrapper.
-    text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*(?:\r?\n|$)/gim, '');
+    // The request marker may be nested inline in an author's layout,
+    // including on the same line as story text after a decorative wrapper.
+    text = text.replace(/<request[ \t]*[:：][^\r\n>]{0,4096}>/gi, '');
     return text.replace(/[ \t]+\r?\n/g, '\n').replace(/\r\n/g, '\n')
         .replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 };
@@ -98,7 +99,7 @@ export const tavernOpeningReadableText = (content: string): string => {
 export const tavernOpeningAuthorNote = (content: string): string => {
     const scene = adaptTavernOpeningGreeting({ id: '', title: '', content }).content;
     const rows: string[] = [];
-    for (const match of scene.matchAll(/^[ \t]*<request[ \t]*[:：]([^\r\n>]{1,1600})>/gim)) {
+    for (const match of scene.matchAll(/<request[ \t]*[:：]([^\r\n>]{1,1600})>/gim)) {
         const note = match[1].trim();
         if (note && rows.length < 3) rows.push(note);
     }
@@ -119,6 +120,6 @@ export const tavernOpeningSceneText = (content: string): string =>
  */
 export const storyOpeningReadingText = (content: string, greetingId?: string, source?: string): string =>
     source === 'link' || source === 'custom'
-    || /^(?:babylink-opening-|link-opening:|story-custom-)/.test(greetingId || '')
+    || /^(?:babylink-opening-|link-|story-custom-)/.test(greetingId || '')
         ? String(content || '')
         : tavernOpeningSceneText(content);
