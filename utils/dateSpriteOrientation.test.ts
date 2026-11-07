@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialDateLandscapeSpriteConfig, resolveDateSpriteConfig } from './dateSpriteOrientation';
+import { dateLandscapeSpriteFit, initialDateLandscapeSpriteConfig, resolveDateSpriteConfig } from './dateSpriteOrientation';
 
 describe('Meet sprite position is independent by orientation', () => {
   it('keeps old portrait position and starts old landscape at a neutral offset', () => {
@@ -13,6 +13,12 @@ describe('Meet sprite position is independent by orientation', () => {
     const landscape = { scale: 1.6, x: -20, y: 15 };
     expect(resolveDateSpriteConfig('landscape', portrait, landscape)).toEqual(landscape);
     expect(resolveDateSpriteConfig('portrait', portrait, landscape)).toEqual(portrait);
+  });
+  it('preserves all user-adjustable landscape zoom and caps only legacy over-zoom', () => {
+    expect(dateLandscapeSpriteFit(0.5)).toBe(1);
+    expect(dateLandscapeSpriteFit(1.3)).toBe(1);
+    expect(dateLandscapeSpriteFit(2)).toBe(1);
+    expect(dateLandscapeSpriteFit(2.2)).toBeCloseTo(2 / 2.2);
   });
   it('does not mutate or lose legacy data and accepts missing configs', () => {
     expect(initialDateLandscapeSpriteConfig()).toEqual({ scale: 1, x: 0, y: 0 });
