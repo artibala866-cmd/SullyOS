@@ -40,7 +40,7 @@ const imported = parseStoryTheaterPreset(JSON.stringify({
     {character_id:100001,order:prompts.map((p,i)=>({identifier:p.identifier,enabled:i<104}))}
 ]}),'373条模拟.json',1);
 // Realistic, minimal excerpts (not the uploaded authors' full presets).
-// Test the same eight existing controls in the maker for independent exports.
+// Test each author's own source choices in the same maker layout, not copied native option labels.
 const dialectCases: Record<string, {
     temperature: number; top_p: number; frequency_penalty: number;
     presence_penalty: number; openai_max_tokens: number;
@@ -54,7 +54,7 @@ const dialectCases: Record<string, {
             { name: 'Char视角-TA&你', content: 'POV: Immersive Third-Person. (He/She & You). 用“你/您”指代<user>。' },
             { name: '随机小剧场', content: '每轮生成一段随机小剧场，保留<RandomTheater>作者格式</RandomTheater>。' },
         ],
-        labels: ['简体中文', '800–1500字', '作者混合视角'],
+        labels: ['修改语言', '修改字数', 'Char视角-TA&你', '随机小剧场'],
     },
     ako: {
         temperature: 1, top_p: .97, frequency_penalty: .32, presence_penalty: .48, openai_max_tokens: 65535,
@@ -66,7 +66,7 @@ const dialectCases: Record<string, {
             { name: '中文语言', content: '正文要求使用简体中文。' },
             { name: '正文篇幅', content: '字数要求：1500字。' },
         ],
-        labels: ['作者严肃文学文风', '第三人称', '回放扩写', '完全不代写', '简体中文', '1500字'],
+        labels: ['主文风: 严肃', '第三人称上帝视角', 'RP转述', '不抢话', '中文语言', '正文篇幅'],
     },
     mur: {
         temperature: 1, top_p: 1, frequency_penalty: 0, presence_penalty: 0, openai_max_tokens: 20000,
@@ -75,7 +75,7 @@ const dialectCases: Record<string, {
             { name: '字数要求', content: '<creation_form>Word_budget: 900~1000</creation_form>' },
             { name: '抢话 · 第三人称', content: 'Narrative must unfold from an immersive third-person perspective. Make major decisions and deliver key dialogue on behalf of the user.' },
         ],
-        labels: ['中文（简繁未指定）', '900–1000（Word_budget，按作者单位）', '第三人称', '全自动演绎'],
+        labels: ['语言', '字数要求', '抢话 · 第三人称'],
     },
     janus: {
         temperature: 1.05, top_p: .95, frequency_penalty: .4, presence_penalty: .4, openai_max_tokens: 10000,
@@ -84,7 +84,7 @@ const dialectCases: Record<string, {
             { name: '视角体系', content: '<Perspective_System><pov_user>第二人称</pov_user><pov_npc>第三人称</pov_npc></Perspective_System>' },
             { name: '字数设置', content: 'Then write a 800-1,200-word pure plot story in zh-CN, and close </content>.' },
         ],
-        labels: ['作者动态文风', '第二人称', '800–1200 words（英文计数）', '简体中文'],
+        labels: ['动态-内置文风', '视角体系', '字数设置'],
     },
 };
 const dialectCase = dialectCases[dialect];
@@ -175,11 +175,15 @@ const check = () => {
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
     const nativeAuthorMapping = dialectCase && focus === 'overview'
         ? dialectCase.labels.every(value => document.body.textContent?.includes(value))
-        : native || focus !== 'overview' || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
+        : native || focus !== 'overview' || ['抢话权限', '语言设置', '视角设置'].every(value => document.body.textContent?.includes(value));
     const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
         .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
+    const authorOnly = document.body.textContent?.includes('原作者的选项')
+        && !document.body.textContent?.includes('汽水日常')
+        && !document.body.textContent?.includes('冷峻正剧')
+        && !document.body.textContent?.includes('低烧 I');
     const success = fit && nativeAuthorMapping && (native ? !proOn && eightControls && generationControls : groupingSafe && (
-        focus === 'overview' ? !proOn && eightControls && generationControls
+        focus === 'overview' ? !proOn && authorOnly && !eightControls && generationControls
             : focus === 'slot' ? proOn && markerToggled && quickEditor : proOn && detailSelected));
     document.body.dataset.storyPresetAuditReady = String(success);
     let output = document.getElementById('story-preset-audit-report');
@@ -188,7 +192,7 @@ const check = () => {
         output.hidden = true; output.id = 'story-preset-audit-report'; document.body.append(output);
     }
     output.textContent = JSON.stringify({ native, focus, proOn, fit, groupCount: groups.length,
-        groupingSafe, eightControls, nativeAuthorMapping, generationControls, markerToggled,
+        groupingSafe, eightControls, authorOnly, nativeAuthorMapping, generationControls, markerToggled,
         quickEditor, detailSelected, stage, success });
     if (!success && stage < 5) setTimeout(check, 200);
 };
