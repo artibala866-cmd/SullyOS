@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
     applyStoryPresetChoice,
@@ -306,7 +306,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Easy controls</div>
                         <h1 className='mt-1 text-3xl font-serif font-semibold'>{tavernBrowse ? '原作者的选项' : '只调看得懂的部分'}</h1>
                         <p className='mt-3 text-[11px] leading-6 text-slate-500'>{tavernBrowse
-                            ? '每份酒馆预设按原作者的分组和选项展示。选项切换直接修改原提示词开关，不套用糯米机内置文风、篇幅或小剧场。'
+                            ? '按原作者的分组选择。按钮直接切换原始规则，不套用内置文风、篇幅或小剧场。'
                             : '角色、世界书、历史注入和底层发送结构由宝宝狗照管。这里的选择不会修改角色档案。'}</p>
                         {readOnly && <p className='mt-3 text-[10px] text-amber-700'>这是内置原版。点右上角“复制调整”后即可保存你的选择。</p>}
                     </section>
@@ -331,7 +331,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                     </span>
                                 </button>
                                 {expanded && <div className='mt-4'>
-                                    <p className='text-[10px] leading-5 text-slate-400 mb-3'>{section.description}{section.single ? ' · 原作者单选' : ' · 独立条目可分别开启'}</p>
+                                    <p className='text-[10px] leading-5 text-slate-400 mb-3'>{section.single ? '单选：切换时关闭同组其他档位' : '原作者允许的不同条目可分别开启'}</p>
                                     <div className='flex flex-wrap gap-2'>{section.options.map(option =>
                                         <div key={option.id} className='inline-flex max-w-full items-stretch gap-0.5'>
                                             <button type='button' disabled={readOnly}
@@ -346,8 +346,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                             </button>
                                             <button type='button' aria-label={`查看或编辑原作者条目：${option.name}`}
                                                 title='查看原文' onClick={() => jumpToAuthorPrompt(option.id)}
-                                                className='shrink-0 rounded-r-full border border-slate-200 bg-white px-2 text-[10px] text-violet-600'>
-                                                详情
+                                                className='shrink-0 rounded-r-full border border-slate-200 bg-white px-2.5 text-violet-500 grid place-items-center'>
+                                                <PencilSimple size={12} weight='bold' />
                                             </button>
                                         </div>,
                                     )}</div>
