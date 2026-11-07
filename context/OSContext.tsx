@@ -359,7 +359,7 @@ interface OSContextType {
   updateTheme: (updates: Partial<OSTheme>) => Promise<void>;
   virtualTime: VirtualTime;
   apiConfig: APIConfig;
-  updateApiConfig: (updates: Partial<APIConfig>) => void;
+  updateApiConfig: (updates: Partial<APIConfig>) => boolean;
   isLocked: boolean;
   unlock: () => void;
   isDataLoaded: boolean;
@@ -1498,9 +1498,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             catch (error) { console.warn('Model list load error', error); }
         }
         if (savedPresets) {
-            const normalizedPresets = normalizeApiPresets(JSON.parse(savedPresets));
-            setApiPresets(normalizedPresets);
-            localStorage.setItem('os_api_presets', JSON.stringify(normalizedPresets));
+            try {
+                const normalizedPresets = normalizeApiPresets(JSON.parse(savedPresets));
+                setApiPresets(normalizedPresets);
+                localStorage.setItem('os_api_presets', JSON.stringify(normalizedPresets));
+            } catch (error) {
+                // Keep the corrupted source for recovery, never abort OS startup.
+                console.warn('API preset load error', error);
+                setApiPresets([]);
+            }
         }
 
         // 加载实时配置
@@ -3021,7 +3027,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         addToast('主题没能保存到本地（存储空间可能已满），重启后可能会还原', 'error');
     }
   };
-  const updateApiConfig = (updates: Partial<APIConfig>) => { const newConfig = normalizeApiConfig({ ...apiConfig, ...updates }); setApiConfig(newConfig); localStorage.setItem('os_api_config', JSON.stringify(newConfig)); };
+  const updateApiConfig = (updates: Partial<APIConfig>): boolean => {
+      const newConfig = normalizeApiConfig({ ...apiConfig, ...updates });
+      try {
+          // Persist first so a failed write cannot pretend to have changed the active API.
+          localStorage.setItem('os_api_config', JSON.stringify(newConfig));
+      } catch (error) {
+          console.warn('API configuration save error', error);
+          addToast('API 保存失败：本地存储不可用，原配置未被替换', 'error');
+          return false;
+      }
+      setApiConfig(newConfig);
+      return true;
+  };
   const updateRealtimeConfig = (updates: Partial<RealtimeConfig>) => { const newConfig = { ...realtimeConfig, ...updates }; setRealtimeConfig(newConfig); localStorage.setItem('os_realtime_config', JSON.stringify(newConfig)); };
 
   // Cloud Backup functions
