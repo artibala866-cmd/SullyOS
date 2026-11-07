@@ -2,6 +2,7 @@ import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
 import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
+import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { tavernOpeningSceneText } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
@@ -204,6 +205,24 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
     })}</div>
 </div>;
 
+const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string }> = ({ source, fallback, title }) => {
+    const safe = useMemo(() => sanitizeStoryTheaterHtml(source), [source]);
+    if (!safe.hasVisibleContent) {
+        return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
+            {fallback || safe.text || '此段仅包含无法安全显示的脚本或样式，未执行任何代码'}
+        </div>;
+    }
+    return <iframe
+        title={title}
+        sandbox=''
+        referrerPolicy='no-referrer'
+        loading='lazy'
+        srcDoc={safe.srcDoc}
+        className='block w-full rounded-lg border border-violet-100 bg-white'
+        style={{ height: 'min(60vh, 520px)', minHeight: 180, maxWidth: '100%' }}
+    />;
+};
+
 export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) => void; affinityInputs: StoryAffinityInput[]; fromTavern?: boolean }> = ({ content, onChoose, affinityInputs, fromTavern = false }) => {
     const {theme} = useOS();
     const reading = meetingAppearance(theme.storyAppearance).id !== 'none';
@@ -228,8 +247,15 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
                     <CaretDown size={13} className='shrink-0 text-violet-500 transition-transform group-open:rotate-180' />
                     {block.title || (block.kind === 'thinking' ? '思考过程' : '酒馆附录')}
                 </summary>
-                <div className='pb-4 pl-5 text-[11px] leading-6 text-slate-600 whitespace-pre-wrap break-words'>{block.text}</div>
+                <div className='pb-4 pl-5 text-[11px] leading-6 text-slate-600'>
+                    {block.htmlSource
+                        ? <SafeStoryHtml source={block.htmlSource} fallback={block.text} title={block.title || '酒馆附录'} />
+                        : <div className='whitespace-pre-wrap break-words'>{block.text}</div>}
+                </div>
             </details>;
+            if (block.kind === 'html') return <section key={index} className='py-2'>
+                <SafeStoryHtml source={block.htmlSource || block.text} fallback={block.text} title={block.title || '酒馆排版'} />
+            </section>;
             if (block.kind === 'story' && reading) return null;
             if (block.kind === 'story') return <p key={index} className='font-serif text-[15px] leading-8 text-slate-800 whitespace-pre-wrap'>{block.text}</p>;
             if (block.kind === 'scene') return <section key={index} className='py-4 border-y border-slate-300'>
