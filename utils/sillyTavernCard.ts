@@ -5,7 +5,7 @@ import { isPng, pngHasShare, readShareText } from './pngShare';
 import { parseStandardWorldbook } from './worldbook';
 import { decodeBabyLinkPng, normalizeBabyLinkShare, type PreparedBabyLinkBundle } from './babyLinkCard';
 import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
-import { isLinkPersonaDocument, readLinkPersonaDocument } from './linkImportDocuments';
+import { isImportedTextDocument, readImportedTextDocument } from './importTextDocument';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 
 const MAX_JSON = 6 * 1024 * 1024;
@@ -456,9 +456,9 @@ const decodeMetadata = (encoded: string): unknown => {
 export const readCharacterCardFile = async (file: File): Promise<PreparedCardImport> => {
     if (file.size === 0 || file.size > MAX_PNG) throw new Error('角色卡文件为空或超过 32 MB');
     const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-    if (!isPng(signature) && isLinkPersonaDocument(file)) {
-        const persona = await readLinkPersonaDocument(file);
-        const name = file.name.replace(/\.(?:txt|text|doc|docx)$/i, '').trim();
+    if (!isPng(signature) && isImportedTextDocument(file)) {
+        const { text: persona } = await readImportedTextDocument(file);
+        const name = file.name.replace(/\.(?:txt|text|doc|docx|pdf)$/i, '').trim();
         if (!name || name.length > 160) throw new Error('文档文件名无法作为角色姓名，请先重命名');
         return {
             source: 'document',
