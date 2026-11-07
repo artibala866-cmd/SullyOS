@@ -28,7 +28,7 @@ describe('real IndexedDB standalone Link worldbook import transaction',()=>{
         const char={
             id:'world-import-char-'+suffix,name:'未修改的人设',systemPrompt:'不可修改的人格',
             avatar:'',mountedWorldbooks:[toMountedWorldbook(input)],memories:[{id:'memory-unchanged',content:'私人记忆'}],
-        } as CharacterProfile;
+        } as unknown as CharacterProfile;
         await DB.saveCharacter(char);
         const next=make(suffix,{id:'new-file-id-'+suffix,content:'新的剧情',disable:true,key:['新版触发'],position:4,depth:0});
         const result=await DB.importWorldbooksSmartAtomic([next]);
