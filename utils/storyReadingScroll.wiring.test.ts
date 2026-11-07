@@ -20,6 +20,7 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
         expect(sessionSource).toContain('document.fonts.ready.then');
+        expect(sessionSource).toContain('if (followLatestRef.current) {\n                const viewport = readingScrollRef.current;');
         expect(sessionSource).toContain('updateVisibleFloor');
         expect(sessionSource).toContain('if (trackReaderScroll) followLatestRef.current = nearBottom');
         expect(sessionSource).toContain("viewport.scrollTo({ top: viewport.scrollHeight, behavior });");
