@@ -58,6 +58,16 @@ function VisualFixture() {
               && rect.left >= parentRect.left - 1 && rect.right <= parentRect.right + 1
               && rect.top >= parentRect.top - 1 && rect.bottom <= parentRect.bottom + 1;
             document.documentElement.dataset.navVisualReady = visible ? 'true' : 'clipped';
+            if (scenario === 'outside-dismiss') {
+              const layer = document.querySelector<HTMLElement>('.navigation-ball-dismiss-layer');
+              layer?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+              layer?.click();
+              window.setTimeout(() => {
+                document.documentElement.dataset.navScenarioResult =
+                  !document.querySelector('.navigation-ball-panel') && !document.querySelector('output')?.textContent
+                    ? 'pass' : 'fail';
+              }, 120);
+            }
             if (scenario === 'invalid-preset') {
               const broken = document.querySelector<HTMLButtonElement>('[aria-label^="导入的旧预设"]');
               document.documentElement.dataset.navScenarioResult = broken?.disabled ? 'pass' : 'fail';
