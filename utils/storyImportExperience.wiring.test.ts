@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 const editor = readFileSync(new URL('../components/date/story/StoryTheaterEditor.tsx', import.meta.url), 'utf8');
 const session = readFileSync(new URL('../components/date/story/StoryTheaterSession.tsx', import.meta.url), 'utf8');
 const storyHome = readFileSync(new URL('../components/date/story/StoryTheater.tsx', import.meta.url), 'utf8');
+const presetMaker = readFileSync(new URL('../components/date/story/StoryPresetMaker.tsx', import.meta.url), 'utf8');
 
 describe('剧情导入的真实使用约束', () => {
     it('多文件导入只加入预设库，不擅自切换正在玩的剧情预设', () => {
@@ -21,6 +22,15 @@ describe('剧情导入的真实使用约束', () => {
         expect(storyHome).toContain('if (!files.length || presetBatchLock.current) return');
         expect(storyHome).toContain('disabled={presetBatchBusy}');
         expect(storyHome).toContain('原有剧情没有被自动改动');
+    });
+
+    it('正在被剧情引用的导入预设不能直接删除，编辑时必须提示全局连锁影响', () => {
+        expect(storyHome).toContain('const referenced = (await DB.getStoryTheaters()).filter');
+        expect(storyHome).toContain('if (referenced.length) {');
+        expect(presetMaker).toContain('usedByStoryCount > 0');
+        expect(presetMaker).toContain('会改变这些剧情之后的续写规则');
+        expect(presetMaker).toContain('复制为独立预设');
+        expect(presetMaker).toContain('确认删除');
     });
 
     it('几十份开场白能按标题和角色筛选，选中项在筛选过程中不会凭空消失', () => {
