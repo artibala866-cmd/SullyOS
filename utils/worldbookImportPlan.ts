@@ -61,6 +61,40 @@ export const planWorldbookImport = (existing:Worldbook[], incoming:Worldbook[]):
                 updated.push(next);continue;
             }
         }
+        if (key?.startsWith('document-worldbook:')) {
+            // Old TXT/Word/PDF importers generated wb-<time>-<row>-<random>
+            // IDs and sourceUid=0, but no stable source key. Only migrate
+            // that precise legacy shape when the entire record is identical.
+            // A changed old document is ambiguous: don't create a duplicate
+            // or overwrite possible local edits without a trusted snapshot.
+            const legacy = library.filter(book =>
+                !book.cardImportKey && book.sourceUid === 0 &&
+                /^wb-\d+-\d+-[a-z0-9]+$/.test(book.id) &&
+                book.title === raw.title && book.category === raw.category);
+            if (legacy.length) {
+                if (legacy.length !== 1 || canonical(legacy[0]) !== signature) {
+                    conflicts++;continue;
+                }
+                const old = legacy[0];
+                const adopted: Worldbook = {
+                    ...old,
+                    cardImportKey:key,
+                    cardImportSnapshot:importedWorldbookSnapshot(old),
+                };
+                library[library.findIndex(book => book.id === old.id)] = adopted;
+                updated.push(adopted);
+                continue;
+            }
+            // Same document title across formats or folders is not a proven
+            // identity. Report conflict, rather than silently adding another
+            // indistinguishable book or overwriting a different source.
+            if (library.some(book =>
+                book.cardImportKey?.startsWith('document-worldbook:') &&
+                book.title === raw.title && book.category === raw.category &&
+                book.content !== raw.content)) {
+                conflicts++;continue;
+            }
+        }
         // Before adding, check both name/body identity AND activation settings.
         // Skipping a config edit as if it were identical would lose important
         // enabled/trigger/depth changes.
