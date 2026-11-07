@@ -854,10 +854,11 @@ const Settings: React.FC = () => {
    * 把一份配置真正切过去。保存按钮和点预设走的是同一条路——除了写进全局配置，
    * 还要把已排程的主动消息凭据一起换掉，否则聊天换了、后台任务还拿旧 Key 打请求。
    */
-  const commitApiConfig = (patch: PresetSwitchPatch | Partial<APIConfig>) => {
-    updateApiConfig(patch);
+  const commitApiConfig = (patch: PresetSwitchPatch | Partial<APIConfig>): boolean => {
+    if (updateApiConfig(patch) === false) return false;
     // 凭据行与存量任务统一从同步队列更新，失败自动重试并留底账供下次启动补传。
     syncAmsgLlmCredentials({ ...apiConfig, ...patch });
+    return true;
   };
 
   /**
@@ -868,8 +869,8 @@ const Settings: React.FC = () => {
   const applyPreset = (preset: typeof apiPresets[0]) => {
       // 已经在用这条也照切：「使用中」只看 URL/Key/Model 三件套，温度、流式可能被手调过，
       // 再点一下的语义就是「整套回到这条预设存的样子」。
-      commitApiConfig(configFromPreset(preset));
-      addToast(`已切换到「${preset.name}」，立即生效`, 'success');
+      if (!commitApiConfig(configFromPreset(preset))) return;
+      addToast(`已切换到「${preset.name}」，下一次请求生效`, 'success');
   };
 
   const openEditPreset = (preset: typeof apiPresets[0]) => {
@@ -913,8 +914,9 @@ const Settings: React.FC = () => {
       const wasActive = activePresetId === preset.id;
       updateApiPreset(preset.id, name, nextConfig, editPresetGroup);
       // 改的正好是当前生效那条 → 生效配置跟着走，否则界面写着新 Key、请求还在用旧的
-      if (wasActive) commitApiConfig(configFromPreset({ ...preset, name, config: nextConfig }));
+      const activeUpdated = wasActive ? commitApiConfig(configFromPreset({ ...preset, name, config: nextConfig })) : false;
       setEditingPresetId(null);
+      if (wasActive && !activeUpdated) return; // save failure already shown by OSContext
       addToast(wasActive ? `「${name}」已更新，当前配置同步生效` : `「${name}」已更新`, 'success');
   };
 
@@ -988,7 +990,7 @@ const Settings: React.FC = () => {
     setLocalKey(nextConfig.apiKey);
     setLocalUrl(nextConfig.baseUrl);
     setLocalModel(nextConfig.model);
-    commitApiConfig(nextConfig);
+    if (!commitApiConfig(nextConfig)) return;
     setStatusMsg('配置已保存');
     setTimeout(() => setStatusMsg(''), 2000);
     if (sourcePreset && presetDiffersFromConfig(sourcePreset, nextConfig)) {
