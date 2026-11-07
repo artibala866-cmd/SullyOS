@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import {STORY_THEME_CSS} from '../components/date/story/StoryTheaterTheme';
-import {BUILTIN_NIGHT_SCREENING_PRESET, createStoryTheaterDraft, createBlankStoryPreset} from '../utils/storyTheater';
+import {BUILTIN_NIGHT_SCREENING_PRESET, createStoryTheaterDraft, createBlankStoryPreset, parseStoryTheaterPreset} from '../utils/storyTheater';
 import type {StoryTheaterPreset} from '../types';
 
 const css=document.createElement('style');css.textContent=STORY_THEME_CSS;document.head.append(css);
@@ -22,13 +22,14 @@ function App(){
             user={{name:'用户'} as any} masks={[]} maskLocked={false} presets={presets}
             onCancel={()=>{}} onSave={async()=>{}}
             onImportPreset={async file=>{
-                const item=createBlankStoryPreset(file.name.replace(/\\.json$/i,''),Date.now());
+                const item=parseStoryTheaterPreset(await file.text(),file.name);
                 setPresets(current=>[...current,item]);
                 return item;
             }} onEditPreset={()=>{}} onOpenMaskBox={()=>{}} />
     </div>;
 }
 createRoot(document.getElementById('visual')!).render(<App/>);
+const presetFile=(name:string)=>new File([JSON.stringify(createBlankStoryPreset(name).document)],name+'.json',{type:'application/json'});
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 const changeText=(input:HTMLInputElement,text:string)=>{
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,text);
@@ -44,15 +45,17 @@ async function run(){
     document.body.dataset.storyImportUxStage='search-mounted';
     const search=document.querySelector<HTMLInputElement>('input[aria-label="搜索已有开场白"]')!;
     changeText(search,'开场白29');
-    await waitFor(()=>[...document.querySelectorAll<HTMLSelectElement>('select[aria-label="选择已有开场"] option')].some(o=>o.textContent?.includes('开场白29')));
-    const options=[...document.querySelectorAll<HTMLOptionElement>('select[aria-label="选择已有开场"] option')];
-    const filtered=options.some(o=>o.textContent?.includes('开场白29')) && !options.some(o=>o.textContent?.includes('开场白18'));
+    const options=()=>[...document.querySelectorAll<HTMLOptionElement>('select[aria-label="选择已有开场"] option')];
+    const isFiltered=()=>options().some(o=>o.textContent?.includes('开场白29'))
+        && !options().some(o=>o.textContent?.includes('开场白18'));
+    await waitFor(isFiltered);
+    const filtered=isFiltered();
     document.body.dataset.storyImportUxStage='search-complete';
     const presetSelect=()=>document.querySelector<HTMLSelectElement>('select:not([aria-label]):has(option[value="builtin-night-screening"])');
     const initial=presetSelect()?.value||'';
     const uploader=document.querySelector<HTMLInputElement>('input[type="file"][accept*="application/json"]')!;
     const transfer=new DataTransfer();
-    for(const num of [1,2,3])transfer.items.add(new File(['{}'],'导入预设'+num+'.json',{type:'application/json'}));
+    for(const num of [1,2,3])transfer.items.add(presetFile('导入预设'+num));
     uploader.files=transfer.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
     document.body.dataset.storyImportUxStage='batch-dispatched';
     await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
@@ -62,13 +65,13 @@ async function run(){
     document.body.dataset.storyImportUxStage='batch-complete';
     const preserved=presetSelect()?.value===initial;
     const batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
-    const single=new DataTransfer();single.items.add(new File(['{}'],'单独选中.json',{type:'application/json'}));
+    const single=new DataTransfer();single.items.add(presetFile('单独选中'));
     uploader.files=single.files;uploader.dispatchEvent(new Event('change',{bubbles:true}));
     await waitFor(()=>presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中');
     document.body.dataset.storyImportUxStage='single-complete';
     const singleSelected=presetSelect()?.selectedOptions?.[0]?.textContent==='单独选中';
     const fit=document.documentElement.scrollWidth<=innerWidth;
-    const result={filtered,preserved,batchFeedback,singleSelected,fit,optionsAfterSearch:options.length};
+    const result={filtered,preserved,batchFeedback,singleSelected,fit,optionsAfterSearch:options().length};
     const node=document.createElement('output');node.id='story-import-ux-report';node.hidden=true;node.textContent=JSON.stringify(result);document.body.append(node);
     document.body.dataset.storyImportUxReady=String(Object.entries(result).filter(([k])=>k!=='optionsAfterSearch').every(([,v])=>v===true));
     const focus=new URLSearchParams(location.search).get('focus');
