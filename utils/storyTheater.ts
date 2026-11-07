@@ -18,7 +18,7 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
-import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, detectTavernNativeControls, expandSillyTavernContextMacros, expandSillyTavernPromptText, isSillyTavernChatPreset } from './storySillyTavernImport';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export function hasStoryTheaterParticipant(entry: StoryTheaterEntry, characters: CharacterProfile[]): boolean {
@@ -359,7 +359,21 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
         },
         prompts,
         assistantPrefill: String(value.assistantPrefill || ''),
-        ...(value.sourceFormat === 'sillytavern' ? { sourceFormat: 'sillytavern' as const } : {}),
+        ...(value.sourceFormat === 'sillytavern' ? {
+            sourceFormat: 'sillytavern' as const,
+            // Recalculate detection from the actual enabled text whenever a
+            // saved preset is reopened; keep deliberate user changes separate.
+            tavernControls: {
+                ...detectTavernNativeControls(prompts),
+                overrides: Object.fromEntries(
+                    Object.entries(value.tavernControls?.overrides || {})
+                        .filter(([key, choice]) => ['style', 'pov', 'retelling', 'agency', 'tension', 'theater', 'language', 'length'].includes(key)
+                            && (choice === null || choice === '' ||
+                                (typeof choice === 'string' && /^nmj-v[0-9]+[-a-z0-9]+$/.test(choice)
+                                    && nightScreeningV627.prompts.some((prompt: any) => prompt.id === choice)))),
+                ),
+            },
+        } : {}),
         ...(value.squashSystemMessages === true ? { squashSystemMessages: true } : {}),
         ...(value.sourceFormat === 'sillytavern' && value.tavernFormats && typeof value.tavernFormats === 'object'
             ? { tavernFormats: Object.fromEntries(
