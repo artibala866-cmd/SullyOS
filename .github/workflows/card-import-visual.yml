@@ -10,6 +10,9 @@ on:
       - 'utils/linkStoryOpenings.ts'
       - 'utils/linkImportIntegration.test.ts'
       - 'tests/card-import-visual.*'
+      - 'tests/link-worldbook-visual.*'
+      - 'apps/WorldbookApp.tsx'
+      - 'utils/linkWorldbookImport.ts'
       - 'scripts/card-import-visual-smoke.mjs'
       - '.github/workflows/card-import-visual.yml'
   workflow_dispatch:
