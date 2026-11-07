@@ -384,6 +384,7 @@ interface OSContextType {
   // Worldbooks
   worldbooks: Worldbook[];
   addWorldbook: (wb: Worldbook) => void;
+  importWorldbooks: (books: Worldbook[]) => Promise<{added:number;updated:number;skipped:number;conflicts:number}>;
   updateWorldbook: (id: string, updates: Partial<Worldbook>) => Promise<void>;
   deleteWorldbook: (id: string) => Promise<void>;
   updateWorldbooks: (ids: string[], updates: Partial<Worldbook>) => Promise<void>;
@@ -3399,6 +3400,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       await DB.saveWorldbook(wb);
   };
 
+  const importWorldbooks = async (books: Worldbook[]) => {
+      const result = await DB.importWorldbooksSmartAtomic(books);
+      // Only commit React state after the durable DB transaction completed.
+      setWorldbooks(result.library);
+      if (result.characters.length) {
+          const mounts = new Map(result.characters.map(char => [char.id, char.mountedWorldbooks]));
+          setCharacters(prev => prev.map(char => mounts.has(char.id)
+              ? { ...char, mountedWorldbooks: mounts.get(char.id) } : char));
+          result.characters.forEach(char => markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }));
+      }
+      return {added:result.added,updated:result.updated,skipped:result.skipped,conflicts:result.conflicts};
+  };
+
   const mutateWorldbooks = async (ids: string[], updates: Partial<Worldbook> | null) => {
       const result = await DB.mutateWorldbooks(ids, updates);
       const removed = new Set(ids);
@@ -5483,6 +5497,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     deleteCharacterGroup,
     worldbooks,
     addWorldbook,
+    importWorldbooks,
     updateWorldbook,
     deleteWorldbook,
     updateWorldbooks,
