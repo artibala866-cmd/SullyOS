@@ -236,7 +236,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             setImportGreetingFeedback({ error: true, text: '请先完成当前开场白的编辑，再导入文件' });
             return;
         }
-        const actor = actors.find(item => item.id === importTargetActor) || actors[0];
+        const actor = importTargetActor ? actors.find(item => item.id === importTargetActor) : actors[0];
+        // If the chosen cast member was removed, never silently import their
+        // files into the first remaining character.
+        if (importTargetActor && !actor) {
+            setImportGreetingFeedback({ error: true, text: '原选定的导入角色已不在当前剧情中，请重新选择归属角色；本批次没有保存。' });
+            return;
+        }
         if (!actor) {
             setImportGreetingFeedback({ error: true, text: '请先在下方选择参与角色，再导入开场白' });
             return;
