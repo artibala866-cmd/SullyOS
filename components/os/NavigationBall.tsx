@@ -185,8 +185,8 @@ export function DraggableNavigationBall({
     </button>
     {open && <div className="navigation-ball-dismiss-layer" aria-hidden="true"
       style={{ left: -posX, top: -posY, width: parentSize.width, height: parentSize.height }}
-      onPointerDown={event => { event.preventDefault(); event.stopPropagation(); close(); }}
-      onClick={event => { event.preventDefault(); event.stopPropagation(); }} />}
+      onPointerDown={event => { event.stopPropagation(); }}
+      onClick={event => { event.preventDefault(); event.stopPropagation(); close(); }} />}
     {open && <div ref={panel} className="navigation-ball-panel" role="dialog" aria-label="快捷导航"
       style={{ left: panelX - posX, top: panelY - posY, width: panelWidth, maxHeight: availableHeight }}>
       <div className="navigation-ball-panel-header">
