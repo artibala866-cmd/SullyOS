@@ -47,6 +47,10 @@ jobs:
             exit 1
           fi
           echo "Meet sprite changed-file TypeScript diagnostics clean"
+      - name: Install CJK fonts for readable real-browser screenshot review
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-microhei
       - name: Screenshot real Meet settings and session in both orientations
         shell: bash
         run: |
@@ -59,7 +63,7 @@ jobs:
           done
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$browser"
-          for sample in settingsPortrait:390x844 settingsLandscape:390x844 settingsSave:390x844 settingsLegacySave:390x844 portrait:390x844 landscape:844x390 legacyLandscape:844x390 landscape:740x360 portrait:360x740; do
+          for sample in settingsPortrait:390x844 settingsLandscape:390x844 settingsLandscapeZoom:390x844 settingsSave:390x844 settingsLegacySave:390x844 portrait:390x844 zoomPortrait:390x844 landscape:844x390 zoomLandscape:844x390 legacyLandscape:844x390 landscape:740x360 portrait:360x740; do
             scenario="${sample%:*}"
             viewport="${sample#*:}"
             width="${viewport%x*}"
@@ -80,7 +84,7 @@ jobs:
             test -s "${prefix}.png"
             grep -o 'id="date-orientation-report"[^<]*' "${prefix}.html" | tail -c 1100 || true
           done
-          for sample in settingsPortrait-390x844 settingsLandscape-390x844 settingsSave-390x844 portrait-390x844 landscape-844x390 legacyLandscape-844x390; do
+          for sample in settingsPortrait-390x844 settingsLandscape-390x844 settingsLandscapeZoom-390x844 settingsSave-390x844 portrait-390x844 zoomPortrait-390x844 landscape-844x390 zoomLandscape-844x390 legacyLandscape-844x390; do
             echo "DATE_SPRITE_SCREENSHOT_${sample}_BEGIN"
             base64 -w0 "output/date-sprite-orientation/${sample}.png"
             echo
