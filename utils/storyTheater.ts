@@ -1581,25 +1581,46 @@ export const dedupeTheaterWorldbooks = (characters: CharacterProfile[]): Mounted
 };
 
 /**
- * The story sandbox can select any entry in the global worldbook library,
- * without first mounting it on an actor. Prefer the canonical global record
- * on duplicate IDs; keep participant-only legacy mounts as a fallback.
- * Never write this list back to character mounts or the global library.
+ * Available to *this story*, independent of who participates: the canonical
+ * global library plus legacy character-only mounts from the user's library.
+ * The actual model context still uses ONLY the IDs checked by this story.
+ *
+ * A legacy ID reused for two different character-only texts is ambiguous.
+ * Suppress it rather than quietly injecting the first character's unrelated
+ * world. An actual global record always takes priority over legacy copies.
  */
 export const resolveStoryTheaterWorldbooks = (
     globalWorldbooks: readonly Worldbook[],
-    participants: readonly CharacterProfile[],
+    characters: readonly CharacterProfile[],
 ): MountedWorldbook[] => {
     const byId = new Map<string, MountedWorldbook>();
-    const add = (book: MountedWorldbook) => {
-        if (!book || typeof book.id !== 'string' || !book.id.trim() ||
-            typeof book.title !== 'string' || typeof book.content !== 'string') return;
-        if (!byId.has(book.id)) byId.set(book.id, { ...book });
-    };
-    for (const book of Array.isArray(globalWorldbooks) ? globalWorldbooks : []) add(book);
-    for (const person of participants) {
-        if (!Array.isArray(person.mountedWorldbooks)) continue;
-        for (const book of person.mountedWorldbooks) add(book);
+    const canonicalIds = new Set<string>();
+    const ambiguousLegacyIds = new Set<string>();
+    const valid = (book: MountedWorldbook | null | undefined): book is MountedWorldbook =>
+        !!book && typeof book.id === 'string' && !!book.id.trim()
+        && typeof book.title === 'string' && typeof book.content === 'string';
+    for (const book of Array.isArray(globalWorldbooks) ? globalWorldbooks : []) {
+        if (!valid(book)) continue;
+        if (!canonicalIds.has(book.id)) {
+            canonicalIds.add(book.id);
+            byId.set(book.id, { ...book });
+        }
+    }
+    for (const person of Array.isArray(characters) ? characters : []) {
+        if (!person || !Array.isArray(person.mountedWorldbooks)) continue;
+        for (const book of person.mountedWorldbooks) {
+            if (!valid(book) || canonicalIds.has(book.id) || ambiguousLegacyIds.has(book.id)) continue;
+            const previous = byId.get(book.id);
+            if (!previous) byId.set(book.id, { ...book });
+            else if (previous.content !== book.content
+                || previous.title !== book.title
+                || JSON.stringify(previous.key || []) !== JSON.stringify(book.key || [])
+                || previous.disable !== book.disable
+                || previous.constant !== book.constant) {
+                byId.delete(book.id);
+                ambiguousLegacyIds.add(book.id);
+            }
+        }
     }
     return [...byId.values()].sort((a, b) =>
         (a.category || '').localeCompare(b.category || '', 'zh-CN')
