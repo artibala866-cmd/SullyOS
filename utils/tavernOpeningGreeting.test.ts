@@ -130,6 +130,10 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(text).not.toMatch(/style|status|font:|<div|<section|```/i);
         expect(tavernOpeningReadableText('<div><request:只叫他季淮北>\n<p>故事开场</p></div>'))
             .toBe('故事开场');
+        expect(tavernOpeningReadableText('<div><p><request:不使用本体和IF称呼>车站正下着雨。</p></div>'))
+            .toBe('车站正下着雨。');
+        expect(tavernOpeningAuthorNote('<div><p><request:只称呼季淮北>后来他们相遇。</p></div>'))
+            .toBe('只称呼季淮北');
         expect(tavernOpeningReadableText('<style>.foo { color:red }</style>')).toBe('');
     });
 
