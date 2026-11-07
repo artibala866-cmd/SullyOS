@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
-import { getStoryPresetPromptGroups, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup } from './storyTheater';
+import { getStoryPresetPromptGroups, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
     id: 'st-' + name, name, role: 'system', enabled, content, ...(marker ? { marker } : {}),
@@ -73,6 +73,18 @@ describe('酒馆预设浏览分类：明确标题，而不是所有空内容', (
         const groups = getStoryPresetPromptGroups(doc);
         expect(groups).toHaveLength(1);
         expect(groups[0].promptIds).toEqual(doc.prompts.map(p=>p.id));
+    });
+    it('用户主动新建真实分组后仍可把酒馆条目移入，不会误写入虚拟分组', () => {
+        const doc = document([prompt('---语言设置---','约束'),prompt('角色规则','正文'),prompt('自定义规则','补充')]);
+        const withSection = addStoryPresetGroup(doc,'自己的分组');
+        const real = getStoryPresetPromptGroups(withSection).find(group => group.customSectionId);
+        expect(real).toBeDefined();
+        const moved = moveStoryPresetPromptToGroup(withSection,doc.prompts[1].id,real!.key);
+        expect(moved).not.toBe(withSection);
+        expect(moved.prompts.find(p => p.id === doc.prompts[1].id)?.content).toBe('正文');
+        expect(moved.prompts.filter(p => p.section?.edge === 'start')).toHaveLength(1);
+        expect(moved.prompts.map(p => p.id).sort()).toEqual(withSection.prompts.map(p => p.id).sort());
+        expect(getStoryPresetPromptGroups(moved).find(g => g.customSectionId)?.promptIds).toContain(doc.prompts[1].id);
     });
     it('原生糯米机内置分组与自定义条目规则不受酒馆分类影响', () => {
         const doc = { ...document([prompt('<==语言▣▣设置==>'),prompt('通常规则','文字')]), sourceFormat: undefined };
