@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
     buildBareTheaterActorContext,
     compileStoryPreset,
+    buildStoryIdentityGuard,
+    buildTavernNativeOverrideMessages,
     buildStoryMiniTheaterReminder,
     getActiveStoryMiniTheaterPrompt,
     parseStoryDisplayBlocks,
     parseStoryTheaterPreset,
 } from './storyTheater';
-import { convertSillyTavernChatPreset, expandSillyTavernContextMacros, expandSillyTavernPromptText, extractSillyTavernStoryContent, squashAdjacentSystemMessages } from './storySillyTavernImport';
+import { convertSillyTavernChatPreset, detectTavernNativeControls, expandSillyTavernContextMacros, expandSillyTavernPromptText, extractSillyTavernStoryContent, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
 const tavern = {
     temperature: 1.05,
@@ -687,4 +689,130 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(() => parseStoryTheaterPreset(JSON.stringify({ model: 'x', messages: [] }), 'arbitrary.json')).toThrow();
         expect(() => convertSillyTavernChatPreset({ prompts: [], prompt_order: [] }, 'empty')).toThrow();
     });
+    it('真实酒馆写法：自动识别语言、原样数字篇幅、文风与随机小剧场，不捏造不匹配的内置选择', () => {
+        const texts = [
+            { id: 'style', name: '文风设计', content: '采用电影化写实风格，强调环境、动作与人物性格中的生活质感。'.repeat(6) },
+            { id: 'cn', name: '修改语言', content: '{{setvar::主要语言::简体中文}}' },
+            { id: 'length', name: '修改字数', content: '{{setvar::正文字数::800-1500字}}' },
+            { id: 'theater', name: '随机小剧场', content: '每轮结尾生成一个随机小剧场，保留作者自己的 RandomTheater 标签。' },
+            { id: 'other', name: '其他剧情', content: '其他人物使用第三人称，在剧情选项中提供说明，不能据此推断主旁白视角。' },
+        ];
+        const imported = parseStoryTheaterPreset(JSON.stringify({
+            temperature: 1.05, top_p: 0.95, frequency_penalty: 0.4, presence_penalty: 0.3,
+            prompts: texts.map(p => ({ identifier: p.id, name: p.name, content: p.content, role: 'system' })),
+            prompt_order: [{ character_id: 100001, order: texts.map(p => ({ identifier: p.id, enabled: true })) }],
+        }), '冥王星模式测试.json');
+        const controls = imported.document.tavernControls!;
+        expect(controls.labels).toMatchObject({
+            style: '作者电影化文风',
+            language: '简体中文',
+            length: '800–1500字',
+            theater: '作者随机小剧场',
+        });
+        expect(controls.inferred.language).toBe('nmj-v3-language-cn');
+        expect(controls.inferred.theater).toBe('nmj-v3-theater-random');
+        expect(controls.inferred.length).toBeUndefined();
+        expect(controls.inferred.pov).toBeUndefined();
+        expect(imported.document.prompts).toHaveLength(texts.length);
+        expect(imported.document.generation).toMatchObject({
+            temperature: 1.05, topP: 0.95, frequencyPenalty: 0.4, presencePenalty: 0.3,
+        });
+    });
+
+    it('Janus 的 pov_user 为第二人称，但 pov_npc 是第三人称：不可错误标成第三人称', () => {
+        const controls = detectTavernNativeControls([
+            { id: 'user-pov', name: '✍️视角体系', role: 'system', enabled: true,
+                content: '<Perspective_System><pov_user>第二人称 {{//可选值：第一/二/三人称}}</pov_user><pov_npc>第三人称</pov_npc></Perspective_System>' },
+            { id: 'disabled-pov', name: '第三人称上帝视角', role: 'system', enabled: false,
+                content: '<POV>第三人称</POV>' },
+        ]);
+        expect(controls.inferred.pov).toBe('nmj-v3-pov-second');
+    });
+
+    it('真正的回放扩写、不复述、不抢话分别匹配内置规则，模糊的旁白不误推断', () => {
+        const akover = detectTavernNativeControls([
+            { id: 'rp', name: '✅RP转述', role: 'system', enabled: true,
+                content: '<转述>读取用户最新输入，从开头重新扩写整个输入场景，随后继续故事。</转述>' },
+            { id: 'agency', name: '🆖不抢话', role: 'system', enabled: true,
+                content: '不可代替用户执行重大决定，不得替用户台词。' },
+        ]);
+        expect(akover.inferred.retelling).toBe('nmj-v62-retelling-replay');
+        expect(akover.inferred.agency).toBe('nmj-v63-user-agency-locked');
+        const direct = detectTavernNativeControls([{ id: 'direct', name: '不复述', role: 'system',
+            enabled: true, content: '用户写的内容已经发生，直接接戏，禁止重述。' }]);
+        expect(direct.inferred.retelling).toBe('nmj-v62-retelling-direct');
+        const irrelevant = detectTavernNativeControls([{ id: 'npc', name: '情报传递', role: 'system',
+            enabled: true, content: '角色可以把秘密转述给其他 NPC，但不得让旁观者自动知情。' }]);
+        expect(irrelevant.inferred.retelling).toBeUndefined();
+    });
+
+    it('篇幅 1421–2023 与 1500字正确识别，禁用作者选项不影响识别结果', () => {
+        const asPrompt = (name: string, content: string, enabled = true) => ({
+            id: name, name, content, role: 'system' as const, enabled,
+        });
+        const medium = detectTavernNativeControls([
+            asPrompt('正文篇幅', '<rule>正文字数必须在1421到2023字之间。</rule>'),
+            asPrompt('长篇幅（关闭）', '正文字数必须在3000到4000字之间。', false),
+        ]);
+        expect(medium.inferred.length).toBe('nmj-v3-length-medium');
+        expect(medium.labels.length).toBe('1421–2023字');
+        const exact = detectTavernNativeControls([
+            asPrompt('中文字数前置', '<content>正文要求用简体中文。字数要求：1500字。</content>'),
+        ]);
+        expect(exact.inferred.length).toBe('nmj-v3-length-medium');
+        expect(exact.inferred.language).toBe('nmj-v3-language-cn');
+    });
+
+    it('导入后能直接使用；只有显式改动才添加内置规则，保存重进不丢失且不覆盖原文', () => {
+        const raw = JSON.stringify({
+            prompts: [
+                { identifier: 'pov', role: 'system', name: '第三人称上帝视角', content: '<POV>正文使用第三人称。</POV>' },
+                { identifier: 'writer', role: 'user', name: '写作约束', content: '忠于作者专有故事设定。' },
+            ],
+            prompt_order: [{ character_id: 100001, order: [
+                { identifier: 'pov', enabled: true }, { identifier: 'writer', enabled: true },
+            ] }],
+        });
+        const imported = parseStoryTheaterPreset(raw, '多类作者预设.json');
+        expect(imported.document.tavernControls?.inferred.pov).toBe('nmj-v3-pov-third');
+        expect(buildStoryIdentityGuard(imported.document, '小雨', ['小蓝'])).toContain('第三人称');
+        expect(buildTavernNativeOverrideMessages(imported.document, '小雨', ['小蓝'])).toEqual([]);
+        const edited = { ...imported.document, tavernControls: {
+            ...imported.document.tavernControls!, overrides: {
+                pov: 'nmj-v3-pov-second', agency: 'nmj-v63-user-agency-locked',
+                language: 'nmj-v3-language-tw', length: 'nmj-v3-length-short',
+                theater: '',
+            },
+        } };
+        const reopened = parseStoryTheaterPreset(JSON.stringify(edited), '保存重进.json');
+        expect(reopened.document.tavernControls?.overrides).toEqual(edited.tavernControls.overrides);
+        expect(reopened.document.prompts.map(p => p.content)).toEqual(imported.document.prompts.map(p => p.content));
+        const extra = buildTavernNativeOverrideMessages(reopened.document, '小雨', ['小蓝']);
+        expect(extra).toHaveLength(5);
+        expect(extra.map(p => p.content).join('\n')).toContain('不生成小剧场');
+        expect(extra.map(p => p.content).join('\n')).toContain('完全不代写');
+        expect(buildStoryIdentityGuard(reopened.document, '小雨', ['小蓝'])).toContain('第二人称');
+        const computed = compileStoryPreset({ preset: reopened,
+            slots: { actors: '角色', persona: '小雨', scenario: '剧情', worldBefore: '', worldAfter: '' },
+            userName: '小雨', characterNames: ['小蓝'] });
+        expect(computed.nativeOverrideMessages).toEqual(extra);
+        expect(computed.messages.some(p => p.role === 'user' && p.content === '忠于作者专有故事设定。')).toBe(true);
+    });
+
+    it('恶意或错误分类的内置控制 ID 不会注入其他规则，原生预设不受该字段影响', () => {
+        const doc = parseStoryTheaterPreset(JSON.stringify({
+            prompts: [{ identifier: 'author', role: 'system', content: '原始角色规则' }],
+            prompt_order: [{ character_id: 100001, order: [{ identifier: 'author', enabled: true }] }],
+        }), '类别安全.json');
+        doc.document.tavernControls!.overrides = {
+            pov: 'nmj-v3-theater-random',
+            style: 'nmj-v3-pov-third',
+            theater: '',
+        };
+        const reopened = parseStoryTheaterPreset(JSON.stringify(doc.document), '安全读回.json');
+        expect(reopened.document.tavernControls?.overrides).toEqual({ theater: '' });
+        expect(buildTavernNativeOverrideMessages(reopened.document, 'user', ['char'])).toHaveLength(1);
+    });
+
+
 });
