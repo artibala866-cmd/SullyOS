@@ -253,11 +253,10 @@ export function normalizeBabyLinkShare(raw: unknown): PreparedBabyLinkBundle {
             nickname && nickname !== name ? '【角色昵称】\n' + nickname : '',
             signature ? '【角色签名】\n' + signature : '',
         ].filter(Boolean).join('\n\n');
-        const summary = [nickname && nickname !== name ? '昵称：' + nickname : '',
-            signature ? '签名：' + signature : '', persona ? persona.split('\n').find(Boolean)?.slice(0, 140) : '']
-            .filter(Boolean).join(' · ').slice(0, 260);
         const character: PreparedCharacterCard['character'] = {
-            name, avatar, description: summary, systemPrompt: prompt, worldview: '',
+            // Neural Link remark is only Link's nickname. Signature and the
+            // complete persona stay in systemPrompt, never in the remark.
+            name, avatar, description: nickname, systemPrompt: prompt, worldview: '',
             linkGreetings,
         };
         return { source: 'babylink-character', character, worldbooks: books, avatarFile: null, imageProfile, warnings: [],
