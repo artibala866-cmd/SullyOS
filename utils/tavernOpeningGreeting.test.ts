@@ -288,4 +288,20 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(tavernOpeningReadableText(malformed)).not.toContain('spotify:');
     });
 
+    it('keeps Link scenes in their native HTML format while hiding only unsupported media; source stays untouched', () => {
+        const spotify = '[spotify: 初雪 | https://static.example/cover.gif | https://static.example/song.mp3]';
+        const original = '<div class="native-link"><p>夜里，她在旧桥等他。</p></div>\n' + spotify;
+        const raw = {id:'babylink-opening-source-15',title:'Link 初雪',content:original};
+        const actor = {id:'link-actor',name:'季淮北',linkGreetings:[raw]} as CharacterProfile;
+        const [selected] = listCharacterStoryOpenings(actor);
+        expect(selected.source).toBe('link');
+        expect(selected.content).toContain('<div class="native-link"><p>夜里，她在旧桥等他。</p></div>');
+        expect(selected.content).not.toContain('spotify:');
+        expect(raw.content).toBe(original);
+        expect(storyOpeningReadingText(original, raw.id, 'link')).not.toContain('song.mp3');
+        expect(storyOpeningReadingText(original, raw.id, 'link')).toContain('<div class="native-link">');
+        expect(storyOpeningReadingText(original, 'story-custom-2', 'custom')).toBe(original);
+        expect(listCharacterStoryOpenings({linkGreetings:[{...raw,content:spotify}]} as CharacterProfile)).toEqual([]);
+    });
+
 });
