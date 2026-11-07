@@ -189,28 +189,24 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(story).toContain(raw);
     });
 
-    it('filters music/map widget variants inside a story without deleting ordinary plot titles, lyrics, links or user-written greetings', () => {
-        const url = 'https://cdn.example.net/one.mp3';
-        const widget = '【背景音乐|初雪|[' + url + '|】](' + url + '|】)';
-        const source = '开场。' + widget + '剧情继续。\n'
-            + '【音乐|这是故事中的描述】\n'
-            + '他留下线索【旧地图|藏在床下】。\n'
-            + '他说要听 Novocaine，这句话是剧情。\n'
-            + '这条 https://example.org/diary 是日记线索。';
-        const visible = tavernOpeningReadableText(source);
-        expect(visible).toContain('开场。剧情继续。');
-        expect(visible).toContain('【音乐|这是故事中的描述】');
-        expect(visible).toContain('【旧地图|藏在床下】');
-        expect(visible).toContain('他说要听 Novocaine，这句话是剧情。');
-        expect(visible).toContain('https://example.org/diary');
-        expect(visible).not.toContain('cdn.example.net/one.mp3');
-        const first = {id: 'tavern-alt-42', title:'钢琴夜', content: source};
-        const character = {id:'actor',name:'季淮北',tavernGreetings:[first]} as CharacterProfile;
-        expect(listCharacterStoryOpenings(character)[0].content).toBe(visible);
-        expect(character.tavernGreetings?.[0].content).toBe(source);
-        expect(storyOpeningReadingText(source,'tavern-alt-42','tavern')).toBe(visible);
-        expect(storyOpeningReadingText(source,'link-story-1','link')).not.toContain(url);
-        expect(storyOpeningReadingText(source,'story-custom-1','custom')).toBe(source);
+    it('removes decorated status brackets whatever their contents, not merely Spotify labels', () => {
+        const url='https://cdn.example.net/one.mp3';
+        const widget='【背景音乐|初雪|['+url+'|】]('+url+'|】)';
+        const raw='开场。'+widget+'剧情继续。\n'
+            +'【音乐|这是故事中的描述】\n'
+            +'他留下线索【旧地图|藏在床下】。\n'
+            +'他说要听 Novocaine，这句话在包裹外。\n'
+            +'这条 https://example.org/diary 是普通正文。';
+        const cleaned=tavernOpeningReadableText(raw);
+        expect(cleaned).toContain('开场。剧情继续。');
+        expect(cleaned).toContain('他留下线索。');
+        expect(cleaned).toContain('他说要听 Novocaine，这句话在包裹外。');
+        expect(cleaned).not.toContain('【旧地图');
+        const card={id:'tavern-alt-42',title:'钢琴夜',content:raw};
+        const char={id:'actor',name:'季淮北',tavernGreetings:[card]} as CharacterProfile;
+        expect(listCharacterStoryOpenings(char)[0].content).toBe(cleaned);
+        expect(card.content).toBe(raw);
+        expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
     });
 
     it('cleans the Chinese player shortcode from older stored opening messages only, leaving user dialogue untouched', () => {
@@ -248,98 +244,67 @@ describe('SillyTavern opening metadata compatibility', () => {
         expect(tavernOpeningReadableText(visible)).toBe(visible);
     });
 
-    it('handles multiline third-party embeds, generic widget labels and audio or map decorations', () => {
-        const raw = [
-            '[soundtrack: 主题曲 |',
-            '  https://any-cdn.example/pic.gif |',
-            '  https://any-cdn.example/sound.m4a]',
-            '[地图显示: 城北水库 | https://any-cdn.example/maps/route/123]',
-            '[time-machine-widget: state | https://any-cdn.example/card.webp | https://any-cdn.example/player.mp3]',
-            '[spotify: 独立播放器]',
-            '这里才是{{char}}真正说的话。',
-        ].join('\n');
-        const visible = tavernOpeningReadableText(raw);
-        expect(visible).toBe('这里才是{{char}}真正说的话。');
+    it('removes all nested HTML layout content even when the text itself is readable', () => {
+        expect(tavernOpeningReadableText('<div><form><button>播放音乐</button></form><p>被包裹的正文。</p></div>'))
+            .toBe('');
         expect(tavernOpeningReadableText(
-            '[googlemaps: 地图 | https://example.org/maps/place/old-town]\n'
-            + '[custom-external: link | https://example.org/embed/scene]\n正文',
-        )).toBe('正文');
-        expect(tavernOpeningReadableText(
-            '<div><form><button>打开播放器</button><input value="播放" /></form>'
-            + '<details><summary>角色正在等待</summary><p>旧站台。</p></details></div>',
-        )).toContain('旧站台。');
-        expect(tavernOpeningReadableText(
-            '<div><form><button>播放音乐</button></form><p>这里是剧情。</p></div>',
-        )).toBe('这里是剧情。');
+            '<details><summary>角色等待</summary><p>包裹里的站台。</p></details>\n只有外面的正文。',
+        )).toBe('只有外面的正文。');
     });
 
-    it('keeps narrative addresses, written location hints, dialogue, user links and story XML instead of globally deleting URLs', () => {
-        const raw = [
+    it('removes wrapped labels and Markdown links while retaining ordinary free-text URLs', () => {
+        const raw=[
             '[线索: 旧站台的钥匙还在口袋里]',
             '[地图: 城北旧站台]',
             '[music: 角色正在哼一首歌]',
-            '她给他留下了一个网址 https://example.org/diary/scene-1 ，作为线索。',
+            '她留下了一个网址 https://example.org/diary/scene-1 ，作为线索。',
             '[旧车站](https://example.org/location/old-station)',
-            '<scene role="assistant">请看这张地图上的旧城。</scene>',
+            '<scene role="assistant">包裹里的对白。</scene>',
         ].join('\n');
-        const visible = tavernOpeningReadableText(raw);
-        expect(visible).toContain('[线索: 旧站台的钥匙还在口袋里]');
-        expect(visible).toContain('[地图: 城北旧站台]');
-        expect(visible).toContain('[music: 角色正在哼一首歌]');
-        expect(visible).toContain('她给他留下了一个网址 https://example.org/diary/scene-1 ，作为线索。');
-        expect(visible).toContain('旧车站');
-        expect(visible).not.toContain('https://example.org/location/old-station');
-        expect(visible).toContain('<scene role="assistant">');
+        expect(tavernOpeningReadableText(raw)).toBe(
+            '她留下了一个网址 https://example.org/diary/scene-1 ，作为线索。',
+        );
+        expect(storyOpeningReadingText(raw,'story-custom-11','custom')).toBe(raw);
     });
 
-    it('does not mutate stored Tavern cards or Link/custom openings and cleans existing marked first floors', () => {
-        const spotify = '[spotify: 初雪 | https://another-cdn.example/cover.png | https://another-cdn.example/song.mp3]';
-        const raw = '<!-- title:回到十八岁 -->\n' + spotify + '\n<p>{{char}}在走廊等{{user}}。</p>';
-        const sourceCard = { id:'tavern-alt-99',title:'备选开场 99',content:raw };
-        const actor = {id:'actor',name:'十八岁季淮北',tavernGreetings:[sourceCard]} as CharacterProfile;
-        const item = listCharacterStoryOpenings(actor)[0];
+    it('leaves source bytes and real title intact while removing wrapped parts in new and old stories', () => {
+        const spotify='[spotify: 初雪 | https://another-cdn.example/cover.png | https://another-cdn.example/song.mp3]';
+        const raw='<!-- title:回到十八岁 -->\n'+spotify
+            +'\n<p>被 HTML 包装的情节。</p>\n{{char}}在走廊等{{user}}。';
+        const card={id:'tavern-alt-99',title:'备用开场 99',content:raw};
+        const char={id:'actor',name:'十八岁季淮北',tavernGreetings:[card]} as CharacterProfile;
+        const item=listCharacterStoryOpenings(char)[0];
         expect(item.title).toBe('回到十八岁');
         expect(item.content).toBe('{{char}}在走廊等{{user}}。');
-        expect(sourceCard.content).toBe(raw);
-        expect(resolveStoryOpeningGreeting({characterIds:['actor'],
-            openingGreeting:{characterId:'actor',greetingId:'tavern-alt-99'}},[actor],'玩家')?.content)
-            .toBe('十八岁季淮北在走廊等玩家。');
-        const oldOpening = {id:11,charId:'story-theater:test',role:'assistant',content:raw,type:'text',timestamp:1,
-            metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:'tavern-alt-99'}}};
-        expect(buildStoryHistory([oldOpening as any])[0].content).toBe('{{char}}在走廊等{{user}}。');
-        expect(oldOpening.content).toBe(raw);
-        const readableLinkHistory = storyOpeningReadingText(raw,'link-opening:existing','link');
-        expect(readableLinkHistory).not.toContain('spotify:');
-        expect(readableLinkHistory).toContain('<p>{{char}}在走廊等{{user}}。</p>');
-        expect(storyOpeningReadingText(raw,'story-custom-1','custom')).toBe(raw);
-        expect(stripUnsupportedTavernOpeningEmbeds(raw)).toContain('<!-- title:回到十八岁 -->');
-        const preface = '[spotify: 午夜 | https://cdn.example/cover.gif | https://cdn.example/music.mp3]\n'
-            + '<!-- title:下雪那天 -->\n<p>他从走廊跑来。</p>';
-        const refreshed = listCharacterStoryOpenings({id:'actor', name:'季淮北',
-            tavernGreetings:[{id:'tavern-alt-2',title:'备选开场 2',content:preface}],
-        } as CharacterProfile)[0];
-        expect(refreshed.title).toBe('下雪那天');
-        expect(refreshed.content).toBe('他从走廊跑来。');
-        const malformed = '[线索: 书架第三层\n'
-            + '[spotify: 初雪 | https://cdn.example/card.gif | https://cdn.example/song.mp3]\n正文';
-        expect(tavernOpeningReadableText(malformed)).toContain('[线索: 书架第三层');
-        expect(tavernOpeningReadableText(malformed)).not.toContain('spotify:');
+        expect(card.content).toBe(raw);
+        expect(resolveStoryOpeningGreeting({
+            characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:card.id},
+        },[char],'玩家')?.content).toBe('十八岁季淮北在走廊等玩家。');
+        const old={id:11,charId:'story-theater:test',role:'assistant',type:'text',timestamp:1,content:raw,
+            metadata:{source:'story_theater',theaterOpeningGreeting:{characterId:'actor',greetingId:card.id}}};
+        expect(buildStoryHistory([old as any])[0].content).toBe('{{char}}在走廊等{{user}}。');
+        expect(old.content).toBe(raw);
+        const preface='[spotify: 午夜 | https://cdn.example/cover.gif | https://cdn.example/music.mp3]\n'
+            +'<!-- title:下雪那天 -->\n他从走廊跑来。';
+        const choice=listCharacterStoryOpenings({id:'actor',name:'季淮北',
+            tavernGreetings:[{id:'tavern-alt-2',title:'备用开场 2',content:preface}]} as CharacterProfile)[0];
+        expect(choice.title).toBe('下雪那天');
+        expect(choice.content).toBe('他从走廊跑来。');
     });
 
-    it('keeps Link scenes in their native HTML format while hiding only unsupported media; source stays untouched', () => {
-        const spotify = '[spotify: 初雪 | https://static.example/cover.gif | https://static.example/song.mp3]';
-        const original = '<div class="native-link"><p>夜里，她在旧桥等他。</p></div>\n' + spotify;
-        const raw = {id:'babylink-opening-source-15',title:'Link 初雪',content:original};
-        const actor = {id:'link-actor',name:'季淮北',linkGreetings:[raw]} as CharacterProfile;
-        const [selected] = listCharacterStoryOpenings(actor);
+    it('removes Link envelopes at read time but leaves raw Link and custom cards untouched', () => {
+        const music='[spotify: 初雪 | https://static.example/cover.gif | https://static.example/song.mp3]';
+        const raw='<div class="native-link"><p>包裹内的情节。</p></div>\n'+music
+            +'\n夜里，她在旧桥等他。';
+        const greeting={id:'babylink-opening-source-15',title:'Link 初雪',content:raw};
+        const char={id:'link-actor',name:'季淮北',linkGreetings:[greeting]} as CharacterProfile;
+        const [selected]=listCharacterStoryOpenings(char);
         expect(selected.source).toBe('link');
-        expect(selected.content).toContain('<div class="native-link"><p>夜里，她在旧桥等他。</p></div>');
-        expect(selected.content).not.toContain('spotify:');
-        expect(raw.content).toBe(original);
-        expect(storyOpeningReadingText(original, raw.id, 'link')).not.toContain('song.mp3');
-        expect(storyOpeningReadingText(original, raw.id, 'link')).toContain('<div class="native-link">');
-        expect(storyOpeningReadingText(original, 'story-custom-2', 'custom')).toBe(original);
-        expect(listCharacterStoryOpenings({linkGreetings:[{...raw,content:spotify}]} as CharacterProfile)).toEqual([]);
+        expect(selected.content).toBe('夜里，她在旧桥等他。');
+        expect(greeting.content).toBe(raw);
+        expect(storyOpeningReadingText(raw,greeting.id,'link')).toBe('夜里，她在旧桥等他。');
+        expect(storyOpeningReadingText(raw,'story-custom-2','custom')).toBe(raw);
+        expect(listCharacterStoryOpenings({linkGreetings:[{...greeting,content:music}]} as CharacterProfile)).toEqual([]);
     });
 
     it('recognizes the real Chinese pipe-delimited music schema with newlines, not names or domains', () => {
