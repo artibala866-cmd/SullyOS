@@ -64,6 +64,21 @@ describe('Tavern & Link import keeps Neural Link remarks independent',()=>{
         expect(saved.characters[0].linkGreetings).toHaveLength(1);
         expect(saved.characters[0].systemPrompt).toContain('一万字人设');
     });
+    it('Link initial nickname equal to character name can safely update with source changes',()=>{
+        const prepared=link('季淮北');
+        const origin:CardImportOrigin={source:'babylink',originalName:'季淮北',externalId:'link-source-22'};
+        const first=mergeCardImports([],[],[item(prepared,origin,null)]);
+        const original=first.characters[0];
+        expect(original.description).toBe('季淮北');
+        expect(original.cardImportOrigin?.importedRemark).toBe('季淮北');
+        const updated=mergeCardImports([original],[],[item(link('阿北'),origin,original.id)]);
+        expect(updated.characters[0].description).toBe('阿北');
+        expect(updated.characters[0].cardImportOrigin?.importedRemark).toBe('阿北');
+        const customized={...original,description:'我手写的长期备注'};
+        const protectedPlan=mergeCardImports([customized],[],[item(link('新昵称'),origin,customized.id)]);
+        expect(protectedPlan.characters[0].description).toBe('我手写的长期备注');
+        expect(protectedPlan.characters[0].cardImportOrigin?.importedRemark).toBe('季淮北');
+    });
     it('Link empty nickname leaves empty remark, never substitute signature or prose',()=>{
         expect(link('').character.description).toBe('');
         expect(link('季淮北').character.description).toBe('季淮北');
