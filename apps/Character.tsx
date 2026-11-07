@@ -2408,7 +2408,7 @@ ${isInitialGeneration ? `
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-neutral-300"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 <p className="text-sm text-neutral-600 text-center leading-relaxed">
                     确定要删除与该角色的所有连接吗？<br/>
-                    <span className="text-xs text-neutral-400 font-bold">该操作不可恢复，记忆将被清空。</span><br/>
+                    <span className="text-xs text-neutral-400 font-bold">将永久删除该角色、本机私聊和角色记忆。群聊、中央剧情及收藏会保留。</span><br/>
                     <span className="text-[10px] text-neutral-400">仅对 ta 可见的专属表情分类也会一并删除。</span>
                 </p>
             </div>

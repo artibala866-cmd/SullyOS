@@ -79,6 +79,17 @@ describe('GC 基础三件', () => {
         expect(await runBlobGc({ minAgeMs: 0 })).toMatchObject({ deleted: 0, aborted: false });
         expect(await DB.getBlobAsset('img_schedule_cover')).not.toBeNull();
     });
+    it('保留世界书及原白名单外的表持有的素材', async () => {
+        await DB.putBlobAsset('img_worldbook_ref', tinyBlob());
+        await seedStore('worldbooks', [{ id: 'test-book', content: 'blobref:img_worldbook_ref' }]);
+        try {
+            expect(await runBlobGc({ minAgeMs: 0 })).toMatchObject({ deleted: 0, aborted: false });
+            expect(await DB.getBlobAsset('img_worldbook_ref')).not.toBeNull();
+        } finally {
+            await clearStore('worldbooks');
+        }
+    });
+
     it('老孤儿删：img_ 前缀、无任何引用 → 被回收', async () => {
         await DB.putBlobAsset('img_orphan_dead', tinyBlob());
 

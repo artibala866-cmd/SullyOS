@@ -722,7 +722,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const stored: StoredVoice = blob
                 ? { blob, originalText, spokenText, lang, favorite: false }
                 : { remoteUrl: url, originalText, spokenText, lang, favorite: false };
-            await DB.saveAssetRaw(voiceAssetKey(msgId), stored);
+            await DB.saveVoiceCacheForMessage(msgId, stored);
         } catch (e) {
             console.warn('[Chat] persist voice failed', e);
         }
@@ -3258,7 +3258,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         notifyDeletedMusicInviteCards(char.id, [selectedMessage]);
         cleanupDeletedUserVoiceAudio([selectedMessage]);
         if (typeof providerId === 'string') pruneDeletedPrivateChatLifeEvents(selectedMessage.charId, [providerId]);
-        discardVoiceForMessages([deletedId]);
+        discardVoiceForMessages([deletedId], false);
         // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
         // 还会提起这条已经不存在的消息（快照的消息在 flush 时从 DB 重读，这里只管打脏）。
         // A privacy mutation must invalidate cloud state even when no
@@ -3464,7 +3464,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             // The remote AMSG fire_pack contains recent chat text. A batch
             // delete must invalidate its snapshot exactly like single delete.
             markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
-            discardVoiceForMessages(ids);
+            discardVoiceForMessages(ids, false);
         }
 
         const migMap = new Map(migrations.map(m => [m.targetId, m.chain]));

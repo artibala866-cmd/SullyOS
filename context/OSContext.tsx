@@ -109,7 +109,7 @@ import {
 import { ActiveMsgClient } from '../utils/activeMsgClient';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { ActiveMsgStore, backupHasBackendConnection, exportAmsg2GlobalConfig } from '../utils/activeMsgStore';
-import { charMayHaveCloudState, purgeCharCloudState, purgeCloudCharById } from '../utils/amsg2CharCleanup';
+import { purgeCharCloudState, purgeCloudCharById } from '../utils/amsg2CharCleanup';
 import { parseCharCredId } from '../utils/amsgLlmCredentials';
 
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgLlmCredentials, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
@@ -3222,86 +3222,22 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const deleteCharacter = async (id: string, options?: { force?: boolean }): Promise<DeleteCharacterResult> => {
     const target = characters.find(c => c.id === id);
     const retirement = target ? await retireCloudCharacter(target) : { status: 'skipped' as const };
-    const managed = retirement.status === 'accepted' || retirement.status === 'failed';
     if (retirement.status === 'failed' && !options?.force) return { status: 'cloud-cleanup-failed' };
-    // 新 Worker 在接受删除前先阻止旧请求写回；旧 Worker 保留有限兼容路径。
-    // 主动消息 2.0 的任务活在用户自己的 worker 上，不随本地角色删除消失：留着的话
-    // 到点照样跑一整轮生成 + 推送，用户会收到一个已经删掉的角色发来的消息（还每次
-    // 真烧一轮 LLM）。本地记录一删就再没有 uuid 可取消，所以必须赶在删除之前清。
-    // 新协议按云端归属处理，不以本地有没有排过任务决定是否清理。
-    const localTaskUuids = (target?.activeMsg2Config?.tasks ?? [])
-      .map(t => t.taskUuid);
 
-    // 云端善后挡在本地删除**前面**：早前丢后台跑的版本在断网 / 秒关 App 时根本跑不完，
-    // 任务残留下来，之后「已删角色」的推送还会弹出来。名下真有任务（本地清单有、或远端
-    // 查得到）的角色才付这次等待，清不掉就先不删本地、把选择权交回给调用方；
-    // 从没配过 2.0 或没填 worker 地址的角色一个请求都不发，路径跟原来一样快。
-    if (!managed && !options?.force && charMayHaveCloudState(target)) {
-      let workerConfigured = false;
+    if (retirement.status === 'unsupported') {
+      // Legacy Workers cannot prove retirement. Still wait for task and state
+      // cleanup, including roles whose local task list is empty.
       try {
-        workerConfigured = Boolean((await ActiveMsgStore.getGlobalConfig()).workerUrl?.trim());
-      } catch { /* 配置读不到按没配处理，与 purgeCharCloudState 同口径 */ }
-
-      if (workerConfigured) {
-        // 有没有任务以远端清单优先（cancelAllTasksForChar 内部先查远端、查不到才退回
-        // 本地清单）——只看本地会漏掉排程记录丢失的幽灵任务。
-        let hadTasks = localTaskUuids.length > 0;
-        let cleanupFailed = false;
-        try {
-          const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
-          hadTasks = hadTasks || targets.length > 0;
-          cleanupFailed = failed.size > 0;
-        } catch (err) {
-          console.warn('[deleteCharacter] 远端主动消息任务清理失败', err);
-          cleanupFailed = true;
+        const localTaskUuids = (target?.activeMsg2Config?.tasks ?? []).map(task => task.taskUuid);
+        const { failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
+        const cleanup = await purgeCharCloudState(target);
+        if ((failed.size > 0 || cleanup.status !== 'cleared') && !options?.force) {
+          return { status: 'cloud-cleanup-failed' };
         }
-
-        if (hadTasks) {
-          if (!cleanupFailed) {
-            // 任务取消掉了，云端还留着这个角色的 client_state —— 那里面是完整的角色系统
-            // 提示词加最近 30 条对话原文（fire_pack）。删除确认框写的是「记忆将被清空」，
-            // 那就得连云端那份一起清，不然聊天记录会一直躺在 D1 里、每删一个角色再堆一份。
-            const cloudCleanup = await purgeCharCloudState(target);
-            if (cloudCleanup.status === 'failed') {
-              console.warn('[deleteCharacter] 云端状态清理失败', cloudCleanup.error);
-              cleanupFailed = true;
-            }
-          }
-          if (cleanupFailed) {
-            // 云端没清干净：本地先不删。调用方（角色 App）负责弹「重试 / 仍然删除」。
-            return { status: 'cloud-cleanup-failed' };
-          }
-        } else {
-          // 名下没有任务：不会再有推送，client_state 清理维持旧节奏丢后台，不挡删除。
-          void (async () => {
-            const cloudCleanup = await purgeCharCloudState(target);
-            if (cloudCleanup.status === 'failed') {
-              console.warn('[deleteCharacter] 云端状态清理失败（角色照常删除）', cloudCleanup.error);
-              addToast('ta 在云端的聊天上下文没能清掉，可以去设置 → 主动消息 2.0 → 云端数据管理中检查', 'error');
-            }
-          })();
-        }
+      } catch (error) {
+        console.warn('[deleteCharacter] 旧版 Worker 清理失败', error);
+        if (!options?.force) return { status: 'cloud-cleanup-failed' };
       }
-    } else if (!managed && options?.force && charMayHaveCloudState(target)) {
-      // 「仍然删除」放行后仍旧尽力清一次：能清掉多少算多少，失败只提示、不再拦。
-      void (async () => {
-        try {
-          if (localTaskUuids.length > 0) {
-            const { failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
-            if (failed.size > 0) {
-              addToast(`ta 还有 ${failed.size} 个主动消息任务留在远端没取消掉，可能仍会到点推送——可以去设置 → 主动消息 2.0 → 云端数据管理中检查`, 'error');
-            }
-          }
-          const cloudCleanup = await purgeCharCloudState(target);
-          if (cloudCleanup.status === 'failed') {
-            console.warn('[deleteCharacter] 云端状态清理失败（角色照常删除）', cloudCleanup.error);
-            addToast('ta 在云端的聊天上下文没能清掉，可以去设置 → 主动消息 2.0 → 云端数据管理中检查', 'error');
-          }
-        } catch (err) {
-          console.warn('[deleteCharacter] 远端主动消息任务清理失败', err);
-          addToast('ta 的主动消息任务没能在远端取消，可能仍会到点推送，请检查 Worker 连接', 'error');
-        }
-      })();
     }
 
     // Commit deletion before removing the in-memory identity. A failed commit
@@ -3319,7 +3255,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } catch (err) {
         console.warn('[deleteCharacter] 表情包残留清理失败（不影响角色删除）', err);
     }
-    return { status: 'deleted', cloudPending: retirement.status === 'accepted' && !retirement.completed, cloudUnconfirmed: retirement.status === 'failed' };
+    return { status: 'deleted', cloudPending: retirement.status === 'accepted' && !retirement.completed, cloudUnconfirmed: retirement.status === 'failed' || retirement.status === 'unsupported' };
   };
 
   // 角色分组方法（神经链接"文件夹"）
@@ -3436,7 +3372,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setCharacters(prev => prev.map(char => mounted.has(char.id)
           ? { ...char, mountedWorldbooks: mounted.get(char.id) }
           : char));
-      result.characters.forEach(char => markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }));
+      result.characters.forEach(char => markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, updates === null ? 'invalidate' : 'refresh'));
   };
 
   const updateWorldbooks = (ids: string[], updates: Partial<Worldbook>) => mutateWorldbooks(ids, updates);

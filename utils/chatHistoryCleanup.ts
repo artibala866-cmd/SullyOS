@@ -1,5 +1,5 @@
 import type { Message } from '../types';
-import { openDB } from './db';
+import { deleteUnfavoritedVoiceCache, openDB } from './db';
 import { getMemoryPalaceHighWaterMarkForContext } from './chatContextRange';
 import { preserveContentFavoritesBeforeMessageDeletion } from './contentFavorites';
 import {deleteLinkedSecretNotes, announceSecretNotesChanged} from './secretNote';
@@ -124,7 +124,7 @@ export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmati
                 const cursor = voices.result;
                 if (!cursor) return;
                 const match = /^voice_msg_(\d+)$/.exec(String(cursor.primaryKey));
-                if (match && expected.has(Number(match[1]))) assets.delete(cursor.primaryKey);
+                if (match && expected.has(Number(match[1]))) deleteUnfavoritedVoiceCache(assets, Number(match[1]));
                 cursor.continue();
             };
             deleted = plan.ids.length;

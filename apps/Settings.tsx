@@ -44,6 +44,7 @@ import { ActiveMsgClient } from '../utils/activeMsgClient';
 import VersionInfo from '../components/settings/VersionInfo';
 import { isPushVapidReady } from '../utils/pushVapid';
 import ApiCallLogModal from '../components/settings/ApiCallLogModal';
+import { canDeleteWebdavBackup } from '../utils/webdavClient';
 import StorageUsagePanel from '../components/settings/StorageUsagePanel';
 import WebCacheControl from '../components/settings/WebCacheControl';
 import McpConnectionConsole from '../components/settings/McpConnectionConsole';
@@ -576,6 +577,7 @@ const Settings: React.FC = () => {
   const [cloudBackupFiles, setCloudBackupFiles] = useState<import('../types').CloudBackupFile[]>([]);
   const [cloudBackupListState, setCloudBackupListState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [cloudBackupListError, setCloudBackupListError] = useState('');
+  const [deletingCloudBackup, setDeletingCloudBackup] = useState(false);
   const [cloudTestResult, setCloudTestResult] = useState<string>('');
   const [cloudTesting, setCloudTesting] = useState(false);
   const [avatarModelInventory, setAvatarModelInventory] = useState<AvatarModelBackupInventory | null>(null);
@@ -1567,6 +1569,24 @@ const Settings: React.FC = () => {
       }
   };
 
+  const handleDeleteCloudBackup = async (file: import('../types').CloudBackupFile) => {
+      if (deletingCloudBackup || file.status === 'incomplete') return;
+      if (!window.confirm(`永久删除云备份「${file.name}」？删除后将无法使用这份备份恢复。`)) return;
+      setDeletingCloudBackup(true);
+      try {
+          const { deleteBackup } = cloudBackupConfig.provider === 'github'
+              ? await import('../utils/githubClient')
+              : await import('../utils/webdavClient');
+          if (!await deleteBackup(cloudBackupConfig, file)) throw new Error('云备份删除未确认，请检查连接和写入权限后重试。');
+          setCloudBackupFiles(files => files.filter(item => item.href !== file.href));
+          addToast('已删除所选云备份', 'success');
+      } catch (error) {
+          addToast(error instanceof Error ? error.message : '云备份删除未确认，请重试。', 'error');
+      } finally {
+          setDeletingCloudBackup(false);
+      }
+  };
+
   // GitHub backup handlers — single "测试并连接" button does verify-token +
   // ensure-repo, persists owner/login on success so users never type 'owner'.
   const handleTestGithub = async () => {
@@ -2016,7 +2036,7 @@ const Settings: React.FC = () => {
                 </div>
             }
         >
-            <StorageUsagePanel />
+            <StorageUsagePanel onOpenCloudData={() => setShowAmsgCloudData(true)} />
             <WebCacheControl />
 
             <label className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
@@ -2335,7 +2355,7 @@ const Settings: React.FC = () => {
                         className="w-full py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-neutral-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75v6.75m0 0l-3-3m3 3l3-3m-8.25 6a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
-                        从云端恢复
+                        管理云备份
                     </button>
                 </div>
             )}
@@ -3470,7 +3490,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* Cloud Restore Modal */}
-      <Modal isOpen={showCloudRestoreModal} title="从云端恢复" onClose={() => setShowCloudRestoreModal(false)}>
+      <Modal isOpen={showCloudRestoreModal} title="管理云备份" onClose={() => { if (!deletingCloudBackup) setShowCloudRestoreModal(false); }}>
           <div className="space-y-2 p-1">
               {cloudBackupListState === 'loading' ? (
                   <div className="text-center py-8"><p className="text-[11px] text-slate-400">正在加载云端备份列表...</p></div>
@@ -3483,7 +3503,7 @@ const Settings: React.FC = () => {
                   <div className="text-center py-8"><p className="text-[11px] text-slate-400">云端还没有备份</p></div>
               ) : (
                   <>
-                      <p className="text-[10px] text-slate-400 mb-2">选择要恢复的备份文件:</p>
+                      <p className="text-[10px] text-slate-400 mb-2">旧备份是创建时的快照。可按份恢复或删除。</p>
                       <div className="max-h-[50vh] overflow-y-auto space-y-2">
                           {cloudBackupFiles.map((file, i) => file.status === 'incomplete' ? (
                               <div key={file.href || i} className="w-full p-3 bg-neutral-50/70 border border-neutral-200 rounded-xl text-left">
@@ -3505,13 +3525,21 @@ const Settings: React.FC = () => {
                                   </div>
                               </div>
                           ) : (
-                              <button key={file.href || i} onClick={() => handleCloudRestore(file)} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-left hover:bg-neutral-50 hover:border-neutral-200 transition-colors active:scale-[0.98]">
-                                  <p className="text-[11px] text-slate-700 font-medium truncate">{file.name}</p>
-                                  <div className="flex items-center gap-3 mt-1">
+                              <div key={file.href || i} className="w-full p-3 bg-white border border-slate-200 rounded-xl">
+                                  <p className="text-[11px] text-slate-700 font-medium break-all">{file.name}</p>
+                                  <div className="flex flex-wrap items-center gap-3 mt-1">
                                       <span className="text-[10px] text-slate-400">{file.lastModified ? new Date(file.lastModified).toLocaleString('zh-CN') : '未知时间'}</span>
                                       <span className="text-[10px] text-slate-400">{file.size > 0 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : ''}</span>
                                   </div>
-                              </button>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                      <button type="button" disabled={deletingCloudBackup} onClick={() => handleCloudRestore(file)}
+                                          className="rounded-lg bg-slate-100 px-3 py-2 text-[11px] font-bold text-slate-600 disabled:opacity-50">恢复</button>
+                                      {(cloudBackupConfig.provider === 'github' || canDeleteWebdavBackup(cloudBackupConfig, file)) && <button type="button" disabled={deletingCloudBackup} onClick={() => void handleDeleteCloudBackup(file)}
+                                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] text-slate-600 disabled:opacity-50">
+                                          {deletingCloudBackup ? '删除处理中…' : '删除备份'}
+                                      </button>}
+                                  </div>
+                              </div>
                           ))}
                       </div>
                   </>

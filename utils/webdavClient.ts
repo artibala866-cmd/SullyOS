@@ -343,6 +343,12 @@ export const downloadBackup = async (
     }
 };
 
+/** Only remove ZIPs written by this app in the configured backup directory. */
+export function canDeleteWebdavBackup(config: CloudBackupConfig, file: CloudBackupFile): boolean {
+    return /^Sully_Backup_(?:text_only|media_only|full)_\d+\.zip$/.test(file.name)
+        && file.href === config.remotePath.replace(/\/+$/, '') + '/' + file.name;
+}
+
 /**
  * Delete a backup file from WebDAV
  */
@@ -350,9 +356,10 @@ export const deleteBackup = async (
     config: CloudBackupConfig,
     file: CloudBackupFile,
 ): Promise<boolean> => {
+    if (!canDeleteWebdavBackup(config, file)) return false;
     try {
         const res = await webdavRequest(config, file.href, 'DELETE');
-        return res.status === 204 || res.status === 200;
+        return res.status === 204 || res.status === 200 || res.status === 404;
     } catch {
         return false;
     }
@@ -395,7 +402,7 @@ const parseWebDAVListing = (xml: string, config: CloudBackupConfig): CloudBackup
  * Clean up old backups, keeping only the latest N
  */
 export const cleanupOldBackups = async (config: CloudBackupConfig, keepCount: number = 5): Promise<number> => {
-    const files = await listBackups(config);
+    const files = (await listBackups(config)).filter(file => canDeleteWebdavBackup(config, file));
     if (files.length <= keepCount) return 0;
 
     let deleted = 0;

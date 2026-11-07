@@ -85,7 +85,7 @@ function describeOptimizeResult(r: OptimizeResult): string {
     return text + vectorNote + reloadNote;
 }
 
-const StorageUsagePanel: React.FC = () => {
+const StorageUsagePanel: React.FC<{ onOpenCloudData: () => void }> = ({ onOpenCloudData }) => {
     const [overview, setOverview] = useState<StorageOverview | null>(null);
     const [persisting, setPersisting] = useState(false);
     const [attempt, setAttempt] = useState<PersistAttempt>('none');
@@ -100,6 +100,11 @@ const StorageUsagePanel: React.FC = () => {
     const [optimizeProgress, setOptimizeProgress] = useState<OptimizeProgress | null>(null);
     const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
     const [optimizeError, setOptimizeError] = useState<string | null>(null);
+
+    const [cleanupOwners, setCleanupOwners] = useState<string[] | null>(null);
+    const [scanningCleanup, setScanningCleanup] = useState(false);
+    const [cleaning, setCleaning] = useState(false);
+    const [cleanupResult, setCleanupResult] = useState('');
 
     const aliveRef = useRef(true);
     useEffect(() => {
@@ -163,6 +168,51 @@ const StorageUsagePanel: React.FC = () => {
             if (aliveRef.current) { setOptimizing(false); setOptimizeProgress(null); }
         }
     }, [optimizing, refreshOverview]);
+
+    const scanCleanup = async () => {
+        setScanningCleanup(true);
+        setCleanupResult('');
+        try {
+            const { findDeletedRoleResidue } = await import('../../utils/db');
+            setCleanupOwners(await findDeletedRoleResidue());
+        } catch {
+            setCleanupResult('未能扫描本机残留，请重试。');
+        } finally {
+            setScanningCleanup(false);
+        }
+    };
+
+    const handleCleanup = async () => {
+        if (cleaning || !cleanupOwners) return;
+        setCleanupOwners(null);
+        setCleaning(true);
+        setCleanupResult('');
+        let removedRoles = 0;
+        try {
+            const [{ runBlobGc }, { DB }] = await Promise.all([
+                import('../../utils/blobGc'), import('../../utils/db'),
+            ]);
+            for (const id of cleanupOwners) {
+                if (await DB.deleteCharacter(id, true)) removedRoles++;
+            }
+            const voices = await DB.cleanupOrphanVoiceCaches();
+            const result = await runBlobGc();
+            const voiceSummary = `已清理 ${removedRoles} 个旧角色的残留记录和 ${voices} 条独立语音缓存。`;
+            setCleanupResult(result.aborted
+                ? voiceSummary + '媒体引用读取失败，媒体清理已停止，可以重试。'
+                : voiceSummary + `已回收 ${result.deleted} 份无引用媒体。近期创建或引用不明确的文件会保留。`);
+        } catch (error) {
+            setCleanupResult(`清理未全部完成。已处理 ${removedRoles} 个旧角色。 ${error instanceof Error ? error.message : '请重试。'}`);
+        } finally {
+            cachedBreakdown = null;
+            if (aliveRef.current) {
+                setBreakdown(null);
+                if (expanded) void runBreakdown();
+                await refreshOverview();
+                setCleaning(false);
+            }
+        }
+    };
 
     const handlePersist = useCallback(async () => {
         setPersisting(true);
@@ -264,7 +314,7 @@ const StorageUsagePanel: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleOptimize}
-                        disabled={optimizing}
+                        disabled={optimizing || cleaning}
                         className="shrink-0 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-500 active:scale-95 transition-all disabled:opacity-50"
                     >
                         {optimizing ? '优化中…' : '一键优化'}
@@ -295,6 +345,36 @@ const StorageUsagePanel: React.FC = () => {
                         立即刷新
                     </button>
                 )}
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-slate-600">清理删除残留</span>
+                    <button type="button" disabled={cleaning || scanningCleanup || optimizing || computing}
+                        onClick={() => void scanCleanup()}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 disabled:opacity-50">
+                        {cleaning ? '清理中…' : scanningCleanup ? '扫描中…' : '清理本机残留'}
+                    </button>
+                </div>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                    扫描旧角色的私聊和记忆残留，回收无引用的图片及语音。共享素材和收藏会保留。
+                </p>
+                {cleanupOwners && (
+                    <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2.5">
+                        <p className="text-[11px] leading-relaxed text-slate-600">{cleanupOwners.length ? `发现 ${cleanupOwners.length} 个已删除角色的残留线索。 ` : ''}清理后无法恢复。请先关闭同站的其他标签页，等待导入或备份完成。</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <button type="button" onClick={() => setCleanupOwners(null)}
+                                className="rounded-lg bg-slate-100 px-3 py-2 text-[11px] text-slate-600">取消</button>
+                            <button type="button" onClick={() => void handleCleanup()} disabled={optimizing || computing}
+                                className="rounded-lg bg-neutral-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50">确认清理</button>
+                        </div>
+                    </div>
+                )}
+                {cleanupResult && <p role="status" className="mt-2 text-[11px] leading-relaxed text-slate-600">{cleanupResult}</p>}
+                <button type="button" onClick={onOpenCloudData}
+                    className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600">
+                    管理 Worker 云端数据
+                </button>
             </div>
 
             {/* ── 细分（折叠） ── */}

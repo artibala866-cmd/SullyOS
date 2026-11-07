@@ -11,7 +11,7 @@ import { mergeCardImports, type CardImportItem, type CardImportResult } from './
 import { importedCardRemarkCorrection } from './cardImportRemark';
 import { planWorldbookImport } from './worldbookImportPlan';
 import { persistCharacterWithHomeMessages } from './homeMessageBridge';
-import {deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
+import {deleteLinkedSecretNotes, deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
 
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
@@ -594,6 +594,51 @@ const normalizeWorldRelationships = (world: WorldProfile): WorldProfile => {
     return { ...world, relationships: out };
 };
 
+const ROLE_MEMORY_STORES = [
+    'memory_nodes', 'memory_vectors', 'memory_batches', 'topic_boxes',
+    'event_boxes', 'anticipations', 'room_plates', 'digest_reports',
+];
+
+/** Older role deletion left data in these stores. Only app-generated IDs are
+ * eligible, since message and memory tables also contain synthetic threads. */
+export async function findDeletedRoleResidue(): Promise<string[]> {
+    const db = await openDB();
+    const names = [STORE_MESSAGES, ...ROLE_MEMORY_STORES].filter(name => db.objectStoreNames.contains(name));
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_CHARACTERS, ...names], 'readonly');
+        const live = tx.objectStore(STORE_CHARACTERS).getAllKeys();
+        const residue = new Set<string>();
+        live.onsuccess = () => {
+            const liveIds = new Set(live.result);
+            for (const name of names) {
+                const store = tx.objectStore(name);
+                if (!store.indexNames.contains('charId')) continue;
+                const owners = store.index('charId').openKeyCursor(undefined, 'nextunique');
+                owners.onsuccess = () => {
+                    const owner = owners.result;
+                    if (!owner) return;
+                    const id = owner.key;
+                    if (typeof id === 'string' && !liveIds.has(id)
+                        && /^char-(?:\d{13}(?:-[a-z0-9]+)?|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.test(id)) {
+                        residue.add(id);
+                    }
+                    owner.continue();
+                };
+            }
+        };
+        tx.oncomplete = () => resolve([...residue].sort());
+        tx.onabort = () => reject(tx.error || new Error('删除残留扫描未完成'));
+    });
+}
+
+export function deleteUnfavoritedVoiceCache(assets: IDBObjectStore, messageId: number): void {
+    const key = `voice_msg_${messageId}`;
+    const voice = assets.get(key);
+    voice.onsuccess = () => {
+        if (voice.result && voice.result.data?.favorite !== true) assets.delete(key);
+    };
+}
+
 export const DB = {
   deleteDB: async (): Promise<void> => {
       // 删库前先关掉单例连接, 否则这条还开着的连接会 block 掉 deleteDatabase。
@@ -717,16 +762,130 @@ export const DB = {
     if (!migrated) await persistCharacterWithHomeMessages(db, charId, clearStaleMemoryMirror);
   },
 
-  deleteCharacter: async (id: string): Promise<void> => {
+  deleteCharacter: async (id: string, onlyIfMissing = false): Promise<boolean> => {
+    const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
+    await preserveContentFavoritesBeforeMessageDeletion({ charId: id });
     const db = await openDB();
-    // Await actual commit, not just request scheduling. A re-import immediately
-    // after deletion must see the new DB state, never a pending ghost character.
-    return new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
-      tx.objectStore(STORE_CHARACTERS).delete(id);
-      tx.oncomplete = () => resolve();
+    const memoryStores = ROLE_MEMORY_STORES.filter(name => db.objectStoreNames.contains(name));
+    const stores = [STORE_CHARACTERS, STORE_MESSAGES, STORE_ASSETS, ...memoryStores];
+    if (db.objectStoreNames.contains('memory_links')) stores.push('memory_links');
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(stores, 'readwrite');
+      let removed = false;
+      const remove = () => {
+          removed = true;
+          tx.objectStore(STORE_CHARACTERS).delete(id);
+          const messages = tx.objectStore(STORE_MESSAGES);
+          const assets = tx.objectStore(STORE_ASSETS);
+          const request = messages.index('charId').openCursor(IDBKeyRange.only(id));
+          request.onsuccess = () => {
+              const cursor = request.result;
+              if (!cursor) return;
+              const message = cursor.value as Message;
+              if (!message.groupId && message.metadata?.source !== 'story_theater') {
+                  deleteLinkedSecretNotes(messages, message);
+                  // A story mirror belongs to the role. The central story and its
+                  // other mirrors belong to the story and keep their own records.
+                  const centralId = message.metadata?.theaterCentralId;
+                  if (message.metadata?.source === 'story_theater_memory' && typeof centralId === 'number') {
+                      const central = messages.get(centralId);
+                      central.onsuccess = () => {
+                          const row = central.result as Message | undefined;
+                          const mirrors = row?.metadata?.theaterMirrorIds;
+                          if (row?.metadata?.source !== 'story_theater' || mirrors?.[id] !== message.id) return;
+                          const next = { ...mirrors };
+                          delete next[id];
+                          messages.put({ ...row, metadata: { ...row.metadata, theaterMirrorIds: next } });
+                      };
+                  }
+                  deleteUnfavoritedVoiceCache(assets, message.id);
+                  cursor.delete();
+              }
+              cursor.continue();
+          };
+          assets.delete(`mp_hwm_v1_${id}`);
+          assets.delete(`home_secrets_v1_${id}`);
+          for (const name of memoryStores) {
+              const store = tx.objectStore(name);
+              if (!store.indexNames.contains('charId')) continue;
+              const owned = store.index('charId').openKeyCursor(IDBKeyRange.only(id));
+              owned.onsuccess = () => {
+                  const cursor = owned.result;
+                  if (!cursor) return;
+                  if (name === 'memory_nodes') {
+                      if (memoryStores.includes('memory_vectors')) tx.objectStore('memory_vectors').delete(cursor.primaryKey);
+                      if (stores.includes('memory_links')) {
+                          const links = tx.objectStore('memory_links');
+                          for (const index of ['sourceId', 'targetId']) {
+                              const related = links.index(index).openKeyCursor(IDBKeyRange.only(cursor.primaryKey));
+                              related.onsuccess = () => {
+                                  const link = related.result;
+                                  if (!link) return;
+                                  links.delete(link.primaryKey);
+                                  link.continue();
+                              };
+                          }
+                      }
+                  }
+                  store.delete(cursor.primaryKey);
+                  cursor.continue();
+              };
+          }
+      };
+      if (onlyIfMissing) {
+          const role = tx.objectStore(STORE_CHARACTERS).getKey(id);
+          role.onsuccess = () => { if (role.result === undefined) remove(); };
+      } else remove();
+      tx.oncomplete = () => {
+          if (!removed) { resolve(false); return; }
+          try { localStorage.removeItem(`mp_lastMsgId_${id}`); } catch { /* browser storage unavailable */ }
+          announceSecretNotesChanged(id);
+          resolve(true);
+      };
       tx.onerror = () => reject(tx.error || new Error('删除角色失败'));
       tx.onabort = () => reject(tx.error || new Error('删除角色事务已中止'));
+    });
+  },
+
+  saveVoiceCacheForMessage: async (id: number, data: unknown): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const message = tx.objectStore(STORE_MESSAGES).getKey(id);
+      message.onsuccess = () => {
+          if (message.result !== undefined) tx.objectStore(STORE_ASSETS).put({ id: `voice_msg_${id}`, data });
+      };
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error || new Error('语音缓存保存未完成'));
+    });
+  },
+
+  cleanupOrphanVoiceCaches: async (): Promise<number> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const messages = tx.objectStore(STORE_MESSAGES);
+      const assets = tx.objectStore(STORE_ASSETS);
+      const voices = assets.openCursor(IDBKeyRange.bound('voice_msg_', 'voice_msg_\uffff'));
+      let deleted = 0;
+      voices.onsuccess = () => {
+          const cursor = voices.result;
+          if (!cursor) return;
+          const match = /^voice_msg_(\d+)$/.exec(String(cursor.primaryKey));
+          const id = Number(match?.[1]);
+          if (Number.isSafeInteger(id) && id > 0 && cursor.value.data?.favorite !== true) {
+              const message = messages.getKey(id);
+              message.onsuccess = () => {
+                  if (message.result === undefined) {
+                      assets.delete(cursor.primaryKey);
+                      deleted++;
+                  }
+                  cursor.continue();
+              };
+          } else cursor.continue();
+      };
+      tx.oncomplete = () => resolve(deleted);
+      tx.onabort = () => reject(tx.error || new Error('语音残留清理未完成'));
     });
   },
 
@@ -1419,6 +1578,7 @@ export const DB = {
             });
             receipt.onsuccess = () => clearStaleMemoryMirror(tx, charId, receipt.result as number);
           }
+          deleteUnfavoritedVoiceCache(tx.objectStore(STORE_ASSETS), id);
           store.delete(id);
         };
       }
