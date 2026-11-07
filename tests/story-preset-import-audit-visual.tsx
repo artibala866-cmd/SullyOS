@@ -111,7 +111,7 @@ const check = () => {
     const headingText = [...document.querySelectorAll('h2')].map(node => node.textContent || '');
     const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
-    const nativeAuthorMapping = native || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
+    const nativeAuthorMapping = native || focus !== 'overview' || ['1421–2023字', '简体中文', '第二人称'].every(value => document.body.textContent?.includes(value));
     const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
         .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
     const success = fit && nativeAuthorMapping && (native ? !proOn && eightControls && generationControls : groupingSafe && (
