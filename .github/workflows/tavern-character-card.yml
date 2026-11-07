@@ -14,6 +14,10 @@ on:
       - 'utils/linkImportDocuments.test.ts'
       - 'utils/linkWorldbookImport.ts'
       - 'utils/linkWorldbookImport.test.ts'
+      - 'utils/worldbookImportPlan.ts'
+      - 'utils/worldbookImportPlan.test.ts'
+      - 'utils/db.worldbookImportAtomic.test.ts'
+      - 'context/OSContext.tsx'
       - 'apps/WorldbookApp.tsx'
       - 'utils/babyLinkCard.test.ts'
       - 'utils/linkStoryOpenings.ts'
@@ -59,12 +63,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Regression tests for card imports and context worldbooks
-        run: pnpm exec vitest run utils/linkImportDocuments.test.ts utils/linkWorldbookImport.test.ts utils/cardImportSections.test.ts utils/cardImportMerge.test.ts utils/babyLinkCard.test.ts utils/linkImportIntegration.test.ts utils/sillyTavernCard.test.ts utils/tavernOpeningGreeting.test.ts utils/storyTheaterOpeningInline.test.tsx utils/storyTheaterPersistence.test.ts utils/storyTheater.test.ts utils/characterCard.test.ts utils/worldbook.test.ts utils/worldbookPersistence.test.ts utils/contextWorldbook.test.ts utils/imageGeneration.test.ts
+        run: pnpm exec vitest run utils/linkImportDocuments.test.ts utils/linkWorldbookImport.test.ts utils/worldbookImportPlan.test.ts utils/db.worldbookImportAtomic.test.ts utils/cardImportSections.test.ts utils/cardImportMerge.test.ts utils/babyLinkCard.test.ts utils/linkImportIntegration.test.ts utils/sillyTavernCard.test.ts utils/tavernOpeningGreeting.test.ts utils/storyTheaterOpeningInline.test.tsx utils/storyTheaterPersistence.test.ts utils/storyTheater.test.ts utils/characterCard.test.ts utils/worldbook.test.ts utils/worldbookPersistence.test.ts utils/contextWorldbook.test.ts utils/imageGeneration.test.ts
       - name: TypeScript diagnostics on imported-card surfaces
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/tavern-tsc.log 2>&1 || true
-          grep -E '^(apps/Character.tsx|components/character/CharacterImagePanel.tsx|components/date/story/StoryTheater(Editor|Session)?.tsx|utils/(cardImportSections(\.test)?|cardImportMerge(\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|tavernOpeningGreeting(\.test)?|storyTheater(OpeningInline|Persistence)?(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
+          grep -E '^(apps/Character.tsx|apps/WorldbookApp.tsx|context/OSContext.tsx|components/character/CharacterImagePanel.tsx|components/date/story/StoryTheater(Editor|Session)?.tsx|utils/(linkImportDocuments(\.test)?|linkWorldbookImport(\.test)?|worldbookImportPlan(\.test)?|db\.worldbookImportAtomic\.test|cardImportSections(\.test)?|cardImportMerge(\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|tavernOpeningGreeting(\.test)?|storyTheater(OpeningInline|Persistence)?(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
           if [ -s /tmp/tavern-errors.log ]; then
             cat /tmp/tavern-errors.log
             exit 1
