@@ -219,7 +219,7 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
         loading='lazy'
         srcDoc={safe.srcDoc}
         className='block w-full rounded-lg border border-violet-100 bg-white'
-        style={{ height: safe.estimatedHeight, minHeight: 180, maxHeight: '60vh', maxWidth: '100%' }}
+        style={{ height: safe.estimatedHeight, minHeight: 76, maxHeight: '60vh', maxWidth: '100%' }}
     />;
 };
 
