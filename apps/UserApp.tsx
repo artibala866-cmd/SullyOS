@@ -75,17 +75,35 @@ const UserApp: React.FC = () => {
     const confirmBioImport = async () => {
         if (!pendingBioFile || bioSaving) return;
         setBioSaving(true);
+        const originalBio = userProfile.bio;
+        let optimisticBio: string | null = null;
         try {
-            let changed = false;
-            await updateUserProfile(prev => {
-                const planned = planUserBioDocumentImport(prev.bio, pendingBioFile.text, bioImportMode);
-                changed = planned.changed;
-                return changed ? { bio: planned.bio } : {};
-            });
-            addToast(changed ? '个人设定已导入' : '这份内容已存在，无需重复导入', 'success');
+            // Do not write unchanged profiles at all: with a full disk an
+            // identical reimport must still be reported as a harmless no-op.
+            const preliminary = planUserBioDocumentImport(originalBio, pendingBioFile.text, bioImportMode);
+            if (preliminary.changed) {
+                await updateUserProfile(prev => {
+                    const planned = planUserBioDocumentImport(prev.bio, pendingBioFile.text, bioImportMode);
+                    if (planned.changed) optimisticBio = planned.bio;
+                    return planned.changed ? { bio: planned.bio } : {};
+                });
+            }
+            addToast(preliminary.changed ? '个人设定已导入' : '这份内容已存在，无需重复导入', 'success');
             setPendingBioFile(null);
             releaseBioImport();
         } catch (error) {
+            // The OS context updates React optimistically before IndexedDB
+            // commits. A failed transaction must not leave the new bio
+            // visibly "saved" when reopening the archive loses it.
+            if (optimisticBio !== null) {
+                try {
+                    await updateUserProfile(prev => prev.bio === optimisticBio
+                        ? { bio: originalBio } : {});
+                } catch {
+                    // The rollback still restores the in-memory value on the
+                    // optimistic path; the original database row survived.
+                }
+            }
             addToast(error instanceof Error ? error.message : '个人设定保存失败', 'error');
         } finally {
             setBioSaving(false);
