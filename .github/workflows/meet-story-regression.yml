@@ -29,6 +29,7 @@ on:
       - 'utils/tavernOpeningGreeting.test.ts'
       - 'utils/linkStoryOpenings.ts'
       - 'utils/storySillyTavernImport*.ts'
+      - 'utils/storyTavernAuthorSections.test.ts'
       - 'utils/storyPresetImport*.ts'
       - 'utils/storyPresetImport*.tsx'
       - 'tests/story-preset-import-audit-visual.tsx'
@@ -63,7 +64,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Test story creation, persistence, archives, backups and timeline compatibility
         run: |
-          pnpm exec vitest run utils/tavernOpeningGreeting.test.ts utils/storyTheaterHtml.test.ts utils/storyTheaterHtmlUI.test.tsx utils/storyTheaterRealDialectAudit.test.ts utils/storyTavernCategories.test.ts utils/storySillyTavernImport.test.ts utils/storyPresetImportAudit.test.ts utils/storyPresetImportUi.test.tsx utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/dateSessionLandscape.test.ts utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts utils/storyTheaterOpeningInline.test.tsx
+          pnpm exec vitest run utils/tavernOpeningGreeting.test.ts utils/storyTheaterHtml.test.ts utils/storyTheaterHtmlUI.test.tsx utils/storyTheaterRealDialectAudit.test.ts utils/storyTavernCategories.test.ts utils/storySillyTavernImport.test.ts utils/storyTavernAuthorSections.test.ts utils/storyPresetImportAudit.test.ts utils/storyPresetImportUi.test.tsx utils/storyTheater.test.ts utils/storyTheaterPersistence.test.ts utils/db.storyTheater.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterMemoryConversion.test.ts utils/storyTheaterTimeline.test.ts utils/storyTheaterBackup.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterArchiveView.wiring.test.ts utils/storyTheaterBillingSafety.wiring.test.ts utils/meetingAppearance.test.ts utils/dateScenes.test.ts utils/dateBgm.test.ts utils/dateBgm.wiring.test.ts utils/dateSceneSession.test.tsx utils/dateSessionLandscape.test.ts utils/datePrompts.test.ts utils/dateBackgroundBlobRef.test.ts utils/dateSpriteBlobRef.test.ts utils/storyTheaterUpstreamIntegration.test.tsx utils/storyTheaterDarkEditor.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterReply.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterLegacyDbUpgrade.test.ts utils/storyTheaterSaveNavigate.test.ts utils/storyTheaterOpeningInline.test.tsx
       - name: Check meet and database TypeScript diagnostics
         shell: bash
         run: |
@@ -184,7 +185,7 @@ jobs:
           # Video reference: render the ACTUAL native preset maker with each
           # imported dialect, verifying auto-detected controls, token values,
           # native labels, and no horizontal overflow on a phone.
-          for dialect in baby pluto ako mur janus; do
+          for dialect in baby pluto ako mur janus gomora ivory yuki phantasm; do
             auditurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=${dialect}&theme=light"
             prefix="output/meet-story/native-map-${dialect}-390"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
@@ -214,7 +215,7 @@ jobs:
             --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
             --screenshot=output/meet-story/native-map-baby-toggled-390.png "$authorurl" > /dev/null 2>&1
           test -s output/meet-story/native-map-baby-toggled-390.png
-          echo 'PASS: five source-author modules plus real Baby Char toggle screenshot checked'
+          echo 'PASS: nine distinct source-author modules plus real Baby Char toggle screenshot checked'
           # Screenshot the exact safe HTML viewer used by the real story output.
           for viewport in 390x844 844x390; do
             width="${viewport%x*}"; height="${viewport#*x}"
