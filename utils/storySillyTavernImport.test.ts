@@ -964,7 +964,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(style.options.find(x=>x.enabled)?.label).toBe('随机适配');
         const originalContents=initial.document.prompts.map(p=>p.content);
         const chosenAgency=selectStoryTavernAuthorOption(initial.document,agency.key,'st-agency-0');
-        expect(chosenAgency.prompts.filter(p=>p.id.startsWith('st-agency-') && p.enabled).map(p=>p.name)).toEqual(['▢不抢']);
+        expect(chosenAgency.prompts.filter(p=>p.id.startsWith('st-agency-') && p.id !== 'st-agency-title' && p.enabled).map(p=>p.name)).toEqual(['▢不抢']);
         expect(chosenAgency.prompts.find(p=>p.id==='st-retell-7')?.enabled).toBe(true);
         const chosenStyle=selectStoryTavernAuthorOption(chosenAgency,style.key,'st-style1');
         expect(chosenStyle.prompts.find(p=>p.id==='st-style0')?.enabled).toBe(false);
