@@ -642,6 +642,38 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(native[0].theater?.messages).toMatchObject([{ name: '角色', text: '你好' }]);
     });
 
+    it('酒馆 <sidestory> 即使没有 details，也只进入折叠附录，不污染剧情正文', () => {
+        const blocks = parseStoryDisplayBlocks([
+            '<content>雨后的正文。<sidestory>剧场一：',
+            '<div style="color:coral"><b>角色</b>：去看电影。</div>',
+            '</sidestory>回到正文。</content>',
+        ].join(''), true);
+        expect(blocks.map(block => block.kind)).toEqual(['story', 'tavern-extra', 'story']);
+        expect(blocks[0].text).toBe('雨后的正文。');
+        expect(blocks[1].title).toBe('酒馆小剧场');
+        expect(blocks[1].text).toContain('去看电影。');
+        expect(blocks[1].text).not.toContain('style=');
+        expect(blocks[2].text).toBe('回到正文。');
+        expect(blocks.every(block => block.kind !== 'theater')).toBe(true);
+    });
+
+    it('冥王星的 RandomTheater、Ako 的 writing_interlude 识别为独立文本附录，原生不受影响', () => {
+        const raw = [
+            '故事开端。',
+            '<RandomTheater><details><summary>动物世界番外</summary>小猫喝水。</details></RandomTheater>',
+            '<writing_interlude><div class="header">文章标题</div></writing_interlude>',
+            '故事继续。',
+        ].join('');
+        const parsed = parseStoryDisplayBlocks(raw, true);
+        expect(parsed.map(block => block.kind)).toEqual(['story', 'tavern-extra', 'tavern-extra', 'story']);
+        expect(parsed[1].title).toBe('酒馆随机小剧场');
+        expect(parsed[1].text).toContain('小猫喝水。');
+        expect(parsed[2].title).toBe('酒馆写作间隙');
+        expect(parsed[2].text).toBe('文章标题');
+        expect(parsed[3].text).toBe('故事继续。');
+        expect(parseStoryDisplayBlocks(raw).every(block => block.kind !== 'tavern-extra')).toBe(true);
+    });
+
     it('HTML 纯视觉标签没有文字时不会当代码执行，但当前可能显示空白，作为剩余兼容风险固定回归', () => {
         const blocks = parseStoryDisplayBlocks(
             '<sidestory><div><img src="https://example.org/image.png" /></div></sidestory>', true,
