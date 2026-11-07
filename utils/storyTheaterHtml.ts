@@ -98,6 +98,44 @@ const sanitizeNode = (node: Node): string => {
     return '<' + tag + (attributes.length ? ' ' + attributes.join(' ') : '') + '>' + children + '</' + tag + '>';
 };
 
+/**
+ * Ako's preset emits data blocks, and its *display-only regex* turns them
+ * into a designed interlude. Implement the documented fields semantically,
+ * not the user's regex executable. Unknown/partial variants return undefined
+ * so no authored field disappears from the visible text fallback.
+ */
+export const adaptTavernWritingInterlude = (raw: string): string | undefined => {
+    const names = ['Header', 'Tags', 'Meta', 'Content', 'Dialogue', 'Quote'];
+    const required = [2, 3, 3, 1, 4, 2];
+    const tokens = [...String(raw || '').matchAll(/\[(Header|Tags|Meta|Content|Dialogue|Quote)\|([\s\S]*?)\]/gi)];
+    if (tokens.length !== names.length) return undefined;
+    const fields: string[][] = [];
+    for (let i = 0; i < names.length; i += 1) {
+        if (tokens[i][1].toLowerCase() !== names[i].toLowerCase()) return undefined;
+        const values = tokens[i][2].split('|');
+        if (values.length !== required[i]) return undefined;
+        fields.push(values.map(part => part.trim()));
+    }
+    if (raw.replace(/\[(Header|Tags|Meta|Content|Dialogue|Quote)\|[\s\S]*?\]/gi, '').trim()) {
+        // Additional authored prose beyond the six blocks must not disappear.
+        return undefined;
+    }
+    const escape = (value: string) => escapeHtml(value);
+    const cells = (values: string[]): string =>
+        values.map(value => '<span style="display:inline-block;padding:2px 5px">' + escape(value) + '</span>').join('');
+    const [header, tags, meta, content, dialogue, quote] = fields;
+    return '<article class="story-tavern-writing-interlude" style="padding:12px;border:1px solid #e5def1;border-radius:12px;background-color:#faf8ff">'
+        + '<header><h3 style="font-size:19px;margin:0;color:#69428a">' + escape(header[0]) + '</h3>'
+        + '<p style="font-size:12px;margin:3px 0">' + escape(header[1]) + '</p></header>'
+        + '<div style="font-size:11px;color:#655e73">' + cells(tags) + '</div>'
+        + '<hr><div style="display:flex;flex-wrap:wrap;font-size:11px">' + cells(meta) + '</div>'
+        + '<p style="white-space:pre-wrap;font-size:13px">' + escape(content[0]) + '</p>'
+        + '<section style="border-left:2px solid #dacbea;padding-left:10px">'
+        + dialogue.map((value, index) => '<p style="margin:4px 0"><b>对话 ' + (index + 1) + '：</b>' + escape(value) + '</p>').join('')
+        + '</section><blockquote style="font-style:italic;margin:10px 0 0;border-top:1px solid #e5def1;padding-top:8px">'
+        + escape(quote[0]) + '<p style="font-size:11px">' + escape(quote[1]) + '</p></blockquote></article>';
+};
+
 export const hasStoryHtmlLayout = (source: string): boolean =>
     /<(?:div|section|article|table|thead|tbody|tr|td|th|style|img|figure|figcaption|p|h[1-6]|ul|ol|li|blockquote|pre|details|summary)\b/i.test(source);
 
