@@ -185,7 +185,7 @@ jobs:
           # imported dialect, verifying auto-detected controls, token values,
           # native labels, and no horizontal overflow on a phone.
           for dialect in pluto ako mur janus; do
-            auditurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=${dialect}"
+            auditurl="http://127.0.0.1:5193/test/fixtures/story-preset-import-audit.html?dialect=${dialect}&theme=light"
             prefix="output/meet-story/native-map-${dialect}-390"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
               --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
