@@ -4441,6 +4441,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                   activeSkinSetId: c.activeSkinSetId,
                                   customDateSprites: c.customDateSprites,
                                   spriteConfig: c.spriteConfig,
+                                  spriteConfigLandscape: c.spriteConfigLandscape,
                                   roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
                                       // data:（旧值，下面 processObject 抽成 assets/*）和 blobref
                                       // 令牌（v3 原样进包，二进制走 blobs/*）都算媒体，都带走。
@@ -4565,6 +4566,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               activeSkinSetId: c.activeSkinSetId,
                               customDateSprites: c.customDateSprites,
                               spriteConfig: c.spriteConfig,
+                              spriteConfigLandscape: c.spriteConfigLandscape,
                               roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
                                   // data:（旧值，下面 processObject 抽成 assets/*）和 blobref
                                   // 令牌（v3 原样进包，二进制走 blobs/*）都算媒体，都带走。
