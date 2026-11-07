@@ -261,8 +261,7 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     // Inline images contribute no usable story text without the external
     // image renderer; ordinary hyperlinks preserve their visible label.
     text = text.replace(/!\[[^\]\r\n]{0,300}\]\(\s*(?:https?:\/\/|data:image\/)[^\r\n)]{1,4000}\)/gi, '');
-    text = text.replace(/\[([^\]\r\n]{1,300})\]\(\s*https?:\/\/[^\r\n)]{1,4000}\)/gi,
-        (_whole, label: string) => label);
+    text = text.replace(/\[([^\]\r\n]{1,300})\]\(\s*https?:\/\/[^\r\n)]{1,4000}\)/gi, '');
 
     // Raw standalone direct media URLs are decorative assets. Do NOT remove
     // normal URLs mentioned in a dialogue sentence or a source note.
