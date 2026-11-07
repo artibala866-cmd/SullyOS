@@ -53,6 +53,9 @@ try{
   {name:'link-openings-320',source:'link-openings',w:320,h:690},
   {name:'tavern-320',source:'tavern',w:320,h:690},
   {name:'document-320',source:'document',w:320,h:690},
+  {name:'worldbook-390',source:'worldbook',w:390,h:844},
+  {name:'worldbook-320',source:'worldbook',w:320,h:690},
+  {name:'worldbook-landscape',source:'worldbook',w:844,h:390},
   {name:'tavern-landscape',source:'tavern',w:844,h:390},
   {name:'link-landscape',source:'link',w:844,h:390},
   {name:'link-openings-landscape',source:'link-openings',w:844,h:390},
@@ -60,7 +63,8 @@ try{
  const failures=[];
  for(const c of cases){
   await cmd('Emulation.setDeviceMetricsOverride',{width:c.w,height:c.h,deviceScaleFactor:1,mobile:true});
-  const uri='http://127.0.0.1:5173/tests/card-import-visual.html?source='+c.source+'&nonce='+Math.random();
+  const page=c.source==='worldbook'?'link-worldbook-visual.html':'card-import-visual.html';
+  const uri='http://127.0.0.1:5173/tests/'+page+'?source='+c.source+'&nonce='+Math.random();
   await cmd('Page.navigate',{url:uri});
   let ready=null;
   for(let n=0;n<95;n++){
