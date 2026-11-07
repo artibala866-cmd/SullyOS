@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
-import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
+import type { ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
+import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
 import { sortCustomStoryOpenings, STORY_OPENING_ACCEPT } from '../../../utils/storyOpeningDocumentImport';
@@ -16,6 +17,8 @@ interface Props {
     masks: StoryTheaterMask[];
     maskLocked: boolean;
     presets: StoryTheaterPreset[];
+    /** The global preset library is read-only; selecting one copies its three credentials into this story. */
+    apiPresets?: ApiPreset[];
     onCancel: () => void;
     onSave: (entry: StoryTheaterEntry) => Promise<void> | void;
     onImportPreset: (file: File) => Promise<StoryTheaterPreset | null>;
@@ -28,7 +31,7 @@ interface Props {
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, apiPresets = [], onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -392,6 +395,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             castSection.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
             return;
         }
+        if (draft.memorySummaryApi) {
+            const issue = storyMemoryApiValidationError(normalizeStoryMemoryApi(draft.memorySummaryApi)!);
+            if (issue) { setSaveError(issue + '；本剧情没有保存，主 API 保持不变'); return; }
+        }
         setSaveError('');
         saveLock.current = true;
         setSaving(true);
@@ -623,6 +630,43 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     <p className='text-[10px] leading-5 text-slate-500'>先完成并显示本轮回复，再归档最旧部分；默认保留最近 5 层。以后可以换策略，旧事件盒与旧向量都不会丢。</p>
                 </div>}
+                <div className='mt-6 pt-5 border-t border-slate-200' data-story-memory-api-settings>
+                    <div className='flex items-start justify-between gap-3'>
+                        <div className='min-w-0'><div className='text-sm font-semibold'>剧情记忆总结副 API</div>
+                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>仅本剧情使用：事件盒自动总结、重新总结、独立向量提取、事件盒转记忆。正文续写依旧使用主 API；其他 App 和角色配置不受影响。</p>
+                        </div>
+                        <Toggle label='使用剧情记忆副 API' value={!!draft.memorySummaryApi}
+                            onChange={enabled => update('memorySummaryApi', enabled ? (draft.memorySummaryApi || { baseUrl: '', apiKey: '', model: '' }) : undefined)} />
+                    </div>
+                    {draft.memorySummaryApi && <div className='mt-4 space-y-3'>
+                        <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>从已保存的 API 预设载入</span>
+                            <select aria-label='选择剧情记忆 API 预设' defaultValue='' onChange={event => {
+                                const preset = apiPresets.find(item => item.id === event.target.value);
+                                if (preset) update('memorySummaryApi', storyMemoryApiFromPreset(preset));
+                            }} className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs'>
+                                <option value=''>选择预设（不会修改全局 API）</option>
+                                {apiPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.group ? preset.group + ' · ' : ''}{preset.name} · {preset.config.model || '未填写模型'}</option>)}
+                            </select>
+                        </label>
+                        {apiPresets.length === 0 && <p className='text-[10px] text-slate-500'>预设库为空，可以直接填写下方信息。</p>}
+                        <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>API 地址（URL）</span>
+                            <input aria-label='剧情记忆副 API URL' type='url' value={draft.memorySummaryApi.baseUrl}
+                                onChange={event => update('memorySummaryApi', { ...draft.memorySummaryApi!, baseUrl: event.target.value })}
+                                placeholder='https://example.com/v1' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
+                        </label>
+                        <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>API Key（可留空）</span>
+                            <input aria-label='剧情记忆副 API Key' type='password' autoComplete='off' value={draft.memorySummaryApi.apiKey}
+                                onChange={event => update('memorySummaryApi', { ...draft.memorySummaryApi!, apiKey: event.target.value })}
+                                placeholder='sk-...' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
+                        </label>
+                        <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>模型名称（Model）</span>
+                            <input aria-label='剧情记忆副 API 模型' type='text' value={draft.memorySummaryApi.model}
+                                onChange={event => update('memorySummaryApi', { ...draft.memorySummaryApi!, model: event.target.value })}
+                                placeholder='gemini-...' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
+                        </label>
+                        <p className='text-[10px] leading-5 text-slate-500'>选择预设只复制当前 URL / Key / Model；之后修改或删除预设也不会让本剧情暗中切换。副 API 不可用时会报错并保留原文，绝不偷偷回退到昂贵主 API。</p>
+                    </div>}
+                </div>
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>04 / Lore</div><div className='flex items-center justify-between gap-3'><h2 className='mt-1 text-lg font-semibold'>世界书沙盒</h2>{draft.selectedWorldbookIds.length > 0 && <span className='text-[10px] text-slate-500'>已选 {draft.selectedWorldbookIds.length}</span>}</div><p className='text-[10px] text-slate-500'>从全局世界书库选择，仅对本剧情生效，不改变角色挂载。</p>
