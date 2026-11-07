@@ -71,9 +71,12 @@ export function planStoryOpeningDocumentImport(
     const current = [...existing];
     const added: TavernOpeningGreeting[] = [];
     let skipped = 0;
+    // Existing card imports can retain CRLF whereas TXT/DOCX readers normalize
+    // to LF. Treat those as the same opening, rather than quietly adding duplicates.
+    const bodyKey = (value: string) => value.replace(/\r\n?/g, '\n').trim();
     const seenBodies = new Set([...existing, ...otherSources]
         .filter(row => typeof row?.content === 'string')
-        .map(row => row.content.trim()));
+        .map(row => bodyKey(row.content)));
     const seenNames = new Set([...existing, ...otherSources]
         .map(row => (row.title || '').normalize('NFC').toLocaleLowerCase('zh-CN')));
     const usedIds = new Set(current.map(row => row.id));
@@ -82,7 +85,7 @@ export function planStoryOpeningDocumentImport(
         if (!content || content.length > MAX_STORY_OPENING_LENGTH) {
             throw new Error(`「${document.filename}」正文为空或超过 20 万字符`);
         }
-        if (seenBodies.has(content)) { skipped++; continue; }
+        if (seenBodies.has(bodyKey(content))) { skipped++; continue; }
         const base = getTitle(document.filename);
         if (!base) throw new Error('文件名称为空，无法建立开场白');
         let title = base;
@@ -96,7 +99,7 @@ export function planStoryOpeningDocumentImport(
         if (usedIds.has(id) || !id.startsWith('story-custom-')) throw new Error('无法生成安全的开场白标识，请重试');
         usedIds.add(id);
         seenNames.add(title.toLocaleLowerCase('zh-CN'));
-        seenBodies.add(content);
+        seenBodies.add(bodyKey(content));
         const greeting = { id, title, content };
         current.push(greeting);
         added.push(greeting);
