@@ -186,6 +186,62 @@ export const STORY_THEME_CSS = `
   font-size: 8px;
   letter-spacing: .24em;
 }
+/* The cinema skin must be visible on the real story reader, not only in the
+   appearance portal. The root ::before sits behind opaque reader/header layers.
+   Scope all visible flourishes to a selected cinema skin with NO custom reading
+   preset, so plain and imported reading CSS remain untouched. */
+.story-theme.story-decor-cinema:not(.meeting-reading) {
+  --story-cinema-trim: rgba(83,83,83,.34);
+  --story-cinema-wash: rgba(83,83,83,.10);
+}
+.story-theme.story-theme-dark.story-decor-cinema:not(.meeting-reading) {
+  --story-cinema-trim: rgba(229,229,229,.38);
+  --story-cinema-wash: rgba(229,229,229,.085);
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .meeting-reading-page {
+  background-image:
+    radial-gradient(ellipse at 0% 2%, var(--story-cinema-wash), transparent 39%),
+    radial-gradient(ellipse at 100% 95%, var(--story-cinema-wash), transparent 43%);
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor {
+  position: relative;
+  isolation: isolate;
+  border-radius: 18px;
+  padding-left: clamp(12px, 3vw, 24px);
+  padding-right: clamp(12px, 3vw, 24px);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--story-surface) 82%, transparent), transparent 80%);
+  box-shadow: inset 0 0 0 1px var(--story-cinema-wash);
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor::before {
+  content: '✧  ✦  ✧';
+  position: absolute;
+  top: 13px;
+  right: 16px;
+  pointer-events: none;
+  color: var(--story-cinema-trim);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: .18em;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor > :first-child {
+  padding-right: 66px;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor .meeting-user-turn {
+  border-left-color: var(--story-cinema-trim) !important;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-safe-header {
+  border-bottom-color: var(--story-cinema-trim) !important;
+  background-image: linear-gradient(90deg, transparent, var(--story-cinema-wash) 55%, transparent);
+}
+@media (max-width: 360px) {
+  .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor::before {
+    right: 12px;
+    letter-spacing: 0;
+  }
+  .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor > :first-child {
+    padding-right: 42px;
+  }
+}
 body.ios-keyboard-open .story-theme .story-safe-footer { padding-bottom: 12px !important; }
 body.ios-keyboard-open .story-theme .story-safe-sheet { padding-bottom: 18px !important; }
 body.ios-keyboard-open .story-theme .story-quick-preset { bottom: 112px !important; }
