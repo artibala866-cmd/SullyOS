@@ -57,13 +57,36 @@ const removeHtmlFormatting=(html:string):string=>unescapeXml(html
     .replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi,'')
     .replace(/<br\b[^>]*\/?>|<\/(?:p|div|li|tr|h[1-6])>/gi,'\n')
     .replace(/<[^>]*>/g,'')).trim();
-const parseRtf=(source:string):string=>source
-    .replace(/\{\\\*(?:[^{}]|\{[^{}]*\})*\}/g,'')
-    .replace(/\\u(-?\d+)\??/g,(_all,n:string)=>String.fromCharCode((parseInt(n,10)+65536)%65536))
-    .replace(/\\(?:par|line)\b\s?/g,'\n').replace(/\\tab\b\s?/g,'\t')
-    .replace(/\\'[a-f0-9]{2}/gi,'')
-    .replace(/\\[a-z]+\d* ?/gi,'')
-    .replace(/\\([{}\\])/g,'$1').replace(/[{}]/g,'').trim();
+const parseRtf=(source:string):string=>{
+    // Older .doc exports may actually be RTF. Chinese ANSI RTF encodes
+    // multibyte GBK text as \'d6\'d0. The previous parser dropped every
+    // escaped byte, silently deleting entire paragraphs of character lore.
+    const cp=source.match(/\\ansicpg(\d+)/i)?.[1]||'1252';
+    const enc:Record<string,string>={
+        '936':'gb18030','54936':'gb18030','950':'big5','932':'shift_jis',
+        '949':'euc-kr','1252':'windows-1252','65001':'utf-8',
+    };
+    const encoding=enc[cp];
+    let text=source;
+    if(/\\'[a-f0-9]{2}/i.test(source)){
+        if(!encoding)throw new Error('RTF 文档使用未支持的文字编码，请另存为 DOCX');
+        try{
+            text=text.replace(/(?:\\'[a-f0-9]{2})+/gi,run=>{
+                const bytes=[...run.matchAll(/\\'([a-f0-9]{2})/gi)]
+                    .map(match=>parseInt(match[1],16));
+                return new TextDecoder(encoding,{fatal:true}).decode(new Uint8Array(bytes));
+            });
+        }catch{
+            throw new Error('RTF 的旧编码文字无法完整还原，请另存为 DOCX，避免人设缺字');
+        }
+    }
+    return text
+        .replace(/\{\\\*(?:[^{}]|\{[^{}]*\})*\}/g,'')
+        .replace(/\\u(-?\d+)\??/g,(_all,n:string)=>String.fromCharCode((parseInt(n,10)+65536)%65536))
+        .replace(/\\(?:par|line)\b\s?/g,'\n').replace(/\\tab\b\s?/g,'\t')
+        .replace(/\\[a-z]+\d* ?/gi,'')
+        .replace(/\\([{}\\])/g,'$1').replace(/[{}]/g,'').trim();
+};
 
 /**
  * JSON worldbooks are NOT persona documents: historical Sully worldbook files
