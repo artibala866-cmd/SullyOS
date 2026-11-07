@@ -80,6 +80,13 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             addToast(result.duplicate
                 ? `相同剧情预设已存在，已选择「${result.preset.name}」；未重复保存`
                 : `已导入${result.preset.document.sourceFormat === 'sillytavern' ? '酒馆适配' : '糯米机'}剧情预设「${result.preset.name}」`, 'success');
+            if (result.preset.document.sourceFormat === 'sillytavern') {
+                const limitations = (result.preset.document.importWarnings || [])
+                    .filter(warning => /启用正则|启用脚本|酒馆小剧场\/HTML/.test(warning));
+                if (limitations.length) {
+                    addToast(`酒馆兼容提醒：${limitations.join('；')}`, 'info');
+                }
+            }
             return result.preset;
         } catch (error: any) {
             addToast(error?.message || '预设导入失败', 'error');
