@@ -413,6 +413,16 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
                     .filter(key => typeof value.tavernFormats[key] === 'string')
                     .map(key => [key, String(value.tavernFormats[key]).slice(0, 65536)]),
             ) } : {}),
+        ...(value.sourceFormat === 'sillytavern' && Array.isArray(value.tavernEntryGroups)
+            ? { tavernEntryGroups: value.tavernEntryGroups.filter((group: any) =>
+                group && typeof group.id === 'string' && typeof group.name === 'string')
+                .slice(0, 120).map((group: any) => ({
+                    id: group.id.slice(0, 120), name: group.name.slice(0, 100),
+                    ...(Array.isArray(group.memberIdentifiers) ? { memberIdentifiers: group.memberIdentifiers
+                        .filter((id: unknown): id is string => typeof id === 'string').slice(0, 600) } : {}),
+                    ...(typeof group.startIdentifier === 'string' ? { startIdentifier: group.startIdentifier.slice(0, 120) } : {}),
+                    ...(typeof group.endIdentifier === 'string' ? { endIdentifier: group.endIdentifier.slice(0, 120) } : {}),
+                })) } : {}),
         ...(value.sourceFormat === 'sillytavern' && value.tavernOptions && typeof value.tavernOptions === 'object'
             && !Array.isArray(value.tavernOptions) ? { tavernOptions: Object.fromEntries(
                 Object.entries(value.tavernOptions)
