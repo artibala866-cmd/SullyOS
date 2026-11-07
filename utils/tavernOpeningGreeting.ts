@@ -86,8 +86,23 @@ export const tavernOpeningReadableText = (content: string): string => {
         };
         return table[entity.toLowerCase()] ?? entity;
     });
+    // An author request may appear *inside* a decorative HTML wrapper.
+    text = text.replace(/^[ \t]*<request[ \t]*[:：][^\r\n>]{0,4096}>[ \t]*(?:\r?\n|$)/gim, '');
     return text.replace(/[ \t]+\r?\n/g, '\n').replace(/\r\n/g, '\n')
         .replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+/** A Tavern author note is not a dialogue line or a title. Bound its size
+ * and pass it separately as scene background, never into visible first-floor text.
+ */
+export const tavernOpeningAuthorNote = (content: string): string => {
+    const scene = adaptTavernOpeningGreeting({ id: '', title: '', content }).content;
+    const rows: string[] = [];
+    for (const match of scene.matchAll(/^[ \t]*<request[ \t]*[:：]([^\r\n>]{1,1600})>/gim)) {
+        const note = match[1].trim();
+        if (note && rows.length < 3) rows.push(note);
+    }
+    return rows.join('\n').slice(0, 1600);
 };
 
 /** Use the same text identity for legacy and newly normalized imports. */
