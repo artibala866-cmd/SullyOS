@@ -76,6 +76,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
         expect(bundle.cards).toHaveLength(1);
         const profile = bundle.cards[0].character;
         expect(profile.name).toBe('路明');
+        expect(profile.description).toBe('昵称路明'); // Only the source nickname enters Neural Link remark.
         expect(profile.systemPrompt).toContain('完整角色背景\n第二段不能丢失');
         expect(profile.systemPrompt).toContain('昵称路明');
         expect(profile.systemPrompt).toContain('角色签名');
