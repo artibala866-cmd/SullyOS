@@ -1624,7 +1624,11 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
     const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
     const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
     const structural = meaningfulTags.join(',');
+    // Styles inside a particular appendix must NOT be copied into every
+    // other appendix. Each sandbox should retain its own local CSS. Only
+    // genuinely top-level author styles can be shared with all appendices.
     const sharedStyles = Array.from(document.querySelectorAll('style'))
+        .filter(style => !style.closest('sidestory,randomtheater,writing_interlude,partner_sidestory,small_theater,side_theater,episode,draft,microlist,details,mini_theater'))
         .map(style => '<style>' + (style.textContent || '') + '</style>')
         .join('\n').slice(0, 26000);
     const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
