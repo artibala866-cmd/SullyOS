@@ -45,6 +45,8 @@ export interface PdfTextResult {
 
 export interface ExtractPdfTextOptions {
     maxPages?: number;
+    /** Abort extraction instead of silently truncating a long imported document. */
+    maxChars?: number;
     onProgress?: (progress: PdfExtractionProgress) => void;
 }
 
@@ -281,12 +283,17 @@ export const extractPdfDocumentText = async (
         : Math.max(0, Math.floor(options.maxPages));
     const extractedPages = Math.min(pdf.numPages, requestedPages);
     const pages: string[] = [];
+    let totalChars = 0;
 
     for (let pageNumber = 1; pageNumber <= extractedPages; pageNumber++) {
         const page = await pdf.getPage(pageNumber);
         try {
             const content = await page.getTextContent();
-            pages.push(pdfItemsToText(content.items || []));
+            const text = pdfItemsToText(content.items || []);
+            totalChars += text.length + (pages.length ? 2 : 0);
+            if (options.maxChars != null && totalChars > options.maxChars)
+                throw new Error('PDF 正文超过 200 万字符，请拆分后导入');
+            pages.push(text);
         } finally {
             page.cleanup?.();
         }
