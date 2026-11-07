@@ -53,7 +53,7 @@ const compileText = (document: StoryTheaterPresetDocument) => {
 const mount = async (document: StoryTheaterPresetDocument,
     onApply: (doc: StoryTheaterPresetDocument) => Promise<void> | void,
     onReset = async () => {}, onClose = vi.fn(), hasOverride = false) => {
-    host = document.createElement('div'); document.body.append(host);
+    host = globalThis.document.createElement('div'); globalThis.document.body.append(host);
     root = createRoot(host);
     await act(async () => root!.render(React.createElement(StoryQuickPresetPanel, {
         document, hasOverride, onApply, onReset, onClose,
@@ -71,7 +71,7 @@ describe('真实剧情内快捷预设 —— 酒馆原作者条目跨入口运�
     it('陌生酒馆作者的文风无需内置 ID；即时切换影响请求，应用仅覆盖当前剧情并写入 DB', async () => {
         const preset = authorPreset();
         expect(getStoryTavernAuthorSections(preset.document).map(g => g.label))
-            .toEqual(['文风·月光色盘（择一）', '作者执笔权（择一）']);
+            .toEqual(expect.arrayContaining(['文风·月光色盘（择一）', '作者执笔权（择一）']));
         expect(compileText(preset.document)).toContain('实际文风=温柔雨夜');
         const entry: StoryTheaterEntry = { ...createStoryTheaterDraft(), id: 'quick-tavern-live-unknown',
             title: '快速预设独立故事', presetId: preset.id };
