@@ -211,23 +211,57 @@
   .date-session-root .date-session-send-button { height: 40px; min-height: 40px; }
   .date-session-root .date-session-dialogue-text { font-size: 12px; line-height: 1.35; }
 }
-/* The settings preview shares the real sprite stage geometry for both rotations.
-   Unlike the old fixed 256px preview, it uses the orientation's actual ratio. */
+/* A manual preview switch must reflect the chosen saved orientation, not
+   the phone's current CSS @media orientation. It uses the same stage geometry
+   as the matching Meet session; keyboard never changes its composition. */
 .date-settings-sprite-preview {
-  /* 19.5:9 matches the tall phone used by Meet, unlike a generic 16:9 crop. */
-  aspect-ratio: 9 / 19.5;
-  /* Keep the controls reachable below the preview on a short portrait screen. */
-  width: min(100%, calc(50dvh * 9 / 19.5));
   margin-inline: auto;
 }
-@media (orientation: landscape) and (max-height: 760px) and (min-width: 600px) {
-  .date-settings-sprite-preview {
-    aspect-ratio: 19.5 / 9;
-    width: min(100%, calc(68dvh * 19.5 / 9));
-  }
+.date-settings-sprite-preview[data-sprite-preview-orientation="portrait"] {
+  aspect-ratio: 9 / 19.5;
+  width: min(100%, calc(50dvh * 9 / 19.5));
 }
-
-.date-settings-sprite-preview .date-session-sprite-stage.date-session-sprite-zoomed { padding-top: clamp(8px, 4dvh, 44px); }
+.date-settings-sprite-preview[data-sprite-preview-orientation="landscape"] {
+  aspect-ratio: 19.5 / 9;
+  width: min(100%, calc(65dvh * 19.5 / 9));
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="portrait"] .date-session-sprite-stage {
+  inset: auto 0 0 0;
+  width: 100%;
+  height: 90%;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 0;
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="portrait"] .date-session-sprite-stage > img {
+  max-height: 100%;
+  max-width: 100%;
+  scale: 1;
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="portrait"] .date-session-sprite-stage.date-session-sprite-zoomed {
+  align-items: flex-start;
+  padding-top: clamp(7px, 3dvh, 25px);
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="landscape"] .date-session-sprite-stage {
+  inset: auto auto 0 0;
+  width: 56%;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 0;
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="landscape"] .date-session-sprite-stage > img {
+  max-height: 96%;
+  max-width: 100%;
+  scale: var(--date-landscape-fit-scale, 1);
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="landscape"] .date-session-sprite-stage.date-session-sprite-zoomed {
+  align-items: flex-start;
+  padding-top: clamp(4px, 1.5dvh, 14px);
+}
+.date-settings-sprite-preview[data-sprite-preview-orientation="landscape"] .date-session-sprite-stage.date-session-sprite-zoomed > img {
+  max-height: 100%;
+}
 
 /* Soft-keyboard emergency layout on a very short narrow handset.
    Give the portrait/head its own left half instead of covering it with the
