@@ -16,6 +16,102 @@ const compiled = (preset: ReturnType<typeof make>) =>
     userName: '用户', characterNames: ['角色'] }).messages.map(msg => msg.content).join('\n');
 
 describe('各作者原生分组的真实行为：不把宝宝我是char套给其他作者', () => {
+    it('完全陌生的分组名与选项名：读取结构化作者元数据，真实互斥，不套内置预设按钮', () => {
+        const p = make('从未见过的作者-梦境.json', [
+            { id: 'a', name: '晨星', content: 'ONLY-CARD-DAWN', enabled: true },
+            { id: 'b', name: '晦夜', content: 'ONLY-CARD-DUSK', enabled: false },
+            { id: 'base', name: '必开底座', content: 'NEVER-REMOVE-CORE', enabled: true },
+        ], [
+            { id: 'dream', name: '月潮调色盘（任选其一）', memberIdentifiers: ['a', 'b'] },
+            { id: 'core', name: '预设头部', memberIdentifiers: ['base'] },
+        ]);
+        const sections = getStoryTavernAuthorSections(p.document);
+        const dream = sections.find(section => section.label.includes('月潮调色盘'));
+        expect(dream?.options.map(option => option.label)).toEqual(['晨星', '晦夜']);
+        expect(dream?.single).toBe(true);
+        expect(sections.some(section => section.label === '预设头部')).toBe(false);
+        const switched = selectStoryTavernAuthorOption(p.document, dream!.key, 'st-b');
+        expect(switched.prompts.find(prompt => prompt.id === 'st-a')?.enabled).toBe(false);
+        expect(switched.prompts.find(prompt => prompt.id === 'st-b')?.enabled).toBe(true);
+        const sent = compiled({ ...p, document: switched });
+        expect(sent).toContain('ONLY-CARD-DUSK');
+        expect(sent).not.toContain('ONLY-CARD-DAWN');
+        expect(sent).toContain('NEVER-REMOVE-CORE');
+        expect(JSON.stringify(sections)).not.toContain('汽水日常');
+    });
+
+    it('陌生的独立功能开关：一个已开启，不代表整组必须互斥', () => {
+        const p = make('未知模块.json', [
+            { id: 'a', name: '星河扫描', content: 'STAR-SCAN-ENABLED', enabled: true },
+            { id: 'b', name: '逆光存档', content: 'BACKLIGHT-ARCHIVE', enabled: false },
+            { id: 'c', name: '余辉归档', content: 'AFTERGLOW-NOTE', enabled: false },
+        ], [{ id: 'arbitrary', name: '星海电台', memberIdentifiers: ['a', 'b', 'c'] }]);
+        const sec = getStoryTavernAuthorSections(p.document).find(section => section.label === '星海电台')!;
+        expect(sec?.single).toBe(false);
+        const both = selectStoryTavernAuthorOption(p.document, sec.key, 'st-b');
+        expect(both.prompts.find(prompt => prompt.id === 'st-a')?.enabled).toBe(true);
+        expect(both.prompts.find(prompt => prompt.id === 'st-b')?.enabled).toBe(true);
+        const sent = compiled({ ...p, document: both });
+        expect(sent).toContain('STAR-SCAN-ENABLED');
+        expect(sent).toContain('BACKLIGHT-ARCHIVE');
+        const original = selectStoryTavernAuthorOption(both, sec.key, 'st-b');
+        expect(original.prompts.find(prompt => prompt.id === 'st-b')?.enabled).toBe(false);
+        expect(original.prompts.find(prompt => prompt.id === 'st-a')?.enabled).toBe(true);
+    });
+
+    it('完全未知的装饰标题：即使不含文风/人称等关键词，也能找到作者真实模块', () => {
+        const p = make('从未见过的装饰标题.json', [
+            { id: 'start', name: '╭── 星屿仪式 ──╮', content: '章节边界', enabled: true },
+            { id: 'a', name: '青柠色', content: 'AUTHOR-TINT-LIME', enabled: true },
+            { id: 'b', name: '静谧蓝', content: 'AUTHOR-TINT-BLUE', enabled: false },
+            { id: 'end', name: '╰── 星屿仪式 ──╯', content: '章节收束', enabled: true },
+        ]);
+        const sec = getStoryTavernAuthorSections(p.document).find(section => section.label === '星屿仪式');
+        expect(sec?.options.map(option => option.label)).toEqual(['青柠色', '静谧蓝']);
+        expect(sec?.options.some(option => option.id === 'st-start')).toBe(false);
+    });
+
+    it('无元数据无分隔标题：纯新造变量名与同前缀条目仍能分组，切换值要到达模型', () => {
+        const p = make('完全未知变量方言.json', [
+            { id: 'a', name: '霓光方案', content: '{{setvar::starlightInk::紫罗兰}}', enabled: true },
+            { id: 'b', name: '烛照方案', content: '{{setvar::starlightInk::冬青蓝}}', enabled: false },
+            { id: 'client', name: '故事正文', content: 'WRITER-INSTRUCTION: {{getvar::starlightInk}}', enabled: true },
+            { id: 'first', name: '绘色：雾绿', content: 'EXTRA-MIST-GREEN', enabled: false },
+            { id: 'second', name: '绘色：暖橙', content: 'EXTRA-WARM-ORANGE', enabled: false },
+        ]);
+        const sections = getStoryTavernAuthorSections(p.document);
+        const variable = sections.find(s => s.label === 'starlightInk')!;
+        expect(variable?.options).toHaveLength(2);
+        expect(variable?.options.find(x => x.id === 'st-a')?.preview).toBe('紫罗兰');
+        const before = compiled(p);
+        expect(before).toContain('WRITER-INSTRUCTION: 紫罗兰');
+        const changed = selectStoryTavernAuthorOption(p.document, variable.key, 'st-b');
+        const after = compiled({ ...p, document: changed });
+        expect(after).toContain('WRITER-INSTRUCTION: 冬青蓝');
+        expect(after).not.toContain('WRITER-INSTRUCTION: 紫罗兰');
+        const prefix = sections.find(s => s.label === '绘色')!;
+        expect(prefix?.options.map(x => x.label)).toEqual(['绘色：雾绿', '绘色：暖橙']);
+    });
+
+    it('陌生作者的 XML 选项外壳：点击元数据分组时补开关闭的首尾标签，实际随规则发送', () => {
+        const p = make('虚构的异星作者.json', [
+            { id: 'head', name: '奇梦开端', content: '<astral_mode>', enabled: false },
+            { id: 'choice', name: '暮光方案', content: 'ASTRAL-ON-CHOICE', enabled: false },
+            { id: 'tail', name: '奇梦闭合', content: '</astral_mode>', enabled: false },
+        ], [{ id: 'alien', name: '波形梦境开关', startIdentifier: 'head', endIdentifier: 'tail' }]);
+        const sec = getStoryTavernAuthorSections(p.document).find(s => s.label === '波形梦境开关')!;
+        expect(sec?.options.map(x => x.label)).toEqual(['暮光方案']);
+        const changed = selectStoryTavernAuthorOption(p.document, sec.key, 'st-choice');
+        expect(changed.prompts.filter(x => x.enabled).map(x => x.id))
+            .toEqual(['st-head', 'st-choice', 'st-tail']);
+        const sent = compiled({ ...p, document: changed });
+        expect(sent).toContain('<astral_mode>');
+        expect(sent).toContain('ASTRAL-ON-CHOICE');
+        expect(sent).toContain('</astral_mode>');
+        const roundtrip = parseStoryTheaterPreset(JSON.stringify(changed), '保存重进.json');
+        expect(getStoryTavernAuthorSections(roundtrip.document).some(x => x.label === '波形梦境开关')).toBe(true);
+    });
+
     it('旧版已导入 MoM 预设重新导入时原地补齐作者分组，不复制和不重置原 ID、开关', () => {
         const source = make('老MoM.json', [
             { id: 'first', name: '文风-原版', content: '原作者旧选择 A', enabled: true },
