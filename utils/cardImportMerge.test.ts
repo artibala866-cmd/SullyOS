@@ -79,7 +79,7 @@ describe('incremental character-card imports', () => {
         const existingLink=char('link-existing',{
             cardImportOrigin:{source:'babylink',externalId:'link-123',originalName:'雨生'},
             systemPrompt:'原始 Link 人设',
-            memories:[{id:'saved-memory',content:'原聊天记忆'}] as CharacterProfile['memories'],
+            memories:[{id:'saved-memory',content:'原聊天记忆'}] as unknown as CharacterProfile['memories'],
         });
         const existingManual=char('manual-existing',{systemPrompt:'我自己编写的人设'});
         const documentOrigin:CardImportOrigin={source:'document',originalName:'雨生'};
@@ -92,7 +92,7 @@ describe('incremental character-card imports', () => {
         const identity:CardImportOrigin={source:'document',originalName:'雨生'};
         const existing=char('doc-existing',{cardImportOrigin:identity,
             systemPrompt:'文档旧版',
-            memories:[{id:'doc-memory',content:'聊天记录'}] as CharacterProfile['memories']});
+            memories:[{id:'doc-memory',content:'聊天记录'}] as unknown as CharacterProfile['memories']});
         const incoming=card('discard',identity,{systemPrompt:'文档新版'},[],'doc-existing');
         const updated=mergeCardImports([existing],[],[incoming]);
         expect(updated.result.updatedIds).toEqual(['doc-existing']);
