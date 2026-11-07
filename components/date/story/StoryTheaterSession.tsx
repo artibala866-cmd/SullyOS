@@ -205,7 +205,7 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
     })}</div>
 </div>;
 
-const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string }> = ({ source, fallback, title }) => {
+export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string }> = ({ source, fallback, title }) => {
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source), [source]);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
