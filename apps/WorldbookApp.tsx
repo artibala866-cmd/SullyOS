@@ -19,7 +19,7 @@ import { readLinkPersonaDocument } from '../utils/linkImportDocuments';
 import { trackEvent } from '../utils/analytics';
 
 const WorldbookApp: React.FC = () => {
-    const { closeApp, worldbooks, addWorldbook, updateWorldbook, updateWorldbooks, deleteWorldbook, deleteWorldbooks, addToast } = useOS();
+    const { closeApp, worldbooks, addWorldbook, importWorldbooks, updateWorldbook, updateWorldbooks, deleteWorldbook, deleteWorldbooks, addToast } = useOS();
     
     // View State
     const [isEditing, setIsEditing] = useState(false);
@@ -198,56 +198,58 @@ const WorldbookApp: React.FC = () => {
     };
 
     const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
         try {
-            if (!file.size || file.size > 32 * 1024 * 1024) throw new Error('世界书文件为空或超过 32 MB');
-            const extension = file.name.split('.').pop()?.toLowerCase();
-            const category = file.name.replace(/\.(json|png|txt|docx|doc)$/i, '').trim() || '导入世界书';
-            let imported: Worldbook[];
-            let warnings: string[] = [];
-            if (['txt','doc','docx'].includes(extension || '')) {
-                // BabyLink allows document text as a whole lorebook. The same
-                // encoding and Word parser is reused by character document import.
-                const text = await readLinkPersonaDocument(file);
-                const now = Date.now();
-                imported = [{
-                    id: 'wb-'+now+'-'+Math.random().toString(36).slice(2, 8),
-                    title: category, content: text, category, createdAt: now, updatedAt: now,
-                    key: [], keysecondary: [], constant: true, selective: false,
-                    selectiveLogic: 0, order: 100, position: 1, disable: false,
-                    probability: 100, useProbability: false, depth: 4, role: null,
-                    scanDepth: null, caseSensitive: null, matchWholeWords: null, sourceUid: 0,
-                }];
-            } else {
+            if (files.length > 30) throw new Error('一次最多导入 30 个世界书文件，请分批选择');
+            if (files.reduce((total, file) => total + file.size, 0) > 48 * 1024 * 1024)
+                throw new Error('本批世界书文件合计超过 48 MB');
+            const imported: Worldbook[] = [], warnings: string[] = [];
+            for (const file of files) {
+                if (!file.size || file.size > 32 * 1024 * 1024)
+                    throw new Error('世界书「' + file.name + '」为空或超过 32 MB');
+                const extension = file.name.split('.').pop()?.toLowerCase();
+                const category = file.name.replace(/\.(json|png|txt|docx|doc)$/i, '').trim() || '导入世界书';
+                if (['txt', 'doc', 'docx'].includes(extension || '')) {
+                    const content = await readLinkPersonaDocument(file);
+                    const now = Date.now();
+                    imported.push({
+                        id: 'wb-'+now+'-'+imported.length+'-'+Math.random().toString(36).slice(2, 8),
+                        title: category, content, category, createdAt: now, updatedAt: now,
+                        key: [], keysecondary: [], constant: true, selective: false,
+                        selectiveLogic: 0, order: 100, position: 1, disable: false,
+                        probability: 100, useProbability: false, depth: 4, role: null,
+                        scanDepth: null, caseSensitive: null, matchWholeWords: null, sourceUid: 0,
+                    });
+                    continue;
+                }
                 const source = await readShareFile(file, 'worldbook');
-                const rawText = await source.text();
+                const rawText = await readLinkPersonaDocument(source);
                 let raw: unknown;
                 try { raw = JSON.parse(rawText); }
-                catch { throw new Error('世界书 JSON 文件无效或已损坏'); }
+                catch { throw new Error('世界书「' + file.name + '」JSON 无效或编码损坏'); }
                 const link = parseLinkWorldbookJson(raw, category);
-                imported = link.recognized ? link.books : parseStandardWorldbook(rawText, category);
-                warnings = link.warnings;
+                const parsed = link.recognized ? link.books : parseStandardWorldbook(rawText, category);
+                imported.push(...parsed);
+                warnings.push(...link.warnings.map(message => file.name + '：' + message));
             }
-            // Repeated imports of the same Link/Tavern/book document never
-            // duplicate existing data, and must not overwrite hand-edited lore.
-            const fingerprint = (book: Pick<Worldbook, 'category'|'title'|'content'>) =>
-                JSON.stringify([book.category.trim(),book.title.trim(),book.content.trim()]);
-            const keys = new Set(worldbooks.map(fingerprint));
-            const unique = imported.filter(book => {
-                const key = fingerprint(book);
-                if (keys.has(key)) return false;
-                keys.add(key);
-                return true;
-            });
-            for (const book of unique) await addWorldbook(book);
-            addToast(unique.length
-                ? '已导入 '+unique.length+' 条世界书'+(imported.length>unique.length?'，跳过 '+(imported.length-unique.length)+' 条重复':'')
-                : '世界书内容均已存在，未重复导入', 'success');
-            if (warnings.length) addToast(warnings.join('；'), 'info');
-            if (unique.length) setExpandedCategory(unique[0].category || category);
+            if (!imported.length) throw new Error('所选文件没有可导入的世界书条目');
+            // The context action only updates visible state AFTER an all-or-
+            // nothing IndexedDB transaction: no partially saved batch, no stale
+            // in-memory duplicate check, no false "success" on write failure.
+            const result = await importWorldbooks(imported);
+            const summary = [
+                result.added ? '新增 ' + result.added + ' 条' : '',
+                result.updated ? '更新 ' + result.updated + ' 条' : '',
+                result.skipped ? '跳过相同 ' + result.skipped + ' 条' : '',
+                result.conflicts ? '冲突未覆盖 ' + result.conflicts + ' 条' : '',
+            ].filter(Boolean).join(' · ');
+            addToast(summary || '导入完成，内容无变化', result.conflicts ? 'info' : 'success');
+            if (result.conflicts) warnings.push('存在内容相同但触发配置不同，或已被手动修改的条目；为保护本地内容，冲突项未覆盖，请到世界书中核对');
+            if (warnings.length) addToast([...new Set(warnings)].join('；'), 'info');
+            if (result.added || result.updated) setExpandedCategory(imported[0]?.category || null);
         } catch (error: any) {
-            addToast(error?.message || '世界书导入失败', 'error');
+            addToast(error?.message || '世界书导入失败，本批未保存', 'error');
         } finally {
             if (importRef.current) importRef.current.value = '';
         }
@@ -680,7 +682,7 @@ const WorldbookApp: React.FC = () => {
                                     {isSelecting ? '取消' : '管理'}
                                 </button>
                             )}
-                            <input ref={importRef} type="file" accept=".json,.png,.txt,.docx,.doc,application/json,image/png,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
+                            <input ref={importRef} type="file" multiple accept=".json,.png,.txt,.docx,.doc,application/json,image/png,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={handleImport} />
                             <button
                                 onClick={() => { setShowImportConfirm(true); trackEvent('打开导入世界书弹窗'); }}
                                 className="w-9 h-9 bg-white/80 text-neutral-500 border border-white rounded-full shadow-sm flex items-center justify-center active:scale-90 transition-transform"
