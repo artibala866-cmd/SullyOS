@@ -973,7 +973,10 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
     if (globalSet) return 'global:' + globalSet.trim();
     const localSet = /\{\{\s*setvar\s*::\s*([^:{}]+?)\s*::/i.exec(prompt.content)?.[1];
     if (localSet && /Perspective|视角|文风|叙述视角/i.test(localSet)) return 'local:' + localSet.trim();
-    if (/^(?:✅)?(?:主文风|文风[-：:]|拖：)/.test(tavernAuthorChoiceName(prompt.name))) return 'author:style';
+    const shortName = tavernAuthorChoiceName(prompt.name);
+    if (/可叠加|叠加使用/.test(shortName)) return '';
+    if (/(?:[2-9]|[二三四五六七八九])选1|选一/i.test(shortName) && /小剧场/.test(shortName)) return 'author:theater-choice';
+    if (/^(?:✅)?(?:主文风|文风[-：:]|拖：)/.test(shortName) || /⌨️.*文风/.test(prompt.name)) return 'author:style';
     if (/人称|视角/.test(prompt.name)) return 'author:pov';
     if (/抢话|不抢话/.test(prompt.name)) return 'author:agency';
     if (/复述|转述/.test(prompt.name)) return 'author:retell';
@@ -1060,7 +1063,8 @@ export const getStoryTavernAuthorSections = (
         out.push({
             key, label: group.label.replace(/[▣◈▶◀︎◌]/gu, '').replace(/\s+/g, ' ').trim(),
             description: '原作者分组 · 切换原始条目，不附加内置规则',
-            options, single: /选\s*(?:一|1|①)|单选|择一/u.test(group.label)
+            options, single: (/选\s*(?:一|1|①)|单选|择一/u.test(group.label)
+                && !options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label)))
                 || (options.length >= 2 && options.filter(p => p.enabled).length <= 1
                     && options.every(p => Boolean(p.cluster))
                     && new Set(options.map(p => p.cluster)).size === 1),
@@ -1111,20 +1115,35 @@ export const selectStoryTavernAuthorOption = (
     const section = getStoryTavernAuthorSections(document).find(s => s.key === sectionKey);
     const selected = section?.options.find(o => o.id === optionId);
     if (!section || !selected) return document;
-    const sameCluster = selected.cluster
-        ? section.options.filter(o => o.cluster === selected.cluster) : [];
+    const mixedStyle = /文风|写作风格/.test(section.label)
+        && section.options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label));
+    const styleBoundary = mixedStyle
+        ? section.options.findIndex(option => /可叠加|修辞手法|表现&修辞/.test(option.label))
+        : -1;
+    // Phantasm keeps one primary style, while optional overlays and
+    // rhetorical-technique prompts may be enabled together.
+    const clusterOf = (option: StoryTavernAuthorOption): string =>
+        mixedStyle && styleBoundary > 0
+            && section.options.findIndex(item => item.id === option.id) < styleBoundary
+            ? 'primary:style' : option.cluster;
+    const targetCluster = clusterOf(selected);
+    const sameCluster = targetCluster
+        ? section.options.filter(option => clusterOf(option) === targetCluster) : [];
     const clusterIsSingle = sameCluster.length > 1
         && sameCluster.filter(option => option.enabled).length <= 1;
     // Some authors deliberately enable MULTIPLE related styles together.
     // Only auto-disable siblings when the author specifies one-of-N or
     // their existing enabled pattern shows a single-choice cluster.
     const siblings = section.options.filter(o => o.id !== optionId
-        && (section.single || (clusterIsSingle && o.cluster === selected.cluster)));
+        && (section.single || (clusterIsSingle && targetCluster && clusterOf(o) === targetCluster)));
     const existingOn = selected.enabled;
-    const newEnabled = existingOn && !section.single ? false : true;
+    const isExplicitOneOf = /择一|单选|选\s*(?:一|1)|(?:[2-9]|[二三四五六七八九])选1/u.test(section.label)
+        || /(?:[2-9]|[二三四五六七八九])选1/u.test(selected.label);
+    const mustKeepOne = section.single || (isExplicitOneOf && clusterIsSingle);
+    const newEnabled = existingOn && !mustKeepOne ? false : true;
     // If a source section is explicitly exclusive, do not turn it into
     // a zero-choice state by clicking its already active button.
-    if (existingOn && section.single) return document;
+    if (existingOn && mustKeepOne) return document;
     const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
     const requiredWrappers = new Set<string>();
     // Authors sometimes disable an entire XML-wrapped block until one of its
