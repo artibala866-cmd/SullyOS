@@ -81,10 +81,15 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 ? `相同剧情预设已存在，已选择「${result.preset.name}」；未重复保存`
                 : `已导入${result.preset.document.sourceFormat === 'sillytavern' ? '酒馆适配' : '糯米机'}剧情预设「${result.preset.name}」`, 'success');
             if (result.preset.document.sourceFormat === 'sillytavern') {
-                const limitations = (result.preset.document.importWarnings || [])
-                    .filter(warning => /启用正则|启用脚本|酒馆小剧场\/HTML/.test(warning));
-                if (limitations.length) {
-                    addToast(`酒馆兼容提醒：${limitations.join('；')}`, 'info');
+                const warnings = result.preset.document.importWarnings || [];
+                const skippedScripts = warnings.some(warning => /启用正则|启用脚本/.test(warning));
+                const htmlTheater = warnings.some(warning => warning.includes('酒馆小剧场/HTML'));
+                if (skippedScripts || htmlTheater) {
+                    addToast(`酒馆兼容提醒：${[
+                        skippedScripts ? '正则/脚本不执行' : '',
+                        htmlTheater ? 'HTML 小剧场仅能按文字附录展示' : '',
+                        '可在预设制作器查看并关闭不适配的指令',
+                    ].filter(Boolean).join('；')}`, 'info');
                 }
             }
             return result.preset;
