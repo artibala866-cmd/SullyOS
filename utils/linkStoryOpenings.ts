@@ -1,5 +1,5 @@
 import type { CharacterProfile, LinkOpeningGreeting, TavernOpeningGreeting } from '../types';
-import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningReadableText } from './tavernOpeningGreeting';
 
 export type StoryOpeningSource = 'link' | 'tavern' | 'custom';
 export interface StoryOpeningChoice extends LinkOpeningGreeting {
@@ -49,7 +49,12 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
         if (isLegacyLinkOpening(greeting)) add(greeting, 'link');
         else {
             const source: StoryOpeningSource = greeting.id.startsWith('story-custom-') ? 'custom' : 'tavern';
-            add(adaptTavernOpeningGreeting(greeting), source);
+            // The library retains the complete imported card. The Story
+            // selector exposes readable prose only for true Tavern greetings.
+            const adapted = adaptTavernOpeningGreeting(greeting);
+            add(source === 'tavern'
+                ? { ...adapted, content: tavernOpeningReadableText(adapted.content) }
+                : adapted, source);
         }
     }
     return result;
