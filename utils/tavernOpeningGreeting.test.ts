@@ -208,7 +208,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         const visible = tavernOpeningReadableText(opening);
         expect(visible).toContain('暮色降临，他推开了旧车站的门。');
         expect(visible).toContain('他把车票递给{{user}}，说：“初雪到了。”');
-        expect(visible).not.toMatch(/spotify:|\\.gif|\\.mp3|\\.ogg|\\.mp4|example\\.org|<iframe|<audio|<video|<source|<img|!\\[/i);
+        expect(visible).not.toMatch(/spotify:|\.gif|\.mp3|\.ogg|\.mp4|example\.org|<iframe|<audio|<video|<source|<img|!\[/i);
         expect(tavernOpeningReadableText(visible)).toBe(visible);
     });
 
