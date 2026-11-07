@@ -11,7 +11,7 @@ import TokenImg from '../components/os/TokenImg';
 import HomeFigureStudio from '../components/character/HomeFigureStudio';
 import { trackEvent } from '../utils/analytics';
 import { UploadSimple } from '@phosphor-icons/react';
-import { beginUserSaveOperation } from '../utils/userSaves';
+import { beginUserSaveOperation, readUserSaves, USER_SAVE_ID } from '../utils/userSaves';
 import { DOCUMENT_IMPORT_ACCEPT, readImportedTextDocument, planUserBioDocumentImport, type ImportedTextDocument, type UserBioImportMode } from '../utils/importTextDocument';
 
 const UserApp: React.FC = () => {
@@ -78,6 +78,8 @@ const UserApp: React.FC = () => {
         const originalBio = userProfile.bio;
         let optimisticBio: string | null = null;
         try {
+            if (readUserSaves().activeId !== USER_SAVE_ID)
+                throw new Error('当前身份已在其他页面切换，请刷新档案后重新导入');
             // Do not write unchanged profiles at all: with a full disk an
             // identical reimport must still be reported as a harmless no-op.
             const preliminary = planUserBioDocumentImport(originalBio, pendingBioFile.text, bioImportMode);
