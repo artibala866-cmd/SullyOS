@@ -82,6 +82,15 @@ export interface LinkWorldbookImport {recognized:boolean;books:Worldbook[];warni
 export const parseLinkWorldbookJson=(raw:unknown,filename:string):LinkWorldbookImport=>{
     const found=groups(raw,filename);
     const explicitlyLink=object(raw)&&['worldBooks','worldbooks','lorebooks'].some(k=>Array.isArray(raw[k]));
+    // Sully/Tavern worldbooks may contain 'caseSensitive' or 'enabled' too.
+    // Those generic flags alone are not a Link signature. When UID and the
+    // legacy selectiveLogic/keysecondary flags are present, prefer the
+    // existing standard-worldbook parser instead of corrupting semantics.
+    const looksStandard=!explicitlyLink && found.some(group=>
+        !group.book.scope && group.entries.some(row=>
+            ['uid','selectiveLogic','keysecondary','useProbability','matchWholeWords','extensions']
+                .some(k=>k in row) && !('activation' in row)));
+    if(looksStandard)return {recognized:false,books:[],warnings:[]};
     const recognized=!!explicitlyLink||found.some(group=>
         ['scope','coverImage','cover','avatar'].some(k=>k in group.book) ||
         group.entries.some(row=>['activation','secondaryKeys','caseSensitive','insertionPosition','probabilityWeight']
