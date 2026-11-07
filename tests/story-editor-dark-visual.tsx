@@ -113,7 +113,7 @@ const validate=()=>{
     const presetSection=[...document.querySelectorAll('section')].find(section=>section.textContent?.includes('装载剧情预设'));
     const tavernVisible=!!presetSection?.querySelector('select')?.textContent?.includes('酒馆视觉测试')
         && !!presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行')
-        && !!presetSection?.textContent?.includes('酒馆 HTML 小剧场不会按网页排版')
+        && !!presetSection?.textContent?.includes('小剧场支持隔离的安全 HTML 排版与原生卡片')
         && !presetSection?.querySelector('.border-amber-200');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
     const values={top:target(buttons[0]),bottom:target(buttons[1]),card:target(card),
