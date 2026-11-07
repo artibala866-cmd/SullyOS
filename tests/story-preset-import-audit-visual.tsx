@@ -45,57 +45,76 @@ createRoot(document.getElementById('visual')!).render(
 let stage = 0;
 let markerToggled = false;
 let detailSelected = false;
-const clickByText = (fragment:string) =>
+const clickByText = (fragment: string) =>
     [...document.querySelectorAll<HTMLButtonElement>('button')]
-        .find(button=>button.textContent?.includes(fragment));
-const inputText = (input:HTMLInputElement,value:string) => {
-    const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;
-    setter?.call(input,value);
-    input.dispatchEvent(new Event('input',{bubbles:true}));
+        .find(button => button.textContent?.includes(fragment));
+const inputText = (input: HTMLInputElement, value: string) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
 };
-const check=()=>{
-    const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
-    const pro=buttons.find(b=>b.textContent?.trim()==='专业版');
-    if(!pro){setTimeout(check,100);return;}
-    if(!native && focus==='slot'){
-        if(stage===0){const group=clickByText('预设开头');
-            if(group){group.click();stage=1;setTimeout(check,120);return;}}
-        if(stage===1){const item=clickByText('酒馆角色资料');
-            const toggle=item?.parentElement?.querySelector<HTMLButtonElement>('button');
-            if(item && toggle && !toggle.disabled){
-                toggle.click();item.click();markerToggled=true;stage=2;setTimeout(check,120);return;}}
+const check = () => {
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
+    const pro = buttons.find(b => b.textContent?.trim() === '专业版');
+    if (!pro) { setTimeout(check, 100); return; }
+    if (!native && (focus === 'slot' || focus === 'deep') && stage === 0) {
+        pro.click(); stage = 1; setTimeout(check, 180); return;
     }
-    if(!native && focus==='deep'){
-        if(stage===0) {
-            const search=document.querySelector<HTMLInputElement>('input[aria-label="搜索酒馆预设提示词"]');
-            if(search){inputText(search,'开关 369');stage=1;setTimeout(check,130);return;}
+    if (!native && focus === 'slot') {
+        if (stage === 1) {
+            const group = clickByText('预设开头');
+            if (group) { group.click(); stage = 2; setTimeout(check, 130); return; }
         }
-        if(stage===1){const group=buttons.find(b=>b.querySelector('strong') && /其他条目|设置|选择|补充/.test(b.textContent||''));
-            if(group){group.click();stage=2;setTimeout(check,130);return;}}
-        if(stage===2){const item=clickByText('开关 369');
-            if(item){item.click();stage=3;setTimeout(check,150);return;}}
+        if (stage === 2) {
+            const item = clickByText('酒馆角色资料');
+            const toggle = item?.parentElement?.querySelector<HTMLButtonElement>('button');
+            if (item && toggle && !toggle.disabled) {
+                toggle.click(); item.click(); markerToggled = true;
+                stage = 3; setTimeout(check, 130); return;
+            }
+        }
     }
-    const proOn=pro.className.includes('bg-white');
-    const fit=document.documentElement.scrollWidth<=innerWidth;
-    const overview=Boolean(document.querySelector('input[aria-label="搜索酒馆预设提示词"]'));
-    const quickEditor=Boolean(document.querySelector('button') &&
-        clickByText('返回提示词列表') && !document.querySelector('input[aria-label="搜索组内提示词"]'));
-    const selectedTextarea=document.querySelector<HTMLTextAreaElement>('textarea');
-    detailSelected=focus==='deep' && quickEditor
+    if (!native && focus === 'deep') {
+        if (stage === 1) {
+            const search = document.querySelector<HTMLInputElement>('input[aria-label="搜索酒馆预设提示词"]');
+            if (search) { inputText(search, '开关 369'); stage = 2; setTimeout(check, 150); return; }
+        }
+        if (stage === 2) {
+            const group = buttons.find(b => b.querySelector('strong')
+                && /其他条目|设置|选择|补充/.test(b.textContent || ''));
+            if (group) { group.click(); stage = 3; setTimeout(check, 130); return; }
+        }
+        if (stage === 3) {
+            const item = clickByText('开关 369');
+            if (item) { item.click(); stage = 4; setTimeout(check, 170); return; }
+        }
+    }
+    const proOn = pro.className.includes('bg-white');
+    const fit = document.documentElement.scrollWidth <= innerWidth;
+    const overview = Boolean(document.querySelector('input[aria-label="搜索酒馆预设提示词"]'));
+    const quickEditor = Boolean(clickByText('返回提示词列表')
+        && !document.querySelector('input[aria-label="搜索组内提示词"]'));
+    const selectedTextarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    detailSelected = focus === 'deep' && quickEditor
         && Boolean(selectedTextarea?.value.includes('作者正文 369'))
         && !document.querySelector('select[aria-label="移动到分组"]');
-    const success=fit && (native ? !proOn : proOn && groupingSafe && (
-        focus==='overview' ? overview : focus==='slot'
-            ? markerToggled && quickEditor
-            : detailSelected));
-    document.body.dataset.storyPresetAuditReady=String(success);
-    let output=document.getElementById('story-preset-audit-report');
-    if(!output){output=document.createElement('output');output.hidden=true;output.id='story-preset-audit-report';document.body.append(output);}
-    output.textContent=JSON.stringify({
-        native,focus,proOn,fit,groupCount:groups.length,groupingSafe,
-        markerToggled,quickEditor,detailSelected,stage,
-        names:groups.slice(0,8).map(g=>g.label),success,
-    });
-    if(!success && stage < 3)setTimeout(check,200);
+    const headingText = [...document.querySelectorAll('h2')].map(node => node.textContent || '');
+    const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
+        '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
+    const generationControls = ['温度', '候选范围', '重复惩罚', '话题惩罚', '最大输出']
+        .every(x => headingText.includes(x) || document.body.textContent?.includes(x));
+    const success = fit && (native ? !proOn && eightControls && generationControls : groupingSafe && (
+        focus === 'overview' ? !proOn && eightControls && generationControls
+            : focus === 'slot' ? proOn && markerToggled && quickEditor : proOn && detailSelected));
+    document.body.dataset.storyPresetAuditReady = String(success);
+    let output = document.getElementById('story-preset-audit-report');
+    if (!output) {
+        output = document.createElement('output');
+        output.hidden = true; output.id = 'story-preset-audit-report'; document.body.append(output);
+    }
+    output.textContent = JSON.stringify({ native, focus, proOn, fit, groupCount: groups.length,
+        groupingSafe, eightControls, generationControls, markerToggled,
+        quickEditor, detailSelected, stage, success });
+    if (!success && stage < 5) setTimeout(check, 200);
 };
-setTimeout(check,950);
+setTimeout(check, 950);
