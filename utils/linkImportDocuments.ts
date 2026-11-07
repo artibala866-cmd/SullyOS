@@ -57,6 +57,28 @@ const removeHtmlFormatting=(html:string):string=>unescapeXml(html
     .replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi,'')
     .replace(/<br\b[^>]*\/?>|<\/(?:p|div|li|tr|h[1-6])>/gi,'\n')
     .replace(/<[^>]*>/g,'')).trim();
+const dropRtfMetadata = (source:string):string=>{
+    // Word's RTF font and colour tables are not character persona prose.
+    // Strip balanced metadata groups, never the outer RTF document or ordinary
+    // paragraphs. This also avoids accidentally importing "Arial" as lore.
+    const ignored=/^\{\\(?:\*\\)?(?:fonttbl|colortbl|stylesheet|info|generator|listtable|listoverridetable|pict|object)\b/i;
+    let output='';
+    for(let i=0;i<source.length;){
+        if(source[i]==='{' && ignored.test(source.slice(i,i+80))){
+            let depth=0,j=i;
+            for(;j<source.length;j++){
+                const escaped=j>0 && source[j-1]==='\\' && !(j>1&&source[j-2]==='\\');
+                if(escaped)continue;
+                if(source[j]==='{')depth++;
+                else if(source[j]==='}'&&--depth===0){j++;break;}
+            }
+            if(depth!==0)throw new Error('RTF 文档结构不完整，请另存为 DOCX');
+            i=j;continue;
+        }
+        output+=source[i++];
+    }
+    return output;
+};
 const parseRtf=(source:string):string=>{
     // Older .doc exports may actually be RTF. Chinese ANSI RTF encodes
     // multibyte GBK text as \'d6\'d0. The previous parser dropped every
@@ -67,8 +89,8 @@ const parseRtf=(source:string):string=>{
         '949':'euc-kr','1252':'windows-1252','65001':'utf-8',
     };
     const encoding=enc[cp];
-    let text=source;
-    if(/\\'[a-f0-9]{2}/i.test(source)){
+    let text=dropRtfMetadata(source);
+    if(/\\'[a-f0-9]{2}/i.test(text)){
         if(!encoding)throw new Error('RTF 文档使用未支持的文字编码，请另存为 DOCX');
         try{
             text=text.replace(/(?:\\'[a-f0-9]{2})+/gi,run=>{
