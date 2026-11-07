@@ -1,5 +1,6 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
+import { characterImageProfileKey } from './characterImageProfile';
 import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
@@ -109,9 +110,9 @@ export function sharedAppearancePreferences(): string[] {
 /** Heal saves created by older releases without asking the user to reimport.
  * Only explicit references from shared appearance are eligible, never private
  * avatars, chat media, galleries or the rest of another save's blob store. */
-export async function repairSharedAppearanceBlobs(db: IDBDatabase, appearanceAssets?: {id: string; data: unknown}[]): Promise<void> {
+export async function repairSharedAppearanceBlobs(db: IDBDatabase, appearanceAssets?: {id: string; data: unknown}[], roleImageProfiles: string[] = []): Promise<void> {
     const assets = (appearanceAssets ?? await all(db, 'assets')).filter(row => isSharedAsset(row.id));
-    const refs = [...new Set(Array.from(JSON.stringify([assets, sharedAppearancePreferences()]).matchAll(/blobref:([a-zA-Z0-9_-]+)/g), m => m[0]))];
+    const refs = [...new Set(Array.from(JSON.stringify([assets, sharedAppearancePreferences(), roleImageProfiles]).matchAll(/blobref:([a-zA-Z0-9_-]+)/g), m => m[0]))];
     if (!refs.length) return;
     const present = new Set((await referencedBlobs(db, refs)).map(row => `blobref:${row.id}`));
     const missing = new Set(refs.filter(ref => !present.has(ref)));
@@ -165,6 +166,8 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
     switching = true;
     let target: IDBDatabase | undefined;
     let preparedNew = false;
+    const copiedImageProfiles = new Map<string, string>();
+    let targetStorage: Storage | undefined;
     try {
         const registry = readUserSaves();
         const revision = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
@@ -181,9 +184,18 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
         const bases = characters.map(baseCharacter);
         const sharedAssets = assets.filter(row => isSharedAsset(row.id));
-        await repairSharedAppearanceBlobs(source, sharedAssets);
+        const sourceStorage = createSaveStorage(nativeLocalStorage, USER_SAVE_ID);
+        targetStorage = createSaveStorage(nativeLocalStorage, targetId);
+        const targetPreferences = targetStorage;
+        const imageProfiles = bases.flatMap(char => {
+            const key = characterImageProfileKey(char.id);
+            const value = sourceStorage.getItem(key);
+            return value === null ? [] : [{ key, value }];
+        });
+        const roleImageValues = imageProfiles.map(entry => entry.value);
+        await repairSharedAppearanceBlobs(source, sharedAssets, roleImageValues);
         const newProfile = create ? freshUserProfile(create.name) : undefined;
-        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, ...sharedAppearancePreferences()]);
+        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, ...sharedAppearancePreferences(), ...roleImageValues]);
         target = await openTarget(source, targetId, !!create);
         preparedNew = !!create;
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
@@ -212,12 +224,20 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
             next.saves = next.saves.filter(save => save.id !== USER_SAVE_ID);
             next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now(), purgePending: true}];
         }
+        for (const {key, value} of imageProfiles) {
+            if (targetPreferences.getItem(key) !== null) continue;
+            targetPreferences.setItem(key, value);
+            copiedImageProfiles.set(key, value);
+        }
         writeUserSaves(next, revision);
         target.close(); target = undefined;
         returnToProfileAfterUserSaveSwitch(targetId);
         window.location.reload();
     } catch (error) {
         target?.close();
+        for (const [key, value] of copiedImageProfiles) {
+            if (targetStorage?.getItem(key) === value) targetStorage.removeItem(key);
+        }
         // An unlisted fresh database has no user gameplay; remove failed preparation
         // so repeated quota errors cannot accumulate invisible copies of assets.
         if (preparedNew && !readUserSaves().saves.some(save => save.id === targetId)) indexedDB.deleteDatabase(scopedDatabaseName('AetherOS_Data', targetId));

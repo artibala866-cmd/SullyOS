@@ -1,6 +1,6 @@
 import {novelAiQualityPrompt} from './imagePromptDefaults';
 import type { ImageApiSettings } from '../components/settings/ImageApiSettingsPanel';
-import type { CharacterImageProfile } from './characterImageProfile';
+import type { CharacterImageProfile, ImageReference } from './characterImageProfile';
 import { dataUrlToBlob, getBlobForRef, isBlobRef } from './blobRef';
 
 /**
@@ -169,15 +169,18 @@ export async function generateCharacterImage(
   config: ImageApiSettings,
   profile: CharacterImageProfile,
   signal?: AbortSignal,
-  extraReferences?: {name: string; value: string}[],
+  extraReferences?: ImageReference[],
 ): Promise<Blob> {
   if (!config.apiKey?.trim() || !config.model?.trim()) throw new Error('请先在设置中保存生图 API Key 和模型');
   // The character-owned profile is shared by manual edits and BabyLink imports.
   // Never use a disabled reference, but retain it in storage for later re-enabling.
-  const references = extraReferences?.length
-    ? (config.provider === 'openai' ? extraReferences : [])
-    : (profile.reference?.trim() && profile.referenceEnabled !== false ? [{name: '', value: profile.reference}] : []);
+  const references: ImageReference[] = extraReferences?.length
+    ? extraReferences
+    : (profile.reference?.trim() && profile.referenceEnabled !== false ? [{name: '', value: profile.reference, mode: profile.referenceMode}] : []);
   const hasReference = references.length > 0;
+  if (config.provider === 'nai' && references.length > 1) {
+    throw new Error('当前 NAI 图生图每次只接收一张参考图。这张合照需要多个锁脸参考，请使用支持多参考图的生图渠道');
+  }
   const wardrobe = profile.wardrobe;
   const promptParts = [
     config.positive?.trim(), profile.appearance?.trim(), profile.facePrompt?.trim(),
@@ -192,7 +195,7 @@ export async function generateCharacterImage(
     if (quality) promptParts.push(quality);
   }
   const negative = [config.negative?.trim(), wardrobe?.avoid?.trim()].filter(Boolean).join(', ');
-  const prompt = (config.provider === 'nai' && hasReference && profile.referenceMode !== 'composition'
+  const prompt = (config.provider === 'nai' && hasReference && references[0].mode !== 'composition'
     ? ['Preserve the referenced character identity and facial features', ...promptParts].join(', ')
     : promptParts.join(', ')) + (config.provider === 'openai' && negative
     ? '\n\nAvoid: ' + negative
@@ -274,8 +277,11 @@ export async function generateCharacterImage(
       body.append(references.length > 1 ? 'image[]' : 'image', reference, `reference-${index + 1}.${format}`);
     }
     const referencedPrompt = extraReferences?.length
-      ? 'Keep each person distinct and preserve their facial identity. Reference image order: ' + references.map(ref => ref.name).join(', ') + '. ' + prompt
-      : profile.referenceMode === 'composition' ? prompt : identityReferencePrompt(prompt);
+      ? ['Keep each person distinct. References in upload order:',
+          ...references.map((ref, index) => `${index + 1}. ${ref.name}: ${ref.mode === 'composition'
+            ? 'use the composition or styling as a guide' : 'preserve this person’s facial identity without copying the pose or background'}.`),
+          prompt].join(' ')
+      : references[0].mode === 'composition' ? prompt : identityReferencePrompt(prompt);
     body.append('prompt', referencedPrompt);
     body.append('model', config.model.trim());
     body.append('size', size);

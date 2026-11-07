@@ -1748,7 +1748,7 @@ ${isInitialGeneration ? `
 
                            </CharacterSettingsSection>
 
-                           <CharacterSettingsSection title="角色生图设定" summary="参考图、外貌描述与生成">
+                           <CharacterSettingsSection title="角色生图设定" summary="参考图与外貌描述">
                              {formData && <CharacterImagePanel characterId={formData.id} />}
                            </CharacterSettingsSection>
 

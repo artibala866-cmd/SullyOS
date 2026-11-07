@@ -276,3 +276,19 @@ describe('FoxAPI GPT Image 2 photo sending compatibility', () => {
     expect(params.prompt).toContain('street photo');
   });
 });
+
+it('keeps the only enabled reference in a NovelAI group scene and refuses a silent unlock with two', async () => {
+  const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response(new Blob(['image'], {type:'image/png'}), {status:200})));
+  vi.stubGlobal('fetch', fetcher);
+  const config = {provider:'nai' as const, apiKey:'test',model:'nai-diffusion-4-5-full',baseUrl:'https://nai.example',
+    width:1024,height:1024,positive:'',negative:''};
+  const face='data:image/jpeg;base64,/9j/AA==';
+  await generateCharacterImage(config,{appearance:'two people',reference:''},undefined,[{name:'A',value:face,mode:'identity'}]);
+  const request=JSON.parse(fetcher.mock.calls[0][1].body);
+  expect(request).toMatchObject({action:'img2img',parameters:{image:'/9j/AA=='}});
+  expect(request.input).toContain('Preserve the referenced character identity');
+  await expect(generateCharacterImage(config,{appearance:'two people',reference:''},undefined,
+    [{name:'A',value:face},{name:'B',value:face}])).rejects.toThrow('多参考图');
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  vi.unstubAllGlobals();
+});

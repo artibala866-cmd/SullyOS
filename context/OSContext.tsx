@@ -1,3 +1,4 @@
+import { characterImageProfileKey, normalizeCharacterImageProfile, readCharacterImageProfile, writeCharacterImageProfile } from '../utils/characterImageProfile';
 import { RETURN_TO_USER_PROFILE } from '../utils/userSaveScope';
 import { DAILY_SCHEDULE_SAVED_EVENT } from '../utils/scheduleChange';
 import { clearDeferredRealPersonContact, considerRealPersonContact, recheckRealPersonContacts, resumeRealPersonContact } from '../utils/realPersonContact';
@@ -4126,6 +4127,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               bm25Mode: (mode === 'text_only' || mode === 'full') ? (localStorage.getItem('bm25_mode') || undefined) : undefined,
               lastActiveCharId: (mode === 'text_only' || mode === 'full') ? (localStorage.getItem('os_last_active_char_id') || undefined) : undefined,
               storyTheaterAppearance: (mode === 'text_only' || mode === 'full') ? exportStoryTheaterAppearanceSetting() : undefined,
+              characterImageProfiles: mode === 'full' ? Object.fromEntries(characters
+                  .filter(char => localStorage.getItem(characterImageProfileKey(char.id)) !== null)
+                  .map(char => [char.id, readCharacterImageProfile(char.id)])) : undefined,
               eventNotifFlags: (mode === 'text_only' || mode === 'full') ? (() => {
                   const flags: Record<string, string> = {};
                   for (let i = 0; i < localStorage.length; i++) {
@@ -4968,6 +4972,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
 
+          const restoredImageProfiles = Object.entries(data.characterImageProfiles ?? {}).flatMap(([id, value]) => {
+              const profile = normalizeCharacterImageProfile(value);
+              return id && profile ? [{ id, profile }] : [];
+          });
+          let missingRoleReferences = 0;
+          for (const {id, profile} of restoredImageProfiles) {
+              if (isBlobRef(profile.reference) && !await getBlobForRef(profile.reference)) {
+                  const previous = readCharacterImageProfile(id);
+                  profile.reference = previous.reference;
+                  profile.referenceEnabled = !!previous.reference && previous.referenceEnabled !== false;
+                  missingRoleReferences++;
+              }
+          }
+
           const hadAssetStoreBackup = data.assets !== undefined;
           const hadCustomIconsBackup = data.customIcons !== undefined;
           const hadAppearancePresetsBackup = data.appearancePresets !== undefined;
@@ -5119,6 +5137,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
           if (data.chatInputPreferences !== undefined) saveChatInputPreferences(data.chatInputPreferences);
+          for (const {id, profile} of restoredImageProfiles) writeCharacterImageProfile(id, profile);
+          if (missingRoleReferences) addToast(`备份缺少 ${missingRoleReferences} 张角色锁脸图片，已保留本机已有的参考图`, 'info');
           if (data.theme) {
               await restoreAssetsInPlace(data.theme, '系统主题');
               await updateTheme(data.theme);

@@ -4055,6 +4055,7 @@ export interface Emoji {
 }
 
 export interface FullBackupData {
+    characterImageProfiles?: Record<string, import('./utils/characterImageProfile').CharacterImageProfile>;
     /** 纯文字备份单独携带收藏索引，不覆盖整个资源库。 */
     contentFavoritesIndex?: unknown;
     timestamp: number;

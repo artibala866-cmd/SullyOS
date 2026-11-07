@@ -69,3 +69,19 @@ it('delivers durable image bytes and sends only the scene tags for scenery on NA
     expect(vi.mocked(generateCharacterImage).mock.calls[0][1]).toMatchObject({appearance:'tea, window, sunlight',reference:''});
     expect(commit).toHaveBeenCalledWith('blobref:test','窗边一杯茶',expect.any(AbortSignal));
 });
+
+it('reads the latest saved role settings when a chat photo is sent and resolves one person once', async () => {
+    const {writeCharacterImageProfile}=await import('./characterImageProfile');
+    setImagePermission('group','group',true);
+    writeCharacterImageProfile(sender.id,{appearance:'grey hair',reference:'blobref:role-face',facePrompt:'pale eyes',
+        referenceEnabled:true,referenceMode:'composition',seed:'17',seedLockEnabled:true});
+    vi.mocked(generateCharacterImage).mockResolvedValueOnce(new Blob(['test'],{type:'image/png'}));
+    vi.mocked(putImageBlob).mockResolvedValueOnce('blobref:result');
+    const delivered=await deliverAutomaticImage({scope:'group',id:'group',sender,known:[sender],
+        photo:parseImageDirective('[[SEND_PHOTO: 窗边自拍]] [[PHOTO_SUBJECTS: self,char]] [[PHOTO_PROMPT: window, selfie]]'),
+        permission:imagePermission('group','group'),commit:()=>true});
+    expect(delivered).toBe(true);
+    expect(generateCharacterImage).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({
+        appearance:'window, selfie, grey hair',facePrompt:'pale eyes',reference:'blobref:role-face',referenceMode:'composition',seed:'17',
+    }),expect.any(AbortSignal),undefined);
+});

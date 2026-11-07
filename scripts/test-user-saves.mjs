@@ -16,11 +16,11 @@ const inspect=()=>page.evaluate(async()=>{
 const ready=()=>page.getByLabel('你的名字',{exact:true}).waitFor();
 async function switchTo(id){await Promise.all([page.waitForEvent('framenavigated'),page.getByLabel('切换身份',{exact:true}).selectOption(id)]);await ready();assert.equal((await inspect()).id,id);}
 async function shot(name){if(!name.endsWith('844') && !name.startsWith('backup')) await page.getByTestId('archive-scroll').evaluate(el=>el.scrollTop=0);await page.waitForTimeout(400);await page.screenshot({path:out+'/'+name+'.png'});}
-async function downloadAll(target, screenshot){
+async function downloadBackup(target, mode='all', screenshot){
  await target.goto(origin+'/test/fixtures/user-saves.html?settings=1');
  await target.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
- await target.getByLabel('备份范围',{exact:true}).selectOption('all');
- const button=target.getByRole('button',{name:/导出全部身份/});await button.scrollIntoViewIfNeeded();
+ await target.getByLabel('备份范围',{exact:true}).selectOption(mode);
+ const button=target.getByRole('button',{name:mode==='all'?/导出全部身份/:/整合导出/});await button.scrollIntoViewIfNeeded();
  if(screenshot)await shot(screenshot);
  target.once('dialog',d=>d.accept());
  const dlPromise=target.waitForEvent('download');await button.click();const dl=await dlPromise;
@@ -33,6 +33,60 @@ async function importAll(target,file){
  await target.getByRole('heading',{name:'系统设置',exact:true}).waitFor();
 }
 
+const imageBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGPcFRDEQApgIkn1qIZRDUNKAwBbvAF8a7jX/wAAAABJRU5ErkJggg==','base64');
+async function checkRoleImage(target, mode) {
+ const panel = target.getByRole('heading',{name:'生图外貌设定',exact:true});
+ await target.goto(origin+'/test/fixtures/user-saves.html?roleImage=1');
+ await panel.waitFor();
+ assert.equal(await target.getByRole('button',{name:/使用当前生图 API/}).count(),0);
+ const appearance = target.getByLabel('外貌描述 / 正面提示词');
+ if(mode==='edit'){
+  const requests=[];
+  await target.route('https://qa-image.invalid/**',route=>{
+   requests.push({url:route.request().url(),body:route.request().postDataBuffer()});
+   return route.fulfill({body:imageBytes,contentType:'image/png',headers:{'Access-Control-Allow-Origin':'*'}});
+  });
+  await appearance.fill('灰色短发');
+  await target.getByLabel('五官 / 脸部特征提示词').fill('浅色虹膜');
+  const upload=target.getByLabel('锁脸参考图（上传角色图片）');
+  await upload.setInputFiles({name:'face.png',mimeType:'image/png',buffer:imageBytes});
+  await target.getByRole('status').getByText('锁脸参考图已保存').waitFor();
+  await upload.setInputFiles({name:'invalid.png',mimeType:'image/png',buffer:Buffer.from('invalid image')});
+  await target.getByRole('status').getByText(/参考图上传失败/).waitFor();
+  assert.equal(requests.length,0,'editing the role profile must not call any image API');
+  await target.reload();await panel.waitFor();
+  await target.waitForFunction(()=>[...document.images].some(image=>image.alt==='角色生图参考图'&&image.complete&&image.naturalWidth>0));
+  await target.screenshot({path:out+'/role-image-settings-390.png'});
+  const result=await target.evaluate(async()=>{
+   const {DB}=await import('/utils/db.ts');
+   const {getBlobForRef}=await import('/utils/blobRef.ts');
+   const {imagePermission,deliverAutomaticImage,parseImageDirective,setImagePermission}=await import('/utils/automaticImage.ts');
+   const {readImageSettings,saveImageSettings}=await import('/components/settings/ImageApiSettingsPanel.tsx');
+   saveImageSettings({...readImageSettings(),provider:'openai',baseUrl:'https://qa-image.invalid/v1',apiKey:'mock',model:'gpt-image-2'});
+   const sender={id:'qa-save-char',name:'谢嬴'};
+   const photo=parseImageDirective('[[SEND_PHOTO: 窗边自拍]] [[PHOTO_SUBJECTS: self]]');
+   const commit=async (token,description,signal)=>{
+    await DB.saveMessage({charId:sender.id,type:'image',role:'assistant',content:token,metadata:{visionDescription:description}},signal);
+    return (await getBlobForRef(token))?.size>0;
+   };
+   const blocked=await deliverAutomaticImage({scope:'private',id:sender.id,permission:null,photo,sender,commit});
+   setImagePermission('private',sender.id,true);
+   const sent=await deliverAutomaticImage({scope:'private',id:sender.id,permission:imagePermission('private',sender.id),photo,sender,commit});
+   setImagePermission('private',sender.id,false);
+   return {blocked,sent};
+  });
+  assert.deepEqual(result,{blocked:false,sent:true});
+  assert.equal(requests.length,1);
+  assert.match(requests[0].url,/\/images\/edits$/);
+  assert(requests[0].body.includes(imageBytes),'must transmit the uploaded reference bytes');
+  assert.match(requests[0].body.toString(),/灰色短发, 浅色虹膜/);
+ }
+ assert.equal(await appearance.inputValue(),'灰色短发');
+ await target.waitForFunction(()=>[...document.images].some(image=>image.alt==='角色生图参考图'&&image.complete&&image.naturalWidth>0));
+ if(mode==='inherited') await target.screenshot({path:out+'/role-image-in-new-identity-390.png'});
+ await target.goto(origin+'/test/fixtures/user-saves.html');
+ await target.getByLabel('你的名字',{exact:true}).waitFor();
+}
 async function checkDesktop(name,damage=false){
  await page.goto(origin+'/test/fixtures/user-saves.html?desktop=1');
  if(damage){
@@ -109,6 +163,7 @@ try{
  assert(shape.sameField);const touch=await page.getByLabel('切换身份',{exact:true}).boundingBox();assert(touch.width>=48&&touch.height>=44);assert(!shape.extraText);assert.equal(await page.getByRole('button',{name:'切换身份',exact:true}).count(),0);
  await shot('name-picker-390');
  const originProfile=(await inspect()).profile;
+ await checkRoleImage(page,'edit');
  await checkDesktop('original');await checkStandaloneWardrobe(false);await checkCabinet(false);await checkLife(false);
  // Hold the profile transaction to verify a real touch produces visible
  // feedback and disables a second action while data is still being saved.
@@ -117,8 +172,9 @@ try{
  assert.equal(await page.getByLabel('切换身份',{exact:true}).isEnabled(),false);assert.equal(await page.getByRole('button',{name:'新建身份',exact:true}).isEnabled(),false);await shot('switching-390');
  await Promise.all([page.waitForEvent('framenavigated'),page.evaluate(()=>window.qaReleaseProfileSave())]);await ready();
  const fresh=await inspect();assert.notEqual(fresh.id,'original');assert.equal(fresh.profile.name,'新身份');assert.equal(fresh.profile.bio,'');assert.equal(fresh.messages.length,0);assert.equal(fresh.hwm,null);assert(fresh.books.some(w=>w.id==='qa-save-world'));assert.deepEqual(fresh.chars.find(c=>c.id==='qa-save-char').memories,[]);
- assert.notEqual(fresh.profile.avatar,originProfile.avatar);
+ assert.notEqual(fresh.profile.avatar,originProfile.avatar);assert(!fresh.blobIds.includes('qa-private-face'));
  for(const key of ['life','plans','lifeSettings','transactions','bank'])assert.deepEqual(fresh[key],[],key+' starts empty');
+ await checkRoleImage(page,'inherited');
  await checkDesktop('new');await checkDesktop('repaired',true);await checkStandaloneWardrobe(true);await checkCabinet(true);await checkLife(true,true);
  for(const key of ['perCharAvatars','imageAppearance','imageReference','imageLockEnabled','wardrobeOutfits','chibiStudio','vrState']) assert.equal(fresh.profile[key],undefined,key+' must not inherit');
  await page.getByTestId('archive-avatar').locator('img').waitFor();await page.waitForFunction(()=>{const img=document.querySelector('[data-testid=archive-avatar] img');return img?.complete&&img.naturalWidth>0;});
@@ -154,7 +210,8 @@ try{
  assert.equal(await page.locator('#user-save-select option').count(),2);
  assert.equal(await page.locator('#user-save-select optgroup').count(),0);
  await page.setViewportSize({width:390,height:844});
- const file=await downloadAll(page,'backup-all-390');
+ const file=await downloadBackup(page,'all','backup-all-390');
+ const singleFile=await downloadBackup(page,'current');
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
  page.once('dialog',async d=>{assert.match(d.message(),/永久删除/);await d.dismiss();});
  await page.getByRole('button',{name:'删除当前身份',exact:true}).click();assert.equal((await inspect()).id,fresh.id);
@@ -165,7 +222,7 @@ try{
  assert.equal(await page.getByRole('button',{name:'删除当前身份',exact:true}).isEnabled(),false);
  assert.deepEqual(await page.locator('#user-save-select option').allTextContents(),['原来的名字 · 当前']);
  await shot('after-delete-390');
- const currentOnly=await downloadAll(page);
+ const currentOnly=await downloadBackup(page);
  await importAll(page,currentOnly);
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();const imported=await inspect();assert.equal(imported.registry.saves.length,2);assert.equal(imported.profile.name,'原来的名字');assert.equal(imported.profile.bio,'原身份的独立设定');
  const copy=imported.registry.saves.find(save=>save.id!=='original');await switchTo(copy.id);const restoredCopy=await inspect();assert.equal(restoredCopy.profile.bio,'原身份的独立设定');assert.deepEqual(restoredCopy.messages,imported.messages);assert.match(await page.locator('#user-save-select option:checked').textContent(),/副本 · 当前/);await switchTo('original');
@@ -189,7 +246,19 @@ try{
   assert(contents.includes(message));
  }
  await cleanPage.screenshot({path:out+'/backup-restored-fresh-browser-390.png'});
+ await checkRoleImage(cleanPage,'restored');
  await clean.close();
+ const single=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ await single.addInitScript(()=>{localStorage.setItem('qa-user-saves-seeded','1');localStorage.setItem('sullyos_disclaimer_accepted','1');localStorage.setItem('os_first_use_memory_guide_v1','done');});
+ const singlePage=await single.newPage();singlePage.on('pageerror',e=>errors.push(e.message));
+ await singlePage.goto(origin+'/test/fixtures/user-saves.html?settings=1');
+ await singlePage.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
+ singlePage.once('dialog',dialog=>{assert.match(dialog.message(),/可能替换当前档案/);return dialog.accept();});
+ await importAll(singlePage,singleFile);
+ await checkRoleImage(singlePage,'restored');
+ assert.equal(await singlePage.getByLabel('你的名字',{exact:true}).inputValue(),'校园线名字');
+ assert.equal(await singlePage.locator('#user-save-select option').count(),1);
+ await single.close();
  // Dismissing the current-identity replacement warning must leave the rich
  // original untouched. The independent ZIP above never uses this warning.
  await page.goto(origin+'/test/fixtures/user-saves.html?settings=1');await page.getByRole('button',{name:'备份与恢复 (ZIP)',exact:true}).click();
@@ -197,5 +266,5 @@ try{
  await page.locator('input[type=file][accept=".json,.zip"]').setInputFiles({name:'old-backup.json',mimeType:'application/json',buffer:Buffer.from('{}')});
  await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.includes('导出')&&!b.disabled));assert.match(await confirmation,/可能替换当前档案及互动记录/);
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();assert.deepEqual((await inspect()).messages,imported.messages);assert.deepEqual(errors,[]);
- console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash purges current identity and retains base library; deleted entries stay hidden; index corruption heals; exported ZIP restores both identities in a clean browser; final identity protected; multi-tab, all-save backup/import and cancelled legacy replacement; 390/320/landscape screenshots; no page errors.');
+ console.log('PASS: desktop film/photo/decoration images survive new identities and damaged-save reload repair without private image copying; standalone wardrobe uses the active identity; cabinet, period/settings, medicine, expenses and exercise isolated with real UI A/B/A/B; fresh identity starts with neutral avatar and no inherited per-character face/image identity/body; name-field native picker auto-switches; + creates; name/bio/avatar edit and reload independently in A/B/A/B; trash purges current identity and retains base library; deleted entries stay hidden; index corruption heals; exported ZIP restores both identities in a clean browser; role lock-face settings and bytes reach the image provider and survive identity switching and both backup scopes; final identity protected; multi-tab, all-save backup/import and cancelled legacy replacement; 390/320/landscape screenshots; no page errors.');
 }catch(error){console.error(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;}finally{await browser.close();}

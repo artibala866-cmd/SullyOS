@@ -67,7 +67,7 @@ export default function UserImageIdentitySection() {
         <div className="border-t border-slate-100 px-5 py-5 space-y-4">
             <p className="text-[11px] text-slate-400 leading-relaxed">
                 这份资料仅供 AI 生图使用，不会改变你的聊天头像、角色人设或关于我的介绍。
-                user 在私聊发送自拍或包含自己的照片时，可以使用这张图保持人物五官一致。
+                包含你的 AI 照片可以使用这张图保持人物五官一致。
             </p>
             <label className="block space-y-2">
                 <span className="text-[11px] font-bold text-slate-500">生图外貌描述</span>
@@ -103,10 +103,10 @@ export default function UserImageIdentitySection() {
                 <input type="checkbox" className="accent-primary w-4 h-4" checked={!!userProfile.imageLockEnabled && !!reference}
                     disabled={busy || !reference}
                     onChange={event => { void updateUserProfile({ imageLockEnabled: event.target.checked }).catch(error => addToast(error.message || '锁脸设置保存失败', 'error')); }} />
-                允许私聊 AI 发图时使用我的锁脸参考图
+                允许 AI 生成含我的照片时使用参考图
             </label>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                头像和锁脸参考图相互独立。普通本地发图不会调用 AI；启用后，只在你选择使用锁脸生图时上传参考图给当前生图服务。
+                头像和锁脸参考图分开保存。你手动选用锁脸，或已授权角色发图且照片包含你时，参考图会发给当前生图服务。
             </p>
             {busy && <p className="text-xs text-slate-400">正在保存参考图…</p>}
             {status && <p role="status" className="text-xs text-slate-500">{status}</p>}

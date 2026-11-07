@@ -2,7 +2,7 @@ import {createLocalId} from './localId';
 import type {UserProfile} from '../types';
 import {readImageSettings} from '../components/settings/ImageApiSettingsPanel';
 import {deleteBlobRef, putImageBlob} from './blobRef';
-import {readCharacterImageProfile} from './characterImageProfile';
+import {composeCharacterImageScene, readCharacterImageProfile} from './characterImageProfile';
 import {generateCharacterImage} from './imageGeneration';
 import {DEFAULT_IMAGE_SCENE_INSTRUCTION} from './imagePromptDefaults';
 
@@ -74,26 +74,20 @@ export async function deliverAutomaticImage(options: {
     let token: string | undefined;
     let saved = false;
     try {
-        const subjects = [...new Set(photo.subjects.toLowerCase().split(/[,，]/).map(x => x.trim()))];
-        const people = subjects.flatMap(subject => {
-            if (subject === 'user' && user) return [{name: user.name || 'User', profile: {
-                appearance: user.imageAppearance || '', reference: user.imageReference || '', referenceEnabled: !!user.imageLockEnabled,
-            }}];
+        const subjects = new Set(photo.subjects.toLowerCase().split(/[,，]/).map(value => value.trim()));
+        const owners = new Map<string, PhotoOwner>();
+        for (const subject of subjects) {
             const owner = subject === 'self' ? sender : known.find(person => person.id.toLowerCase() === subject);
-            return owner ? [{name: owner.name, profile: readCharacterImageProfile(owner.id)}] : [];
-        });
-        const single = people.length === 1 ? people[0].profile : undefined;
-        const scene = config.provider === 'nai' && photo.prompt ? photo.prompt : photo.description;
-        const appearances = people.map(({name, profile}) => {
-            const look = [profile.appearance, 'facePrompt' in profile && profile.facePrompt].filter(Boolean).join(', ');
-            return look && config.provider === 'openai' ? `${name}: ${look}` : look;
-        }).filter(Boolean);
-        const references = people.filter(({profile}) => profile.referenceEnabled !== false && profile.reference)
-            .map(({name, profile}) => ({name, value: profile.reference}));
-        const blob = await generateCharacterImage(config, {
-            ...single, appearance: [scene, ...appearances].join(', '), facePrompt: '',
-            reference: single?.reference ?? '',
-        }, controller.signal, people.length > 1 ? references : undefined);
+            if (owner) owners.set(owner.id, owner);
+        }
+        const people = [...owners.values()].map(owner => ({name: owner.name, profile: readCharacterImageProfile(owner.id)}));
+        if (subjects.has('user') && user) people.push({name: user.name || 'User', profile: {
+            appearance: user.imageAppearance || '', reference: user.imageReference || '', referenceEnabled: !!user.imageLockEnabled,
+        }});
+        const useTags = config.provider === 'nai';
+        const scene = useTags && photo.prompt ? photo.prompt : photo.description;
+        const {profile, references} = composeCharacterImageScene(scene, people, useTags);
+        const blob = await generateCharacterImage(config, profile, controller.signal, references);
         if (!active() || controller.signal.aborted) return false;
         token = await putImageBlob(blob);
         if (!active() || controller.signal.aborted) return false;

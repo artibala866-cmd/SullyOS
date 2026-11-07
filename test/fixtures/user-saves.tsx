@@ -5,14 +5,17 @@ import { createRoot } from 'react-dom/client';
 import { OSProvider, useOS } from '../../context/OSContext';
 import Settings from '../../apps/Settings';
 import UserApp from '../../apps/UserApp';
+import CharacterImagePanel from '../../components/character/CharacterImagePanel';
 import Launcher from '../../apps/Launcher';
 import {MusicProvider} from '../../context/MusicContext';
 import { DB } from '../../utils/db';
+import { dataUrlToBlob } from '../../utils/blobRef';
 import { USER_SAVE_ID } from '../../utils/userSaveScope';
 if (USER_SAVE_ID === 'original' && !localStorage.getItem('qa-user-saves-seeded')) {
     await DB.saveCharacter({id:'qa-save-char',name:'谢嬴',avatar:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#64748b"/><text x="32" y="43" text-anchor="middle" font-size="36" fill="white">C</text></svg>'),description:'保留的角色人设',systemPrompt:'保留的人设',memories:[{id:'old',date:'2026-11-06',summary:'原身份的记忆'}],refinedMemories:{'2026-11':'原身份的月度总结'}});
     await DB.saveWorldbook({id:'qa-save-world',name:'已有世界书',entries:[]} as any);
     await DB.saveMessage({charId:'qa-save-char',role:'user',type:'text',content:'原身份的聊天'});
+    await DB.putBlobAsset('qa-private-face', dataUrlToBlob('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGPcFRDEQApgIkn1qIZRDUNKAwBbvAF8a7jX/wAAAABJRU5ErkJggg=='));
     await DB.saveUserProfile({name:'原身份名字',avatar:'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#4682b4"/><text x="64" y="89" text-anchor="middle" font-size="76" fill="white">A</text></svg>'),bio:'原身份设定',perCharAvatars:{'qa-save-char':'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#ef4444"/></svg>')},imageAppearance:'原身份独有外貌',imageReference:'blobref:qa-private-face',imageLockEnabled:true,wardrobeOutfits:[],chibiStudio:{home3D:{state:{selected:{eyes:'eyes_02',skin:'skin_01'}},img:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#4682b4"/></svg>'),hair:{layers:{},extras:[]}}},vrState:{enabled:true,activity:'原身份活动'}});
     for(const [id,color,label] of [['b_qa_theme_photo','#d8b3a4','FILM'],['b_qa_asset_photo','#9bb8a3','PHOTO'],['b_qa_deco','#a5b8cf','DECO'],['b_qa_private_pic','#333333','PRIVATE']]) await DB.putBlobAsset(id,new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="${color}"/><text x="120" y="125" text-anchor="middle" font-size="28" fill="white">${label}</text></svg>`],{type:'image/svg+xml'}));
     await DB.saveAsset('widget_wide','blobref:b_qa_asset_photo');await DB.saveAsset('widget_dsq','blobref:b_qa_asset_photo');
@@ -28,5 +31,13 @@ if (USER_SAVE_ID === 'original' && !localStorage.getItem('qa-user-saves-seeded')
     localStorage.setItem('vr_sar_simulations_v1',JSON.stringify({runs:[{id:'old-story',title:'原剧情'}]}));
     localStorage.setItem('qa-user-saves-seeded','1');
 }
-function ReadyArchive() { const {isDataLoaded} = useOS(); return isDataLoaded ? new URLSearchParams(location.search).has('desktop') ? <MusicProvider><Launcher staticPreview/></MusicProvider> : new URLSearchParams(location.search).has('settings') ? <Settings/> : <UserApp/> : <p>正在读取档案…</p>; }
+function ReadyArchive() {
+    const {isDataLoaded} = useOS();
+    if (!isDataLoaded) return <p>正在读取档案…</p>;
+    const route = new URLSearchParams(location.search);
+    if (route.has('desktop')) return <MusicProvider><Launcher staticPreview/></MusicProvider>;
+    if (route.has('settings')) return <Settings/>;
+    if (route.has('roleImage')) return <div className="p-4"><CharacterImagePanel characterId="qa-save-char"/></div>;
+    return <UserApp/>;
+}
 createRoot(document.getElementById('root')!).render(<React.StrictMode><OSProvider><ReadyArchive/></OSProvider></React.StrictMode>);

@@ -42,22 +42,18 @@ export async function loadBondMilestoneSources(members: string[]): Promise<NonNu
 }
 
 export async function generateBondArtwork(char: CharacterProfile, other: CharacterProfile | UserProfile, relation: Relation, style: string, signal: AbortSignal, pair: boolean) {
-  const [{ readImageSettings }, { generateCharacterImage }, { readCharacterImageProfile }, { blobToDataUrl }] = await Promise.all([
+  const [{ readImageSettings }, { generateCharacterImage }, { composeCharacterImageScene, readCharacterImageProfile }, { blobToDataUrl }] = await Promise.all([
     import('../components/settings/ImageApiSettingsPanel'), import('./imageGeneration'), import('./characterImageProfile'), import('./blobRef'),
   ]);
   const first = readCharacterImageProfile(char.id);
   const second = 'id' in other ? readCharacterImageProfile(other.id) : {
     appearance: other.imageAppearance ?? '', reference: other.imageReference ?? '', referenceEnabled: !!other.imageLockEnabled,
   };
-  const appearance = [
-    `双人空间封面，两人合照，关系是${relationNames[relation]}，场景风格：${style.trim().slice(0, 500) || '日常'}。`,
-    `${char.name}：${first.appearance}`, `${other.name}：${second.appearance}`,
-    pair ? '依照两位角色的相处方式自然构图。' : '以两人自然互动为画面中心。',
-  ].join(' ');
-  const references = [{ name: char.name, profile: first }, { name: other.name, profile: second }]
-    .filter(({ profile }) => profile.referenceEnabled !== false && profile.reference)
-    .map(({ name, profile }) => ({ name, value: profile.reference }));
-  return blobToDataUrl(await generateCharacterImage(readImageSettings(), { appearance, facePrompt: '', reference: '' }, signal, references));
+  const scene = `双人空间封面，两人合照，关系是${relationNames[relation]}，场景风格：${style.trim().slice(0, 500) || '日常'}。`
+    + (pair ? '依照两位角色的相处方式自然构图。' : '以两人自然互动为画面中心。');
+  const settings = readImageSettings();
+  const { profile, references } = composeCharacterImageScene(scene, [{ name: char.name, profile: first }, { name: other.name, profile: second }], settings.provider === 'nai');
+  return blobToDataUrl(await generateCharacterImage(settings, profile, signal, references));
 }
 
 export async function generateBondPortrait(char: CharacterProfile, pose: string, signal: AbortSignal) {
