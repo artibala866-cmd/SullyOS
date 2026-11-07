@@ -49,10 +49,12 @@ describe('Link APK TXT/DOC/DOCX character import compatibility',()=>{
         expect(await readLinkWorldbookJsonText(gbk)).toBe('{"你好":1}');
     });
     it('recovers Chinese paragraphs from a Word RTF .doc and fails instead of silently dropping invalid byte escapes',async()=>{
-        const contents=String.raw`{\rtf1\ansi\ansicpg936 \'d6\'d0\'ce\'c4\par 这里是第二段。}`;
+        const contents=String.raw`{\rtf1\ansi\ansicpg936{\fonttbl{\f0 Arial;}}{\colortbl;\red0\green0\blue0;} \f0 \'d6\'d0\'ce\'c4\par 这里是第二段。}`;
         const decoded=await readLinkPersonaDocument(new File([contents],'中文设定.doc',{type:'application/msword'}));
         expect(decoded).toContain('中文');
         expect(decoded).toContain('这里是第二段');
+        expect(decoded).not.toContain('Arial');
+        expect(decoded).not.toContain('red0');
         const wrong=String.raw`{\rtf1\ansi\ansicpg99999 \'d6\'d0}`;
         await expect(readLinkPersonaDocument(new File([wrong],'无效编码.doc')))
             .rejects.toThrow('未支持的文字编码');
