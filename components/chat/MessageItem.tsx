@@ -1036,6 +1036,7 @@ interface MessageItemProps {
     onMediaLoad?: (messageId: number) => void;
     onLongPress: (m: Message) => void;
     onReply: (m: Message) => void;
+    onViewRecalled?: (m: Message) => void;
     selectionMode: boolean;
     isSelected: boolean;
     onToggleSelect: (id: number) => void;
@@ -1101,6 +1102,7 @@ const MessageItem = React.memo(({
     onMediaLoad,
     onLongPress,
     onReply,
+    onViewRecalled,
     selectionMode,
     isSelected,
     onToggleSelect,
@@ -1423,12 +1425,15 @@ const MessageItem = React.memo(({
     // Recalled content replaces the original bubble; it is never rendered
     // alongside the withdrawn text or an extra system message.
     if (m.metadata?.recalledAt) {
+        const label = `${m.role === 'assistant' ? charName : '你'}撤回了一条消息`;
+        const canView = typeof m.metadata?.recalledOriginalContent === 'string' && !!onViewRecalled;
+        const cls = "inline-flex max-w-[85%] items-center justify-center rounded-full bg-neutral-500/[0.06] px-3.5 py-1.5 text-center text-[11px] leading-relaxed font-medium tracking-wide text-neutral-400";
         return (
-            <div className="flex w-full justify-center px-3 py-2 my-1.5" role="status"
-                 aria-label={`${m.role === 'assistant' ? charName : '你'}撤回了一条消息`}>
-                <span className="inline-flex max-w-[85%] items-center justify-center rounded-full bg-neutral-500/[0.06] px-3.5 py-1.5 text-center text-[11px] leading-relaxed font-medium tracking-wide text-neutral-400">
-                    {m.role === 'assistant' ? charName : '你'}撤回了一条消息
-                </span>
+            <div className="flex w-full justify-center px-3 py-2 my-1.5" role="status" aria-label={label}>
+                {canView ? (
+                    <button type="button" className={cls + " cursor-pointer active:bg-neutral-500/[0.12] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"}
+                        onClick={() => selectionMode ? onToggleSelect(m.id) : onViewRecalled?.(m)} title="查看撤回的消息">{label}</button>
+                ) : (<span className={cls}>{label}</span>)}
             </div>
         );
     }

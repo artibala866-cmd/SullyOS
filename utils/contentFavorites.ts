@@ -519,7 +519,7 @@ export const reconcileStoredRecalledFavoritesForCharacter = async (charId: strin
     }
     const rows = await Promise.all([...ids].map(id => DB.getMessageById(id).catch(() => null)));
     for (const row of rows) {
-        if (row?.charId === charId && row.role === 'assistant' && row.metadata?.recalledAt) {
+        if (row?.charId === charId && row.metadata?.recalledAt) {
             await redactRecalledMessageFavorites(charId, row.id);
         }
     }

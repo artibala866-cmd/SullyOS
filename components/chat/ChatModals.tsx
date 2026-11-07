@@ -15,6 +15,7 @@ import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatCon
 import { trackEvent } from '../../utils/analytics';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../utils/voiceLanguage';
 import { chatMessageFuzzyMatchesKeyword } from '../../utils/chatMessageSearch';
+import { canUserRecallPrivateMessage } from '../../utils/messageRecall';
 import { parseEmojiImportText, formatEmojiImportText } from '../../utils/emojiImport';
 import EmojiDocumentFilePicker from './EmojiDocumentFilePicker';
 
@@ -78,6 +79,7 @@ interface ChatModalsProps {
     onEditMessageStart: () => void;
     onConfirmEditMessage: () => void;
     onDeleteMessage: () => void;
+    onRecallMessage: () => void;
     onCopyMessage: () => void;
     onToggleMessageFavorite?: () => void;
     messageFavorited?: boolean;
@@ -912,13 +914,22 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             </Modal>
 
             <Modal isOpen={modalType === 'message-options'} title="消息操作" onClose={() => setModalType('none')}>
-                <div className="space-y-3">{compactHome?<button className="w-full py-3 rounded-2xl bg-neutral-50 text-neutral-800" onClick={()=>{onToggleMessageFavorite?.();setModalType('none');}}>{messageFavorited?'取消收藏':'收藏这条消息'}</button>:<>
+                <div className="space-y-3">{compactHome?<>
+                    {canUserRecallPrivateMessage(selectedMessage) && <button type="button" className="w-full py-3 rounded-2xl bg-neutral-50 text-neutral-700 font-medium active:bg-neutral-100" onClick={onRecallMessage}>撤回消息</button>}
+                    <button className="w-full py-3 rounded-2xl bg-neutral-50 text-neutral-800" onClick={()=>{onToggleMessageFavorite?.();setModalType('none');}}>{messageFavorited?'取消收藏':'收藏这条消息'}</button>
+                </>:<>
                     <button onClick={onEnterSelectionMode} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                         多选 / 批量删除
                     </button>
                     <button onClick={onReplyMessage} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                         引用 / 回复
                     </button>
+                    {canUserRecallPrivateMessage(selectedMessage) && (
+                        <button type="button" onClick={onRecallMessage} className="w-full py-3 bg-neutral-50 text-neutral-700 font-medium rounded-2xl active:bg-neutral-100 transition-colors flex items-center justify-center gap-2">
+                            <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 10 5 6 1 10"/><path d="M5 6v8a5 5 0 0 0 5 5h5a5 5 0 0 0 5-5v-3"/></svg>
+                            撤回消息
+                        </button>
+                    )}
                     {selectedMessage?.type === 'text' && (
                         <button onClick={onEditMessageStart} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                             编辑内容

@@ -3,6 +3,22 @@
  * rendering. This is a message mutation, NOT a new proactive message/API call.
  * Keep memory recall [[RECALL:YYYY-MM]] in its existing separate namespace.
  */
+import type { Message } from '../types';
+
+// Keep the user's manual recall limited to messages they actually sent.
+// Payment receipts, app cards and system effects must not masquerade as
+// a reversible send: recalling a message cannot undo an actual transfer.
+const RECALLABLE_USER_TYPES: ReadonlySet<Message['type']> =
+    new Set(['text', 'voice', 'image', 'emoji', 'interaction']);
+
+export function canUserRecallPrivateMessage(message: Message | null | undefined): boolean {
+    return !!message
+        && message.role === 'user'
+        && !message.groupId
+        && RECALLABLE_USER_TYPES.has(message.type)
+        && !message.metadata?.recalledAt;
+}
+
 export type CharacterRecallStep =
     | { kind: 'text'; content: string }
     | { kind: 'recall'; original: string };

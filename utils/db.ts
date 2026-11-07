@@ -1682,6 +1682,74 @@ export const DB = {
   },
 
   /**
+   * Manual private-chat recall. Use the message ID (never original-text
+   * matching) so repeated short messages cannot target the wrong bubble.
+   * The original is preserved solely for user-initiated local inspection,
+   * as in the reference app; normal chat, quotes, favorites and prompts see
+   * only the tombstone after this transaction.
+   */
+  recallUserPrivateMessage: async (
+    charId: string, messageId: number, characterAlreadyReplied = false,
+  ): Promise<Message | null> => {
+    if (!charId || !Number.isSafeInteger(messageId)) return null;
+    const { canUserRecallPrivateMessage } = await import('./messageRecall');
+    const db = await openDB();
+    const changed = await new Promise<Message | null>((resolve, reject) => {
+      const tx = db.transaction(STORE_MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      const index = store.index('charId');
+      const getReq = store.get(messageId);
+      let result: Message | null = null;
+      getReq.onsuccess = () => {
+        const m = getReq.result as Message | undefined;
+        if (!m || m.charId !== charId || !canUserRecallPrivateMessage(m)) return;
+        result = {
+          ...m,
+          type: 'text',
+          content: '[消息已撤回]',
+          metadata: {
+            ...(m.metadata || {}),
+            recalledAt: Date.now(),
+            recalledBy: 'user',
+            recalledOriginalContent: m.content,
+            recalledOriginalType: m.type,
+            recalledCharSaw: characterAlreadyReplied,
+          },
+        };
+        store.put(result);
+        // Existing quote bubbles embed a separate content snapshot.
+        const refs = index.openCursor(IDBKeyRange.only(charId));
+        refs.onsuccess = () => {
+          const cursor = refs.result;
+          if (!cursor) return;
+          const value = cursor.value as Message;
+          if (!value.groupId && value.replyTo?.id === messageId) {
+            cursor.update({
+              ...value,
+              replyTo: { ...value.replyTo, content: '[消息已撤回]' },
+            });
+          }
+          cursor.continue();
+        };
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error || new Error('User message recall failed'));
+      tx.onabort = () => reject(tx.error || new Error('User message recall aborted'));
+    });
+    if (changed) {
+      try { localStorage.removeItem(`mp_lastMsgId_${charId}`); } catch {}
+      try {
+        const { redactRecalledMessageFavorites } = await import('./contentFavorites');
+        await redactRecalledMessageFavorites(charId, messageId);
+      } catch (e) {
+        // The IndexedDB change is already committed: do not lie about success.
+        console.warn('[User recall] Stored favorites reconciliation deferred', e);
+      }
+    }
+    return changed;
+  },
+
+  /**
    * One-time-compatible privacy cleanup for earlier recall builds that wrote
    * the withdrawn words to metadata.recalledOriginalContent. Safe to re-run on
    * import: scanning is scoped to a single character and writes only old rows.

@@ -26,6 +26,7 @@ import { notifyDeletedMusicInviteCards } from '../utils/musicInviteDeletion';
 import { MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
+import { canUserRecallPrivateMessage } from '../utils/messageRecall';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
 import { processImageToBlob } from '../utils/file';
@@ -344,6 +345,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+    const [viewingRecalledMessage, setViewingRecalledMessage] = useState<Message | null>(null);
 
     // Compatibility repair for earlier recall builds: after opening a
     // character, scrub hidden originals from legacy metadata/favorites.
@@ -3248,6 +3250,50 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     // --- Message Management ---
+    const handleRecallMessage = async () => {
+        const target = selectedMessage;
+        if (!target || target.charId !== char.id || !canUserRecallPrivateMessage(target)) {
+            addToast('这条消息无法撤回', 'info');
+            setModalType('none');
+            return;
+        }
+        try {
+            // Cancel only the outstanding reply associated with this user turn.
+            const unanswered = findPendingUserTurn(messages)?.id === target.id
+                || findPendingRealPersonUserTurn(messages)?.id === target.id;
+            if (unanswered) {
+                manualChatGenerationRevisionRef.current++;
+                autoReply.cancel();
+                if (isTyping) stopReplyRuns(char.id);
+                if (instantChatPending) void stopInstantChat(char.id).catch(error =>
+                    console.warn('[User recall] Remote reply cancellation failed', error));
+            }
+            const characterAlreadyReplied = messages.some(m =>
+                m.charId === char.id && m.id > target.id
+                && m.role === 'assistant' && !m.metadata?.recalledAt);
+            const saved = await DB.recallUserPrivateMessage(char.id, target.id, characterAlreadyReplied);
+            if (!saved) {
+                addToast('消息已更改或无法撤回', 'info');
+                setModalType('none');
+                setSelectedMessage(null);
+                return;
+            }
+            discardVoiceForMessages([target.id], false);
+            setMessages(previous => previous.map(m => m.id === saved.id ? saved :
+                m.replyTo?.id === saved.id
+                    ? { ...m, replyTo: { ...m.replyTo, content: '[消息已撤回]' } }
+                    : m));
+            setReplyTarget(previous => previous?.id === saved.id ? saved : previous);
+            markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }, 'invalidate');
+            setModalType('none');
+            setSelectedMessage(null);
+            addToast('已撤回消息', 'success');
+            trackEvent('撤回一条消息');
+        } catch (error) {
+            console.error('[User recall] Failed', error);
+            addToast('撤回失败，请重试', 'error');
+        }
+    };
     const handleDeleteMessage = async () => {
         if (!selectedMessage) return;
         const deletedId = selectedMessage.id;
@@ -4279,6 +4325,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 }}
               />
             )}
+            <Modal isOpen={!!viewingRecalledMessage} title="撤回的消息" onClose={() => setViewingRecalledMessage(null)}>
+                <div className="min-w-0 max-w-full px-1 py-1">
+                    {['image', 'emoji'].includes(viewingRecalledMessage?.metadata?.recalledOriginalType) ? (
+                        <TokenImg value={viewingRecalledMessage?.metadata?.recalledOriginalContent || ''} className="max-h-64 w-full object-contain rounded-xl" />
+                    ) : (
+                        <p className="whitespace-pre-wrap break-words text-sm text-neutral-700 leading-relaxed">
+                            {viewingRecalledMessage?.metadata?.recalledOriginalContent || ''}
+                        </p>
+                    )}
+                </div>
+            </Modal>
             <ChatModals
                 compactHome={!!homePhone}
                 modalType={modalType} setModalType={setModalType}
@@ -4308,7 +4365,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }}
                 onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
                 onReplyMessage={handleReplyMessage} onEditMessageStart={() => { if (selectedMessage) { setEditContent(selectedMessage.content); setModalType('edit-message'); } }}
-                onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onCopyMessage={handleCopyMessage}
+                onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onRecallMessage={handleRecallMessage} onCopyMessage={handleCopyMessage}
                 messageFavorited={!!(selectedMessage && contentFavoriteIds.has(contentFavoriteIdForMessage(selectedMessage)))}
                 onToggleMessageFavorite={selectedMessage ? () => handleToggleContentFavorite(selectedMessage) : undefined}
                 onDeleteEmoji={handleDeleteEmoji} onDeleteCategory={handleDeleteCategory} onRenameCategory={handleRenameCategory} onDownloadCategory={handleDownloadCategory}
@@ -4671,6 +4728,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             moduleAlign={mergedFineTune.chatModuleAlign || 'center'}
                             onLongPress={handleMessageLongPress}
                             onReply={handleQuickReply}
+                            onViewRecalled={setViewingRecalledMessage}
                             selectionMode={selectionMode}
                             isSelected={selectedMsgIds.has(m.id)}
                             onToggleSelect={toggleMessageSelection}

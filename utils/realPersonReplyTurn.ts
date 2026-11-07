@@ -34,7 +34,8 @@ export function isRealPersonUserStatement(m: ChatTurn): boolean {
   if (m.role !== 'user' || m.type === 'system' || m.deleted || m.recalled ||
       m.capsuleOriginIds || m.metadata?.homeSceneRecord ||
       m.metadata?.musicListenInvite || m.metadata?.musicListenInviteResponseTo ||
-      m.metadata?.chatBlockRejected || m.metadata?.historyImported ||
+      m.metadata?.chatBlockRejected || m.metadata?.recalledAt ||
+      m.metadata?.historyImported ||
       m.metadata?.importedFrom || m.metadata?.importedAt ||
       m.metadata?.chatRecordImportedAt || m.metadata?.originalTimestamp ||
       m.metadata?.userComposedAsCharacter || m.metadata?.aiGenerated ||
