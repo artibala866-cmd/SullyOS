@@ -49,7 +49,11 @@ describe('incremental character-card imports', () => {
         expect(merged.memories).toEqual(original.memories);
         expect(merged.groupId).toBe('local-group');
         expect(merged.dialogueApi).toEqual(original.dialogueApi);
-        expect(merged.tavernGreetings?.map(g => g.content)).toEqual(['午安', '欢迎']);
+        // Same positional greeting ID with a changed body is not proof of
+        // identity. Keep saved stories pointing at the old first floor.
+        expect(merged.tavernGreetings?.map(g => g.content)).toEqual(['早安', '午安', '欢迎']);
+        expect(merged.tavernGreetings?.[0].id).toBe('tavern-first');
+        expect(merged.tavernGreetings?.[1].id).toMatch(/^tavern-first-scene-/);
         expect(merged.mountedWorldbooks?.map(b => b.id)).toEqual(['book-old']);
         expect(plan.worldbooks[0]).toMatchObject({
             id: 'book-old', content: '更新后的世界观', createdAt: 1,
@@ -336,4 +340,71 @@ describe('incremental character-card imports', () => {
         expect(await DB.getCharacter('fresh-' + suffix)).toBeTruthy();
         await DB.deleteCharacter('fresh-' + suffix);
     });
+    it('同名不同正文的两条酒馆开场不互相覆盖，旧剧情引用仍指向原内容',()=>{
+        const oldRole=char('old',{cardImportOrigin:source,tavernGreetings:[
+            {id:'tavern-first',title:'第一幕',content:'晨光中的初遇'},
+            {id:'tavern-alt-1',title:'第一幕',content:'雨夜里的告别'},
+        ]});
+        const incoming=card('new',source,{tavernGreetings:[
+            {id:'tavern-first',title:'第一幕',content:'雨夜里的告别'},
+            {id:'tavern-alt-1',title:'第一幕',content:'晨光中的初遇'},
+            {id:'tavern-alt-2',title:'第一幕',content:'第三个不同的世界线'},
+        ]},[],'old');
+        const merged=mergeCardImports([oldRole],[],[incoming]).characters[0];
+        expect(merged.tavernGreetings?.map(row=>row.content)).toEqual([
+            '晨光中的初遇','雨夜里的告别','第三个不同的世界线',
+        ]);
+        expect(merged.tavernGreetings?.slice(0,2).map(row=>row.id))
+            .toEqual(['tavern-first','tavern-alt-1']);
+        expect(merged.tavernGreetings?.[2].id).toBe('tavern-alt-2');
+        const repeat=mergeCardImports([merged],[],[
+            {...incoming,expectedTargetId:'old'},
+        ]);
+        expect(repeat.result.updatedIds).toEqual([]);
+        expect(repeat.result.unchangedIds).toEqual(['old']);
+    });
+
+    it('同位置但正文已改变的重新导入生成新 ID，重复导入可去重且不丢旧剧情',()=>{
+        const oldRole=char('old',{cardImportOrigin:source,tavernGreetings:[
+            {id:'tavern-alt-1',title:'雨夜',content:'原版正文'},
+        ]});
+        const incoming=card('new',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'雨夜',content:'修改版正文'},
+        ]},[],'old');
+        const first=mergeCardImports([oldRole],[],[incoming]).characters[0];
+        expect(first.tavernGreetings).toHaveLength(2);
+        expect(first.tavernGreetings?.[0].content).toBe('原版正文');
+        expect(first.tavernGreetings?.[0].id).toBe('tavern-alt-1');
+        expect(first.tavernGreetings?.[1].id).toMatch(/^tavern-alt-1-scene-/);
+        const second=mergeCardImports([first],[],[incoming]);
+        expect(second.result.unchangedIds).toEqual(['old']);
+    });
+
+    it('相同剧情只更换装饰 MP3/GIF/地图地址时去重，不产生额外开场',()=>{
+        const oldRole=char('old',{cardImportOrigin:source,tavernGreetings:[
+            {id:'tavern-alt-1',title:'旧标题',content:
+                '[spotify: 初雪 | https://cdn.example/a.gif | https://cdn.example/a.mp3]\n'
+                +'<!-- title:雪夜 -->\n<p>季淮北守在车站。</p>'},
+        ]});
+        const incoming=card('new',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'更新后的标题',content:
+                '[spotify: 新曲 | https://other.example/b.gif | https://other.example/b.mp3]\n'
+                +'<!-- title:雪夜 -->\n<p>季淮北守在车站。</p>'},
+        ]},[],'old');
+        const first=mergeCardImports([oldRole],[],[incoming]).characters[0];
+        expect(first.tavernGreetings).toHaveLength(1);
+        expect(first.tavernGreetings?.[0].id).toBe('tavern-alt-1');
+    });
+
+    it('已有库数据损坏时整个导入明确报错，不能静默抹掉旧开场',()=>{
+        const corrupted=char('old',{cardImportOrigin:source,
+            tavernGreetings:[null as any]});
+        const incoming=card('new',source,{tavernGreetings:[
+            {id:'tavern-alt-1',title:'新正文',content:'第一幕'},
+        ]},[],'old');
+        expect(()=>mergeCardImports([corrupted],[],[incoming]))
+            .toThrow('已有开场白数据结构异常');
+        expect(corrupted.tavernGreetings).toEqual([null]);
+    });
+
 });
