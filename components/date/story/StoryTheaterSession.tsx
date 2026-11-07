@@ -468,12 +468,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, [addToast, deletingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage, relatedMessageIds]);
     // Reading is one continuous scroll. Only follow new replies while the reader
     // is already near the end; editing or expanding an older floor must not jump away.
-    const updateVisibleFloor = useCallback(() => {
+    const updateVisibleFloor = useCallback((trackReaderScroll = false) => {
         const viewport = readingScrollRef.current;
         if (!viewport) return;
         const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         const nearBottom = distanceFromBottom <= 96;
-        followLatestRef.current = nearBottom;
+        // Only an actual scroll may change follow mode. Text/font reflow should
+        // not cancel auto-follow before a newly generated reply is positioned.
+        if (trackReaderScroll) followLatestRef.current = nearBottom;
         let floor = messages.length > 0 ? 1 : 0;
         if (nearBottom) {
             floor = messages.length;
@@ -500,7 +502,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     // Update synchronously with the scroll position: animation-frame callbacks can
     // lag behind a fast swipe or a programmatic jump to an earlier floor.
     const handleReadingScroll = useCallback(() => {
-        updateVisibleFloor();
+        updateVisibleFloor(true);
     }, [updateVisibleFloor]);
     const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
         const viewport = readingScrollRef.current;
@@ -1000,7 +1002,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 </div>
             </details>
             <button type='button' onClick={() => setShowQuickPreset(true)} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' title='本剧情快速预设' aria-label='本剧情快速预设'><SlidersHorizontal size={16} /></button>
-            {messages.length > 0 && visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => scrollReadingToLatest('smooth')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
+            {messages.length > 0 && visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => scrollReadingToLatest('auto')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
             </div>
         </header>
 
