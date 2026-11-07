@@ -133,12 +133,12 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
             random ? 'nmj-v3-theater-random' : ai ? 'nmj-v3-theater-ai' : undefined);
     }
     const language = active.find(p => /(?:修改语言|叙述语言|中文语言|叙事中文|对话中文|语言设置|输出语言)/.test(p.name)
-        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|(?:正文要求|叙事必须|叙述必须).{0,35}(?:简体中文|繁體中文|繁体中文)/i
-            .test(p.text.slice(0, 440)));
+        || /setvar\s*::\s*(?:主要语言|叙述语言|正文语言)\s*::|(?:正文要求|叙事必须|叙述必须).{0,35}(?:简体中文|繁體中文|繁体中文)|(?:write|output|respond|generate).{0,140}(?:zh-CN|zh-TW|zh-Hans|zh-Hant|Simplified Chinese|Traditional Chinese)/i
+            .test(p.text.slice(0, 800)));
     if (language) {
         const sample = language.text.slice(0, 650);
-        const simplified = /(?:主要语言|叙述语言|正文语言)\s*::\s*简体中文|(?:正文要求|叙事必须|叙述必须).{0,40}简体中文|只使用.{0,6}简体中文/i.test(sample);
-        const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|(?:正文要求|叙事必须|叙述必须).{0,40}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)/i.test(sample);
+        const simplified = /(?:主要语言|叙述语言|正文语言)\s*::\s*简体中文|(?:正文要求|叙事必须|叙述必须).{0,40}简体中文|只使用.{0,6}简体中文|(?:write|output|respond|generate).{0,140}(?:zh-CN|zh-Hans|Simplified Chinese)/i.test(sample);
+        const traditional = /(?:主要语言|叙述语言|正文语言)\s*::\s*(?:繁體中文|繁体中文)|(?:正文要求|叙事必须|叙述必须).{0,40}(?:繁體中文|繁体中文)|只使用.{0,6}(?:繁體中文|繁体中文)|(?:write|output|respond|generate).{0,140}(?:zh-TW|zh-Hant|Traditional Chinese)/i.test(sample);
         if (simplified && !traditional) hint('language', '简体中文', 'nmj-v3-language-cn');
         else if (traditional && !simplified) hint('language', '繁體中文', 'nmj-v3-language-tw');
         else hint('language', '作者语言／翻译规则');
@@ -148,10 +148,15 @@ export const detectTavernNativeControls = (prompts: readonly StoryTheaterPresetP
     if (length) {
         const sample = length.text.slice(0, 750);
         const range = /(\d{3,5})\s*(?:[-—–~～]|至|到)\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
+        // English "800-1,200-word" is a word count, NOT a Chinese
+        // character count. Display it precisely without forcing short/medium.
+        const wordRange = /(\d{3,5})\s*(?:[-—–~～]|to)\s*([\d,]{3,7})\s*[- ]?(?:word|words)\b/i.exec(sample);
         const exact = /(?:字数要求|正文字数|篇幅)\s*[：:=]?\s*(\d{3,5})\s*(?:个)?字/.exec(sample);
         const minimum = range ? Number(range[1]) : exact ? Number(exact[1]) : 0;
         const maximum = range ? Number(range[2]) : minimum;
-        if (minimum && maximum >= minimum) {
+        if (wordRange) {
+            hint('length', wordRange[1] + '–' + wordRange[2].replace(/,/g, '') + ' words（英文计数）');
+        } else if (minimum && maximum >= minimum) {
             const id = maximum <= 1250 ? 'nmj-v3-length-short'
                 : minimum >= 1300 && maximum <= 2350 ? 'nmj-v3-length-medium'
                 : minimum >= 2250 ? 'nmj-v3-length-long' : undefined;
