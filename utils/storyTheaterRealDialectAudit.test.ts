@@ -93,6 +93,19 @@ describe('真实酒馆五份预设的输出格式交叉审计', () => {
         expect(result).toContain('作者原有的规则');
         expect(result).not.toContain('attack()');
     });
+    it('两套独立小剧场自己的 CSS 不串场，防止导入多个作者美化造成错乱', () => {
+        const found = blocks(
+            '<sidestory><style>.box{color:red}</style><div class="box">第一个剧场</div></sidestory>'
+            + '<sidestory><style>.box{color:blue}</style><div class="box">第二个剧场</div></sidestory>',
+        );
+        expect(found.map(b => b.kind)).toEqual(['tavern-extra','tavern-extra']);
+        const first = sanitizeStoryTheaterHtml(found[0].htmlSource!).srcDoc;
+        const second = sanitizeStoryTheaterHtml(found[1].htmlSource!).srcDoc;
+        expect(first).toContain('.story-theater-html-content .box{color:red}');
+        expect(first).not.toContain('.box{color:blue}');
+        expect(second).toContain('.story-theater-html-content .box{color:blue}');
+        expect(second).not.toContain('.box{color:red}');
+    });
     it('安全 HTML 保留 details open，但拒绝远程图片、事件处理器和脚本', () => {
         const safe = sanitizeStoryTheaterHtml(
             '<details open><summary>打开</summary><p>内部正文</p></details>'
