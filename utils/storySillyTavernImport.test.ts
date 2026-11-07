@@ -757,6 +757,16 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(irrelevant.inferred.retelling).toBeUndefined();
     });
 
+    it('Janus 的 800-1,200-word 不当作汉字长度；zh-CN 自动识别', () => {
+        const classified = detectTavernNativeControls([
+            { id: 'janus-length', enabled: true, role: 'system', name: '✍️字数设置',
+                content: 'After </thinking>, output <content>, then write a 800-1,200-word pure plot story in zh-CN, and close </content>.' },
+        ]);
+        expect(classified.labels.length).toBe('800–1200 words（英文计数）');
+        expect(classified.inferred.length).toBeUndefined();
+        expect(classified.inferred.language).toBe('nmj-v3-language-cn');
+    });
+
     it('篇幅 1421–2023 与 1500字正确识别，禁用作者选项不影响识别结果', () => {
         const asPrompt = (name: string, content: string, enabled = true) => ({
             id: name, name, content, role: 'system' as const, enabled,
