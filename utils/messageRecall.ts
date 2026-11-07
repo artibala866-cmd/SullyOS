@@ -7,7 +7,7 @@ export type CharacterRecallStep =
     | { kind: 'text'; content: string }
     | { kind: 'recall'; original: string };
 
-const RECALL_ACTION = /\[\[MESSAGE_RECALL:([\s\S]*?)\]\]|\{\s*"t"\s*:\s*"recall"\s*,\s*"orig"\s*:\s*"((?:\\.|[^"\\])*)"\s*\}/gi;
+const RECALL_ACTION = /\[\[MESSAGE_RECALL:([\s\S]*?)\]\]|\[MESSAGE_RECALL:([^\]\r\n]*)\]|\{\s*"t"\s*:\s*"recall"\s*,\s*"orig"\s*:\s*"((?:\\.|[^"\\])*)"\s*\}/gi;
 
 export interface CharacterRecallDirective { original: string; start: number; end: number; }
 export function findCharacterRecallDirectives(input: string): CharacterRecallDirective[] {
@@ -15,8 +15,8 @@ export function findCharacterRecallDirectives(input: string): CharacterRecallDir
     const re = new RegExp(RECALL_ACTION.source, 'gi');
     let m: RegExpExecArray | null;
     while ((m = re.exec(input)) !== null) {
-        let original = (m[1] || '').trim();
-        if (m[2] !== undefined) {
+        let original = (m[1] || m[2] || '').trim();
+        if (m[3] !== undefined) {
             try {
                 const obj = JSON.parse(m[0]) as { orig?: unknown };
                 original = typeof obj.orig === 'string' ? obj.orig.trim() : '';

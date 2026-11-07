@@ -37,7 +37,7 @@ const BLOCK_RULES: Array<{ open: RegExp; close: RegExp }> = [
 /** 单行级排除：含任何 [[...]] 指令、日程指令、双语标记的行不预览。 */
 function isLinePreviewable(line: string): boolean {
     if (!line) return false;
-    if (line.includes('[[')) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
+    if (line.includes('[[') || /\[MESSAGE_RECALL\s*:/i.test(line)) return false;                    // SEND_EMOJI / QUOTE / ACTION / RECALL / XHS_* …
     if (/^\[BLOCK_USER:/i.test(line)) return false;           // 角色自主拉黑是内部动作，不能闪成气泡
     if (/\{\s*\"t\"\s*:\s*\"(?:block_user|unblock_user|recall)\"/i.test(line)) return false; // 原版结构化动作
     if (/^\[schedule_message\s*\|/i.test(line)) return false; // 定时消息指令

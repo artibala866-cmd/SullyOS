@@ -122,6 +122,10 @@ describe('character recall live preview', () => {
     it('two recall actions hide exactly two matching bubbles', () => {
         expect(computeStreamPreviewBubbles('嗯\n嗯\n[[MESSAGE_RECALL:嗯]]\n[[MESSAGE_RECALL:嗯]]\n好')).toEqual(['好']);
     });
+    it('does not reveal the model-produced single-bracket recall command', () => {
+        expect(computeStreamPreviewBubbles('先说\n[MESSAGE_RECALL:先说]\n后面'))
+            .toEqual(['后面']);
+    });
     it('never previews JSON recall action text', () => {
         expect(computeStreamPreviewBubbles('喜欢\n{"t":"recall","orig":"喜欢"}\n不是')).toEqual(['不是']);
         expect(computeStreamPreviewBubbles('哼 {"t":"recall","orig":"上一条"}')).toEqual(['哼']);

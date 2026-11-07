@@ -15,6 +15,13 @@ describe('private chat message recall directive', () => {
         expect(actions).toHaveLength(1);
         expect(source.slice(actions[0].start, actions[0].end)).toBe('[[MESSAGE_RECALL:嗯]]');
     });
+    it('recognizes a model-produced single-bracket directive without leaking it as text', () => {
+        expect(splitCharacterRecallOutput('先说\n[MESSAGE_RECALL:先说]\n再说')).toEqual([
+            { kind: 'text', content: '先说\n' },
+            { kind: 'recall', original: '先说' },
+            { kind: 'text', content: '\n再说' },
+        ]);
+    });
     it('accepts the original structured form without showing it as a chat bubble', () => {
         expect(splitCharacterRecallOutput('我说错了\n{"t":"recall","orig":"我说错了"}')).toEqual([
             { kind: 'text', content: '我说错了\n' },
