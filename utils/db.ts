@@ -8,6 +8,7 @@ import {exportBeautyPreferences,importBeautyPreferences} from './beautyPreferenc
 import {exportBeautyAuthorBackup,importBeautyAuthorBackup} from './beautyAuthorBackup';
 import { toMountedWorldbook } from './worldbook';
 import { mergeCardImports, type CardImportItem, type CardImportResult } from './cardImportMerge';
+import { importedCardRemarkCorrection } from './cardImportRemark';
 import { planWorldbookImport } from './worldbookImportPlan';
 import { persistCharacterWithHomeMessages } from './homeMessageBridge';
 import {deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
@@ -609,6 +610,36 @@ export const DB = {
       const request = db.transaction(STORE_CHARACTERS, 'readonly').objectStore(STORE_CHARACTERS).get(id);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
+    });
+  },
+
+  /**
+   * Correct only verifiable old Tavern/Link auto-filled remarks. This reads
+   * the current scoped IndexedDB inside one readwrite transaction; it does
+   * not touch characters with handwritten remarks, chats, memories, opening
+   * scenes, external source identity or unrelated runtime settings. Idempotent
+   * on every cold start, including old backups loaded into this profile.
+   */
+  repairImportedCardRemarks: async (): Promise<number> => {
+    const db = await openDB();
+    return new Promise<number>((resolve,reject)=>{
+      const tx = db.transaction(STORE_CHARACTERS,'readwrite');
+      const store = tx.objectStore(STORE_CHARACTERS);
+      let count=0;
+      const read = store.getAll();
+      read.onsuccess=()=>{
+        try {
+          for(const char of (read.result||[]) as CharacterProfile[]){
+            const corrected=importedCardRemarkCorrection(char);
+            if(corrected===null || corrected===char.description)continue;
+            store.put({...char,description:corrected});
+            count++;
+          }
+        }catch(error){try{tx.abort();}catch{}}
+      };
+      tx.oncomplete=()=>resolve(count);
+      tx.onabort=()=>reject(tx.error||new Error('旧导入卡备注修复失败，已撤销修改'));
+      tx.onerror=()=>{/* transaction abort provides failure */};
     });
   },
 
