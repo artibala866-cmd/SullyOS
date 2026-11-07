@@ -33,6 +33,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [worldbookSearch, setWorldbookSearch] = useState('');
+    const [greetingSearch, setGreetingSearch] = useState('');
+    const [presetImportBusy, setPresetImportBusy] = useState(false);
+    const [presetImportFeedback, setPresetImportFeedback] = useState('');
     const [editingGreeting, setEditingGreeting] = useState(false);
     const [showOpeningInIntro, setShowOpeningInIntro] = useState(!!initial.openingGreeting);
     const saveLock = useRef(false);
@@ -56,6 +59,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     // bookmarking it. Persisted stories still store the scene only once.
     const promotedPremise = useRef<{ characterId: string; greetingId: string; content: string } | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
+    const presetImportLock = useRef(false);
     const titleInput = useRef<HTMLInputElement>(null);
     // An opening may supply a title only until the person edits that title.
     const lastAutoOpeningTitle = useRef<string | null>(null);
@@ -93,6 +97,19 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     }, [actors, recentGreeting]);
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
+    const matchingGreetingChoices = useMemo(() => {
+        const query = greetingSearch.trim().toLocaleLowerCase('zh-CN');
+        if (!query) return greetingChoices;
+        const matched = greetingChoices.filter(item =>
+            [item.title, item.characterName, item.description || ''].some(value =>
+                value.toLocaleLowerCase('zh-CN').includes(query)));
+        // Keep the already-selected value as a valid <select> option while searching.
+        if (selectedGreeting && !matched.some(item =>
+            item.characterId === selectedGreeting.characterId && item.id === selectedGreeting.id)) {
+            return [selectedGreeting, ...matched];
+        }
+        return matched;
+    }, [greetingChoices, greetingSearch, selectedGreeting]);
     const storyFirst = !!draft.openingGreeting || draft.openingMode === 'assistant';
     const titleFromOpening = (openingTitle?: string) => {
         const titleBefore = titleInput.current?.value ?? draft.title;
@@ -238,7 +255,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             setSaveError('');
         } catch (error) {
             setImportGreetingFeedback({ error: true,
-                text: error instanceof Error ? error.message : '导入失败；原开场库没有被覆盖' });
+                text: `本批次未保存任何开场白。请检查失败文件后重新选择：${error instanceof Error ? error.message : '文件读取失败'}` });
         } finally {
             importGreetingLock.current = false;
             setImportGreetingBusy(false);
@@ -333,6 +350,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     }, [actors, books, draft, effectivePreset, resolvedMask]);
     const save = async () => {
         if (saveLock.current) return;
+        if (presetImportLock.current) {
+            setSaveError('剧情预设还在导入中，请等批量导入完成后再进入剧情，以免保存了错误的预设。');
+            return;
+        }
         if (greetingLock.current || createGreetingLock.current || importGreetingLock.current) {
             setSaveError('开场白正在保存，请完成后再保存剧情。');
             return;
@@ -458,6 +479,15 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     <div className='mt-3'>
                     <label htmlFor='story-opening-choice' className='text-[10px] font-bold text-slate-500'>已有开场 · 可选</label>
+                    {greetingChoices.length > 12 && <div className='mt-2'>
+                        <input type='search' aria-label='搜索已有开场白' value={greetingSearch}
+                            onChange={event => setGreetingSearch(event.target.value)}
+                            placeholder={`搜索开场白名称或角色（共 ${greetingChoices.length} 条）`}
+                            className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none' />
+                        <p role='status' className='mt-1 text-[10px] text-slate-400'>
+                            {greetingSearch.trim() ? `匹配 ${greetingChoices.filter(item => [item.title, item.characterName, item.description || ''].some(value => value.toLocaleLowerCase('zh-CN').includes(greetingSearch.trim().toLocaleLowerCase('zh-CN')))).length} 条；已选的开场会始终保留在列表中` : '支持按名称、角色搜索，不必从几十条开场中慢慢翻找'}
+                        </p>
+                    </div>}
                     <select id='story-opening-choice' aria-label='选择已有开场' disabled={maskLocked || greetingBusy || createGreetingBusy || importGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor || greetingChoices.length === 0}
                         value={selectedGreeting ? `${selectedGreeting.characterId}::${selectedGreeting.id}` : ''}
                         onChange={event => {
@@ -480,18 +510,20 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             setChooseGreetingActor(false);
                             setEditingGreeting(false); setConfirmGreetingDelete(false); setGreetingError('');
                             setShowOpeningInIntro(!!selected);
+                            setGreetingSearch('');
                         }}
                         className='mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs disabled:opacity-60'>
                         <option value=''>{actors.length === 0 ? '先选择参与角色'
                             : greetingChoices.length === 0 ? '暂无可选开场'
                             : storyFirst ? '自动写第一幕' : '选择已有开场'}</option>
-                        {greetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>[{item.source === 'link' ? 'Link' : item.source === 'custom' ? '自定义' : '酒馆'}] {item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
+                        {matchingGreetingChoices.map(item => <option key={`${item.characterId}::${item.id}`} value={`${item.characterId}::${item.id}`}>[{item.source === 'link' ? 'Link' : item.source === 'custom' ? '自定义' : '酒馆'}] {item.characterName} · {item.title}{item.description ? `｜${item.description.replace(/\s+/g, ' ').slice(0, 32)}` : ''}</option>)}
                     </select>
                     <div data-story-opening-document-import='true' className='mt-3 rounded-2xl border border-slate-200 bg-white/75 px-3 py-3'>
                         <div className='flex flex-wrap items-center justify-between gap-2'>
                             <div className='min-w-0'>
                                 <div className='text-[11px] font-semibold text-slate-700'>批量导入开场白</div>
-                                <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX 可多选 · 文件名按 1、2、10 排序</p>
+                                <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX · 每次最多 200 个 · 文件名按 1、2、10 排序</p>
+                                <p className='mt-0.5 text-[9px] leading-4 text-slate-400'>先校验整批，若有损坏文件则整批不保存，避免缺篇</p>
                             </div>
                             <button type='button' data-story-opening-import-button='true'
                                 disabled={!actors.length || !onImportGreetings || maskLocked || importGreetingBusy || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor}
@@ -582,8 +614,37 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；导入后直接选中，内置预设复制后可编辑。</p>
-                <div className='mt-3 flex gap-2'><select value={preset?.id || ''} onChange={event => setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() }))} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center'><UploadSimple size={18} /></button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
-                <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => { const files = Array.from(event.target.files || []); event.currentTarget.value = ''; for (const file of files) { const imported = await onImportPreset(file); if (imported) setDraft(current => ({ ...current, presetId: imported.id, presetOverride: undefined, updatedAt: Date.now() })); } }} />
+                <div className='mt-3 flex gap-2'><select disabled={presetImportBusy} value={preset?.id || ''} onChange={event => setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() }))} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type='button' title='导入一个或多个剧情预设' aria-label='导入剧情预设' disabled={presetImportBusy} onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetImportBusy ? <SpinnerGap size={18} className='animate-spin' /> : <UploadSimple size={18} />}</button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
+                <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
+                    const files = Array.from(event.currentTarget.files || []);
+                    event.currentTarget.value = '';
+                    if (!files.length || presetImportLock.current) return;
+                    presetImportLock.current = true;
+                    setPresetImportBusy(true);
+                    setPresetImportFeedback(`正在检查 ${files.length} 份剧情预设……`);
+                    let importedCount = 0;
+                    let failedCount = 0;
+                    try {
+                        for (const file of files) {
+                            const imported = await onImportPreset(file);
+                            if (!imported) { failedCount++; continue; }
+                            importedCount++;
+                            // Multiple imports mean "add to my library", not "replace
+                            // the preset of the ongoing story with the last file".
+                            if (files.length === 1) {
+                                setDraft(current => ({ ...current, presetId: imported.id,
+                                    presetOverride: undefined, updatedAt: Date.now() }));
+                            }
+                        }
+                        setPresetImportFeedback(files.length === 1
+                            ? importedCount ? '预设导入成功，已选为本剧情预设；保存并进入后生效。' : '预设导入失败，当前剧情配置未改变。'
+                            : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}；当前剧情预设未改变。请从下拉列表手动选择要使用的预设。`);
+                    } finally {
+                        presetImportLock.current = false;
+                        setPresetImportBusy(false);
+                    }
+                }} />
+                {presetImportFeedback && <p role='status' className='mt-2 text-[10px] leading-5 text-slate-500'>{presetImportFeedback}</p>}
                 {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条 · 按当前顺序与插入位置发送</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
                 {(skippedTavernRegex || htmlTavernTheater) && <p className='mt-2 text-[10px] leading-5 text-amber-700'>
                     {skippedTavernRegex ? '酒馆附带的正则/脚本没有执行。' : ''}
