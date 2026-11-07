@@ -38,6 +38,9 @@ describe('剧情导入的真实使用约束', () => {
         expect(editor).toContain('matchingGreetingChoices.map');
         expect(editor).toContain('return [selectedGreeting, ...matched]');
         expect(editor).toContain("setGreetingSearch('')");
+        expect(editor).toContain("aria-label='搜索剧情预设'");
+        expect(editor).toContain('matchingPresets.map');
+        expect(editor).toContain('return preset && !results.some(item => item.id === preset.id) ? [preset, ...results] : results');
     });
 
     it('长开场白明确告知上下文风险；归档原文明确为只读，不诱导危险编辑', () => {
