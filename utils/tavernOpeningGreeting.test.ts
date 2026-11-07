@@ -171,7 +171,7 @@ describe('SillyTavern opening metadata compatibility', () => {
             characterIds:['actor'],openingGreeting:{characterId:'actor',greetingId:'tavern-alt-8'},
         },[tavern],'玩家');
         expect(resolved?.content).toBe('旧街尽头，季淮北停下脚步。');
-        expect(resolved?.authorNote).toBe('两位季淮北都只能叫季淮北');
+        expect(resolved?.authorNote).toBeUndefined(); // wrapped notes must not enter model context
     });
 
     it('removes Chinese music shortcode together with malformed Markdown MP3 link, without leaving English or URL fragments', () => {
