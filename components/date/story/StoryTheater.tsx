@@ -87,7 +87,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 if (skippedScripts || htmlTheater) {
                     addToast(`酒馆兼容提醒：${[
                         skippedScripts ? '正则/脚本不执行' : '',
-                        htmlTheater ? 'HTML 小剧场仅能按文字附录展示' : '',
+                        htmlTheater ? '小剧场支持安全 HTML/原生卡片；依赖酒馆正则或脚本的美化不保证一致' : '',
                         '可在预设制作器查看并关闭不适配的指令',
                     ].filter(Boolean).join('；')}`, 'info');
                 }
