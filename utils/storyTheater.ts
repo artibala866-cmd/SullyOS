@@ -1596,6 +1596,17 @@ export const resolveStoryTheaterWorldbooks = (
     const byId = new Map<string, MountedWorldbook>();
     const canonicalIds = new Set<string>();
     const ambiguousLegacyIds = new Set<string>();
+    // Same ID but different trigger/order rules is a different usable book.
+    // Ignoring that mismatch would silently alter which world becomes active.
+    const meaning = (book: MountedWorldbook) => JSON.stringify([
+        book.title, book.content, book.category ?? null,
+        book.key ?? [], book.keysecondary ?? [], book.constant ?? null,
+        book.selective ?? null, book.selectiveLogic ?? null, book.order ?? null,
+        book.position ?? null, book.disable ?? null, book.probability ?? null,
+        book.useProbability ?? null, book.depth ?? null, book.role ?? null,
+        book.scanDepth ?? null, book.caseSensitive ?? null,
+        book.matchWholeWords ?? null,
+    ]);
     const valid = (book: MountedWorldbook | null | undefined): book is MountedWorldbook =>
         !!book && typeof book.id === 'string' && !!book.id.trim()
         && typeof book.title === 'string' && typeof book.content === 'string';
@@ -1612,11 +1623,7 @@ export const resolveStoryTheaterWorldbooks = (
             if (!valid(book) || canonicalIds.has(book.id) || ambiguousLegacyIds.has(book.id)) continue;
             const previous = byId.get(book.id);
             if (!previous) byId.set(book.id, { ...book });
-            else if (previous.content !== book.content
-                || previous.title !== book.title
-                || JSON.stringify(previous.key || []) !== JSON.stringify(book.key || [])
-                || previous.disable !== book.disable
-                || previous.constant !== book.constant) {
+            else if (meaning(previous) !== meaning(book)) {
                 byId.delete(book.id);
                 ambiguousLegacyIds.add(book.id);
             }
