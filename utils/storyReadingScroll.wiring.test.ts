@@ -18,6 +18,8 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {\n        updateVisibleFloor();');
         expect(sessionSource).not.toContain('requestAnimationFrame');
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
+        expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
+        expect(sessionSource).toContain('document.fonts.ready.then');
         expect(sessionSource).toContain('updateVisibleFloor');
         expect(sessionSource).toContain('followLatestRef.current = nearBottom');
         expect(sessionSource).toContain('if (followLatestRef.current) bottomRef.current?.scrollIntoView');
