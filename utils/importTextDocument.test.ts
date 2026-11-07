@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import JSZip from 'jszip';
 import { readCharacterCardFile } from './sillyTavernCard';
-import { DOCUMENT_IMPORT_ACCEPT, isImportedTextDocument, planUserBioDocumentImport, readImportedTextDocument } from './importTextDocument';
+import { DOCUMENT_IMPORT_ACCEPT, documentWorldbookImportKey, isImportedTextDocument, planUserBioDocumentImport, readImportedTextDocument } from './importTextDocument';
 
 const mocks = vi.hoisted(() => ({ pdf: vi.fn() }));
 vi.mock('./pdfText', async () => {
@@ -21,6 +21,16 @@ describe('shared TXT / Word / PDF document import', () => {
         expect(isImportedTextDocument({ name: 'x.png', type: 'image/png' })).toBe(false);
         expect(DOCUMENT_IMPORT_ACCEPT).toContain('.pdf');
     });
+    it('structured extensions win over Android mislabelled text/plain MIME',()=>{
+        for(const filename of ['书籍.json','人物.png','人物.webp','压缩包.zip']){
+            expect(isImportedTextDocument({name:filename,type:'text/plain'})).toBe(false);
+        }
+        expect(isImportedTextDocument({name:'书籍.JSON',type:'text/plain'})).toBe(false);
+        expect(isImportedTextDocument({name:'日记.txt',type:'application/octet-stream'})).toBe(true);
+        expect(documentWorldbookImportKey('世界观.PDF')).toBe(documentWorldbookImportKey('世界观.pdf'));
+        expect(documentWorldbookImportKey('世界观.docx')).not.toBe(documentWorldbookImportKey('世界观.pdf'));
+    });
+
     it('preserves UTF-8/GBK/UTF-16 TXT and multi-paragraph Word content', async () => {
         const utf8 = await readImportedTextDocument(file('角色设定第一段\n第二段','人设.txt'));
         expect(utf8).toMatchObject({ format:'TXT', text:'角色设定第一段\n第二段' });
@@ -84,6 +94,14 @@ describe('user archive document import merge', () => {
         });
         expect(planUserBioDocumentImport('','新档案','append')).toEqual({bio:'新档案',changed:true});
     });
+    it('does not skip a new document merely because its words occur inside an existing sentence',()=>{
+        const existing='我的旧设定里喜欢绘画，也喜欢旅游。';
+        expect(planUserBioDocumentImport(existing,'喜欢绘画','append')).toEqual({
+            bio:existing+'\\n\\n喜欢绘画'.replace(/\\n/g,'\\n'),changed:true,
+        });
+        expect(planUserBioDocumentImport('自传：第一章'+'\\n\\n'+'爱好：画画','第一章','append').changed).toBe(true);
+    });
+
     it('repeated identical import is idempotent, even in the middle of a longer profile', () => {
         const old='起初\n\n过去的经历\n\n结尾';
         expect(planUserBioDocumentImport(old,'过去的经历','append')).toEqual({bio:old,changed:false});
