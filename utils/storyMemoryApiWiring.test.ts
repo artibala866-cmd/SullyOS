@@ -15,8 +15,9 @@ const pipeline = read('./memoryPalace/pipeline.ts');
 describe('per-story API uses only memory call sites', () => {
     it('auto event box calls the isolated summary endpoint, not global prose endpoint', () => {
         expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), { storyOnlyProvider: !!archiveEntry.memorySummaryApi })');
-        expect(session).toContain('const response = await fetch(');
-        expect(session).toContain("const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)");
+        const archive = session.split('const archiveIfNeeded =')[1].split('const send =')[0];
+        expect(archive).not.toContain('callCompletion(');
+        expect(archive).not.toContain('/chat/completions');
     });
     it('never sends a second failed preflight summary in the same expensive prose turn', () => {
         expect(session).toContain('const archiveErrorSeq = useRef(0)');
