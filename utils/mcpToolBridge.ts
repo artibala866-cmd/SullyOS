@@ -169,5 +169,6 @@ export const buildMcpRejectedToolsFallbackBody = (baseReqBody: any): any => {
 export const shouldRetryMcpWithoutTools = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message : String(error || '');
     return /API Error (?:400|422)\b/i.test(message)
-        && /(?:tools?|function[_\s-]?(?:call(?:ing)?|tools?)|不支持工具|工具调用|参数不支持)/i.test(message);
+        && /(?:\btools?\b|function[_\s-]?(?:call(?:ing)?|tools?)|工具调用|不支持工具)/i.test(message)
+        && /(?:unsupported|not support|unknown|unrecognized|invalid|不支持|无效|未知)/i.test(message);
 };
