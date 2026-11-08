@@ -69,6 +69,7 @@ describe('见面剧情实际请求', () => {
             const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
             expect(payload).toContainEqual({ role: 'assistant', content: '[第 12 楼 · 最近一段剧场正文]\n楼层内容 12' });
             expect(payload.some(message => message.content.includes('楼层内容 10'))).toBe(false);
+            expect(payload.some(message => message.content.includes('楼层内容 11'))).toBe(true);
             expect(payload.filter(message => message.content.includes('旧约定：先去庭院找钥匙。'))).toHaveLength(1);
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
             expect(payload.at(-2)?.content).toBe('侧门通向庭院。');

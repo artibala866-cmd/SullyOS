@@ -167,7 +167,7 @@ it.each([
     }
 });
 
-it('事件盒页面可填写起始楼和条数，预览范围后才请求一次归档', async () => {
+it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重建', async () => {
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -180,7 +180,7 @@ it('事件盒页面可填写起始楼和条数，预览范围后才请求一次�
             metadata: { source: 'story_theater', theaterId: entry.id },
         });
     }
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({
         choices: [{ message: { content: '两人交还钥匙后解开误会。' }, finish_reason: 'stop' }],
     }));
     vi.stubGlobal('fetch', fetchMock);
@@ -190,25 +190,29 @@ it('事件盒页面可填写起始楼和条数，预览范围后才请求一次�
         apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'summary' },
         memoryPalaceConfig: {}, theme: {}, addToast: vi.fn(),
     } as any;
-    await act(async () => root!.render(
+    const renderPanel = (current: typeof entry) => root!.render(
         <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
-            <StoryArchivePanel entry={entry} masks={[]} onBack={() => {}} onUpdated={updated} />
+            <StoryArchivePanel entry={current} masks={[]} onBack={() => {}} onUpdated={updated} />
         </StoryTheaterThemeProvider></OSPreviewProvider>,
-    ));
+    );
+    await act(async () => renderPanel(entry));
     await vi.waitFor(async () => {
         await act(async () => {});
         const button = Array.from(host!.querySelectorAll('button')).find(node => node.textContent === '手动归档楼层');
         expect(button?.disabled).toBe(false);
     });
-    await act(async () => click('手动归档楼层'));
-    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-    const controls = host!.querySelectorAll<HTMLInputElement>('input[type="number"]');
-    for (const [input, value] of [[controls[0], '2'], [controls[2], '2']] as const) {
-        await act(async () => {
-            setInput.call(input, value);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-    }
+    const selectFloors = async () => {
+        await act(async () => click('手动归档楼层'));
+        const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        const controls = host!.querySelectorAll<HTMLInputElement>('input[type="number"]');
+        for (const [input, value] of [[controls[0], '2'], [controls[2], '2']] as const) {
+            await act(async () => {
+                setInput.call(input, value);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        }
+    };
+    await selectFloors();
     expect(host!.textContent).toContain('第 2 至 3 楼，共 2 条');
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => click('开始整理'));
@@ -220,4 +224,21 @@ it('事件盒页面可填写起始楼和条数，预览范围后才请求一次�
     expect(request.messages[1].content).toContain('第三楼解除误会');
     expect(request.messages[1].content).not.toContain('第一楼的旧事');
     expect(fetchMock).toHaveBeenCalledOnce();
+    await act(async () => renderPanel(updated.mock.calls[0][0]));
+    await act(async () => click('撤销归档'));
+    await act(async () => click('确认撤销'));
+    await vi.waitFor(async () => {
+        await act(async () => {});
+        expect(updated).toHaveBeenCalledTimes(2);
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    await act(async () => renderPanel(updated.mock.calls[1][0]));
+    await selectFloors();
+    await act(async () => click('开始整理'));
+    await vi.waitFor(async () => {
+        await act(async () => {});
+        expect(updated).toHaveBeenCalledTimes(3);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
 });

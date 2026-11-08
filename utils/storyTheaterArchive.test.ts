@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
-import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary } from './storyTheaterArchive';
+import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
@@ -202,6 +202,14 @@ describe('manual event box floor selection', () => {
         expect(selectStoryArchiveBatch(rows, 4, 1).map(row => row.id)).toEqual([1, 2]);
     });
 
+    it('can archive a floor whose following reply is already in a manual box', () => {
+        const rows = Array.from({ length: 10 }, (_, index): Message => ({
+            ...messages[index % 2], id: index + 1,
+            metadata: { ...messages[index % 2].metadata, theaterArchived: index === 1 },
+        }));
+        expect(selectStoryArchiveBatch(rows, 4, 1).map(row => row.id)).toEqual([1]);
+    });
+
     it('replaces the same box, restores removed floors and preserves conversion receipts', async () => {
         const third = await addFloor('新的关系变化');
         const updated = await archiveStoryFloorRange(entry.id, [messages[1], third], api, 'box');
@@ -233,5 +241,49 @@ describe('manual event box floor selection', () => {
         expect((await fresh()).archives).toEqual(entry.archives);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
         expect(fetchMock).toHaveBeenCalledOnce();
+    });
+});
+
+describe('revoking an event box', () => {
+    const read = () => DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+
+    it('removes only the summary with no request and frees the same range for re-archiving', async () => {
+        const updated = await revokeStoryArchive(entry.id, entry.archives[0]);
+        expect(updated.archives).toEqual([]);
+        const restored = await read();
+        expect(restored.map(row => row.content)).toEqual(messages.map(row => row.content));
+        expect(restored.every(row => !row.metadata?.theaterArchived)).toBe(true);
+        expect(fetchMock).not.toHaveBeenCalled();
+        const archived = await archiveStoryFloorRange(entry.id, restored, api);
+        expect(archived.archives[0]).toMatchObject({ fromMessageId: messages[0].id, toMessageId: messages[1].id });
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('preserves a floor covered by another box and ignores orphan flags when creating an archive', async () => {
+        const surviving = { ...entry.archives[0], id: 'overlapping-vector', strategy: 'vector' as const,
+            fromMessageId: messages[1].id, messageCount: 1, summary: undefined };
+        await DB.saveStoryTheater({ ...entry, archives: [...entry.archives, surviving] });
+        await revokeStoryArchive(entry.id, entry.archives[0]);
+        expect((await read()).map(row => row.metadata?.theaterArchiveStrategy)).toEqual([undefined, 'vector']);
+        expect((await fresh()).archives).toEqual([surviving]);
+        await expect(archiveStoryFloorRange(entry.id, await read(), api)).rejects.toThrow('重叠');
+        expect(fetchMock).not.toHaveBeenCalled();
+        await DB.updateMessageMetadata(messages[0].id, metadata => ({ ...metadata, theaterArchived: true }));
+        const selected = (await read()).slice(0, 1);
+        await expect(archiveStoryFloorRange(entry.id, selected, api)).resolves.toBeDefined();
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('rolls back floor flags and summary if local storage fails', async () => {
+        const original = IDBObjectStore.prototype.put;
+        const spy = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+            if (this.name === 'story_theaters') throw new Error('磁盘写入失败');
+            return original.apply(this, args);
+        });
+        try { await expect(revokeStoryArchive(entry.id, entry.archives[0])).rejects.toThrow('磁盘写入失败'); }
+        finally { spy.mockRestore(); }
+        expect((await fresh()).archives).toEqual(entry.archives);
+        expect(await read()).toEqual(messages);
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

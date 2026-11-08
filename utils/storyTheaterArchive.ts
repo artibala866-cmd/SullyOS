@@ -1,7 +1,7 @@
 import type { APIConfig, Message, StoryTheaterArchive, StoryTheaterEntry } from '../types';
 import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
-import { describeStoryApiError, makeStoryTheaterId, storyTheaterThreadId } from './storyTheater';
+import { describeStoryApiError, makeStoryTheaterId, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
 import { hasSummaryReasoningLeak } from './summaryReasoning';
 import { resolveStoryMemoryApi } from './storyMemoryApi';
 import { tavernOpeningSceneText } from './tavernOpeningGreeting';
@@ -138,7 +138,6 @@ export async function commitStoryArchiveBatch(
                     if (!current || current.charId !== storyTheaterThreadId(snapshot.id)
                         || current.metadata?.source !== 'story_theater'
                         || current.metadata.theaterId !== snapshot.id
-                        || current.metadata.theaterArchived
                         || current.content !== expected.content || current.role !== expected.role) {
                         throw new Error('剧情原文在归档期间发生变化，未修改旧正文；请重试');
                     }
@@ -211,6 +210,56 @@ export function storyArchiveFloors(rows: Message[], entryId: string): Message[] 
 const overlapsArchive = (first: number, last: number, box: StoryTheaterArchive) =>
     first <= box.toMessageId && box.fromMessageId <= last;
 
+function updateFloorArchive(message: Message, archive?: StoryTheaterArchive): Message {
+    const metadata = { ...message.metadata };
+    if (archive) {
+        metadata.theaterArchived = true;
+        metadata.theaterArchiveStrategy = archive.strategy;
+    } else {
+        delete metadata.theaterArchived;
+        delete metadata.theaterArchiveStrategy;
+    }
+    return { ...message, metadata };
+}
+
+/** Revoke only the story summary and release its floors in the same local transaction. */
+export async function revokeStoryArchive(entryId: string, expected: StoryTheaterArchive): Promise<StoryTheaterEntry> {
+    return runStoryArchiveOperation(entryId, async () => {
+        const db = await openDB();
+        return new Promise<StoryTheaterEntry>((resolve, reject) => {
+            const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
+            const storyStore = tx.objectStore('story_theaters');
+            const messageStore = tx.objectStore('messages');
+            const storyRead = storyStore.get(entryId);
+            const rowsRead = messageStore.index('charId').getAll(IDBKeyRange.only(storyTheaterThreadId(entryId)));
+            let pending = 2, failure: unknown, updated: StoryTheaterEntry;
+            tx.oncomplete = () => resolve(updated);
+            tx.onabort = () => reject(failure ?? tx.error ?? new Error('撤销归档未保存，原文和摘要已保留'));
+            const finish = () => {
+                if (--pending) return;
+                try {
+                    const entry = storyRead.result as StoryTheaterEntry | undefined;
+                    const box = entry?.archives.find(item => item.id === expected.id);
+                    if (!entry || !box || box.strategy !== 'summary'
+                        || sourceKey(entry, box) !== sourceKey(entry, expected)) {
+                        throw new Error('事件盒已变更，请重新打开后再撤销');
+                    }
+                    const archives = entry.archives.filter(item => item.id !== box.id);
+                    for (const row of storyArchiveFloors(rowsRead.result, entryId)) {
+                        if (overlapsArchive(row.id, row.id, box)) {
+                            messageStore.put(updateFloorArchive(row, storyArchiveAtFloor(archives, row.id)));
+                        }
+                    }
+                    updated = { ...entry, archives, updatedAt: Date.now() };
+                    storyStore.put(updated);
+                } catch (error) { failure = error; tx.abort(); }
+            };
+            storyRead.onsuccess = finish;
+            rowsRead.onsuccess = finish;
+        });
+    });
+}
+
 /** A range carries the exact rows displayed in the selector, not just mutable floor numbers. */
 export async function archiveStoryFloorRange(
     entryId: string,
@@ -233,9 +282,6 @@ export async function archiveStoryFloorRange(
             if (replaceArchiveId && previous?.strategy !== 'summary') throw new Error('找不到要替换的事件盒');
             if (entry.archives.some(box => box.id !== replaceArchiveId && overlapsArchive(first, last, box))) {
                 throw new Error('所选范围与其他事件盒或向量归档重叠，请调整楼层');
-            }
-            if (batch.some(row => row.metadata?.theaterArchived && !(previous && overlapsArchive(row.id, row.id, previous)))) {
-                throw new Error('所选范围包含已归档的楼层，请调整范围或重选原事件盒');
             }
             return { floors, batch, previous };
         };
@@ -276,13 +322,9 @@ export async function archiveStoryFloorRange(
                     const otherBoxes = fresh.archives.filter(item => item.id !== box.id);
                     for (const row of floors) {
                         if (overlapsArchive(row.id, row.id, box)) {
-                            messageStore.put({ ...row, metadata: { ...row.metadata, theaterArchived: true, theaterArchiveStrategy: 'summary' } });
-                        } else if (previous && overlapsArchive(row.id, row.id, previous)
-                            && !otherBoxes.some(item => overlapsArchive(row.id, row.id, item))) {
-                            const metadata = { ...row.metadata };
-                            delete metadata.theaterArchived;
-                            delete metadata.theaterArchiveStrategy;
-                            messageStore.put({ ...row, metadata });
+                            messageStore.put(updateFloorArchive(row, box));
+                        } else if (previous && overlapsArchive(row.id, row.id, previous)) {
+                            messageStore.put(updateFloorArchive(row, storyArchiveAtFloor(otherBoxes, row.id)));
                         }
                     }
                     updated = { ...fresh, archives: [...otherBoxes, box].sort((a, b) => a.fromMessageId - b.fromMessageId), updatedAt: Date.now() };

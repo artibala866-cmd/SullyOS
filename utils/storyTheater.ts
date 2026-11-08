@@ -6,6 +6,7 @@ import type {
     Message,
     MountedWorldbook,
     Worldbook,
+    StoryTheaterArchive,
     StoryTheaterEntry,
     StoryTheaterMask,
     StoryTheaterMaskSelection,
@@ -301,6 +302,10 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
     };
 };
 
+/** The range stored on the story owns the archive; orphaned floor flags are legacy metadata. */
+export const storyArchiveAtFloor = (archives: StoryTheaterArchive[], messageId: number) =>
+    archives.find(box => box.fromMessageId <= messageId && messageId <= box.toMessageId);
+
 /**
  * 达到水位线后只归档最旧部分，并至少保留最近若干楼。
  * 如果切点正好落在“你的推进 / 剧场正文”之间，宁可多留一楼，也不拆散这一轮。
@@ -324,7 +329,8 @@ export const selectStoryArchiveBatch = (
     const start = rows.indexOf(batch[0]);
     const gap = batch.findIndex((row, index) => rows[start + index] !== row);
     if (gap >= 0) batch.splice(gap);
-    if (batch[batch.length - 1]?.role === 'user' && rows[start + batch.length]?.role === 'assistant') {
+    const next = rows[start + batch.length];
+    if (batch.at(-1)?.role === 'user' && next?.role === 'assistant' && !isArchived(next)) {
         batch.pop();
     }
     return batch;
@@ -2568,9 +2574,10 @@ export const getStoryReplyInput = (rows: Message[], reply: Message): Message | u
 };
 
 /** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
-export const getPendingStoryRetryInput = (messages: Message[]): string => {
+export const getPendingStoryRetryInput = (messages: Message[], archives?: StoryTheaterArchive[]): string => {
     const latest = messages[messages.length - 1];
-    if (!latest || latest.role !== 'user' || latest.metadata?.theaterArchived) return '';
+    if (!latest || latest.role !== 'user'
+        || (latest.metadata?.theaterArchived && (!archives || storyArchiveAtFloor(archives, latest.id)))) return '';
     return String(latest.content || '').trim();
 };
 

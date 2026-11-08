@@ -23,6 +23,7 @@ import {
     buildStoryArchiveMemoryEnvelope,
     buildStoryMultiAffinityGuide,
     buildStoryRequestHistory,
+    storyArchiveAtFloor,
     getStoryReplyInput,
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,
@@ -111,7 +112,7 @@ interface AffinityDraft { delta: number; reason: string; awareness: 'noticed' | 
 const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: 'unnoticed' };
 
 const mirrorArchived = (message: Message, entry: StoryTheaterEntry): boolean => {
-    if (message.metadata?.theaterArchived === true) return true;
+    if (storyArchiveAtFloor(entry.archives, message.id)) return true;
     if (!entry.writesToCharacterMemory) return false;
     const mirrorIds = message.metadata?.theaterMirrorIds as Record<string, number> | undefined;
     const recipientIds = Object.keys(mirrorIds || {});
@@ -762,8 +763,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         try {
             const rows = storyArchiveFloors(await DB.getMessagesByCharId(threadId, true), archiveEntry.id);
             const batch = selectStoryArchiveBatch(rows, archiveEntry.archiveAfter, archiveEntry.archiveKeepRecent ?? 5, row =>
-                row.metadata?.theaterArchived === true
-                || archiveEntry.archives.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
+                !!storyArchiveAtFloor(archiveEntry.archives, row.id));
             if (batch.length === 0) return null;
             const first = batch[0];
             const last = batch[batch.length - 1];
@@ -840,7 +840,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 ? before.length === 1 && !previousUser
                 : !continueRequested && before.length === 0 && entry.openingMode === 'assistant' && !typedText;
             const rerollWithoutInput = isReroll && !previousUser && !assistantOpening;
-            const pendingInput = getPendingStoryRetryInput(before);
+            const pendingInput = getPendingStoryRetryInput(before, entry.archives);
             const text = isReroll
                 ? previousUser?.content.trim() || (assistantOpening ? openingPrompt : MEETING_CONTINUE_DISPLAY_TEXT)
                 : continueRequested ? MEETING_CONTINUE_DISPLAY_TEXT : typedText || pendingInput || (assistantOpening ? openingPrompt : '');
@@ -1098,7 +1098,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const unsavedReply = backgroundTask?.unsavedReply;
     const generationBlocked = generationBusy || !!unsavedReply;
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
-    const pendingRetryInput = getPendingStoryRetryInput(messages);
+    const pendingRetryInput = getPendingStoryRetryInput(messages, entry.archives);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
     const filledAffinityActorIds = actors.filter(actor => {
         const draft = affinityDrafts[actor.id];
@@ -1166,9 +1166,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         </div>;
                         const floorBody = (() => {
                         if (archived) {
-                            const archiveLabel = entry.writesToCharacterMemory && !message.metadata?.theaterArchived
+                            const archive = storyArchiveAtFloor(entry.archives, message.id);
+                            const archiveLabel = !archive && entry.writesToCharacterMemory
                                 ? '已作为正常记忆归档'
-                                : message.metadata?.theaterArchiveStrategy === 'vector'
+                                : archive?.strategy === 'vector'
                                     ? '已存入本剧情向量分区'
                                     : '已收进剧场事件盒';
                             const isExpanded = expandedArchivedIds.has(message.id);

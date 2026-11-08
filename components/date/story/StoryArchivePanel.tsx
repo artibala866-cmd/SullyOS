@@ -1,13 +1,14 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Archive,ArrowClockwise,ArrowLeft,DownloadSimple,SpinnerGap} from '@phosphor-icons/react';
-import type {Message,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
+import type {Message,StoryTheaterArchive,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
 import {useOS} from '../../../context/OSContext';
 import {resolveStoryTheaterMask,storyTheaterThreadId} from '../../../utils/storyTheater';
 import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyTheaterMemoryConversion';
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
-import {archiveStoryFloorRange,regenerateStoryArchiveSummary,storyArchiveFloors} from '../../../utils/storyTheaterArchive';
+import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
+import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
 
 export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:StoryTheaterEntry;masks:StoryTheaterMask[];onBack:()=>void;onUpdated:(entry:StoryTheaterEntry)=>void}){
  const {characters,userProfile,apiConfig,memoryPalaceConfig,remoteVectorConfig,addToast}=useOS();
@@ -16,6 +17,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
  const [selected,setSelected]=useState<string[]>([]),[dates,setDates]=useState<Record<string,string>>({});
  const [busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
  const [regeneratingId,setRegeneratingId]=useState<string|null>(null);
+ const [revokeTarget,setRevokeTarget]=useState<StoryTheaterArchive|null>(null);
  const running=useRef(false);
  const boxes=useMemo(()=>entry.archives.filter(a=>a.strategy==='summary'),[entry.archives]);
  const [floors,setFloors]=useState<Message[]|null>(null);
@@ -67,6 +69,21 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
   }catch(e:any){setError(e?.message||'重新总结失败，旧摘要已保留，请重试');setStatus('');}
   finally{running.current=false;setBusy(false);setRegeneratingId(null);}
  };
+ const revoke=async()=>{
+  if(running.current||!revokeTarget)return;
+  running.current=true;setBusy(true);setError('');setStatus('');
+  try{
+   const updated=await revokeStoryArchive(entry.id,revokeTarget);
+   onUpdated(updated);
+   setSelected(current=>current.filter(id=>id!==revokeTarget.id));
+   setDates(current=>Object.fromEntries(Object.entries(current).filter(([id])=>id!==revokeTarget.id)));
+   if(range?.replaceId===revokeTarget.id)setRange(null);
+   setRevokeTarget(null);
+   setStatus('旧事件盒已撤销，可以重新选择这些楼层归档。');
+   addToast('事件盒已撤销','success');
+  }catch(e:any){setError(e?.message||'撤销失败，摘要和原文已保留');}
+  finally{running.current=false;setBusy(false);}
+ };
  const convert=async()=>{
   if(running.current||!char||!chosen.length)return;
   if(chosen.some(box=>!dateValid(dates[box.id]))){setError('请为每个选中的事件盒填写记忆日期');return;}
@@ -77,11 +94,13 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
    // Never use the per-story cheap summarizer for this shared-memory operation.
    const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;
    const identity=resolveStoryTheaterMask(entry.mask,userProfile,characters,masks);
-   for(const box of chosen){
-    const result=await convertStoryArchiveToMemory({entryId:entry.id,archiveId:box.id,charId:char.id,date:dates[box.id],userName:userProfile.name||'用户',identityName:identity.name,llm,embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,onProgress:text=>setStatus(`${completed+1}/${chosen.length} · ${text}`)});
-    onUpdated(result.entry);completed++;
-    setSelected(current=>current.filter(id=>id!==box.id));
-   }
+   await runStoryArchiveOperation(entry.id,async()=>{
+    for(const box of chosen){
+     const result=await convertStoryArchiveToMemory({entryId:entry.id,archiveId:box.id,charId:char.id,date:dates[box.id],userName:userProfile.name||'用户',identityName:identity.name,llm,embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,onProgress:text=>setStatus((completed+1)+'/'+chosen.length+' · '+text)});
+     onUpdated(result.entry);completed++;
+     setSelected(current=>current.filter(id=>id!==box.id));
+    }
+   });
    setStatus(`已完成 ${completed} 个事件盒；可以在${char.memoryPalaceEnabled?'记忆宫殿和神经链接':'神经链接'}查看。`);
    addToast('所选事件盒已转化为角色记忆','success');
   }catch(e:any){setError(`${completed?`已完成 ${completed} 个，未完成的仍保留选中。`:''}${e?.message||'转化失败，请重试'}`);setStatus('');}
@@ -110,8 +129,9 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
     <div className='grid grid-cols-3 gap-2 text-xs'>
      <label>起始楼<input type='number' min={1} max={floors?.length} value={range.first} disabled={busy} onChange={e=>setRange({...range,first:e.target.value})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2'/></label>
      <label>结束楼<input type='number' min={1} max={floors?.length} value={range.last} disabled={busy} onChange={e=>setRange({...range,last:e.target.value})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2'/></label>
-     <label>归档条数<input type='number' min={1} max={first>0?(floors?.length||0)-first+1:undefined} value={chosenFloors.length||''} disabled={busy||!Number.isSafeInteger(first)||first<1} onChange={e=>setRange({...range,last:e.target.value?String(first+Number(e.target.value)-1):''})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2'/></label>
+     <label>归档条数<input type='number' min={1} max={first>0?(floors?.length||0)-first+1:undefined} value={range.first&&range.last&&Number.isSafeInteger(first)&&Number.isSafeInteger(last)&&last>=first?last-first+1:''} disabled={busy||!Number.isSafeInteger(first)||first<1} onChange={e=>setRange({...range,last:e.target.value?String(first+Number(e.target.value)-1):''})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2'/></label>
     </div>
+    {range.first&&range.last&&!chosenFloors.length&&<p className='text-xs text-rose-600'>请输入有效范围，结束楼不能超过现有楼数。</p>}
     {chosenFloors.length>0&&<div className='space-y-1 text-xs leading-5 text-slate-500'>
      <p>第 {first} 至 {last} 楼，共 {chosenFloors.length} 条</p>
      <p>起始原文 · {chosenFloors[0].content.replace(/<[^>]*>/g,'').trim().slice(0,80)}</p>
@@ -136,6 +156,14 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
       <label className='flex gap-3 items-start cursor-pointer'><input type='checkbox' aria-label={`选择事件盒 ${index+1}`} checked={checked} disabled={busy} onChange={()=>toggle(box.id)} className='mt-1 accent-violet-600'/><span><strong className='text-sm'>事件盒 {index+1}</strong><span className='block mt-1 text-[11px] text-slate-500'>{box.messageCount} 条原文{floors?.some(row=>row.id===box.fromMessageId)&&floors?.some(row=>row.id===box.toMessageId)?' · 第 '+(floors.findIndex(row=>row.id===box.fromMessageId)+1)+'–'+(floors.findIndex(row=>row.id===box.toMessageId)+1)+' 楼':''}{receipt?` · 已转化给 ${char?.name} · ${receipt.date} · ${receipt.memoryIds.length} 条记忆${receipt.skipped?`，去重跳过 ${receipt.skipped} 条`:''}`:''}</span></span></label>
       <details className='ml-6'><summary className='cursor-pointer text-xs text-violet-700 py-2'>查看摘要</summary><p className='whitespace-pre-wrap text-sm leading-7'>{box.summary||'暂无摘要，可从原文重新总结。'}</p></details>
       <div className='ml-6'><button disabled={busy} onClick={()=>void regenerate(box.id)} aria-label={`重新总结事件盒 ${index+1}`} className='min-h-[44px] px-3 rounded-xl border border-violet-200 text-violet-700 inline-flex items-center gap-2 text-xs disabled:opacity-30'>{regeneratingId===box.id?<SpinnerGap size={15} className='animate-spin'/>:<ArrowClockwise size={15}/>} {regeneratingId===box.id?'正在重新总结…':'重新总结'}</button> <button type='button' disabled={busy||!floors?.length} onClick={()=>openRange(box.id)} aria-label={'重选事件盒 '+(index+1)+' 的楼层'} className='min-h-[44px] px-3 text-xs text-violet-700 disabled:opacity-30'>重选楼层</button>
+       <button type='button' disabled={busy} onClick={()=>{setRevokeTarget(box);setError('');setStatus('');}} aria-label={'撤销事件盒 '+(index+1)+' 归档'} className='min-h-[44px] px-3 text-xs text-rose-700 disabled:opacity-30'>撤销归档</button>
+       {revokeTarget?.id===box.id&&<div className='mt-2 rounded-xl border border-rose-200 bg-white p-3 text-xs leading-5' role='group' aria-label='确认撤销事件盒'>
+        <p>撤销会移除这份摘要，并释放它占用的楼层。已转成角色记忆的内容仍在角色记忆里。</p>
+        <div className='mt-2 flex gap-2'>
+         <button type='button' disabled={busy} onClick={()=>void revoke()} className='min-h-[44px] rounded-lg bg-rose-700 px-3 font-semibold text-white disabled:opacity-30'>确认撤销</button>
+         <button type='button' disabled={busy} onClick={()=>setRevokeTarget(null)} className='min-h-[44px] px-3 text-slate-600'>取消</button>
+        </div>
+       </div>}
        {!!Object.keys(box.memoryConversions||{}).length&&<p className='mt-2 text-[11px] leading-5 text-slate-500'>只更新本剧情的摘要；已转为角色记忆的内容需到神经链接或记忆宫殿单独修改。</p>}
       </div>
       {checked&&!receipt&&<label className='block ml-6 text-xs text-slate-600'>记忆日期<input type='date' aria-label={`事件盒 ${index+1} 记忆日期`} required disabled={busy} value={dates[box.id]??''} onChange={e=>setDates(current=>({...current,[box.id]:e.target.value}))} className='block mt-2 p-3 max-w-full rounded-xl border border-slate-200 bg-white'/></label>}
@@ -147,7 +175,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
   </div></main>
   {!!boxes.length&&<footer className='shrink-0 px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] border-t border-slate-200 flex gap-3'>
    <button disabled={busy||!selected.length} onClick={()=>void exportSelected()} className='min-h-[44px] px-4 rounded-xl border border-slate-300 flex items-center gap-2 text-xs disabled:opacity-30'><DownloadSimple size={17}/>导出选中</button>
-   <button disabled={busy||!char||!chosen.length||chosen.some(box=>!dateValid(dates[box.id]))} onClick={()=>void convert()} className='min-h-[44px] flex-1 px-4 rounded-xl bg-violet-700 text-white text-xs font-semibold disabled:opacity-30'>{busy?(regeneratingId?'正在重新总结…':'正在转化…'):`一键转为记忆${chosen.length?`（${chosen.length} 个）`:''}`}</button>
+   <button disabled={busy||!char||!chosen.length||chosen.some(box=>!dateValid(dates[box.id]))} onClick={()=>void convert()} className='min-h-[44px] flex-1 px-4 rounded-xl bg-violet-700 text-white text-xs font-semibold disabled:opacity-30'>{busy?'处理中…':`一键转为记忆${chosen.length?`（${chosen.length} 个）`:''}`}</button>
   </footer>}
  </div>;
 }
