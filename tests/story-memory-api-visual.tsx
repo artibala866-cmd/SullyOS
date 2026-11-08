@@ -14,11 +14,19 @@ const library: ApiPreset[] = [
     { id: 'backup', name: '备用', group: '日常', config: { baseUrl: 'https://backup.invalid/v1', apiKey: 'visual-backup', model: 'gpt-mini' } },
 ];
 let saved: StoryTheaterEntry | null = null;
+const fixtureScenario = new URLSearchParams(location.search).get('scenario') || 'preset';
+const restoredLibrary = fixtureScenario === 'broken-import'
+    ? [null, { id: 'damaged', name: '损坏的旧预设', config: null }, ...library] as unknown as ApiPreset[]
+    : library;
 function App() {
     return <div className='story-theme story-theme-light story-decor-plain h-full w-full'>
         <StoryTheaterEditor initial={initial} characters={[role]} worldbooks={[]} user={{ name: '用户' } as any}
             masks={[]} maskLocked={false} presets={[BUILTIN_NIGHT_SCREENING_PRESET]}
-            apiPresets={library} onCancel={() => {}} onSave={entry => { saved = entry; }}
+            apiPresets={restoredLibrary}
+            mainApi={fixtureScenario === 'overlap' ? {
+                baseUrl: 'https://cheap.invalid/v1', apiKey: 'fake-expensive-key', model: 'expensive-prose-model',
+            } : { baseUrl: 'https://expensive.invalid/v1', apiKey: 'fake-expensive-key', model: 'expensive-prose-model' }}
+            onCancel={() => {}} onSave={entry => { saved = entry; }}
             onImportPreset={async () => null} onEditPreset={() => {}} onOpenMaskBox={() => {}} />
     </div>;
 }
@@ -51,7 +59,7 @@ async function run() {
     const url = document.querySelector<HTMLInputElement>('input[aria-label="剧情记忆副 API URL"]');
     const key = document.querySelector<HTMLInputElement>('input[aria-label="剧情记忆副 API Key"]');
     let passed = true;
-    if (scenario === 'preset' || scenario === 'narrow' || scenario === 'manual' || scenario === 'save') {
+    if (['preset', 'narrow', 'manual', 'save', 'overlap', 'broken-import'].includes(scenario)) {
         passed = model?.value === 'gemini-economy'
             && url?.value === 'https://cheap.invalid/v1' && key?.value === 'visual-fake-key';
     }
@@ -78,6 +86,16 @@ async function run() {
             });
     }
     if (scenario === 'off') passed = !model;
+    if (scenario === 'overlap') {
+        await until(() => !!document.querySelector('[data-story-memory-gateway-warning]'));
+        passed = passed && !!document.querySelector('[data-story-memory-gateway-warning]')?.textContent?.includes('限流');
+    }
+    if (scenario === 'broken-import') {
+        passed = passed && document.querySelectorAll('select[aria-label="选择剧情记忆 API 预设"] option').length === 3;
+    }
+    if (scenario === 'preset') {
+        passed = passed && !document.querySelector('[data-story-memory-gateway-warning]');
+    }
     const rect = area.getBoundingClientRect();
     const noOverflow = document.documentElement.scrollWidth <= window.innerWidth + 1;
     area.scrollIntoView({ block: 'center', behavior: 'instant' });
