@@ -628,9 +628,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } as RequestInit & { __sullyMeta: { appId: string; appName: string; purpose: string } });
         const data = await safeResponseJson(response);
         if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
-        assertCompleteStoryResponse(response, data);
+        // A filtered HTTP 200 may still charge 30k+ prompt tokens. Show the
+        // actual reported input size before rejecting incomplete output.
         const reportedPromptTokens = Number(data?.usage?.prompt_tokens);
         if (Number.isFinite(reportedPromptTokens) && reportedPromptTokens > 0) onPromptTokens?.(reportedPromptTokens);
+        assertCompleteStoryResponse(response, data);
         const content = (effectivePreset.document.sourceFormat === 'sillytavern'
             ? extractSillyTavernStoryContent(data)
             : extractContent(data)).trim();
