@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     EXTERNAL_MEMORY_MAX_CHARS,
+    extractExternalMemoryText,
     assertExternalMemoryCoverage,
     assertExternalMemorySchema,
     buildExternalMemoryPrompt,
@@ -144,6 +145,37 @@ describe('外部记忆搬家', () => {
             room: 'living_room',
         }], 'char_1');
         expect(() => assertExternalMemoryCoverage(source, nodes)).toThrow(/删减或压缩/);
+    });
+
+    it('内容不完整被校验拦截后只发生一次付费清洗请求', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            choices: [{ finish_reason: 'stop', message: { content: '[{"content":"少了一半"}]' } }],
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        vi.stubGlobal('fetch', fetchMock);
+        try {
+            const result = await extractExternalMemoryText('这是应该完整保留的经历，不能删除任何细节。'.repeat(70),
+                'char1', '角色', '用户',
+                { baseUrl: 'https://paid.test/v1', apiKey: 'test', model: 'expensive-model' } as any);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(result.batches[0].ok).toBe(false);
+            expect(result.batches).toHaveLength(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('连接中断时不把已经可能计费的清洗任务静默再调用一次', async () => {
+        const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+        vi.stubGlobal('fetch', fetchMock);
+        try {
+            const result = await extractExternalMemoryText('需要完整保留的一段长记忆。',
+                'char1', '角色', '用户',
+                { baseUrl: 'https://paid.test/v1', apiKey: 'test', model: 'expensive-model' } as any);
+            expect(result.batches[0].ok).toBe(false);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('与全自动水位线共用同一桥接器，把同批向量节点写进神经链接档案', () => {
