@@ -1014,7 +1014,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // Keep this dispatcher outside React render updates to coalesce rapid taps.
   const toastSequencerRef = useRef<ReturnType<typeof createToastSequencer> | null>(null);
   if (!toastSequencerRef.current) toastSequencerRef.current = createToastSequencer(setToasts);
-  useEffect(() => () => { toastSequencerRef.current?.dispose(); toastSequencerRef.current = null; }, []);
+  useEffect(() => {
+      // StrictMode replays effect cleanup/setup on initial mount. Recreate the
+      // dispatcher after that replay so notifications never become inert.
+      if (!toastSequencerRef.current) toastSequencerRef.current = createToastSequencer(setToasts);
+      return () => { toastSequencerRef.current?.dispose(); toastSequencerRef.current = null; };
+  }, []);
   const [errorDialog, setErrorDialog] = useState<{ title: string; details: string } | null>(null);
   
   const [lastMsgTimestamp, setLastMsgTimestamp] = useState<number>(0);
