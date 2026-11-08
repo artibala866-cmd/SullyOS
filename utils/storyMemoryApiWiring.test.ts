@@ -15,6 +15,11 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('const response = await fetch(');
         expect(session).toContain("const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)");
     });
+    it('never sends a second failed preflight summary in the same expensive prose turn', () => {
+        expect(session).toContain('const archiveErrorSeq = useRef(0)');
+        expect(session).toContain('const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors');
+        expect(session).toContain('else if (!failedArchiveBeforeProse) await archiveIfNeeded(promptEntry)');
+    });
     it('vector extraction uses only story override for LLM and retains existing embedding configuration', () => {
         expect(session).toContain('const light = resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl');
         expect(session).toContain('processMessageRange(threadId, archiveEntry.title, embedding, light, first.id, last.id');
