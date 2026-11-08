@@ -430,7 +430,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             longPressTimer.current = null;
             longPressOrigin.current = null;
         }, 520);
-    }, [cancelLongPress]);
+    }, [addToast, cancelLongPress, entry.id]);
     const moveLongPress = useCallback((event: React.PointerEvent<HTMLElement>) => {
         const origin = longPressOrigin.current;
         if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 10) cancelLongPress();
@@ -1145,7 +1145,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             <div className='max-w-2xl mx-auto'>
                 {memoryStatus && <div className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{memoryStatus}</div>}
                 {backgroundTask?.phase === 'running' && <div role='status' className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{backgroundTask.stage} · 可切换到其他页面，完成后自动保存</div>}
-                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留，可重试。</div>}}
+                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留，可重试。</div>}
                 {!generationBusy && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
                 {!generationBusy && !memoryStatus && canWriteOpening && <div className='mb-2 text-[10px] text-violet-600'>准备好了，点击推进让故事写下第一幕</div>}
                 {affinityEnabled && <div className='mb-2 overflow-hidden rounded-2xl border border-rose-200 bg-rose-50/70'>
