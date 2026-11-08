@@ -4,7 +4,7 @@ import { useOS } from '../../context/OSContext';
 import { describeDialogueApi, pickDialogueApi } from '../../utils/characterApi';
 import { configFromPreset, findActivePresetId } from '../../utils/apiPresetSwitch';
 import { extractModelIds } from '../../utils/modelList';
-import { extractContent, safeResponseJson } from '../../utils/safeApi';
+import { checkApiConnectionWithoutGeneration } from '../../utils/apiConnectionPreflight';
 import Modal from '../os/Modal';
 import DialogueApiFields from '../settings/DialogueApiFields';
 import ModelPicker from '../settings/ModelPicker';
@@ -64,15 +64,14 @@ export default function CharacterApiPanel({ character, onChange }: {
     const version = ++requestVersion.current;
     setTesting(true); setStatus('');
     try {
-      const response = await fetch(`${api.baseUrl}/chat/completions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey || 'sk-none'}` },
-        body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5, stream: api.stream ?? false }),
+      // Do not charge the user for a "connection test": a completion can be
+      // billed upstream even if the browser ultimately receives Failed to fetch.
+      const result = await checkApiConnectionWithoutGeneration({
+        baseUrl: api.baseUrl, apiKey: api.apiKey, model: api.model,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const content = extractContent(await safeResponseJson(response));
-      if (version === requestVersion.current) setStatus(content ? '连接成功' : '接口已响应，但回复为空');
-    } catch (error) {
-      if (version === requestVersion.current) setStatus(`连接失败：${error instanceof Error ? error.message : '请检查配置'}`);
+      if (version === requestVersion.current) setStatus(result.message);
+    } catch {
+      if (version === requestVersion.current) setStatus('❌ 无法完成 /models 连通性检查；没有发起生成请求。');
     } finally { if (version === requestVersion.current) setTesting(false); }
   };
   const save = () => {
@@ -117,8 +116,9 @@ export default function CharacterApiPanel({ character, onChange }: {
           openModelPicker={() => { setPickerModel(draft.model); setPicker(true); }} />
         <button type="button" onClick={testConnection} disabled={testing || !draft.baseUrl.trim() || !draft.model.trim()}
           className="w-full py-2.5 rounded-xl border border-[#a3a3a3] text-[#262626] text-xs font-bold disabled:opacity-40">
-          {testing ? '测试中…' : '测试连接'}
+          {testing ? '检查中…' : '免费检查 API 连通性'}
         </button>
+        <p className="text-[10px] text-neutral-400">只检查 /models，不调用模型生成；不代表实际回复可用。</p>
         {status && <p role="status" className="text-xs text-neutral-500 break-words">{status}</p>}
       </div>}
     </Modal>
