@@ -62,10 +62,19 @@ export async function assembleUpgradedResponse(response: Response): Promise<Resp
     if (isSseResponseText(text, response.headers.get('content-type'))) {
         const assembled = parseSseToCompletion(text);
         if (assembled) {
+            // Some compatible providers end with [DONE] but omit a finish_reason.
+            // Either a terminal reason or an explicit DONE frame is evidence of
+            // completion; having only content chunks is NOT.
+            const finished = Boolean(assembled.choices?.[0]?.finish_reason)
+                || text.split(/\\r?\\n/).some(line => line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]');
             return new Response(JSON.stringify(assembled), {
                 status: response.status,
                 statusText: response.statusText,
-                headers: { 'Content-Type': 'application/json', 'X-Sully-Upgraded-Stream': '1' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Sully-Upgraded-Stream': '1',
+                    'X-Sully-Stream-Terminal': finished ? '1' : '0',
+                },
             });
         }
         // 拼不出任何 chunk：按原文透传，让调用方的解析器报出带 preview 的错误
