@@ -18,10 +18,24 @@ const body = {
 };
 
 describe('Claude relay compatibility retry', () => {
-  it('recognizes the opaque Claude + tools + thinking 502', () => {
-    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: 项目1'), body)).toBe(true);
+  it('does not automatically repay ambiguous 502, network, 401/403 or generic 400', () => {
+    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: bad_response_status_code'), body)).toBe(false);
+    expect(shouldRetryClaudeProxyCompatibility(new TypeError('Failed to fetch'), body)).toBe(false);
     expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 401: bad key'), body)).toBe(false);
-    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: upstream'), { ...body, tools: [] })).toBe(false);
+    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 403: forbidden'), body)).toBe(false);
+    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 400: bad request'), body)).toBe(false);
+  });
+
+  it('only permits one compatibility fallback for an explicit unbilled validation error', () => {
+    expect(shouldRetryClaudeProxyCompatibility(
+      new Error('API Error 400: unsupported thinking with tools'), body,
+    )).toBe(true);
+    expect(shouldRetryClaudeProxyCompatibility(
+      new Error('API Error 422: invalid reasoning_effort'), body,
+    )).toBe(true);
+    expect(shouldRetryClaudeProxyCompatibility(
+      new Error('API Error 400: unsupported thinking with tools'), { ...body, tools: [] },
+    )).toBe(false);
   });
 
   it('merges system messages and strips thinking dialects without dropping tools', () => {
