@@ -23,6 +23,7 @@ import StoryMaskBox from './StoryMaskBox';
 import StoryPresetMaker from './StoryPresetMaker';
 import StoryTheaterEditor from './StoryTheaterEditor';
 import StoryTheaterSession from './StoryTheaterSession';
+import { isStoryGenerationRunning, observeStoryGenerations } from '../../../utils/storyTheaterBackground';
 import StoryVectorMemoryPanel from './StoryVectorMemoryPanel';
 import StoryArchivePanel from './StoryArchivePanel';
 import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheaterTheme';
@@ -42,6 +43,8 @@ type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'ar
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
     const { characters, worldbooks, userProfile, apiConfig, apiPresets, addToast, remoteVectorConfig, updateCharacter, importStoryOpeningDocuments } = useOS();
     const [view, setView] = useState<View>('list');
+    const viewRef = useRef(view);
+    viewRef.current = view;
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
     const [masks, setMasks] = useState<StoryTheaterMask[]>([]);
@@ -75,6 +78,19 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     }, [addToast]);
 
     useEffect(() => { void reload().catch(error => addToast(error instanceof Error ? `剧情列表读取失败：${error.message}` : '剧情列表读取失败，请检查本地存储', 'error')); }, [reload, addToast]);
+    // The submission can finish after the session (or even the whole Meet app)
+    // has unmounted. When this parent is visible, refresh from IndexedDB, not
+    // from the callback or entry object captured by the old session.
+    useEffect(() => observeStoryGenerations(snapshot => {
+        if (snapshot.phase === 'running') return;
+        void DB.getStoryTheaters().then(rows => {
+            const updated = rows.find(row => row.id === snapshot.entryId);
+            if (!updated) return;
+            const normalized = normalizeStoryTheater(updated);
+            setEntries(current => [normalized, ...current.filter(row => row.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
+            setActiveEntry(current => current?.id === normalized.id && viewRef.current !== 'editor' ? normalized : current);
+        }).catch(error => console.warn('[StoryBackground] failed to refresh story', error));
+    }), []);
 
     const importPreset = useCallback(async (file: File): Promise<StoryTheaterPreset | null> => {
         try {
@@ -114,6 +130,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const saveEntry = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
+        if (isStoryGenerationRunning(normalized.id)) {
+            throw new Error('这条剧情正在后台生成，请完成后再保存设置，避免覆盖正在写入的记忆');
+        }
         const identity = resolveStoryTheaterMask(normalized.mask, userProfile, characters, masks).name;
         // Existing first-floor text remains the source of truth even if the imported
         // greeting is later changed or removed from the character card.
@@ -224,6 +243,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
+        if (isStoryGenerationRunning(normalized.id)) throw new Error('剧情正在后台生成，请完成后再修改快捷预设');
         await DB.saveStoryTheater(normalized);
         setActiveEntry(normalized);
         setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
@@ -283,6 +303,10 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const confirmDeleteEntry = useCallback(async () => {
         if (!deletingEntry || deletingStory) return;
+        if (isStoryGenerationRunning(deletingEntry.id)) {
+            addToast('这条剧情正在后台生成，请完成后再删除，避免丢失已付费的生成结果', 'info');
+            return;
+        }
         setDeletingStory(true);
         try {
             const result = await deleteStoryTheaterData(deletingEntry, remoteVectorConfig);
@@ -387,7 +411,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     if (view === 'session' && activeEntry) {
         const preset = presets.find(item => item.id === activeEntry.presetId) || BUILTIN_NIGHT_SCREENING_PRESET;
         const hasVectorArchive = (!activeEntry.writesToCharacterMemory && activeEntry.archiveStrategy === 'vector') || activeEntry.archives.some(archive => archive.strategy === 'vector');
-        return <StoryTheaterSession entry={activeEntry} preset={preset} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} onArchiveCommitted={next => { setActiveEntry(next); setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt)); }} />;
+        return <StoryTheaterSession entry={activeEntry} preset={preset} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} onArchiveCommitted={next => { setActiveEntry(current => current?.id === next.id && viewRef.current !== 'editor' ? next : current); setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt)); }} />;
     }
 
     return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
