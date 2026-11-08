@@ -14,7 +14,8 @@ export function assertCompleteStoryResponse(response: Response, data: any): void
     // Only enforce the terminal chunk for a stream we KNOW was assembled by
     // our interceptor. Some compatible non-stream endpoints omit finish_reason
     // on otherwise valid replies, and must not be rejected for that alone.
-    if (response.headers.get('X-Sully-Upgraded-Stream') === '1' && !reason) {
+    if (response.headers.get('X-Sully-Upgraded-Stream') === '1'
+        && response.headers.get('X-Sully-Stream-Terminal') !== '1' && !reason) {
         throw new Error('剧情生成连接提前中断，未收到完整结束信号；半截正文不会被保存。原推进已保留，可重新尝试');
     }
 }
