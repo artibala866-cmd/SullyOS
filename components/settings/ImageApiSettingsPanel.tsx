@@ -98,6 +98,7 @@ export const ImageApiSettingsPanel: React.FC = () => {
         <input className={inputStyle} value={testPrompt} onChange={event => setTestPrompt(event.target.value)} />
       </label>
       <button type="button" disabled={testing || !testPrompt.trim()} onClick={testGeneration} className="rounded-xl bg-slate-100 px-4 py-2 text-xs disabled:opacity-50">{testing ? '生成中…' : '测试生图'}</button>
+      <p className="text-[10px] text-slate-400 leading-relaxed">此操作会真正调用生图模型，失败或图片无法读取时也可能扣费；请勿连续重试。</p>
       {testUrl && <img src={testUrl} alt="测试生图结果" className="max-h-64 rounded-xl object-contain" />}
     </div>
     {status && <p role="status" className="text-xs text-slate-500">{status}</p>}
