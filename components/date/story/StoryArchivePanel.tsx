@@ -7,7 +7,6 @@ import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyT
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {regenerateStoryArchiveSummary} from '../../../utils/storyTheaterArchive';
-import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
 
 export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:StoryTheaterEntry;masks:StoryTheaterMask[];onBack:()=>void;onUpdated:(entry:StoryTheaterEntry)=>void}){
  const {characters,userProfile,apiConfig,memoryPalaceConfig,remoteVectorConfig,addToast}=useOS();
@@ -38,7 +37,9 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
   running.current=true;setBusy(true);setError('');
   let completed=0;
   try{
-   const llm=resolveStoryMemoryApi(entry,memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig);
+   // Converting an event box writes global actor memory, not story-private data.
+   // Never use the per-story cheap summarizer for this shared-memory operation.
+   const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;
    const identity=resolveStoryTheaterMask(entry.mask,userProfile,characters,masks);
    for(const box of chosen){
     const result=await convertStoryArchiveToMemory({entryId:entry.id,archiveId:box.id,charId:char.id,date:dates[box.id],userName:userProfile.name||'用户',identityName:identity.name,llm,embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,onProgress:text=>setStatus(`${completed+1}/${chosen.length} · ${text}`)});
@@ -69,7 +70,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated}:{entry:
    {!boxes.length?<p className='text-sm leading-7 text-slate-500'>这条剧情还没有事件盒摘要。虚构剧场选择「事件盒」归档后，达到设置的归档条数才会生成；独立向量记忆请从剧情的向量入口查看。已有原文可在剧情页展开或导出。</p>:<>
     <label className='block text-xs font-semibold'>接收记忆的角色<select aria-label='接收记忆的角色' disabled={busy} value={charId} onChange={e=>{setCharId(e.target.value);setSelected([]);setError('');setStatus('');}} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200'>{actors.map(actor=><option key={actor.id} value={actor.id}>{actor.name}</option>)}</select></label>
     <p className='text-xs leading-6 text-slate-500'>{char?.memoryPalaceEnabled?'已开启记忆宫殿：自动提炼整理后写入记忆宫殿，同时关联到神经链接。':'未开启记忆宫殿：自动提炼整理后写入神经链接记忆。'}记忆会保留「剧情经历」的说明。请填写希望这段记忆归属的日期；跨多日的盒子暂统一归到所填日期。</p>
-    <p className='text-[11px] leading-5 text-slate-500'>转化不会改变剧情模式、原文时间或聊天的记忆整理进度。每个事件盒对同一角色只转化一次；之前转化的记忆不会随删除剧情一起删除。</p>
+    <p className='text-[11px] leading-5 text-slate-500'>转化会写入所选角色的共享长期记忆，因此沿用全局记忆宫殿的副 API／原 API，不会调用本剧情的总结副 API。转化不会改变剧情模式、原文时间或聊天的记忆整理进度。每个事件盒对同一角色只转化一次；之前转化的记忆不会随删除剧情一起删除。</p>
     <div className='flex items-center justify-between gap-2'><span className='text-xs text-slate-500'>共 {boxes.length} 个 · 选中 {selected.length} 个</span><button disabled={busy} onClick={()=>setSelected(selected.length?[]:boxes.map(b=>b.id))} className='text-xs text-violet-700 disabled:opacity-30'>{selected.length?'取消全选':'全选'}</button><button disabled={busy||!available.length} onClick={()=>setSelected(available.map(b=>b.id))} className='text-xs text-violet-700 disabled:opacity-30'>选择未转化</button></div>
     <div className='divide-y divide-slate-200'>{boxes.map((box,index)=>{
      const receipt=box.memoryConversions?.[charId],checked=selected.includes(box.id);
