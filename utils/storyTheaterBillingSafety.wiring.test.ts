@@ -47,7 +47,7 @@ describe('story theater billing safety wiring', () => {
         expect(editorSource).toContain("value={draft.omitSamplingParams === true}");
         expect(editorSource).toContain("update('omitSamplingParams', value)");
         expect(editorSource).toContain('默认关闭');
-        expect(storySource).toContain('剧情请求被上游/网关断开');
+        expect(storySource).toContain('浏览器未收到可读取的 HTTP 响应');
         expect(interceptorSource).toContain('recentSuccessfulFetches.set(requestComparisonKey');
         expect(interceptorSource).toContain('summarizeFetchRequestBody((sendArgs[1] as any)?.body)');
         expect(interceptorSource).toContain('recentSuccessfulSameRequest: recentSuccess');

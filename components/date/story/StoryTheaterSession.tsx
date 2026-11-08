@@ -1,7 +1,7 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
-import { extractSillyTavernStoryContent, squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
+import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
@@ -12,7 +12,6 @@ import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
 import { DB } from '../../../utils/db';
 import { ContextBuilder } from '../../../utils/context';
-import { safeResponseJson, extractContent } from '../../../utils/safeApi';
 import {
     assertStoryApiConfigured,
     appendStoryAffinityInputs,
@@ -32,8 +31,6 @@ import {
     prepareStoryGenerationSettings,
     reconcileStoryAffinityScores,
     resolveStoryTheaterWorldbooks,
-    describeEmptyStoryCompletion,
-    describeStoryApiError,
     estimateStoryTokens,
     formatActorRecentMessages,
     formatStoryTheaterExport,
@@ -67,7 +64,7 @@ import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memo
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration } from '../../../utils/storyTheaterBackground';
-import { assertCompleteStoryResponse } from '../../../utils/storyTheaterCompletionIntegrity';
+import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
 import {
     buildStoryContinueInstruction,
@@ -617,27 +614,25 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
     }, [actors, addToast, entry, exporting, mask.name, messages]);
 
-    const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<string> => {
+    const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<StoryCompletion> => {
         assertStoryApiConfigured(apiConfig);
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model);
-        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-            body: JSON.stringify({ model: apiConfig.model, messages: payload, stream: false, ...generationSettings }),
-            __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情见面生成' },
-        } as RequestInit & { __sullyMeta: { appId: string; appName: string; purpose: string } });
-        const data = await safeResponseJson(response);
-        if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
-        // A filtered HTTP 200 may still charge 30k+ prompt tokens. Show the
-        // actual reported input size before rejecting incomplete output.
-        const reportedPromptTokens = Number(data?.usage?.prompt_tokens);
-        if (Number.isFinite(reportedPromptTokens) && reportedPromptTokens > 0) onPromptTokens?.(reportedPromptTokens);
-        assertCompleteStoryResponse(response, data);
-        const content = (effectivePreset.document.sourceFormat === 'sillytavern'
-            ? extractSillyTavernStoryContent(data)
-            : extractContent(data)).trim();
-        if (!content) throw new Error(describeEmptyStoryCompletion(data));
-        return content;
+        const stream = apiConfig.stream === true;
+        let response: Response;
+        try {
+            response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                body: JSON.stringify({ model: apiConfig.model, messages: payload, stream,
+                    ...(stream ? { stream_options: { include_usage: true } } : {}), ...generationSettings }),
+                __sullySkipStreamUpgrade: true,
+                __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情见面生成' },
+            } as RequestInit & { __sullySkipStreamUpgrade: boolean; __sullyMeta: { appId: string; appName: string; purpose: string } });
+        } catch (error) {
+            const detail = error instanceof Error ? error.message || error.name : String(error);
+            throw new Error(`浏览器未收到可读取的 HTTP 响应（${detail}）。连接、网关超时或跨域限制均可能导致此问题，请先对照站点调用记录`);
+        }
+        return readStoryCompletion(response, effectivePreset.document.sourceFormat === 'sillytavern', generationSettings.max_tokens, onPromptTokens);
     }, [apiConfig, effectivePreset.document.sourceFormat, entry.omitSamplingParams]);
 
     const saveCentralAndMirrors = useCallback(async (role: 'user' | 'assistant', content: string, centralMetadata: Record<string, unknown> = {}): Promise<number> => {
@@ -789,7 +784,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             archiveLock.current = false;
             setMemoryStatus('');
         }
-    }, [addToast, apiConfig, callCompletion, entry, loadMessages, mask.name, memoryPalaceConfig, onArchiveCommitted, threadId]);
+    }, [addToast, apiConfig, entry, loadMessages, mask.name, memoryPalaceConfig, onArchiveCommitted, threadId]);
 
     const send = useCallback((rerollTarget?: Message, continueRequested = false) => {
         // Imported greeting is a fixed first floor, not an AI-generated reply.
@@ -975,7 +970,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setContextTokens(promptTokenCount);
             setContextTokensExact(false);
             reportStage('正在后台生成剧情正文…');
-            const generated = await callCompletion(labeledPayload, compiled.settings, reported => {
+            const { content: generated, interruption } = await callCompletion(labeledPayload, compiled.settings, reported => {
                 promptTokenCount = reported;
                 promptTokenCountExact = true;
                 setContextTokens(reported);
@@ -985,7 +980,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const rawContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
             // 关系绝对值要承接最近一轮，即使那轮刚被折叠进事件盒，也不能回退到 50。
             const previousAssistantContent = latestAssistant?.row.content || '';
-            const content = affinityEnabled
+            const content = affinityEnabled && !interruption
                 ? reconcileStoryAffinityScores(
                     rawContent,
                     previousAssistantContent,
@@ -993,17 +988,26 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     actors.map(actor => ({ id: actor.id, name: actor.name })),
                 )
                 : rawContent;
-            reportStage('正在保存完整剧情正文…');
+            reportStage(interruption ? '正在保存已收到的剧情正文…' : '正在保存剧情正文…');
             const replyMetadata = {
                 ...(effectivePreset.document.sourceFormat === 'sillytavern' ? { theaterSourceFormat: 'sillytavern' } : {}),
                 theaterReplyToUserId: userMessageId,
+                theaterInterruption: interruption,
+                theaterInterruptedRewrite: undefined,
                 theaterPromptTokens: promptTokenCount,
                 theaterPromptTokensExact: promptTokenCountExact,
                 ...(affinityInputs.length > 0 ? { theaterAffinityInputs: affinityInputs } : {}),
             };
             if (isReroll && rerollTarget) {
                 if (mirrorArchived(rerollTarget, promptEntry)) throw new Error('这条回复已进入记忆归档，请刷新后查看');
-                await replaceStoryTheaterReply(rerollTarget, content, replyMetadata);
+                if (interruption) {
+                    await DB.updateMessageMetadata(rerollTarget.id, previous => ({
+                        ...previous,
+                        theaterInterruptedRewrite: { content, interruption, fromTavern: effectivePreset.document.sourceFormat === 'sillytavern' },
+                    }));
+                } else {
+                    await replaceStoryTheaterReply(rerollTarget, content, replyMetadata);
+                }
             } else {
                 await saveCentralAndMirrors('assistant', content, replyMetadata);
             }
@@ -1011,6 +1015,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setAffinityDrafts({});
             setShowAffinityInput(false);
             await loadMessages();
+            if (interruption) return;
             reportStage('剧情正文已保存，正在整理后续记忆…');
             if (entry.writesToCharacterMemory) void applyActorMemoryPipeline();
             // A failed preflight can already have billed the secondary provider.
@@ -1020,15 +1025,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } catch (error: any) {
             console.error('[StoryTheater] send failed', error);
             const message = String(error?.message || error);
-            const isOpaqueBrowserFailure = /load failed|failed to fetch|networkerror|network request failed/i.test(message);
-            addToast(
-                isOpaqueBrowserFailure
-                    ? '剧情请求被上游/网关断开，浏览器读不到真实错误。若陪伴原版同 API 正常，可在剧情设置尝试“不发送高级采样参数”或“400 兼容模式”；请求差异已写入 Network 日志，请勿连续重发。'
-                    : message.includes('API Error 400') && isStoryUserLastCompatibilityError(message) && !entry.forceUserLastMessage
-                    ? '剧情续写失败：API 400。若日志提示最后一条必须是 user，可在右上角设置开启“400 兼容模式”；更建议更换模型。'
-                    : `剧情续写失败：${message}`,
-                'error',
-            );
+            const hint = message.includes('API Error 400') && isStoryUserLastCompatibilityError(message) && !entry.forceUserLastMessage
+                ? '。可在右上角设置开启“400 兼容模式”'
+                : '';
+            addToast(`剧情续写失败：${message}${hint}`, 'error');
             // The registry stores failures so a remounted screen can show
             // a retry state even after the original toast/owner unmounted.
             throw error;
@@ -1140,7 +1140,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         }
                         if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><p className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
-                        return <article {...pressHandlersFor(message)}><StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBusy} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
+                        const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
+                        return <article {...pressHandlersFor(message)}>
+                            {message.metadata?.theaterInterruption && <p className='mb-3 text-xs leading-5 text-amber-700'>已保留收到的正文。{message.metadata.theaterInterruption}。可点击「继续」接着写。</p>}
+                            <StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />
+                            {interruptedRewrite && <details className='mt-3 text-xs leading-5 text-amber-700'>
+                                <summary>查看未写完的改写稿 · 原楼层已保留</summary>
+                                <p className='my-2'>{interruptedRewrite.interruption}</p>
+                                <StoryOutput content={interruptedRewrite.content} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
+                            </details>}
+                            {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBusy} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
                         return <div key={message.id} data-story-floor={floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
                             {floorHeading}
@@ -1157,7 +1166,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             <div className='max-w-2xl mx-auto'>
                 {memoryStatus && <div className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{memoryStatus}</div>}
                 {backgroundTask?.phase === 'running' && <div role='status' className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{backgroundTask.stage} · 可切换到其他页面，完成后自动保存</div>}
-                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留，可重试。</div>}
+                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留。糯米机未自动重发。</div>}
                 {!generationBusy && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
                 {!generationBusy && !memoryStatus && canWriteOpening && <div className='mb-2 text-[10px] text-violet-600'>准备好了，点击推进让故事写下第一幕</div>}
                 {affinityEnabled && <div className='mb-2 overflow-hidden rounded-2xl border border-rose-200 bg-rose-50/70'>

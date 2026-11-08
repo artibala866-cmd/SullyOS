@@ -1,77 +1,79 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { readStoryCompletion } from './storyTheaterCompletionIntegrity';
 import { assembleUpgradedResponse } from './streamUpgrade';
-import { safeResponseJson } from './safeApi';
-import { assertCompleteStoryResponse } from './storyTheaterCompletionIntegrity';
 
-const upgraded = (lines: string[]) => assembleUpgradedResponse(new Response(
-    lines.join('\n') + '\n',
-    { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
-));
+const stream = (...lines: string[]) => new Response(lines.join('\n') + '\n', {
+    headers: { 'Content-Type': 'text/event-stream' },
+});
+const proseEvent = 'data: {"choices":[{"delta":{"content":"他刚走到门口"}}]}';
 
-describe('剧情完整生成入库守卫', () => {
-    it('上游只返回开头正文就断开：SSE 能拼 JSON 也必须拒绝保存半截', async () => {
-        const response = await upgraded([
-            'data: {"id":"partial","choices":[{"delta":{"content":"他刚走到门口"}}]}',
-        ]);
-        const data = await response.json();
-        expect(data.choices[0].message.content).toBe('他刚走到门口');
-        expect(response.headers.get('X-Sully-Upgraded-Stream')).toBe('1');
-        expect(response.headers.get('X-Sully-Stream-Terminal')).toBe('0');
-        expect(() => assertCompleteStoryResponse(response, data)).toThrow('提前中断');
+describe('剧情保留已收到的正文', () => {
+    it.each(['length', 'MAX_TOKENS', 'content_filter'])('保留 HTTP 200 已返回的正文和具体结束原因 %s', async finish_reason => {
+        const tokens = vi.fn();
+        const result = await readStoryCompletion(Response.json({
+            usage: { prompt_tokens: 26838, completion_tokens: 4404 },
+            choices: [{ finish_reason, message: { content: '门缓缓开了。' } }],
+        }), false, 4404, tokens);
+        expect(result.content).toBe('门缓缓开了。');
+        expect(result.interruption).toContain(finish_reason);
+        expect(tokens).toHaveBeenCalledWith(26838);
     });
 
-    it('正常的 stop 结束或只有 DONE 的兼容中转，都可以保存完整结果', async () => {
-        const completed = await upgraded([
-            'data: {"choices":[{"delta":{"content":"完整"}}]}',
-            'data: {"choices":[{"delta":{"content":"剧情"},"finish_reason":"stop"}]}',
-        ]);
-        expect(completed.headers.get('X-Sully-Stream-Terminal')).toBe('1');
-        const completeData = await completed.json();
-        expect(() => assertCompleteStoryResponse(completed, completeData)).not.toThrow();
-
-        const doneOnly = await upgraded([
-            ': OPENROUTER PROCESSING',
-            'data: {"choices":[{"delta":{"content":"最终一句"}}]}',
-            'data: [DONE]',
-        ]);
-        expect(doneOnly.headers.get('X-Sully-Stream-Terminal')).toBe('1');
-        const doneOnlyData = await doneOnly.json();
-        expect(() => assertCompleteStoryResponse(doneOnly, doneOnlyData)).not.toThrow();
+    it('标记只有开头正文但没有结束标记的流，兼容透明升级和原始 SSE', async () => {
+        for (const response of [stream(proseEvent), await assembleUpgradedResponse(stream(proseEvent))]) {
+            await expect(readStoryCompletion(response, false)).resolves.toEqual({
+                content: '他刚走到门口', interruption: expect.stringContaining('缺少结束标记'),
+            });
+        }
     });
 
-    it('中转无视 stream:false 返回原始 SSE：无结束信号不能保存付费半截剧情', async () => {
-        const response = new Response('data: {"choices":[{"delta":{"content":"半截剧情"}}]}\n', {
-            headers: { 'Content-Type': 'text/event-stream' },
+    it('保留流读取抛错前已收到的正文，并显示浏览器错误', async () => {
+        let sent = false;
+        const body = new ReadableStream({
+            pull(controller) {
+                if (!sent) {
+                    controller.enqueue(new TextEncoder().encode(proseEvent + '\n\n'));
+                    sent = true;
+                } else {
+                    controller.error(new TypeError('connection reset'));
+                }
+            },
         });
-        const data = await safeResponseJson(response);
-        expect(data.choices[0].message.content).toBe('半截剧情');
-        expect(data.__sullyRawStreamTerminal).toBe(false);
-        expect(Object.keys(data)).not.toContain('__sullyRawStreamTerminal');
-        expect(() => assertCompleteStoryResponse(response, data)).toThrow('提前中断');
+        const response = new Response(body, { headers: { 'Content-Type': 'text/event-stream' } });
+        await expect(readStoryCompletion(response, false)).resolves.toEqual({
+            content: '他刚走到门口', interruption: expect.stringContaining('connection reset'),
+        });
     });
 
-    it('中转原始 SSE 显式发出 DONE：没有 finish_reason 仍可保存完整正文', async () => {
-        const response = new Response([
-            'data: {"choices":[{"delta":{"content":"完整剧情"}}]}',
-            'data: [DONE]',
-        ].join('\n') + '\n', { headers: { 'Content-Type': 'text/event-stream' } });
-        const data = await safeResponseJson(response);
-        expect(data.__sullyRawStreamTerminal).toBe(true);
-        expect(() => assertCompleteStoryResponse(response, data)).not.toThrow();
+    it('stop 或 DONE 都能正常结束，普通兼容 JSON 可以省略结束原因', async () => {
+        const stop = 'data: {"choices":[{"delta":{"content":"。"},"finish_reason":"stop"}]}';
+        for (const [response, content] of [
+            [stream(proseEvent, stop), '他刚走到门口。'],
+            [stream(proseEvent, 'data: [DONE]'), '他刚走到门口'],
+            [Response.json({ choices: [{ message: { content: '正常正文' } }] }), '正常正文'],
+        ] as const) {
+            await expect(readStoryCompletion(response, false)).resolves.toEqual({ content, interruption: undefined });
+        }
     });
 
-    it('上游返回 content_filter 即使有正文和输出 token 也必须拦截，不自动保存', () => {
-        const response = new Response('{}', { status: 200 });
-        expect(() => assertCompleteStoryResponse(response, {
-            usage: { prompt_tokens: 37945, completion_tokens: 1122 },
-            choices: [{ finish_reason: 'content_filter', message: { content: '被过滤的正文' } }],
-        })).toThrow('content_filter');
+    it('只返回思考时不把它当成已交付正文，酒馆仍保留有正文时的排版', async () => {
+        const completion = (content: string) => Response.json({ choices: [{ message: { content, reasoning_content: '思考' } }] });
+        await expect(readStoryCompletion(completion(''), false)).rejects.toThrow('只返回了思考内容');
+        await expect(readStoryCompletion(completion(''), true)).rejects.toThrow('只返回了思考内容');
+        await expect(readStoryCompletion(completion('<content>正文</content>'), true)).resolves.toMatchObject({
+            content: '<thinking>思考</thinking>\n<content>正文</content>',
+        });
     });
 
-    it('模型达到输出上限不将截断内容误当完整，普通兼容 JSON 不要求 finish_reason', () => {
-        const plain = new Response('{}', { headers: { 'Content-Type': 'application/json' } });
-        expect(() => assertCompleteStoryResponse(plain, { choices: [{ message: { content: '正常内容' } }] })).not.toThrow();
-        expect(() => assertCompleteStoryResponse(plain, { choices: [{ message: { content: '半截' }, finish_reason: 'length' }] })).toThrow('输出上限');
-        expect(() => assertCompleteStoryResponse(plain, { choices: [{ finish_reason: 'content_filter' }] })).toThrow('拦截');
+    it('报告过滤、HTTP 错误和流内错误的实际细节', async () => {
+        await expect(readStoryCompletion(Response.json({
+            choices: [{ finish_reason: 'content_filter', message: { content: '' } }],
+        }), false)).rejects.toThrow('content_filter');
+        await expect(readStoryCompletion(Response.json({
+            error: { message: 'context window exceeded' },
+        }, { status: 400 }), false)).rejects.toThrow('API Error 400：context window exceeded');
+        await expect(readStoryCompletion(stream(proseEvent, 'data: {"error":{"message":"upstream overloaded"}}', 'data: [DONE]'), false)).resolves.toMatchObject({
+            content: '他刚走到门口', interruption: 'API Error 200：upstream overloaded',
+        });
     });
 });

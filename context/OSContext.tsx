@@ -68,7 +68,7 @@ import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
 import { runWorldEpisode, rerollWorldCharBeat } from '../utils/worldHome/engine';
 import { migrateWorldDaySegs } from '../utils/worldHome/prompts';
 import { ChatParser } from '../utils/chatParser';
-import { safeFetchJson } from '../utils/safeApi';
+import { safeFetchJson, safeResponseJson } from '../utils/safeApi';
 import { captureApiRequestOnce, getApiCallAmbientContext, recordApiCall, setApiCallAmbientContext, updateApiRequestCaptureUsage } from '../utils/apiCallLog';
 import { isGlobalStreamEnabled, upgradeChatBodyToStream, assembleUpgradedResponse } from '../utils/streamUpgrade';
 import { rewriteStaleWorkerUrl } from '../utils/proxyWorker';
@@ -1294,24 +1294,27 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   let usageClone: Response | null = null;
                   try { usageClone = response.clone(); } catch { usageClone = null; }
                   if (usageClone) {
-                      usageClone.text().then((t) => {
+                      const isStory = meta?.purpose === '剧情见面生成';
+                      const readForLog = isStory
+                          ? safeResponseJson(usageClone, { keepInterruptedBody: true }).then(parsed => ({ parsed, text: undefined }))
+                          : usageClone.text().then(text => {
+                              let parsed: any;
+                              try { parsed = JSON.parse(text); } catch { /* recordApiCall handles raw SSE */ }
+                              return { parsed, text };
+                          });
+                      readForLog.then(({ parsed, text }) => {
                           const durationMs = Date.now() - fetchStartedAt;
-                          // HTTP 200 is only transport success. A filtered or truncated
-                          // story can still consume tokens without delivering prose.
-                          let parsed: any = undefined;
-                          try { parsed = JSON.parse(t); } catch { /* 流式/非 JSON：把原始文本交给 recordApiCall 的 SSE 兜底解析 */ }
-                          const finishReason = String(parsed?.choices?.[0]?.finish_reason || '').trim().toLowerCase();
-                          const incompleteStory = meta?.purpose === '剧情见面生成'
-                              && (finishReason === 'length' || finishReason === 'max_tokens'
-                                  || (response.headers.get('X-Sully-Upgraded-Stream') === '1'
-                                      && response.headers.get('X-Sully-Stream-Terminal') !== '1'));
+                          const finishReason = String(parsed?.choices?.[0]?.finish_reason ?? parsed?.choices?.[0]?.finishReason ?? '').trim().toLowerCase();
+                          const incompleteStory = isStory && (parsed?.error || parsed?.__sullyRawStreamTerminal === false
+                              || ['length', 'max_tokens', 'max_output_tokens', 'safety', 'error', 'cancelled', 'canceled', 'incomplete'].includes(finishReason));
                           const completionOk = ok && finishReason !== 'content_filter' && !incompleteStory;
                           if (completionOk) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
-                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok, response: parsed, responseText: parsed === undefined ? t : undefined });
-                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, response: parsed, responseText: parsed === undefined ? t : undefined, meta, durationMs });
+                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok, response: parsed, responseText: parsed === undefined ? text : undefined });
+                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, response: parsed, responseText: parsed === undefined ? text : undefined, meta, durationMs });
                       }).catch(() => {
-                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok });
-                          recordApiCall({ requestId, url: urlStr, body, status, ok, meta, durationMs: Date.now() - fetchStartedAt });
+                          const completionOk = ok && !isStory;
+                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok: completionOk });
+                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, meta, durationMs: Date.now() - fetchStartedAt });
                       });
                   } else {
                       // clone 失败时，只有已经在上面完整拼装过的升级流才能确认正文收完。

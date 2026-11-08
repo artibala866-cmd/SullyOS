@@ -22,10 +22,20 @@ export function isChatCompletionUrl(url: string): boolean {
 }
 
 /** Parse a fetch Response as JSON safely (text-first, then JSON.parse) */
-export async function safeResponseJson(response: Response): Promise<any> {
-    const text = await response.text();
+export async function safeResponseJson(response: Response, options?: { keepInterruptedBody?: boolean }): Promise<any> {
+    const { text, readError } = options?.keepInterruptedBody && response.body
+        ? await readRecoverableBody(response.body)
+        : { text: await response.text(), readError: undefined };
     const contentType = response.headers.get('content-type');
-    const parsed = parseRawBodyText(text, response.status, contentType);
+    let parsed: any;
+    try {
+        parsed = parseRawBodyText(text, response.status, contentType);
+    } catch (error) {
+        if (readError) {
+            throw new Error(`HTTP ${response.status} 已返回，但读取响应体时连接中断（${readError}），未收到可解析的响应`);
+        }
+        throw error;
+    }
     // Some gateways return SSE even to a stream:false request. Preserve the
     // terminal marker for callers that must not commit partial paid output.
     // Keep this transport-only evidence non-enumerable (never store it in logs).
@@ -33,8 +43,27 @@ export async function safeResponseJson(response: Response): Promise<any> {
         const finished = Boolean(parsed.choices[0]?.finish_reason)
             || text.split(/\r?\n/).some(line => (line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]'));
         Object.defineProperty(parsed, '__sullyRawStreamTerminal', { value: finished, enumerable: false });
+        if (!finished && readError) Object.defineProperty(parsed, '__sullyBodyReadError', { value: readError, enumerable: false });
     }
     return parsed;
+}
+
+/** Preserve complete SSE events received before a transport error. */
+async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ text: string; readError?: string }> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let text = '';
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) return { text: text + decoder.decode() };
+            text += decoder.decode(value, { stream: true });
+        }
+    } catch (error) {
+        return { text, readError: error instanceof Error ? error.message || error.name : String(error) };
+    } finally {
+        reader.releaseLock();
+    }
 }
 
 /** 判断响应是否是 SSE；兼容 OpenRouter 在首个 data 事件前发送的 ": OPENROUTER PROCESSING" 注释。 */
@@ -131,6 +160,7 @@ class SseAssembler {
     private firstChunk: any = null;
     private usage: any = undefined;
     private gotAnyChunk = false;
+    private providerError: unknown;
     // tool_calls 流式分片: OpenAI 约定按 index 分组, id/name 在首片, arguments 逐片拼接。
     // 不拼的话开了 stream 的工具模式(瑞幸/MCP)会静默丢掉全部工具调用。
     private toolCalls: any[] = [];
@@ -161,6 +191,7 @@ class SseAssembler {
         // OpenAI 流式 usage 在最后一个 chunk（include_usage=true 时），也可能出现在中途；
         // 始终取最后一个非空的 usage，兼容各家代理。
         if (chunk.usage) this.usage = chunk.usage;
+        if (chunk.error) this.providerError = chunk.error;
         const choice = chunk.choices?.[0];
         if (!choice) return { content: '', reasoning: '', done: false };
         let delta = '';
@@ -215,8 +246,9 @@ class SseAssembler {
             if (choice.message.role) this.role = choice.message.role;
             if (Array.isArray(choice.message.tool_calls)) this.toolCalls.push(...choice.message.tool_calls);
         }
-        if (choice.finish_reason) this.finishReason = choice.finish_reason;
-        return { content: delta, reasoning: reasoningDelta, done: Boolean(choice.finish_reason) };
+        const finishReason = choice.finish_reason ?? choice.finishReason;
+        if (finishReason) this.finishReason = finishReason;
+        return { content: delta, reasoning: reasoningDelta, done: Boolean(finishReason) };
     }
 
     get reasoningContent(): string {
@@ -249,6 +281,7 @@ class SseAssembler {
                 finish_reason: this.finishReason,
             }],
             usage: this.usage || this.firstChunk?.usage,
+            ...(this.providerError ? { error: this.providerError } : {}),
         };
     }
 }
@@ -530,7 +563,7 @@ export async function safeFetchJson(
  *  - Falls back to `reasoning_content` when `content` is missing/empty
  *  - Strips hidden <think>...</think> chain-of-thought blocks
  */
-export function extractContent(data: any): string {
+export function extractContent(data: any, allowReasoningFallback = true): string {
     const msg = data?.choices?.[0]?.message;
     const contentToText = (value: unknown): string => {
         if (typeof value === 'string') return value;
@@ -550,7 +583,7 @@ export function extractContent(data: any): string {
     };
 
     let text = contentToText(msg?.content);
-    if (!text.trim()) text = contentToText(msg?.reasoning_content);
+    if (!text.trim() && allowReasoningFallback) text = contentToText(msg?.reasoning_content);
     // Strip hidden chain-of-thought blocks: <think> / <thinking> / <thought>
     text = text.replace(/<(think|thinking|thought)>[\s\S]*?<\/\1>/gi, '');
     text = text.replace(/<(?:think|thinking|thought)>[\s\S]*$/gi, '');
