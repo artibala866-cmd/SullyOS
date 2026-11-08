@@ -8,6 +8,7 @@ describe('billing safety across settings, chat and background evaluation', () =>
     const chat = read('../hooks/useChatAI.ts');
     const independentSettings = read('../components/character/CharacterApiPanel.tsx');
     const commonSettings = read('../apps/Settings.tsx');
+    const palaceSettings = read('../apps/MemoryPalaceApp.tsx');
 
     it('does not send a paid chat completion from either API connection test button', () => {
         expect(independentSettings).toContain('checkApiConnectionWithoutGeneration');
@@ -15,6 +16,16 @@ describe('billing safety across settings, chat and background evaluation', () =>
         expect(commonSettings).toContain('checkApiConnectionWithoutGeneration');
         const testButton = commonSettings.slice(commonSettings.indexOf('免费检查 API 连通性') - 1500);
         expect(testButton).not.toContain("messages: [{ role: 'user', content: 'Hi' }]");
+    });
+
+    it('does not send any billable calls from the three memory API connection checks', () => {
+        expect(palaceSettings.match(/await checkApiConnectionWithoutGeneration\(/g)).toHaveLength(3);
+        expect(palaceSettings).toContain('免费检查副 API');
+        expect(palaceSettings).toContain('免费检查 Embedding');
+        expect(palaceSettings).toContain('免费检查 Rerank');
+        expect(palaceSettings).not.toContain("messages: [{ role: 'user', content: 'Hi' }]");
+        expect(palaceSettings).not.toContain("getEmbedding('测试文本'");
+        expect(palaceSettings).not.toContain('rerankDocuments(');
     });
 
     it('does not retry failed emotion evaluations and does not launch them before the main result', () => {
