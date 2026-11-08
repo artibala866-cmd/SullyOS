@@ -312,53 +312,49 @@ export async function extractExternalMemoryText(
         onProgress?.(`正在清洗第 ${index + 1}/${chunks.length} 批（只整理时间，不压缩内容）…`);
         let lastError: unknown;
         let completed = false;
-        for (let attempt = 0; attempt < 2 && !completed; attempt++) {
-            try {
-                if (attempt > 0) {
-                    onProgress?.(`第 ${index + 1}/${chunks.length} 批格式或完整性未通过，正在无损重试…`);
-                }
-                const data = await safeFetchJson(
-                    `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${llmConfig.apiKey}`,
-                        },
-                        body: JSON.stringify({
-                            model: llmConfig.model,
-                            messages: [
-                                { role: 'system', content: systemPrompt },
-                                {
-                                    role: 'user',
-                                    content: `${attempt > 0
-                                        ? '上一次输出未通过完整性校验。请重新处理整批：必须输出完整 JSON，且原文内容不得删减、改写或压缩。\n\n'
-                                        : ''}这是第 ${index + 1}/${chunks.length} 批外部记忆原文：\n\n${chunks[index]}`,
-                                },
-                            ],
-                            temperature: 0.05,
-                            max_tokens: 16_000,
-                            stream: false,
-                        }),
+        // Each batch can already be billed even if validation fails or the
+        // response disappears in transit. Never automatically resubmit a paid
+        // extraction batch; leave its source intact for a deliberate retry.
+        try {
+            const data = await safeFetchJson(
+                `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${llmConfig.apiKey}`,
                     },
-                    2,
-                    180_000,
-                    { appName: '记忆搬家', purpose: '外部记忆清洗' },
-                );
-                if (data.choices?.[0]?.finish_reason === 'length') {
-                    throw new Error('模型输出达到长度上限，内容可能被截断');
-                }
-                const reply = data.choices?.[0]?.message?.content || '';
-                const parsed = parseCompleteExternalMemoryReply(reply);
-                assertExternalMemorySchema(parsed);
-                const nodes = parseExternalMemoryItems(parsed, charId, importedAt, memories.length);
-                assertExternalMemoryCoverage(chunks[index], nodes);
-                memories.push(...nodes);
-                batches.push({ index: index + 1, total: chunks.length, extracted: nodes.length, ok: true });
-                completed = true;
-            } catch (error) {
-                lastError = error;
+                    body: JSON.stringify({
+                        model: llmConfig.model,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            {
+                                role: 'user',
+                                content: `这是第 ${index + 1}/${chunks.length} 批外部记忆原文：\n\n${chunks[index]}`,
+                            },
+                        ],
+                        temperature: 0.05,
+                        max_tokens: 16_000,
+                        stream: false,
+                    }),
+                },
+                0,
+                180_000,
+                { appName: '记忆搬家', purpose: '外部记忆清洗' },
+            );
+            if (data.choices?.[0]?.finish_reason === 'length') {
+                throw new Error('模型输出达到长度上限，内容可能被截断');
             }
+            const reply = data.choices?.[0]?.message?.content || '';
+            const parsed = parseCompleteExternalMemoryReply(reply);
+            assertExternalMemorySchema(parsed);
+            const nodes = parseExternalMemoryItems(parsed, charId, importedAt, memories.length);
+            assertExternalMemoryCoverage(chunks[index], nodes);
+            memories.push(...nodes);
+            batches.push({ index: index + 1, total: chunks.length, extracted: nodes.length, ok: true });
+            completed = true;
+        } catch (error) {
+            lastError = error;
         }
         if (!completed) {
             batches.push({
