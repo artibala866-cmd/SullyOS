@@ -12,7 +12,8 @@ import { useFirstUseGuideStep } from '../utils/firstUseGuide';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
-import { extractContent, safeResponseJson } from '../utils/safeApi';
+import { safeResponseJson } from '../utils/safeApi';
+import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
@@ -2464,27 +2465,10 @@ const Settings: React.FC = () => {
                         setTestingApi(true);
                         setTestApiResult(null);
                         try {
-                            const res = await fetch(`${localUrl.trim().replace(/\/+$/, '')}/chat/completions`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localKey.trim()}` },
-                                body: JSON.stringify({
-                                    model: localModel.trim(),
-                                    messages: [{ role: 'user', content: 'Hi' }],
-                                    max_tokens: 5,
-                                    stream: localStream,
-                                }),
+                            const result = await checkApiConnectionWithoutGeneration({
+                                baseUrl: localUrl, apiKey: localKey, model: localModel,
                             });
-                            if (res.ok) {
-                                // 走 safeResponseJson —— 它能透明把 SSE 流响应拼成普通 chat/completion 结构
-                                const data = await safeResponseJson(res);
-                                const reply = extractContent(data);
-                                setTestApiResult(`✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`);
-                            } else {
-                                const text = await res.text().catch(() => '');
-                                setTestApiResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
-                            }
-                        } catch (err: any) {
-                            setTestApiResult(`❌ 连接失败: ${err.message}`);
+                            setTestApiResult(result.message);
                         } finally {
                             setTestingApi(false);
                         }
@@ -2496,9 +2480,10 @@ const Settings: React.FC = () => {
                             : 'border-primary/30 text-primary bg-primary/5 hover:bg-primary/10'
                     }`}
                 >
-                    {testingApi ? '测试中...' : '🧪 测试连接'}
+                    {testingApi ? '检查中…' : '🧪 免费检查 API 连通性'}
                 </button>
 
+                <p className="text-[10px] text-slate-400 leading-relaxed px-1 mt-1">只读取 /models，不发送聊天生成请求，不测试实际出字；避免连接失败也扣费。</p>
                 {testApiResult && (
                     <div className={`mt-2 text-xs px-3 py-2 rounded-xl ${
                         testApiResult.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'
