@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { APIConfig, ApiPreset } from '../types';
 import { createStoryTheaterDraft, normalizeStoryTheater } from './storyTheater';
-import { normalizeStoryMemoryApi, resolveStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiValidationError } from './storyMemoryApi';
+import { normalizeStoryMemoryApi, resolveStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from './storyMemoryApi';
+import { normalizeApiPresets } from './apiConfigNormalize';
 
 const globalApi: APIConfig = {
     baseUrl: 'https://expensive.invalid/v1', apiKey: 'pricey', model: 'expensive-model',
@@ -55,6 +56,32 @@ describe('per-story memory API isolation', () => {
         const off = { ...on, memorySummaryApi: undefined };
         expect(resolveStoryMemoryApi(on, globalApi).model).toBe('cheap-model');
         expect(resolveStoryMemoryApi(off, globalApi).model).toBe('expensive-model');
+    });
+    it('recognizes shared gateway throttling risk without changing model or credentials', () => {
+        expect(storyMemoryApiSharesGateway({ ...cheap, baseUrl: 'https://expensive.invalid/v1' }, globalApi)).toBe(true);
+        expect(storyMemoryApiSharesGateway(cheap, globalApi)).toBe(false);
+        expect(storyMemoryApiSharesGateway({ ...cheap, baseUrl: 'malformed-import' }, globalApi)).toBe(false);
+        expect(storyMemoryApiSharesGateway(undefined, globalApi)).toBe(false);
+        expect(globalApi.model).toBe('expensive-model');
+    });
+    it('safely imports partial, duplicate, and invalid legacy presets without affecting the global main API', () => {
+        const broken = [null, { id: 'bad', name: 'missing config' }, { id: 'a', name: 'first', config: { ...cheap } },
+            { id: 'a', name: 'second', config: { baseUrl: 42, model: 'economy' } }];
+        const safe = normalizeApiPresets(broken);
+        expect(safe).toHaveLength(2);
+        expect(safe[0].id).not.toBe(safe[1].id);
+        expect(safe[1].config.baseUrl).toBe('');
+        const selected = storyMemoryApiFromPreset(safe[0]);
+        expect(selected).toEqual(cheap);
+        expect(() => resolveStoryMemoryApi({ memorySummaryApi: storyMemoryApiFromPreset(safe[1]) }, globalApi)).toThrow('不会自动改用主 API');
+        expect(globalApi.model).toBe('expensive-model');
+    });
+    it('importing damaged story-only API does not make the main provider vanish or silently receive summary jobs', () => {
+        const imported = normalizeStoryTheater({ ...createStoryTheaterDraft(), memorySummaryApi: { baseUrl: 7, apiKey: null, model: [] } as any });
+        expect(imported.memorySummaryApi).toEqual({ baseUrl: '', apiKey: '', model: '' });
+        expect(() => resolveStoryMemoryApi(imported, globalApi)).toThrow('不会自动改用主 API');
+        expect(globalApi.baseUrl).toBe('https://expensive.invalid/v1');
+        expect(globalApi.apiKey).toBe('pricey');
     });
     it('never makes network calls during preset selection or validation', () => {
         const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher);
