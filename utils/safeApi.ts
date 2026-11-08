@@ -24,7 +24,17 @@ export function isChatCompletionUrl(url: string): boolean {
 /** Parse a fetch Response as JSON safely (text-first, then JSON.parse) */
 export async function safeResponseJson(response: Response): Promise<any> {
     const text = await response.text();
-    return parseRawBodyText(text, response.status, response.headers.get('content-type'));
+    const contentType = response.headers.get('content-type');
+    const parsed = parseRawBodyText(text, response.status, contentType);
+    // Some gateways return SSE even to a stream:false request. Preserve the
+    // terminal marker for callers that must not commit partial paid output.
+    // Keep this transport-only evidence non-enumerable (never store it in logs).
+    if (isSseResponseText(text, contentType) && parsed && typeof parsed === 'object' && Array.isArray(parsed.choices)) {
+        const finished = Boolean(parsed.choices[0]?.finish_reason)
+            || text.split(/\r?\n/).some(line => /^data:\\s*\\[DONE\\]\\s*$/.test(line.trim()));
+        Object.defineProperty(parsed, '__sullyRawStreamTerminal', { value: finished, enumerable: false });
+    }
+    return parsed;
 }
 
 /** 判断响应是否是 SSE；兼容 OpenRouter 在首个 data 事件前发送的 ": OPENROUTER PROCESSING" 注释。 */
