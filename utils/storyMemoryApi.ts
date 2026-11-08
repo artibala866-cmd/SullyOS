@@ -42,3 +42,21 @@ export function resolveStoryMemoryApi(
     if (issue) throw new Error(issue + '；原文保持不变，不会自动改用主 API');
     return own;
 }
+
+
+/** Same upstream gateway can share account quota/rate limits even for different model IDs. */
+export function storyMemoryApiSharesGateway(
+    secondary: StoryMemoryApi | undefined,
+    primary: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> | undefined,
+): boolean {
+    if (!secondary || !primary) return false;
+    try {
+        const own = new URL(secondary.baseUrl.trim());
+        const main = new URL(primary.baseUrl.trim());
+        return ['http:', 'https:'].includes(own.protocol)
+            && ['http:', 'https:'].includes(main.protocol)
+            && own.origin.toLowerCase() === main.origin.toLowerCase();
+    } catch {
+        return false;
+    }
+}
