@@ -277,7 +277,7 @@ ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
         }
         // 这种输出即使 JSON 合法、长度也没过硬上限，语义上仍不是回忆正文。
         // 自动压缩同样拒绝，避免以后继续产出截图里的污染 summary；活节点会保留，
-        // 下次触发仍可重试。手动重新整合的外层还会立即再试一次。
+        // 下次触发仍可重试。手动重新整合也不会自动再次付费生成。
         if (hasSummaryReasoningLeak(content)) {
             console.error(`🧹 [Compression] 检测到整合回忆混入字数计算/推理过程，已拒绝保存`);
             return null;
@@ -538,27 +538,24 @@ async function regenerateEventBoxSummaryUnlocked(
         .sort((a, b) => a.createdAt - b.createdAt);
     if (sourceNodes.length === 0) throw new Error('盒内没有可用于重新整合的原始记忆');
 
-    // 输出结构失败或出现典型推理泄漏时自动重试一次。两次都失败则保持旧总结不动。
-    let result: CompressionLLMResult | null = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-        const candidate = await callCompressionLLM(
-            box,
-            null, // 关键：绝不把旧 summary 当原料
-            sourceNodes,
-            llmConfig,
-            charName,
-            userName,
-        );
-        if (candidate && !hasSummaryReasoningLeak(candidate.content)) {
-            result = candidate;
-            break;
-        }
-        if (candidate) {
-            console.error(`🧹 [Compression] ${box.id} 第 ${attempt} 次重新整合混入推理过程，已拒绝保存`);
-        }
+    // One manual action = one potentially billable generation. Even a
+    // syntactically valid but unusable result may already have been charged.
+    // Never automatically generate again after failure or reasoning leakage.
+    const candidate = await callCompressionLLM(
+        box,
+        null, // Never recycle the old summary as source text.
+        sourceNodes,
+        llmConfig,
+        charName,
+        userName,
+    );
+    if (candidate && hasSummaryReasoningLeak(candidate.content)) {
+        console.error(`🧹 [Compression] ${box.id} 重新整合混入推理过程，已拒绝保存；未自动再次付费生成`);
     }
+    const result: CompressionLLMResult | null = candidate && !hasSummaryReasoningLeak(candidate.content)
+        ? candidate : null;
     if (!result) {
-        throw new Error('副 API 两次都没有返回干净的整合回忆，原内容已保留');
+        throw new Error('副 API 没有返回干净的整合回忆；不会自动再次付费生成，原内容已保留');
     }
 
     const now = Date.now();
