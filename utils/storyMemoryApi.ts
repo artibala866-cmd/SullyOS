@@ -27,6 +27,9 @@ export function storyMemoryApiValidationError(config: StoryMemoryApi): string | 
     if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) {
         return '剧情记忆副 API 仅支持不包含账号密码的 HTTP(S) 地址';
     }
+    if (/\/(chat\/completions|responses)\/?$/i.test(url.pathname)) {
+        return '剧情记忆副 API 请填写接口基础地址（如 /v1），不要包含 /chat/completions 或 /responses';
+    }
     if (!config.model.trim()) return '请填写剧情记忆副 API 模型名称';
     return null;
 }
