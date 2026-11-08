@@ -17,20 +17,26 @@
 | 虚构剧场事件盒自动摘要 | 只用本剧情副 API | 原全局主 API |
 | 事件盒手动「重新总结」 | 只用本剧情副 API | 原全局主 API |
 | 独立向量归档中的轻量 LLM 提取 | 只用本剧情副 API | 之前的全局宫殿 LightLLM／主 API |
-| 事件盒手动转角色记忆 | 只用本剧情副 API | 之前的全局宫殿 LightLLM／主 API |
-| 本剧情「真实时间陪伴」的角色记忆整理及消化 | 只用本剧情副 API | 之前的全局宫殿 LightLLM／主 API |
+| 事件盒手动转角色记忆（写入共享角色记忆） | **始终沿用全局宫殿 LightLLM／原主 API**，不会用剧情专用便宜模型 | 原样 |
+| 「真实时间陪伴」里的角色共享记忆整理与认知消化 | **始终沿用全局宫殿 LightLLM／原主 API**，不会用剧情专用便宜模型 | 原样 |
 | 剧情正文续写/改写/开场 | 不影响，仍使用全局主 API | 原样 |
 | 见面普通陪伴、私聊、日程、查手机、家园、主动消息、全局记忆宫殿等 | 完全不读取本剧情副 API | 原样 |
 | 向量的 Embedding 与远程向量存储 | 不影响 | 原样 |
 
-副 API 发生错误时不自动回退到昂贵主 API；旧事件盒和原文不被替换或删除。重新总结仍做源原文完整性校验；自动归档以已有事务确保正文与归档状态同时提交或同时不改。独立向量仍要求事先配置 embedding，副 API 只替代其 LLM 提取阶段。
+副 API 发生错误时不自动回退到昂贵主 API；旧事件盒和原文不被替换或删除。廉价模型产生超过 2000 字符的超长摘要时也会拒绝归档，防止将不受控的摘要塞入主模型上下文。重新总结仍做源原文完整性校验；自动归档以已有事务确保正文与归档状态同时提交或同时不改。独立向量仍要求事先配置 embedding，副 API 只替代其 LLM 提取阶段。
 
 若用户正在生成剧情正文时切换记忆 API，则新的配置仅从保存后发生的记忆处理读取，不取消已在进行中的请求。
+
+**主模型质量边界：** API 网络路由本身没有改，主模型请求仍只读取全局 apiConfig。但剧情事件盒摘要无论由哪个模型生成，后续都会被加入主模型的剧情上下文；摘要遗漏或捏造内容会间接影响质量。过长摘要已硬拦截，不能用代码证明廉价摘要的事实准确率。既有错误摘要不会被自动删除或重写，可在事件盒中查看与手动重总结；旧正文仍在数据库。
+
+**第三方中转站：** 如果主副 API 使用相同域名/站点或相同账号，即便选择不同模型，也可能共享余额、限流、并发、上游路由负载。编辑器只警告，不修改主 API。用不同的站点与独立额度才能减少相互影响，但仍无法从客户端保证第三方提供商的服务质量。
+
+**备份与导入：** 整机备份包含剧情数据及其副 API 快照（包括 Key），应视为敏感文件。另一设备恢复后，旧 URL/Key 可能过期，需重新选择预设或手动更正；失败不会静默回退到主 API。剧情的纯文字导出只包含剧情正文，不包含副 API Key。API 预设恢复时过滤掉缺少 config 的坏条目并保证 ID 唯一；坏条目不会污染已选剧情。剧情列表遇到缺少有效 ID 的坏备份记录会跳过显示并提示，原始数据库记录保持不变。导入剧情写作预设（酒馆/原生 JSON）和导入 API 预设是两套系统，不会相互篡改。
 
 ## 验证
 
 - 工具及隔离单测：utils/storyMemoryApi.test.ts、utils/storyMemoryApiWiring.test.ts。
 - 真正发请求的事件盒重新总结测试：utils/storyTheaterArchive.test.ts，比较 URL、鉴权和模型，证明没有昂贵 API 兜底。
 - 剧情数据持久化回归：utils/db.storyTheater.test.ts。
-- 真实 React 编辑器七场景截图：story-memory-api-visual.html，tests/story-memory-api-visual.tsx，由 .github/workflows/story-memory-api-visual.yml 的 Chromium 和 Vitest 执行并上传截图（仅虚构 URL 和密钥）。
+- 真实 React 编辑器九场景截图：story-memory-api-visual.html，tests/story-memory-api-visual.tsx，由 .github/workflows/story-memory-api-visual.yml 的 Chromium 和 Vitest 执行并上传截图（仅虚构 URL 和密钥）。
 - 修改仅在既有 remove-checkphone-vrworld-lifesim 分支，发布只经 SullyOS-Dev-Preview 既有站点工作流。
