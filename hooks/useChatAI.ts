@@ -1476,11 +1476,9 @@ export const useChatAI = ({
                     ...baseReqBody,
                     messages: withAmsg2TaskContext(baseReqBody.messages),
                 };
-                // 部分第三方 OpenAI→Claude 中转会把请求形状不兼容包装成 502
-                // bad_response_status_code：thinking 三种方言、tools、尾部 system 单独都能收，
-                // 组合在一起却在上游适配层失败。只对这一条高度特征化的 502 降级一次：
-                // tools 和正文完整保留，system 合到开头，thinking 参数让步。普通网络 502、
-                // 非 Claude、没工具的请求一律不重发，避免无依据地重复计费。
+                // 502 / 网络失败不能证明上游没有生成或收费，绝不自动补发。
+                // 仅在 400/422 明确指出 thinking/tools 参数不兼容时才允许
+                // 一次兼容降级：保留 tools 与正文，合并 system，去掉冲突的 thinking 参数。
                 if (shouldRetryClaudeProxyCompatibility(requestError, attemptedBody)) {
                     console.warn('🧩 [Claude compat] 中转拒绝 thinking + tools 组合，使用兼容请求体重试一次');
                     try {
@@ -1501,7 +1499,7 @@ export const useChatAI = ({
                 } else {
                 // 仅通用 MCP、且没有和其他工具模式混用时降级。部分 OpenAI 兼容中转
                 // 会对携带 tools 的请求直接回 4xx，而不是忽略参数；去掉 tools 后让
-                // 现有正文假调用容错接手。真实鉴权失败会在这次重试中再次抛出原样错误。
+                // 现有正文假调用容错接手。401/403、网络中断和含糊的错误一律不再发一次。
                 const mcpOnly = payload.flags.mcpChatActive
                     && !payload.flags.luckinChatActive && !payload.flags.mcdActive && !payload.flags.luckinActive;
                 if (!mcpOnly || !baseReqBody.tools?.length || !shouldRetryMcpWithoutTools(requestError)) throw requestError;
