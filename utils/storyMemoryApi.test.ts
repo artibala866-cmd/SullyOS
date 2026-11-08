@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { APIConfig, ApiPreset } from '../types';
-import { createStoryTheaterDraft, normalizeStoryTheater } from './storyTheater';
+import { createStoryTheaterDraft, formatStoryTheaterExport, normalizeStoryTheater } from './storyTheater';
 import { normalizeStoryMemoryApi, resolveStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from './storyMemoryApi';
 import { normalizeApiPresets } from './apiConfigNormalize';
 
@@ -82,6 +82,16 @@ describe('per-story memory API isolation', () => {
         expect(() => resolveStoryMemoryApi(imported, globalApi)).toThrow('不会自动改用主 API');
         expect(globalApi.baseUrl).toBe('https://expensive.invalid/v1');
         expect(globalApi.apiKey).toBe('pricey');
+    });
+    it('exporting a story as plain text never includes its saved memory API credential', () => {
+        const story = { ...createStoryTheaterDraft(), title: '雨夜', premise: '剧情简介', memorySummaryApi: {
+            ...cheap, apiKey: 'DO-NOT-LEAK-STORY-API-SECRET',
+        } };
+        const txt = formatStoryTheaterExport(story, '你', ['林屿'], [], 1700000000000);
+        expect(txt).toContain('雨夜');
+        expect(txt).not.toContain('DO-NOT-LEAK-STORY-API-SECRET');
+        expect(txt).not.toContain(cheap.baseUrl);
+        expect(txt).not.toContain(cheap.model);
     });
     it('never makes network calls during preset selection or validation', () => {
         const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher);
