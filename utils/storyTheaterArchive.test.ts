@@ -86,6 +86,7 @@ describe('story archive regeneration', () => {
         expect(request[0]).toBe('https://cheap.invalid/v1/chat/completions');
         expect(request[1].headers.Authorization).toBe('Bearer cheap-secret');
         expect(JSON.parse(request[1].body).model).toBe('economy-model');
+        expect(request[1].__sullySkipStreamUpgrade).toBe(true);
         expect(updated.archives[0].summary).toContain('车站');
         expect(api).toEqual({ baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' });
     });
