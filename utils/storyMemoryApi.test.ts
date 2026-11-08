@@ -50,6 +50,8 @@ describe('per-story memory API isolation', () => {
         }
         expect(storyMemoryApiValidationError({ ...cheap, apiKey: '' })).toBeNull();
         expect(normalizeStoryMemoryApi({ baseUrl: 23, model: [], apiKey: {} })).toEqual({ baseUrl: '', apiKey: '', model: '' });
+        expect(storyMemoryApiValidationError({ ...cheap, baseUrl: 'https://cheap.invalid/v1/chat/completions' })).toContain('基础地址');
+        expect(storyMemoryApiValidationError({ ...cheap, baseUrl: 'https://cheap.invalid/v1/responses' })).toContain('基础地址');
     });
     it('switching off the secondary API returns only this story to its original fallback', () => {
         const on = { ...createStoryTheaterDraft(), memorySummaryApi: cheap };
