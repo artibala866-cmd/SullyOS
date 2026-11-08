@@ -72,7 +72,7 @@ export async function rerankDocuments(
             },
             body: JSON.stringify(body),
         },
-        1,      // 失败只多试 1 次，rerank 卡住就降级
+        0,      // 计费排序只发一次；失败是否已执行未知，不自动重试
         30_000, // 30s 硬超时
     );
 
