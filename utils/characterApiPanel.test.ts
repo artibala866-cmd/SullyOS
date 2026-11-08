@@ -62,6 +62,24 @@ describe('character API draft transaction', () => {
     await click('取消');
     expect(onChange).not.toHaveBeenCalled();
   });
+  it('checks independent API without generating a paid reply, even when the relay fails', async () => {
+    const send = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      data: [{ id: 'global-model' }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', send);
+    await click('为角色使用独立 API');
+    await click('免费检查 API 连通性');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toBe('https://global.test/v1/models');
+    expect(send.mock.calls[0][1].method).toBe('GET');
+    expect(send.mock.calls[0][1].body).toBeUndefined();
+    expect(host.textContent).toContain('不能证明生成可用');
+    expect(onChange).not.toHaveBeenCalled();
+    send.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await click('免费检查 API 连通性');
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain('没有发起付费生成请求');
+  });
   it('discards a provider model-list response after the draft switches to another preset', async () => {
     let resolve!: (value: Response) => void;
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(done => { resolve = done; })));
