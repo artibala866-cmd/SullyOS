@@ -28,6 +28,8 @@ on:
       - 'utils/storyTheater*.ts'
       - 'utils/storyTheater*.tsx'
       - 'utils/storyTheaterBackground*.ts'
+      - 'test/fixtures/story-background-visual.html'
+      - 'tests/story-background-visual.tsx'
       - 'utils/tavernOpeningGreeting.ts'
       - 'utils/tavernOpeningGreeting.test.ts'
       - 'utils/linkStoryOpenings.ts'
@@ -97,6 +99,36 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify running story request survives leaving and returning (real mobile component)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-background
+          pnpm exec vite --host 127.0.0.1 --port 5198 --strictPort > output/story-background/vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 70); do
+            if curl -fsSL http://127.0.0.1:5198/test/fixtures/story-background-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat output/story-background/vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          url="http://127.0.0.1:5198/test/fixtures/story-background-visual.html"
+          "$browser" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
+            --dump-dom "$url" > output/story-background/result.html 2> output/story-background/browser.log
+          grep -q 'data-story-background-ready="true"' output/story-background/result.html || {
+            grep -o 'id="story-background-report"[^<]*>[^<]*' output/story-background/result.html | tail -c 1300 || true
+            tail -n 45 output/story-background/browser.log
+            exit 1
+          }
+          "$browser" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=10000 \
+            --screenshot=output/story-background/reentered-completed-390.png "$url" >/dev/null 2>&1
+          test -s output/story-background/reentered-completed-390.png
+          grep -o 'id="story-background-report"[^<]*>[^<]*' output/story-background/result.html | tail -c 600 || true
+          echo 'PASS: in-app navigation did not cancel model reply; no duplicate requests; response persisted and rendered'
       - name: Render the real story editor in headless Chromium at mobile viewport
         shell: bash
         run: |
@@ -428,4 +460,5 @@ jobs:
             output/meet-scenes/
             output/meet-landscape/
             output/story-cinema-after-close/
+            output/story-background/
           if-no-files-found: ignore
