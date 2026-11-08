@@ -437,10 +437,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, [cancelLongPress]);
     const openMessageMenu = useCallback((message: Message, event?: React.MouseEvent<HTMLElement>) => {
         event?.preventDefault();
+        if (isStoryGenerationRunning(entry.id)) { addToast('剧情正在后台生成，请完成后再修改楼层', 'info'); return; }
         if (event && (event.target as HTMLElement).closest('button, a, input, textarea, select, summary')) return;
         cancelLongPress();
         setMessageMenu(message);
-    }, [cancelLongPress]);
+    }, [addToast, cancelLongPress, entry.id]);
     const pressHandlersFor = (message: Message) => ({
         onPointerDown: (event: React.PointerEvent<HTMLElement>) => beginLongPress(message, event),
         onPointerMove: moveLongPress,
@@ -452,6 +453,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
     const saveMessageEdit = useCallback(async () => {
         if (!editingMessage || !editDraft.trim() || mutatingMessage) return;
+        if (isStoryGenerationRunning(entry.id)) { addToast('剧情后台生成中，请完成后再编辑楼层', 'info'); return; }
         setMutatingMessage(true);
         try {
             await updateStoryTheaterFloor(editingMessage, editDraft.trim());
@@ -464,9 +466,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setMutatingMessage(false);
         }
-    }, [addToast, editDraft, editingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
+    }, [addToast, editDraft, editingMessage, entry.id, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
     const deleteStoryMessage = useCallback(async () => {
         if (!deletingMessage || mutatingMessage) return;
+        if (isStoryGenerationRunning(entry.id)) { addToast('剧情后台生成中，请完成后再删除楼层', 'info'); return; }
         setMutatingMessage(true);
         try {
             await deleteStoryTheaterFloor(deletingMessage);
@@ -478,7 +481,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setMutatingMessage(false);
         }
-    }, [addToast, deletingMessage, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
+    }, [addToast, deletingMessage, entry.id, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
     // Reading is one continuous scroll. Only follow new replies while the reader
     // is already near the end; editing or expanding an older floor must not jump away.
     const updateVisibleFloor = useCallback((trackReaderScroll = false) => {
