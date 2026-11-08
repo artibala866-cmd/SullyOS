@@ -66,6 +66,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
+import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration } from '../../../utils/storyTheaterBackground';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
 import {
     buildStoryContinueInstruction,
@@ -343,6 +344,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
+    const [backgroundTask, setBackgroundTask] = useState(() => getStoryGenerationSnapshot(entry.id));
     const [memoryStatus, setMemoryStatus] = useState('');
     const [contextTokens, setContextTokens] = useState(0);
     const [contextTokensExact, setContextTokensExact] = useState(false);
@@ -384,6 +386,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             addToast(error instanceof Error ? `剧情历史读取失败：${error.message}` : '剧情历史读取失败，请重试', 'error');
         });
     }, [loadMessages, addToast]);
+    useEffect(() => subscribeStoryGeneration(entry.id, snapshot => {
+        setBackgroundTask(snapshot);
+        // A different StoryTheaterSession instance may have submitted the task.
+        // Re-read IndexedDB on completion instead of relying on an unmounted
+        // session's local setState or using its stale in-memory message list.
+        if (snapshot.phase === 'completed' || snapshot.phase === 'failed') {
+            void loadMessages().catch(error => console.warn('[StoryBackground] refresh failed', error));
+        }
+    }), [entry.id, loadMessages]);
     useEffect(() => {
         setContextTokens(0);
         setContextTokensExact(false);
@@ -410,6 +421,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, []);
     useEffect(() => () => cancelLongPress(), [cancelLongPress]);
     const beginLongPress = useCallback((message: Message, event: React.PointerEvent<HTMLElement>) => {
+        if (isStoryGenerationRunning(entry.id)) { addToast('剧情正在后台生成，请完成后再修改楼层', 'info'); return; }
         if ((event.target as HTMLElement).closest('button, a, input, textarea, select, summary')) return;
         cancelLongPress();
         longPressOrigin.current = { x: event.clientX, y: event.clientY };
@@ -767,15 +779,20 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
     }, [addToast, apiConfig, callCompletion, entry, loadMessages, mask.name, memoryPalaceConfig, onArchiveCommitted, threadId]);
 
-    const send = useCallback(async (rerollTarget?: Message, continueRequested = false) => {
+    const send = useCallback((rerollTarget?: Message, continueRequested = false) => {
         // Imported greeting is a fixed first floor, not an AI-generated reply.
         // Re-rolling it would erase the player's selected story starting point.
         if (rerollTarget?.metadata?.theaterOpeningGreeting) return;
         if (sendLock.current || !canStart) return;
+        // A session can unmount when navigating to another page; the per-story
+        // singleton still owns the billable API request and its DB commit.
+        if (isStoryGenerationRunning(entry.id)) return;
         sendLock.current = true;
         setSending(true);
         setRerollingId(rerollTarget?.id || null);
+        const started = startStoryBackgroundGeneration(entry.id, async reportStage => {
         try {
+            reportStage('正在读取剧情并准备上下文…');
             const before = (await DB.getMessagesByCharId(threadId, true))
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
@@ -824,6 +841,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             // 归档不能只放在成功生成之后：一旦会话已经碰到上游上下文上限，正文永远生成
             // 不出来，后置归档也就永远没有机会执行。重试已有 user 楼层时先归档，窗口可自愈。
+            reportStage('正在检查旧剧情归档…');
             const previousArchiveErrors = archiveErrorSeq.current;
             const promptEntry = await archiveIfNeeded() || entry;
             const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors;
@@ -837,6 +855,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const precedingFloor = requestHistory.at(-1);
             const turnFloor = current.findIndex(message => message.id === turnBoundary) + 1 || current.length + 1;
 
+            reportStage('正在整理角色与剧情记忆…');
             const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
                 buildActorContexts(modelText),
                 buildMaskMemoryContext(modelText),
@@ -943,6 +962,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             let promptTokenCountExact = false;
             setContextTokens(promptTokenCount);
             setContextTokensExact(false);
+            reportStage('正在后台生成剧情正文…');
             const generated = await callCompletion(labeledPayload, compiled.settings, reported => {
                 promptTokenCount = reported;
                 promptTokenCountExact = true;
@@ -961,6 +981,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     actors.map(actor => ({ id: actor.id, name: actor.name })),
                 )
                 : rawContent;
+            reportStage('正在保存完整剧情正文…');
             const replyMetadata = {
                 ...(effectivePreset.document.sourceFormat === 'sillytavern' ? { theaterSourceFormat: 'sillytavern' } : {}),
                 theaterReplyToUserId: userMessageId,
@@ -978,6 +999,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setAffinityDrafts({});
             setShowAffinityInput(false);
             await loadMessages();
+            reportStage('剧情正文已保存，正在整理后续记忆…');
             if (entry.writesToCharacterMemory) void applyActorMemoryPipeline();
             // A failed preflight can already have billed the secondary provider.
             // Do not issue a second summary request for the same source batch
@@ -995,13 +1017,23 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     : `剧情续写失败：${message}`,
                 'error',
             );
+            // The registry stores failures so a remounted screen can show
+            // a retry state even after the original toast/owner unmounted.
+            throw error;
         } finally {
+            sendLock.current = false;
+            setSending(false);
+            setRerollingId(null);
+        }
+        });
+        if (!started) {
             sendLock.current = false;
             setSending(false);
             setRerollingId(null);
         }
     }, [canStart, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
 
+    const generationBusy = generationBusy || backgroundTask?.phase === 'running';
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
@@ -1017,7 +1049,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             <div className='h-16 px-4 flex items-center gap-3'>
                 <button onClick={onBack} className='w-9 h-9 rounded-full grid place-items-center'><ArrowLeft size={20} /></button>
                 <div className='min-w-0 flex-1'><div className='text-[9px] tracking-[.24em] uppercase font-bold text-violet-500'>Story theater</div><h1 className='font-serif font-semibold truncate'>{entry.title}</h1></div>
-                {onOpenArchives && <button disabled={sending || !!memoryStatus} onClick={onOpenArchives} className='w-9 h-9 rounded-full grid place-items-center text-violet-600 disabled:opacity-30' title='本剧情事件盒' aria-label='本剧情事件盒'><Archive size={18} /></button>}
+                {onOpenArchives && <button disabled={generationBusy || !!memoryStatus} onClick={onOpenArchives} className='w-9 h-9 rounded-full grid place-items-center text-violet-600 disabled:opacity-30' title='本剧情事件盒' aria-label='本剧情事件盒'><Archive size={18} /></button>}
                 {onOpenVectorMemory && <button onClick={onOpenVectorMemory} className='w-9 h-9 rounded-full grid place-items-center text-violet-600' title='本剧情向量记忆' aria-label='本剧情向量记忆'><Database size={18} /></button>}
                 <button disabled={exporting || messages.length === 0} onClick={() => void exportStory()} className='w-9 h-9 rounded-full grid place-items-center text-violet-600 disabled:opacity-30' title='导出全部剧情原文' aria-label='导出全部剧情原文'>{exporting ? <SpinnerGap size={18} className='animate-spin' /> : <DownloadSimple size={18} />}</button>
                 <StoryAppearanceButton />
@@ -1040,7 +1072,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     <div><span className='block text-[8px] font-bold text-slate-400'>你</span><span className='block mt-1 truncate text-slate-600'>{mask.selection.type === 'user' ? '本人' : mask.name}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>记忆方式</span><span className='block mt-1 truncate text-slate-600'>{entry.writesToCharacterMemory ? '写入角色记忆' : entry.archiveStrategy === 'summary' ? '独立事件盒' : '独立向量分区'}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>结尾模块</span><span className='block mt-1 truncate text-slate-600'>{activeMiniTheater?.name || '未启用小剧场'}</span></div>
-                    <div><span className='block text-[8px] font-bold text-slate-400'>完整上下文</span><span className='block mt-1 truncate text-slate-600'>{displayedTokenInfo.count > 0 ? `${sending ? '本轮' : '上轮'}${displayedTokenInfo.exact ? '使用' : '估算'} ${displayedTokenInfo.count.toLocaleString()} tokens` : '推进时统计全部内容'}</span></div>
+                    <div><span className='block text-[8px] font-bold text-slate-400'>完整上下文</span><span className='block mt-1 truncate text-slate-600'>{displayedTokenInfo.count > 0 ? `${generationBusy ? '本轮' : '上轮'}${displayedTokenInfo.exact ? '使用' : '估算'} ${displayedTokenInfo.count.toLocaleString()} tokens` : '推进时统计全部内容'}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>API 兼容</span><span className={`block mt-1 truncate ${entry.forceUserLastMessage ? 'font-semibold text-amber-700' : 'text-slate-600'}`}>{entry.forceUserLastMessage ? '400 兼容模式' : '原生预填（推荐）'}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>采样参数</span><span className={`block mt-1 truncate ${entry.omitSamplingParams ? 'font-semibold text-amber-700' : 'text-slate-600'}`}>{entry.omitSamplingParams ? '不发送高级参数' : '完整发送预设参数'}</span></div>
                 </div>
@@ -1096,7 +1128,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         }
                         if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><p className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
-                        return <article {...pressHandlersFor(message)}><StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={sending} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
+                        return <article {...pressHandlersFor(message)}><StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBusy} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
                         return <div key={message.id} data-story-floor={floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
                             {floorHeading}
@@ -1112,8 +1144,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         <footer className='story-safe-footer shrink-0 px-4 pt-3 bg-stone-100/95 backdrop-blur border-t border-slate-200'>
             <div className='max-w-2xl mx-auto'>
                 {memoryStatus && <div className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{memoryStatus}</div>}
-                {!sending && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
-                {!sending && !memoryStatus && canWriteOpening && <div className='mb-2 text-[10px] text-violet-600'>准备好了，点击推进让故事写下第一幕</div>}
+                {backgroundTask?.phase === 'running' && <div role='status' className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{backgroundTask.stage} · 可切换到其他页面，完成后自动保存</div>}
+                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留，可重试。</div>}}
+                {!generationBusy && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
+                {!generationBusy && !memoryStatus && canWriteOpening && <div className='mb-2 text-[10px] text-violet-600'>准备好了，点击推进让故事写下第一幕</div>}
                 {affinityEnabled && <div className='mb-2 overflow-hidden rounded-2xl border border-rose-200 bg-rose-50/70'>
                     <button type='button' aria-expanded={showAffinityInput} onClick={() => setShowAffinityInput(value => !value)} className='w-full px-3 py-2.5 flex items-center gap-2 text-left'>
                         <HeartStraight size={15} weight={filledAffinityActorIds.length > 0 ? 'fill' : 'regular'} className='text-rose-500' />
@@ -1124,17 +1158,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         <div className='pt-3 flex gap-2 overflow-x-auto'>{actors.map(actor => { const filled = filledAffinityActorIds.includes(actor.id); const selected = selectedAffinityActor?.id === actor.id; return <button key={actor.id} type='button' onClick={() => setSelectedAffinityActorId(actor.id)} className={`shrink-0 px-2.5 py-2 rounded-xl flex items-center gap-2 border text-[10px] font-bold ${selected ? 'bg-white border-rose-300 text-rose-700' : 'border-transparent text-slate-500'}`}><TokenImg value={actor.avatar} alt='' className='w-6 h-6 rounded-full object-cover' /><span>{actor.name}</span><span className={`w-1.5 h-1.5 rounded-full ${filled ? 'bg-rose-500' : 'bg-slate-200'}`} /></button>; })}</div>
                         {selectedAffinityActor && <div className='mt-3 pt-3 border-t border-rose-200/70'>
                             <div className='flex items-center justify-between gap-3'><div><span className='block text-[9px] font-bold text-rose-700'>你 → {selectedAffinityActor.name}</span><span className='block mt-0.5 text-[8px] text-slate-400'>这一栏只改变你和这位角色的关系</span></div><button type='button' onClick={() => setAffinityDrafts(current => { const next = { ...current }; delete next[selectedAffinityActor.id]; return next; })} className='text-[9px] font-bold text-slate-400'>清空这位</button></div>
-                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>变化</span><input disabled={sending} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
-                            <input disabled={sending} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { reason: event.target.value })} placeholder={`为什么你对 ${selectedAffinityActor.name} 有这点变化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
-                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察觉 · 只变氛围</span></button><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察觉 · 完全透视</span></button></div>
+                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>变化</span><input disabled={generationBusy} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
+                            <input disabled={generationBusy} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { reason: event.target.value })} placeholder={`为什么你对 ${selectedAffinityActor.name} 有这点变化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
+                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={generationBusy} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察觉 · 只变氛围</span></button><button type='button' disabled={generationBusy} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察觉 · 完全透视</span></button></div>
                             <div className='mt-2 text-[9px] leading-4 text-rose-500'>可以继续点另一位角色填写；没有填写的角色本轮保持原关系。</div>
                         </div>}
                     </div>}
                 </div>}
                 <div className='flex items-end gap-2 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm'>
-                    <button type='button' onClick={() => void send(undefined, true)} disabled={sending || !canStart} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本轮不主动行动，让剧情按当前预设继续' aria-label='继续当前剧情'>继续</button>
-                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={sending} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
-                    <button onClick={() => void send()} disabled={sending || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '继续上次中断' : canWriteOpening && !input.trim() ? '让故事先开场' : '推进'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{sending ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
+                    <button type='button' onClick={() => void send(undefined, true)} disabled={generationBusy || !canStart} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本轮不主动行动，让剧情按当前预设继续' aria-label='继续当前剧情'>继续</button>
+                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={generationBusy} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
+                    <button onClick={() => void send()} disabled={generationBusy || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '继续上次中断' : canWriteOpening && !input.trim() ? '让故事先开场' : '推进'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{generationBusy ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
                 </div>
                 <div className='mt-2 text-center text-[9px] text-slate-400'>Ctrl / ⌘ + Enter 推进 · 长按楼层可编辑或删除</div>
             </div>
