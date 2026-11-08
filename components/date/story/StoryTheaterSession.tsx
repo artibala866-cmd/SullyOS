@@ -422,12 +422,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, []);
     useEffect(() => () => cancelLongPress(), [cancelLongPress]);
     const beginLongPress = useCallback((message: Message, event: React.PointerEvent<HTMLElement>) => {
-        if (isStoryGenerationRunning(entry.id)) { addToast('剧情正在后台生成，请完成后再修改楼层', 'info'); return; }
         if ((event.target as HTMLElement).closest('button, a, input, textarea, select, summary')) return;
         cancelLongPress();
         longPressOrigin.current = { x: event.clientX, y: event.clientY };
         longPressTimer.current = setTimeout(() => {
-            setMessageMenu(message);
+            // Normal touch-scroll is not an edit attempt. Only show the
+            // background-generation notice on an intentional long press.
+            if (isStoryGenerationRunning(entry.id)) {
+                addToast('剧情正在后台生成，请完成后再修改楼层', 'info');
+            } else {
+                setMessageMenu(message);
+            }
             longPressTimer.current = null;
             longPressOrigin.current = null;
         }, 520);
