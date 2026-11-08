@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
-import type { ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
-import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
+import type { APIConfig, ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
+import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
+import { normalizeApiPresets } from '../../../utils/apiConfigNormalize';
 import { findActivePresetId } from '../../../utils/apiPresetSwitch';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
@@ -20,6 +21,8 @@ interface Props {
     presets: StoryTheaterPreset[];
     /** The global preset library is read-only; selecting one copies its three credentials into this story. */
     apiPresets?: ApiPreset[];
+    /** Read only: diagnose upstream quota overlap without touching the expensive prose endpoint. */
+    mainApi?: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>;
     onCancel: () => void;
     onSave: (entry: StoryTheaterEntry) => Promise<void> | void;
     onImportPreset: (file: File) => Promise<StoryTheaterPreset | null>;
@@ -32,7 +35,7 @@ interface Props {
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, apiPresets = [], onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, apiPresets = [], mainApi, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -40,6 +43,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const [worldbookSearch, setWorldbookSearch] = useState('');
     const [greetingSearch, setGreetingSearch] = useState('');
     const [presetSearch, setPresetSearch] = useState('');
+    // Restored backups sometimes carry a broken API preset among valid entries.
+    // Rendering the story settings must not crash or rewrite the global library.
+    const safeApiPresets = useMemo(() => normalizeApiPresets(apiPresets), [apiPresets]);
     const [presetImportBusy, setPresetImportBusy] = useState(false);
     const [presetImportFeedback, setPresetImportFeedback] = useState('');
     const [editingGreeting, setEditingGreeting] = useState(false);
@@ -638,22 +644,22 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 <div className='mt-6 pt-5 border-t border-slate-200' data-story-memory-api-settings>
                     <div className='flex items-start justify-between gap-3'>
                         <div className='min-w-0'><div className='text-sm font-semibold'>剧情记忆总结副 API</div>
-                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>只为本剧情的记忆处理使用：事件盒自动总结与重新总结、独立向量提取、事件盒转记忆，以及真实陪伴中的角色记忆整理。正文续写仍使用主 API，不修改其他 App、角色与全局设置。</p>
+                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>仅本剧情的事件盒自动／手动总结与独立向量归档中的文字提取使用。正文仍走主 API；真实陪伴的共享角色记忆整理、事件盒转角色记忆继续走全局记忆配置，防止副 API 污染其他聊天。</p>
                         </div>
                         <Toggle label='使用剧情记忆副 API' value={!!draft.memorySummaryApi}
                             onChange={enabled => update('memorySummaryApi', enabled ? (draft.memorySummaryApi || { baseUrl: '', apiKey: '', model: '' }) : undefined)} />
                     </div>
                     {draft.memorySummaryApi && <div className='mt-4 space-y-3'>
                         <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>从已保存的 API 预设载入</span>
-                            <select aria-label='选择剧情记忆 API 预设' value={findActivePresetId(apiPresets, draft.memorySummaryApi) ?? ''} onChange={event => {
-                                const preset = apiPresets.find(item => item.id === event.target.value);
+                            <select aria-label='选择剧情记忆 API 预设' value={findActivePresetId(safeApiPresets, draft.memorySummaryApi) ?? ''} onChange={event => {
+                                const preset = safeApiPresets.find(item => item.id === event.target.value);
                                 if (preset) update('memorySummaryApi', storyMemoryApiFromPreset(preset));
                             }} className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs'>
                                 <option value=''>选择预设（不会修改全局 API）</option>
-                                {apiPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.group ? preset.group + ' · ' : ''}{preset.name} · {preset.config.model || '未填写模型'}</option>)}
+                                {safeApiPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.group ? preset.group + ' · ' : ''}{preset.name} · {preset.config.model || '未填写模型'}</option>)}
                             </select>
                         </label>
-                        {apiPresets.length === 0 && <p className='text-[10px] text-slate-500'>预设库为空，可以直接填写下方信息。</p>}
+                        {safeApiPresets.length === 0 && <p className='text-[10px] text-slate-500'>预设库为空，可以直接填写下方信息。</p>}
                         <label className='block'><span className='block mb-2 text-[10px] text-slate-500'>API 地址（URL）</span>
                             <input aria-label='剧情记忆副 API URL' type='url' value={draft.memorySummaryApi.baseUrl}
                                 onChange={event => update('memorySummaryApi', { ...draft.memorySummaryApi!, baseUrl: event.target.value })}
@@ -670,6 +676,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                                 placeholder='gemini-...' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
                         </label>
                         <p className='text-[10px] leading-5 text-slate-500'>选择预设只复制当前 URL / Key / Model；之后修改或删除预设也不会让本剧情暗中切换。副 API 不可用时会报错并保留原文，绝不偷偷回退到昂贵主 API。</p>
+                        {storyMemoryApiSharesGateway(draft.memorySummaryApi, mainApi) && <p role='status' data-story-memory-gateway-warning className='rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-800'>副 API 与剧情主 API 使用同一接口站点，即使模型不同，也可能共享站点限流、并发限制和额度。建议使用真正独立的站点与账户；这个设置不会改变主 API 本身。</p>}
+                        <p className='text-[10px] leading-5 text-slate-500'>事件盒摘要会代替已归档的旧正文进入后续主模型上下文。便宜模型若记错剧情，会影响续写质量；建议先检查事件盒摘要，错误可在事件盒中重新总结。导入备份后记得核对地址、密钥和模型：本剧情保留的是配置快照，不会自动跟随预设变更。</p>
                         {memoryApiError && <p role='alert' className='rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] leading-5 text-rose-700'>{memoryApiError}</p>}
                     </div>}
                 </div>
