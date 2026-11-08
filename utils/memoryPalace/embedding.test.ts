@@ -176,26 +176,37 @@ describe('getEmbeddings 批量 400 自动降级为逐条', () => {
             .rejects.toThrow(/第 1\/2 条.*正常文本/s);
     });
 
-    it('5xx 仍然重试一次后成功', async () => {
-        let calls = 0;
-        global.fetch = vi.fn(async (_url: any, init: any) => {
-            calls++;
-            if (calls === 1) {
-                return { ok: false, status: 500, text: async () => 'oops' } as any;
-            }
-            const input: string[] = JSON.parse(init.body as string).input;
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    data: input.map((text, localIdx) => ({ index: localIdx, embedding: [parseFloat(text)] })),
-                }),
-            } as any;
-        }) as any;
+    it('5xx 即使上游已执行也不重复扣费：直接失败，只有一次 POST', async () => {
+        global.fetch = vi.fn(async () => ({
+            ok: false, status: 503,
+            text: async () => 'upstream may already have processed this',
+        })) as any;
+        const logger = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            await expect(getEmbeddings(['7'], config)).rejects.toThrow('Embedding API error 503');
+            expect(fetch).toHaveBeenCalledTimes(1);
+        } finally {
+            logger.mockRestore();
+        }
+    });
 
-        const out = await getEmbeddings(['7'], config);
-        expect(out[0][0]).toBe(7);
-        expect(calls).toBe(2);
+    it('网络失败后不重试计费向量请求', async () => {
+        global.fetch = vi.fn(async () => { throw new TypeError('Failed to fetch'); }) as any;
+        await expect(getEmbeddings(['7'], config)).rejects.toThrow('Failed to fetch');
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('429 限流后不再次发送向量请求', async () => {
+        global.fetch = vi.fn(async () => ({
+            ok: false, status: 429, text: async () => 'rate limited',
+        })) as any;
+        const logger = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            await expect(getEmbeddings(['7'], config)).rejects.toThrow('Embedding API error 429');
+            expect(fetch).toHaveBeenCalledTimes(1);
+        } finally {
+            logger.mockRestore();
+        }
     });
 });
 
