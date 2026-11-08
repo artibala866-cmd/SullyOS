@@ -40,7 +40,7 @@ describe('剧情完整生成入库守卫', () => {
     });
 
     it('中转无视 stream:false 返回原始 SSE：无结束信号不能保存付费半截剧情', async () => {
-        const response = new Response('data: {"choices":[{"delta":{"content":"半截剧情"}}]}\\n', {
+        const response = new Response('data: {"choices":[{"delta":{"content":"半截剧情"}}]}\n', {
             headers: { 'Content-Type': 'text/event-stream' },
         });
         const data = await safeResponseJson(response);
@@ -54,7 +54,7 @@ describe('剧情完整生成入库守卫', () => {
         const response = new Response([
             'data: {"choices":[{"delta":{"content":"完整剧情"}}]}',
             'data: [DONE]',
-        ].join('\\n') + '\\n', { headers: { 'Content-Type': 'text/event-stream' } });
+        ].join('\n') + '\n', { headers: { 'Content-Type': 'text/event-stream' } });
         const data = await safeResponseJson(response);
         expect(data.__sullyRawStreamTerminal).toBe(true);
         expect(() => assertCompleteStoryResponse(response, data)).not.toThrow();
