@@ -2641,7 +2641,7 @@ const Settings: React.FC = () => {
                 {visionStatusMsg && (
                     <div className="text-[11px] text-center text-neutral-600 bg-neutral-50 px-3 py-2 rounded-xl">{visionStatusMsg}</div>
                 )}
-                <p className="text-[9px] text-slate-300 px-1">测试会发送一张内置紫色圆点图，确认该模型真的能看图，并消耗一次极小请求。</p>
+                <p className="text-[9px] text-slate-300 px-1">这是实际模型识图请求，可能产生费用；即使失败或返回内容不可用，中转也可能计费。不会自动重试。</p>
                 {visionTestResult && (
                     <div className={`text-xs px-3 py-2 rounded-xl leading-relaxed ${
                         visionTestResult.startsWith('✅') ? 'bg-neutral-50 text-neutral-700' : 'bg-neutral-50 text-neutral-600'
