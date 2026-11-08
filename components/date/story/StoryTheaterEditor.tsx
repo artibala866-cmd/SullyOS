@@ -677,7 +677,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         </label>
                         <p className='text-[10px] leading-5 text-slate-500'>选择预设只复制当前 URL / Key / Model；之后修改或删除预设也不会让本剧情暗中切换。副 API 不可用时会报错并保留原文，绝不偷偷回退到昂贵主 API。</p>
                         {storyMemoryApiSharesGateway(draft.memorySummaryApi, mainApi) && <p role='status' data-story-memory-gateway-warning className='rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-800'>副 API 与剧情主 API 使用同一接口站点，即使模型不同，也可能共享站点限流、并发限制和额度。建议使用真正独立的站点与账户；这个设置不会改变主 API 本身。</p>}
-                        <p className='text-[10px] leading-5 text-slate-500'>事件盒摘要会代替已归档的旧正文进入后续主模型上下文。便宜模型若记错剧情，会影响续写质量；建议先检查事件盒摘要，错误可在事件盒中重新总结。导入备份后记得核对地址、密钥和模型：本剧情保留的是配置快照，不会自动跟随预设变更。</p>
+                        <p className='text-[10px] leading-5 text-slate-500'>事件盒摘要会代替已归档的旧正文进入后续主模型上下文。便宜模型若记错剧情，会影响续写质量；建议先检查事件盒摘要，错误可在事件盒中重新总结。导入备份后记得核对地址、密钥和模型：本剧情保留配置快照；副 API 需要支持非流式 Chat Completions，不跟随主 API 的流式开关。</p>
                         {memoryApiError && <p role='alert' className='rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] leading-5 text-rose-700'>{memoryApiError}</p>}
                     </div>}
                 </div>
