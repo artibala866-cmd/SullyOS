@@ -909,7 +909,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 }).join('\n\n');
             const scenario = [
                 `### 当前剧情\n标题：${entry.title}\n前提：${entry.premise || '沿用已经发生的正文自然继续。'}`,
-                summaries ? `### 常驻事件盒\n${summaries}` : '',
                 vectorRecall ? buildStoryArchiveMemoryEnvelope(vectorRecall) : '',
             ].filter(Boolean).join('\n\n');
             const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, actors.map(actor => actor.name));
@@ -965,6 +964,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     });
                     const payloadBeforeTurn = [
                     ...compiled.messages,
+                    // Story-owned archive context must work even with imported presets
+                    // that have no enabled scenario slot or scenario macro.
+                    ...(summaries ? [{ role: 'system' as const, content: '### 常驻事件盒\n' + summaries }] : []),
                     ...(appendUnslottedHistory ? historyMessages : []),
                     ...(compiled.continueNudge ? [compiled.continueNudge] : []),
                     ...(compiled.nativeOverrideMessages || []),

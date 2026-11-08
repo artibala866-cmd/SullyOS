@@ -37,6 +37,12 @@ describe('见面剧情实际请求', () => {
             timestamp: 2000 - index,
             metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: index < 12 },
         }));
+        entry.archives = [
+            { id: 'old', strategy: 'summary', fromMessageId: rows[0].id, toMessageId: rows[9].id,
+                messageCount: 10, summary: '旧约定：先去庭院找钥匙。', createdAt: 1 },
+            { id: 'future', strategy: 'summary', fromMessageId: rows[12].id, toMessageId: rows[12].id,
+                messageCount: 1, summary: '这一段还未发生', createdAt: 2 },
+        ];
         vi.spyOn(DB, 'getMessagesByCharId').mockImplementation(async () => [...rows].reverse());
         const save = vi.spyOn(DB, 'saveStoryTheaterTurn').mockImplementation(async row => {
             rows.push({ ...row, id: 150 });
@@ -63,6 +69,8 @@ describe('见面剧情实际请求', () => {
             const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
             expect(payload).toContainEqual({ role: 'assistant', content: '[第 12 楼 · 最近一段剧场正文]\n楼层内容 12' });
             expect(payload.some(message => message.content.includes('楼层内容 10'))).toBe(false);
+            expect(payload.filter(message => message.content.includes('旧约定：先去庭院找钥匙。'))).toHaveLength(1);
+            expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
             expect(payload.at(-2)?.content).toBe('侧门通向庭院。');
             expect(payload.at(-1)).toEqual({ role: 'user', content: '[第 13 楼 · 本轮用户推进]\n我要打开侧门。' });
             expect(save).toHaveBeenCalledOnce();
