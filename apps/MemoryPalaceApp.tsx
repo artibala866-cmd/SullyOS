@@ -1,4 +1,5 @@
 import { ContextBuilder } from '../utils/context';
+import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 
 import MemoryMaintenancePanel from '../components/chat/MemoryMaintenancePanel';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
@@ -3298,28 +3299,12 @@ export default function MemoryPalaceApp() {
                             setTestingLight(true);
                             setLightTestResult(null);
                             try {
-                                const res = await fetch(`${lightUrl.trim().replace(/\/+$/, '')}/chat/completions`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${lightKey.trim()}`,
-                                    },
-                                    body: JSON.stringify({
-                                        model: lightModel.trim(),
-                                        messages: [{ role: 'user', content: 'Hi' }],
-                                        max_tokens: 5,
-                                    }),
+                                const check = await checkApiConnectionWithoutGeneration({
+                                    baseUrl: lightUrl, apiKey: lightKey, model: lightModel,
                                 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const reply = (data.choices?.[0]?.message?.content || '').toString();
-                                    setLightTestResult(`[ok]连接成功 — 模型回复: "${reply.slice(0, 30)}"`);
-                                } else {
-                                    const text = await res.text().catch(() => '');
-                                    setLightTestResult(`[err]HTTP ${res.status}: ${text.slice(0, 120)}`);
-                                }
-                            } catch (err: any) {
-                                setLightTestResult(`[err]连接失败: ${err?.message || String(err)}`);
+                                setLightTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
+                            } catch {
+                                setLightTestResult('[err]无法完成只读 /models 检查，未发送付费生成请求');
                             } finally {
                                 setTestingLight(false);
                             }
@@ -3336,7 +3321,7 @@ export default function MemoryPalaceApp() {
                         {testingLight ? '测试中...' : (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                 <Icon name="beaker" size={13} />
-                                <span>测试 API 连接</span>
+                                <span>免费检查副 API</span>
                             </span>
                         )}
                     </button>
@@ -3511,17 +3496,13 @@ export default function MemoryPalaceApp() {
                             setTestingEmb(true);
                             setTestResult(null);
                             try {
-                                const { getEmbedding } = await import('../utils/memoryPalace/embedding');
-                                const config = {
-                                    baseUrl: embUrl.trim(),
-                                    apiKey: embKey.trim(),
+                                const check = await checkApiConnectionWithoutGeneration({
+                                    baseUrl: embUrl, apiKey: embKey,
                                     model: embModel.trim() || 'BAAI/bge-m3',
-                                    dimensions: embDimensions || 1024,
-                                };
-                                const vec = await getEmbedding('测试文本', config);
-                                setTestResult(`[ok]成功！返回 ${vec.length} 维向量`);
-                            } catch (err: any) {
-                                setTestResult(`[err]失败：${err.message}`);
+                                });
+                                setTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
+                            } catch {
+                                setTestResult('[err]无法完成只读 /models 检查，未发送付费向量请求');
                             } finally {
                                 setTestingEmb(false);
                             }
@@ -3543,11 +3524,12 @@ export default function MemoryPalaceApp() {
                         {testingEmb ? '测试中...' : (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                 <Icon name="beaker" size={13} />
-                                <span>测试连接</span>
+                                <span>免费检查 Embedding</span>
                             </span>
                         )}
                     </button>
 
+                    <p style={{ fontSize: 10, color: '#999', marginTop: 6 }}>仅检查 /models 列表，不生成付费向量，也不验证实际维度。</p>
                     <SkipVectorMemoryChoice />
                     {testResult && (
                         <div style={{
@@ -3719,20 +3701,13 @@ export default function MemoryPalaceApp() {
                             setRrTesting(true);
                             setRrTestResult(null);
                             try {
-                                const { rerankDocuments } = await import('../utils/memoryPalace/rerank');
-                                const results = await rerankDocuments(
-                                    { baseUrl: rrUrl.trim(), apiKey: rrKey.trim(), model: rrModel.trim() || 'BAAI/bge-reranker-v2-m3' },
-                                    '测试问题：外公身体怎么样',
-                                    ['外公前几天去医院做了心脏检查，结果正常', '今天下雨了，路上有点堵', '她最喜欢吃妈妈做的红烧肉'],
-                                    3,
-                                );
-                                if (results.length > 0) {
-                                    setRrTestResult(`[ok]成功！返回 ${results.length} 条，top1 index=${results[0].index} score=${results[0].relevance_score.toFixed(3)}`);
-                                } else {
-                                    setRrTestResult(`[warn]API 接通了但返回空数组，检查模型名是否正确`);
-                                }
-                            } catch (err: any) {
-                                setRrTestResult(`[err]失败：${err.message}`);
+                                const check = await checkApiConnectionWithoutGeneration({
+                                    baseUrl: rrUrl, apiKey: rrKey,
+                                    model: rrModel.trim() || 'BAAI/bge-reranker-v2-m3',
+                                });
+                                setRrTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
+                            } catch {
+                                setRrTestResult('[err]无法完成只读 /models 检查，未发送付费排序请求');
                             } finally {
                                 setRrTesting(false);
                             }
@@ -3749,7 +3724,7 @@ export default function MemoryPalaceApp() {
                         {rrTesting ? '测试中...' : (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                 <Icon name="beaker" size={13} />
-                                <span>测试 rerank 连接</span>
+                                <span>免费检查 Rerank</span>
                             </span>
                         )}
                     </button>
