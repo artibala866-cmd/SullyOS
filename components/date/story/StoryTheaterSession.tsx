@@ -727,10 +727,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             if (archiveEntry.archiveStrategy === 'summary') {
                 setMemoryStatus(`正在把 ${batch.length} 条正文压成事件盒……`);
-                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig));
+                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), { storyOnlyProvider: !!archiveEntry.memorySummaryApi });
             } else {
                 const embedding = memoryPalaceConfig.embedding;
-                const light = resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model });
+                const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model }), ...(archiveEntry.memorySummaryApi ? { skipGlobalStreamUpgrade: true } : {}) };
                 if (!embedding?.baseUrl || !embedding?.apiKey || !light.baseUrl) {
                     archiveErrorSeq.current += 1;
                     addToast('独立向量归档需要先完成向量记忆配置', 'error');
