@@ -1559,22 +1559,23 @@ export const DB = {
 
   updateMessageMetadata: async (id: number, updater: (prev: any) => any): Promise<void> => {
     const db = await openDB();
-    const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
-    const store = transaction.objectStore(STORE_MESSAGES);
-
     return new Promise((resolve, reject) => {
-        const req = store.get(id);
-        req.onsuccess = () => {
-            const data = req.result as Message | undefined;
-            if (data) {
-                (data as any).metadata = updater((data as any).metadata);
-                store.put(data);
-                resolve();
-            } else {
-                reject(new Error('Message not found'));
-            }
-        };
-        req.onerror = () => reject(req.error);
+      const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
+      const store = transaction.objectStore(STORE_MESSAGES);
+      let failure: unknown;
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(failure || transaction.error || new Error('消息详情未能保存'));
+      const req = store.get(id);
+      req.onsuccess = () => {
+        try {
+          const data = req.result as Message | undefined;
+          if (!data) throw new Error('找不到要更新的消息');
+          store.put({ ...data, metadata: updater(data.metadata) });
+        } catch (error) {
+          failure = error;
+          transaction.abort();
+        }
+      };
     });
   },
 

@@ -22,7 +22,7 @@ describe('per-story API uses only memory call sites', () => {
     it('never sends a second failed preflight summary in the same expensive prose turn', () => {
         expect(session).toContain('const archiveErrorSeq = useRef(0)');
         expect(session).toContain('const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors');
-        expect(session).toContain('else if (!failedArchiveBeforeProse) await archiveIfNeeded(promptEntry)');
+        expect(session).toContain('else if (!archiveBeforeProse && !failedArchiveBeforeProse) await archiveIfNeeded(promptEntry)');
     });
     it('vector extraction uses only story override for LLM and retains existing embedding configuration', () => {
         expect(session).toContain('const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl');

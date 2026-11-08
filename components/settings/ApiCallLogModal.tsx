@@ -266,7 +266,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                         >
                                             {e.superseded ? '已顶替'
                                                 : e.pending ? '生成中'
-                                                    : e.ok ? '成功' : `失败${e.status ? ` ${e.status}` : ''}`}
+                                                    : e.partial ? '部分返回' : e.ok ? '成功' : `失败${e.status ? ` ${e.status}` : ''}`}
                                         </span>
                                     </div>
                                 </div>
@@ -275,6 +275,9 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                                     <Field label="App" value={e.appName} />
                                     <Field label="角色" value={e.charName} />
                                     <Field label="用途" value={e.purpose} />
+                                    {e.outcomeDetail && <div className="col-span-2">
+                                        <Field label="响应详情" value={e.outcomeDetail} wrap />
+                                    </div>}
                                     <div className="col-span-2">
                                         {/* 模型/实际后端两行不截断（break-all 换行）：截断会把「为什么黄了」的
                                             关键差异（后缀 -c、渠道标签）藏进省略号里，用户看着两行一样却标黄一头雾水 */}

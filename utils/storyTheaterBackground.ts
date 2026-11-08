@@ -18,6 +18,30 @@ export interface StoryGenerationSnapshot {
     startedAt: number;
     updatedAt: number;
     error?: string;
+    unsavedReply?: UnsavedStoryReply;
+}
+
+export interface UnsavedStoryReply {
+    content: string;
+    fromTavern: boolean;
+    commit: () => Promise<void>;
+}
+
+export class StoryReplySaveError extends Error {
+    constructor(readonly reply: UnsavedStoryReply, cause: unknown) {
+        const detail = cause instanceof Error ? cause.message || cause.name : String(cause);
+        super(`正文已收到，本地保存失败（${detail}）`);
+    }
+}
+
+export function retryUnsavedStoryReply(entryId: string): boolean {
+    const reply = snapshots.get(entryId)?.unsavedReply;
+    if (!reply) return false;
+    return startStoryBackgroundGeneration(entryId, async reportStage => {
+        reportStage('正在重试本地保存…');
+        try { await reply.commit(); }
+        catch (error) { throw new StoryReplySaveError(reply, error); }
+    });
 }
 
 type Listener = (snapshot: StoryGenerationSnapshot) => void;
@@ -72,31 +96,46 @@ export function observeStoryGenerations(listener: Listener): () => void {
 export function startStoryBackgroundGeneration(
     entryId: string,
     execute: (reportStage: (stage: string) => void) => Promise<void>,
+    onSettled?: () => void,
 ): boolean {
     if (!entryId || inFlight.has(entryId)) return false;
 
     const now = Date.now();
     const initial: StoryGenerationSnapshot = {
         entryId, phase: 'running', stage: '正在准备剧情请求…', startedAt: now, updatedAt: now,
+        unsavedReply: snapshots.get(entryId)?.unsavedReply,
     };
 
     // Defer execution by one microtask so the in-flight guard is installed
     // even when execute immediately performs a synchronous operation.
-    const task = Promise.resolve().then(() => execute(stage => {
+    const run = () => execute(stage => {
         if (inFlight.get(entryId) !== task) return;
         announce({ ...initial, stage, updatedAt: Date.now() });
-    }));
+    });
+    const task = Promise.resolve().then(async () => {
+        const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+        if (!locks?.request) {
+            await run();
+            return;
+        }
+        await locks.request(`sullyos:story-generation:${entryId}`, { ifAvailable: true }, async lock => {
+            if (!lock) throw new Error('这段剧情正在另一个标签页生成，本页未发送请求');
+            await run();
+        });
+    });
     inFlight.set(entryId, task);
     announce(initial);
 
     void task.then(() => {
-        announce({ ...initial, phase: 'completed', stage: '剧情已生成并保存', updatedAt: Date.now() });
+        announce({ ...initial, phase: 'completed', stage: '剧情已生成并保存', updatedAt: Date.now(), unsavedReply: undefined });
     }, error => {
         const reason = error instanceof Error ? error.message : String(error);
-        announce({ ...initial, phase: 'failed', stage: '生成未完成，可回到剧情重试', updatedAt: Date.now(), error: reason });
-        console.error('[StoryBackground] generation failed', entryId, error);
+        const unsavedReply = error instanceof StoryReplySaveError ? error.reply : initial.unsavedReply;
+        announce({ ...initial, phase: 'failed', stage: '剧情未完成', updatedAt: Date.now(), error: reason, unsavedReply });
+        console.error('[StoryBackground] generation failed', entryId, reason);
     }).finally(() => {
         if (inFlight.get(entryId) === task) inFlight.delete(entryId);
+        onSettled?.();
     });
     return true;
 }

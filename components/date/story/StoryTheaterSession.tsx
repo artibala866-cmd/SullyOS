@@ -63,7 +63,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration } from '../../../utils/storyTheaterBackground';
+import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
 import {
@@ -219,6 +219,8 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
     const {theme} = useOS();
     const reading = meetingAppearance(theme.storyAppearance).id !== 'none';
     const blocks = parseStoryDisplayBlocks(content, fromTavern);
+    const mainHtml = reading && !blocks.some(block => block.kind === 'story')
+        ? blocks.filter(block => block.kind === 'html' && !block.title?.includes('剧场')) : [];
     const relationshipSceneIndex = blocks.findIndex(block => block.kind === 'scene');
     const hasScene = relationshipSceneIndex >= 0;
     const relationship = affinityInputs.length > 0 ? <StorySceneRelationships inputs={affinityInputs} /> : null;
@@ -233,6 +235,7 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
     const rendered = <div className='space-y-6'>
         {!hasScene && relationship}
         {blocks.map((block, index) => {
+            if (mainHtml.includes(block)) return null;
             const lines = splitDisplayLines(block.text);
             if (block.kind === 'thinking' || block.kind === 'tavern-extra') return <details key={index} className='group border-y border-slate-200'>
                 <summary className='list-none cursor-pointer py-3.5 flex items-center gap-2 text-[11px] font-semibold text-slate-600'>
@@ -312,7 +315,15 @@ export const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) 
             return <section key={index} className='pl-4 border-l-2 border-slate-300'><div className='text-[10px] font-bold text-slate-500'>{block.title || '附加信息'}</div><div className='mt-2'><LabeledRows lines={lines} /></div></section>;
         })}
     </div>;
-    return reading ? <div><div className='meeting-prose'>{blocks.filter(block=>block.kind==='story').map((block,index)=><p key={index}>{block.text}</p>)}</div>{(blocks.some(block=>block.kind!=='story')||relationship)&&<details className='mt-5 text-slate-500'><summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}</details>}</div> : rendered;
+    if (!reading) return rendered;
+    return <div>
+        <div className='meeting-prose'>{blocks.filter(block => block.kind === 'story').map((block, index) => <p key={index}>{block.text}</p>)}</div>
+        {mainHtml.map((block, index) => <SafeStoryHtml key={index} source={block.htmlSource || block.text}
+            fallback={block.text} title={block.title || '安全排版'} />)}
+        {(blocks.some(block => block.kind !== 'story' && !mainHtml.includes(block)) || relationship) && <details className='mt-5 text-slate-500'>
+            <summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}
+        </details>}
+    </div>;
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
@@ -618,10 +629,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         assertStoryApiConfigured(apiConfig);
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model);
         const stream = apiConfig.stream === true;
+        const controller = new AbortController();
+        const headerTimeout = setTimeout(() => controller.abort(new Error('等待 HTTP 响应头超过 5 分钟')), 300000);
         let response: Response;
         try {
             response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
+                signal: controller.signal,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: payload, stream,
                     ...(stream ? { stream_options: { include_usage: true } } : {}), ...generationSettings }),
@@ -629,8 +643,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情见面生成' },
             } as RequestInit & { __sullySkipStreamUpgrade: boolean; __sullyMeta: { appId: string; appName: string; purpose: string } });
         } catch (error) {
-            const detail = error instanceof Error ? error.message || error.name : String(error);
+            const cause = controller.signal.reason ?? error;
+            const detail = cause instanceof Error ? cause.message || cause.name : String(cause);
             throw new Error(`浏览器未收到可读取的 HTTP 响应（${detail}）。连接、网关超时或跨域限制均可能导致此问题，请先对照站点调用记录`);
+        } finally {
+            clearTimeout(headerTimeout);
         }
         return readStoryCompletion(response, effectivePreset.document.sourceFormat === 'sillytavern', generationSettings.max_tokens, onPromptTokens);
     }, [apiConfig, effectivePreset.document.sourceFormat, entry.omitSamplingParams]);
@@ -793,7 +810,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         if (sendLock.current || !canStart) return;
         // A session can unmount when navigating to another page; the per-story
         // singleton still owns the billable API request and its DB commit.
-        if (isStoryGenerationRunning(entry.id)) return;
+        if (isStoryGenerationRunning(entry.id) || getStoryGenerationSnapshot(entry.id)?.unsavedReply) return;
         sendLock.current = true;
         setSending(true);
         setRerollingId(rerollTarget?.id || null);
@@ -850,7 +867,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             // 不出来，后置归档也就永远没有机会执行。重试已有 user 楼层时先归档，窗口可自愈。
             reportStage('正在检查旧剧情归档…');
             const previousArchiveErrors = archiveErrorSeq.current;
-            const promptEntry = await archiveIfNeeded() || entry;
+            const archiveBeforeProse = await archiveIfNeeded();
+            const promptEntry = archiveBeforeProse || entry;
             const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors;
 
             const current = (await DB.getMessagesByCharId(threadId, true))
@@ -976,7 +994,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 setContextTokens(reported);
                 setContextTokensExact(true);
             });
-            const prefill = compiled.assistantPrefill?.content || '';
+            const prefill = !promptEntry.forceUserLastMessage && compiled.assistantPrefill && payload.includes(compiled.assistantPrefill)
+                ? compiled.assistantPrefill.content : '';
             const rawContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
             // 关系绝对值要承接最近一轮，即使那轮刚被折叠进事件盒，也不能回退到 50。
             const previousAssistantContent = latestAssistant?.row.content || '';
@@ -998,45 +1017,50 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 theaterPromptTokensExact: promptTokenCountExact,
                 ...(affinityInputs.length > 0 ? { theaterAffinityInputs: affinityInputs } : {}),
             };
-            if (isReroll && rerollTarget) {
-                if (mirrorArchived(rerollTarget, promptEntry)) throw new Error('这条回复已进入记忆归档，请刷新后查看');
-                if (interruption) {
-                    await DB.updateMessageMetadata(rerollTarget.id, previous => ({
-                        ...previous,
-                        theaterInterruptedRewrite: { content, interruption, fromTavern: effectivePreset.document.sourceFormat === 'sillytavern' },
-                    }));
+            const fromTavern = effectivePreset.document.sourceFormat === 'sillytavern';
+            const commit = async () => {
+                if (isReroll && rerollTarget) {
+                    if (mirrorArchived(rerollTarget, promptEntry)) throw new Error('这条回复已进入记忆归档，请刷新后查看');
+                    if (interruption) {
+                        await DB.updateMessageMetadata(rerollTarget.id, previous => ({
+                            ...previous,
+                            theaterInterruptedRewrite: { content, interruption, fromTavern },
+                        }));
+                    } else {
+                        await replaceStoryTheaterReply(rerollTarget, content, replyMetadata);
+                    }
                 } else {
-                    await replaceStoryTheaterReply(rerollTarget, content, replyMetadata);
+                    await saveCentralAndMirrors('assistant', content, replyMetadata);
                 }
-            } else {
-                await saveCentralAndMirrors('assistant', content, replyMetadata);
-            }
+            };
+            try { await commit(); }
+            catch (error) { throw new StoryReplySaveError({ content, fromTavern, commit }, error); }
             if (!isReroll && !isContinueTurn) setInput('');
             setAffinityDrafts({});
             setShowAffinityInput(false);
-            await loadMessages();
+            await loadMessages().catch(error => addToast(`正文已保存，页面读取失败：${error?.message || error}`, 'error'));
             if (interruption) return;
             reportStage('剧情正文已保存，正在整理后续记忆…');
             if (entry.writesToCharacterMemory) void applyActorMemoryPipeline();
             // A failed preflight can already have billed the secondary provider.
             // Do not issue a second summary request for the same source batch
             // merely because the expensive prose generation has now succeeded.
-            else if (!failedArchiveBeforeProse) await archiveIfNeeded(promptEntry);
+            else if (!archiveBeforeProse && !failedArchiveBeforeProse) await archiveIfNeeded(promptEntry);
         } catch (error: any) {
-            console.error('[StoryTheater] send failed', error);
             const message = String(error?.message || error);
+            console.error('[StoryTheater] send failed', message);
             const hint = message.includes('API Error 400') && isStoryUserLastCompatibilityError(message) && !entry.forceUserLastMessage
                 ? '。可在右上角设置开启“400 兼容模式”'
                 : '';
-            addToast(`剧情续写失败：${message}${hint}`, 'error');
+            addToast(error instanceof StoryReplySaveError ? message : `剧情续写失败：${message}${hint}`, 'error');
             // The registry stores failures so a remounted screen can show
             // a retry state even after the original toast/owner unmounted.
             throw error;
-        } finally {
+        }
+        }, () => {
             sendLock.current = false;
             setSending(false);
             setRerollingId(null);
-        }
         });
         if (!started) {
             sendLock.current = false;
@@ -1046,6 +1070,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, [canStart, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
 
     const generationBusy = sending || backgroundTask?.phase === 'running';
+    const unsavedReply = backgroundTask?.unsavedReply;
+    const generationBlocked = generationBusy || !!unsavedReply;
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
@@ -1149,7 +1175,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                 <p className='my-2'>{interruptedRewrite.interruption}</p>
                                 <StoryOutput content={interruptedRewrite.content} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
                             </details>}
-                            {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBusy} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
+                            {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBlocked} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
                         return <div key={message.id} data-story-floor={floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
                             {floorHeading}
@@ -1157,6 +1183,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         </div>;
                     })}
                 </div>
+                {unsavedReply && <section className='mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4'>
+                    <p role='status' className='mb-2 text-xs text-amber-800'>已收到的正文暂存在此页面，请先复制或重试本地保存。</p>
+                    <StoryOutput content={unsavedReply.content} fromTavern={unsavedReply.fromTavern} affinityInputs={[]} />
+                    <div className='mt-3 flex gap-3 text-xs font-semibold text-violet-700'>
+                        <button onClick={() => Promise.resolve().then(() => navigator.clipboard.writeText(unsavedReply.content))
+                            .then(() => addToast('已复制正文', 'success'))
+                            .catch(error => addToast(`复制失败：${error?.message || error}`, 'error'))}>复制正文</button>
+                        <button disabled={generationBusy} onClick={() => retryUnsavedStoryReply(entry.id)}>重试本地保存</button>
+                    </div>
+                </section>}
                 {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，仍会通过所选记忆方式参与续写</div>}
                 <div className='h-6' />
             </div>
@@ -1166,8 +1202,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             <div className='max-w-2xl mx-auto'>
                 {memoryStatus && <div className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{memoryStatus}</div>}
                 {backgroundTask?.phase === 'running' && <div role='status' className='mb-2 flex items-center gap-2 text-[10px] text-violet-600'><SpinnerGap size={13} className='animate-spin' />{backgroundTask.stage} · 可切换到其他页面，完成后自动保存</div>}
-                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。原推进已保留。糯米机未自动重发。</div>}
-                {!generationBusy && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
+                {backgroundTask?.phase === 'failed' && <div role='alert' className='mb-2 text-[10px] text-rose-600'>上次剧情未完成：{backgroundTask.error || '请求异常'}。{unsavedReply ? '可以重试本地保存。' : '原推进已保留。糯米机未自动重发。'}</div>}
+                {!generationBlocked && !memoryStatus && !input.trim() && pendingRetryInput && <div className='mb-2 text-[10px] text-violet-600'>上次续写可能中断了，点击推进即可继续</div>}
                 {!generationBusy && !memoryStatus && canWriteOpening && <div className='mb-2 text-[10px] text-violet-600'>准备好了，点击推进让故事写下第一幕</div>}
                 {affinityEnabled && <div className='mb-2 overflow-hidden rounded-2xl border border-rose-200 bg-rose-50/70'>
                     <button type='button' aria-expanded={showAffinityInput} onClick={() => setShowAffinityInput(value => !value)} className='w-full px-3 py-2.5 flex items-center gap-2 text-left'>
@@ -1179,17 +1215,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         <div className='pt-3 flex gap-2 overflow-x-auto'>{actors.map(actor => { const filled = filledAffinityActorIds.includes(actor.id); const selected = selectedAffinityActor?.id === actor.id; return <button key={actor.id} type='button' onClick={() => setSelectedAffinityActorId(actor.id)} className={`shrink-0 px-2.5 py-2 rounded-xl flex items-center gap-2 border text-[10px] font-bold ${selected ? 'bg-white border-rose-300 text-rose-700' : 'border-transparent text-slate-500'}`}><TokenImg value={actor.avatar} alt='' className='w-6 h-6 rounded-full object-cover' /><span>{actor.name}</span><span className={`w-1.5 h-1.5 rounded-full ${filled ? 'bg-rose-500' : 'bg-slate-200'}`} /></button>; })}</div>
                         {selectedAffinityActor && <div className='mt-3 pt-3 border-t border-rose-200/70'>
                             <div className='flex items-center justify-between gap-3'><div><span className='block text-[9px] font-bold text-rose-700'>你 → {selectedAffinityActor.name}</span><span className='block mt-0.5 text-[8px] text-slate-400'>这一栏只改变你和这位角色的关系</span></div><button type='button' onClick={() => setAffinityDrafts(current => { const next = { ...current }; delete next[selectedAffinityActor.id]; return next; })} className='text-[9px] font-bold text-slate-400'>清空这位</button></div>
-                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>变化</span><input disabled={generationBusy} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
-                            <input disabled={generationBusy} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { reason: event.target.value })} placeholder={`为什么你对 ${selectedAffinityActor.name} 有这点变化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
-                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={generationBusy} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察觉 · 只变氛围</span></button><button type='button' disabled={generationBusy} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察觉 · 完全透视</span></button></div>
+                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>变化</span><input disabled={generationBlocked} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
+                            <input disabled={generationBlocked} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { reason: event.target.value })} placeholder={`为什么你对 ${selectedAffinityActor.name} 有这点变化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
+                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={generationBlocked} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察觉 · 只变氛围</span></button><button type='button' disabled={generationBlocked} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察觉 · 完全透视</span></button></div>
                             <div className='mt-2 text-[9px] leading-4 text-rose-500'>可以继续点另一位角色填写；没有填写的角色本轮保持原关系。</div>
                         </div>}
                     </div>}
                 </div>}
                 <div className='flex items-end gap-2 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm'>
-                    <button type='button' onClick={() => void send(undefined, true)} disabled={generationBusy || !canStart} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本轮不主动行动，让剧情按当前预设继续' aria-label='继续当前剧情'>继续</button>
-                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={generationBusy} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
-                    <button onClick={() => void send()} disabled={generationBusy || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '继续上次中断' : canWriteOpening && !input.trim() ? '让故事先开场' : '推进'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{generationBusy ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
+                    <button type='button' onClick={() => void send(undefined, true)} disabled={generationBlocked || !canStart} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本轮不主动行动，让剧情按当前预设继续' aria-label='继续当前剧情'>继续</button>
+                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={generationBlocked} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
+                    <button onClick={() => void send()} disabled={generationBlocked || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '继续上次中断' : canWriteOpening && !input.trim() ? '让故事先开场' : '推进'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{generationBusy ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
                 </div>
                 <div className='mt-2 text-center text-[9px] text-slate-400'>Ctrl / ⌘ + Enter 推进 · 长按楼层可编辑或删除</div>
             </div>

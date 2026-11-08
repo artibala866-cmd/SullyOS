@@ -14,6 +14,8 @@ import { appendDevDebugApiLog, makeDebugLogger } from './devDebug';
 import { getApiCallAmbientContext, recordApiCall, type ApiCallMeta } from './apiCallLog';
 import { resolveBlobRefsInRequestBody } from './apiBlobRefs';
 import { waitForPalaceRequest } from './memoryPalace/maintenanceMode';
+import { completionContentToText } from './completionContent';
+import { recoverTruncatedCompletionJson } from './recoverTruncatedCompletionJson';
 
 const log = makeDebugLogger('api', 'SafeAPI');
 
@@ -31,6 +33,14 @@ export async function safeResponseJson(response: Response, options?: { keepInter
     try {
         parsed = parseRawBodyText(text, response.status, contentType);
     } catch (error) {
+        if (options?.keepInterruptedBody && response.ok && !isSseResponseText(text, contentType)) {
+            parsed = recoverTruncatedCompletionJson(text);
+            if (parsed) {
+                Object.defineProperty(parsed, '__sullyTruncatedJson', { value: true });
+                if (readError) Object.defineProperty(parsed, '__sullyBodyReadError', { value: readError });
+                return parsed;
+            }
+        }
         if (readError) {
             throw new Error(`HTTP ${response.status} 已返回，但读取响应体时连接中断（${readError}），未收到可解析的响应`);
         }
@@ -41,23 +51,57 @@ export async function safeResponseJson(response: Response, options?: { keepInter
     // Keep this transport-only evidence non-enumerable (never store it in logs).
     if (isSseResponseText(text, contentType) && parsed && typeof parsed === 'object' && Array.isArray(parsed.choices)) {
         const finished = Boolean(parsed.choices[0]?.finish_reason)
-            || text.split(/\r?\n/).some(line => (line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]'));
+            || text.split(/\r?\n/).some(line => /^data:\s*\[DONE\]\s*$/.test(line.trimStart()));
         Object.defineProperty(parsed, '__sullyRawStreamTerminal', { value: finished, enumerable: false });
-        if (!finished && readError) Object.defineProperty(parsed, '__sullyBodyReadError', { value: readError, enumerable: false });
+        if (!finished && readError) Object.defineProperty(parsed, '__sullyBodyReadError', { value: readError });
+    } else if (readError && parsed && typeof parsed === 'object') {
+        Object.defineProperty(parsed, '__sullyBodyReadError', { value: readError });
     }
     return parsed;
 }
 
-/** Preserve complete SSE events received before a transport error. */
+/** Retain received bytes, including when a gateway leaves the stream open. */
 async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ text: string; readError?: string }> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let text = '';
+    let pending = '';
+    let finishedAt = 0;
     try {
         while (true) {
-            const { done, value } = await reader.read();
-            if (done) return { text: text + decoder.decode() };
-            text += decoder.decode(value, { stream: true });
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const idleMs = finishedAt ? Math.max(0, finishedAt + 3000 - Date.now()) : 180000;
+            const next = await Promise.race([
+                reader.read(),
+                new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), idleMs); }),
+            ]).finally(() => clearTimeout(timer));
+            if (!next) {
+                void reader.cancel().catch(() => {});
+                return { text, readError: finishedAt ? undefined : '180 秒未收到新的响应数据' };
+            }
+            if (next.done) return { text: text + decoder.decode() };
+            const chunk = decoder.decode(next.value, { stream: true });
+            text += chunk;
+            pending += chunk;
+            const boundary = pending.lastIndexOf('\n');
+            if (boundary < 0) continue;
+            const lines = pending.slice(0, boundary).split(/\r?\n/);
+            pending = pending.slice(boundary + 1);
+            for (const line of lines) {
+                const event = line.trim();
+                if (!event.startsWith('data:')) continue;
+                const payload = event.slice(5).trim();
+                if (payload === '[DONE]') {
+                    void reader.cancel().catch(() => {});
+                    return { text };
+                }
+                if (!finishedAt && /"finish_?reason"/i.test(payload)) {
+                    try {
+                        const choice = JSON.parse(payload)?.choices?.[0];
+                        if (choice?.finish_reason ?? choice?.finishReason) finishedAt = Date.now();
+                    } catch { /* An incomplete frame will be diagnosed by the parser. */ }
+                }
+            }
         }
     } catch (error) {
         return { text, readError: error instanceof Error ? error.message || error.name : String(error) };
@@ -135,8 +179,23 @@ function parseRawBodyText(text: string, status: number, contentType?: string | n
  */
 export function parseSseToCompletion(raw: string): any | null {
     const asm = new SseAssembler();
-    // 按行切，逐行找 "data: " 开头（允许 \r\n、空行分隔）
-    for (const line of raw.split(/\r?\n/)) asm.feedLine(line);
+    for (const event of raw.split(/\r?\n[ \t]*\r?\n/)) {
+        const lines = event.split(/\r?\n/);
+        const dataLines = lines.filter(line => line.trimStart().startsWith('data:'));
+        if (dataLines.length > 1) {
+            const payload = dataLines.map(line => line.trimStart().slice(5)).join('\n');
+            try {
+                JSON.parse(payload);
+                for (const line of lines) if (!line.trimStart().startsWith('data:')) asm.feedLine(line);
+                asm.feedLine(`data: ${payload}`);
+                continue;
+            } catch { /* Some gateways omit the blank line between separate frames. */ }
+        }
+        for (const line of lines) {
+            if (/^data:\s*\[DONE\]\s*$/.test(line.trimStart())) return asm.finish();
+            asm.feedLine(line);
+        }
+    }
     return asm.finish();
 }
 
@@ -161,6 +220,9 @@ class SseAssembler {
     private usage: any = undefined;
     private gotAnyChunk = false;
     private providerError: unknown;
+    private refusal = '';
+    private invalidFrames = 0;
+    private errorEvent = false;
     // tool_calls 流式分片: OpenAI 约定按 index 分组, id/name 在首片, arguments 逐片拼接。
     // 不拼的话开了 stream 的工具模式(瑞幸/MCP)会静默丢掉全部工具调用。
     private toolCalls: any[] = [];
@@ -176,16 +238,28 @@ class SseAssembler {
 
     /** 喂一行 SSE 文本，分别返回正文与思考增量（没有则为空串）。 */
     feedLine(line: string): SseFeedDelta {
+        line = line.trimStart();
+        if (line.startsWith('event:')) this.errorEvent = line.slice(6).trim() === 'error';
         if (!line.startsWith('data:')) return { content: '', reasoning: '', done: false };
         const payload = line.slice(5).trim();
         if (!payload) return { content: '', reasoning: '', done: false };
         if (payload === '[DONE]') return { content: '', reasoning: '', done: true };
         let chunk: any;
-        try { chunk = JSON.parse(payload); } catch { return { content: '', reasoning: '', done: false }; }
+        const errorEvent = this.errorEvent;
+        this.errorEvent = false;
+        try {
+            chunk = JSON.parse(payload);
+        } catch {
+            if (errorEvent) this.providerError = payload;
+            else this.invalidFrames++;
+            return { content: '', reasoning: '', done: false };
+        }
+        if (errorEvent) this.providerError = chunk?.error ?? chunk;
         return this.feedChunk(chunk);
     }
 
     feedChunk(chunk: any): SseFeedDelta {
+        if (!chunk || typeof chunk !== 'object') return { content: '', reasoning: '', done: false };
         this.gotAnyChunk = true;
         if (!this.firstChunk) this.firstChunk = chunk;
         // OpenAI 流式 usage 在最后一个 chunk（include_usage=true 时），也可能出现在中途；
@@ -199,22 +273,15 @@ class SseAssembler {
         // delta 路径（OpenAI 流式常见）
         if (choice.delta) {
             for (const k of Object.keys(choice.delta)) this.deltaKeys.add(k);
-            if (typeof choice.delta.content === 'string') {
-                delta = choice.delta.content;
-                this.content += delta;
-            }
-            // Anthropic 透传形态: delta.content 是分块数组 [{type:'text',text}|{type:'thinking',thinking}]
-            else if (Array.isArray(choice.delta.content)) {
+            delta = completionContentToText(choice.delta.content);
+            this.content += delta;
+            if (Array.isArray(choice.delta.content)) {
                 for (const block of choice.delta.content) {
-                    if (block?.type === 'text' && typeof block.text === 'string') {
-                        delta += block.text;
-                        this.content += block.text;
-                    } else if (block?.type === 'thinking' && typeof block.thinking === 'string') {
-                        this.reasoning += block.thinking;
-                        reasoningDelta += block.thinking;
-                    }
+                    if (block?.type === 'thinking' && typeof block.thinking === 'string') reasoningDelta += block.thinking;
                 }
+                this.reasoning += reasoningDelta;
             }
+            if (typeof choice.delta.refusal === 'string') this.refusal += choice.delta.refusal;
             const dr = choice.delta.reasoning_content ?? choice.delta.reasoning ?? choice.delta.thinking;
             if (typeof dr === 'string') {
                 this.reasoning += dr;
@@ -234,10 +301,9 @@ class SseAssembler {
         }
         // message 路径（一次性 SSE，不常见但兼容）
         else if (choice.message) {
-            if (typeof choice.message.content === 'string') {
-                delta = choice.message.content;
-                this.content += delta;
-            }
+            delta = completionContentToText(choice.message.content);
+            this.content += delta;
+            if (typeof choice.message.refusal === 'string') this.refusal += choice.message.refusal;
             const mr = choice.message.reasoning_content ?? choice.message.reasoning ?? choice.message.thinking;
             if (typeof mr === 'string') {
                 this.reasoning += mr;
@@ -245,6 +311,10 @@ class SseAssembler {
             }
             if (choice.message.role) this.role = choice.message.role;
             if (Array.isArray(choice.message.tool_calls)) this.toolCalls.push(...choice.message.tool_calls);
+        }
+        if (!choice.delta && !choice.message && typeof choice.text === 'string') {
+            delta = choice.text;
+            this.content += delta;
         }
         const finishReason = choice.finish_reason ?? choice.finishReason;
         if (finishReason) this.finishReason = finishReason;
@@ -256,7 +326,7 @@ class SseAssembler {
     }
 
     finish(): any | null {
-        if (!this.gotAnyChunk) return null;
+        if (!this.gotAnyChunk && !this.providerError) return null;
         // 取证探针: 思考没抓到时把渠道实际用的 delta 字段名单打出来, 下一轮排查直接看名单。
         // (开思考的请求思考却为空 = 大概率又是没见过的字段形状)
         if (!this.reasoning && this.deltaKeys.size > 0) {
@@ -273,6 +343,7 @@ class SseAssembler {
                 message: {
                     role: this.role,
                     content: this.content,
+                    ...(this.refusal ? { refusal: this.refusal } : {}),
                     ...(this.reasoning ? { reasoning_content: this.reasoning } : {}),
                     ...(this.toolCalls.length ? {
                         tool_calls: this.toolCalls.filter(Boolean).map((tc, i) => ({ ...tc, id: tc.id || `call_sse_${i}` })),
@@ -282,6 +353,7 @@ class SseAssembler {
             }],
             usage: this.usage || this.firstChunk?.usage,
             ...(this.providerError ? { error: this.providerError } : {}),
+            ...(this.invalidFrames ? { __sullyInvalidStreamFrames: this.invalidFrames } : {}),
         };
     }
 }
@@ -565,28 +637,11 @@ export async function safeFetchJson(
  */
 export function extractContent(data: any, allowReasoningFallback = true): string {
     const msg = data?.choices?.[0]?.message;
-    const contentToText = (value: unknown): string => {
-        if (typeof value === 'string') return value;
-        if (Array.isArray(value)) {
-            return value.map(part => {
-                if (typeof part === 'string') return part;
-                if (!part || typeof part !== 'object') return '';
-                const record = part as Record<string, unknown>;
-                return contentToText(record.text ?? record.content ?? record.value);
-            }).filter(Boolean).join('');
-        }
-        if (value && typeof value === 'object') {
-            const record = value as Record<string, unknown>;
-            return contentToText(record.text ?? record.content ?? record.value);
-        }
-        return '';
-    };
-
-    let text = contentToText(msg?.content);
-    if (!text.trim() && allowReasoningFallback) text = contentToText(msg?.reasoning_content);
+    let text = completionContentToText(msg?.content);
+    if (!text.trim() && allowReasoningFallback) text = completionContentToText(msg?.reasoning_content);
     // Strip hidden chain-of-thought blocks: <think> / <thinking> / <thought>
-    text = text.replace(/<(think|thinking|thought)>[\s\S]*?<\/\1>/gi, '');
-    text = text.replace(/<(?:think|thinking|thought)>[\s\S]*$/gi, '');
+    text = text.replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+    text = text.replace(/<(?:think|thinking|thought)\b[^>]*>[\s\S]*$/gi, '');
     return text.trim();
 }
 

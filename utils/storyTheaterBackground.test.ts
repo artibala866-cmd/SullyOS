@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     getStoryGenerationSnapshot, isStoryGenerationRunning,
     observeStoryGenerations, startStoryBackgroundGeneration, subscribeStoryGeneration,
@@ -76,4 +76,20 @@ describe('剧情后台生成生命周期', () => {
         expect(getStoryGenerationSnapshot(first)?.phase).toBe('completed');
         stop();
     });
+    it('另一个标签页已持锁时，本页不会发出第二笔生成请求', async () => {
+        vi.stubGlobal('navigator', { locks: { request: vi.fn((_name, _options, callback) => callback(null)) } });
+        try {
+            const execute = vi.fn(async () => {});
+            const release = vi.fn();
+            expect(startStoryBackgroundGeneration('background-cross-tab', execute, release)).toBe(true);
+            await flush();
+            expect(execute).not.toHaveBeenCalled();
+            expect(release).toHaveBeenCalledOnce();
+            expect(getStoryGenerationSnapshot('background-cross-tab')?.error).toContain('本页未发送请求');
+            expect(isStoryGenerationRunning('background-cross-tab')).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
 });

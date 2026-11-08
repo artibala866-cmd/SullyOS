@@ -76,4 +76,53 @@ describe('剧情保留已收到的正文', () => {
             content: '他刚走到门口', interruption: 'API Error 200：upstream overloaded',
         });
     });
+
+    it('从非流式截断 JSON 恢复已经下载的正文及转义文字', async () => {
+        const raw = '{"choices":[{"message":{"content":"门开了，\\n他说：\\\"回来\\u5427';
+        await expect(readStoryCompletion(new Response(raw), false)).resolves.toMatchObject({
+            content: '门开了，\n他说："回来吧',
+            interruption: expect.stringContaining('非流式 JSON 响应在传输中截断'),
+        });
+        await expect(readStoryCompletion(new Response('{"error":{"message":"假正文"'), false)).rejects.toThrow('无效JSON');
+    });
+
+    it('流式结束后即使网关未关闭连接也交付，且正确拼接标准多行事件', async () => {
+        const body = new ReadableStream({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(
+                    'data: {"choices":[\n' +
+                    'data: {"message":{"content":[{"type":"text","text":{"value":"完整排版"}}]}}]}\n\n' +
+                    'data:  [DONE]\n\n',
+                ));
+            },
+        });
+        await expect(readStoryCompletion(new Response(body), false)).resolves.toEqual({
+            content: '完整排版', interruption: undefined,
+        });
+    });
+
+    it('跳过坏帧并保存有效正文，同时提示实际丢帧数', async () => {
+        const response = stream(proseEvent, 'data: {"choices":', 'data: {"choices":[{"text":"。","finish_reason":"stop"}]}', 'data: [DONE]');
+        await expect(readStoryCompletion(response, false)).resolves.toMatchObject({
+            content: '他刚走到门口。', interruption: expect.stringContaining('1 个无法解析的数据帧'),
+        });
+    });
+
+    it('从兼容代理的文本选择、Gemini 和 Responses 整包响应读取正文', async () => {
+        for (const data of [
+            { choices: [{ message: { content: '<content></content>' } }, { text: '可读正文' }] },
+            { candidates: [{ content: { parts: [{ text: '隐藏推理', thought: true }, { text: '可读正文' }] }, finishReason: 'STOP' }] },
+            { status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '可读正文' }] }] },
+        ]) {
+            await expect(readStoryCompletion(Response.json(data), false)).resolves.toMatchObject({ content: '可读正文' });
+        }
+    });
+
+    it('区分空排版、拒绝、Gemini 安全拦截和带错误码的 HTTP 失败', async () => {
+        await expect(readStoryCompletion(Response.json({ choices: [{ message: { content: '<story_text>&nbsp;</story_text>' } }] }), false)).rejects.toThrow('没有生成正文');
+        await expect(readStoryCompletion(stream('data: {"choices":[{"delta":{"refusal":"服务拒绝生成"}}]}', 'data: [DONE]'), false)).rejects.toThrow('服务拒绝生成');
+        await expect(readStoryCompletion(Response.json({ promptFeedback: { blockReason: 'SAFETY' } }), false)).rejects.toThrow('SAFETY');
+        await expect(readStoryCompletion(Response.json({ error: { message: 'quota exhausted', code: 'insufficient_quota' } }, { status: 429 }), false)).rejects.toThrow('错误码 insufficient_quota');
+    });
+
 });

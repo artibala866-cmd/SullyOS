@@ -1,3 +1,4 @@
+import { completionContentToText } from './completionContent';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt, StoryTavernChoiceKey, StoryTavernNativeControls } from '../types';
 import type { StoryApiMessage } from './storyTheater';
 
@@ -579,20 +580,10 @@ export const expandSillyTavernContextMacros = (
  */
 export const extractSillyTavernStoryContent = (data: any): string => {
     const message = data?.choices?.[0]?.message;
-    const asText = (input: unknown): string => {
-        if (typeof input === 'string') return input;
-        if (!Array.isArray(input)) return '';
-        return input.map(part => {
-            if (typeof part === 'string') return part;
-            if (!part || typeof part !== 'object') return '';
-            const item = part as Record<string, unknown>;
-            if (item.type === 'thinking' && typeof item.thinking === 'string') {
-                return `<thinking>${item.thinking}</thinking>`;
-            }
-            return typeof item.text === 'string' ? item.text
-                : typeof item.content === 'string' ? item.content : '';
-        }).join('');
-    };
+    const asText = (input: unknown): string => Array.isArray(input)
+        ? input.map(part => part?.type === 'thinking' && typeof part.thinking === 'string'
+            ? `<thinking>${part.thinking}</thinking>` : completionContentToText(part)).join('')
+        : completionContentToText(input);
     const content = asText(message?.content);
     const separateThinking = asText(message?.reasoning_content ?? message?.reasoning ?? message?.thinking);
     if (!separateThinking || /<(?:thinking|think|thought)\b/i.test(content)) return content.trim();

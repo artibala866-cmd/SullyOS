@@ -15,7 +15,7 @@ vi.mock('../components/os/TokenImg',()=>({default:()=>null}));
 
 let root: Root | undefined;
 let host: HTMLDivElement | undefined;
-afterEach(async()=>{if(root)await act(async()=>root!.unmount());host?.remove();root=undefined;host=undefined;vi.unstubAllGlobals();});
+afterEach(async()=>{if(root)await act(async()=>root!.unmount());host?.remove();root=undefined;host=undefined;vi.unstubAllGlobals();vi.restoreAllMocks();});
 
 async function openEditor(onSave: (entry: any)=>Promise<void> | void = async()=>{}) {
     host=document.createElement('div');document.body.append(host);root=createRoot(host);
@@ -54,7 +54,18 @@ describe('原作者见面剧情记忆模式移植',()=>{
     });
 });
 
-it('保留离开剧情后收到的截断正文，再进入时显示输出上限且只发一次', async () => {
+it.each([false, true])('离开后收到的截断正文仍可阅读，只发一次请求（模拟存储不足：%s）', async (failSave) => {
+    if (failSave) {
+        const save = DB.saveStoryTheaterTurn;
+        let blocked = false;
+        vi.spyOn(DB, 'saveStoryTheaterTurn').mockImplementation(async (central, mirrors) => {
+            if (central.role === 'assistant' && !blocked) {
+                blocked = true;
+                throw new DOMException('浏览器空间不足', 'QuotaExceededError');
+            }
+            return save(central, mirrors);
+        });
+    }
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -88,6 +99,19 @@ it('保留离开剧情后收到的截断正文，再进入时显示输出上限�
     await act(async () => finish(Response.json({
         choices: [{ finish_reason: 'length', message: { content: '他刚推开门，就听见' } }],
     })));
+    if (failSave) {
+        await act(async () => openSession());
+        const retry = await vi.waitFor(async () => {
+            await act(async () => {});
+            expect(host!.textContent).toContain('浏览器空间不足');
+            expect(host!.textContent).toContain('他刚推开门，就听见');
+            expect(host!.querySelector<HTMLButtonElement>('[aria-label="继续当前剧情"]')?.disabled).toBe(true);
+            const button = [...host!.querySelectorAll('button')].find(item => item.textContent === '重试本地保存');
+            expect(button).toBeDefined();
+            return button!;
+        });
+        await act(async () => retry.click());
+    }
     await vi.waitFor(async () => {
         const messages = await DB.getMessagesByCharId(`story-theater:${entry.id}`, true);
         expect(messages.find(message => message.role === 'assistant')).toMatchObject({

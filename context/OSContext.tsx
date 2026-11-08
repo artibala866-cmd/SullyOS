@@ -1286,6 +1286,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 条流，text() 完成时刻 ≈ 真实收完时刻。
               if (urlStr.includes('/chat/completions')) {
                   const meta = (config as any)?.__sullyMeta || ambientMetaAtStart;
+                  const isStory = meta?.purpose === '剧情见面生成';
+                  const isStoryArchive = meta?.purpose === '剧情事件盒总结';
                   const requestId = (config as any)?.__sullyApiCallId;
                   const body = (sendArgs[1] as any)?.body;
                   const status = response.status;
@@ -1294,27 +1296,42 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   let usageClone: Response | null = null;
                   try { usageClone = response.clone(); } catch { usageClone = null; }
                   if (usageClone) {
-                      const isStory = meta?.purpose === '剧情见面生成';
-                      const readForLog = isStory
+                      const readForLog = isStory || isStoryArchive
                           ? safeResponseJson(usageClone, { keepInterruptedBody: true }).then(parsed => ({ parsed, text: undefined }))
                           : usageClone.text().then(text => {
                               let parsed: any;
                               try { parsed = JSON.parse(text); } catch { /* recordApiCall handles raw SSE */ }
                               return { parsed, text };
                           });
-                      readForLog.then(({ parsed, text }) => {
+                      readForLog.then(async ({ parsed, text }) => {
                           const durationMs = Date.now() - fetchStartedAt;
                           const finishReason = String(parsed?.choices?.[0]?.finish_reason ?? parsed?.choices?.[0]?.finishReason ?? '').trim().toLowerCase();
-                          const incompleteStory = isStory && (parsed?.error || parsed?.__sullyRawStreamTerminal === false
-                              || ['length', 'max_tokens', 'max_output_tokens', 'safety', 'error', 'cancelled', 'canceled', 'incomplete'].includes(finishReason));
-                          const completionOk = ok && finishReason !== 'content_filter' && !incompleteStory;
+                          let outcomeDetail: string | undefined;
+                          let partial = false;
+                          if (isStory || isStoryArchive) {
+                              try {
+                                  if (isStoryArchive && response.ok) {
+                                      const { parseStoryArchiveSummary } = await import('../utils/storyTheaterArchive');
+                                      parseStoryArchiveSummary(parsed);
+                                  } else {
+                                      const { inspectStoryCompletion } = await import('../utils/storyTheaterCompletionIntegrity');
+                                      const result = inspectStoryCompletion(response, parsed);
+                                      outcomeDetail = result.interruption;
+                                      partial = !!outcomeDetail;
+                                  }
+                              } catch (error) {
+                                  outcomeDetail = error instanceof Error ? error.message : String(error);
+                              }
+                          }
+                          const completionOk = ok && finishReason !== 'content_filter' && !outcomeDetail;
                           if (completionOk) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
-                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok, response: parsed, responseText: parsed === undefined ? text : undefined });
-                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, response: parsed, responseText: parsed === undefined ? text : undefined, meta, durationMs });
-                      }).catch(() => {
-                          const completionOk = ok && !isStory;
+                          updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok: completionOk, response: parsed, responseText: parsed === undefined ? text : undefined });
+                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, outcomeDetail, partial, response: parsed, responseText: parsed === undefined ? text : undefined, meta, durationMs });
+                      }).catch(error => {
+                          const completionOk = ok && !isStory && !isStoryArchive;
+                          const outcomeDetail = isStory || isStoryArchive ? (error instanceof Error ? error.message : String(error)) : undefined;
                           updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok: completionOk });
-                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, meta, durationMs: Date.now() - fetchStartedAt });
+                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, outcomeDetail, meta, durationMs: Date.now() - fetchStartedAt });
                       });
                   } else {
                       // clone 失败时，只有已经在上面完整拼装过的升级流才能确认正文收完。
@@ -1326,7 +1343,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               if (!response.ok) {
                   // Only log if it's likely an API call (contains chat/completions or models)
-                  if (urlStr.includes('/chat/completions') || urlStr.includes('/models')) {
+                  if (!['剧情见面生成', '剧情事件盒总结'].includes(((config as any)?.__sullyMeta || ambientMetaAtStart)?.purpose)
+                      && (urlStr.includes('/chat/completions') || urlStr.includes('/models'))) {
                       try {
                           const clone = response.clone();
                           const text = await clone.text();
@@ -1368,7 +1386,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // Network Failure
               if (urlStr.includes('/chat/completions')) {
                   updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok: false });
-                  recordApiCall({ requestId: (config as any)?.__sullyApiCallId, url: urlStr, body: (sendArgs[1] as any)?.body, ok: false, meta: (config as any)?.__sullyMeta || ambientMetaAtStart, durationMs: Date.now() - fetchStartedAt });
+                  const meta = (config as any)?.__sullyMeta || ambientMetaAtStart;
+                  const outcomeDetail = meta?.purpose && ['剧情见面生成', '剧情事件盒总结'].includes(meta.purpose) ? `未收到可读取的 HTTP 响应（${err?.message || err}）` : undefined;
+                  recordApiCall({ requestId: (config as any)?.__sullyApiCallId, url: urlStr, body: (sendArgs[1] as any)?.body, ok: false, outcomeDetail, meta, durationMs: Date.now() - fetchStartedAt });
               }
               if (!isAnalyticsRequestUrl(urlStr)) {
                   // 光秃秃一句 "Failed to fetch" + 一个 URL 排查不了任何东西（社区里这条卡过好几个人）。

@@ -39,6 +39,7 @@ describe('story summary final channel', () => {
     it('rejects incomplete, filtered and recognizable untagged reasoning instead of overwriting summaries', () => {
         expect(() => parseStoryArchiveSummary(completion('部分摘要', 'length'))).toThrow('上限');
         expect(() => parseStoryArchiveSummary(completion('摘要', 'content_filter'))).toThrow('拦截');
+        expect(() => parseStoryArchiveSummary({ ...completion('只写到一半'), __sullyRawStreamTerminal: false })).toThrow('原正文未归档');
         expect(() => parseStoryArchiveSummary(completion('Paragraph 1: 31 chars\nStill too long'))).toThrow('推理过程');
         expect(parseStoryArchiveSummary(completion('他说「Let’s count together」，两人一起数星星。'))).toContain('数星星');
     });

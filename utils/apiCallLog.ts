@@ -83,6 +83,9 @@ export interface ApiCallLogEntry extends ApiCallMeta {
     status?: number;
     /** 请求是否成功拿到 JSON */
     ok: boolean;
+    /** 可见正文只收到一部分时保留真实状态和诊断。 */
+    partial?: boolean;
+    outcomeDetail?: string;
     /** 输入 token（prompt_tokens），来自响应 usage，拿不到则空 */
     promptTokens?: number;
     /** 输出 token（completion_tokens） */
@@ -987,6 +990,8 @@ export function recordApiCall(input: {
     body?: unknown;
     status?: number;
     ok: boolean;
+    partial?: boolean;
+    outcomeDetail?: string;
     response?: unknown;
     /** 响应原始文本（JSON.parse 失败时传入，供 SSE 兜底解析 model / usage） */
     responseText?: string;
@@ -1018,6 +1023,8 @@ export function recordApiCall(input: {
             backendModel,
             status: input.status,
             ok: input.ok,
+            ...(input.partial ? { partial: true } : {}),
+            ...(input.outcomeDetail ? { outcomeDetail: input.outcomeDetail.slice(0, 600) } : {}),
             promptTokens: usage.prompt,
             completionTokens: usage.completion,
             totalTokens: usage.total,

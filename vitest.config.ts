@@ -15,13 +15,14 @@ export default defineConfig({
     setupFiles: ['./test-setup.ts'],
     include: [
       'utils/**/*.test.ts',
+      'utils/storyTheaterUpstreamIntegration.test.tsx',
       'worker/**/*.test.ts',
       'scripts/**/*.test.ts',
       // Reusable 3D motion architecture runs lightweight Node-only tests.
       'apps/room3d/**/*.test.ts',
       'apps/room3d/**/*.test.js',
     ],
-    // 排除 React 组件 / 浏览器集成测 (没装 jsdom)
+    // 组件测试按需纳入，避免默认加载所有视觉测试。
     exclude: ['node_modules', '**/node_modules/**', '.worktrees', 'dist'],
   },
 });
