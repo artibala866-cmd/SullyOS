@@ -48,6 +48,7 @@ export function retryUnsavedStoryReply(entryId: string): boolean {
 
 type Listener = (snapshot: StoryGenerationSnapshot) => void;
 
+const archiveInFlight = new Set<string>();
 const inFlight = new Map<string, Promise<void>>();
 const snapshots = new Map<string, StoryGenerationSnapshot>();
 const listeners = new Map<string, Set<Listener>>();
@@ -63,8 +64,29 @@ function announce(snapshot: StoryGenerationSnapshot): void {
     }
 }
 
+async function withStoryTabLock<T>(entryId: string, run: () => Promise<T>): Promise<T> {
+    const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+    if (!locks?.request) return run();
+    return await locks.request('sullyos:story-generation:' + entryId, { ifAvailable: true }, async lock => {
+        if (!lock) throw new Error('这段剧情正在另一个标签页处理，本页未发送请求');
+        return await run();
+    });
+}
+
+export async function runStoryArchiveOperation<T>(entryId: string, run: () => Promise<T>): Promise<T> {
+    if (isStoryGenerationRunning(entryId)) throw new Error('这段剧情正在生成或正在重新总结，请等当前操作完成');
+    archiveInFlight.add(entryId);
+    changeWebUpdateActivity(1);
+    try {
+        return await withStoryTabLock(entryId, run);
+    } finally {
+        archiveInFlight.delete(entryId);
+        changeWebUpdateActivity(-1);
+    }
+}
+
 export function isStoryGenerationRunning(entryId: string): boolean {
-    return inFlight.has(entryId);
+    return inFlight.has(entryId) || archiveInFlight.has(entryId);
 }
 
 export function getStoryGenerationSnapshot(entryId: string): StoryGenerationSnapshot | undefined {
@@ -100,7 +122,7 @@ export function startStoryBackgroundGeneration(
     execute: (reportStage: (stage: string) => void) => Promise<void>,
     onSettled?: () => void,
 ): boolean {
-    if (!entryId || inFlight.has(entryId)) return false;
+    if (!entryId || isStoryGenerationRunning(entryId)) return false;
 
     const now = Date.now();
     const initial: StoryGenerationSnapshot = {
@@ -114,17 +136,7 @@ export function startStoryBackgroundGeneration(
         if (inFlight.get(entryId) !== task) return;
         announce({ ...initial, stage, updatedAt: Date.now() });
     });
-    const task = Promise.resolve().then(async () => {
-        const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
-        if (!locks?.request) {
-            await run();
-            return;
-        }
-        await locks.request(`sullyos:story-generation:${entryId}`, { ifAvailable: true }, async lock => {
-            if (!lock) throw new Error('这段剧情正在另一个标签页生成，本页未发送请求');
-            await run();
-        });
-    });
+    const task = Promise.resolve().then(() => withStoryTabLock(entryId, run));
     inFlight.set(entryId, task);
     changeWebUpdateActivity(1);
     announce(initial);

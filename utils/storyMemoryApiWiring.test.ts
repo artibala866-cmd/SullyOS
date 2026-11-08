@@ -14,7 +14,7 @@ const pipeline = read('./memoryPalace/pipeline.ts');
 
 describe('per-story API uses only memory call sites', () => {
     it('auto event box calls the isolated summary endpoint, not global prose endpoint', () => {
-        expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), { storyOnlyProvider: !!archiveEntry.memorySummaryApi })');
+        expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {');
         const archive = session.split('const archiveIfNeeded =')[1].split('const send =')[0];
         expect(archive).not.toContain('callCompletion(');
         expect(archive).not.toContain('/chat/completions');
@@ -57,7 +57,7 @@ describe('per-story API uses only memory call sites', () => {
         expect(prose).toContain('model: apiConfig.model');
         expect(prose).not.toContain('memorySummaryApi');
         expect(prose).not.toContain('resolveStoryMemoryApi');
-        expect(session).toContain('promptEntry.archives.filter(archive => archive.summary)');
+        expect(session).toContain('promptEntry.archives.filter(archive => archive.summary && archive.toMessageId < turnBoundary)');
     });
     it('main API stream preference must not transparently rewrite the story-only secondary endpoint', () => {
         expect(fetchMiddleware).toContain("(config as any)?.__sullySkipStreamUpgrade !== true");

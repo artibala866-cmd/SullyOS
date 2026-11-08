@@ -309,15 +309,22 @@ export const selectStoryArchiveBatch = (
     rows: Message[],
     archiveAfter: number,
     keepRecent: number,
+    isArchived: (row: Message) => boolean = row => row.metadata?.theaterArchived === true,
 ): Message[] => {
     const threshold = Math.max(2, Math.round(archiveAfter) || 40);
-    if (rows.length < threshold) return [];
+    const active = rows.filter(row => !isArchived(row));
+    if (active.length < threshold) return [];
     const keep = Math.max(1, Math.min(threshold - 1, Math.round(keepRecent) || 5));
     // A pending turn needs the preceding reply. A completed turn can be rerolled
     // and needs the reply preceding it as well, even with keepRecent set to 1.
-    const anchor = rows.slice(0, -1).map(row => row.role).lastIndexOf('assistant');
-    const batch = rows.slice(0, Math.min(rows.length - keep, anchor < 0 ? rows.length : anchor));
-    if (batch[batch.length - 1]?.role === 'user' && rows[batch.length]?.role === 'assistant') {
+    const anchor = active.slice(0, -1).map(row => row.role).lastIndexOf('assistant');
+    const batch = active.slice(0, Math.min(active.length - keep, anchor < 0 ? active.length : anchor));
+    // A manual box may sit between two unarchived segments. Never produce an
+    // automatic range spanning that box just because the active list skipped it.
+    const start = rows.indexOf(batch[0]);
+    const gap = batch.findIndex((row, index) => rows[start + index] !== row);
+    if (gap >= 0) batch.splice(gap);
+    if (batch[batch.length - 1]?.role === 'user' && rows[start + batch.length]?.role === 'assistant') {
         batch.pop();
     }
     return batch;

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
-import { createStoryTheaterDraft, storyTheaterThreadId } from './storyTheater';
-import { generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary } from './storyTheaterArchive';
+import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
+import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
@@ -61,8 +61,8 @@ describe('story summary final channel', () => {
     });
 
     it('rejects overlong cheap-model summaries instead of hiding original floors and poisoning every later main prompt', async () => {
-        fetchMock.mockResolvedValueOnce(response(completion('无意义流水账'.repeat(450))));
-        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('超过 2000 字符');
+        fetchMock.mockResolvedValueOnce(response(completion('无意义流水账'.repeat(600))));
+        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('超过 3000 字符');
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
@@ -166,5 +166,72 @@ describe('story archive regeneration', () => {
         try { await expect(regenerate()).rejects.toThrow('磁盘写入失败'); }
         finally { spy.mockRestore(); }
         expect((await fresh()).archives[0]).toEqual(entry.archives[0]);
+    });
+});
+
+describe('manual event box floor selection', () => {
+    const read = () => DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+    const addFloor = async (content: string, role: Message['role'] = 'assistant') => {
+        const { id: _id, ...row } = messages[1];
+        const next = { ...row, role, content, metadata: { source: 'story_theater', theaterId: entry.id } };
+        return { ...next, id: await DB.saveMessage(next) };
+    };
+
+    it('creates a box from just the chosen floors using the revised summary prompt', async () => {
+        const third = await addFloor('他把备用钥匙留给小雨，第一次叫她搭档。');
+        const fourth = await addFloor('我们约好周末见面。');
+        await addFloor('范围之外的正文');
+        const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.messages[0].content).toContain('人物关系与转折');
+        expect(body.messages[0].content).toContain('新增设定与细节');
+        expect(body.messages[0].content).toContain('未解决事项与续写落点');
+        expect(body.messages[1].content).toContain('第 3 楼');
+        expect(body.messages[1].content).toContain('备用钥匙');
+        expect(body.messages[1].content).not.toContain('范围之外');
+        expect(updated.archives[1]).toMatchObject({ fromMessageId: third.id, toMessageId: fourth.id, messageCount: 2 });
+        expect((await read()).slice(2).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('automatic archiving stops before a manually archived gap', async () => {
+        const rows = Array.from({ length: 10 }, (_, index): Message => ({
+            ...messages[index % 2], id: index + 1,
+            metadata: { ...messages[index % 2].metadata, theaterArchived: index === 2 || index === 3 },
+        }));
+        expect(selectStoryArchiveBatch(rows, 4, 1).map(row => row.id)).toEqual([1, 2]);
+    });
+
+    it('replaces the same box, restores removed floors and preserves conversion receipts', async () => {
+        const third = await addFloor('新的关系变化');
+        const updated = await archiveStoryFloorRange(entry.id, [messages[1], third], api, 'box');
+        expect(updated.archives).toHaveLength(1);
+        expect(updated.archives[0]).toMatchObject({
+            id: 'box', fromMessageId: messages[1].id, toMessageId: third.id, messageCount: 2,
+            memoryConversions: entry.archives[0].memoryConversions,
+        });
+        const rows = await read();
+        expect(rows.map(row => !!row.metadata?.theaterArchived)).toEqual([false, true, true]);
+        expect(rows.map(row => row.content)).toEqual([...messages, third].map(row => row.content));
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('rejects overlaps and a pending user floor before making any request', async () => {
+        const pending = await addFloor('还没得到回应', 'user');
+        await expect(archiveStoryFloorRange(entry.id, messages, api)).rejects.toThrow('重叠');
+        await expect(archiveStoryFloorRange(entry.id, [pending], api)).rejects.toThrow('还没有回复');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps the old box and flags when source content changes during a re-selection', async () => {
+        const third = await addFloor('新的剧情');
+        fetchMock.mockImplementationOnce(async () => {
+            await DB.updateMessage(third.id, '在另一个窗口修改了这层');
+            return response(completion('旧请求生成的摘要'));
+        });
+        await expect(archiveStoryFloorRange(entry.id, [messages[1], third], api, 'box')).rejects.toThrow('已变更');
+        expect((await fresh()).archives).toEqual(entry.archives);
+        expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
+        expect(fetchMock).toHaveBeenCalledOnce();
     });
 });

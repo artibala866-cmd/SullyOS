@@ -8,6 +8,7 @@ import { StoryTheaterThemeProvider } from '../components/date/story/StoryTheater
 import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import { DB } from './db';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
+import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
 import {createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
 
 vi.mock('../components/os/TokenImg',()=>({default:()=>null}));
@@ -164,4 +165,59 @@ it.each([
             metadata: expect.objectContaining({ theaterId: entry.id, source: 'story_theater_memory' }),
         }));
     }
+});
+
+it('事件盒页面可填写起始楼和条数，预览范围后才请求一次归档', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = { ...createStoryTheaterDraft(), title: '选择归档楼层' };
+    await DB.saveStoryTheater(entry);
+    const thread = 'story-theater:' + entry.id;
+    for (const content of ['第一楼的旧事', '第二楼交还钥匙', '第三楼解除误会']) {
+        await DB.saveMessage({
+            charId: thread, role: 'assistant', type: 'text', content,
+            metadata: { source: 'story_theater', theaterId: entry.id },
+        });
+    }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+        choices: [{ message: { content: '两人交还钥匙后解开误会。' }, finish_reason: 'stop' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const updated = vi.fn();
+    const os = {
+        characters: [], userProfile: { name: '用户' },
+        apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'summary' },
+        memoryPalaceConfig: {}, theme: {}, addToast: vi.fn(),
+    } as any;
+    await act(async () => root!.render(
+        <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+            <StoryArchivePanel entry={entry} masks={[]} onBack={() => {}} onUpdated={updated} />
+        </StoryTheaterThemeProvider></OSPreviewProvider>,
+    ));
+    await vi.waitFor(async () => {
+        await act(async () => {});
+        const button = Array.from(host!.querySelectorAll('button')).find(node => node.textContent === '手动归档楼层');
+        expect(button?.disabled).toBe(false);
+    });
+    await act(async () => click('手动归档楼层'));
+    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    const controls = host!.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    for (const [input, value] of [[controls[0], '2'], [controls[2], '2']] as const) {
+        await act(async () => {
+            setInput.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
+    expect(host!.textContent).toContain('第 2 至 3 楼，共 2 条');
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => click('开始整理'));
+    await vi.waitFor(async () => {
+        await act(async () => {});
+        expect(updated).toHaveBeenCalledOnce();
+    });
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(request.messages[1].content).toContain('第三楼解除误会');
+    expect(request.messages[1].content).not.toContain('第一楼的旧事');
+    expect(fetchMock).toHaveBeenCalledOnce();
 });

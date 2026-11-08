@@ -4,7 +4,7 @@ import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterRepl
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
-import { commitStoryArchiveBatch, generateStoryArchiveSummary } from '../../../utils/storyTheaterArchive';
+import { commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -111,7 +111,8 @@ interface AffinityDraft { delta: number; reason: string; awareness: 'noticed' | 
 const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: 'unnoticed' };
 
 const mirrorArchived = (message: Message, entry: StoryTheaterEntry): boolean => {
-    if (!entry.writesToCharacterMemory) return message.metadata?.theaterArchived === true;
+    if (message.metadata?.theaterArchived === true) return true;
+    if (!entry.writesToCharacterMemory) return false;
     const mirrorIds = message.metadata?.theaterMirrorIds as Record<string, number> | undefined;
     const recipientIds = Object.keys(mirrorIds || {});
     if (!mirrorIds || recipientIds.length === 0) return false;
@@ -759,10 +760,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         if (archiveEntry.automaticMemoryApiEnabled !== true || archiveEntry.writesToCharacterMemory || archiveLock.current) return null;
         archiveLock.current = true;
         try {
-            const rows = (await DB.getMessagesByCharId(threadId, true))
-                .filter(message => message.metadata?.source === 'story_theater' && !message.metadata?.theaterArchived)
-                .sort((a, b) => a.id - b.id);
-            const batch = selectStoryArchiveBatch(rows, archiveEntry.archiveAfter, archiveEntry.archiveKeepRecent ?? 5);
+            const rows = storyArchiveFloors(await DB.getMessagesByCharId(threadId, true), archiveEntry.id);
+            const batch = selectStoryArchiveBatch(rows, archiveEntry.archiveAfter, archiveEntry.archiveKeepRecent ?? 5, row =>
+                row.metadata?.theaterArchived === true
+                || archiveEntry.archives.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
             if (batch.length === 0) return null;
             const first = batch[0];
             const last = batch[batch.length - 1];
@@ -770,7 +771,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             if (archiveEntry.archiveStrategy === 'summary') {
                 setMemoryStatus(`正在把 ${batch.length} 条正文压成事件盒……`);
-                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), { storyOnlyProvider: !!archiveEntry.memorySummaryApi });
+                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {
+                    storyOnlyProvider: !!archiveEntry.memorySummaryApi, firstFloor: rows.indexOf(first) + 1,
+                });
             } else {
                 const embedding = memoryPalaceConfig.embedding;
                 const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model }), ...(archiveEntry.memorySummaryApi ? { skipGlobalStreamUpgrade: true } : {}) };
@@ -883,7 +886,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const turnBoundary = userMessageId || rerollTarget?.id || Infinity;
-            const requestHistory = buildStoryRequestHistory(current, turnBoundary, message => mirrorArchived(message, promptEntry));
+            const futureSummaryRanges = promptEntry.archives.filter(box => box.strategy === 'summary' && box.toMessageId >= turnBoundary);
+            const requestHistory = buildStoryRequestHistory(current, turnBoundary, message => mirrorArchived(message, promptEntry)
+                && !futureSummaryRanges.some(box => box.fromMessageId <= message.id && message.id <= box.toMessageId));
             const latestAssistant = requestHistory[requestHistory.map(item => item.message.role).lastIndexOf('assistant')];
             const precedingFloor = requestHistory.at(-1);
             const turnFloor = current.findIndex(message => message.id === turnBoundary) + 1 || current.length + 1;
@@ -894,7 +899,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 buildMaskMemoryContext(modelText),
                 independentRecall(modelText, requestHistory.slice(-8).map(({ row }) => row), promptEntry),
             ]);
-            const summaries = promptEntry.archives.filter(archive => archive.summary).map((archive, index) => `事件盒 ${index + 1}：${archive.summary}`).join('\n\n');
+            const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
+            const summaries = promptEntry.archives.filter(archive => archive.summary && archive.toMessageId < turnBoundary)
+                .sort((a, b) => a.fromMessageId - b.fromMessageId)
+                .map((archive, index) => {
+                    const first = floorNumbers.get(archive.fromMessageId), last = floorNumbers.get(archive.toMessageId);
+                    const range = first && last ? '（第 ' + first + '–' + last + ' 楼）' : '';
+                    return '事件盒 ' + (index + 1) + range + '：' + archive.summary;
+                }).join('\n\n');
             const scenario = [
                 `### 当前剧情\n标题：${entry.title}\n前提：${entry.premise || '沿用已经发生的正文自然继续。'}`,
                 summaries ? `### 常驻事件盒\n${summaries}` : '',
@@ -922,6 +934,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 : assistantOpening ? '开场生成指令 · 尚无用户行动' : `第 ${turnFloor} 楼 · 本轮用户推进`);
             const continuity = [
                 '按楼号区分已发生的历史与本轮指令。角色记忆、事件盒、向量回忆、示例和附录用于补充背景。',
+                ...(summaries ? ['事件盒记录该楼段结束时的状态。关系、设定和场景若已在后续楼层变化，以较新的正文为准。旧约定和伏笔仅在仍未解决时继续承接。'] : []),
                 ...(sendsHistory && latestAssistant ? [`第 ${latestAssistant.floor} 楼是生成位置之前最新的剧场正文，从其结尾承接当前场景与因果。`] : []),
                 ...(sendsHistory && precedingFloor?.message.role === 'user' && !precedingFloor.row.metadata?.theaterContinue
                     ? [`第 ${precedingFloor.floor} 楼是本轮之前已有的用户推进，按楼号顺序一并承接。`] : []),
@@ -1151,7 +1164,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         </div>;
                         const floorBody = (() => {
                         if (archived) {
-                            const archiveLabel = entry.writesToCharacterMemory
+                            const archiveLabel = entry.writesToCharacterMemory && !message.metadata?.theaterArchived
                                 ? '已作为正常记忆归档'
                                 : message.metadata?.theaterArchiveStrategy === 'vector'
                                     ? '已存入本剧情向量分区'
