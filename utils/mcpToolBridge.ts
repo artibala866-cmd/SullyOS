@@ -160,8 +160,14 @@ export const buildMcpRejectedToolsFallbackBody = (baseReqBody: any): any => {
     return followBody;
 };
 
-/** 部分 OpenAI 兼容中转不是忽略 tools，而是直接用 4xx 拒绝整次请求。 */
+/**
+ * A rejected tools parameter may be retried only when the relay explicitly
+ * identifies that unsupported parameter in a 400/422 validation response.
+ * Never retry 401/403, 5xx, Failed to fetch or generic 400: the first request
+ * could already have been submitted and billed upstream.
+ */
 export const shouldRetryMcpWithoutTools = (error: unknown): boolean => {
     const message = error instanceof Error ? error.message : String(error || '');
-    return /(?:^|\D)(?:400|401|403|422)(?:\D|$)/.test(message);
+    return /API Error (?:400|422)\b/i.test(message)
+        && /(?:tools?|function[_\s-]?(?:call(?:ing)?|tools?)|不支持工具|工具调用|参数不支持)/i.test(message);
 };
