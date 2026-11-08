@@ -1449,8 +1449,9 @@ export const useChatAI = ({
                 },
             } : undefined;
 
-            // 主请求即将发出 → 立即并行发射情绪评估（错峰延迟已按用户要求取消，见定义处注释）。
-            fireLocalEmotionEval?.();
+            // Do not start a second, independently billable emotion evaluation
+            // before we know the main reply was actually delivered. A failed
+            // chat request must not burn an extra evaluation charge.
 
             // 同角色活跃会话租约：本地 fetch 路径本轮真实消息已落库、模型请求即将发出，
             // 启动心跳告诉 worker「正在和这个角色聊」——到点的 expire AI 任务据此 skip，
@@ -1523,6 +1524,21 @@ export const useChatAI = ({
             }
             console.log(`⏱ [API call] ${Math.round(performance.now() - apiT0)}ms`);
             updateTokenUsage(data, historyMsgCount, 'initial');
+
+            // Only successful, non-filtered main replies may start the optional
+            // background emotion evaluation. It remains asynchronous; no new
+            // delay is imposed on the chat response itself.
+            const firstChoice = data?.choices?.[0];
+            const finishReason = String(firstChoice?.finish_reason || '').toLowerCase();
+            const firstMessage = firstChoice?.message;
+            const hasDeliverableReply = !!firstMessage && (
+                !!extractAssistantText(firstMessage).trim()
+                || (Array.isArray(firstMessage.tool_calls) && firstMessage.tool_calls.length > 0)
+            );
+            if (!replyRun.signal.aborted && hasDeliverableReply &&
+                !['content_filter', 'length', 'max_tokens'].includes(finishReason)) {
+                fireLocalEmotionEval?.();
+            }
 
             // MCP 多阶段展示：工具前的角色文字先落库，最终工具结果回复仍走统一后处理。
             const displayedMcpLeadIns = new Set<string>();
