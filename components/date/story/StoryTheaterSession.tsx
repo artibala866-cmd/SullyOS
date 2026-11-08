@@ -1033,7 +1033,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
     }, [canStart, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
 
-    const generationBusy = generationBusy || backgroundTask?.phase === 'running';
+    const generationBusy = sending || backgroundTask?.phase === 'running';
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
