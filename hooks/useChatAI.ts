@@ -1529,10 +1529,16 @@ export const useChatAI = ({
             const firstChoice = data?.choices?.[0];
             const finishReason = String(firstChoice?.finish_reason || '').toLowerCase();
             const firstMessage = firstChoice?.message;
-            const hasDeliverableReply = !!firstMessage && (
-                !!extractAssistantText(firstMessage).trim()
-                || (Array.isArray(firstMessage.tool_calls) && firstMessage.tool_calls.length > 0)
-            );
+            const firstContent = firstMessage?.content;
+            // Reasoning-only output is not a delivered reply: do not spend an
+            // additional emotion request when there is still no visible text.
+            const hasVisibleText = typeof firstContent === 'string'
+                ? !!firstContent.trim()
+                : Array.isArray(firstContent) && firstContent.some(part =>
+                    typeof part === 'string' ? !!part.trim() : !!part?.text?.trim(),
+                );
+            const hasDeliverableReply = hasVisibleText
+                || (Array.isArray(firstMessage?.tool_calls) && firstMessage.tool_calls.length > 0);
             if (!replyRun.signal.aborted && hasDeliverableReply &&
                 !['content_filter', 'length', 'max_tokens'].includes(finishReason)) {
                 fireLocalEmotionEval?.();
