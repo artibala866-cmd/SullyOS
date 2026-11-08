@@ -156,19 +156,19 @@ describe('regenerateEventBoxSummary', () => {
         expect(savedBox.tags).toEqual(['人物甲', '地点乙']);
     });
 
-    it('拒绝推理泄漏并自动重试一次，只向量化干净结果', async () => {
+    it('拒绝推理泄漏后不会自动二次生成收费，旧总结和向量保留', async () => {
         mocks.responses.push(
             completion("Wait, let's count: Paragraph 1: 31 chars. Still too long."),
-            completion('第二次返回的干净回忆。'),
+            completion('第二次生成本不应该发生。'),
         );
 
-        const result = await regenerateEventBoxSummary(
+        await expect(regenerateEventBoxSummary(
             'box-1', llmConfig, embeddingConfig, '角色甲', '用户乙',
-        );
+        )).rejects.toThrow('不会自动再次付费生成');
 
-        expect(mocks.safeFetchJson).toHaveBeenCalledTimes(2);
-        expect(mocks.getEmbeddings).toHaveBeenCalledTimes(1);
-        expect(result.summary.content).toBe('第二次返回的干净回忆。');
+        expect(mocks.safeFetchJson).toHaveBeenCalledTimes(1);
+        expect(mocks.getEmbeddings).not.toHaveBeenCalled();
+        expect((await MemoryNodeDB.getById('summary-1'))?.content).toContain('旧坏总结');
     });
 
     it('Embedding 失败时不覆盖旧 summary 和事件盒元数据', async () => {
