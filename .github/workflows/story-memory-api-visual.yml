@@ -6,6 +6,9 @@ on:
     paths:
       - types.ts
       - utils/storyMemoryApi.ts
+      - utils/memoryPalace/extraction.ts
+      - utils/memoryPalace/pipeline.ts
+      - context/OSContext.tsx
       - utils/storyMemoryApi.test.ts
       - utils/storyMemoryApiWiring.test.ts
       - utils/storyTheater.ts
@@ -44,7 +47,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/story-memory-typecheck.log 2>&1 || true
-          grep -E '^(utils/(storyMemoryApi(\.test)?|storyMemoryApiWiring\.test|storyTheater|storyTheaterArchive(\.test)?)\.ts|components/date/story/(StoryTheater|StoryTheaterEditor|StoryTheaterSession|StoryArchivePanel)\.tsx|tests/story-memory-api-visual\.tsx|types\.ts)\(' /tmp/story-memory-typecheck.log > /tmp/story-memory-target-errors.log || true
+          grep -E '^(utils/(storyMemoryApi(\.test)?|storyMemoryApiWiring\.test|storyTheater|storyTheaterArchive(\.test)?)\.ts|components/date/story/(StoryTheater|StoryTheaterEditor|StoryTheaterSession|StoryArchivePanel)\.tsx|tests/story-memory-api-visual\.tsx|types\.ts|context/OSContext\.tsx|utils/memoryPalace/(extraction|pipeline)\.ts)\(' /tmp/story-memory-typecheck.log > /tmp/story-memory-target-errors.log || true
           if [ -s /tmp/story-memory-target-errors.log ]; then
             cat /tmp/story-memory-target-errors.log
             exit 1
