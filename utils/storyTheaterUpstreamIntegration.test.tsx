@@ -15,7 +15,7 @@ vi.mock('../components/os/TokenImg',()=>({default:()=>null}));
 
 let root: Root | undefined;
 let host: HTMLDivElement | undefined;
-afterEach(async()=>{if(root)await act(async()=>root!.unmount());host?.remove();root=undefined;host=undefined;vi.unstubAllGlobals();vi.restoreAllMocks();});
+afterEach(async()=>{if(root)await act(async()=>root!.unmount());host?.remove();root=undefined;host=undefined;vi.useRealTimers();vi.unstubAllGlobals();vi.restoreAllMocks();});
 
 async function openEditor(onSave: (entry: any)=>Promise<void> | void = async()=>{}) {
     host=document.createElement('div');document.body.append(host);root=createRoot(host);
@@ -54,7 +54,11 @@ describe('原作者见面剧情记忆模式移植',()=>{
     });
 });
 
-it.each([false, true])('离开后收到的截断正文仍可阅读，只发一次请求（模拟存储不足：%s）', async (failSave) => {
+it.each([
+    { failSave: false, delayedHeaders: false },
+    { failSave: true, delayedHeaders: false },
+    { failSave: false, delayedHeaders: true },
+])('离开剧情后原请求仍交付（存储不足 $failSave，响应头超过 5 分钟 $delayedHeaders）', async ({ failSave, delayedHeaders }) => {
     if (failSave) {
         const save = DB.saveStoryTheaterTurn;
         let blocked = false;
@@ -82,7 +86,10 @@ it.each([false, true])('离开后收到的截断正文仍可阅读，只发一�
         addToast: vi.fn(),
     } as any;
     let finish!: (response: Response) => void;
-    const fetchMock = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+        finish = resolve;
+    }));
     vi.stubGlobal('fetch', fetchMock);
     HTMLElement.prototype.scrollTo = vi.fn();
     const openSession = () => root!.render(
@@ -93,11 +100,18 @@ it.each([false, true])('离开后收到的截断正文仍可阅读，只发一�
     );
 
     await act(async () => openSession());
+    if (delayedHeaders) vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await act(async () => host!.querySelector<HTMLButtonElement>('[aria-label="继续当前剧情"]')!.click());
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await act(async () => root!.render(null));
+    if (delayedHeaders) {
+        await vi.advanceTimersByTimeAsync(360000);
+        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).not.toBe(true);
+        vi.useRealTimers();
+    }
+    const content = delayedHeaders ? '他刚推开门，就听见熟悉的脚步声。' : '他刚推开门，就听见';
     await act(async () => finish(Response.json({
-        choices: [{ finish_reason: 'length', message: { content: '他刚推开门，就听见' } }],
+        choices: [{ finish_reason: delayedHeaders ? 'stop' : 'length', message: { content } }],
     })));
     if (failSave) {
         await act(async () => openSession());
@@ -115,15 +129,16 @@ it.each([false, true])('离开后收到的截断正文仍可阅读，只发一�
     await vi.waitFor(async () => {
         const messages = await DB.getMessagesByCharId(`story-theater:${entry.id}`, true);
         expect(messages.find(message => message.role === 'assistant')).toMatchObject({
-            content: '他刚推开门，就听见',
-            metadata: { theaterInterruption: expect.stringContaining('length') },
+            content,
+            metadata: { theaterInterruption: delayedHeaders ? undefined : expect.stringContaining('length') },
         });
     });
     await act(async () => openSession());
     await vi.waitFor(async () => {
         await act(async () => {});
-        expect(host!.textContent).toContain('已达到输出上限');
+        expect(host!.textContent).toContain(content);
     });
-    expect(host!.textContent).toContain('他刚推开门，就听见');
+    if (delayedHeaders) expect(host!.textContent).not.toContain('已达到输出上限');
+    else expect(host!.textContent).toContain('已达到输出上限');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 });

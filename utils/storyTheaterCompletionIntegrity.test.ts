@@ -45,6 +45,32 @@ describe('剧情保留已收到的正文', () => {
         });
     });
 
+    it.each([false, true])('响应体等待超过原来的 3 分钟仍继续接收（流式：%s）', async isStream => {
+        vi.useFakeTimers();
+        try {
+            let controller!: ReadableStreamDefaultController<Uint8Array>;
+            const body = new ReadableStream<Uint8Array>({ start(streamController) { controller = streamController; } });
+            const encoder = new TextEncoder();
+            const expected = '他刚走到门口，门开了。';
+            const response = new Response(body, {
+                headers: { 'Content-Type': isStream ? 'text/event-stream' : 'application/json' },
+            });
+            const result = readStoryCompletion(response, false);
+            const finished = vi.fn();
+            void result.then(finished, finished);
+            controller.enqueue(encoder.encode(isStream ? proseEvent + '\n\n' : '{"choices":[{"message":{"content":"他刚走到门口'));
+            await vi.advanceTimersByTimeAsync(360000);
+            expect(finished).not.toHaveBeenCalled();
+            controller.enqueue(encoder.encode(isStream
+                ? 'data: {"choices":[{"delta":{"content":"，门开了。"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+                : '，门开了。"},"finish_reason":"stop"}]}'));
+            controller.close();
+            await expect(result).resolves.toEqual({ content: expected, interruption: undefined });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('stop 或 DONE 都能正常结束，普通兼容 JSON 可以省略结束原因', async () => {
         const stop = 'data: {"choices":[{"delta":{"content":"。"},"finish_reason":"stop"}]}';
         for (const [response, content] of [

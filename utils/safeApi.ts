@@ -69,15 +69,23 @@ async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ 
     let finishedAt = 0;
     try {
         while (true) {
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const idleMs = finishedAt ? Math.max(0, finishedAt + 3000 - Date.now()) : 180000;
-            const next = await Promise.race([
-                reader.read(),
-                new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), idleMs); }),
-            ]).finally(() => clearTimeout(timer));
+            const read = reader.read();
+            let next: ReadableStreamReadResult<Uint8Array> | null;
+            if (finishedAt) {
+                // Allow trailing usage after a confirmed finish, even when the
+                // gateway keeps the connection open. Never time out active generation.
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                const remainingMs = Math.max(0, finishedAt + 3000 - Date.now());
+                next = await Promise.race([
+                    read,
+                    new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), remainingMs); }),
+                ]).finally(() => clearTimeout(timer));
+            } else {
+                next = await read;
+            }
             if (!next) {
                 void reader.cancel().catch(() => {});
-                return { text, readError: finishedAt ? undefined : '180 秒未收到新的响应数据' };
+                return { text };
             }
             if (next.done) return { text: text + decoder.decode() };
             const chunk = decoder.decode(next.value, { stream: true });

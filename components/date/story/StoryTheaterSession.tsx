@@ -629,13 +629,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         assertStoryApiConfigured(apiConfig);
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model);
         const stream = apiConfig.stream === true;
-        const controller = new AbortController();
-        const headerTimeout = setTimeout(() => controller.abort(new Error('等待 HTTP 响应头超过 5 分钟')), 300000);
+        // Non-streaming providers can wait until the whole reply is generated
+        // before sending headers. An elapsed timer is not a transport failure.
         let response: Response;
         try {
             response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
-                signal: controller.signal,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: payload, stream,
                     ...(stream ? { stream_options: { include_usage: true } } : {}), ...generationSettings }),
@@ -643,11 +642,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情见面生成' },
             } as RequestInit & { __sullySkipStreamUpgrade: boolean; __sullyMeta: { appId: string; appName: string; purpose: string } });
         } catch (error) {
-            const cause = controller.signal.reason ?? error;
-            const detail = cause instanceof Error ? cause.message || cause.name : String(cause);
+            const detail = error instanceof Error ? error.message || error.name : String(error);
             throw new Error(`浏览器未收到可读取的 HTTP 响应（${detail}）。连接、网关超时或跨域限制均可能导致此问题，请先对照站点调用记录`);
-        } finally {
-            clearTimeout(headerTimeout);
         }
         return readStoryCompletion(response, effectivePreset.document.sourceFormat === 'sillytavern', generationSettings.max_tokens, onPromptTokens);
     }, [apiConfig, effectivePreset.document.sourceFormat, entry.omitSamplingParams]);
