@@ -4,7 +4,7 @@
 .navigation-ball-toggle:hover,.navigation-ball-toggle[aria-expanded=true],.navigation-ball-toggle:focus-visible{opacity:1;background:rgba(52,56,66,.78)}
 .navigation-ball-toggle:focus-visible{outline:2px solid #8da8ce;outline-offset:3px}
 .navigation-ball-dismiss-layer{position:absolute;z-index:1;pointer-events:auto;background:transparent;touch-action:manipulation}
-.navigation-ball-panel{z-index:2;pointer-events:auto;position:absolute;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overscroll-behavior:contain;padding:7px;border:1px solid rgba(255,255,255,.35);border-radius:21px;background:rgba(52,56,66,.63);color:#f2f4f8;box-shadow:0 10px 32px rgba(19,24,36,.17),0 1px 4px rgba(19,24,36,.06);backdrop-filter:blur(14px) saturate(125%);-webkit-backdrop-filter:blur(14px) saturate(125%);animation:navigation-panel-in .14s ease-out}
+.navigation-ball-panel{z-index:2;pointer-events:auto;position:absolute;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overscroll-behavior:contain;padding:7px;border:1px solid rgba(255,255,255,.35);border-radius:21px;background:rgba(52,56,66,.63);color:#f2f4f8;box-shadow:0 10px 32px rgba(19,24,36,.17),0 1px 4px rgba(19,24,36,.06);backdrop-filter:blur(23px) saturate(155%);-webkit-backdrop-filter:blur(23px) saturate(155%);animation:navigation-panel-in .14s ease-out}
 .navigation-ball-panel,.navigation-ball-preset-list{scrollbar-width:none;-ms-overflow-style:none}
 .navigation-ball-panel::-webkit-scrollbar,.navigation-ball-preset-list::-webkit-scrollbar{display:none}
 .navigation-ball-panel button{font-family:inherit;-webkit-tap-highlight-color:transparent}
