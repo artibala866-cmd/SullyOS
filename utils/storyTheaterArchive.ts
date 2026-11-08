@@ -20,6 +20,13 @@ export function parseStoryArchiveSummary(data: any): string {
     const summary = extractContent({ choices: [{ message: { content } }] });
     if (!summary) throw new Error('模型没有返回事件盒正文（可能只返回了思维链），未保存；请重试');
     if (hasSummaryReasoningLeak(summary)) throw new Error('事件盒总结混入了推理过程，未保存；请重试');
+    // Cheap models sometimes ignore the 800-character request and return several
+    // thousand words. Persisting such a blob hides original floors, then injects
+    // the huge/low-quality recap into EVERY later expensive prose request.
+    // Fail closed rather than silently truncate potentially important facts.
+    if (Array.from(summary).length > 2000) {
+        throw new Error('事件盒摘要超过 2000 字符，未归档也未隐藏原文；请换更遵守长度要求的记忆模型后重试');
+    }
     return summary;
 }
 
