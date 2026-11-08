@@ -60,6 +60,32 @@ describe('safeFetchJson API log fallback', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
+    it.each([
+        '/v1/responses', '/v1/images/generations', '/v1/embeddings',
+        '/custom/paid-generation',
+    ])('never retries non-chat POST %s after Failed to fetch', async (endpoint) => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+        await expect(safeFetchJson(
+            'https://api.test' + endpoint,
+            { method: 'POST', body: JSON.stringify({ model: 'paid-model' }) },
+            3,
+        )).rejects.toThrow('Failed to fetch');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('never retries an already-executed POST when the gateway returns 503', async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+            JSON.stringify({ error: { message: 'upstream timed out after generation' } }),
+            { status: 503, headers: { 'content-type': 'application/json' } },
+        ));
+        await expect(safeFetchJson(
+            'https://api.test/v1/responses',
+            { method: 'POST', body: JSON.stringify({ model: 'paid-model' }) },
+            3,
+        )).rejects.toThrow('API Error 503');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
     it('never retries a billable chat completion after a retryable HTTP status', async () => {
         const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
             JSON.stringify({ error: { message: 'upstream unavailable' } }),
