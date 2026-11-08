@@ -31,7 +31,7 @@ export function parseStoryArchiveSummary(data: any): string {
 }
 
 /** Shared by automatic archiving and manual regeneration; one physical request. */
-export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>): Promise<string> {
+export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean }): Promise<string> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const transcript = messages.map(message => {
         const sourceText = message.metadata?.theaterOpeningGreeting
@@ -49,6 +49,8 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
             { role: 'user', content: `剧情：${title}\n\n${transcript}` },
         ] }),
         __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情事件盒总结' },
+        // Never let main-API stream settings rewrite a story-specific secondary request.
+        ...(options?.storyOnlyProvider ? { __sullySkipStreamUpgrade: true } : {}),
     } as RequestInit);
     const data = await safeResponseJson(response);
     if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
@@ -151,7 +153,7 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         const archive = entry?.archives.find(item => item.id === archiveId);
         if (!entry || !archive || archive.strategy !== 'summary') throw new Error('找不到剧情事件盒，请重新打开后重试');
         const messages = archiveRows(await DB.getMessagesByCharId(storyTheaterThreadId(entryId), true), entryId, archive);
-        const summary = await generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api));
+        const summary = await generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), { storyOnlyProvider: !!entry.memorySummaryApi });
         const db = await openDB();
         return await new Promise<StoryTheaterEntry>((resolve, reject) => {
             const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
