@@ -25,7 +25,8 @@ describe('剧情完整生成入库守卫', () => {
             'data: {"choices":[{"delta":{"content":"剧情"},"finish_reason":"stop"}]}',
         ]);
         expect(completed.headers.get('X-Sully-Stream-Terminal')).toBe('1');
-        expect(() => assertCompleteStoryResponse(completed, await completed.json())).not.toThrow();
+        const completeData = await completed.json();
+        expect(() => assertCompleteStoryResponse(completed, completeData)).not.toThrow();
 
         const doneOnly = await upgraded([
             ': OPENROUTER PROCESSING',
@@ -33,7 +34,8 @@ describe('剧情完整生成入库守卫', () => {
             'data: [DONE]',
         ]);
         expect(doneOnly.headers.get('X-Sully-Stream-Terminal')).toBe('1');
-        expect(() => assertCompleteStoryResponse(doneOnly, await doneOnly.json())).not.toThrow();
+        const doneOnlyData = await doneOnly.json();
+        expect(() => assertCompleteStoryResponse(doneOnly, doneOnlyData)).not.toThrow();
     });
 
     it('模型达到输出上限不将截断内容误当完整，普通兼容 JSON 不要求 finish_reason', () => {
