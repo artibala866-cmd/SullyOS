@@ -687,13 +687,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const applyActorMemoryPipeline = useCallback(async () => {
         if (!entry.writesToCharacterMemory) return;
         const embedding = memoryPalaceConfig.embedding;
-        let light;
-        try {
-            light = resolveStoryMemoryApi(entry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model });
-        } catch (error: any) {
-            addToast(`剧情记忆整理未运行：${error?.message || error}`, 'error');
-            return; // Never let a damaged secondary API prevent an already-generated story response.
-        }
+        // Role memories are shared by private chat, calls and other apps.
+        // The story-only cheap API MUST NOT extract or digest global character memory.
+        // Preserve the original palace LightLLM (or the existing global fallback).
+        const light = memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
         if (!embedding?.baseUrl || !embedding?.apiKey || !light.baseUrl) return;
         for (const actor of memoryActors) {
             if (!actor.memoryPalaceEnabled) continue;
@@ -710,7 +707,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
         setMemoryStatus('');
         await loadMessages();
-    }, [apiConfig, characters, entry, loadMessages, mask.name, memoryActors, memoryPalaceConfig, updateCharacter, addToast]);
+    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, mask.name, memoryActors, memoryPalaceConfig, updateCharacter]);
 
     const archiveIfNeeded = useCallback(async (archiveEntry = entry): Promise<StoryTheaterEntry | null> => {
         if (archiveEntry.writesToCharacterMemory || archiveLock.current) return null;
