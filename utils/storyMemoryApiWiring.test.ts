@@ -8,10 +8,13 @@ const archives = read('../components/date/story/StoryArchivePanel.tsx');
 const archiveEngine = read('./storyTheaterArchive.ts');
 const editor = read('../components/date/story/StoryTheaterEditor.tsx');
 const story = read('./storyTheater.ts');
+const fetchMiddleware = read('../context/OSContext.tsx');
+const extraction = read('./memoryPalace/extraction.ts');
+const pipeline = read('./memoryPalace/pipeline.ts');
 
 describe('per-story API uses only memory call sites', () => {
     it('auto event box calls the isolated summary endpoint, not global prose endpoint', () => {
-        expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig))');
+        expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), { storyOnlyProvider: !!archiveEntry.memorySummaryApi })');
         expect(session).toContain('const response = await fetch(');
         expect(session).toContain("const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)");
     });
@@ -21,12 +24,13 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('else if (!failedArchiveBeforeProse) await archiveIfNeeded(promptEntry)');
     });
     it('vector extraction uses only story override for LLM and retains existing embedding configuration', () => {
-        expect(session).toContain('const light = resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl');
+        expect(session).toContain('const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl');
+        expect(session).toContain('skipGlobalStreamUpgrade: true');
         expect(session).toContain('processMessageRange(threadId, archiveEntry.title, embedding, light, first.id, last.id');
         expect(session).toContain('const embedding = memoryPalaceConfig.embedding');
     });
     it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
-        expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api))');
+        expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), { storyOnlyProvider: !!entry.memorySummaryApi })');
         expect(archives).toContain('const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;');
         expect(archives).not.toContain('resolveStoryMemoryApi(');
         const actorMemory = session.split('const applyActorMemoryPipeline =')[1].split('const archiveIfNeeded =')[0];
@@ -45,6 +49,12 @@ describe('per-story API uses only memory call sites', () => {
         expect(prose).not.toContain('memorySummaryApi');
         expect(prose).not.toContain('resolveStoryMemoryApi');
         expect(session).toContain('promptEntry.archives.filter(archive => archive.summary)');
+    });
+    it('main API stream preference must not transparently rewrite the story-only secondary endpoint', () => {
+        expect(fetchMiddleware).toContain("(config as any)?.__sullySkipStreamUpgrade !== true");
+        expect(archiveEngine).toContain("__sullySkipStreamUpgrade: true");
+        expect(extraction).toContain('llmConfig.skipGlobalStreamUpgrade ? { __sullySkipStreamUpgrade: true }');
+        expect(pipeline).toContain('skipGlobalStreamUpgrade?: boolean');
     });
     it('UI is under the original 03 Memory section; selects global presets read-only, never updates global config', () => {
         expect(editor).toContain('03 / Memory');
