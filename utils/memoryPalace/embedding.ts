@@ -5,7 +5,7 @@
  * 支持硅基流动 / 阿里云 / 字节等端点。
  */
 
-import { waitForPalaceRequest, readMaintenanceSettings } from './maintenanceMode';
+import { waitForPalaceRequest } from './maintenanceMode';
 import type { EmbeddingConfig } from './types';
 
 // ─── 核心 API 调用 ────────────────────────────────────
@@ -107,7 +107,7 @@ function modelSupportsDimensions(model: string): boolean {
  * 实际调用 Embedding API
  */
 async function callEmbeddingAPI(
-    input: string[], config: EmbeddingConfig, retryCount: number = 0
+    input: string[], config: EmbeddingConfig,
 ): Promise<number[][]> {
     // 自动修正常见 URL 错误
     let baseUrl = config.baseUrl.replace(/\/+$/, '');
@@ -165,13 +165,9 @@ async function callEmbeddingAPI(
     } catch (err: any) {
         config.signal?.throwIfAborted();
         const status: number | undefined = err?.status;
-        // 参数类 4xx 重试同样的请求不会变好；网络错误 / 5xx / 429 才值得重试一次
-        const retryable = status === undefined || status >= 500 || status === 429;
-        if (retryable && retryCount < 1 && !(status === 429 && readMaintenanceSettings().enabled)) {
-            console.warn(`⚡ [Embedding] Retry after error: ${err.message}`);
-            await new Promise(r => setTimeout(r, 1000));
-            return callEmbeddingAPI(input, config, retryCount + 1);
-        }
+        // Embedding is a billable POST. A timeout / network error / HTTP 5xx
+        // cannot prove the upstream did not process the vectors. Never
+        // automatically resubmit the same batch: it may charge the user twice.
         // 批量被 400 拒 → 自动降级为逐条向量化：一来绕开「批内 token 总量
         // 超限」类校验（每条单独发就合法），二来能精确定位坏输入是哪条。
         if (status === 400 && input.length > 1) {
@@ -179,8 +175,8 @@ async function callEmbeddingAPI(
             const results: number[][] = [];
             for (let i = 0; i < input.length; i++) {
                 try {
-                    // retryCount=1：单条失败不再重试/再降级，直接进 catch 定位
-                    const single = await callEmbeddingAPI([input[i]], config, 1);
+                    // A single entry is never recursively split again.
+                    const single = await callEmbeddingAPI([input[i]], config);
                     results.push(single[0]);
                 } catch (itemErr: any) {
                     const preview = input[i].slice(0, 80).replace(/\n/g, ' ');
