@@ -20,11 +20,26 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('processMessageRange(threadId, archiveEntry.title, embedding, light, first.id, last.id');
         expect(session).toContain('const embedding = memoryPalaceConfig.embedding');
     });
-    it('regeneration and conversion use the entry snapshot; standard character memory processing stays untouched', () => {
+    it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
         expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api))');
-        expect(archives).toContain('const llm=resolveStoryMemoryApi(entry,memoryPalaceConfig.lightLLM?.baseUrl');
-        expect(session).toContain('light = resolveStoryMemoryApi(entry, memoryPalaceConfig.lightLLM?.baseUrl');
-        expect(session).toContain('processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light');
+        expect(archives).toContain('const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;');
+        expect(archives).not.toContain('resolveStoryMemoryApi(');
+        const actorMemory = session.split('const applyActorMemoryPipeline =')[1].split('const archiveIfNeeded =')[0];
+        expect(actorMemory).not.toContain('resolveStoryMemoryApi(');
+        expect(actorMemory).toContain('const light = memoryPalaceConfig.lightLLM?.baseUrl');
+        expect(actorMemory).toContain('processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light');
+        expect(actorMemory).toContain('runCognitiveDigestion(actor.id,');
+    });
+    it('the expensive prose request keeps its original URL, Key, Model and sampling settings', () => {
+        const prose = session.split('const callCompletion =')[1].split('const saveCentralAndMirrors =')[0];
+        expect(prose).toContain("assertStoryApiConfigured(apiConfig)");
+        expect(prose).toContain("prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)");
+        expect(prose).toContain("fetch(`${apiConfig.baseUrl.replace(/\\/+$/, '')}/chat/completions`");
+        expect(prose).toContain("Authorization': `Bearer ${apiConfig.apiKey}`");
+        expect(prose).toContain('model: apiConfig.model');
+        expect(prose).not.toContain('memorySummaryApi');
+        expect(prose).not.toContain('resolveStoryMemoryApi');
+        expect(session).toContain('promptEntry.archives.filter(archive => archive.summary)');
     });
     it('UI is under the original 03 Memory section; selects global presets read-only, never updates global config', () => {
         expect(editor).toContain('03 / Memory');
@@ -33,6 +48,8 @@ describe('per-story API uses only memory call sites', () => {
         expect(editor).toContain("update('memorySummaryApi'");
         expect(editor).toContain("storyMemoryApiValidationError(normalizeStoryMemoryApi(draft.memorySummaryApi)!)");
         expect(editor).not.toContain('updateApiConfig(');
+        expect(editor).toContain('normalizeApiPresets(apiPresets)');
+        expect(editor).toContain('storyMemoryApiSharesGateway(draft.memorySummaryApi, mainApi)');
     });
     it('import/restoration keeps the dedicated configuration per story', () => {
         expect(story).toContain('memorySummaryApi: normalizeStoryMemoryApi(entry.memorySummaryApi)');
