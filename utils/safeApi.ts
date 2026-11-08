@@ -31,7 +31,7 @@ export async function safeResponseJson(response: Response): Promise<any> {
     // Keep this transport-only evidence non-enumerable (never store it in logs).
     if (isSseResponseText(text, contentType) && parsed && typeof parsed === 'object' && Array.isArray(parsed.choices)) {
         const finished = Boolean(parsed.choices[0]?.finish_reason)
-            || text.split(/\r?\n/).some(line => (line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]').test(line.trim()));
+            || text.split(/\r?\n/).some(line => (line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]'));
         Object.defineProperty(parsed, '__sullyRawStreamTerminal', { value: finished, enumerable: false });
     }
     return parsed;
