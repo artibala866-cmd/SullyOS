@@ -139,6 +139,8 @@ export interface LightLLMConfig {
     signal?: AbortSignal;
     /** Manual wizard: compression must not start another plate request. */
     deferPlateMaintenance?: boolean;
+    /** Story-only archive extraction may opt out of main-API stream transport rewriting. */
+    skipGlobalStreamUpgrade?: boolean;
     baseUrl: string;
     apiKey: string;
     model: string;
