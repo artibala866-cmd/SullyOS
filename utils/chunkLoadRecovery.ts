@@ -13,6 +13,8 @@
  * 避免服务器真把 chunk 弄丢时无限刷新。大退后 sessionStorage 自然清空, 护栏复位。
  */
 
+import { hasWebUpdateActivity } from './webUpdateSession';
+
 const RELOAD_MARK_KEY = 'sullyos_chunk_reload_at';
 const RELOAD_COOLDOWN_MS = 60_000;
 
@@ -59,7 +61,7 @@ export const isChunkLoadError = (err: unknown): boolean => {
 export const tryAutoReloadForChunkError = (): boolean => {
     // A reload cannot download missing code while offline; keep the usable page and offer retry.
     // Do not consume the cooldown while offline so a later online retry can recover.
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    if (hasWebUpdateActivity() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
     let allowed = false;
     try {
         const last = parseInt(sessionStorage.getItem(RELOAD_MARK_KEY) || '0', 10) || 0;

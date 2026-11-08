@@ -63,6 +63,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
+import { listStoryVectorMemories } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
@@ -673,7 +674,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const recent = await loadStoryActorContext(actor, entry.id, limit);
             let recalled = '';
             const embedding = memoryPalaceConfig.embedding;
-            if (actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
+            if (entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
                 const rawRecall = await retrieveMemories(recent, actor.id, embedding, actor.activeBuffs?.[0]?.name, actor.personalityStyle || 'emotional', actor.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, actor.name);
                 recalled = buildStoryActorMemoryEnvelope(actor.name, rawRecall, userProfile.name, mask.name);
             }
@@ -686,7 +687,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, mask.name)}`.trim());
         }
         return blocks.join('\n\n---\n\n');
-    }, [actors, effectivePreset.document.sourceFormat, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, effectivePreset.document.sourceFormat, entry.id, entry.carryCharacterMemory, entry.automaticMemoryApiEnabled, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || !mask.characterId) return '';
@@ -696,7 +697,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const recent = await loadStoryActorContext(maskCharacter, entry.id, limit);
         let recalled = '';
         const embedding = memoryPalaceConfig.embedding;
-        if (maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
+        if (entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
             const rawRecall = await retrieveMemories(recent, maskCharacter.id, embedding, maskCharacter.activeBuffs?.[0]?.name, maskCharacter.personalityStyle || 'emotional', maskCharacter.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, maskCharacter.name);
             recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, mask.name);
         }
@@ -710,17 +711,27 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             headerOverride: `[你当前身份的既有记忆：${maskCharacter.name}]`,
         }, { skipTimeAwareness: true }));
         return `${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, mask.name)}`.trim();
-    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.automaticMemoryApiEnabled, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const independentRecall = useCallback(async (query: string, recent: Message[], activeEntry: StoryTheaterEntry = entry): Promise<string> => {
         if (activeEntry.writesToCharacterMemory || !activeEntry.archives.some(archive => archive.strategy === 'vector')) return '';
+        if (activeEntry.automaticMemoryApiEnabled !== true) {
+            const saved = await listStoryVectorMemories(activeEntry.id).catch(error => {
+                console.warn('[StoryTheater] could not read local vector memories', error);
+                return [];
+            });
+            // Retain a bounded excerpt of existing archive text without an
+            // embedding or reranker request. The full archive remains readable.
+            return saved.filter(node => node.content.trim()).slice(0, 10)
+                .map(node => node.content.trim().slice(0, 600)).join('\n\n');
+        }
         const embedding = memoryPalaceConfig.embedding;
         if (!embedding?.baseUrl || !embedding?.apiKey) return '（本剧情存在向量归档，但当前没有可用的向量记忆配置。）';
         return retrieveMemories(recent, threadId, embedding, undefined, 'emotional', 0.3, query, mask.name, remoteVectorConfig, activeEntry.title);
     }, [entry, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, threadId]);
 
     const applyActorMemoryPipeline = useCallback(async () => {
-        if (!entry.writesToCharacterMemory) return;
+        if (!entry.writesToCharacterMemory || entry.automaticMemoryApiEnabled !== true) return;
         const embedding = memoryPalaceConfig.embedding;
         // Role memories are shared by private chat, calls and other apps.
         // The story-only cheap API MUST NOT extract or digest global character memory.
@@ -742,10 +753,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
         setMemoryStatus('');
         await loadMessages();
-    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, mask.name, memoryActors, memoryPalaceConfig, updateCharacter]);
+    }, [apiConfig, characters, entry.writesToCharacterMemory, entry.automaticMemoryApiEnabled, loadMessages, mask.name, memoryActors, memoryPalaceConfig, updateCharacter]);
 
     const archiveIfNeeded = useCallback(async (archiveEntry = entry): Promise<StoryTheaterEntry | null> => {
-        if (archiveEntry.writesToCharacterMemory || archiveLock.current) return null;
+        if (archiveEntry.automaticMemoryApiEnabled !== true || archiveEntry.writesToCharacterMemory || archiveLock.current) return null;
         archiveLock.current = true;
         try {
             const rows = (await DB.getMessagesByCharId(threadId, true))
@@ -861,9 +872,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             // 归档不能只放在成功生成之后：一旦会话已经碰到上游上下文上限，正文永远生成
             // 不出来，后置归档也就永远没有机会执行。重试已有 user 楼层时先归档，窗口可自愈。
-            reportStage('正在检查旧剧情归档…');
+            const automaticMemoryApiEnabled = entry.automaticMemoryApiEnabled === true;
+            if (automaticMemoryApiEnabled && !entry.writesToCharacterMemory) reportStage('正在检查旧剧情归档…');
             const previousArchiveErrors = archiveErrorSeq.current;
-            const archiveBeforeProse = await archiveIfNeeded();
+            const archiveBeforeProse = automaticMemoryApiEnabled ? await archiveIfNeeded() : null;
             const promptEntry = archiveBeforeProse || entry;
             const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors;
 
@@ -1035,9 +1047,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setAffinityDrafts({});
             setShowAffinityInput(false);
             await loadMessages().catch(error => addToast(`正文已保存，页面读取失败：${error?.message || error}`, 'error'));
-            if (interruption) return;
+            if (interruption || !automaticMemoryApiEnabled) return;
             reportStage('剧情正文已保存，正在整理后续记忆…');
-            if (entry.writesToCharacterMemory) void applyActorMemoryPipeline();
+            if (entry.writesToCharacterMemory) {
+                await applyActorMemoryPipeline().catch(error => addToast(`正文已保存，角色记忆整理失败：${error?.message || error}`, 'error'));
+            }
             // A failed preflight can already have billed the secondary provider.
             // Do not issue a second summary request for the same source batch
             // merely because the expensive prose generation has now succeeded.
@@ -1189,7 +1203,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         <button disabled={generationBusy} onClick={() => retryUnsavedStoryReply(entry.id)}>重试本地保存</button>
                     </div>
                 </section>}
-                {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，仍会通过所选记忆方式参与续写</div>}
+                {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，可展开查看</div>}
                 <div className='h-6' />
             </div>
         </main>

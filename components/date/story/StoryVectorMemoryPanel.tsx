@@ -117,7 +117,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
                     <p className='mt-2 text-[11px] leading-5 text-slate-500'>这里只有「{entry.title}」的独立分区，共 {nodes.length} 条。长按任意一条可以编辑或删除；操作不会进入角色记忆，也不会触碰其它剧情。</p>
                 </section>
 
-                {loading ? <div className='py-20 grid place-items-center text-slate-400'><SpinnerGap size={24} className='animate-spin' /></div> : nodes.length === 0 ? <div className='py-16 text-center'><div className='text-sm font-semibold'>还没有向量归档</div><p className='mt-2 text-[10px] leading-5 text-slate-500'>推进达到归档条数后，旧正文会被提炼并写入这里。</p></div> : <>
+                {loading ? <div className='py-20 grid place-items-center text-slate-400'><SpinnerGap size={24} className='animate-spin' /></div> : nodes.length === 0 ? <div className='py-16 text-center'><div className='text-sm font-semibold'>还没有向量归档</div><p className='mt-2 text-[10px] leading-5 text-slate-500'>开启「自动记忆 API」后，推进达到归档条数时，旧正文会被提炼并写入这里。</p></div> : <>
                     <div className='divide-y divide-slate-200'>{visibleNodes.map((node, index) => <article
                         key={node.id}
                         onPointerDown={() => beginLongPress(node)}

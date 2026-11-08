@@ -9,6 +9,8 @@
  * Android/browser process termination, reload and OS suspension cannot be
  * guaranteed to keep a fetch running.
  */
+import { changeWebUpdateActivity } from './webUpdateSession';
+
 export type StoryGenerationPhase = 'running' | 'completed' | 'failed';
 
 export interface StoryGenerationSnapshot {
@@ -124,6 +126,7 @@ export function startStoryBackgroundGeneration(
         });
     });
     inFlight.set(entryId, task);
+    changeWebUpdateActivity(1);
     announce(initial);
 
     void task.then(() => {
@@ -135,6 +138,7 @@ export function startStoryBackgroundGeneration(
         console.error('[StoryBackground] generation failed', entryId, reason);
     }).finally(() => {
         if (inFlight.get(entryId) === task) inFlight.delete(entryId);
+        changeWebUpdateActivity(-1);
         onSettled?.();
     });
     return true;

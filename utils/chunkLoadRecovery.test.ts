@@ -1,3 +1,4 @@
+import { changeWebUpdateActivity } from './webUpdateSession';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { isChunkLoadError, markModuleLoadError, tryAutoReloadForChunkError } from './chunkLoadRecovery';
 
@@ -82,6 +83,19 @@ describe('tryAutoReloadForChunkError', () => {
         expect(tryAutoReloadForChunkError()).toBe(true);
         expect(tryAutoReloadForChunkError()).toBe(false);
         expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('有进行中的回复时延后刷新，并保留之后的恢复机会', () => {
+        const { reload } = stubEnv();
+        changeWebUpdateActivity(1);
+        try {
+            expect(tryAutoReloadForChunkError()).toBe(false);
+            expect(reload).not.toHaveBeenCalled();
+        } finally {
+            changeWebUpdateActivity(-1);
+        }
+        expect(tryAutoReloadForChunkError()).toBe(true);
+        expect(reload).toHaveBeenCalledOnce();
     });
 
     it('离线时不强制刷新且不消耗恢复机会', () => {

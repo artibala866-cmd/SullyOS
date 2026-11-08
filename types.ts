@@ -2275,6 +2275,8 @@ export interface StoryTheaterEntry {
     archiveKeepRecent?: number;
     archiveStrategy: StoryTheaterArchiveStrategy;
     archives: StoryTheaterArchive[];
+    /** Explicit consent to additional online memory calls during this story. */
+    automaticMemoryApiEnabled?: boolean;
     /** Only this story's memory summaries/extraction use this complete API snapshot; absent follows existing routes. */
     memorySummaryApi?: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>;
 

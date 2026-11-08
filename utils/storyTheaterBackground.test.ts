@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { hasWebUpdateActivity } from './webUpdateSession';
 import {
     getStoryGenerationSnapshot, isStoryGenerationRunning,
     observeStoryGenerations, startStoryBackgroundGeneration, subscribeStoryGeneration,
@@ -28,6 +29,7 @@ describe('剧情后台生成生命周期', () => {
         await flush();
         expect(requests).toBe(1);
         expect(isStoryGenerationRunning(entryId)).toBe(true);
+        expect(hasWebUpdateActivity()).toBe(true);
         expect(seen).toContain('正在等待模型返回');
 
         // Simulates unmount of the submitting StoryTheaterSession.
@@ -42,6 +44,7 @@ describe('剧情后台生成生命周期', () => {
         expect(saved).toBe('完整剧情正文，包含最终一句');
         expect(getStoryGenerationSnapshot(entryId)?.phase).toBe('completed');
         expect(isStoryGenerationRunning(entryId)).toBe(false);
+        expect(hasWebUpdateActivity()).toBe(false);
         expect(requests).toBe(1);
 
         const afterReturn: string[] = [];

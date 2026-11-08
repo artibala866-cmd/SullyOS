@@ -39,6 +39,7 @@ describe('原作者见面剧情记忆模式移植',()=>{
         const node=await openEditor();
         expect(node.textContent).toContain('你的输入和角色回复会按各自实际发送的时间记录');
         expect(node.querySelector('input[type="datetime-local"]')).toBeNull();
+        expect(node.querySelector('[aria-label="启用自动记忆 API"]')?.getAttribute('aria-pressed')).toBe('false');
         expect(node.textContent).toContain('内置真实性保护');
     });
     it('虚构剧场保留原版事件盒手动转记忆，不把它误写成永久不可转存',async()=>{
@@ -55,10 +56,11 @@ describe('原作者见面剧情记忆模式移植',()=>{
 });
 
 it.each([
-    { failSave: false, delayedHeaders: false },
-    { failSave: true, delayedHeaders: false },
-    { failSave: false, delayedHeaders: true },
-])('离开剧情后原请求仍交付（存储不足 $failSave，响应头超过 5 分钟 $delayedHeaders）', async ({ failSave, delayedHeaders }) => {
+    { failSave: false, delayedHeaders: false, realCompanion: false },
+    { failSave: true, delayedHeaders: false, realCompanion: false },
+    { failSave: false, delayedHeaders: true, realCompanion: false },
+    { failSave: false, delayedHeaders: false, realCompanion: true },
+])('离开剧情后原请求仍交付（存储不足 $failSave，响应头超过 5 分钟 $delayedHeaders，真实陪伴 $realCompanion）', async ({ failSave, delayedHeaders, realCompanion }) => {
     if (failSave) {
         const save = DB.saveStoryTheaterTurn;
         let blocked = false;
@@ -73,14 +75,25 @@ it.each([
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
-    const entry = { ...createStoryTheaterDraft(), characterIds: ['a'], archiveAfter: 40 };
+    const entry = {
+        ...createStoryTheaterDraft(), characterIds: ['a'], carryCharacterMemory: true, writesToCharacterMemory: realCompanion,
+        archiveAfter: 2, archiveKeepRecent: 1,
+        memorySummaryApi: { baseUrl: 'https://memory.invalid/v1', apiKey: 'fixture', model: 'memory' },
+    };
+    const thread = 'story-theater:' + entry.id;
+    for (const [index, role] of (['user', 'assistant', 'user', 'assistant'] as const).entries()) {
+        await DB.saveMessage({
+            charId: thread, role, type: 'text', content: '原有楼层 ' + (index + 1),
+            metadata: { source: 'story_theater', theaterId: entry.id },
+        });
+    }
     const preset = createBlankStoryPreset('剧情');
     const os = {
-        characters: [{ id: 'a', name: '角色A', mountedWorldbooks: [] }],
+        characters: [{ id: 'a', name: '角色A', mountedWorldbooks: [], memoryPalaceEnabled: true }],
         worldbooks: [],
         userProfile: { name: '用户' },
         apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'story' },
-        memoryPalaceConfig: {},
+        memoryPalaceConfig: { embedding: { baseUrl: 'https://embedding.invalid/v1', apiKey: 'fixture', model: 'embedding' } },
         remoteVectorConfig: {},
         theme: { storyAppearance: { preset: 'none' } },
         addToast: vi.fn(),
@@ -103,6 +116,7 @@ it.each([
     if (delayedHeaders) vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await act(async () => host!.querySelector<HTMLButtonElement>('[aria-label="继续当前剧情"]')!.click());
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][0]).toBe('https://fixture.invalid/v1/chat/completions');
     await act(async () => root!.render(null));
     if (delayedHeaders) {
         await vi.advanceTimersByTimeAsync(360000);
@@ -128,7 +142,7 @@ it.each([
     }
     await vi.waitFor(async () => {
         const messages = await DB.getMessagesByCharId(`story-theater:${entry.id}`, true);
-        expect(messages.find(message => message.role === 'assistant')).toMatchObject({
+        expect(messages.filter(message => message.role === 'assistant').at(-1)).toMatchObject({
             content,
             metadata: { theaterInterruption: delayedHeaders ? undefined : expect.stringContaining('length') },
         });
@@ -141,4 +155,13 @@ it.each([
     if (delayedHeaders) expect(host!.textContent).not.toContain('已达到输出上限');
     else expect(host!.textContent).toContain('已达到输出上限');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    const messages = await DB.getMessagesByCharId(thread, true);
+    expect(messages.some(message => message.metadata?.theaterArchived)).toBe(false);
+    if (realCompanion) {
+        const actorHistory = await DB.getMessagesByCharId('a', true);
+        expect(actorHistory).toContainEqual(expect.objectContaining({
+            role: 'assistant', content,
+            metadata: expect.objectContaining({ theaterId: entry.id, source: 'story_theater_memory' }),
+        }));
+    }
 });

@@ -19,6 +19,14 @@ describe('per-story API uses only memory call sites', () => {
         expect(archive).not.toContain('callCompletion(');
         expect(archive).not.toContain('/chat/completions');
     });
+    it('requires an explicit per-story opt-in for automatic API memory', () => {
+        expect(story).toContain('automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true');
+        expect(session).toContain('automaticMemoryApiEnabled ? await archiveIfNeeded() : null');
+        expect(session).toContain('if (interruption || !automaticMemoryApiEnabled) return;');
+        expect(session).toContain('entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled');
+        expect(session).toContain('entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled');
+        expect(session).toContain('if (activeEntry.automaticMemoryApiEnabled !== true)');
+    });
     it('never sends a second failed preflight summary in the same expensive prose turn', () => {
         expect(session).toContain('const archiveErrorSeq = useRef(0)');
         expect(session).toContain('const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors');

@@ -228,6 +228,7 @@ export function createWebUpdateSession(deps: Dependencies) {
 // Keep the session across Settings mounts. Registration remains owned by KeepAlive.
 let runningRequests = 0;
 export function changeWebUpdateActivity(delta: number) { runningRequests = Math.max(0, runningRequests + delta); }
+export function hasWebUpdateActivity() { return runningRequests > 0; }
 // Reading the container throws where storage access is denied (sandboxed frames, blocked site data).
 function serviceWorkerContainer(): ServiceWorkerContainer | undefined {
   try { return typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined; }
@@ -237,7 +238,7 @@ export const webUpdateSession = createWebUpdateSession({
   buildId: typeof __APP_BUILD_ID__ === 'undefined' ? 'development' : __APP_BUILD_ID__,
   appVersion: APP_VERSION_TAG,
   container: serviceWorkerContainer(),
-  reload: () => window.location.reload(), canReload: () => runningRequests === 0, request: requestResourceCache,
+  reload: () => window.location.reload(), canReload: () => !hasWebUpdateActivity(), request: requestResourceCache,
 });
 
 export function watchWebUpdates(registration: ServiceWorkerRegistration) {

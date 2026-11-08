@@ -639,8 +639,17 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <label><span className='block mb-2 text-[10px] text-slate-500'>累计多少层后归档</span><input type='number' min={2} max={200} value={draft.archiveAfter} onChange={event => update('archiveAfter', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                         <label><span className='block mb-2 text-[10px] text-slate-500'>至少保留最近几层</span><input type='number' min={1} max={Math.max(1, Number(draft.archiveAfter) - 1)} value={draft.archiveKeepRecent ?? 5} onChange={event => update('archiveKeepRecent', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                     </div>
-                    <p className='text-[10px] leading-5 text-slate-500'>先完成并显示本轮回复，再归档最旧部分；默认保留最近 5 层。以后可以换策略，旧事件盒与旧向量都不会丢。</p>
+                    <p className='text-[10px] leading-5 text-slate-500'>仅开启下方的自动记忆 API 后，才会按这里的设置归档。默认保留最近 5 层。</p>
                 </div>}
+                <div className='mt-6 flex items-start justify-between gap-3 border-t border-slate-200 pt-5'>
+                    <div className='min-w-0'>
+                        <div className='text-sm font-semibold'>自动记忆 API</div>
+                        <p className='mt-1 text-[10px] leading-5 text-slate-500'>默认关闭。开启后，本剧情的自动事件盒、向量召回与归档、角色记忆整理可在续写前后额外调用 API，站点可能另计费用。没有设置专用 API 时，部分整理会使用主 API。</p>
+                        <p className='mt-1 text-[10px] leading-5 text-slate-500'>关闭时仍可使用已保存的正文和本地记忆。长剧情会继续使用未归档原文，可能增加正文请求的输入量。</p>
+                    </div>
+                    <Toggle label='启用自动记忆 API' value={draft.automaticMemoryApiEnabled === true}
+                        onChange={enabled => update('automaticMemoryApiEnabled', enabled)} />
+                </div>
                 <div className='mt-6 pt-5 border-t border-slate-200' data-story-memory-api-settings>
                     <div className='flex items-start justify-between gap-3'>
                         <div className='min-w-0'><div className='text-sm font-semibold'>剧情记忆总结副 API</div>

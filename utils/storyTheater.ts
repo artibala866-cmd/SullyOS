@@ -284,6 +284,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
         archives: Array.isArray(entry.archives) ? entry.archives : [],
+        automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true,
         memorySummaryApi: normalizeStoryMemoryApi(entry.memorySummaryApi),
         // Imported/older backups can contain duplicate or invalid IDs.
         // Preserve legitimate IDs, but never count one selected book twice.
