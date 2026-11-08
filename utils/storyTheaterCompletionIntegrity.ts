@@ -11,7 +11,7 @@ export function assertCompleteStoryResponse(response: Response, data: any): void
     if (reason === 'content_filter') {
         // HTTP 200 and billed output tokens do NOT mean the provider delivered
         // usable story text. Do not resubmit or save filtered/partial results.
-        throw new Error('上游返回 content_filter（内容过滤）：可能已经扣费，但没有可保存的完整剧情。原推进已保留；请先核对站子该笔响应，不要连续重试');
+        throw new Error('上游返回 content_filter（内容过滤拦截）：可能已经扣费，但没有可保存的完整剧情。原推进已保留；请先核对站子该笔响应，不要连续重试');
     }
     // A stream:false request can receive SSE anyway. safeResponseJson marks
     // its terminal evidence separately, because only the global-upgrade path
