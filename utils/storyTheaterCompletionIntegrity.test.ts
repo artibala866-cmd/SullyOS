@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assembleUpgradedResponse } from './streamUpgrade';
+import { safeResponseJson } from './safeApi';
 import { assertCompleteStoryResponse } from './storyTheaterCompletionIntegrity';
 
 const upgraded = (lines: string[]) => assembleUpgradedResponse(new Response(
@@ -36,6 +37,35 @@ describe('剧情完整生成入库守卫', () => {
         expect(doneOnly.headers.get('X-Sully-Stream-Terminal')).toBe('1');
         const doneOnlyData = await doneOnly.json();
         expect(() => assertCompleteStoryResponse(doneOnly, doneOnlyData)).not.toThrow();
+    });
+
+    it('中转无视 stream:false 返回原始 SSE：无结束信号不能保存付费半截剧情', async () => {
+        const response = new Response('data: {"choices":[{"delta":{"content":"半截剧情"}}]}\\n', {
+            headers: { 'Content-Type': 'text/event-stream' },
+        });
+        const data = await safeResponseJson(response);
+        expect(data.choices[0].message.content).toBe('半截剧情');
+        expect(data.__sullyRawStreamTerminal).toBe(false);
+        expect(Object.keys(data)).not.toContain('__sullyRawStreamTerminal');
+        expect(() => assertCompleteStoryResponse(response, data)).toThrow('提前中断');
+    });
+
+    it('中转原始 SSE 显式发出 DONE：没有 finish_reason 仍可保存完整正文', async () => {
+        const response = new Response([
+            'data: {"choices":[{"delta":{"content":"完整剧情"}}]}',
+            'data: [DONE]',
+        ].join('\\n') + '\\n', { headers: { 'Content-Type': 'text/event-stream' } });
+        const data = await safeResponseJson(response);
+        expect(data.__sullyRawStreamTerminal).toBe(true);
+        expect(() => assertCompleteStoryResponse(response, data)).not.toThrow();
+    });
+
+    it('上游返回 content_filter 即使有正文和输出 token 也必须拦截，不自动保存', () => {
+        const response = new Response('{}', { status: 200 });
+        expect(() => assertCompleteStoryResponse(response, {
+            usage: { prompt_tokens: 37945, completion_tokens: 1122 },
+            choices: [{ finish_reason: 'content_filter', message: { content: '被过滤的正文' } }],
+        })).toThrow('content_filter');
     });
 
     it('模型达到输出上限不将截断内容误当完整，普通兼容 JSON 不要求 finish_reason', () => {
