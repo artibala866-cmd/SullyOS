@@ -69,7 +69,7 @@ jobs:
           done
           if [ "$ready" != true ]; then cat /tmp/story-memory-api-vite.log; exit 1; fi
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          for scenario in off empty preset manual invalid save narrow; do
+          for scenario in off empty preset manual invalid save narrow overlap broken-import; do
             size=390,844
             if [ "$scenario" = "narrow" ]; then size=360,740; fi
             url="http://127.0.0.1:5179/story-memory-api-visual.html?scenario=$scenario"
@@ -86,7 +86,7 @@ jobs:
               exit 1
             fi
           done
-          test "$(find /tmp/story-memory-api-shots -name '*.png' | wc -l)" -eq 7
+          test "$(find /tmp/story-memory-api-shots -name '*.png' | wc -l)" -eq 9
       - name: Upload mobile UI screenshot verification
         if: always()
         uses: actions/upload-artifact@v4
