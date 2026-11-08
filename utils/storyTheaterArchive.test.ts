@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
+import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
+import { loadStoryVectorRecall, formatStoryVectorRecall } from './storyTheaterVectorMemory';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
@@ -285,5 +287,86 @@ describe('revoking an event box', () => {
         expect((await fresh()).archives).toEqual(entry.archives);
         expect(await read()).toEqual(messages);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+});
+
+
+describe('independent vector archive', () => {
+    const vector = { embedding: { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test-vector', dimensions: 3 } };
+    const partition = () => storyTheaterThreadId(entry.id);
+    const read = () => DB.getMessagesByCharId(partition(), true);
+    const queueArchive = (summary: string) => {
+        fetchMock.mockResolvedValueOnce(response(completion(summary)));
+        fetchMock.mockImplementationOnce(async (_url, init) => response({
+            data: JSON.parse(init.body).input.map((_part: string, index: number) => ({ index, embedding: [1, 0, 0] })),
+        }));
+    };
+    const prepare = async () => {
+        await revokeStoryArchive(entry.id, entry.archives[0]);
+        const { id: _id, ...row } = messages[1];
+        const third = { ...row, content: '阿泽把备用钥匙交给小雨。', metadata: { source: 'story_theater', theaterId: entry.id } };
+        await DB.saveMessage(third);
+        return read();
+    };
+
+    it('replaces the vector and restores released floors, then deletes it with no request on undo', async () => {
+        const floors = await prepare();
+        queueArchive('【人物关系与转折】小雨开始信任阿泽。');
+        const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+        const oldBox = initial.archives[0];
+        const oldIds = oldBox.vectorMemoryIds!;
+        expect(oldIds).toHaveLength(1);
+        expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(oldIds);
+        expect((await loadStoryVectorRecall(initial, floors[1].id)).nodes).toEqual([]);
+        expect(await formatStoryVectorRecall((await loadStoryVectorRecall(initial, Infinity)).nodes, '')).toContain('开始信任');
+        queueArchive('【人物关系与转折】阿泽把备用钥匙交给小雨，两人成为搭档。');
+        const replaced = await archiveStoryFloorRange(entry.id, floors.slice(1), api, oldBox.id, vector);
+        expect(replaced.archives).toHaveLength(1);
+        expect(replaced.archives[0].id).toBe(oldBox.id);
+        expect(await MemoryNodeDB.getById(oldIds[0])).toBeUndefined();
+        expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(replaced.archives[0].vectorMemoryIds);
+        expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([false, true, true]);
+        const recall = await loadStoryVectorRecall(replaced, Infinity);
+        expect(await formatStoryVectorRecall(recall.nodes, '')).toContain('成为搭档');
+        expect(await formatStoryVectorRecall(recall.nodes, '')).not.toContain('开始信任');
+        const revoked = await revokeStoryArchive(entry.id, replaced.archives[0]);
+        expect((await loadStoryVectorRecall(revoked, Infinity)).archiveIds.size).toBe(0);
+        expect(await MemoryNodeDB.getByCharId(partition())).toEqual([]);
+        expect(await MemoryVectorDB.getAllByCharId(partition())).toEqual([]);
+        expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([false, false, false]);
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
+    it('keeps the previous range and vectors if replacement embedding fails', async () => {
+        const floors = await prepare();
+        queueArchive('旧向量内容');
+        const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+        fetchMock.mockResolvedValueOnce(response(completion('新向量内容')));
+        fetchMock.mockResolvedValueOnce(response({ data: [] }));
+        await expect(archiveStoryFloorRange(entry.id, floors.slice(1), api, initial.archives[0].id, vector)).rejects.toThrow();
+        expect((await fresh()).archives).toEqual(initial.archives);
+        expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
+        expect(await formatStoryVectorRecall((await loadStoryVectorRecall(initial, Infinity)).nodes, '')).toBe('旧向量内容');
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
+    it('revokes legacy boxes as a group without removing newer owned vectors', async () => {
+        const floors = await prepare();
+        queueArchive('新归档的独立向量');
+        const newer = await archiveStoryFloorRange(entry.id, floors.slice(2), api, undefined, vector);
+        const ownedId = newer.archives[0].vectorMemoryIds![0];
+        const ownedNode = (await MemoryNodeDB.getById(ownedId))!;
+        await MemoryNodeDB.save({ ...ownedNode, id: 'legacy-node', content: '旧版共享向量' });
+        const legacy = floors.slice(0, 2).map(row => ({
+            id: 'legacy-'+row.id, strategy: 'vector' as const, fromMessageId: row.id, toMessageId: row.id, messageCount: 1, createdAt: 1,
+        }));
+        const withLegacy = { ...newer, archives: [...legacy, ...newer.archives] };
+        await DB.saveStoryTheater(withLegacy);
+        expect((await loadStoryVectorRecall(withLegacy, Infinity)).nodes).toHaveLength(2);
+        const revoked = await revokeStoryArchive(entry.id, legacy[0]);
+        expect(revoked.archives).toEqual(newer.archives);
+        expect((await loadStoryVectorRecall(revoked, Infinity)).nodes.map(node => node.id)).toEqual([ownedId]);
+        expect(await MemoryNodeDB.getById('legacy-node')).toBeUndefined();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 });

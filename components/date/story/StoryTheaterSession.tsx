@@ -4,7 +4,7 @@ import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterRepl
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
-import { commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
+import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -57,14 +57,13 @@ import {
 } from '../../../utils/storyTheater';
 import {
     getMemoryPalaceHighWaterMark,
-    processMessageRange,
     retrieveMemories,
 } from '../../../utils/memoryPalace/pipeline';
 import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/autoArchive';
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { listStoryVectorMemories } from '../../../utils/storyTheaterVectorMemory';
+import { formatStoryVectorRecall, loadStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
@@ -715,23 +714,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         return `${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, mask.name)}`.trim();
     }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.automaticMemoryApiEnabled, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
-    const independentRecall = useCallback(async (query: string, recent: Message[], activeEntry: StoryTheaterEntry = entry): Promise<string> => {
-        if (activeEntry.writesToCharacterMemory || !activeEntry.archives.some(archive => archive.strategy === 'vector')) return '';
-        if (activeEntry.automaticMemoryApiEnabled !== true) {
-            const saved = await listStoryVectorMemories(activeEntry.id).catch(error => {
-                console.warn('[StoryTheater] could not read local vector memories', error);
-                return [];
-            });
-            // Retain a bounded excerpt of existing archive text without an
-            // embedding or reranker request. The full archive remains readable.
-            return saved.filter(node => node.content.trim()).slice(0, 10)
-                .map(node => node.content.trim().slice(0, 600)).join('\n\n');
-        }
-        const embedding = memoryPalaceConfig.embedding;
-        if (!embedding?.baseUrl || !embedding?.apiKey) return '（本剧情存在向量归档，但当前没有可用的向量记忆配置。）';
-        return retrieveMemories(recent, threadId, embedding, undefined, 'emotional', 0.3, query, mask.name, remoteVectorConfig, activeEntry.title);
-    }, [entry, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, threadId]);
-
     const applyActorMemoryPipeline = useCallback(async () => {
         if (!entry.writesToCharacterMemory || entry.automaticMemoryApiEnabled !== true) return;
         const embedding = memoryPalaceConfig.embedding;
@@ -767,35 +749,27 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             if (batch.length === 0) return null;
             const first = batch[0];
             const last = batch[batch.length - 1];
-            let summary: string | undefined;
-
+            let next: StoryTheaterEntry;
             if (archiveEntry.archiveStrategy === 'summary') {
-                setMemoryStatus(`正在把 ${batch.length} 条正文压成事件盒……`);
-                summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {
+                setMemoryStatus('正在把 ' + batch.length + ' 条正文压成事件盒……');
+                const summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {
                     storyOnlyProvider: !!archiveEntry.memorySummaryApi, firstFloor: rows.indexOf(first) + 1,
                 });
+                next = await commitStoryArchiveBatch(archiveEntry, batch, {
+                    id: makeStoryTheaterId(), strategy: 'summary', fromMessageId: first.id,
+                    toMessageId: last.id, messageCount: batch.length, summary, createdAt: Date.now(),
+                });
             } else {
-                const embedding = memoryPalaceConfig.embedding;
-                const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model }), ...(archiveEntry.memorySummaryApi ? { skipGlobalStreamUpgrade: true } : {}) };
-                if (!embedding?.baseUrl || !embedding?.apiKey || !light.baseUrl) {
-                    archiveErrorSeq.current += 1;
-                    addToast('独立向量归档需要先完成向量记忆配置', 'error');
-                    return null;
-                }
-                setMemoryStatus(`正在写入「${archiveEntry.title}」的独立向量分区……`);
-                const result = await processMessageRange(threadId, archiveEntry.title, embedding, light, first.id, last.id, mask.name, setMemoryStatus);
-                if (result.error && result.stored === 0 && result.skipped === 0) throw new Error('这批正文没有生成可用的向量记忆');
+                setMemoryStatus('正在整理独立向量归档……');
+                next = await archiveStoryVectorRangeInGeneration(archiveEntry.id, batch, apiConfig, {
+                    embedding: memoryPalaceConfig.embedding,
+                    remote: remoteVectorConfig,
+                    fallbackApi: memoryPalaceConfig.lightLLM?.baseUrl ? {
+                        ...memoryPalaceConfig.lightLLM, apiKey: memoryPalaceConfig.lightLLM.apiKey ?? '',
+                    } : undefined,
+                });
             }
 
-            const next = await commitStoryArchiveBatch(archiveEntry, batch, {
-                id: makeStoryTheaterId(),
-                strategy: archiveEntry.archiveStrategy,
-                fromMessageId: first.id,
-                toMessageId: last.id,
-                messageCount: batch.length,
-                ...(summary ? { summary } : {}),
-                createdAt: Date.now(),
-            });
             // Already durably committed in the same IndexedDB transaction as the floor flags.
             // State must update without writing a stale duplicate snapshot over another tab.
             onArchiveCommitted(next);
@@ -811,7 +785,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             archiveLock.current = false;
             setMemoryStatus('');
         }
-    }, [addToast, apiConfig, entry, loadMessages, mask.name, memoryPalaceConfig, onArchiveCommitted, threadId]);
+    }, [addToast, apiConfig, entry, loadMessages, memoryPalaceConfig, remoteVectorConfig, onArchiveCommitted, threadId]);
 
     const send = useCallback((rerollTarget?: Message, continueRequested = false) => {
         // Imported greeting is a fixed first floor, not an AI-generated reply.
@@ -886,9 +860,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const turnBoundary = userMessageId || rerollTarget?.id || Infinity;
-            const futureSummaryRanges = promptEntry.archives.filter(box => box.strategy === 'summary' && box.toMessageId >= turnBoundary);
-            const requestHistory = buildStoryRequestHistory(current, turnBoundary, message => mirrorArchived(message, promptEntry)
-                && !futureSummaryRanges.some(box => box.fromMessageId <= message.id && message.id <= box.toMessageId));
+            const vectorSource = await loadStoryVectorRecall(promptEntry, turnBoundary).catch(error => {
+                console.warn('[StoryTheater] vector memory unavailable, reading original floors', error);
+                return { nodes: [], archiveIds: new Set<string>() };
+            });
+            const requestHistory = buildStoryRequestHistory(current, turnBoundary, message => {
+                const box = storyArchiveAtFloor(promptEntry.archives, message.id);
+                if (!box) return mirrorArchived(message, promptEntry);
+                return box.strategy === 'vector' ? vectorSource.archiveIds.has(box.id)
+                    : !!box.summary?.trim() && box.toMessageId < turnBoundary;
+            });
             const latestAssistant = requestHistory[requestHistory.map(item => item.message.role).lastIndexOf('assistant')];
             const precedingFloor = requestHistory.at(-1);
             const turnFloor = current.findIndex(message => message.id === turnBoundary) + 1 || current.length + 1;
@@ -897,7 +878,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
                 buildActorContexts(modelText),
                 buildMaskMemoryContext(modelText),
-                independentRecall(modelText, requestHistory.slice(-8).map(({ row }) => row), promptEntry),
+                formatStoryVectorRecall(vectorSource.nodes, modelText,
+                    automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined),
             ]);
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
             const summaries = promptEntry.archives.filter(archive => archive.summary && archive.toMessageId < turnBoundary)
@@ -909,7 +891,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 }).join('\n\n');
             const scenario = [
                 `### 当前剧情\n标题：${entry.title}\n前提：${entry.premise || '沿用已经发生的正文自然继续。'}`,
-                vectorRecall ? buildStoryArchiveMemoryEnvelope(vectorRecall) : '',
             ].filter(Boolean).join('\n\n');
             const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, actors.map(actor => actor.name));
             const backstageAftermathReminder = buildStoryBackstageAftermathReminder(effectivePreset.document);
@@ -967,6 +948,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     // Story-owned archive context must work even with imported presets
                     // that have no enabled scenario slot or scenario macro.
                     ...(summaries ? [{ role: 'system' as const, content: '### 常驻事件盒\n' + summaries }] : []),
+                    ...(vectorRecall ? [{ role: 'system' as const, content: buildStoryArchiveMemoryEnvelope(vectorRecall) }] : []),
                     ...(appendUnslottedHistory ? historyMessages : []),
                     ...(compiled.continueNudge ? [compiled.continueNudge] : []),
                     ...(compiled.nativeOverrideMessages || []),
@@ -1092,7 +1074,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setSending(false);
             setRerollingId(null);
         }
-    }, [canStart, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
+    }, [canStart, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
 
     const generationBusy = sending || backgroundTask?.phase === 'running';
     const unsavedReply = backgroundTask?.unsavedReply;

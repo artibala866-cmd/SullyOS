@@ -25,7 +25,7 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('if (interruption || !automaticMemoryApiEnabled) return;');
         expect(session).toContain('entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled');
         expect(session).toContain('entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled');
-        expect(session).toContain('if (activeEntry.automaticMemoryApiEnabled !== true)');
+        expect(session).toContain('automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined');
     });
     it('never sends a second failed preflight summary in the same expensive prose turn', () => {
         expect(session).toContain('const archiveErrorSeq = useRef(0)');
@@ -33,10 +33,10 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('else if (!archiveBeforeProse && !failedArchiveBeforeProse) await archiveIfNeeded(promptEntry)');
     });
     it('vector extraction uses only story override for LLM and retains existing embedding configuration', () => {
-        expect(session).toContain('const light = { ...resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl');
-        expect(session).toContain('skipGlobalStreamUpgrade: true');
-        expect(session).toContain('processMessageRange(threadId, archiveEntry.title, embedding, light, first.id, last.id');
-        expect(session).toContain('const embedding = memoryPalaceConfig.embedding');
+        expect(session).toContain('archiveStoryVectorRangeInGeneration(archiveEntry.id, batch, apiConfig');
+        expect(session).toContain('embedding: memoryPalaceConfig.embedding');
+        expect(archiveEngine).toContain('resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api)');
+        expect(archiveEngine).toContain('await vectorizeAndStore(nodes, embedding, vector?.remote');
     });
     it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
         expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), { storyOnlyProvider: !!entry.memorySummaryApi })');

@@ -1,4 +1,4 @@
-import type { APIConfig, Message, StoryTheaterArchive, StoryTheaterEntry } from '../types';
+import type { APIConfig, Message, StoryTheaterArchive, StoryTheaterArchiveStrategy, StoryTheaterEntry } from '../types';
 import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
 import { describeStoryApiError, makeStoryTheaterId, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
@@ -7,6 +7,12 @@ import { resolveStoryMemoryApi } from './storyMemoryApi';
 import { tavernOpeningSceneText } from './tavernOpeningGreeting';
 import { isGlobalStreamEnabled } from './streamUpgrade';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
+import type { EmbeddingConfig, MemoryNode, MemoryVector, RemoteVectorConfig } from './memoryPalace/types';
+import { vectorizeAndStore } from './memoryPalace/vectorStore';
+import { ensureFloat32 } from './memoryPalace/db';
+import { bm25Index } from './memoryPalace/bm25Index';
+import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
+import { deleteVector } from './memoryPalace/supabaseVector';
 
 /** Summaries must come from the final channel, never a reasoning-only fallback. */
 export function parseStoryArchiveSummary(data: any): string {
@@ -92,7 +98,7 @@ function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArch
 }
 
 const sourceKey = (entry: StoryTheaterEntry, archive: StoryTheaterArchive) => JSON.stringify([
-    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount,
+    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds,
 ]);
 const rowsKey = (messages: Message[]) => JSON.stringify(messages.map(message => [message.id, message.role, message.content, message.metadata?.theaterOpeningGreeting, message.metadata?.theaterContinue]));
 
@@ -222,117 +228,196 @@ function updateFloorArchive(message: Message, archive?: StoryTheaterArchive): Me
     return { ...message, metadata };
 }
 
-/** Revoke only the story summary and release its floors in the same local transaction. */
-export async function revokeStoryArchive(entryId: string, expected: StoryTheaterArchive): Promise<StoryTheaterEntry> {
-    return runStoryArchiveOperation(entryId, async () => {
-        const db = await openDB();
-        return new Promise<StoryTheaterEntry>((resolve, reject) => {
-            const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
-            const storyStore = tx.objectStore('story_theaters');
-            const messageStore = tx.objectStore('messages');
-            const storyRead = storyStore.get(entryId);
-            const rowsRead = messageStore.index('charId').getAll(IDBKeyRange.only(storyTheaterThreadId(entryId)));
-            let pending = 2, failure: unknown, updated: StoryTheaterEntry;
-            tx.oncomplete = () => resolve(updated);
-            tx.onabort = () => reject(failure ?? tx.error ?? new Error('撤销归档未保存，原文和摘要已保留'));
-            const finish = () => {
-                if (--pending) return;
-                try {
-                    const entry = storyRead.result as StoryTheaterEntry | undefined;
-                    const box = entry?.archives.find(item => item.id === expected.id);
-                    if (!entry || !box || box.strategy !== 'summary'
-                        || sourceKey(entry, box) !== sourceKey(entry, expected)) {
-                        throw new Error('事件盒已变更，请重新打开后再撤销');
+/** Older versions stored vector nodes without assigning them to any individual range. */
+export function storyArchiveReplacementSet(archives: StoryTheaterArchive[], target?: StoryTheaterArchive): StoryTheaterArchive[] {
+    if (!target) return [];
+    if (target.strategy === 'vector' && !target.vectorMemoryIds) {
+        return archives.filter(box => box.strategy === 'vector' && !box.vectorMemoryIds);
+    }
+    return [target];
+}
+
+interface VectorArchiveOptions {
+    embedding?: EmbeddingConfig;
+    remote?: RemoteVectorConfig;
+    fallbackApi?: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>;
+}
+type VectorEntry = { node: MemoryNode; vector: MemoryVector };
+
+function archiveEdit(
+    entryId: string,
+    strategy: StoryTheaterArchiveStrategy,
+    change: (entry: StoryTheaterEntry, floors: Message[]) => {
+        archives: StoryTheaterArchive[]; removed: StoryTheaterArchive[]; added?: StoryTheaterArchive; vectors?: VectorEntry[];
+    },
+    remote?: RemoteVectorConfig,
+): Promise<StoryTheaterEntry> {
+    const thread = storyTheaterThreadId(entryId);
+    return openDB().then(db => new Promise<{ entry: StoryTheaterEntry; deleted: string[]; inserted: VectorEntry[] }>((resolve, reject) => {
+        const vectorStores = strategy === 'vector' ? ['memory_nodes', 'memory_vectors', 'memory_links'] : [];
+        const tx = db.transaction(['story_theaters', 'messages', ...vectorStores], 'readwrite');
+        const stories = tx.objectStore('story_theaters');
+        const messages = tx.objectStore('messages');
+        const storyRead = stories.get(entryId);
+        const rowsRead = messages.index('charId').getAll(IDBKeyRange.only(thread));
+        const nodesRead = strategy === 'vector' ? tx.objectStore('memory_nodes').index('charId').getAll(thread) : undefined;
+        const vectorsRead = strategy === 'vector' ? tx.objectStore('memory_vectors').index('charId').getAll(thread) : undefined;
+        let pending = nodesRead ? 4 : 2, failure: unknown, updated: StoryTheaterEntry;
+        let deleted: string[] = [], inserted: VectorEntry[] = [];
+        tx.oncomplete = () => resolve({ entry: updated, deleted, inserted });
+        tx.onabort = () => reject(failure ?? tx.error ?? new Error('归档未保存，旧摘要、向量与原文已保留'));
+        const finish = () => {
+            if (--pending) return;
+            try {
+                const entry = storyRead.result as StoryTheaterEntry | undefined;
+                if (!entry) throw new Error('剧情已不存在');
+                const floors = storyArchiveFloors(rowsRead.result, entryId);
+                const { archives, removed, added, vectors = [] } = change(entry, floors);
+                for (const row of floors) {
+                    if ((added && overlapsArchive(row.id, row.id, added)) || removed.some(box => overlapsArchive(row.id, row.id, box))) {
+                        messages.put(updateFloorArchive(row, storyArchiveAtFloor(archives, row.id)));
                     }
-                    const archives = entry.archives.filter(item => item.id !== box.id);
-                    for (const row of storyArchiveFloors(rowsRead.result, entryId)) {
-                        if (overlapsArchive(row.id, row.id, box)) {
-                            messageStore.put(updateFloorArchive(row, storyArchiveAtFloor(archives, row.id)));
+                }
+                if (nodesRead && vectorsRead) {
+                    const oldOwned = new Set(entry.archives.flatMap(box => box.vectorMemoryIds ?? []));
+                    const removedOwned = new Set(removed.flatMap(box => box.vectorMemoryIds ?? []));
+                    const removesLegacy = removed.some(box => !box.vectorMemoryIds);
+                    const retained = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
+                    const nodeStore = tx.objectStore('memory_nodes');
+                    const vectorStore = tx.objectStore('memory_vectors');
+                    const links = tx.objectStore('memory_links');
+                    const nodeIds = new Set((nodesRead.result as MemoryNode[]).map(node => node.id));
+                    const vectorIds = new Set((vectorsRead.result as MemoryVector[]).map(vector => vector.memoryId));
+                    const partitionIds = new Set([...nodeIds, ...vectorIds]);
+                    deleted = [...partitionIds].filter(id => !retained.has(id)
+                        && (removedOwned.has(id) || (removesLegacy && !oldOwned.has(id))));
+                    for (const id of deleted) {
+                        if (vectorIds.has(id)) vectorStore.delete(id);
+                        if (!nodeIds.has(id)) continue;
+                        nodeStore.delete(id);
+                        for (const index of ['sourceId', 'targetId']) {
+                            const cursor = links.index(index).openCursor(IDBKeyRange.only(id));
+                            cursor.onsuccess = () => {
+                                const row = cursor.result;
+                                if (row) { row.delete(); row.continue(); }
+                            };
                         }
                     }
-                    updated = { ...entry, archives, updatedAt: Date.now() };
-                    storyStore.put(updated);
-                } catch (error) { failure = error; tx.abort(); }
-            };
-            storyRead.onsuccess = finish;
-            rowsRead.onsuccess = finish;
-        });
+                    for (const { node, vector } of vectors) {
+                        const floats = ensureFloat32(vector.vector);
+                        nodeStore.add(node);
+                        vectorStore.add({ ...vector, vector: new Uint8Array(floats.buffer.slice(floats.byteOffset, floats.byteOffset + floats.byteLength)) });
+                    }
+                    inserted = vectors;
+                }
+                updated = { ...entry, archives, updatedAt: Date.now() };
+                stories.put(updated);
+            } catch (error) { failure = error; tx.abort(); }
+        };
+        for (const read of [storyRead, rowsRead, nodesRead, vectorsRead]) {
+            if (read) read.onsuccess = finish;
+        }
+    })).then(({ entry, deleted, inserted }) => {
+        for (const id of deleted) bm25Index.onNodeDeleted(id);
+        if (inserted.length) bm25Index.onNodesSaved(inserted.map(item => item.node));
+        if (deleted.length || inserted.length) notifyMemoryNodesChanged(thread);
+        if (remote?.enabled && remote.initialized) {
+            // Story recall only trusts the local owned set, even if cleanup fails.
+            for (const id of deleted) void deleteVector(remote, id).catch(() => {});
+        }
+        return entry;
     });
 }
 
-/** A range carries the exact rows displayed in the selector, not just mutable floor numbers. */
-export async function archiveStoryFloorRange(
-    entryId: string,
-    selected: Message[],
-    api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
-    replaceArchiveId?: string,
+/** Revoke a summary or a vector range, releasing its original floors atomically. */
+export async function revokeStoryArchive(entryId: string, expected: StoryTheaterArchive, remote?: RemoteVectorConfig): Promise<StoryTheaterEntry> {
+    return runStoryArchiveOperation(entryId, () => archiveEdit(entryId, expected.strategy, entry => {
+        const box = entry.archives.find(item => item.id === expected.id);
+        if (!box || sourceKey(entry, box) !== sourceKey(entry, expected)) throw new Error('归档已变更，请重新打开后再撤销');
+        const removed = storyArchiveReplacementSet(entry.archives, box);
+        return { archives: entry.archives.filter(item => !removed.includes(item)), removed };
+    }, remote));
+}
+
+/** Automatic vector archiving already holds the story generation lock. */
+export function archiveStoryVectorRangeInGeneration(
+    entryId: string, selected: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+    options: VectorArchiveOptions,
 ): Promise<StoryTheaterEntry> {
-    return runStoryArchiveOperation(entryId, async () => {
-        const first = selected[0]?.id;
-        const last = selected.at(-1)?.id;
-        if (first === undefined || last === undefined) throw new Error('请先选择要归档的楼层');
-        const thread = storyTheaterThreadId(entryId);
-        const validate = (entry: StoryTheaterEntry, rows: Message[]) => {
-            const floors = storyArchiveFloors(rows, entryId);
-            const batch = floors.filter(row => row.id >= first && row.id <= last);
-            if (rowsKey(batch) !== rowsKey(selected)) throw new Error('所选楼层已变更，请重新选择');
-            const latest = floors.at(-1);
-            if (latest?.role === 'user' && latest.id === last) throw new Error('最后一条推进还没有回复，请选它之前的楼层');
-            const previous = entry.archives.find(box => box.id === replaceArchiveId);
-            if (replaceArchiveId && previous?.strategy !== 'summary') throw new Error('找不到要替换的事件盒');
-            if (entry.archives.some(box => box.id !== replaceArchiveId && overlapsArchive(first, last, box))) {
-                throw new Error('所选范围与其他事件盒或向量归档重叠，请调整楼层');
-            }
-            return { floors, batch, previous };
-        };
+    return writeStoryArchiveRange(entryId, selected, api, undefined, options);
+}
 
-        const entry = (await DB.getStoryTheaters()).find(item => item.id === entryId);
-        if (!entry) throw new Error('剧情已不存在');
-        const initial = validate(entry, await DB.getMessagesByCharId(thread, true));
-        const summary = await generateStoryArchiveSummary(entry.title, initial.batch, resolveStoryMemoryApi(entry, api), {
-            storyOnlyProvider: !!entry.memorySummaryApi,
-            firstFloor: initial.floors.findIndex(row => row.id === first) + 1,
-        });
+export function archiveStoryFloorRange(
+    entryId: string, selected: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+    replaceArchiveId?: string, vector?: VectorArchiveOptions,
+): Promise<StoryTheaterEntry> {
+    return runStoryArchiveOperation(entryId, () => writeStoryArchiveRange(entryId, selected, api, replaceArchiveId, vector));
+}
 
-        const db = await openDB();
-        return new Promise<StoryTheaterEntry>((resolve, reject) => {
-            const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
-            const storyStore = tx.objectStore('story_theaters');
-            const messageStore = tx.objectStore('messages');
-            const storyRead = storyStore.get(entryId);
-            const rowsRead = messageStore.index('charId').getAll(IDBKeyRange.only(thread));
-            let pending = 2, failure: unknown, updated: StoryTheaterEntry;
-            tx.oncomplete = () => resolve(updated);
-            tx.onerror = () => reject(failure || tx.error);
-            tx.onabort = () => reject(failure || tx.error || new Error('归档未保存，旧摘要和原文已保留'));
-            const finish = () => {
-                if (--pending) return;
-                try {
-                    const fresh = storyRead.result as StoryTheaterEntry | undefined;
-                    if (!fresh) throw new Error('剧情已不存在');
-                    const { floors, batch, previous } = validate(fresh, rowsRead.result);
-                    if (fresh.title !== entry.title || (initial.previous && (!previous || sourceKey(entry, initial.previous) !== sourceKey(fresh, previous)))) {
-                        throw new Error('事件盒在归档期间已变更，旧内容已保留');
-                    }
-                    const box: StoryTheaterArchive = {
-                        ...previous, id: previous?.id ?? makeStoryTheaterId(), strategy: 'summary',
-                        fromMessageId: first, toMessageId: last, messageCount: batch.length,
-                        summary, createdAt: previous?.createdAt ?? Date.now(),
-                    };
-                    const otherBoxes = fresh.archives.filter(item => item.id !== box.id);
-                    for (const row of floors) {
-                        if (overlapsArchive(row.id, row.id, box)) {
-                            messageStore.put(updateFloorArchive(row, box));
-                        } else if (previous && overlapsArchive(row.id, row.id, previous)) {
-                            messageStore.put(updateFloorArchive(row, storyArchiveAtFloor(otherBoxes, row.id)));
-                        }
-                    }
-                    updated = { ...fresh, archives: [...otherBoxes, box].sort((a, b) => a.fromMessageId - b.fromMessageId), updatedAt: Date.now() };
-                    storyStore.put(updated);
-                } catch (error) { failure = error; tx.abort(); }
-            };
-            storyRead.onsuccess = finish;
-            rowsRead.onsuccess = finish;
-        });
+async function writeStoryArchiveRange(
+    entryId: string, selected: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+    replaceArchiveId?: string, vector?: VectorArchiveOptions,
+): Promise<StoryTheaterEntry> {
+    const strategy = vector ? 'vector' : 'summary';
+    const embedding = vector?.embedding;
+    if (vector && (!embedding?.baseUrl || !embedding.apiKey || !embedding.model)) {
+        throw new Error('请先配置向量记忆的 Embedding API');
+    }
+    const first = selected[0]?.id, last = selected.at(-1)?.id;
+    if (first === undefined || last === undefined) throw new Error('请先选择要归档的楼层');
+    const thread = storyTheaterThreadId(entryId);
+    const validate = (entry: StoryTheaterEntry, floors: Message[]) => {
+        const batch = floors.filter(row => row.id >= first && row.id <= last);
+        if (rowsKey(batch) !== rowsKey(selected)) throw new Error('所选楼层已变更，请重新选择');
+        const latest = floors.at(-1);
+        if (latest?.role === 'user' && latest.id === last) throw new Error('最后一条推进还没有回复，请选它之前的楼层');
+        const previous = entry.archives.find(box => box.id === replaceArchiveId);
+        if (replaceArchiveId && previous?.strategy !== strategy) throw new Error('找不到要替换的归档');
+        const removed = storyArchiveReplacementSet(entry.archives, previous);
+        const others = entry.archives.filter(box => !removed.includes(box));
+        if (others.some(box => overlapsArchive(first, last, box))) throw new Error('所选范围与其他归档重叠，请调整楼层');
+        return { batch, previous, removed, others };
+    };
+
+    const entry = (await DB.getStoryTheaters()).find(item => item.id === entryId);
+    if (!entry) throw new Error('剧情已不存在');
+    const floors = storyArchiveFloors(await DB.getMessagesByCharId(thread, true), entryId);
+    const initial = validate(entry, floors);
+    const summary = await generateStoryArchiveSummary(entry.title, initial.batch, resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api), {
+        storyOnlyProvider: !!entry.memorySummaryApi,
+        firstFloor: floors.findIndex(row => row.id === first) + 1,
     });
+    const boxId = initial.previous?.id ?? makeStoryTheaterId();
+    const revisionKey = (snapshot: StoryTheaterEntry, boxes: StoryTheaterArchive[]) =>
+        JSON.stringify(boxes.map(box => sourceKey(snapshot, box)));
+    const commit = (vectors?: VectorEntry[]) => archiveEdit(entryId, strategy, (fresh, currentFloors) => {
+        const { batch, previous, removed, others } = validate(fresh, currentFloors);
+        if (fresh.title !== entry.title || revisionKey(entry, initial.removed) !== revisionKey(fresh, removed)) {
+            throw new Error('归档在整理期间已变更，旧内容已保留');
+        }
+        const box: StoryTheaterArchive = {
+            ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
+            messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
+            ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id) } : { summary }),
+        };
+        return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
+    }, vector?.remote);
+
+    if (!embedding) return commit();
+
+    const parts = summary.split(/(?=【(?:关键事件与因果|人物关系与转折|新增设定与细节|未解决事项与续写落点)】)/)
+        .map(part => part.trim()).filter(Boolean);
+    const now = Date.now();
+    const nodes: MemoryNode[] = parts.map(content => ({
+        id: makeStoryTheaterId(), charId: thread, content, room: 'living_room', tags: ['剧情'],
+        importance: 6, mood: 'neutral', embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
+    }));
+    let updated: StoryTheaterEntry | undefined;
+    await vectorizeAndStore(nodes, embedding, vector?.remote, {
+        // Each batch owns its own nodes so undoing one cannot erase another.
+        skipDedup: true,
+        commit: async vectors => { updated = await commit(vectors); },
+    });
+    if (!updated) throw new Error('向量归档未保存');
+    return updated;
 }

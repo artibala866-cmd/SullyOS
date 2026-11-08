@@ -2219,6 +2219,8 @@ export interface StoryTheaterArchive {
     fromMessageId: number;
     toMessageId: number;
     messageCount: number;
+    /** 本归档拥有的向量节点。旧版本未记录归属，旧向量按组处理。 */
+    vectorMemoryIds?: string[];
     /** summary 策略的事件盒正文；vector 策略留空，由独立 charId 分区召回。 */
     summary?: string;
     createdAt: number;

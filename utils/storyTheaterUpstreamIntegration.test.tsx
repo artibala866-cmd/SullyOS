@@ -32,7 +32,7 @@ async function openEditor(onSave: (entry: any)=>Promise<void> | void = async()=>
     return host;
 }
 function click(text:string){
-    const button=[...host!.querySelectorAll('button')].find(el=>el.textContent?.trim()===text);
+    const button=[...host!.querySelectorAll('button')].find(el=>el.textContent?.trim()===text||el.getAttribute('aria-label')===text);
     expect(button).toBeTruthy();button!.click();
 }
 describe('原作者见面剧情记忆模式移植',()=>{
@@ -198,7 +198,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
     await act(async () => renderPanel(entry));
     await vi.waitFor(async () => {
         await act(async () => {});
-        const button = Array.from(host!.querySelectorAll('button')).find(node => node.textContent === '手动归档楼层');
+        const button = Array.from(host!.querySelectorAll('button')).find(node => node.getAttribute('aria-label') === '手动归档楼层');
         expect(button?.disabled).toBe(false);
     });
     const selectFloors = async () => {
