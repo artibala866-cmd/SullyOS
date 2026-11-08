@@ -65,7 +65,7 @@ export async function assembleUpgradedResponse(response: Response): Promise<Resp
             return new Response(JSON.stringify(assembled), {
                 status: response.status,
                 statusText: response.statusText,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Sully-Upgraded-Stream': '1' },
             });
         }
         // 拼不出任何 chunk：按原文透传，让调用方的解析器报出带 preview 的错误
