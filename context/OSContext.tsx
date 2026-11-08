@@ -1220,7 +1220,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       // （查手机/记忆宫殿/日程/剧场/群聊…40+ 处）升级为流式**传输**，防网关
                       // 空闲超时把长生成掐成半截；响应会在下面攒齐拼回标准 JSON，调用方无感。
                       // 已自带 stream:true 的请求（聊天主路径/见面/情绪评估）不碰。
-                      if (isGlobalStreamEnabled()) {
+                      // A story-specific cheap memory endpoint may need strict JSON/non-stream
+                      // transport regardless of the expensive main API's stream preference.
+                      // Only explicitly marked internal memory requests opt out; prose and all
+                      // legacy requests retain the existing transparent stream upgrade.
+                      if (isGlobalStreamEnabled() && (config as any)?.__sullySkipStreamUpgrade !== true) {
                           const upgraded = upgradeChatBodyToStream(body);
                           if (upgraded) {
                               body = upgraded;
