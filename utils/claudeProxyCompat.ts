@@ -13,16 +13,19 @@ const hasThinkingDialect = (body: ChatRequestBody): boolean =>
   !!(body.thinking || body.reasoning_effort || body.extra_body?.thinking);
 
 /**
- * Some OpenAI-compatible Claude relays turn upstream request-shape rejection
- * into an opaque 502 `bad_response_status_code`. Only retry this very narrow
- * combination: Claude + tools + thinking dialects + a confirmed HTTP 502.
+ * A 502 is ambiguous: the relay may have already submitted and billed the
+ * upstream Claude request before emitting bad_response_status_code.
+ * Only a 400/422 error that explicitly identifies incompatible thinking/tools
+ * parameters can safely enter the one-shot compatibility fallback.
  */
 export const shouldRetryClaudeProxyCompatibility = (
   error: unknown,
   body: ChatRequestBody,
 ): boolean => {
   const message = error instanceof Error ? error.message : String(error || '');
-  return /API Error 502\b/i.test(message)
+  return /API Error (?:400|422)\b/i.test(message)
+    && /(?:thinking|reasoning_effort|extra_body|tools?|function[_\s-]?call)/i.test(message)
+    && /(?:unsupported|unknown|invalid|not support|unrecognized|不支持|不允许|无效|未知|cannot)/i.test(message)
     && isClaudeModel(body.model)
     && Array.isArray(body.tools)
     && body.tools.length > 0
