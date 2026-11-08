@@ -358,10 +358,12 @@ async function readBodyWithStreaming(
 }
 
 /**
- * Fetch with automatic retry for transient errors on non-billable endpoints.
- * Chat completions never retry automatically: a timeout/network error does not
- * prove the upstream generation stopped, so retrying can charge the user twice.
- * Other endpoints retry on: 429, 500, 502, 503, 504 and network failures.
+ * Fetch with automatic retry for read-only requests only.
+ * Any POST/PUT/PATCH/DELETE may have already executed or been charged upstream
+ * even when the client sees a timeout, HTTP 5xx, or a broken response stream.
+ * Never silently resubmit these requests (including /responses, /images,
+ * /embeddings and provider-specific generation paths).
+ * Read-only GET/HEAD may retry on 429, 500, 502, 503, 504 and network failures.
  * Returns the parsed JSON data directly.
  *
  * `timeoutMs`：每次尝试的硬超时。如果调用方没在 options.signal 里自带 AbortController，
@@ -381,9 +383,12 @@ export async function safeFetchJson(
     const retryableStatuses = new Set([429, 500, 502, 503, 504]);
     let lastError: Error | null = null;
     const urlStr = String(url);
-    const automaticRetryLimit = isChatCompletionUrl(urlStr)
-        ? 0
-        : Math.max(0, Math.floor(Number(maxRetries) || 0));
+    const method = (options.method || 'GET').toUpperCase();
+    // Do not infer that non-/chat/completions URLs are free: /responses,
+    // /images and custom POST routes can bill before failing on the way back.
+    const automaticRetryLimit = (method === 'GET' || method === 'HEAD') && !isChatCompletionUrl(urlStr)
+        ? Math.max(0, Math.floor(Number(maxRetries) || 0))
+        : 0;
     let lastStatus: number | undefined;
 
     // 显式 meta 挂到 RequestInit 给全局 fetch 兜底；同时快照环境标签，避免长响应期间
