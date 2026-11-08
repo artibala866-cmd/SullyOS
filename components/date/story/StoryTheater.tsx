@@ -58,7 +58,13 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
     const reload = useCallback(async () => {
         const [storedEntries, storedPresets, storedMasks] = await Promise.all([DB.getStoryTheaters(), DB.getStoryTheaterPresets(), DB.getStoryTheaterMasks()]);
-        setEntries(storedEntries.map(normalizeStoryTheater).sort((a, b) => b.updatedAt - a.updatedAt));
+        // One malformed story in an imported backup must never hide every other
+        // playable story. Keep bad records untouched in IndexedDB for recovery.
+        const validEntries = storedEntries.filter(item => item && typeof item.id === 'string' && !!item.id.trim());
+        if (validEntries.length !== storedEntries.length) {
+            addToast(`备份里有 ${storedEntries.length - validEntries.length} 条剧情记录缺少有效 ID，暂不显示；原始数据没有删除`, 'info');
+        }
+        setEntries(validEntries.map(normalizeStoryTheater).sort((a, b) => b.updatedAt - a.updatedAt));
         const readable = storedPresets.filter(preset => preset && typeof preset.id === 'string'
             && typeof preset.name === 'string' && Array.isArray(preset.document?.prompts));
         if (readable.length !== storedPresets.length) {
