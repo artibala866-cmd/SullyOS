@@ -1296,20 +1296,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   if (usageClone) {
                       usageClone.text().then((t) => {
                           const durationMs = Date.now() - fetchStartedAt;
-                          // 一定要等正文完整读完再记成功；只拿到 200 响应头、随后 SSE 断流
-                          // 正是这次剧情故障的形态，不能拿它反过来当成功对照。
-                          if (ok) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
+                          // HTTP 200 is only transport success. A filtered or truncated
+                          // story can still consume tokens without delivering prose.
                           let parsed: any = undefined;
                           try { parsed = JSON.parse(t); } catch { /* 流式/非 JSON：把原始文本交给 recordApiCall 的 SSE 兜底解析 */ }
+                          const finishReason = String(parsed?.choices?.[0]?.finish_reason || '').trim().toLowerCase();
+                          const incompleteStory = meta?.purpose === '剧情见面生成'
+                              && (finishReason === 'length' || finishReason === 'max_tokens'
+                                  || (response.headers.get('X-Sully-Upgraded-Stream') === '1'
+                                      && response.headers.get('X-Sully-Stream-Terminal') !== '1'));
+                          const completionOk = ok && finishReason !== 'content_filter' && !incompleteStory;
+                          if (completionOk) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
                           updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok, response: parsed, responseText: parsed === undefined ? t : undefined });
-                          recordApiCall({ requestId, url: urlStr, body, status, ok, response: parsed, responseText: parsed === undefined ? t : undefined, meta, durationMs });
+                          recordApiCall({ requestId, url: urlStr, body, status, ok: completionOk, response: parsed, responseText: parsed === undefined ? t : undefined, meta, durationMs });
                       }).catch(() => {
                           updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok });
                           recordApiCall({ requestId, url: urlStr, body, status, ok, meta, durationMs: Date.now() - fetchStartedAt });
                       });
                   } else {
                       // clone 失败时，只有已经在上面完整拼装过的升级流才能确认正文收完。
-                      if (ok && streamUpgraded) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
+                      if (ok && streamUpgraded && response.headers.get('X-Sully-Stream-Terminal') === '1') recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
                       updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok });
                       recordApiCall({ requestId, url: urlStr, body, status, ok, meta, durationMs: Date.now() - fetchStartedAt });
                   }
