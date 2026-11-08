@@ -66,7 +66,7 @@ export async function assembleUpgradedResponse(response: Response): Promise<Resp
             // Either a terminal reason or an explicit DONE frame is evidence of
             // completion; having only content chunks is NOT.
             const finished = Boolean(assembled.choices?.[0]?.finish_reason)
-                || text.split(/\\r?\\n/).some(line => line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]');
+                || text.split(/\r?\n/).some(line => line.trim() === 'data: [DONE]' || line.trim() === 'data:[DONE]');
             return new Response(JSON.stringify(assembled), {
                 status: response.status,
                 statusText: response.statusText,
