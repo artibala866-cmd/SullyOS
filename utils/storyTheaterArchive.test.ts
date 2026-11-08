@@ -66,6 +66,10 @@ describe('story summary final channel', () => {
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
+    it('uses only Content-Type for keyless story summary endpoints (no empty Bearer header)', async () => {
+        await generateStoryArchiveSummary(entry.title, messages, { ...api, apiKey: '' });
+        expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' });
+    });
     it('does not retry automatically and rejects upstream errors', async () => {
         fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: '服务不可用' } }), { status: 503 }));
         await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('服务不可用');
