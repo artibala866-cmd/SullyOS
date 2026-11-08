@@ -364,6 +364,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     // completions. Keep the state for UI only and use this ref as the real mutex.
     const sendLock = useRef(false);
     const archiveLock = useRef(false);
+    // Count failed archive attempts so the same send never retries a broken
+    // summary endpoint both before and after the expensive prose completion.
+    const archiveErrorSeq = useRef(0);
     const readingScrollRef = useRef<HTMLElement>(null);
     const readingContentRef = useRef<HTMLDivElement>(null);
     const followLatestRef = useRef(true);
@@ -729,6 +732,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 const embedding = memoryPalaceConfig.embedding;
                 const light = resolveStoryMemoryApi(archiveEntry, memoryPalaceConfig.lightLLM?.baseUrl ? memoryPalaceConfig.lightLLM : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model });
                 if (!embedding?.baseUrl || !embedding?.apiKey || !light.baseUrl) {
+                    archiveErrorSeq.current += 1;
                     addToast('独立向量归档需要先完成向量记忆配置', 'error');
                     return null;
                 }
@@ -754,6 +758,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             return next;
         } catch (error: any) {
             console.error('[StoryTheater] archive failed', error);
+            archiveErrorSeq.current += 1;
             addToast(`剧情归档失败：${error?.message || error}`, 'error');
             return null;
         } finally {
@@ -819,7 +824,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             // 归档不能只放在成功生成之后：一旦会话已经碰到上游上下文上限，正文永远生成
             // 不出来，后置归档也就永远没有机会执行。重试已有 user 楼层时先归档，窗口可自愈。
+            const previousArchiveErrors = archiveErrorSeq.current;
             const promptEntry = await archiveIfNeeded() || entry;
+            const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors;
 
             const current = (await DB.getMessagesByCharId(threadId, true))
                 .filter(message => message.metadata?.source === 'story_theater')
@@ -972,7 +979,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setShowAffinityInput(false);
             await loadMessages();
             if (entry.writesToCharacterMemory) void applyActorMemoryPipeline();
-            else await archiveIfNeeded(promptEntry);
+            // A failed preflight can already have billed the secondary provider.
+            // Do not issue a second summary request for the same source batch
+            // merely because the expensive prose generation has now succeeded.
+            else if (!failedArchiveBeforeProse) await archiveIfNeeded(promptEntry);
         } catch (error: any) {
             console.error('[StoryTheater] send failed', error);
             const message = String(error?.message || error);
