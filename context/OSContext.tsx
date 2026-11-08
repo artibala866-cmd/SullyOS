@@ -23,6 +23,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
+import { createToastSequencer } from '../utils/toastSequencer';
 import {exportStudyRoomLocal,restoreStudyRoomLocal} from '../utils/studyRoomLocalBackup';
 import { reportDatabaseFailure } from '../utils/databaseHealth';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
@@ -1009,6 +1010,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [customIcons, setCustomIcons] = useState<Record<string, string>>({});
   const [appearancePresets, setAppearancePresets] = useState<AppearancePreset[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // Toasts must not stack: one visible notice, then the next after it clears.
+  // Keep this dispatcher outside React render updates to coalesce rapid taps.
+  const toastSequencerRef = useRef<ReturnType<typeof createToastSequencer> | null>(null);
+  if (!toastSequencerRef.current) toastSequencerRef.current = createToastSequencer(setToasts);
+  useEffect(() => () => { toastSequencerRef.current?.dispose(); toastSequencerRef.current = null; }, []);
   const [errorDialog, setErrorDialog] = useState<{ title: string; details: string } | null>(null);
   
   const [lastMsgTimestamp, setLastMsgTimestamp] = useState<number>(0);
@@ -3498,7 +3504,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (stored) await DB.saveAsset(`icon_${appId}`, stored);
       else await DB.deleteAsset(`icon_${appId}`);
   };
-  const addToast = (message: string, type: Toast['type'] = 'info') => { const id = Date.now().toString(); setToasts(prev => [...prev, { id, message, type }]); setTimeout(() => { setToasts(prev => prev.filter(t => t.id !== id)); }, 3000); };
+  const addToast = (message: string, type: Toast['type'] = 'info') => {
+      toastSequencerRef.current?.enqueue(message, type);
+  };
   const showError = (title: string, details: string) => {
       setErrorDialog({ title, details });
       // showError 是分发型入口，title 由调用方传。这里写显式白名单：
