@@ -162,7 +162,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      {overlaps&&<p className='text-[11px] text-rose-600'>与其他归档重叠，请调整范围。</p>}
      {includesPending&&<p className='text-[11px] text-rose-600'>最后一条推进尚未得到回复。</p>}
      {replacement.length>1&&<p className='text-[11px] text-amber-700'>旧向量按组存储。确认后重建所选楼层，其余旧归档楼层恢复原文。</p>}
-     <p className='text-[10px] text-slate-500'>{isVector?'确认后调用总结与向量 API。':'确认后调用一次总结 API。'}</p>
+     <p className='text-[10px] text-slate-500'>{isVector?'调用总结 API 1 次，成功后调用向量 API 1 次。':'确认后调用一次总结 API。'}</p>
     </section>}
     {error&&<p role='alert' className='text-xs leading-5 text-rose-600'>{error}</p>}
     {status&&<p role='status' className='text-xs leading-5 text-violet-700'>{status}</p>}

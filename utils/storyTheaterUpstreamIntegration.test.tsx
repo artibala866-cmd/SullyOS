@@ -7,6 +7,8 @@ import { OSPreviewProvider } from '../context/OSContext';
 import { StoryTheaterThemeProvider } from '../components/date/story/StoryTheaterTheme';
 import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import { DB } from './db';
+import { getStoryGenerationSnapshot } from './storyTheaterBackground';
+import { listStoryVectorMemories } from './storyTheaterVectorMemory';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
 import {createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
@@ -167,6 +169,74 @@ it.each([
     }
 });
 
+const archiveFixture = [
+    '【关键事件与因果】\n两人交还钥匙后解开误会。',
+    '【时间地点与场景】\n深夜，在候车厅。',
+    '【人物关系与转折】\n两人解除误会。',
+    '【好感与心理变化】\n原文未交代',
+    '【新增设定与细节】\n钥匙归小雨。',
+    '【未解决事项与续写落点】\n原文未交代',
+].join('\n');
+
+it.each([200, 400])('自动独立向量：一次总结、一条向量，Embedding %s 不再额外发请求', async status => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = {
+        ...createStoryTheaterDraft(), title: '夜间车站', characterIds: ['a'],
+        automaticMemoryApiEnabled: true, archiveStrategy: 'vector' as const, archiveAfter: 4, archiveKeepRecent: 1,
+        memorySummaryApi: { baseUrl: 'https://memory.invalid/v1', apiKey: 'fixture', model: 'memory' },
+    };
+    const thread = 'story-theater:' + entry.id;
+    await DB.saveStoryTheater(entry);
+    for (const [i, role] of (['user', 'assistant', 'user', 'assistant'] as const).entries()) {
+        await DB.saveMessage({
+            charId: thread, role, type: 'text', content: '旧原文第 ' + (i + 1) + ' 楼',
+            metadata: { source: 'story_theater', theaterId: entry.id },
+        });
+    }
+    const complete = (content: string) => Response.json({ choices: [{ message: { content }, finish_reason: 'stop' }] });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async url => {
+        if (String(url).startsWith('https://memory.invalid/')) return complete(archiveFixture);
+        if (String(url).startsWith('https://embedding.invalid/')) {
+            return status === 200 ? Response.json({ data: [{ index: 0, embedding: [1, 0, 0] }] })
+                : Response.json({ error: '不支持该请求' }, { status });
+        }
+        return complete('续写已返回并保存。');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    HTMLElement.prototype.scrollTo = vi.fn();
+    const os = {
+        characters: [{ id: 'a', name: '阿泽', mountedWorldbooks: [] }], worldbooks: [], userProfile: { name: '小雨' },
+        apiConfig: { baseUrl: 'https://prose.invalid/v1', apiKey: 'fixture', model: 'story' },
+        memoryPalaceConfig: { embedding: { baseUrl: 'https://embedding.invalid/v1', apiKey: 'fixture', model: 'embedding', dimensions: 3 } },
+        theme: {}, addToast: vi.fn(),
+    } as any;
+    await act(async () => root!.render(
+        <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+            <StoryTheaterSession entry={entry} preset={createBlankStoryPreset('剧情')} masks={[]} onBack={() => {}}
+                onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
+        </StoryTheaterThemeProvider></OSPreviewProvider>,
+    ));
+    await act(async () => click('继续当前剧情'));
+    await vi.waitFor(async () => {
+        expect((await DB.getMessagesByCharId(thread, true)).at(-1)?.content).toBe('续写已返回并保存。');
+        expect(getStoryGenerationSnapshot(entry.id)?.phase).not.toBe('running');
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        'https://memory.invalid/v1/chat/completions', 'https://embedding.invalid/v1/embeddings', 'https://prose.invalid/v1/chat/completions',
+    ]);
+    const embeddingRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(embeddingRequest.input).toHaveLength(1);
+    for (const fact of ['深夜，在候车厅', '两人解除误会', '钥匙归小雨']) expect(embeddingRequest.input[0]).toContain(fact);
+    const stored = await listStoryVectorMemories(entry.id);
+    expect(stored).toHaveLength(status === 200 ? 1 : 0);
+    const archives = (await DB.getStoryTheaters()).find(row => row.id === entry.id)?.archives;
+    expect(archives).toHaveLength(status === 200 ? 1 : 0);
+    const proseRequest = String(fetchMock.mock.calls[2][1]?.body);
+    expect(proseRequest).toContain(status === 200 ? '钥匙归小雨' : '旧原文第 1 楼');
+});
+
 it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重建', async () => {
     host = document.createElement('div');
     document.body.append(host);
@@ -181,7 +251,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
         });
     }
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({
-        choices: [{ message: { content: '【关键事件与因果】\n两人交还钥匙后解开误会。\n【时间地点与场景】\n原文未交代\n【人物关系与转折】\n两人解除误会。\n【好感与心理变化】\n原文未交代\n【新增设定与细节】\n原文未交代\n【未解决事项与续写落点】\n原文未交代' }, finish_reason: 'stop' }],
+        choices: [{ message: { content: archiveFixture }, finish_reason: 'stop' }],
     }));
     vi.stubGlobal('fetch', fetchMock);
     const updated = vi.fn();

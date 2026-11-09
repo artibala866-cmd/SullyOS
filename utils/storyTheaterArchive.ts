@@ -9,6 +9,7 @@ import { isGlobalStreamEnabled } from './streamUpgrade';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import type { EmbeddingConfig, MemoryNode, MemoryVector, RemoteVectorConfig } from './memoryPalace/types';
 import { vectorizeAndStore } from './memoryPalace/vectorStore';
+import { EMBEDDING_MAX_INPUT_CHARS } from './memoryPalace/embedding';
 import { ensureFloat32 } from './memoryPalace/db';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
@@ -56,7 +57,6 @@ const ARCHIVE_SECTIONS = [
 
 const archiveHeadings = ARCHIVE_SECTIONS.map(([heading]) => heading);
 const archiveSectionStart = new RegExp('^【(' + archiveHeadings.join('|') + ')】[ \t]*', 'gm');
-const archiveSectionStartForSplit = new RegExp('(?=^【(?:' + archiveHeadings.join('|') + ')】)', 'm');
 const UNSPECIFIED = '原文未交代';
 
 export const STORY_ARCHIVE_INSTRUCTION = [
@@ -95,7 +95,7 @@ function checkedStoryArchiveSections(summary: string, affinity: string[]): strin
 }
 
 /** Shared by automatic archiving and manual regeneration; one physical request. */
-export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number }): Promise<string> {
+export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number; strategy?: StoryTheaterArchiveStrategy }): Promise<string> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const affinity: string[] = [];
     const transcript = messages.map((message, index) => {
@@ -120,7 +120,7 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
             { role: 'system', content: STORY_ARCHIVE_INSTRUCTION },
             { role: 'user', content: `剧情：${title}\n\n${transcript}` },
         ] }),
-        __sullyMeta: { appId: 'date', appName: '见面', purpose: '剧情事件盒总结' },
+        __sullyMeta: { appId: 'date', appName: '见面', purpose: options?.strategy === 'vector' ? '剧情独立向量 · 总结' : '剧情事件盒总结' },
         // Consume the stream here so a completed but unclosed response cannot block prose.
         __sullySkipStreamUpgrade: true,
     } as RequestInit);
@@ -436,6 +436,7 @@ async function writeStoryArchiveRange(
     const initial = validate(entry, floors);
     const summary = await generateStoryArchiveSummary(entry.title, initial.batch, resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api), {
         storyOnlyProvider: !!entry.memorySummaryApi,
+        strategy,
         firstFloor: floors.findIndex(row => row.id === first) + 1,
     });
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
@@ -456,14 +457,16 @@ async function writeStoryArchiveRange(
 
     if (!embedding) return commit();
 
-    const parts = summary.split(archiveSectionStartForSplit).map(part => part.trim()).filter(Boolean);
+    if (summary.length > EMBEDDING_MAX_INPUT_CHARS) {
+        throw new Error('归档正文超过单条向量容量，未发送向量请求，原文和旧归档已保留；请分较小的楼层范围整理');
+    }
     const now = Date.now();
-    const nodes: MemoryNode[] = parts.map(content => ({
-        id: makeStoryTheaterId(), charId: thread, content, room: 'living_room', tags: ['剧情'],
+    const node: MemoryNode = {
+        id: makeStoryTheaterId(), charId: thread, content: summary, room: 'living_room', tags: ['剧情'],
         importance: 6, mood: 'neutral', embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
-    }));
+    };
     let updated: StoryTheaterEntry | undefined;
-    await vectorizeAndStore(nodes, embedding, vector?.remote, {
+    await vectorizeAndStore([node], { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引' }, vector?.remote, {
         // Each batch owns its own nodes so undoing one cannot erase another.
         skipDedup: true,
         commit: async vectors => { updated = await commit(vectors); },

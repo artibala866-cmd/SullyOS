@@ -36,7 +36,7 @@ describe('per-story API uses only memory call sites', () => {
         expect(session).toContain('archiveStoryVectorRangeInGeneration(archiveEntry.id, batch, apiConfig');
         expect(session).toContain('embedding: memoryPalaceConfig.embedding');
         expect(archiveEngine).toContain('resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api)');
-        expect(archiveEngine).toContain('await vectorizeAndStore(nodes, embedding, vector?.remote');
+        expect(archiveEngine).toContain('await vectorizeAndStore([node], { ...embedding, requestPurpose:');
     });
     it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
         expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), {');

@@ -5,6 +5,7 @@ import { updateStoredMemoryNode } from './memoryPalace/vectorStore';
 import { deleteVector as deleteRemoteVector } from './memoryPalace/supabaseVector';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { hybridSearch } from './memoryPalace/hybridSearch';
+import { EMBEDDING_MAX_INPUT_CHARS } from './memoryPalace/embedding';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
 
@@ -59,15 +60,28 @@ export async function selectStoryVectorRecall(
 ): Promise<{ text: string; archiveIds: Set<string> }> {
     const archiveIds = new Set<string>();
     if (!nodes.length) return { text: '', archiveIds };
+    const limit = 6000;
+    const separator = '\n\n';
+    const candidates = groups.map(group => ({
+        ...group,
+        text: group.nodes.map(node => node.content).join(separator),
+    })).filter(group => group.text.length <= limit);
+    const allText = candidates.map(group => group.text).join(separator);
+    if (allText.length <= limit) {
+        return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)) };
+    }
     let ordered = nodes;
     if (embedding?.baseUrl && embedding.apiKey && embedding.model && query.trim()) {
         try {
             const charId = nodes[0].charId;
-            const ids = new Set(nodes.map(node => node.id));
+            const ids = new Set(candidates.flatMap(group => group.nodes.map(node => node.id)));
             const allVectors = (await MemoryVectorDB.getAllByCharId(charId)).filter(vector => ids.has(vector.memoryId));
             if (allVectors.length) {
                 bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
-                const matches = await hybridSearch(query, charId, embedding, 10, undefined, { allNodes: nodes, allVectors });
+                const recallConfig = { ...embedding, requestPurpose: '剧情独立向量 · 续写召回' };
+                const matches = await hybridSearch(query, charId, recallConfig, 10, undefined, {
+                    allNodes: nodes.filter(node => ids.has(node.id)), allVectors,
+                });
                 const rank = new Map(matches.map((match, index) => [match.node.id, index]));
                 ordered = [...nodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
             }
@@ -76,16 +90,15 @@ export async function selectStoryVectorRecall(
         }
     }
     const rank = new Map(ordered.map((node, index) => [node.id, index]));
-    const priority = groups.map(group => ({
+    const priority = candidates.map(group => ({
         ...group,
         rank: Math.min(...group.nodes.map(node => rank.get(node.id) ?? Infinity)),
     })).sort((a, b) => a.rank - b.rank);
     let text = '';
     for (const group of priority) {
-        const block = group.nodes.map(node => node.content).join('\n\n');
-        const combined = text ? text + '\n\n' + block : block;
+        const combined = text ? text + separator + group.text : group.text;
         // A range can replace its original floors only if every selected section fits.
-        if (combined.length > 6000) continue;
+        if (combined.length > limit) continue;
         text = combined;
         for (const id of group.archiveIds) archiveIds.add(id);
     }
@@ -101,7 +114,10 @@ export async function updateStoryVectorMemory(
 ): Promise<MemoryNode> {
     return runStoryArchiveOperation(entryId, async () => {
         assertStoryPartition(entryId, await MemoryNodeDB.getById(nodeId));
-        const result = await updateStoredMemoryNode(nodeId, { content: content.trim() }, embeddingConfig, remoteVectorConfig);
+        const text = content.trim();
+        if (text.length > EMBEDDING_MAX_INPUT_CHARS) throw new Error('记忆正文超过单条向量容量，旧内容已保留');
+        const config = embeddingConfig && { ...embeddingConfig, requestPurpose: '剧情独立向量 · 编辑后建索引' };
+        const result = await updateStoredMemoryNode(nodeId, { content: text }, config, remoteVectorConfig);
         return assertStoryPartition(entryId, result.node);
     });
 }

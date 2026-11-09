@@ -388,6 +388,26 @@ describe('independent vector archive', () => {
         expect(recall.archiveIds.size).toBe(0);
     });
 
+    it('only sends a separate query embedding when saved ranges compete for the recall window', async () => {
+        const floors = await prepare();
+        queueArchive('先在站台碰面。');
+        const first = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+        queueArchive('后来去了旅馆。');
+        const second = await archiveStoryFloorRange(entry.id, floors.slice(2), api, undefined, vector);
+        const both = await selectStoryVectorRecall(await loadStoryVectorRecall(second, Infinity), '钥匙在哪里？', vector.embedding);
+        expect(both.archiveIds.size).toBe(2);
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+        for (const box of [first.archives[0], second.archives[1]]) {
+            const node = (await MemoryNodeDB.getById(box.vectorMemoryIds![0]))!;
+            await MemoryNodeDB.save({ ...node, content: node.content + '细节'.repeat(1600) });
+        }
+        fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
+        const selected = await selectStoryVectorRecall(await loadStoryVectorRecall(second, Infinity), '钥匙在哪里？', vector.embedding);
+        expect(selected.archiveIds.size).toBe(1);
+        expect(fetchMock).toHaveBeenCalledTimes(5);
+        expect(fetchMock.mock.calls[4][1].__sullyMeta.purpose).toBe('剧情独立向量 · 续写召回');
+    });
+
     it('keeps the previous range and vectors if replacement embedding fails', async () => {
         const floors = await prepare();
         queueArchive('旧向量内容');

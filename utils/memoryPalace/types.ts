@@ -384,6 +384,7 @@ export const PERSONALITY_WEIGHTS: Record<PersonalityStyle, Record<LinkType, numb
 
 export interface EmbeddingConfig {
     signal?: AbortSignal;
+    requestPurpose?: string;
     baseUrl: string;            // OpenAI 兼容端点，如 https://api.siliconflow.cn/v1
     apiKey: string;
     model: string;              // 默认 text-embedding-3-small

@@ -8,6 +8,8 @@
 import { waitForPalaceRequest } from './maintenanceMode';
 import type { EmbeddingConfig } from './types';
 
+export const EMBEDDING_MAX_INPUT_CHARS = 4000;
+
 // ─── 核心 API 调用 ────────────────────────────────────
 
 /**
@@ -33,7 +35,6 @@ export async function getEmbeddings(texts: string[], config: EmbeddingConfig): P
     // 直接 400（硅基流动 code 20015 "The parameter is invalid"）。中文最坏
     // ≈ 1 token/字，4000 字符留足余量。正常聊天/记忆内容远短于此，只有
     // base64 / 超长文档这类异常输入会被截。
-    const MAX_ITEM_CHARS = 4000;
     // 批量防线：部分服务商按「整个请求的 token 总量」校验——每条都合法、
     // 合批后加起来超限照样 400（单条「测试连接」正常而检索批量报错的来源
     // 之一）。按批内字符预算切批兜住最坏情况；正常聊天 query 都很短，
@@ -46,16 +47,16 @@ export async function getEmbeddings(texts: string[], config: EmbeddingConfig): P
 
     const truncatedNotes: string[] = [];
     const safeTexts = texts.map((t, i) => {
-        if (t.length <= MAX_ITEM_CHARS) return t;
+        if (t.length <= EMBEDDING_MAX_INPUT_CHARS) return t;
         truncatedNotes.push(`第${i + 1}条(${t.length}字, 开头"${t.slice(0, 30).replace(/\n/g, ' ')}")`);
-        return t.slice(0, MAX_ITEM_CHARS);
+        return t.slice(0, EMBEDDING_MAX_INPUT_CHARS);
     });
     // 正常聊天 query（≤2000 字）和记忆内容（LLM 总结, 几百字）都够不着这条线，
     // 触发说明有异常超长输入混了进来。走 console.error——设置里的日志面板只
     // 捕获 error 通道，保证用户能看到"发生了截断、截的是哪条"。
     if (truncatedNotes.length > 0) {
         console.error(
-            `⚠️ [Embedding] ${truncatedNotes.length} 条输入超 ${MAX_ITEM_CHARS} 字上限，已截断出向量（内容本体不受影响，仅按前 ${MAX_ITEM_CHARS} 字建索引）：${truncatedNotes.join('；')}`,
+            `⚠️ [Embedding] ${truncatedNotes.length} 条输入超 ${EMBEDDING_MAX_INPUT_CHARS} 字上限，已截断出向量（内容本体不受影响，仅按前 ${EMBEDDING_MAX_INPUT_CHARS} 字建索引）：${truncatedNotes.join('；')}`,
         );
     }
 
@@ -136,7 +137,8 @@ async function callEmbeddingAPI(
                 'Authorization': `Bearer ${config.apiKey}`,
             },
             body: JSON.stringify(body),
-        });
+            ...(config.requestPurpose ? { __sullyMeta: { appId: 'date', appName: '见面', purpose: config.requestPurpose } } : {}),
+        } as RequestInit);
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
