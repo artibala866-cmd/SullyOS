@@ -68,8 +68,9 @@ describe('story summary final channel', () => {
     });
 
     it('rejects overlong cheap-model summaries instead of hiding original floors and poisoning every later main prompt', async () => {
-        fetchMock.mockResolvedValueOnce(response(completion('无意义流水账'.repeat(600))));
-        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('超过 3000 字符');
+        fetchMock.mockResolvedValueOnce(response(completion('长'.repeat(2001))));
+        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('返回了 2001 字符，超过 2000 字符的保存上限');
+        expect(parseStoryArchiveSummary(completion('长'.repeat(2000)))).toHaveLength(2000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
@@ -220,6 +221,7 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.messages[0].content).toContain('以上六项合计不超过 800 字');
         expect(body.messages[0].content).toContain('人物关系与转折');
         expect(body.messages[0].content).toContain('新增设定与细节');
         expect(body.messages[0].content).toContain('未解决事项与续写落点');

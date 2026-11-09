@@ -40,8 +40,9 @@ export function parseStoryArchiveSummary(data: any): string {
     // thousand words. Persisting such a blob hides original floors, then injects
     // the huge/low-quality recap into EVERY later expensive prose request.
     // Fail closed rather than silently truncate potentially important facts.
-    if (Array.from(summary).length > 3000) {
-        throw new Error('事件盒摘要超过 3000 字符，未归档也未隐藏原文；请换更遵守长度要求的记忆模型后重试');
+    const characters = Array.from(summary).length;
+    if (characters > 2000) {
+        throw new Error(`归档摘要返回了 ${characters} 字符，超过 2000 字符的保存上限。原文和旧归档已保留。`);
     }
     return summary;
 }
@@ -64,7 +65,7 @@ export const STORY_ARCHIVE_INSTRUCTION = [
     '必须按顺序逐项输出以下六个标题，每个标题另起一行，下一行写内容。逐楼检查每项：原文有就写具体事实，同一项有多条就分条写；只有整项确实没有资料时才写「原文未交代」。',
     ...ARCHIVE_SECTIONS.map(([heading, instruction]) => '【' + heading + '】' + instruction),
     '区分已确认事实、人物自己的猜测、未发生的计划和未选选项。不得编造关系、好感、时间、地点或人设；只描述所选楼层结束时的状态，不替续写决定后续。提交前逐项对照所选楼层，确认重要人物与关系没有漏写。',
-    '长度按材料密度调整，优先保留具体细节，避免重复；目标 2600 字以内。只输出以上六项正文。',
+    '以上六项合计不超过 800 字，含标题和标点。用短句合并重复信息，优先保留人名、变化、具体时间地点和用户给出的设定；不重复原文或写分析。只输出以上六项。',
 ].join('\n');
 
 function storyArchiveAffinity(message: Message): string[] {
