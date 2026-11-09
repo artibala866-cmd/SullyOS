@@ -12,7 +12,7 @@ export type PrivateChatOpening = { id: string; title: string; lines: Line[]; sou
 const datePattern = '(?:(\\d{4})[年./-])?(\\d{1,2})[月./-](\\d{1,2})[日号]?';
 const timePattern = '(?:(上午|下午|中午|晚上|凌晨)\\s*)?(\\d{1,2})[:：](\\d{2})(?:[:：](\\d{2}))?\\s*(AM|PM)?';
 const dayOnly = new RegExp('^' + datePattern + '$');
-const timestampPattern = '(?:' + datePattern + '[\\sT]+)?' + timePattern;
+const timestampPattern = '(?:' + datePattern + '[\\sT-]+)?' + timePattern;
 const clockOnly = new RegExp('^' + timestampPattern + '(?:Z|[+-]\\d{2}:?\\d{2})?$', 'i');
 const textRecord = new RegExp('^[\\[【]?(?<stamp>' + timestampPattern + ')[\\]】]?(?:\\s*[·|｜]\\s*|\\s+)(?<sender>[^:：]{1,50})[:：]\\s*(?<body>.+)$', 'i');
 
@@ -51,7 +51,8 @@ const recordRole = (label: string, names: OpeningNames): Role | undefined => {
     const key = label.trim().replace(/^(?:收到|接收)(?:的)?(?=消息|短信)/, '对方')
         .replace(/^(?:发出|发送)(?:的)?(?=消息|短信)/, '己方')
         .replace(/(?:发送的|发来的)?(?:私聊)?(?:消息|讯息|短信|发言|[-_ ]?(?:message|msg))$/i, '');
-    return speaker(label, names) || speaker(key, names);
+    const parentheticalName = /[（(]([^）)]+)[）)]$/.exec(key)?.[1];
+    return speaker(label, names) || speaker(key, names) || (parentheticalName ? speaker(parentheticalName, names) : undefined);
 };
 const isAvatar = (value: string) => /^(?:https?:\/\/\S+|(?:[^\s<>|｜]*\/)?[^\s<>|｜]+\.(?:png|webp|gif|jpe?g|avif|svg)|(?:默认)?头像|null|none)$/i.test(value);
 const cleanBody = (value: string) => value.replace(/<br\s*\/?>/gi, '\n').trim();
@@ -134,6 +135,18 @@ function htmlOpening(text: string, names: OpeningNames): Line[] {
 }
 
 const hasCharacterLine = (lines: Line[]) => lines.some(line => line.role === 'assistant');
+const bracketConversation = /^\s*[\[【](?:和|与)(.{1,50}?)的(?:聊天|私聊|对话)[\]】]\s*$/im;
+const phonePanel = /^\s*<(?:手机(?:界面|聊天|对话)|私聊|微信聊天)(?:[:：][^>\n]*)?>\s*$/im;
+const messageSeparator = /[|｜丨]/;
+
+function statusOpeningStamp(text: string): Pick<Line, 'clock' | 'day'> | undefined {
+    const status = /<status\b[^>]*>([\s\S]*?)<\/status>/i.exec(text)?.[1];
+    // A status header may give the scene clock. Ignore times buried in
+    // notifications and only use an explicit full date and time at the row end.
+    const header = status?.match(/^\s*\|[^|\n]+\|([^|\n]+)\s*$/m)?.[1];
+    const stamp = header && parseClock(header);
+    return stamp && stamp.day?.year ? stamp : undefined;
+}
 
 /** Detect a private transcript by its message structure and speaker roles. */
 export function parsePrivateChatOpening(source: string, names: OpeningNames, phoneHint = false): Line[] {
@@ -145,17 +158,24 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames, pho
     if (structured) return hasCharacterLine(structured) ? structured : [];
     const html = htmlOpening(text, names);
     if (hasCharacterLine(html)) return html;
-    const phoneContext = phoneHint || text.split('\n').some(line => phoneHeading.test(line.trim()));
-    const records = text.replace(/^[ \t]+/gm, '').match(/<(?:msg|message|chatmsg)\b[^>]*>[\s\S]*?<\/(?:msg|message|chatmsg)\s*>|[\[【][^\n|｜\]】]{1,50}[|｜][\s\S]*?[\]】](?=[ \t]*(?:\n|$))|[^\n]+/gi) || [];
+    const conversation = bracketConversation.exec(text)?.[1];
+    const phoneContext = phoneHint || !!conversation || phonePanel.test(text) ||
+        text.split('\n').some(line => phoneHeading.test(line.trim()));
+    // A new record or tag bounds continuation, so an unclosed bracket
+    // cannot consume the next message while a wrapped multiline body still works.
+    const records = text.replace(/^[ \t]+/gm, '').match(/<(?:msg|message|chatmsg)\b[^>]*>[\s\S]*?<\/(?:msg|message|chatmsg)\s*>|[\[【][^\n|｜丨\]】]{1,50}[|｜丨][^\n]*(?:\n(?![\[【<])[^\n]*)*?[\]】](?=[ \t]*(?:\n|$))|[^\n]+/gi) || [];
     const lines: Line[] = [];
+    const incomingAvatars = new Set<string>();
     let currentDay: Day | undefined;
     let currentClock: Clock | undefined;
     let currentSpeaker: Role | undefined;
     for (const item of records) {
         const line = item.trim();
+        const label = /^[\[【]([^\]】]+)[\]】]\s*[:：]\s*(.+)$/.exec(line);
         const wrapped = /^(?:<(?:msg|message|chatmsg)\b[^>]*>([\s\S]*?)<\/(?:msg|message|chatmsg)\s*>|[\[【]([\s\S]*)[\]】])$/i.exec(line);
-        const inner = wrapped?.[1] ?? wrapped?.[2] ?? line;
-        const parts = inner.split(/[|｜]/).map(part => part.trim());
+        const incomplete = phoneContext && !wrapped && !label && /^[\[【][^\]】]+$/.test(line) && messageSeparator.test(line);
+        const inner = wrapped?.[1] ?? wrapped?.[2] ?? label?.[1] ?? (incomplete ? line.slice(1) : line);
+        const parts = inner.split(messageSeparator).map(part => part.trim());
         const unwrappedFields = !wrapped && phoneContext && parts.length >= 3;
         const tag = /^<(?:msg|message|chatmsg)\b([^>]*)>/i.exec(line);
         if (tag && /\S/.test(tag[1])) {
@@ -170,7 +190,7 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames, pho
                 continue;
             }
         }
-        if ((wrapped || unwrappedFields) && parts.length >= 2) {
+        if ((wrapped || label || incomplete || unwrappedFields) && parts.length >= 2) {
             const leadingClock = parseClock(parts[0]);
             const offset = leadingClock ? 1 : 0;
             const generic = /^(?:私聊|微信|手机|QQ)?(?:消息|讯息|短信|msg|message)$/i.test(parts[offset]);
@@ -179,13 +199,18 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames, pho
             const fields = parts.slice(offset + Number(generic) + 1);
             const lastClock = parseClock(fields.at(-1) || '');
             if (lastClock) fields.pop();
-            if (fields.length > 1 && (isAvatar(fields[0]) || speaker(fields[0], names) || fields[0] === '')) fields.shift();
+            if (fields.length > 1 && (isAvatar(fields[0]) || speaker(fields[0], names) || fields[0] === '')) {
+                if (role === 'assistant' && isAvatar(fields[0]) && !/^(?:默认)?头像|null|none$/i.test(fields[0])) {
+                    incomingAvatars.add(fields[0].toLowerCase());
+                }
+                fields.shift();
+            }
             const firstClock = !lastClock && fields.length > 1 ? parseClock(fields[0]) : null;
             if (firstClock) fields.shift();
             const stamp = lastClock || firstClock || leadingClock;
             if (stamp?.day) currentDay = stamp.day;
             if (stamp?.clock) currentClock = stamp.clock;
-            const body = cleanBody(fields.join('|'));
+            const body = cleanBody(label?.[2] ?? fields.join('|'));
             if (body) lines.push({ role, text: body, day: currentDay, clock: currentClock });
             continue;
         }
@@ -230,7 +255,12 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames, pho
             lines.push({ role: currentSpeaker, text: cleanBody(line), day: currentDay, clock: currentClock });
         }
     }
-    return hasCharacterLine(lines) ? lines : [];
+    // Some group layouts reuse the exact private message label. An unmatched
+    // conversation name plus multiple incoming avatars is evidence of multiple senders.
+    if (conversation && !recordRole(conversation, names) && incomingAvatars.size > 1) return [];
+    if (!hasCharacterLine(lines)) return [];
+    const sceneStamp = lines.every(line => !line.clock && !line.day) ? statusOpeningStamp(text) : undefined;
+    return sceneStamp ? lines.map(line => ({ ...line, ...sceneStamp })) : lines;
 }
 
 type OpeningCharacter = Pick<CharacterProfile, 'name' | 'cardImportOrigin' | 'tavernGreetings' | 'linkGreetings'>;

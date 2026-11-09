@@ -54,6 +54,43 @@ describe('private chat opening format recognition', () => {
         expect(bubbles('群聊记录\n江朔：到楼下了 [18:41]')).toEqual([]);
     });
 
+    it('recovers line-oriented phone panels with missing closing brackets and variant separators', () => {
+        expect(bubbles(`<手机界面>
+<私聊:江朔>
+[{{user}}丨你到哪了？
+[江朔|avatar.jpg|在楼下
+[江朔|avatar.jpg|记得带伞
+</私聊:江朔>
+</手机界面>`)).toEqual([
+            ['user', '你到哪了？'], ['assistant', '在楼下'], ['assistant', '记得带伞'],
+        ]);
+        expect(bubbles('[对方消息|avatar.jpg|第一行\n第二行|08:30]')).toEqual([['assistant', '第一行\n第二行']]);
+        expect(bubbles('[江朔|avatar.jpg|故事里未闭合的旁注')).toEqual([]);
+    });
+
+    it('reads content outside the sender label and uses the scene clock ahead of notification times', () => {
+        const lines = parsePrivateChatOpening(`[消息|冰咖啡（江朔）]：我到了
+[消息|另一个昵称(江朔)]：等你
+<status>
+|场景|2024.7.18-16:23
+<手机动态>
+|备忘录：21:00|未接电话：15:20
+</status>`, names);
+        expect(lines).toMatchObject([
+            { role: 'assistant', text: '我到了', day: { year: 2024, month: 7, day: 18 }, clock: { hour: 16, minute: 23 } },
+            { role: 'assistant', text: '等你', clock: { hour: 16, minute: 23 } },
+        ]);
+        expect(bubbles('[消息|其他联系人(林清)]：到了')).toEqual([]);
+    });
+
+    it('excludes anonymous group messages while accepting private contact nicknames', () => {
+        const a = '[对方消息|avatar-a.png|第一条|12:00]';
+        const b = '[对方消息|avatar-b.png|第二条|12:01]';
+        expect(bubbles('[和周末聚餐的聊天]\n' + a + '\n' + b)).toEqual([]);
+        expect(bubbles('[和阿朔的聊天]\n' + a + '\n' + a)).toHaveLength(2);
+        expect(bubbles('[和江朔的聊天]\n' + a + '\n' + b)).toHaveLength(2);
+    });
+
     it('scopes each list to the current character and rejects a deleted or edited source at insertion', async () => {
         const make = (id: string, name: string) => ({
             id, name, tavernGreetings: [{ id: 'tavern-alt-1', title: '（手机）放学后', content: name + '：到啦' }],
