@@ -183,12 +183,10 @@ export const stripWrappedOpeningPayloads = (source: string): string => {
 };
 
 /**
- * Story-only import display adapter: discard unsupported external media,
- * then remove every complete wrapped markup/bracket envelope, regardless of
- * labels or URLs. Only *outside* prose remains. Never fetch external URLs.
- * The original imported card and authored chat content stay untouched.
+ * Remove decorative media while keeping the source structure for comparison.
+ * Never fetch external URLs.
  */
-export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
+export const stripTavernOpeningMedia = (source: string): string => {
     let text = stripNonStoryOpeningBlocks(source);
     const mediaLabel = /(?:spotify|(?:^|[_ -])(?:music|soundtrack|playlist|song|audio|video|player|image|img|gif|picture|map|maps|location|iframe|embed|widget)(?:$|[_ -])|音乐|歌曲|音频|视频|图片|地图|播放器|外链组件)/i;
     const externalUrl = /(?:https?:\/\/|data:(?:image|audio|video)\/)/i;
@@ -268,8 +266,12 @@ export const stripUnsupportedTavernOpeningEmbeds = (source: string): string => {
     // normal URLs mentioned in a dialogue sentence or a source note.
     text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\.(?:png|jpe?g|gif|webp|svg|avif|mp3|m4a|wav|ogg|flac|aac|mp4|webm|mov)(?:[?#][^\s]*)?[ \t]*$/gim, '');
     text = text.replace(/^[ \t]*https?:\/\/[^\s<>"']+\/(?:maps|embed|player|widget)(?:[/?#][^\s]*)?[ \t]*$/gim, '');
-    return stripWrappedOpeningPayloads(text);
+    return text;
 };
+
+/** The Story display exposes only prose outside markup and decorative wrappers. */
+export const stripUnsupportedTavernOpeningEmbeds = (source: string): string =>
+    stripWrappedOpeningPayloads(stripTavernOpeningMedia(source));
 
 /**
  * Presentation-only adapter for authored Tavern greeting scenes.
@@ -335,9 +337,20 @@ export const tavernOpeningAuthorNote = (content: string): string => {
     return rows.join('\n').slice(0, 1600);
 };
 
-/** Use the same text identity for legacy and newly normalized imports. */
+/** Normalize equivalent source spellings while preserving prose and line structure. */
+export const normalizeOpeningText = (content: string): string => content.normalize('NFC')
+    .replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '')
+    .replace(/<(char|bot|user)>|\{\{\s*(char|user)\s*\}\}/gi, (_match, tag, macro) =>
+        '{{' + ((macro || tag).toLowerCase() === 'user' ? 'user' : 'char') + '}}')
+    .trim();
+
 export const tavernOpeningBodyKey = (greeting: TavernOpeningGreeting): string =>
-    adaptTavernOpeningGreeting(greeting).content.trim();
+    normalizeOpeningText(adaptTavernOpeningGreeting(greeting).content);
+
+export const tavernOpeningReferences = (content: string): string[] => [
+    ...Array.from(content.matchAll(/(?<!!)\[[^\]\r\n]+\]\(\s*(https?:\/\/[^\s)]+)\s*\)/gi), match => match[1]),
+    ...Array.from(content.matchAll(/<a\b[^>]*\bhref\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>/gi), match => match[1]),
+];
 
 /** Runtime-only compatibility for story messages already written before the adapter. */
 export const tavernOpeningSceneText = (content: string): string =>

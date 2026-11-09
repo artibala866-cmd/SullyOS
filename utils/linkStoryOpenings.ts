@@ -1,5 +1,6 @@
 import type { CharacterProfile, LinkOpeningGreeting, TavernOpeningGreeting } from '../types';
-import { adaptTavernOpeningGreeting, tavernOpeningReadableText, stripUnsupportedTavernOpeningEmbeds, stripWrappedOpeningPayloads } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, normalizeOpeningText, tavernOpeningReadableText, tavernOpeningReferences, stripUnsupportedTavernOpeningEmbeds, stripWrappedOpeningPayloads } from './tavernOpeningGreeting';
+import { collectPrivateChatOpenings } from './privateChatOpening';
 
 export type StoryOpeningSource = 'link' | 'tavern' | 'custom';
 export interface StoryOpeningChoice extends LinkOpeningGreeting {
@@ -29,10 +30,19 @@ const linkSceneFingerprint = (content: string): string => {
  * Original Link V1 exports may omit the opening payload entirely; this function
  * neither invents missing scenes nor treats a missing field as a deletion.
  */
-export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'linkGreetings' | 'tavernGreetings'>): StoryOpeningChoice[] => {
+export const listCharacterStoryOpenings = (
+    character: Pick<CharacterProfile, 'linkGreetings' | 'tavernGreetings'> &
+        Partial<Pick<CharacterProfile, 'name' | 'cardImportOrigin'>>,
+    user?: string, selectedId?: string,
+): StoryOpeningChoice[] => {
     const result: StoryOpeningChoice[] = [];
     const seen = new Set<string>();
-    const add = (raw: LinkOpeningGreeting, source: StoryOpeningSource) => {
+    const storyKeys = new Map<string, number>();
+    const privateIds = { tavernGreetings: new Set<string>(), linkGreetings: new Set<string>() };
+    for (const { source } of collectPrivateChatOpenings({ ...character, name: character.name || '' }, user)) {
+        if (source) privateIds[source.field].add(source.id);
+    }
+    const add = (raw: LinkOpeningGreeting, source: StoryOpeningSource, originalContent?: string) => {
         if (!raw || typeof raw.id !== 'string' || typeof raw.content !== 'string' ||
             !raw.content.trim() || seen.has(raw.id)) return;
         // Link HTML and scene annotations stay native. Only unsupported
@@ -41,17 +51,31 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
             ? stripUnsupportedTavernOpeningEmbeds(raw.content).trim()
             : raw.content;
         if (!content) return;
-        result.push({ ...raw, content, source });
+        const choice = { ...raw, content, source };
         seen.add(raw.id);
+        if (source === 'tavern') {
+            // Older imports can have several IDs for the same visible scene.
+            // Keep the selected ID addressable without deleting old references.
+            const key = JSON.stringify([normalizeOpeningText(content), tavernOpeningReferences(originalContent || raw.content)]);
+            const index = storyKeys.get(key);
+            if (index !== undefined) {
+                if (raw.id === selectedId) result[index] = choice;
+                return;
+            }
+            storyKeys.set(key, result.length);
+        }
+        result.push(choice);
     };
     // Native Link entries win over a shadow copy from pre-migration storage.
     // Malformed optional fields from older backups must not crash Story setup.
     const links = Array.isArray(character.linkGreetings) ? character.linkGreetings : [];
     const tavern = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
-    for (const greeting of links) add(greeting, 'link');
+    for (const greeting of links) {
+        if (!privateIds.linkGreetings.has(greeting?.id)) add(greeting, 'link');
+    }
     for (const greeting of tavern) {
         if (!greeting || typeof greeting.id !== 'string' ||
-            typeof greeting.content !== 'string') continue;
+            typeof greeting.content !== 'string' || privateIds.tavernGreetings.has(greeting.id)) continue;
         if (isLegacyLinkOpening(greeting)) add(greeting, 'link');
         else {
             const source: StoryOpeningSource = greeting.id.startsWith('story-custom-') ? 'custom' : 'tavern';
@@ -74,7 +98,7 @@ export const listCharacterStoryOpenings = (character: Pick<CharacterProfile, 'li
                 if (title) readable.title = title;
                 break;
             }
-            add(readable, source);
+            add(readable, source, adapted.content);
         }
     }
     return result;

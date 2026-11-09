@@ -146,7 +146,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         const persistedActor = !hasStarted && !alreadyInitialized && normalized.openingGreeting
             ? await DB.getCharacter(normalized.openingGreeting.characterId) : undefined;
         const opening = hasStarted || alreadyInitialized ? null : resolveStoryOpeningGreeting(
-            normalized, persistedActor ? [persistedActor] : [], identity,
+            normalized, persistedActor ? [persistedActor] : [], identity, userProfile.name,
         );
         if (!hasStarted && !alreadyInitialized && normalized.openingGreeting && !opening) {
             throw new Error('所选开场白已失效，请重新选择；旧剧情不会改变');
@@ -172,7 +172,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         const nativeLink = (latest.linkGreetings || []).find(row => row.id === greetingId);
         const oldLink = (latest.tavernGreetings || []).find(row =>
             row.id === greetingId && isLegacyLinkOpening(row));
-        const selected = listCharacterStoryOpenings(latest).find(row => row.id === greetingId);
+        const selected = listCharacterStoryOpenings(latest, userProfile.name, greetingId).find(row => row.id === greetingId);
         if (!selected) throw new Error('开场白已不存在，请重新选择');
         if (content !== null && (!content.trim() || content.length > 200000))
             throw new Error('开场白正文不能为空或超过 20 万字');
@@ -206,7 +206,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             });
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
         updateCharacter(characterId, { tavernGreetings: next });
-    }, [updateCharacter]);
+    }, [updateCharacter, userProfile.name]);
 
     const createGreeting = useCallback(async (characterId: string, title: string, content: string): Promise<TavernOpeningGreeting> => {
         const body = content.trim();
@@ -222,7 +222,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         if (!greeting.content.trim()) throw new Error('开场白正文不能只包含标题或简介');
         // A legacy raw metadata header and a clean new opening are identical
         // when they resolve to the same scene. Keep the original stable ID.
-        const existing = listCharacterStoryOpenings(latest)
+        const existing = listCharacterStoryOpenings(latest, userProfile.name)
             .find(item => item.content.trim() === greeting.content.trim() ||
                 (item.source !== 'link' && tavernOpeningBodyKey(item) === tavernOpeningBodyKey(greeting)));
         if (existing) return adaptTavernOpeningGreeting(existing);
@@ -230,7 +230,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         await DB.saveCharacter({ ...latest, tavernGreetings: next });
         updateCharacter(characterId, { tavernGreetings: next });
         return greeting;
-    }, [updateCharacter]);
+    }, [updateCharacter, userProfile.name]);
 
     const importGreetingDocuments = useCallback(async (characterId: string, files: File[]) => {
         // Read and validate the entire batch first. A corrupt DOCX or oversized

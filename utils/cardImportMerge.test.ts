@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { CardImportOrigin, CharacterProfile, Worldbook } from '../types';
 import { DB } from './db';
 import { mergeCardImports, findCardImportTarget, cardContentFingerprint, type CardImportItem } from './cardImportMerge';
+import { listCharacterStoryOpenings } from './linkStoryOpenings';
+import { listPrivateChatOpenings } from './privateChatOpening';
+import { resolveStoryOpeningGreeting } from './storyTheater';
 import { toMountedWorldbook } from './worldbook';
 
 const source: CardImportOrigin = { source: 'tavern', originalName: '雨生' };
@@ -476,6 +479,49 @@ describe('incremental character-card imports', () => {
         const first=mergeCardImports([oldRole],[],[incoming]).characters[0];
         expect(first.tavernGreetings).toHaveLength(1);
         expect(first.tavernGreetings?.[0].id).toBe('tavern-alt-1');
+    });
+
+    it('重复导入旧格式的剧情和私聊开场时按内容去重，并保留确实不同的同名开场', () => {
+        const old = char('old', { cardImportOrigin: source, tavernGreetings: [
+            { id: 'tavern-alt-5', title: '开场白5', content: '在车站等<bot>。  \r\n然后一起回家。' },
+            { id: 'tavern-alt-6', title: '开场白6', content: '手机聊天\n阿宁：到家了吗\n雨生：快到了' },
+        ] });
+        const incoming = { ...card('unused', source, { tavernGreetings: [
+            { id: 'tavern-alt-8', title: '开场白6', content: '剧情前言。\n[阿宁|到家了吗]\n[雨生|快到了]' },
+            { id: 'tavern-alt-9', title: '开场白5', content: '在车站等{{ CHAR }}。\n然后一起回家。' },
+            { id: 'tavern-alt-10', title: '开场白5', content: '在医院等{{char}}。' },
+            { id: 'tavern-alt-11', title: '开场白6', content: '手机聊天\n阿宁：到家了吗\n雨生：还在路上' },
+        ] }, [], 'old'), userName: '阿宁' };
+        const merged = mergeCardImports([old], [], [incoming]).characters[0];
+        expect(merged.tavernGreetings?.map(row => row.id)).toEqual([
+            'tavern-alt-5', 'tavern-alt-6', 'tavern-alt-10', 'tavern-alt-11',
+        ]);
+        expect(listCharacterStoryOpenings(merged, '阿宁').map(row => row.id))
+            .toEqual(['tavern-alt-5', 'tavern-alt-10']);
+        expect(listPrivateChatOpenings(merged, '阿宁').map(row => row.id))
+            .toEqual(['tavern-alt-6', 'tavern-alt-11']);
+        expect(mergeCardImports([merged], [], [incoming]).result.unchangedIds).toEqual(['old']);
+    });
+
+    it('旧库的重复剧情只显示一条，仍可按原 ID 恢复旧选择，私聊的所有副本均从剧情排除', () => {
+        const actor = char('old', { cardImportOrigin: source, tavernGreetings: [
+            { id: 'tavern-alt-5', title: '开场白5', content: '火车进站了。' },
+            { id: 'tavern-alt-5-scene-old', title: '开场白5', content: '<status>旧状态</status>\n火车进站了。' },
+            { id: 'tavern-alt-6', title: '开场白6', content: '剧情前言。\n[阿宁|到家了吗]\n[雨生|快到了]' },
+            { id: 'tavern-alt-6-scene-old', title: '开场白6', content: '另一个前言。\n[阿宁|到家了吗]\n[雨生|快到了]' },
+        ], linkGreetings: [
+            { id: 'link-phone', title: '私聊', content: '阿宁：到家了吗\n雨生：快到了' },
+        ] });
+        expect(listCharacterStoryOpenings(actor, '阿宁').map(row => row.id)).toEqual(['tavern-alt-5']);
+        expect(listPrivateChatOpenings(actor, '阿宁').map(row => row.id)).toEqual(['tavern-alt-6']);
+        const resolve = (greetingId: string) => resolveStoryOpeningGreeting({
+            characterIds: [actor.id], openingGreeting: { characterId: actor.id, greetingId },
+        }, [actor], '剧情面具', '阿宁');
+        expect(resolve('tavern-alt-5-scene-old')).toMatchObject({
+            greetingId: 'tavern-alt-5-scene-old', content: '火车进站了。',
+        });
+        expect(resolve('tavern-alt-6-scene-old')).toBeNull();
+        expect(resolve('link-phone')).toBeNull();
     });
 
     it('已有库数据损坏时整个导入明确报错，不能静默抹掉旧开场',()=>{

@@ -1289,6 +1289,7 @@ ${isInitialGeneration ? `
               const mounted = selectedWorldbooks.map(toMountedWorldbook);
               imports.push({
                   expectedTargetId: targetId,
+                  userName: userProfile.name,
                   origin,
                   fields,
                   worldbooks: selectedWorldbooks,

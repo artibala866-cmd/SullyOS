@@ -3255,8 +3255,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     await DB.saveCharacter(newChar);
     return newChar;
   };
-  const importStoryOpeningDocuments: typeof DB.importStoryOpeningDocuments = async (id, documents) => {
-    const result = await DB.importStoryOpeningDocuments(id, documents);
+  const importStoryOpeningDocuments: typeof DB.importStoryOpeningDocuments = async (id, documents, userName = userProfile.name) => {
+    const result = await DB.importStoryOpeningDocuments(id, documents, userName);
     // The import already committed. A second full character save can overwrite
     // another editor's changes or revive a character deleted during import.
     if (result.added.length) {

@@ -81,7 +81,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
     const resolvedMask = useMemo(() => resolveStoryTheaterMask(draft.mask, user, characters, masks), [characters, draft.mask, masks, user]);
     const greetingChoices = useMemo(() => {
         const all = actors.flatMap(actor =>
-            listCharacterStoryOpenings(actor).map(greeting => ({
+            listCharacterStoryOpenings(actor, user.name,
+                draft.openingGreeting?.characterId === actor.id ? draft.openingGreeting.greetingId : undefined).map(greeting => ({
                 characterId: actor.id, characterName: actor.name, ...greeting,
             })),
         );
@@ -95,18 +96,18 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
         return actors.flatMap(actor => sortCustomStoryOpenings(
             all.filter(item => item.characterId === actor.id),
         ));
-    }, [actors, recentGreeting]);
+    }, [actors, recentGreeting, user.name, draft.openingGreeting]);
     useEffect(() => {
         if (!recentGreeting) return;
         const actor = actors.find(item => item.id === recentGreeting.characterId);
-        const fresh = actor ? listCharacterStoryOpenings(actor)
+        const fresh = actor ? listCharacterStoryOpenings(actor, user.name, recentGreeting.id)
             .find(item => item.id === recentGreeting.id) : undefined;
         // Stop overriding the canonical character card as soon as the OS
         // state catches up with the already-committed IndexedDB write.
         if (fresh && fresh.content === recentGreeting.content) {
             setRecentGreeting(null);
         }
-    }, [actors, recentGreeting]);
+    }, [actors, recentGreeting, user.name]);
     const selectedGreeting = greetingChoices.find(greeting =>
         greeting.characterId === draft.openingGreeting?.characterId && greeting.id === draft.openingGreeting?.greetingId);
     const matchingGreetingChoices = useMemo(() => {

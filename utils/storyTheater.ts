@@ -1399,12 +1399,13 @@ export const resolveStoryOpeningGreeting = (
     entry: Pick<StoryTheaterEntry, 'characterIds' | 'openingGreeting'>,
     characters: CharacterProfile[],
     identityName: string,
+    userName = identityName,
 ): { characterId: string; greetingId: string; content: string; source: 'link' | 'tavern' | 'custom'; authorNote?: string } | null => {
     const selection = entry.openingGreeting;
     if (!selection || !entry.characterIds.includes(selection.characterId)) return null;
     const actor = characters.find(character => character.id === selection.characterId);
     if (!actor) return null;
-    const greeting = listCharacterStoryOpenings(actor).find(item => item.id === selection.greetingId);
+    const greeting = listCharacterStoryOpenings(actor, userName, selection.greetingId).find(item => item.id === selection.greetingId);
     if (!greeting?.content.trim()) return null;
     return {
         characterId: actor.id,

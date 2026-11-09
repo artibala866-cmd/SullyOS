@@ -728,7 +728,7 @@ export const DB = {
     return persistCharacterWithHomeMessages(db, cleanCharacter, clearStaleMemoryMirror);
   },
 
-  importStoryOpeningDocuments: async (charId: string, documents: readonly StoryOpeningImportDocument[]): Promise<StoryOpeningImportPlan> => {
+  importStoryOpeningDocuments: async (charId: string, documents: readonly StoryOpeningImportDocument[], userName?: string): Promise<StoryOpeningImportPlan> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_CHARACTERS, 'readwrite');
@@ -743,7 +743,7 @@ export const DB = {
           const character = read.result as CharacterProfile | undefined;
           if (!character) throw new Error('参与角色已不存在，开场白没有导入');
           const existing = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
-          result = planStoryOpeningDocumentImport(existing, documents, listCharacterStoryOpenings(character));
+          result = planStoryOpeningDocumentImport(existing, documents, listCharacterStoryOpenings(character, userName));
           if (result.added.length) store.put({ ...character, tavernGreetings: result.greetings });
         } catch (error) {
           failure = error;

@@ -102,6 +102,26 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(save.mock.calls[0][0]).toMatchObject({ openingMode: 'assistant' });
         expect(save.mock.calls[0][0].openingGreeting).toBeUndefined();
     });
+    it('剧情下拉框合并旧重复项，隐藏私聊，并保留正在编辑的旧开场 ID', async () => {
+        const greetingActor = { ...actor, tavernGreetings: [
+            { id: 'tavern-alt-5', title: '开场白5', content: '火车进站了。' },
+            { id: 'tavern-alt-5-scene-old', title: '开场白5', content: '<status>旧状态</status>\n火车进站了。' },
+            { id: 'tavern-alt-6', title: '开场白6', content: '手机聊天\n用户：到了吗\n角色甲：快到了' },
+            { id: 'tavern-alt-7', title: '开场白5', content: '船靠岸了。' },
+        ] };
+        const greetingId = 'tavern-alt-5-scene-old';
+        const save = vi.fn(async (_entry: StoryTheaterEntry) => {});
+        await render({ ...createStoryTheaterDraft(), title: '旧剧情', characterIds: [actor.id],
+            openingMode: 'assistant', openingGreeting: { characterId: actor.id, greetingId },
+        }, [greetingActor], save);
+        const select = host!.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]')!;
+        expect([...select.options].map(option => option.value)).toEqual([
+            '', `${actor.id}::${greetingId}`, `${actor.id}::tavern-alt-7`,
+        ]);
+        expect(select.value).toBe(`${actor.id}::${greetingId}`);
+        await clickButton('保存并进入');
+        expect(save.mock.calls[0][0].openingGreeting).toMatchObject({ characterId: actor.id, greetingId });
+    });
     it('我先写继续使用原有手动开场，切换后清理已选素材', async () => {
         const greetingActor = { ...actor, tavernGreetings: [
             { id: 'tavern-first', title: '默认开场白', content: '雨停了' },

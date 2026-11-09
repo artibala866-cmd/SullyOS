@@ -1,5 +1,5 @@
 import type { CharacterProfile, Emoji, Message } from '../types';
-import { adaptTavernOpeningGreeting } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, normalizeOpeningText } from './tavernOpeningGreeting';
 
 type Role = 'user' | 'assistant';
 type Clock = { hour: number; minute: number; second: number };
@@ -37,7 +37,7 @@ function parseClock(raw: string): Pick<Line, 'clock' | 'day'> | null {
     return { day, clock: { hour, minute, second } };
 }
 
-const nameKey = (value: string) => value.trim().toLowerCase().replace(/^\{\{\s*(char|user)\s*\}\}$/, '$1');
+const nameKey = (value: string) => normalizeOpeningText(value).toLowerCase().replace(/^\{\{(char|user)\}\}$/, '$1');
 const speaker = (name: string, names: OpeningNames): Role | undefined => {
     const key = nameKey(name);
     if (!key) return;
@@ -264,14 +264,15 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames, pho
 }
 
 type OpeningCharacter = Pick<CharacterProfile, 'name' | 'cardImportOrigin' | 'tavernGreetings' | 'linkGreetings'>;
-export function listPrivateChatOpenings(character: OpeningCharacter, user?: string): PrivateChatOpening[] {
+export function collectPrivateChatOpenings(character: OpeningCharacter, user?: string): PrivateChatOpening[] {
     const tavern = Array.isArray(character.tavernGreetings) ? character.tavernGreetings : [];
     const link = Array.isArray(character.linkGreetings) ? character.linkGreetings : [];
     const manifest = tavern.find(greeting => greeting?.id === 'tavern-first')?.content;
     const titles = new Map(Array.from((typeof manifest === 'string' ? manifest : '').matchAll(/^\s*开场白\s*(\d+)\s*[:：]\s*(.+)$/gm), match => [match[1], match[2].trim()]));
     return (['tavernGreetings', 'linkGreetings'] as const).flatMap(field =>
         (field === 'tavernGreetings' ? tavern : link).flatMap(greeting => {
-            if (typeof greeting?.content !== 'string') return [];
+            if (typeof greeting?.id !== 'string' || typeof greeting.content !== 'string' ||
+                greeting.id.startsWith('story-custom-')) return [];
             const adapted = adaptTavernOpeningGreeting(greeting);
             const index = /^tavern-alt-(\d+)(?:$|-)/.exec(greeting.id)?.[1];
             const title = index && adapted.title === '备选开场白 ' + index
@@ -283,6 +284,21 @@ export function listPrivateChatOpenings(character: OpeningCharacter, user?: stri
             return lines.length ? [{ id: greeting.id, title, lines,
                 source: { field, id: greeting.id, content: greeting.content } }] : [];
         }));
+}
+
+export const privateChatOpeningKey = (opening: PrivateChatOpening): string =>
+    JSON.stringify(opening.lines.map(({ role, text, day, clock }) => [
+        role, normalizeOpeningText(text), day?.year, day?.month, day?.day, clock?.hour, clock?.minute, clock?.second,
+    ]));
+
+export function listPrivateChatOpenings(character: OpeningCharacter, user?: string): PrivateChatOpening[] {
+    const seen = new Set<string>();
+    return collectPrivateChatOpenings(character, user).filter(opening => {
+        const key = privateChatOpeningKey(opening);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 const clockSeconds = (clock: Clock) => clock.hour * 3600 + clock.minute * 60 + clock.second;

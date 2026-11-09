@@ -1,6 +1,7 @@
 import type { CardImportOrigin, CharacterProfile, MountedWorldbook, TavernOpeningGreeting, Worldbook } from '../types';
 import { toMountedWorldbook } from './worldbook';
-import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningSceneText, tavernOpeningAuthorNote } from './tavernOpeningGreeting';
+import { adaptTavernOpeningGreeting, tavernOpeningBodyKey, tavernOpeningSceneText, tavernOpeningAuthorNote, tavernOpeningReferences, normalizeOpeningText, stripTavernOpeningMedia } from './tavernOpeningGreeting';
+import { collectPrivateChatOpenings, privateChatOpeningKey } from './privateChatOpening';
 import { isLegacyLinkOpening, mergeLinkGreetings } from './linkStoryOpenings';
 import { canReplaceImportedRemark, importedCardRemarkCorrection } from './cardImportRemark';
 
@@ -82,6 +83,7 @@ export function findCardImportTarget(
 export interface CardImportItem {
     /** ID found before image processing. Recheck inside the write transaction. */
     expectedTargetId: string | null;
+    userName?: string;
     /** Fully initialized new-character record. */
     character: CharacterProfile;
     /** Only source-card fields; excludes new-character runtime defaults. */
@@ -124,6 +126,7 @@ const equalBook = (a: Worldbook, b: Worldbook): boolean => {
 
 export function mergeCardGreetings(
     existing: TavernOpeningGreeting[] = [], incoming: TavernOpeningGreeting[] = [],
+    character?: Pick<CharacterProfile, 'name' | 'cardImportOrigin'>, user?: string,
 ): TavernOpeningGreeting[] {
     // An import is not a repair operation: never silently discard malformed
     // existing scenes when the user has saved stories pointing to them.
@@ -134,37 +137,48 @@ export function mergeCardGreetings(
     }
     const isHandwritten = (g: TavernOpeningGreeting) => g.id.startsWith('story-custom-');
     const output = existing.map(g => isHandwritten(g) ? { ...g } : adaptTavernOpeningGreeting(g));
-    const semanticKey = (g: TavernOpeningGreeting) => {
-        const body = tavernOpeningSceneText(g.content);
-        if (!body) return '';
-        // Author requests affect role behavior even if not shown as dialogue.
-        // The display layer intentionally renders a Markdown/HTML link as
-        // its label. Its destination still matters to story identity: two
-        // diary clues with the same label but different destinations must not
-        // be merged just because their visible text matches.
-        const references = [
-            ...Array.from(g.content.matchAll(/(?<!!)\[[^\]\r\n]+\]\(\s*(https?:\/\/[^\s)]+)\s*\)/gi), match => match[1]),
-            ...Array.from(g.content.matchAll(/<a\b[^>]*\bhref\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>/gi), match => match[1]),
-        ];
-        return JSON.stringify([body, tavernOpeningAuthorNote(g.content), references]);
+    const privateKeys = (greetings: TavernOpeningGreeting[]) => new Map(
+        character ? collectPrivateChatOpenings({ ...character, tavernGreetings: greetings }, user)
+            .map(opening => [opening.id, privateChatOpeningKey(opening)] as const) : [],
+    );
+    const existingPrivateKeys = privateKeys(output);
+    const incomingPrivateKeys = privateKeys(incoming);
+    const semanticKey = (g: TavernOpeningGreeting, privateKey?: string) => {
+        if (privateKey) return JSON.stringify(['private', privateKey]);
+        if (isHandwritten(g)) return '';
+        const body = normalizeOpeningText(tavernOpeningSceneText(g.content));
+        // Wrapped-only sources have no Story prose. Compare their remaining
+        // structure so a decorative URL change alone cannot create a new row.
+        const text = body || tavernOpeningBodyKey({ ...g, content: stripTavernOpeningMedia(g.content) });
+        return text ? JSON.stringify([body ? 'story' : 'wrapped', text,
+            tavernOpeningAuthorNote(g.content), tavernOpeningReferences(g.content)]) : '';
     };
+    const openingKeys = (row: TavernOpeningGreeting, privateKey?: string) => ({
+        body: isHandwritten(row) ? row.content.trim() : tavernOpeningBodyKey(row),
+        semantic: semanticKey(row, privateKey),
+        isPrivate: !!privateKey,
+    });
+    const keys = output.map(row => openingKeys(row, existingPrivateKeys.get(row.id)));
     for (const original of incoming) {
         if (!original?.content?.trim()) continue;
         const greeting = isHandwritten(original) ? { ...original } : adaptTavernOpeningGreeting(original);
-        const key = isHandwritten(greeting) ? greeting.content.trim() : tavernOpeningBodyKey(greeting);
-        if (!key) continue;
+        const key = openingKeys(greeting, incomingPrivateKeys.get(original.id));
+        if (!key.body) continue;
         // Exact body matches and display-only asset changes are the same
         // opening; retain the ID used by old saved stories.
-        const semantic = semanticKey(greeting);
-        const byBody = output.findIndex(row =>
-            (isHandwritten(row) ? row.content.trim() : tavernOpeningBodyKey(row)) === key ||
-            (!isHandwritten(row) && !isHandwritten(greeting) && semantic && semanticKey(row) === semantic));
+        const exact = keys.findIndex((row, index) => row.body === key.body &&
+            (!key.isPrivate || !isHandwritten(output[index])));
+        const byBody = exact >= 0 ? exact : key.semantic ? keys.findIndex(row => row.semantic === key.semantic) : -1;
         if (byBody >= 0) {
             const previous = output[byBody];
             // Identical imported prose cannot overwrite a user's separately
             // authored scene or its title/description on re-import.
-            if (!isHandwritten(previous))
+            // Keep the existing phone metadata if the same raw transcript is
+            // re-exported without its phone heading or descriptive hint.
+            if (!isHandwritten(previous) && (!keys[byBody].isPrivate || key.isPrivate)) {
                 output[byBody] = { ...previous, ...greeting, id: previous.id };
+                keys[byBody] = key;
+            }
             continue;
         }
         // Tavern's tavern-alt-N ID is a list position, not a permanent source
@@ -179,6 +193,7 @@ export function mergeCardGreetings(
                 id = greeting.id + '-scene-' + fingerprint + '-' + suffix++;
         }
         output.push({ ...greeting, id });
+        keys.push(key);
     }
     return output;
 }
@@ -293,7 +308,7 @@ export function mergeCardImports(
             .some(key => Object.prototype.hasOwnProperty.call(item.fields, key));
         if (!target && next.tavernGreetings?.length) {
             // First import must also dedupe identical opening text, not just re-imports.
-            next.tavernGreetings = mergeCardGreetings([], next.tavernGreetings);
+            next.tavernGreetings = mergeCardGreetings([], next.tavernGreetings, next, item.userName);
         }
         if (!target && next.linkGreetings?.length) {
             // Link is a distinct native format, never pass its scenes through
@@ -333,7 +348,8 @@ export function mergeCardImports(
                 // without running Tavern's title/desc rules over their body.
                 const all = target.tavernGreetings || [];
                 next.tavernGreetings = [
-                    ...mergeCardGreetings(all.filter(g => !isLegacyLinkOpening(g)), item.fields.tavernGreetings),
+                    ...mergeCardGreetings(all.filter(g => !isLegacyLinkOpening(g)), item.fields.tavernGreetings,
+                        { name: next.name, cardImportOrigin: item.origin }, item.userName),
                     ...all.filter(isLegacyLinkOpening),
                 ];
             }
