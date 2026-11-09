@@ -27,26 +27,38 @@ export async function listStoryVectorMemories(entryId: string): Promise<MemoryNo
 /** Only local nodes still owned by a visible range can participate in this turn. */
 export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: number) {
     const archives = entry.archives.filter(box => box.strategy === 'vector');
-    const archiveIds = new Set<string>();
-    if (!archives.length) return { nodes: [], archiveIds };
+    const groups: { archiveIds: string[]; nodes: MemoryNode[] }[] = [];
+    if (!archives.length) return { nodes: [], groups };
     const owned = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
     const legacy = archives.filter(box => !box.vectorMemoryIds);
     const all = (await listStoryVectorMemories(entry.id)).filter(node => !node.archived && node.content.trim());
     const available = new Set(all.map(node => node.id));
     const legacyNodes = legacy.length && legacy.every(box => box.toMessageId < beforeId)
         ? all.filter(node => !owned.has(node.id)) : [];
-    if (legacyNodes.length) for (const box of legacy) archiveIds.add(box.id);
-    const eligibleIds = new Set(legacyNodes.map(node => node.id));
+    if (legacyNodes.length) {
+        const ids = legacy.map(box => box.id);
+        groups.push({ archiveIds: ids, nodes: legacyNodes });
+    }
+    const byId = new Map(all.map(node => [node.id, node]));
     for (const box of archives) {
         if (box.toMessageId >= beforeId || !box.vectorMemoryIds?.some(id => available.has(id))) continue;
-        archiveIds.add(box.id);
-        for (const id of box.vectorMemoryIds) eligibleIds.add(id);
+        const nodes = box.vectorMemoryIds.flatMap(id => {
+            const node = byId.get(id);
+            return node ? [node] : [];
+        });
+        groups.push({ archiveIds: [box.id], nodes });
     }
-    return { nodes: all.filter(node => eligibleIds.has(node.id)), archiveIds };
+    const eligibleIds = new Set(groups.flatMap(group => group.nodes.map(node => node.id)));
+    return { nodes: all.filter(node => eligibleIds.has(node.id)), groups };
 }
 
-export async function formatStoryVectorRecall(nodes: MemoryNode[], query: string, embedding?: EmbeddingConfig): Promise<string> {
-    if (!nodes.length) return '';
+export async function selectStoryVectorRecall(
+    { nodes, groups }: Awaited<ReturnType<typeof loadStoryVectorRecall>>,
+    query: string,
+    embedding?: EmbeddingConfig,
+): Promise<{ text: string; archiveIds: Set<string> }> {
+    const archiveIds = new Set<string>();
+    if (!nodes.length) return { text: '', archiveIds };
     let ordered = nodes;
     if (embedding?.baseUrl && embedding.apiKey && embedding.model && query.trim()) {
         try {
@@ -63,7 +75,21 @@ export async function formatStoryVectorRecall(nodes: MemoryNode[], query: string
             console.warn('[StoryTheater] vector recall fell back to saved text', error);
         }
     }
-    return ordered.slice(0, 10).map(node => node.content).join('\n\n').slice(0, 6000);
+    const rank = new Map(ordered.map((node, index) => [node.id, index]));
+    const priority = groups.map(group => ({
+        ...group,
+        rank: Math.min(...group.nodes.map(node => rank.get(node.id) ?? Infinity)),
+    })).sort((a, b) => a.rank - b.rank);
+    let text = '';
+    for (const group of priority) {
+        const block = group.nodes.map(node => node.content).join('\n\n');
+        const combined = text ? text + '\n\n' + block : block;
+        // A range can replace its original floors only if every selected section fits.
+        if (combined.length > 6000) continue;
+        text = combined;
+        for (const id of group.archiveIds) archiveIds.add(id);
+    }
+    return { text, archiveIds };
 }
 
 export async function updateStoryVectorMemory(

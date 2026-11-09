@@ -181,7 +181,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
         });
     }
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({
-        choices: [{ message: { content: '两人交还钥匙后解开误会。' }, finish_reason: 'stop' }],
+        choices: [{ message: { content: '【关键事件与因果】\n两人交还钥匙后解开误会。\n【时间地点与场景】\n原文未交代\n【人物关系与转折】\n两人解除误会。\n【好感与心理变化】\n原文未交代\n【新增设定与细节】\n原文未交代\n【未解决事项与续写落点】\n原文未交代' }, finish_reason: 'stop' }],
     }));
     vi.stubGlobal('fetch', fetchMock);
     const updated = vi.fn();

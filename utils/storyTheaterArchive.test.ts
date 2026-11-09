@@ -2,12 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
-import { loadStoryVectorRecall, formatStoryVectorRecall } from './storyTheaterVectorMemory';
+import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
+const sections = ['关键事件与因果', '时间地点与场景', '人物关系与转折', '好感与心理变化', '新增设定与细节', '未解决事项与续写落点'];
+const savedSummary = (text: string) => '【关键事件与因果】\n' + text;
+const structured = (text: string, details: Record<string, string> = {}) => completion(sections.map((section, index) =>
+    '【' + section + '】\n' + (details[section] ?? (index === 0 ? text : '原文未交代')),
+).join('\n\n'));
 const response = (data: unknown) => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 let entry: StoryTheaterEntry, messages: Message[], serial = 0;
 const fetchMock = vi.fn();
@@ -17,7 +22,7 @@ const regenerate = () => regenerateStoryArchiveSummary(entry.id, 'box', api);
 beforeEach(async () => {
     serial++;
     vi.stubGlobal('fetch', fetchMock);
-    fetchMock.mockReset().mockResolvedValue(response(completion('两人在车站等雨停，一起走回家。')));
+    fetchMock.mockReset().mockResolvedValue(response(structured('两人在车站等雨停，一起走回家。')));
     entry = { ...createStoryTheaterDraft(), id: `archive-qa-${serial}`, title: '雨夜车站', writesToCharacterMemory: false };
     messages = [];
     for (const [role, content] of [['user', '我们先在车站等雨停。'], ['assistant', '<think>先计划情节</think>阿泽答应陪小雨走回家。']] as const) {
@@ -69,6 +74,36 @@ describe('story summary final channel', () => {
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
+    it('keeps scene transitions, supporting relationships, custom settings and exact UI affinity in one request', async () => {
+        const content = '周五 21:10，车站站台：小雨、阿泽和阿祁在场。次日清晨转到旅馆。阿祁是阿泽的姐姐。小雨左眼怕强光。';
+        const source = [{ ...messages[0], content, metadata: { theaterAffinityInputs: [
+            { characterName: '阿泽', delta: 17, reason: '守住秘密', awareness: 'unnoticed' },
+            { characterName: '阿祁', delta: -3, reason: '隐瞒约定', awareness: 'noticed' },
+        ] } }, messages[1]];
+        fetchMock.mockResolvedValueOnce(response(structured('阿泽答应陪小雨回去。', {
+            时间地点与场景: '周五 21:10 车站站台 → 次日清晨旅馆。',
+            人物关系与转折: '阿祁是阿泽的姐姐。',
+            新增设定与细节: '小雨左眼怕强光。',
+        })));
+        const summary = await generateStoryArchiveSummary(entry.title, source, api, { firstFloor: 5 });
+        expect(summary).toContain('周五 21:10 车站站台 → 次日清晨旅馆');
+        expect(summary).toContain('阿祁是阿泽的姐姐');
+        expect(summary).toContain('小雨左眼怕强光');
+        expect(summary).toContain('第 5 楼 · 阿泽 · 用户对角色 · +17 · 未告知角色 · 原因：守住秘密');
+        expect(summary).toContain('第 5 楼 · 阿祁 · 用户对角色 · -3 · 允许察觉 · 原因：隐瞒约定');
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content).toContain('界面好感记录：');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('rejects a missing or empty section without changing the box or retrying', async () => {
+        fetchMock.mockResolvedValueOnce(response(completion('【关键事件与因果】\n两人一起回家。')));
+        await expect(regenerate()).rejects.toThrow('时间地点与场景');
+        fetchMock.mockResolvedValueOnce(response(structured('两人一起回家。', { 人物关系与转折: '' })));
+        await expect(regenerate()).rejects.toThrow('人物关系与转折');
+        expect((await fresh()).archives).toEqual(entry.archives);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('uses only Content-Type for keyless story summary endpoints (no empty Bearer header)', async () => {
         await generateStoryArchiveSummary(entry.title, messages, { ...api, apiKey: '' });
         expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' });
@@ -107,7 +142,7 @@ describe('story archive regeneration', () => {
         await DB.saveMessage({ ...newMessage, content: '盒外的新剧情' });
         fetchMock.mockImplementationOnce(async () => {
             await DB.saveStoryTheater({ ...entry, premise: '另一个窗口编辑的介绍', archives: [...entry.archives, { ...entry.archives[0], id: 'later' }] });
-            return response(completion('新摘要'));
+            return response(structured('新摘要'));
         });
         const result = await regenerate();
         const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -117,17 +152,17 @@ describe('story archive regeneration', () => {
         expect(payload.messages[1].content).not.toContain('旧摘要');
         expect(payload).toMatchObject({ model: 'test', stream: false, max_tokens: 4096 });
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(result.archives[0]).toEqual({ ...entry.archives[0], summary: '新摘要' });
+        expect(result.archives[0]).toEqual({ ...entry.archives[0], summary: savedSummary('新摘要') });
         expect(result.archives).toHaveLength(2);
         expect(result.premise).toBe('另一个窗口编辑的介绍');
-        expect((await fresh()).archives[0].summary).toBe('新摘要');
+        expect((await fresh()).archives[0].summary).toBe(savedSummary('新摘要'));
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
     it('keeps the old summary on reasoning-only response and unlocks for an explicit retry', async () => {
         fetchMock.mockResolvedValueOnce(response(completion('', 'stop', '只有推理')));
         await expect(regenerate()).rejects.toThrow('思维链');
         expect((await fresh()).archives[0]).toEqual(entry.archives[0]);
-        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: '两人在车站等雨停，一起走回家。' }] });
+        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: savedSummary('两人在车站等雨停，一起走回家。') }] });
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     it('allows recovery of an empty summary but refuses incomplete source before making a request', async () => {
@@ -143,7 +178,7 @@ describe('story archive regeneration', () => {
             if (change === 'summary') await DB.saveStoryTheater({ ...entry, archives: [{ ...entry.archives[0], summary: '其他窗口的新摘要' }] });
             if (change === 'message') await DB.updateMessage(messages[1].id, '已编辑的原文');
             if (change === 'delete') await DB.deleteStoryTheater(entry.id);
-            return response(completion('本次旧请求结果'));
+            return response(structured('本次旧请求结果'));
         });
         await expect(regenerate()).rejects.toThrow('已变更');
         if (change !== 'delete') expect((await fresh()).archives[0].summary).toBe(change === 'summary' ? '其他窗口的新摘要' : entry.archives[0].summary);
@@ -155,7 +190,7 @@ describe('story archive regeneration', () => {
         const pending = regenerate();
         await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
         await expect(regenerate()).rejects.toThrow('正在重新总结');
-        release(response(completion('新摘要')));
+        release(response(structured('新摘要')));
         await pending;
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -237,7 +272,7 @@ describe('manual event box floor selection', () => {
         const third = await addFloor('新的剧情');
         fetchMock.mockImplementationOnce(async () => {
             await DB.updateMessage(third.id, '在另一个窗口修改了这层');
-            return response(completion('旧请求生成的摘要'));
+            return response(structured('旧请求生成的摘要'));
         });
         await expect(archiveStoryFloorRange(entry.id, [messages[1], third], api, 'box')).rejects.toThrow('已变更');
         expect((await fresh()).archives).toEqual(entry.archives);
@@ -254,10 +289,11 @@ describe('revoking an event box', () => {
         expect(updated.archives).toEqual([]);
         const restored = await read();
         expect(restored.map(row => row.content)).toEqual(messages.map(row => row.content));
-        expect(restored.every(row => !row.metadata?.theaterArchived)).toBe(true);
+        expect(restored.every(row => !row.metadata?.theaterArchived && row.metadata?.theaterSkipAutoArchive)).toBe(true);
         expect(fetchMock).not.toHaveBeenCalled();
         const archived = await archiveStoryFloorRange(entry.id, restored, api);
         expect(archived.archives[0]).toMatchObject({ fromMessageId: messages[0].id, toMessageId: messages[1].id });
+        expect((await read()).every(row => !row.metadata?.theaterSkipAutoArchive)).toBe(true);
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
@@ -296,7 +332,7 @@ describe('independent vector archive', () => {
     const partition = () => storyTheaterThreadId(entry.id);
     const read = () => DB.getMessagesByCharId(partition(), true);
     const queueArchive = (summary: string) => {
-        fetchMock.mockResolvedValueOnce(response(completion(summary)));
+        fetchMock.mockResolvedValueOnce(response(structured(summary)));
         fetchMock.mockImplementationOnce(async (_url, init) => response({
             data: JSON.parse(init.body).input.map((_part: string, index: number) => ({ index, embedding: [1, 0, 0] })),
         }));
@@ -311,15 +347,15 @@ describe('independent vector archive', () => {
 
     it('replaces the vector and restores released floors, then deletes it with no request on undo', async () => {
         const floors = await prepare();
-        queueArchive('【人物关系与转折】小雨开始信任阿泽。');
+        queueArchive('小雨开始信任阿泽。');
         const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
         const oldBox = initial.archives[0];
         const oldIds = oldBox.vectorMemoryIds!;
         expect(oldIds).toHaveLength(1);
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(oldIds);
         expect((await loadStoryVectorRecall(initial, floors[1].id)).nodes).toEqual([]);
-        expect(await formatStoryVectorRecall((await loadStoryVectorRecall(initial, Infinity)).nodes, '')).toContain('开始信任');
-        queueArchive('【人物关系与转折】阿泽把备用钥匙交给小雨，两人成为搭档。');
+        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(initial, Infinity), '')).text).toContain('开始信任');
+        queueArchive('阿泽把备用钥匙交给小雨，两人成为搭档。');
         const replaced = await archiveStoryFloorRange(entry.id, floors.slice(1), api, oldBox.id, vector);
         expect(replaced.archives).toHaveLength(1);
         expect(replaced.archives[0].id).toBe(oldBox.id);
@@ -327,26 +363,41 @@ describe('independent vector archive', () => {
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(replaced.archives[0].vectorMemoryIds);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([false, true, true]);
         const recall = await loadStoryVectorRecall(replaced, Infinity);
-        expect(await formatStoryVectorRecall(recall.nodes, '')).toContain('成为搭档');
-        expect(await formatStoryVectorRecall(recall.nodes, '')).not.toContain('开始信任');
+        expect((await selectStoryVectorRecall(recall, '')).text).toContain('成为搭档');
+        expect((await selectStoryVectorRecall(recall, '')).text).not.toContain('开始信任');
         const revoked = await revokeStoryArchive(entry.id, replaced.archives[0]);
-        expect((await loadStoryVectorRecall(revoked, Infinity)).archiveIds.size).toBe(0);
+        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(revoked, Infinity), '')).archiveIds.size).toBe(0);
         expect(await MemoryNodeDB.getByCharId(partition())).toEqual([]);
         expect(await MemoryVectorDB.getAllByCharId(partition())).toEqual([]);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([false, false, false]);
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
+    it('recalls all sections of a range together or leaves its floors in the request history', async () => {
+        const floors = await prepare();
+        queueArchive('最先发生的剧情。');
+        const first = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+        const firstId = first.archives[0].vectorMemoryIds![0];
+        const node = (await MemoryNodeDB.getById(firstId))!;
+        await MemoryNodeDB.save({ ...node, content: '旧'.repeat(5900) });
+        const secondId = 'second-section-' + entry.id;
+        await MemoryNodeDB.save({ ...node, id: secondId, content: '【好感与心理变化】' + '变化'.repeat(70) });
+        const snapshot = { ...first, archives: [{ ...first.archives[0], vectorMemoryIds: [firstId, secondId] }] };
+        const recall = await selectStoryVectorRecall(await loadStoryVectorRecall(snapshot, Infinity), '');
+        expect(recall.text).toBe('');
+        expect(recall.archiveIds.size).toBe(0);
+    });
+
     it('keeps the previous range and vectors if replacement embedding fails', async () => {
         const floors = await prepare();
         queueArchive('旧向量内容');
         const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
-        fetchMock.mockResolvedValueOnce(response(completion('新向量内容')));
+        fetchMock.mockResolvedValueOnce(response(structured('新向量内容')));
         fetchMock.mockResolvedValueOnce(response({ data: [] }));
         await expect(archiveStoryFloorRange(entry.id, floors.slice(1), api, initial.archives[0].id, vector)).rejects.toThrow();
         expect((await fresh()).archives).toEqual(initial.archives);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
-        expect(await formatStoryVectorRecall((await loadStoryVectorRecall(initial, Infinity)).nodes, '')).toBe('旧向量内容');
+        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(initial, Infinity), '')).text).toBe(savedSummary('旧向量内容'));
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 

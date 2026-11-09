@@ -1472,6 +1472,29 @@ export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPrese
     ].filter(Boolean).join('\n');
 };
 
+const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffinityInput | undefined => {
+    if (!value || typeof value !== 'object') return undefined;
+    const delta = Math.max(-100, Math.min(100, Math.round(Number(value.delta) || 0)));
+    const reason = String(value.reason || '').trim().slice(0, 200);
+    const awareness = value.awareness === 'noticed' ? 'noticed' : 'unnoticed';
+    return delta !== 0 || reason ? {
+        characterId: String(value.characterId || actor?.id || ''),
+        characterName: String(value.characterName || actor?.name || '当前角色'),
+        delta,
+        reason,
+        awareness,
+    } : undefined;
+};
+
+export const storyAffinityInputsFromMessage = (message: Message | undefined, actors: CharacterProfile[] = []): StoryAffinityInput[] => {
+    const values = message?.metadata?.theaterAffinityInputs;
+    if (Array.isArray(values)) return values
+        .map(value => normalizeAffinityInput(value, actors.find(actor => actor.id === value?.characterId)))
+        .filter((value): value is StoryAffinityInput => Boolean(value));
+    const legacy = normalizeAffinityInput(message?.metadata?.theaterAffinityInput, actors[0]);
+    return legacy ? [legacy] : [];
+};
+
 const escapeStoryXml = (value: string): string => value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -2561,7 +2584,13 @@ export const buildStoryRequestHistory = (
     return history.filter(({ row }, index) =>
         // Restore the exact previous reply for old stories that archived it too early.
         index === anchor || (index === anchor - 1 && row.role === 'user') || !isArchived(row),
-    ).map(({ row, floor }) => ({ row, floor, message: toStoryHistoryMessage(row) }));
+    ).map(({ row, floor }) => {
+        const message = toStoryHistoryMessage(row);
+        if (row.role === 'user') {
+            message.content = appendStoryAffinityInputs(message.content, storyAffinityInputsFromMessage(row));
+        }
+        return { row, floor, message };
+    });
 };
 
 /** Use the original input on new replies. Legacy replies can use an adjacent user floor. */

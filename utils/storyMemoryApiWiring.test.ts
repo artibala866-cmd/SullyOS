@@ -39,7 +39,7 @@ describe('per-story API uses only memory call sites', () => {
         expect(archiveEngine).toContain('await vectorizeAndStore(nodes, embedding, vector?.remote');
     });
     it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
-        expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), { storyOnlyProvider: !!entry.memorySummaryApi })');
+        expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), {');
         expect(archives).toContain('const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;');
         expect(archives).not.toContain('resolveStoryMemoryApi(');
         const actorMemory = session.split('const applyActorMemoryPipeline =')[1].split('const archiveIfNeeded =')[0];

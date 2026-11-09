@@ -24,6 +24,7 @@ import {
     buildStoryMultiAffinityGuide,
     buildStoryRequestHistory,
     storyArchiveAtFloor,
+    storyAffinityInputsFromMessage,
     getStoryReplyInput,
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,
@@ -63,7 +64,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { formatStoryVectorRecall, loadStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
+import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
@@ -83,29 +84,6 @@ interface Props {
     onEntryChange: (entry: StoryTheaterEntry) => Promise<void> | void;
     onArchiveCommitted: (entry: StoryTheaterEntry) => void;
 }
-
-const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffinityInput | undefined => {
-    if (!value || typeof value !== 'object') return undefined;
-    const delta = Math.max(-100, Math.min(100, Math.round(Number(value.delta) || 0)));
-    const reason = String(value.reason || '').trim().slice(0, 200);
-    const awareness = value.awareness === 'noticed' ? 'noticed' : 'unnoticed';
-    return delta !== 0 || reason ? {
-        characterId: String(value.characterId || actor?.id || ''),
-        characterName: String(value.characterName || actor?.name || '当前角色'),
-        delta,
-        reason,
-        awareness,
-    } : undefined;
-};
-
-const affinityInputsFromMessage = (message: Message | undefined, actors: CharacterProfile[]): StoryAffinityInput[] => {
-    const values = message?.metadata?.theaterAffinityInputs;
-    if (Array.isArray(values)) return values
-        .map(value => normalizeAffinityInput(value, actors.find(actor => actor.id === value?.characterId)))
-        .filter((value): value is StoryAffinityInput => Boolean(value));
-    const legacy = normalizeAffinityInput(message?.metadata?.theaterAffinityInput, actors[0]);
-    return legacy ? [legacy] : [];
-};
 
 interface AffinityDraft { delta: number; reason: string; awareness: 'noticed' | 'unnoticed'; }
 const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: 'unnoticed' };
@@ -745,7 +723,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         try {
             const rows = storyArchiveFloors(await DB.getMessagesByCharId(threadId, true), archiveEntry.id);
             const batch = selectStoryArchiveBatch(rows, archiveEntry.archiveAfter, archiveEntry.archiveKeepRecent ?? 5, row =>
-                !!storyArchiveAtFloor(archiveEntry.archives, row.id));
+                row.metadata?.theaterSkipAutoArchive === true || !!storyArchiveAtFloor(archiveEntry.archives, row.id));
             if (batch.length === 0) return null;
             const first = batch[0];
             const last = batch[batch.length - 1];
@@ -832,8 +810,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 const draft = affinityDrafts[actor.id] || EMPTY_AFFINITY_DRAFT;
                 return normalizeAffinityInput({ ...draft, characterId: actor.id, characterName: actor.name }, actor);
             }).filter((value): value is StoryAffinityInput => Boolean(value)) : [];
-            const savedAffinityInputs = affinityInputsFromMessage(isReroll ? previousUser : retry ? latest : undefined, actors);
-            const rerollAffinityInputs = isReroll ? affinityInputsFromMessage(rerollTarget, actors) : [];
+            const savedAffinityInputs = storyAffinityInputsFromMessage(isReroll ? previousUser : retry ? latest : undefined, actors);
+            const rerollAffinityInputs = isReroll ? storyAffinityInputsFromMessage(rerollTarget, actors) : [];
             const affinityInputs = savedAffinityInputs.length > 0 ? savedAffinityInputs : rerollAffinityInputs.length > 0 ? rerollAffinityInputs : draftAffinityInputs;
             const userMessageId = isReroll
                 ? (previousUser?.id || 0)
@@ -860,10 +838,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const turnBoundary = userMessageId || rerollTarget?.id || Infinity;
-            const vectorSource = await loadStoryVectorRecall(promptEntry, turnBoundary).catch(error => {
-                console.warn('[StoryTheater] vector memory unavailable, reading original floors', error);
-                return { nodes: [], archiveIds: new Set<string>() };
-            });
+            const vectorSource = await loadStoryVectorRecall(promptEntry, turnBoundary)
+                .then(source => selectStoryVectorRecall(source, modelText, automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined))
+                .catch(error => {
+                    console.warn('[StoryTheater] vector memory unavailable, reading original floors', error);
+                    return { text: '', archiveIds: new Set<string>() };
+                });
             const requestHistory = buildStoryRequestHistory(current, turnBoundary, message => {
                 const box = storyArchiveAtFloor(promptEntry.archives, message.id);
                 if (!box) return mirrorArchived(message, promptEntry);
@@ -875,12 +855,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const turnFloor = current.findIndex(message => message.id === turnBoundary) + 1 || current.length + 1;
 
             reportStage('正在整理角色与剧情记忆…');
-            const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
+            const [actorContext, maskMemoryContext] = await Promise.all([
                 buildActorContexts(modelText),
                 buildMaskMemoryContext(modelText),
-                formatStoryVectorRecall(vectorSource.nodes, modelText,
-                    automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined),
             ]);
+            const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
             const summaries = promptEntry.archives.filter(archive => archive.summary && archive.toMessageId < turnBoundary)
                 .sort((a, b) => a.fromMessageId - b.fromMessageId)
@@ -913,7 +892,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 ? `本轮续写操作 · 第 ${turnFloor} 楼 · 无新增用户行动`
                 : assistantOpening ? '开场生成指令 · 尚无用户行动' : `第 ${turnFloor} 楼 · 本轮用户推进`);
             const continuity = [
-                '按楼号区分已发生的历史与本轮指令。角色记忆、事件盒、向量回忆、示例和附录用于补充背景。',
+                '按楼号区分已发生的历史与本轮指令。角色记忆、事件盒、向量回忆、示例和附录用于补充背景。历史好感增减已经发生，不得重复计入本轮；标注未告知角色的数值和原因仍是幕后记录。',
                 ...(summaries ? ['事件盒记录该楼段结束时的状态。关系、设定和场景若已在后续楼层变化，以较新的正文为准。旧约定和伏笔仅在仍未解决时继续承接。'] : []),
                 ...(sendsHistory && latestAssistant ? [`第 ${latestAssistant.floor} 楼是生成位置之前最新的剧场正文，从其结尾承接当前场景与因果。`] : []),
                 ...(sendsHistory && precedingFloor?.message.role === 'user' && !precedingFloor.row.metadata?.theaterContinue
@@ -1168,7 +1147,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                 {isExpanded && <div className='pb-5 pl-7'>
                                     {message.role === 'user'
                                         ? <p className='text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p>
-                                        : <StoryOutput content={message.metadata?.theaterOpeningGreeting ? storyOpeningReadingText(message.content, message.metadata?.theaterOpeningGreeting?.greetingId, message.metadata?.theaterOpeningGreeting?.source) : message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={affinityInputsFromMessage(message, actors)} />}
+                                        : <StoryOutput content={message.metadata?.theaterOpeningGreeting ? storyOpeningReadingText(message.content, message.metadata?.theaterOpeningGreeting?.greetingId, message.metadata?.theaterOpeningGreeting?.source) : message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />}
                                 </div>}
                             </details>;
                         }
@@ -1177,7 +1156,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
                         return <article {...pressHandlersFor(message)}>
                             {message.metadata?.theaterInterruption && <p className='mb-3 text-xs leading-5 text-amber-700'>已保留收到的正文。{message.metadata.theaterInterruption}。可点击「继续」接着写。</p>}
-                            <StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />
+                            <StoryOutput content={message.content} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />
                             {interruptedRewrite && <details className='mt-3 text-xs leading-5 text-amber-700'>
                                 <summary>查看未写完的改写稿 · 原楼层已保留</summary>
                                 <p className='my-2'>{interruptedRewrite.interruption}</p>

@@ -95,7 +95,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
    setDates(current=>Object.fromEntries(Object.entries(current).filter(([id])=>id!==revokeTarget.id)));
    if(range?.replaceId===revokeTarget.id)setRange(null);
    setRevokeTarget(null);
-   setStatus('已撤销，可以重新选择这些楼层归档。');
+   setStatus('已撤销，可以重新选择这些楼层归档。恢复的原文不会再被自动归档。');
    addToast('归档已撤销','success');
   }catch(e:any){setError(e?.message||'撤销失败，摘要和原文已保留');}
   finally{running.current=false;setBusy(false);}

@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
 vi.mock('../context/OSContext', () => ({ useOS: () => state }));
 
 describe('见面剧情实际请求', () => {
-    it.each(['事件盒', '独立向量', '已撤销向量'] as const)('%s：续写读取当前归档或原文，本轮推进排在深度 0 世界书之后', async (mode) => {
+    it.each(['事件盒', '独立向量', '已撤销向量', '向量超预算'] as const)('%s：续写读取当前归档或原文，本轮推进排在深度 0 世界书之后', async (mode) => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
         const entry = {
@@ -35,7 +35,7 @@ describe('见面剧情实际请求', () => {
         const vectorText = '关系变化：林星答应把侧门钥匙交给小雨。';
         if (mode !== '事件盒') {
             await MemoryNodeDB.save({
-                id: 'active-'+mode, charId, room: 'living_room', content: vectorText, tags: [], mood: 'neutral',
+                id: 'active-'+mode, charId, room: 'living_room', content: mode === '向量超预算' ? vectorText.repeat(400) : vectorText, tags: [], mood: 'neutral',
                 embedded: true, createdAt: 1, lastAccessedAt: 1, accessCount: 0, importance: 6,
             });
         }
@@ -43,7 +43,9 @@ describe('见面剧情实际请求', () => {
             id: 100 + index * 3, charId, type: 'text', role: index % 2 === 0 ? 'user' : 'assistant',
             content: index === 12 ? '我要打开侧门。' : `楼层内容 ${index + 1}`,
             timestamp: 2000 - index,
-            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: index < 12 },
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: index < 12,
+                ...(index === 8 ? { theaterAffinityInputs: [{ characterId: 'actor', characterName: '林星', delta: 17, awareness: 'unnoticed' }] } : {}),
+            },
         }));
         entry.archives = [
             { id: 'old', strategy: 'summary', fromMessageId: rows[0].id, toMessageId: rows[9].id,
@@ -52,7 +54,7 @@ describe('见面剧情实际请求', () => {
                 messageCount: 1, summary: '这一段还未发生', createdAt: 2 },
         ];
         if (mode !== '事件盒') {
-            entry.archives = mode === '独立向量'
+            entry.archives = mode !== '已撤销向量'
                 ? [{ ...entry.archives[0], summary: undefined, strategy: 'vector', vectorMemoryIds: ['active-'+mode] }]
                 : [];
         }
@@ -81,7 +83,9 @@ describe('见面剧情实际请求', () => {
             expect(completion).toHaveBeenCalledOnce();
             const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
             expect(payload).toContainEqual({ role: 'assistant', content: '[第 12 楼 · 最近一段剧场正文]\n楼层内容 12' });
-            expect(payload.some(message => message.content.includes('楼层内容 10'))).toBe(mode === '已撤销向量');
+            const readsOriginal = mode === '已撤销向量' || mode === '向量超预算';
+            expect(payload.some(message => message.content.includes('楼层内容 10'))).toBe(readsOriginal);
+            expect(payload.some(message => message.content.includes('<delta>+17</delta>'))).toBe(readsOriginal);
             expect(payload.some(message => message.content.includes('楼层内容 11'))).toBe(true);
             expect(payload.filter(message => message.content.includes('旧约定：先去庭院找钥匙。'))).toHaveLength(mode === '事件盒' ? 1 : 0);
             expect(payload.filter(message => message.content.includes(vectorText))).toHaveLength(mode === '独立向量' ? 1 : 0);
