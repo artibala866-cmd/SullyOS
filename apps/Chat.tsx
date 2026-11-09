@@ -30,7 +30,7 @@ import PrivateChatOpeningModal from '../components/chat/PrivateChatOpeningModal'
 import { isChatPreviewMessage, isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { canUserRecallPrivateMessage } from '../utils/messageRecall';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
-import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
+import { AppID, type CharacterProfile, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
 import { processImageToBlob } from '../utils/file';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
 import TokenImg from '../components/os/TokenImg';
