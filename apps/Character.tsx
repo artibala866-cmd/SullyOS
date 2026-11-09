@@ -1,3 +1,4 @@
+import { listPrivateChatOpenings } from '../utils/privateChatOpening';
 import CharacterImagePanel from '../components/character/CharacterImagePanel';
 import { clearCharacterImageProfile, readCharacterImageProfile, writeCharacterImageProfile } from '../utils/characterImageProfile';
 import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
@@ -204,6 +205,8 @@ const Character: React.FC = () => {
       pendingCard.source === 'babylink'
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard], [pendingCard, selectedImportIndices]);
+  const privateChatOpeningCount = useMemo(() => selectedCardPreviews.reduce(
+      (count, card) => count + listPrivateChatOpenings(card.character).length, 0), [selectedCardPreviews]);
   const availableImportSections = useMemo(() =>
       availableCardImportSections(selectedCardPreviews), [selectedCardPreviews]);
   const enabledImportSections = useMemo(() =>
@@ -2339,6 +2342,9 @@ ${isInitialGeneration ? `
                         </label>;
                     })}
                 </div>
+                {enabledImportSections.greetings && privateChatOpeningCount > 0 && <p className="mt-2 text-[11px] text-neutral-700">
+                    已识别 {privateChatOpeningCount} 段私聊开场白。导入后可在角色的私聊「+」菜单中选用。
+                </p>}
                 <p className="mt-2 text-[11px] text-neutral-500"><span className="min-[370px]:hidden">未选模块不变，保留聊天与记忆。</span><span className="hidden min-[370px]:inline">仅更新勾选的模块；相同内容自动跳过，保留原角色的聊天和记忆。</span></p>
             </div>}
             {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">

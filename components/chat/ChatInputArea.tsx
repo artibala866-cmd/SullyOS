@@ -65,6 +65,7 @@ interface ChatInputAreaProps {
     onExitTypedVoice?: () => void;
     onSendTypedVoice?: () => void;
     compactHome?: boolean;
+    privateChatOpeningEnabled?: boolean;
     /** Initial page for static decoration previews; does not run menu actions. */
     previewActionsPage?: number;
     input: string;
@@ -133,7 +134,7 @@ interface ChatInputAreaProps {
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
-    input, setInput, isTyping, selectionMode, compactHome=false, speechInput,
+    input, setInput, isTyping, selectionMode, compactHome=false, privateChatOpeningEnabled = false, speechInput,
     weixinOriginalIcons = false,
     typedVoiceEnabled = false, onSelectTypedVoice, onExitTypedVoice, onSendTypedVoice,
     showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onFavoriteSelected, favoriteSelectedCount = 0, selectedCount,
@@ -673,6 +674,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <GearSix className="w-6 h-6" weight="bold" /></div>}
             <span className="text-xs font-bold">设置</span>
         </button>,
+        ...(privateChatOpeningEnabled ? [<button key="private-chat-opening" type="button" onClick={() => onPanelAction('private-chat-opening')}
+          className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-[#737373]">
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-500 border-neutral-100'}`}>
+            <ChatCircleDots className="w-6 h-6" weight="bold" />
+          </span>
+          <span className="text-xs font-bold">开场白</span>
+        </button>] : []),
         <button key="reroll" onClick={onReroll} disabled={!canReroll} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? (isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]') : 'text-[#737373] opacity-50'}`}>
             {<div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? (isDiscordStyle ? 'bg-slate-800 text-neutral-300 border-neutral-400/20' : 'bg-neutral-50 text-neutral-400 border-neutral-100') : (isDiscordStyle ? 'bg-slate-800 text-[#737373] border-white/10' : 'bg-slate-50 text-[#737373] border-slate-100')}`}>
                 <ArrowsClockwise className="w-6 h-6" weight="bold" />

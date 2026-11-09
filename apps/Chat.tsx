@@ -25,7 +25,9 @@ import { DB } from '../utils/db';
 import { notifyDeletedMusicInviteCards } from '../utils/musicInviteDeletion';
 import { MUSIC_INVITE_DB_CHANGED_KEY, musicInviteChangedCharId } from '../utils/musicInviteStatus';
 import {HOME_HISTORY_COMMITTED} from '../utils/secretNote';
-import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
+import { buildPrivateChatOpeningMessages, listPrivateChatOpenings, privateChatDisplayTimestamp, type PrivateChatOpening } from '../utils/privateChatOpening';
+import PrivateChatOpeningModal from '../components/chat/PrivateChatOpeningModal';
+import { isChatPreviewMessage, isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { canUserRecallPrivateMessage } from '../utils/messageRecall';
 import { chatCharacterDisplayName } from '../utils/characterRemark';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
@@ -369,7 +371,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (live?.metadata?.recalledAt) setReplyTarget(live);
     }, [messages, replyTarget]);
 
-    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block'>('none');
+    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'chat-block' | 'private-chat-opening'>('none');
     // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
     const [decorationTab, setDecorationTab] = useState<DecorationTab>('layout');
     // 切换角色时收掉装扮气泡：定制是 per-character 的，避免误改到下一个角色
@@ -471,6 +473,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    const privateChatOpenings = useMemo(() => modalType === 'private-chat-opening' && char
+        ? listPrivateChatOpenings(char, userProfile.name) : [], [modalType, char, userProfile.name]);
     const liveCharactersRef=useRef(characters);
     liveCharactersRef.current=characters;
     const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
@@ -1070,7 +1074,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
     }, [isTyping, instantChatPending, messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const canReroll = !isTyping && messages.length > 0 && messages[messages.length - 1].role === 'assistant';
+    const canReroll = !isTyping && messages.at(-1)?.role === 'assistant'
+        && messages.at(-1)?.metadata?.source !== 'private_chat_opening';
 
     // --- Translation: pure frontend toggle (no API calls, bilingual data is already in message content) ---
     const handleTranslateToggle = useCallback((msgId: number) => {
@@ -1300,6 +1305,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
             // Clear messages immediately to prevent showing stale chat from previous character
             setMessages([]);
+            setModalType(current => current === 'private-chat-opening' ? 'none' : current);
             setAllHistoryMessages([]);
             setTotalMsgCount(0);
             // Reset voice map — stale blob: URLs from the previous char are revoked
@@ -1587,7 +1593,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (isNew) {
             // 仅"char 发送的、落到底部的最新一条"才触发：assistant 且非见面/通话等旁路消息。
             const src = last?.metadata?.source;
-            if (last?.role === 'assistant' && src !== 'date' && src !== 'call') {
+            if (last?.role === 'assistant' && src !== 'date' && src !== 'call' && src !== 'private_chat_opening') {
                 // 回合首条即响：距上一条气泡 >3s 视为新回合，立刻响一次；同一轮后续气泡只刷新计时、不再响。
                 const now = Date.now();
                 if (sync.lastAt == null || now - sync.lastAt > SOUND_ROUND_GAP_MS) {
@@ -2091,11 +2097,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         autoReply.cancel();
 
         const lastMsg = messages[messages.length - 1];
-        if (lastMsg.role !== 'assistant') return;
+        if (lastMsg.role !== 'assistant' || lastMsg.metadata?.source === 'private_chat_opening') return;
 
         const toDeleteIds: number[] = [];
         let index = messages.length - 1;
-        while (index >= 0 && messages[index].role === 'assistant') {
+        while (index >= 0 && messages[index].role === 'assistant' && messages[index].metadata?.source !== 'private_chat_opening') {
             toDeleteIds.push(messages[index].id);
             index--;
         }
@@ -2179,6 +2185,30 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         }
     };
 
+    const handleApplyPrivateChatOpening = async (opening: PrivateChatOpening) => {
+        if (!char || char.id !== activeCharacterId || isTyping || instantChatPending) return;
+        const charId = char.id;
+        try {
+            const rows = buildPrivateChatOpeningMessages(opening, charId,
+                { character: char.name, user: userProfile.name }, aiVisibleEmojis);
+            const result = await DB.savePrivateChatOpening(charId, rows);
+            if (activeCharIdRef.current !== charId) return;
+            if (result === 'missing') {
+                addToast('未找到这个角色', 'error');
+                return;
+            }
+            setModalType('none');
+            const limit = Math.max(visibleCountRef.current, result === 'saved' ? rows.length : 0);
+            setVisibleCount(limit);
+            visibleCountRef.current = limit;
+            await reloadMessages(limit);
+            addToast(result === 'saved' ? '已加入私聊开场白' : '私聊已经开始，仅可在空白私聊中使用开场白', 'info');
+        } catch (error) {
+            console.warn('[Chat] Failed to save private chat opening', error);
+            if (activeCharIdRef.current === charId) addToast('开场白保存失败，请重试', 'error');
+        }
+    };
+
     const handlePanelAction = (type: string, payload?: any) => {
         // 只统计「打开某个面板 / 开关某个能力」这几个固定入口，名单写死在这里；
         // 选表情、选分类之类的动作不上报。
@@ -2193,6 +2223,14 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             trackEvent('打开聊天功能面板项', { action: type });
         }
         switch (type) {
+            case 'private-chat-opening':
+                setShowPanel('none');
+                if (messages.some(isChatPreviewMessage) || isTyping || instantChatPending) {
+                    addToast('私聊已经开始，仅可在空白私聊中使用开场白', 'info');
+                } else {
+                    setModalType('private-chat-opening');
+                }
+                break;
             case 'chat-block': setShowPanel('none'); setModalType('chat-block'); break;
             case 'character-phone': setShowPanel('none'); setCharacterPhoneOpen(true); break;
             case 'collaboration': setShowPanel('none'); setCollaborationOpen(true); break;
@@ -4303,6 +4341,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 message="检测到分享链接，要关闭自动转卡片吗？关闭后，本条及之后的链接会按原文发送，方便角色用你配置的 MCP 读取。保留卡片也会带上原链接。两类解析可在加号 → 设置中分别调整。"
                 confirmText="关闭，发送原文" cancelText="保留卡片"
                 onConfirm={() => answerLinkCard(false)} onCancel={() => answerLinkCard(true)} />
+            {modalType === 'private-chat-opening' && char && (
+                <PrivateChatOpeningModal key={char.id} openings={privateChatOpenings}
+                    onClose={() => setModalType('none')} onApply={handleApplyPrivateChatOpening} />
+            )}
             {modalType === 'chat-block' && char && (
               <ChatBlockModal characterName={char.name} state={char.chatBlock}
                 onClose={() => setModalType('none')}
@@ -4678,8 +4720,16 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 {renderedMessages.map((m, i) => {
                     const prevMessage = i > 0 ? renderedMessages[i - 1] : null;
                     const nextMessage = i < renderedMessages.length - 1 ? renderedMessages[i + 1] : null;
-                    const breaksWithPrevious = startsNewMessageGroup(prevMessage, m);
-                    const breaksWithNext = !nextMessage || startsNewMessageGroup(m, nextMessage);
+                    const isOpening = m.metadata?.source === 'private_chat_opening';
+                    const openingTimestamp = privateChatDisplayTimestamp(m);
+                    const openingDate = isOpening ? new Date(openingTimestamp) : null;
+                    const startsOpeningMinute = openingDate && (prevMessage?.metadata?.source !== 'private_chat_opening'
+                        || Math.floor(privateChatDisplayTimestamp(prevMessage) / 60000) !== Math.floor(openingTimestamp / 60000));
+                    const breaksWithPrevious = !!startsOpeningMinute || startsNewMessageGroup(prevMessage, m)
+                        || (!isOpening && prevMessage?.metadata?.source === 'private_chat_opening');
+                    const breaksWithNext = !nextMessage || startsNewMessageGroup(m, nextMessage)
+                        || (isOpening && (nextMessage.metadata?.source !== 'private_chat_opening'
+                            || Math.floor(privateChatDisplayTimestamp(nextMessage) / 60000) !== Math.floor(openingTimestamp / 60000)));
                     const suppressEntranceAnimation = streamPreviewHandoverIdsRef.current.has(m.id);
                     // 这一轮在云端跑过哪些工具（即时对话才有，worker 挂在最后一条推送上）。
                     // 一条推送拆出的每条气泡都继承了同一份（metadata 是整份往下铺的，见
@@ -4705,11 +4755,22 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                 if (animatingIds.has(m.id)) setAnimatingIds(prev => { const next = new Set(prev); next.delete(m.id); return next; });
                             }}
                         >
-                        {blackWhiteFacebook && m.role !== 'system' && shouldStartBlackWhiteTimeGroup(prevMessage?.timestamp, m.timestamp) && (
+                        {blackWhiteFacebook && !isOpening && m.role !== 'system' && shouldStartBlackWhiteTimeGroup(prevMessage?.timestamp, m.timestamp) && (
                             <div className="sully-facebook-time">{formatBlackWhiteTime(m.timestamp)}</div>
                         )}
-                        {qqBubble && m.role !== 'system' && shouldStartQQTimeGroup(prevMessage?.timestamp, m.timestamp) && (
+                        {qqBubble && !isOpening && m.role !== 'system' && shouldStartQQTimeGroup(prevMessage?.timestamp, m.timestamp) && (
                             <div className="sully-qq-time">{formatQQTime(m.timestamp)}</div>
+                        )}
+                        {startsOpeningMinute && openingDate && (
+                            <time dateTime={openingDate.toISOString()}
+                                className={blackWhiteFacebook ? 'block sully-facebook-time' : qqBubble ? 'block sully-qq-time' : 'block my-2 text-center text-[10px] text-slate-500'}>
+                                {openingDate.toLocaleString('zh-CN', {
+                                    ...(prevMessage?.metadata?.source !== 'private_chat_opening' ||
+                                        new Date(privateChatDisplayTimestamp(prevMessage)).toDateString() !== openingDate.toDateString()
+                                        ? { year: 'numeric', month: 'numeric', day: 'numeric' } : {}),
+                                    hour: '2-digit', minute: '2-digit', hour12: false,
+                                })}
+                            </time>
                         )}
                         <MessageItem
                             msg={m}
@@ -4747,7 +4808,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             avatarMode={qqBubble || ((wechatBubble || blackWhiteFacebook) && m.type === 'text') ? 'every_message' : osTheme.chatAvatarMode}
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
-                            showTimestamp={qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
+                            showTimestamp={isOpening || qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
                             suppressEntranceAnimation={suppressEntranceAnimation}
                             onMcdSendCart={handleMcdSendCart}
                             onMcdCandidate={handleMcdCandidate}
@@ -4924,6 +4985,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 <ChatInputArea
                 weixinOriginalIcons={isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss)}
                     compactHome={!!homePhone}
+                    privateChatOpeningEnabled={!homePhone}
                     lifePacingEnabled={lifePacing}
                     lifePacingActive={lifePacing}
                     input={input} setInput={handleInputChange}

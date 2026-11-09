@@ -15,6 +15,7 @@ import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatCon
 import { trackEvent } from '../../utils/analytics';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../utils/voiceLanguage';
 import { chatMessageFuzzyMatchesKeyword } from '../../utils/chatMessageSearch';
+import { privateChatDisplayTimestamp } from '../../utils/privateChatOpening';
 import { canUserRecallPrivateMessage } from '../../utils/messageRecall';
 import { parseEmojiImportText, formatEmojiImportText } from '../../utils/emojiImport';
 import EmojiDocumentFilePicker from './EmojiDocumentFilePicker';
@@ -888,7 +889,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                         onContextMenu={(e) => e.preventDefault()}
                                         className={`p-3 rounded-xl border cursor-pointer text-xs flex gap-2 items-start transition-colors select-none ${cls}`}
                                     >
-                                        <span className="text-slate-400 font-mono whitespace-nowrap pt-0.5">[{new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}]</span>
+                                        <span className="text-slate-400 font-mono whitespace-nowrap pt-0.5">[{new Date(privateChatDisplayTimestamp(m)).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}]</span>
                                         <div className="flex-1 min-w-0">
                                             <div className="font-bold text-slate-600 mb-0.5">{m.type === 'secret_note' ? `${activeCharacter.name} · ${m.metadata?.source === 'home' ? '3D 小屋' : '聊天'}` : m.role === 'user' ? '我' : activeCharacter.name}</div>
                                             {m.type === 'secret_note' ? <SecretNote text={m.content}/> : <div className="truncate">{renderHighlighted(m.content || '', query, contentClass)}</div>}

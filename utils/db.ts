@@ -1,4 +1,5 @@
 import { readUserSaves, scopedDatabaseName, USER_SAVE_ID } from './userSaveScope';
+import { isChatPreviewMessage } from './chatMessageVisibility';
 import { readLocalCursor } from './localRead';
 import { reportDatabaseFailure } from './databaseHealth';
 import { associateDatabaseOpen, beginDatabaseOpen, recordDatabaseOpen } from './databaseOpenDiagnostics';
@@ -1226,6 +1227,51 @@ export const DB = {
           }
       };
       cursorReq.onerror = () => reject(cursorReq.error);
+    });
+  },
+
+  /** Insert an entire opening in an empty private chat, serialized with normal sends. */
+  savePrivateChatOpening: async (charId: string, rows: Array<Omit<Message, 'id'>>): Promise<'saved' | 'started' | 'missing'> => {
+    if (!rows.length || rows.some(row => row.charId !== charId || row.metadata?.source !== 'private_chat_opening')) {
+      throw new Error('私聊开场白数据无效');
+    }
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_CHARACTERS, STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      let result: 'saved' | 'started' | 'missing' = 'missing';
+      let firstId = 0;
+      tx.onabort = () => reject(tx.error || new Error('私聊开场白未能保存'));
+      tx.oncomplete = () => {
+        if (firstId) {
+          try {
+            const key = `mp_lastMsgId_${charId}`;
+            if (parseInt(localStorage.getItem(key) || '0', 10) >= firstId) localStorage.removeItem(key);
+          } catch { /* 已提交，偏好存储可能不可用 */ }
+        }
+        resolve(result);
+      };
+      const character = tx.objectStore(STORE_CHARACTERS).get(charId);
+      character.onsuccess = () => {
+        if (!character.result) return;
+        const request = store.index('charId').openCursor(IDBKeyRange.only(charId), 'prev');
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (cursor) {
+            if (isChatPreviewMessage(cursor.value)) result = 'started';
+            else cursor.continue();
+            return;
+          }
+          result = 'saved';
+          rows.forEach((row, index) => {
+            const added = store.add(row);
+            if (index === 0) added.onsuccess = () => {
+              firstId = added.result as number;
+              clearStaleMemoryMirror(tx, charId, firstId);
+            };
+          });
+        };
+      };
     });
   },
 

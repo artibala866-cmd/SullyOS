@@ -16,7 +16,7 @@ const isScheduledProactive = (message: Speaker): boolean =>
  * Does not fabricate a new user message or change the canonical chat history.
  */
 export function findPendingUserTurn<T extends Speaker>(messages: T[]): T | null {
-    const speakers = messages.filter(isSpeaker);
+    const speakers = messages.filter(m => isSpeaker(m) && m.metadata?.source !== 'private_chat_opening');
     const userIndex = speakers.map(m => m.role).lastIndexOf('user');
     if (userIndex < 0 || !speakers.slice(userIndex + 1).every(isScheduledProactive)) return null;
     return speakers[userIndex];
