@@ -473,8 +473,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
-    const privateChatOpenings = useMemo(() => modalType === 'private-chat-opening' && char
-        ? listPrivateChatOpenings(char, userProfile.name) : [], [modalType, char, userProfile.name]);
+    const [openingCharacter, setOpeningCharacter] = useState<CharacterProfile | null>(null);
+    const privateChatOpenings = useMemo(() => modalType === 'private-chat-opening' && openingCharacter && openingCharacter.id === activeCharacterId
+        ? listPrivateChatOpenings(openingCharacter, userProfile.name) : [], [modalType, openingCharacter, activeCharacterId, userProfile.name]);
     const liveCharactersRef=useRef(characters);
     liveCharactersRef.current=characters;
     const selectedAvatar = useMemo(() => { if (!char) return ''; const lib = readCharacterAvatarLibrary(char.id); return lib.entries.find(e => e.id === lib.activeId)?.image || char.avatar; }, [char?.id, char?.avatar, avatarRevision]);
@@ -2191,13 +2192,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         try {
             const rows = buildPrivateChatOpeningMessages(opening, charId,
                 { character: char.name, user: userProfile.name }, aiVisibleEmojis);
-            const result = await DB.savePrivateChatOpening(charId, rows);
+            const result = await DB.savePrivateChatOpening(charId, rows, opening.source);
             if (activeCharIdRef.current !== charId) return;
             if (result === 'missing') {
                 addToast('未找到这个角色', 'error');
                 return;
             }
             setModalType('none');
+            if (result === 'changed') {
+                addToast('这段开场白已修改或删除，请重新打开列表', 'info');
+                return;
+            }
             const limit = Math.max(visibleCountRef.current, result === 'saved' ? rows.length : 0);
             setVisibleCount(limit);
             visibleCountRef.current = limit;
@@ -2227,8 +2232,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 setShowPanel('none');
                 if (messages.some(isChatPreviewMessage) || isTyping || instantChatPending) {
                     addToast('私聊已经开始，仅可在空白私聊中使用开场白', 'info');
-                } else {
-                    setModalType('private-chat-opening');
+                } else if (activeCharacterId) {
+                    const charId = activeCharacterId;
+                    void DB.getCharacter(charId).then(saved => {
+                        if (activeCharIdRef.current !== charId) return;
+                        if (!saved) {
+                            addToast('未找到这个角色', 'error');
+                            return;
+                        }
+                        setOpeningCharacter(saved);
+                        setModalType('private-chat-opening');
+                    }).catch(() => {
+                        if (activeCharIdRef.current === charId) addToast('读取开场白失败，请重试', 'error');
+                    });
                 }
                 break;
             case 'chat-block': setShowPanel('none'); setModalType('chat-block'); break;
@@ -4341,8 +4357,9 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 message="检测到分享链接，要关闭自动转卡片吗？关闭后，本条及之后的链接会按原文发送，方便角色用你配置的 MCP 读取。保留卡片也会带上原链接。两类解析可在加号 → 设置中分别调整。"
                 confirmText="关闭，发送原文" cancelText="保留卡片"
                 onConfirm={() => answerLinkCard(false)} onCancel={() => answerLinkCard(true)} />
-            {modalType === 'private-chat-opening' && char && (
-                <PrivateChatOpeningModal key={char.id} openings={privateChatOpenings}
+            {modalType === 'private-chat-opening' && openingCharacter && openingCharacter.id === activeCharacterId && (
+                <PrivateChatOpeningModal key={openingCharacter.id} openings={privateChatOpenings}
+                    hasSavedGreetings={!!(openingCharacter.tavernGreetings?.length || openingCharacter.linkGreetings?.length)}
                     onClose={() => setModalType('none')} onApply={handleApplyPrivateChatOpening} />
             )}
             {modalType === 'chat-block' && char && (

@@ -206,7 +206,7 @@ const Character: React.FC = () => {
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard], [pendingCard, selectedImportIndices]);
   const privateChatOpeningCount = useMemo(() => selectedCardPreviews.reduce(
-      (count, card) => count + listPrivateChatOpenings(card.character).length, 0), [selectedCardPreviews]);
+      (count, card) => count + listPrivateChatOpenings(card.character, userProfile.name).length, 0), [selectedCardPreviews, userProfile.name]);
   const availableImportSections = useMemo(() =>
       availableCardImportSections(selectedCardPreviews), [selectedCardPreviews]);
   const enabledImportSections = useMemo(() =>

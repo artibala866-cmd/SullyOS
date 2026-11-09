@@ -1,3 +1,4 @@
+import type { PrivateChatOpeningSource } from './privateChatOpening';
 import { readUserSaves, scopedDatabaseName, USER_SAVE_ID } from './userSaveScope';
 import { isChatPreviewMessage } from './chatMessageVisibility';
 import { readLocalCursor } from './localRead';
@@ -1231,7 +1232,9 @@ export const DB = {
   },
 
   /** Insert an entire opening in an empty private chat, serialized with normal sends. */
-  savePrivateChatOpening: async (charId: string, rows: Array<Omit<Message, 'id'>>): Promise<'saved' | 'started' | 'missing'> => {
+  savePrivateChatOpening: async (
+    charId: string, rows: Array<Omit<Message, 'id'>>, source?: PrivateChatOpeningSource,
+  ): Promise<'saved' | 'started' | 'missing' | 'changed'> => {
     if (!rows.length || rows.some(row => row.charId !== charId || row.metadata?.source !== 'private_chat_opening')) {
       throw new Error('私聊开场白数据无效');
     }
@@ -1239,7 +1242,7 @@ export const DB = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_CHARACTERS, STORE_MESSAGES, STORE_ASSETS], 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
-      let result: 'saved' | 'started' | 'missing' = 'missing';
+      let result: 'saved' | 'started' | 'missing' | 'changed' = 'missing';
       let firstId = 0;
       tx.onabort = () => reject(tx.error || new Error('私聊开场白未能保存'));
       tx.oncomplete = () => {
@@ -1253,7 +1256,14 @@ export const DB = {
       };
       const character = tx.objectStore(STORE_CHARACTERS).get(charId);
       character.onsuccess = () => {
-        if (!character.result) return;
+        const saved = character.result as CharacterProfile | undefined;
+        if (!saved) return;
+        const greetings = source && saved[source.field];
+        if (source && !(Array.isArray(greetings) && greetings.some(greeting =>
+            greeting?.id === source.id && greeting.content === source.content))) {
+          result = 'changed';
+          return;
+        }
         const request = store.index('charId').openCursor(IDBKeyRange.only(charId), 'prev');
         request.onsuccess = () => {
           const cursor = request.result;

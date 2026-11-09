@@ -6,13 +6,14 @@ type Clock = { hour: number; minute: number; second: number };
 type Day = { year?: number; month: number; day: number };
 type Line = { role: Role; text: string; clock?: Clock; day?: Day };
 type OpeningNames = { character: string; user?: string; originalName?: string };
-export type PrivateChatOpening = { id: string; title: string; lines: Line[] };
+export type PrivateChatOpeningSource = { field: 'tavernGreetings' | 'linkGreetings'; id: string; content: string };
+export type PrivateChatOpening = { id: string; title: string; lines: Line[]; source?: PrivateChatOpeningSource };
 
 const datePattern = '(?:(\\d{4})[年./-])?(\\d{1,2})[月./-](\\d{1,2})[日号]?';
 const timePattern = '(?:(上午|下午|中午|晚上|凌晨)\\s*)?(\\d{1,2})[:：](\\d{2})(?:[:：](\\d{2}))?\\s*(AM|PM)?';
 const dayOnly = new RegExp('^' + datePattern + '$');
 const timestampPattern = '(?:' + datePattern + '[\\sT]+)?' + timePattern;
-const clockOnly = new RegExp('^' + timestampPattern + '$', 'i');
+const clockOnly = new RegExp('^' + timestampPattern + '(?:Z|[+-]\\d{2}:?\\d{2})?$', 'i');
 const textRecord = new RegExp('^[\\[【]?(?<stamp>' + timestampPattern + ')[\\]】]?(?:\\s*[·|｜]\\s*|\\s+)(?<sender>[^:：]{1,50})[:：]\\s*(?<body>.+)$', 'i');
 
 function parseDay(year: string | undefined, month: string, day: string): Day | undefined {
@@ -36,29 +37,116 @@ function parseClock(raw: string): Pick<Line, 'clock' | 'day'> | null {
     return { day, clock: { hour, minute, second } };
 }
 
-const nameKey = (value: string) => value.trim().toLowerCase();
+const nameKey = (value: string) => value.trim().toLowerCase().replace(/^\{\{\s*(char|user)\s*\}\}$/, '$1');
 const speaker = (name: string, names: OpeningNames): Role | undefined => {
     const key = nameKey(name);
     if (!key) return;
-    if (['我', '用户', '玩家', '己方', '自己', '本人', 'user', 'me', '{{user}}', nameKey(names.user || '')].includes(key)) return 'user';
-    if (['对方', '角色', '助手', 'char', 'assistant', '{{char}}', nameKey(names.character), nameKey(names.originalName || '')].includes(key)) return 'assistant';
+    if (/^(?:我|我方|用户|玩家|己方|自己|本人|user|me|self|own|human|player|outgoing|sent|send|right|outbound)$/.test(key)
+        || key === nameKey(names.user || '')) return 'user';
+    if (/^(?:对方|角色|助手|char|character|assistant|bot|other|incoming|received|receive|left|inbound)$/.test(key)
+        || key === nameKey(names.character) || key === nameKey(names.originalName || '')) return 'assistant';
 };
 
 const recordRole = (label: string, names: OpeningNames): Role | undefined => {
-    const key = label.trim().replace(/^(?:收到的|发出的)(?=消息)/, prefix => prefix === '收到的' ? '对方' : '己方')
-        .replace(/(?:发送的|发来的)?(?:私聊)?(?:消息|讯息|短信|发言|message)$/i, '');
-    return speaker(key, names);
+    const key = label.trim().replace(/^(?:收到|接收)(?:的)?(?=消息|短信)/, '对方')
+        .replace(/^(?:发出|发送)(?:的)?(?=消息|短信)/, '己方')
+        .replace(/(?:发送的|发来的)?(?:私聊)?(?:消息|讯息|短信|发言|[-_ ]?(?:message|msg))$/i, '');
+    return speaker(label, names) || speaker(key, names);
 };
 const isAvatar = (value: string) => /^(?:https?:\/\/\S+|(?:[^\s<>|｜]*\/)?[^\s<>|｜]+\.(?:png|webp|gif|jpe?g|avif|svg)|(?:默认)?头像|null|none)$/i.test(value);
 const cleanBody = (value: string) => value.replace(/<br\s*\/?>/gi, '\n').trim();
 
+const hasGroupContext = (text: string) => /(?:^|\n)\s*[\[【]?(?:和[^\n\]】]+的)?(?:群聊(?:记录|消息|对话)?|group chat)(?=\s|[\]】:：|｜]|$)|[\[【](?:群聊消息|group[ _-]?message)\s*[|｜]/im.test(text);
+const phoneHeading = /^(?:\[|【|#+\s*)?(?:手机(?:聊天|对话|消息|记录)|私聊(?:记录|对话)?|(?:微信|短信|QQ|聊天)(?:聊天|对话|消息)?(?:记录)?|(?:和|与).{1,50}的(?:聊天|私聊|对话)|(?:private|direct|phone) chat)\s*[\]】:：]?$/i;
+const markupText = (text: string) => cleanBody(text.replace(/<\/?(?:b|strong|em|i|span|p|div)\b[^>]*>/gi, '')
+    .replace(/&(?:amp|nbsp|lt|gt|quot);/gi, entity => ({ '&amp;':'&', '&nbsp;':' ', '&lt;':'<', '&gt;':'>', '&quot;':'"' })[entity.toLowerCase()] || entity));
+const object = (value: unknown): Record<string, unknown> | undefined =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+const field = (row: Record<string, unknown>, keys: string[]) => keys.map(key => row[key])
+    .find((value): value is string => typeof value === 'string' && !!value.trim())?.trim() || '';
+
+function structuredOpening(text: string, names: OpeningNames): Line[] | undefined {
+    const payload = /^```(?:json|jsonl)?[ \t]*\n([\s\S]*?)^```[ \t]*$/im.exec(text)?.[1] || text.trim();
+    if (!/^[\[{]/.test(payload.trimStart())) return;
+    let data: unknown;
+    try { data = JSON.parse(payload); } catch { return; }
+    const root = object(data);
+    const conversation = object(root?.conversation ?? root?.chat) || root;
+    if (root?.isGroup === true || conversation?.isGroup === true ||
+        /^(?:group|group_chat|群聊)$/i.test(field(conversation || {}, ['type', 'kind', 'chatType']))) return [];
+    const messages = Array.isArray(data) ? data :
+        [conversation?.messages, conversation?.chat, conversation?.conversation, conversation?.transcript, conversation?.['聊天记录']]
+            .find(Array.isArray);
+    if (!messages) return;
+    let day = parseHeaderDay(field(conversation || {}, ['date', 'day', '日期']));
+    const rows: Line[] = [];
+    for (const message of messages) {
+        const row = object(message);
+        if (!row) return [];
+        if (/^(?:system|tool|notification|系统)$/i.test(field(row, ['role', 'sender']))) continue;
+        const text = markupText(field(row, ['content', 'text', 'body', 'message', '内容', '消息']));
+        const role = ['role', 'direction', 'sender', 'from', 'author', 'speaker', '发送者', '发件人']
+            .map(key => recordRole(field(row, [key]), names)).find(Boolean)
+            || (typeof row.isSelf === 'boolean' ? row.isSelf ? 'user' : 'assistant' : undefined)
+            || (typeof row.is_user === 'boolean' ? row.is_user ? 'user' : 'assistant' : undefined);
+        if (!role || !text) return [];
+        const stamp = parseClock(field(row, ['timestamp', 'time', 'datetime', 'sentAt', '时间']));
+        day = stamp?.day || day;
+        rows.push({ role, text, day, clock: stamp?.clock });
+    }
+    return rows;
+}
+
+function parseHeaderDay(text: string): Day | undefined {
+    const dated = dayOnly.exec(text);
+    return dated ? parseDay(dated[1], dated[2], dated[3]) : undefined;
+}
+
+/** Read pre-rendered bubbles as inert text. Template contents never enter the live DOM. */
+function htmlOpening(text: string, names: OpeningNames): Line[] {
+    if (typeof document === 'undefined' || !/<(?:div|span|li|p|article|section)\b/i.test(text)) return [];
+    const template = document.createElement('template');
+    template.innerHTML = text;
+    const nodes = template.content.querySelectorAll('[data-role], [data-direction], [data-sender], [class]');
+    const rows: Line[] = [];
+    let lastMessage: Element | undefined;
+    for (const node of nodes) {
+        if (lastMessage?.contains(node)) continue;
+        const classes = (node.getAttribute('class') || '').toLowerCase().split(/\s+/);
+        const hint = classes.find(word => /^(?:(?:message|msg|bubble|chat|wechat)[-_])?(?:sent|received|incoming|outgoing|left|right|user|assistant|self|other)$/.test(word));
+        const side = hint?.replace(/^(?:message|msg|bubble|chat|wechat)[-_]/, '');
+        const explicit = node.getAttribute('data-role') || node.getAttribute('data-direction') || node.getAttribute('data-sender');
+        const role = recordRole(explicit || side || '', names);
+        if (!role) continue;
+        const body = node.querySelector('[data-content], .message-text, .msg-text, .bubble-text, .message-content');
+        if (!body && !explicit && !classes.some(word => /message|msg|bubble|chat/.test(word))) continue;
+        const clockNode = node.querySelector('time, .timestamp, .message-time, .msg-time');
+        const stamp = parseClock(node.getAttribute('data-time') || '') ||
+            parseClock(clockNode?.getAttribute('datetime') || '') || parseClock(clockNode?.textContent || '');
+        const copy = (body || node).cloneNode(true) as Element;
+        copy.querySelectorAll('time, .timestamp, .message-time, .msg-time, .sender, .avatar, script, style, iframe, template').forEach(element => element.remove());
+        copy.querySelectorAll('br').forEach(element => element.replaceWith('\n'));
+        const content = copy.textContent?.trim() || '';
+        if (content) rows.push({ role, text: content, ...stamp });
+        lastMessage = node;
+    }
+    return rows;
+}
+
+const hasCharacterLine = (lines: Line[]) => lines.some(line => line.role === 'assistant');
+
 /** Detect a private transcript by its message structure and speaker roles. */
-export function parsePrivateChatOpening(source: string, names: OpeningNames): Line[] {
+export function parsePrivateChatOpening(source: string, names: OpeningNames, phoneHint = false): Line[] {
     const text = source.replace(/<!--[\s\S]*?-->/g, '')
         .replace(/<(script|style|iframe|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
         .replace(/\r\n?/g, '\n');
-    if (/^\s*[\[【](?:和[^\n\]】]+的)?群聊|^\s*[\[【](?:群聊消息|group[ _-]?message)\s*[|｜]/im.test(text)) return [];
-    const records = text.match(/<(?:msg|message|chatmsg)\b[^>]*>[\s\S]*?<\/(?:msg|message|chatmsg)\s*>|[\[【][^\n|｜\]】]{1,50}[|｜][\s\S]*?[\]】](?=[ \t]*(?:\n|$))|[^\n]+/gi) || [];
+    if (hasGroupContext(text)) return [];
+    const structured = structuredOpening(text, names);
+    if (structured) return hasCharacterLine(structured) ? structured : [];
+    const html = htmlOpening(text, names);
+    if (hasCharacterLine(html)) return html;
+    const phoneContext = phoneHint || text.split('\n').some(line => phoneHeading.test(line.trim()));
+    const records = text.replace(/^[ \t]+/gm, '').match(/<(?:msg|message|chatmsg)\b[^>]*>[\s\S]*?<\/(?:msg|message|chatmsg)\s*>|[\[【][^\n|｜\]】]{1,50}[|｜][\s\S]*?[\]】](?=[ \t]*(?:\n|$))|[^\n]+/gi) || [];
     const lines: Line[] = [];
     let currentDay: Day | undefined;
     let currentClock: Clock | undefined;
@@ -68,6 +156,7 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames): Li
         const wrapped = /^(?:<(?:msg|message|chatmsg)\b[^>]*>([\s\S]*?)<\/(?:msg|message|chatmsg)\s*>|[\[【]([\s\S]*)[\]】])$/i.exec(line);
         const inner = wrapped?.[1] ?? wrapped?.[2] ?? line;
         const parts = inner.split(/[|｜]/).map(part => part.trim());
+        const unwrappedFields = !wrapped && phoneContext && parts.length >= 3;
         const tag = /^<(?:msg|message|chatmsg)\b([^>]*)>/i.exec(line);
         if (tag && /\S/.test(tag[1])) {
             const attrs = new Map(Array.from(tag[1].matchAll(/([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g),
@@ -81,18 +170,18 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames): Li
                 continue;
             }
         }
-        if (wrapped && parts.length >= 2) {
+        if ((wrapped || unwrappedFields) && parts.length >= 2) {
             const leadingClock = parseClock(parts[0]);
             const offset = leadingClock ? 1 : 0;
-            const generic = /^(?:私聊)?(?:消息|讯息|短信|msg|message)$/i.test(parts[offset]);
+            const generic = /^(?:私聊|微信|手机|QQ)?(?:消息|讯息|短信|msg|message)$/i.test(parts[offset]);
             const role = recordRole(parts[offset + Number(generic)] || '', names);
             if (!role) continue;
             const fields = parts.slice(offset + Number(generic) + 1);
             const lastClock = parseClock(fields.at(-1) || '');
-            const firstClock = lastClock ? null : parseClock(fields[0] || '');
             if (lastClock) fields.pop();
-            if (firstClock) fields.shift();
             if (fields.length > 1 && (isAvatar(fields[0]) || speaker(fields[0], names) || fields[0] === '')) fields.shift();
+            const firstClock = !lastClock && fields.length > 1 ? parseClock(fields[0]) : null;
+            if (firstClock) fields.shift();
             const stamp = lastClock || firstClock || leadingClock;
             if (stamp?.day) currentDay = stamp.day;
             if (stamp?.clock) currentClock = stamp.clock;
@@ -126,19 +215,22 @@ export function parsePrivateChatOpening(source: string, names: OpeningNames): Li
                 continue;
             }
         }
-        const timed = textRecord.exec(line)?.groups;
-        const plain = /^([^:：]{1,50})[:：]\s*(.+)$/.exec(line);
-        const role = timed ? speaker(timed.sender, names) : plain ? speaker(plain[1], names) : undefined;
-        if (role && (timed || currentClock)) {
-            const stamp = timed && parseClock(timed.stamp);
-            if (stamp && stamp.day) currentDay = stamp.day;
-            if (stamp && stamp.clock) currentClock = stamp.clock;
-            lines.push({ role, text: cleanBody(timed?.body ?? plain?.[2] ?? ''), day: currentDay, clock: currentClock });
+        const plainLine = markupText(line).replace(/^[-*]>?\s+|^>\s*/, '').replace(/\*\*/g, '');
+        const timed = textRecord.exec(plainLine)?.groups;
+        const plain = /^([^:：]{1,50})[:：]\s*(.+)$/.exec(plainLine);
+        const role = recordRole(timed?.sender ?? plain?.[1] ?? '', names);
+        const tail = !timed && /^(.*?)[ \t]+[（(\[【]([^）)\]】]+)[）)\]】]$/.exec(plain?.[2] || '');
+        const inlineStamp = timed ? parseClock(timed.stamp) : tail ? parseClock(tail[2]) : null;
+        if (role && (inlineStamp || currentClock || phoneContext || /(?:消息|短信|讯息)$/.test(plain?.[1] || ''))) {
+            if (inlineStamp?.day) currentDay = inlineStamp.day;
+            if (inlineStamp?.clock) currentClock = inlineStamp.clock;
+            lines.push({ role, text: cleanBody(timed?.body ?? (tail && inlineStamp ? tail[1] : plain?.[2] ?? '')),
+                day: currentDay, clock: currentClock });
         } else if (currentSpeaker && !wrapped && line && !/^<|^```/.test(line)) {
             lines.push({ role: currentSpeaker, text: cleanBody(line), day: currentDay, clock: currentClock });
         }
     }
-    return lines.some(line => line.role === 'assistant') ? lines : [];
+    return hasCharacterLine(lines) ? lines : [];
 }
 
 type OpeningCharacter = Pick<CharacterProfile, 'name' | 'cardImportOrigin' | 'tavernGreetings' | 'linkGreetings'>;
@@ -147,16 +239,20 @@ export function listPrivateChatOpenings(character: OpeningCharacter, user?: stri
     const link = Array.isArray(character.linkGreetings) ? character.linkGreetings : [];
     const manifest = tavern.find(greeting => greeting?.id === 'tavern-first')?.content;
     const titles = new Map(Array.from((typeof manifest === 'string' ? manifest : '').matchAll(/^\s*开场白\s*(\d+)\s*[:：]\s*(.+)$/gm), match => [match[1], match[2].trim()]));
-    return [...tavern, ...link].flatMap(greeting => {
-        if (typeof greeting?.content !== 'string') return [];
-        const adapted = adaptTavernOpeningGreeting(greeting);
-        const lines = parsePrivateChatOpening(adapted.content, { character: character.name, originalName: character.cardImportOrigin?.originalName, user });
-        if (!lines.length) return [];
-        const index = /^tavern-alt-(\d+)(?:$|-)/.exec(greeting.id)?.[1];
-        const title = index && adapted.title === '备选开场白 ' + index
-            ? titles.get(index) || adapted.title : adapted.title;
-        return [{ id: greeting.id, title, lines }];
-    });
+    return (['tavernGreetings', 'linkGreetings'] as const).flatMap(field =>
+        (field === 'tavernGreetings' ? tavern : link).flatMap(greeting => {
+            if (typeof greeting?.content !== 'string') return [];
+            const adapted = adaptTavernOpeningGreeting(greeting);
+            const index = /^tavern-alt-(\d+)(?:$|-)/.exec(greeting.id)?.[1];
+            const title = index && adapted.title === '备选开场白 ' + index
+                ? titles.get(index) || adapted.title : adapted.title;
+            if (/(?:[（(]群聊[)）]|群聊开场)/.test(title)) return [];
+            const lines = parsePrivateChatOpening(adapted.content,
+                { character: character.name, originalName: character.cardImportOrigin?.originalName, user },
+                /(?:[（(]手机[)）]|手机(?:聊天|对话|记录|开场)|私聊|微信聊天|短信记录)/.test(title + ' ' + (adapted.description || '')));
+            return lines.length ? [{ id: greeting.id, title, lines,
+                source: { field, id: greeting.id, content: greeting.content } }] : [];
+        }));
 }
 
 const clockSeconds = (clock: Clock) => clock.hour * 3600 + clock.minute * 60 + clock.second;
