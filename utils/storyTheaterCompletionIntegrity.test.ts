@@ -127,6 +127,35 @@ describe('剧情保留已收到的正文', () => {
         });
     });
 
+    it.each(['', '他刚走到门口'])('过滤结束事件跨多行且连接保持打开时交付已有正文或明确报错 %j', async content => {
+        vi.useFakeTimers();
+        try {
+            const body = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode([
+                        ...(content ? [proseEvent, ''] : []),
+                        'data: {"choices":[{"delta":{"reasoning_content":"思考"}}]}', '',
+                        'data: {"choices":[', 'data: {"finish_reason":"content_filter"}]}', '', '',
+                    ].join('\n')));
+                },
+            });
+            const result = readStoryCompletion(new Response(body, { headers: { 'Content-Type': 'text/event-stream' } }), false);
+            const assertion = content
+                ? expect(result).resolves.toEqual({ content, interruption: '接口报告内容过滤（结束原因 content_filter）' })
+                : expect(result).rejects.toThrow('接口报告内容过滤（结束原因 content_filter），只收到思考内容，未收到可读正文');
+            await vi.advanceTimersByTimeAsync(3000);
+            await assertion;
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('兼容代理只返回 Responses 过滤结束原因而没有正文对象时仍准确报告过滤', async () => {
+        await expect(readStoryCompletion(Response.json({
+            status: 'incomplete', incomplete_details: { reason: 'content_filter' }, output: [],
+        }), false)).rejects.toThrow('接口报告内容过滤（结束原因 content_filter）');
+    });
+
     it('跳过坏帧并保存有效正文，同时提示实际丢帧数', async () => {
         const response = stream(proseEvent, 'data: {"choices":', 'data: {"choices":[{"text":"。","finish_reason":"stop"}]}', 'data: [DONE]');
         await expect(readStoryCompletion(response, false)).resolves.toMatchObject({

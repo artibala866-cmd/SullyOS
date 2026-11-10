@@ -61,7 +61,7 @@ export function inspectStoryCompletion(response: Response, data: any, fromTavern
         break;
     }
 
-    const reportedReason = String(choice?.finish_reason ?? choice?.finishReason ?? data?.promptFeedback?.blockReason ?? '').trim();
+    const reportedReason = String(choice?.finish_reason ?? choice?.finishReason ?? data?.incomplete_details?.reason ?? data?.promptFeedback?.blockReason ?? '').trim();
     const reason = reportedReason.toLowerCase();
     const detail = data?.__sullyBodyReadError;
     const frameErrors = data?.__sullyInvalidStreamFrames;

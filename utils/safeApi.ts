@@ -67,6 +67,14 @@ async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ 
     let text = '';
     let pending = '';
     let finishedAt = 0;
+    const eventData: string[] = [];
+    const checkFinish = (payload: string) => {
+        if (finishedAt || !/"finish_?reason"/i.test(payload)) return;
+        try {
+            const choice = JSON.parse(payload)?.choices?.[0];
+            if (choice?.finish_reason ?? choice?.finishReason) finishedAt = Date.now();
+        } catch { /* An incomplete frame will be diagnosed by the parser. */ }
+    };
     try {
         while (true) {
             const read = reader.read();
@@ -97,17 +105,22 @@ async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ 
             pending = pending.slice(boundary + 1);
             for (const line of lines) {
                 const event = line.trim();
+                if (!event) {
+                    // A standard SSE event can split one JSON object across data lines.
+                    if (!finishedAt && eventData.length > 1) checkFinish(eventData.join('\n'));
+                    eventData.length = 0;
+                    continue;
+                }
                 if (!event.startsWith('data:')) continue;
                 const payload = event.slice(5).trim();
                 if (payload === '[DONE]') {
                     void reader.cancel().catch(() => {});
                     return { text };
                 }
-                if (!finishedAt && /"finish_?reason"/i.test(payload)) {
-                    try {
-                        const choice = JSON.parse(payload)?.choices?.[0];
-                        if (choice?.finish_reason ?? choice?.finishReason) finishedAt = Date.now();
-                    } catch { /* An incomplete frame will be diagnosed by the parser. */ }
+                if (!finishedAt) {
+                    // Also accept the gateways that omit the blank separator.
+                    checkFinish(payload);
+                    if (!finishedAt) eventData.push(payload);
                 }
             }
         }
