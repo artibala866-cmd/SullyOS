@@ -81,6 +81,7 @@ it.each([
     const entry = {
         ...createStoryTheaterDraft(), characterIds: ['a'], carryCharacterMemory: true, writesToCharacterMemory: realCompanion,
         archiveAfter: 2, archiveKeepRecent: 1,
+        ...(delayedHeaders ? { outputMaxTokens: 30_000, streamStoryOutput: true } : {}),
         memorySummaryApi: { baseUrl: 'https://memory.invalid/v1', apiKey: 'fixture', model: 'memory' },
     };
     const thread = 'story-theater:' + entry.id;
@@ -91,6 +92,7 @@ it.each([
         });
     }
     const preset = createBlankStoryPreset('剧情');
+    preset.document.generation.maxTokens = 8_000;
     const os = {
         characters: [{ id: 'a', name: '角色A', mountedWorldbooks: [], memoryPalaceEnabled: true }],
         worldbooks: [],
@@ -120,16 +122,25 @@ it.each([
     await act(async () => host!.querySelector<HTMLButtonElement>('[aria-label="继续当前剧情"]')!.click());
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][0]).toBe('https://fixture.invalid/v1/chat/completions');
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+        max_tokens: delayedHeaders ? 30_000 : 8_000,
+        stream: delayedHeaders,
+    });
     await act(async () => root!.render(null));
     if (delayedHeaders) {
         await vi.advanceTimersByTimeAsync(360000);
         expect(fetchMock.mock.calls[0][1]?.signal?.aborted).not.toBe(true);
         vi.useRealTimers();
     }
-    const content = delayedHeaders ? '他刚推开门，就听见熟悉的脚步声。' : '他刚推开门，就听见';
-    await act(async () => finish(Response.json({
-        choices: [{ finish_reason: delayedHeaders ? 'stop' : 'length', message: { content } }],
-    })));
+    const content = delayedHeaders ? '他刚推开门，就听见熟悉的脚步声。'.repeat(1_875) : '他刚推开门，就听见';
+    await act(async () => finish(delayedHeaders
+        ? new Response([
+            'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }),
+            'data: ' + JSON.stringify({ choices: [{ finish_reason: 'stop' }] }),
+            'data: [DONE]',
+            '',
+        ].join('\n\n'), { headers: { 'Content-Type': 'text/event-stream' } })
+        : Response.json({ choices: [{ finish_reason: 'length', message: { content } }] })));
     if (failSave) {
         await act(async () => openSession());
         const retry = await vi.waitFor(async () => {

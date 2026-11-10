@@ -2291,6 +2291,10 @@ export interface StoryTheaterEntry {
     forceUserLastMessage?: boolean;
     /** 兼容不接受酒馆高级采样参数的接口；默认关闭，完整发送预设中的 top_p 与两项 penalty。 */
     omitSamplingParams?: boolean;
+    /** Optional override for this story's prose request. */
+    outputMaxTokens?: number;
+    /** Enable streaming for this story even when the main API defaults to non-streaming. */
+    streamStoryOutput?: boolean;
     createdAt: number;
     updatedAt: number;
 }

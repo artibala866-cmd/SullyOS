@@ -8,7 +8,7 @@
                        "topP":  0.88,
                        "frequencyPenalty":  0.2,
                        "presencePenalty":  0.3,
-                       "maxTokens":  32000
+                       "maxTokens":  30000
                    },
     "prompts":  [
                     {

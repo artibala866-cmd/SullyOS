@@ -8,6 +8,7 @@ import { findActivePresetId } from '../../../utils/apiPresetSwitch';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
 import { listCharacterStoryOpenings, type StoryOpeningChoice } from '../../../utils/linkStoryOpenings';
 import { sortCustomStoryOpenings, STORY_OPENING_ACCEPT } from '../../../utils/storyOpeningDocumentImport';
+import { normalizeStoryOutputTokens, STORY_MIN_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS } from '../../../utils/storyOutputLimits';
 import { resolveStoryTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument, resolveStoryTheaterMask, hasStoryTheaterParticipant } from '../../../utils/storyTheater';
 
 interface Props {
@@ -416,7 +417,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
         setSaving(true);
         const archiveAfter = Math.max(2, Math.min(200, Number(draft.archiveAfter) || 40));
         const archiveKeepRecent = Math.max(1, Math.min(archiveAfter - 1, Number(draft.archiveKeepRecent) || 5));
-        try { await onSave({ ...draft, title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
+        try { await onSave({ ...draft, outputMaxTokens: draft.outputMaxTokens === undefined
+            ? undefined : normalizeStoryOutputTokens(draft.outputMaxTokens), title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
         catch (error) { setSaveError(error instanceof Error ? `剧情未保存：${error.message}` : '剧情未保存，请检查本地存储后重试'); }
         finally { saveLock.current = false; setSaving(false); }
     };
@@ -749,6 +751,22 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     如需避免格式冲突，可在制作器检查并关闭相应的酒馆规则；不会自动删除你的预设内容。
                 </p>}
 
+                <div className='mt-5 space-y-4 border-t border-slate-200 pt-4'>
+                    <label className='flex items-center justify-between gap-4'>
+                        <span>
+                            <span className='block text-sm font-semibold'>本剧情最大输出</span>
+                            <span className='mt-1 block text-[10px] leading-5 text-slate-500'>单位为 tokens，最高 30,000。留空沿用预设（{normalizeStoryOutputTokens(sourceDoc?.generation.maxTokens).toLocaleString('zh-CN')}）。</span>
+                        </span>
+                        <input type='number' min={STORY_MIN_OUTPUT_TOKENS} max={STORY_MAX_OUTPUT_TOKENS} step={1}
+                            value={draft.outputMaxTokens ?? ''} placeholder='沿用预设'
+                            onChange={event => update('outputMaxTokens', event.target.value === '' ? undefined : Number(event.target.value))}
+                            className='w-24 shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-xs' />
+                    </label>
+                    <div className='flex items-start justify-between gap-5'>
+                        <div><div className='text-sm font-semibold'>长回复流式传输</div><p className='mt-1 text-[10px] leading-5 text-slate-500'>开启后分段接收正文，减少非流式等待整包返回时的断连。关闭时沿用主 API 的流式设置。</p></div>
+                        <Toggle label='长回复流式传输' value={draft.streamStoryOutput === true} onChange={value => update('streamStoryOutput', value)} />
+                    </div>
+                </div>
                 <div className='mt-5 pt-4 border-t border-slate-200'>
                     <div className='flex items-start justify-between gap-5'>
                         <div><div className='text-sm font-semibold'>不发送高级采样参数</div><p className='mt-1 text-[10px] leading-5 text-slate-500'>默认关闭。仅当接口不接受这些字段时开启；开启后不发送 top_p、frequency_penalty 和 presence_penalty。</p></div>
