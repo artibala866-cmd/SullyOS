@@ -8,8 +8,8 @@ export default function AlchemyHtmlFrame({
 }: { html: string; fallback: string; title: string }) {
     const safe = useMemo(() => buildAlchemySandboxDocument(html), [html]);
     const frame = useRef<HTMLIFrameElement>(null);
-    const [height, setHeight] = useState(220);
-    useEffect(() => { setHeight(220); }, [safe.srcDoc]);
+    const [height, setHeight] = useState(safe.estimatedHeight);
+    useEffect(() => { setHeight(safe.estimatedHeight); }, [safe.estimatedHeight, safe.srcDoc]);
     useEffect(() => {
         if (!safe.hasVisibleContent) return;
         const handler = (event: MessageEvent) => {
@@ -24,7 +24,7 @@ export default function AlchemyHtmlFrame({
     }, [safe.hasVisibleContent]);
     if (!safe.hasVisibleContent) return <span className="whitespace-pre-wrap">{fallback}</span>;
     return <iframe ref={frame} title={title} srcDoc={safe.srcDoc}
-        sandbox="allow-scripts" referrerPolicy="no-referrer" loading="lazy"
+        sandbox="allow-scripts" referrerPolicy="no-referrer" loading="eager"
         className="block w-full border-0 bg-transparent"
         style={{ height, minHeight: 76, maxWidth: '100%' }}/>;
 }
