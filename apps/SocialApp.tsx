@@ -2962,7 +2962,7 @@ ${buildSparkCommentHistory(post)}
                         <label className="flex items-start gap-3 justify-between">
                             <span className="min-w-0">
                                 <strong className="block text-sm text-slate-800">社区自主活动（自愿开启）</strong>
-                                <span className="block text-xs text-slate-500 mt-1">默认关闭。开启后，角色和稳定网友可能继续真实话题、发帖或评论，也可能保持安静；不会让你等待。</span>
+                                
                             </span>
                             <input type="checkbox" aria-label="开启社区自主活动" className="mt-1" checked={communityState.autonomy.enabled}
                                 onChange={event => {
@@ -2994,11 +2994,11 @@ ${buildSparkCommentHistory(post)}
                                 </select>
                             </label>
                         </div>
-                        <p className="text-xs text-slate-500">省 API 模式：同一次发帖同时处理评论和可选来信；同一账号连发私信与同帖连续评论会短时合批；多 Char 发帖最多 8 位一组。批量节省调用次数，但仍按服务商的实际 Token 量计费。</p>
+                        
                         <p className="text-xs text-slate-400">仅在 Spark 打开时每 5 分钟检查，实际请求受间隔和额度约束。今日已使用：{communityState.autonomy.lastRunDay === getSparkTrafficLocalDay() ? communityState.autonomy.callsToday : 0}/{communityState.autonomy.maxCallsPerDay} 次。超时和失败请求也占用额度。</p>
                         {isAutonomyBusy && <p className="text-xs text-slate-500">正在生成社区动态，可继续正常操作。</p>}
                     </div>
-                    <p className="text-xs text-slate-500">选择参与 Spark 的 Char。大号与马甲由 AI 依据人设自行决定，不再由 User 手动创建或指定。</p>
+                    
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
                         {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
                             <span className={`w-12 h-12 rounded-full ${postingCharIds.includes(c.id) ? 'ring-2 ring-neutral-500 ring-offset-2' : ''}`}><TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" /></span>
