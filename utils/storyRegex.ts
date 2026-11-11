@@ -26,6 +26,9 @@ export interface StoryRegexRule {
     /** Independent execution switches. Filters may run online, offline or both;
      * HTML templates are restricted to online regardless of imported metadata. */
     targets?: Array<'online' | 'offline'>;
+    /** Offline text rules can independently target story scenes and in-person meetings.
+     * Older unbound rules default to both; story-preset rules default to story only. */
+    offlineScenes?: Array<'story' | 'meeting'>;
     /** Import file folder and per-rule author-defined subcategory. */
     importGroup?: string;
     subcategory?: string;
@@ -117,6 +120,9 @@ export function validateStoryRegexRule(rule: StoryRegexRule): void {
         || !rule.targets.length
         || rule.targets.some(target => target !== 'online' && target !== 'offline')))
         throw new Error('规则至少选择一个生效场景');
+    if (rule.offlineScenes !== undefined && (!Array.isArray(rule.offlineScenes)
+        || !rule.offlineScenes.length || rule.offlineScenes.some(scene => scene !== 'story' && scene !== 'meeting')))
+        throw new Error('线下规则至少选择剧情或见面');
     if (rule.kind === 'template' && rule.targets?.includes('offline'))
         throw new Error('HTML 美化只能用于私聊和群聊');
     if (!rule.pattern.trim()) throw new Error('请输入匹配正则');
