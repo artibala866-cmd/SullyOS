@@ -63,6 +63,8 @@ try {
   await delay(950);
   const idle=await js(state);
   if(Math.abs(before.height-idle.height)>3||Math.abs(before.top-idle.top)>18)throw Error('Reader moves without touch: '+JSON.stringify({before,idle}));
+  await js('window.__storyFrameScrollSamples=[];window.addEventListener("message", event=>{if(event.data?.type==="sully-story-template-scroll")window.__storyFrameScrollSamples.push(event.data.deltaY)})');
+  const sampleMetrics=()=>js('(() => {const deltas=window.__storyFrameScrollSamples;return {count:deltas.length,total:Math.round(deltas.reduce((sum,x)=>sum+x,0))};})()');
   const swipe=async(x,y,endY)=>{
     await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
     for(let i=1;i<=14;i++){
@@ -76,6 +78,7 @@ try {
   await swipe(130,startY,startY-190);
   await delay(250);
   const after=await js(state);
+  console.log('Gesture 1 delta metrics:',JSON.stringify(await sampleMetrics()));
   if(after.top<before.top+110)throw Error('Iframe swallowed finger swipe: '+JSON.stringify({before,after}));
   await delay(650);
   const settled=await js(state);
@@ -88,7 +91,8 @@ try {
     await swipe(pos.x,pos.y,pos.y-235);
     await delay(480);
     const newTop=await js('document.querySelector(".story-page-scroll").scrollTop');
-    progress.push({i,from:pos.top,to:newTop,remaining:pos.max-newTop,x:pos.x,y:pos.y});
+    const sample=await sampleMetrics();
+    progress.push({i,from:pos.top,to:newTop,remaining:pos.max-newTop,x:pos.x,y:pos.y,...sample});
     if(i>1 && newTop-pos.top<3 && pos.max-newTop>250) break;
   }
   const end=await js(state);
