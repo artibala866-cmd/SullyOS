@@ -21,6 +21,8 @@ import ChatImage from './ChatImage';
 import UserVoiceBubble from './UserVoiceBubble';
 import McdCard from './McdCard';
 import HtmlCard from './HtmlCard';
+import AlchemyMessageBody from '../alchemy/AlchemyMessageBody';
+import type { StoryRegexResult } from '../../utils/storyRegex';
 import LuckinCard from './LuckinCard';
 import LuckinCheckoutCard from './LuckinCheckoutCard';
 import QixiEventCardView from './QixiEventCard';
@@ -1012,6 +1014,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
 };
 
 interface MessageItemProps {
+    alchemyResult?: StoryRegexResult;
     /** Static decoration fixtures only; never enables playback or message actions. */
     previewExpanded?: boolean;
     previewTransferOpen?: boolean;
@@ -1086,6 +1089,7 @@ interface MessageItemProps {
 
 const MessageItem = React.memo(({
     msg: m,
+    alchemyResult,
     previewExpanded = false,
     previewTransferOpen = false,
     isFirstInGroup,
@@ -3238,6 +3242,10 @@ const MessageItem = React.memo(({
 
     // --- Enhanced Text Rendering (Markdown Lite) ---
     const renderContent = (text: string) => {
+        if (!isUser && m.type === 'text' && alchemyResult && text === displayContent) {
+            if (alchemyResult.cards.length) return <AlchemyMessageBody result={alchemyResult} />;
+            text = alchemyResult.text;
+        }
         // 1. Split by Code Blocks (triple backtick)
         const parts = text.split(/(```[\s\S]*?```)/g);
         return parts.map((part, index) => {
