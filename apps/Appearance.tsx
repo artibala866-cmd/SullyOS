@@ -294,7 +294,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
             {/* Import */}
             <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">导入外观预设</h2>
-                <p className="text-[10px] text-slate-400 mb-3">支持 PNG 分享原图、ZIP 和旧版 JSON。系统整合备份也会包含当前外观设置，单独预设文件更适合分享。</p>
+                
                 <input type="file" ref={importRef} className="hidden" accept=".png,.zip,.json,image/png,application/zip,application/json" onChange={handleImport} />
                 <button onClick={() => importRef.current?.click()}
                     className="w-full py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
@@ -793,7 +793,7 @@ const Appearance: React.FC = () => {
             <>
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">动画与过场</h2>
-                    <p className="text-[10px] text-slate-400 mb-2">三项都默认开启，可以分别关闭；关闭加载动画后，超过 15 秒的卡死恢复提示仍会保留。</p>
+                    
                     <div className="divide-y divide-slate-100">
                         {([
                             {
@@ -1269,7 +1269,7 @@ const Appearance: React.FC = () => {
                         <input type="checkbox" checked={theme.launcherImageVisible !== false} onChange={e => updateTheme({ launcherImageVisible: e.target.checked })} />
                         显示图片组件
                     </label>
-                    <p className="text-[10px] text-slate-400 mb-4">对应主页 2 黑胶旁的拍立得照片。点击上传图片，长按预览移除；不会替换其他照片。</p>
+                    
                     <div className="flex justify-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         {(() => {
                             const slot = 'dsq';
@@ -1307,7 +1307,7 @@ const Appearance: React.FC = () => {
                 {/* Home page 1 filmstrip positions; existing source-photo slots below remain unchanged. */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-neutral-200">
                     <h2 className="text-sm font-bold text-neutral-800 mb-2">当前桌面 · 独立照片位置</h2>
-                    <p className="text-[11px] text-neutral-500 mb-4">每个位置都可以单独上传图片。未设置新图片时继续显示原有照片，不会丢失旧素材；长按已设置的预览可移除。</p>
+                    
                     <div className="grid grid-cols-2 gap-3">
                         {([
                             ['film1', '主页 1 · 胶片 ①', 'tl'],
@@ -1335,7 +1335,7 @@ const Appearance: React.FC = () => {
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">原有照片素材 · 基础图槽</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">这些是原有照片数据，继续保留以兼容旧布局。上方的主页 1 胶片可以独立设置；原有素材不会被自动删除。</p>
+                    
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
@@ -1609,7 +1609,7 @@ const Appearance: React.FC = () => {
                             </button>
                         </div>
                     )}
-                    <div className="text-[10px] text-slate-400 mt-3 px-1">提示: 装饰会叠加显示在桌面第二页上，可自由调节每个装饰的位置、大小、旋转和透明度。支持上传自定义图片或使用预设贴纸。</div>
+                    
                 </section>
             </>
         ) : activeTab === 'icons' ? (
