@@ -93,6 +93,7 @@ try {
     const newTop=await js('document.querySelector(".story-page-scroll").scrollTop');
     const sample=await sampleMetrics();
     progress.push({i,from:pos.top,to:newTop,remaining:pos.max-newTop,x:pos.x,y:pos.y,...sample});
+    if(newTop < pos.top - 18) throw Error('FATAL: upward touch reversed the story scroll: '+JSON.stringify(progress.slice(-3)));
     if(i>1 && newTop-pos.top<3 && pos.max-newTop>250) break;
   }
   const end=await js(state);
