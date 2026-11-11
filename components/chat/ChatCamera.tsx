@@ -378,7 +378,7 @@ export default function ChatCamera({ onClose, onGallery, onCapture, onAIGenerate
                         onChange={event => setAiFaceOverride(event.target.checked)} />
                     <span>使用档案里的 user 锁脸参考图</span>
                 </label>}
-                <p>使用「设置 → 生图 API」中的 OpenAI / FoxAPI 配置。生成成功后，以你发送的图片消息进入当前私聊。</p>
+                
                 {aiError && <p role="alert" className="chat-camera-ai-error">{aiError}</p>}
                 <div className="chat-camera-ai-actions">
                     <button type="button" disabled={aiBusy} onClick={() => { setAiError(''); setMode('choose'); }}>返回</button>
