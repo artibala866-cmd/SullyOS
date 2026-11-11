@@ -37,6 +37,11 @@ export interface StoryRegexRule {
         trimStrings?: string[];
         scenes?: string[];
         renderMode?: 'inline' | 'iframe';
+        /** Original alchemy file metadata, not story-global authorization. */
+        category?: string;
+        originalScope?: string;
+        originalCharacterIds?: string[];
+        triggerEnabled?: boolean;
         substituteRegex?: 0 | 1 | 2;
         minDepth?: number;
         maxDepth?: number;
