@@ -699,18 +699,7 @@ const Settings: React.FC = () => {
   // 用户改了「自定义网络代理」，lite 模式自动跟着切到新 worker。
   const XHS_LITE_URL = `${getProxyWorkerUrl()}/api`;
   const XHS_RISK_TEXT = '使用提示：Lite 通过网页接口连接小红书，平台规则变化时可能出现登录失效或功能暂时不可用。建议先用小号体验，并在发布或互动前确认内容。';
-  const XHS_COOKIE_GUIDE = [
-    '【获取小红书 cookie 教程】',
-    '1. 用电脑浏览器(Chrome/Edge)登录实际分配给你的站点：www.xiaohongshu.com 或 www.rednote.com',
-    '2. 按 F12 打开开发者工具，切到「Network/网络」标签',
-    '3. 刷新页面，点列表最上面那条「explore」(document 类型，发给当前网站的主请求)',
-    '4. 右侧切到「Headers/标头」，往下滚到「Request Headers/请求标头」',
-    '5. 找到 cookie: 开头那一行(很长一串)',
-    '6. 复制它后面整段的值：可把 Request Headers 右边的「Raw」开关打开看纯文本更好选，或在值上右键 Copy value，或选中后 Ctrl+C',
-    '7. 确认这串里有 a1= 和 web_session= 两个字段(最关键)，粘到「小红书 Lite」的 cookie 框',
-    'Lite 会自动判断这串 Cookie 属于国内小红书还是全球 RedNote；不用自己补 gid、bRequestId 等会随站点变化的字段。',
-    '注意：别用 Console 的 document.cookie，拿不到 web_session(httpOnly)。cookie 数天~数周会过期，失效重复制即可。',
-  ].join('\n');
+
   const _xhsCfgUrl = realtimeConfig.xhsMcpConfig?.serverUrl || '';
   // 部署模式与协议分开保存：本地 Skills 和云端 Lite 都是 /api，不能再凭路径判断。
   const _xhsStoredMode = resolveXhsDeploymentMode(realtimeConfig.xhsMcpConfig, XHS_LITE_URL);
@@ -722,7 +711,6 @@ const Settings: React.FC = () => {
   const [rtXhsUserId, setRtXhsUserId] = useState(realtimeConfig.xhsMcpConfig?.loggedInUserId || '');
   const [rtXhsCookie, setRtXhsCookie] = useState(realtimeConfig.xhsMcpConfig?.cookie || '');
   const [rtXhsPlatform, setRtXhsPlatform] = useState<'xhs' | 'rednote' | undefined>(realtimeConfig.xhsMcpConfig?.platform);
-  const [rtXhsGuideOpen, setRtXhsGuideOpen] = useState(false);
   const [rtTestStatuses, setRtTestStatuses] = useState<Record<string, string>>({});
   const renderRtTestStatus = (key: string) => {
       const status = rtTestStatuses[key];
@@ -2096,22 +2084,13 @@ const Settings: React.FC = () => {
                 <input type="file" ref={importInputRef} className="hidden" accept=".json,.zip" onChange={handleImport} />
             </div>
 
-            <p className="text-[10px] text-slate-400 px-1 mb-4 leading-relaxed">
-                • <b>全部身份</b>: 包含本机各身份的记录、宫殿、媒体和模型。导入后新增恢复副本，保留当前存档与外观；云端连接需重新配置。<br/>
-                • <b>整合导出</b>: 一次性导出文字与图片媒体；VRM / Live2D 模型请使用下方独立备份。<br/>
-                • <b>纯文字备份</b>: 包含所有聊天记录、角色设定、剧情数据。所有图片会被移除（减小体积）。<br/>
-                • <b>媒体与美化素材</b>: 导出相册、表情包、聊天图片、头像、主题气泡、壁纸、图标等图片资源和外观配置。<br/>
-                • <b>装扮与搭配</b>: 整合/媒体备份包含桌面主题、聊天装扮、搭配收藏、旧气泡及实际素材，并保留来源权限、角色搭配和投稿更新绑定。纯文字备份不能完整恢复美化。<br/>
-                • <b>作者搬家</b>: 整合备份还包含 Repo 状态、美化偏好和引导记录；已在作者页开启“记住作者身份”时，也携带作者码与密码。导入后恢复这些数据，不会自动登录或投稿。<br/>
-                • <b>语音范围</b>: 整合/媒体备份仅包含已收藏语音，以及 Live2D 开机、触摸预设实际引用的语音；未收藏的聊天、通话等临时语音不会导出。<br/>
-                • 兼容旧版 JSON 备份文件的导入。
-            </p>
+            <p className="mb-4 px-1 text-[10px] text-amber-700">备份可能包含 API 密钥和身份凭据，请妥善保管。</p>
 
             <div data-testid="avatar-model-backup-section" className="mb-5 border-y border-neutral-100 py-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
                         <h3 className="text-xs font-bold text-slate-700">视频模型 · 单独备份</h3>
-                        <p className="mt-0.5 text-[10px] text-slate-400">VRM / Live2D 不再混进普通数据包</p>
+                        
                     </div>
                     <span className="shrink-0 rounded-full bg-neutral-50 px-2.5 py-1 text-[10px] font-bold text-neutral-600">
                         {avatarModelInventory
@@ -3177,20 +3156,7 @@ const Settings: React.FC = () => {
                     <button onClick={() => { setShowProxyConfig(false); setProxyWorkerInput(getProxyWorkerUrl()); }} className="text-[10px] text-slate-400">收起</button>
                 </div>
 
-                <div className="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-2 mb-3 leading-relaxed">
-                    <b>一般无需修改这里。</b>默认地址负责静态网页环境中需要跨域转发的联网功能；
-                    GitHub 备份仍默认直连，只有你在备份设置中主动开启中转后才会使用 Worker。
-                    如果你部署了自己的 <b>worker/index.js</b>，可以在这里换成自己的实例。
-                </div>
-
-                <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/80 px-3 py-2.5 text-[10px] leading-relaxed text-neutral-900">
-                    <p className="mb-1.5 font-bold">部署自己的 Worker</p>
-                    <ol className="space-y-1">
-                        <li><b>1.</b> 在 Cloudflare 控制台进入 Workers &amp; Pages，新建一个 Worker。</li>
-                        <li><b>2.</b> 打开并复制完整的 <a href={PROXY_WORKER_SOURCE_URL} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2">worker/index.js 源码</a>，替换编辑器里的默认代码，然后部署。</li>
-                        <li><b>3.</b> 复制部署得到的 <b>https://xxx.workers.dev</b> 地址，粘贴到下方并保存。</li>
-                    </ol>
-                </div>
+                <a href={PROXY_WORKER_SOURCE_URL} target="_blank" rel="noreferrer" className="mb-3 inline-block text-[10px] text-slate-400 underline">Worker 源码</a>
 
                 <input
                     type="text"
@@ -3212,11 +3178,7 @@ const Settings: React.FC = () => {
                     </button>
                 </div>
 
-                <p className="text-[10px] text-slate-400 px-1 mt-2 leading-relaxed">
-                    只填到域名（如 <b>{DEFAULT_PROXY_WORKER}</b>），不要带 /search、/webdav、/api 等路径。
-                    联网搜索 / 备份代理 / Notion / 飞书 / 点单 / 网页抓取 / 出图 / 小红书 Lite / 音乐 都会切到这里填的 Worker。
-                    （音乐播放器里还留了一个独立地址框，单独填了就以那个为准。）
-                </p>
+                <p className="mt-2 text-[10px] text-slate-400">仅填写 Worker 域名，不带路径。</p>
             </section>
         )}
 
@@ -4080,10 +4042,6 @@ const Settings: React.FC = () => {
                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">
-                      免电脑、免扫码：粘贴一次小红书 / RedNote cookie，即可搜索、浏览、看详情及互动；国内小红书还支持发帖(带图)。地址已内置，无需填写。
-                  </p>
-                  <p className="text-[10px] text-neutral-700 leading-relaxed bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5">{XHS_RISK_TEXT}</p>
                   {rtXhsMcpEnabled && rtXhsMode === 'lite' && (
                       <div className="space-y-2">
                           <div>
@@ -4102,18 +4060,7 @@ const Settings: React.FC = () => {
                                   <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="自动获取" />
                               </div>
                           </div>
-                          <div>
-                              <button type="button" onClick={() => { if (!rtXhsGuideOpen) trackEvent('展开获取 cookie 教程'); setRtXhsGuideOpen(v => !v); }} className="text-[11px] font-bold text-neutral-600 underline">📖 点击获取 cookie 教程 {rtXhsGuideOpen ? '▲' : '▼'}</button>
-                              {rtXhsGuideOpen && (
-                                  <div className="mt-1 bg-white/70 rounded-lg p-2 space-y-1.5">
-                                      <pre className="text-[10px] text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{XHS_COOKIE_GUIDE}</pre>
-                                      <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(XHS_COOKIE_GUIDE); trackEvent('复制 cookie 教程文本', { result: 'copied' }); addToast('教程已复制，可粘贴去问别的 AI', 'success'); } catch { trackEvent('复制 cookie 教程文本', { result: 'clipboard-failed' }); addToast('复制失败，请长按手动选择', 'error'); } }} className="w-full py-1.5 bg-neutral-100 text-neutral-600 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">复制教程</button>
-                                  </div>
-                              )}
-                          </div>
-                          <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-100/60 rounded-lg px-2 py-1.5">
-                              使用说明：Cookie 保存在本机配置中；使用 Lite 时会随请求发送到网络 Worker，用于登录校验和接口签名，当前开源 Worker 不主动留存。建议使用小号，并在退出账号或 Cookie 失效后及时更新。
-                          </p>
+                          <p className="text-[10px] text-slate-400">Cookie 将随请求发送至 Worker。</p>
                       </div>
                   )}
               </div>
