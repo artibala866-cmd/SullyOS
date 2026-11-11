@@ -294,4 +294,29 @@ describe('糯叽机炼金术导入', () => {
         });
     });
 
+    it('见面专用导入不保存剧情预设，重复导入也不覆盖线下场景选择', () => {
+        const { rules: [parsed] } = parseStoryRegexImport(JSON.stringify({
+            name: '见面场景词汇', pattern: '像草莓一样', flags: 'g',
+            replacement: '', applyOnDisplay: true,
+        }));
+        const meetingOnly = { ...parsed, domain: 'offline' as const,
+            targets: ['offline'] as Array<'offline'>,
+            offlineScenes: ['meeting'] as Array<'meeting'> };
+        const meeting = mergeStoryRegexImport([], [meetingOnly], 'story-A');
+        expect(meeting.rules[0].presetId).toBe('');
+        expect(meeting.rules[0].offlineScenes).toEqual(['meeting']);
+        const originalStoryOnly = { ...parsed, domain: 'offline' as const,
+            targets: ['offline'] as Array<'offline'>,
+            offlineScenes: ['story'] as Array<'story'> };
+        const story = mergeStoryRegexImport([], [originalStoryOnly], 'story-A');
+        expect(story.rules[0].presetId).toBe('story-A');
+        expect(story.rules[0].offlineScenes).toEqual(['story']);
+        const combined = mergeStoryRegexImport(story.rules, [
+            { ...originalStoryOnly, offlineScenes: ['story', 'meeting'] as Array<'story' | 'meeting'> },
+        ], 'story-A');
+        expect(combined).toMatchObject({ added: 0, duplicates: 1 });
+        expect(combined.rules).toHaveLength(1);
+        expect(combined.rules[0].offlineScenes).toEqual(['story']);
+    });
+
 });
