@@ -228,8 +228,8 @@ export function isBroadProseBan(rule: StoryRegexRule): boolean {
 
 /**
  * Conservative zero-API guard for *all* imported prose deletion rules.
- * Analyze the match's own grammatical shape and its sentence surroundings;
- * never infer a subject ("fruit", "flowers", etc.) or invent a banned phrase.
+ * Analyze the complete matched expression without guessing any subject
+ * ("fruit", "flowers", etc.) or inventing a new forbidden phrase.
  *
  * A plain short noun/adjective is not enough evidence to delete it. In contrast,
  * an authored full figurative construction can be removed as written. Numeric
