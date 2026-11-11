@@ -86,6 +86,12 @@ const audit = () => {
     const focus = params.get('focus');
     let anchorDrift: number | null = null;
     const focusReading = () => {
+        // The test moves through the timeline programmatically, but the real
+        // reader touches first. Signal the same gesture before changing the
+        // scroll position so lazy iframe reflows cannot re-enable follow-latest.
+        if (focus === 'middle' || focus === 'top' || focus === 'latest') {
+            scroll.dispatchEvent(new Event('touchstart', { bubbles: true }));
+        }
         if (focus === 'middle') floors[Math.floor(floorCount / 2)].scrollIntoView({ block: 'start', behavior: 'instant' });
         if (focus === 'top') scroll.scrollTop = 0;
         if (focus === 'middle' || focus === 'top') scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
