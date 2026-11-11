@@ -390,7 +390,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         }
     }, [addToast]);
 
-    if (view === 'regex') return <StoryRegexPanel domain='offline' rules={regexRules} presets={presets} onSave={saveRegexRules} onBack={() => setView('list')} />;
+    if (view === 'regex') return <StoryRegexPanel domain='offline' section='rules' rules={regexRules} presets={presets} onSave={saveRegexRules} onBack={() => setView('list')} />;
 
     if (view === 'preset' && editingPreset) return <StoryPresetMaker key={editingPreset.id}
         preset={editingPreset}
