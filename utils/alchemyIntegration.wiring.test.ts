@@ -35,7 +35,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         const story = read('components/date/story/StoryTheaterSession.tsx');
         const date = read('apps/DateApp.tsx');
         const screen = read('components/date/DateSession.tsx');
-        expect(story).toContain("alchemyRuleAppliesTo(rule, 'offline')");
+        expect(story).toContain("alchemyRulesFor(regexRules, 'offline', preset.id)");
         expect(date).toContain('applyMeetingAlchemyRequest(messages, modelText');
         expect(date).toContain('applyMeetingAlchemyRequest(messages, lastUserMsg.content');
         expect(date).toContain("applyMeetingAlchemyRequest(messages, ''");
