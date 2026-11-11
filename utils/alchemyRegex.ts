@@ -1,0 +1,78 @@
+import { DB } from './db';
+import { readStoryRegexRules, storyRegexInstruction, STORY_REGEX_ASSET, type StoryRegexContext, type StoryRegexRule } from './storyRegex';
+
+export type AlchemyDomain = 'online' | 'offline';
+export const ALCHEMY_CHANGED = 'sully-alchemy-regex-changed';
+
+export const alchemyDomain = (rule: StoryRegexRule): AlchemyDomain =>
+    rule.domain === 'online' || rule.domain === 'offline'
+        ? rule.domain : rule.kind === 'template' ? 'online' : 'offline';
+
+export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, presetId = ''): StoryRegexRule[] =>
+    rules.filter(rule => rule.enabled && alchemyDomain(rule) === domain
+        && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+export async function loadAlchemyRules(domain: AlchemyDomain, presetId = ''): Promise<StoryRegexRule[]> {
+    const raw = await DB.getAsset(STORY_REGEX_ASSET);
+    return alchemyRulesFor(readStoryRegexRules(raw), domain, presetId);
+}
+
+export async function updateAlchemyRules(change: (rules: StoryRegexRule[]) => StoryRegexRule[]): Promise<StoryRegexRule[]> {
+    const saved = await DB.updateAssetRaw(STORY_REGEX_ASSET, raw => {
+        if (raw !== null && typeof raw !== 'string') throw Error('正则数据格式错误');
+        return JSON.stringify(change(readStoryRegexRules(raw)));
+    });
+    const rules = readStoryRegexRules(saved);
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(ALCHEMY_CHANGED));
+    return rules;
+}
+
+/** Never make a classification API call: format prompts activate only for
+ * explicit conversational cues (or user-specified trigger keywords).
+ * A model's reply may still contain a supported tag, which is rendered
+ * locally whether or not a format prompt was sent. */
+const FORMAT_CUES: Array<[RegExp, RegExp]> = [
+    [/法庭|认罪|审判|罪状/, /法庭|认罪|审判|裁决|指控|罪状|处罚/],
+    [/豆包|咨询|问答/, /豆包|咨询|问答|问一下豆包/],
+    [/弹幕/, /弹幕|围观|刷屏/],
+    [/刮|彩票|抽奖/, /刮刮|彩票|抽奖|中奖|刮奖/],
+    [/红包/, /红包|发红包|收红包|恭喜发财/],
+    [/小剧场|番茄|小说/, /小剧场|番茄|番外|写个剧场|写一段小说/],
+];
+
+const shouldSendTemplateInstruction = (rule: StoryRegexRule, recentText: string): boolean => {
+    if (!recentText.trim()) return false;
+    const needles = rule.source?.triggerKeywords || [];
+    if (needles.length) return needles.some(word => recentText.toLocaleLowerCase().includes(word.toLocaleLowerCase()));
+    // Empty trigger keywords from source exports do NOT mean "always emit six
+    // long template prompts" in private/group chat; show cards on matching output.
+    const cue = FORMAT_CUES.find(([name]) => name.test(rule.name));
+    return !!cue && cue[1].test(recentText);
+};
+
+export const alchemyInstructions = (
+    rules: StoryRegexRule[], domain: AlchemyDomain, context: StoryRegexContext, recentText: string,
+): string[] => alchemyRulesFor(rules, domain)
+    .filter(rule => domain === 'offline' || rule.kind !== 'template' || shouldSendTemplateInstruction(rule, recentText))
+    .map(rule => storyRegexInstruction(rule, context, recentText)).filter(Boolean)
+    .slice(0, 20);
+
+/** No extra HTTP/LLM request. Existing prompt gets only context-relevant
+ * directives; if no cue is found the current one-call request is unchanged. */
+export async function loadAlchemyInstructions(
+    domain: AlchemyDomain, recentText: string, context: StoryRegexContext = {},
+): Promise<string[]> {
+    const rules = await loadAlchemyRules(domain);
+    return alchemyInstructions(rules, domain, context, recentText);
+}
+
+export function protectAmbiguousFilter(rule: StoryRegexRule, matched: string): boolean {
+    const category = rule.source?.category || '';
+    const isBroadStyleBan = /^WS\d/i.test(rule.name) || /八股净化|词汇级禁令|句式级禁令/.test(category + rule.name);
+    if (rule.source?.smartFilter === false || !isBroadStyleBan) return false;
+    // A local regex cannot infer an author's meaning. Removing everyday words
+    // from the middle of a sentence is irreversible, so preserve short matches
+    // unless the user explicitly switches the rule to strict matching.
+    return rule.replacement === '' && matched.length < 6 && !/[<>[\]{}]/.test(matched);
+}
