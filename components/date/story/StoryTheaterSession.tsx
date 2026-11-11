@@ -354,7 +354,8 @@ const storyReadingSource = (message: Message): string => {
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPTY_REGEX_RULES, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
     const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
-    const activeRegexRules = useMemo(() => regexRules.filter(rule => rule.enabled && (!rule.presetId || rule.presetId === preset.id)),
+    const activeRegexRules = useMemo(() => regexRules.filter(rule => rule.enabled && (!rule.presetId || rule.presetId === preset.id))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
         [regexRules, preset.id]);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
     const memoryActors = useMemo(() => {
