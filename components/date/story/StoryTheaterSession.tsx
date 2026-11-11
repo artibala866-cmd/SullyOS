@@ -437,6 +437,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const followLatestRef = useRef(true);
     const readingScrollFrameRef = useRef<number | null>(null);
     const lastReadMessageIdRef = useRef<number | null>(null);
+    const initialReadingPendingRef = useRef(true);
+    const initialReadingGestureRef = useRef(false);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
 
@@ -469,6 +471,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setExpandedArchivedIds(new Set());
         followLatestRef.current = true;
         lastReadMessageIdRef.current = null;
+        initialReadingPendingRef.current = true;
+        initialReadingGestureRef.current = false;
         setVisibleFloor(0);
         setAtReadingEnd(true);
         setMessageMenu(null);
@@ -613,6 +617,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         if (event.type === 'touchstart'
             && (event.target as HTMLElement).closest('button, a, input, textarea, select, summary')) return;
         // A wheel/touch gesture can begin before its first scroll event.
+        initialReadingGestureRef.current = true;
         followLatestRef.current = false;
     }, []);
     const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
@@ -1234,7 +1239,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     const batch = pending.slice(offset, offset + 24);
                     const converted = await runStoryRegex(batch.map(([, input]) => input), activeRegexRules, 'display', controller.signal, regexContext);
                     batch.forEach(([key, input], index) => results.set(key, { input, result: converted[index] }));
-                    commit();
+                    // Partial commits expand older floors in waves and make the viewport flicker.
+                    if (offset + 24 >= pending.length) commit();
                 }
                 if (!pending.length && reuse && previous?.results.size !== results.size) commit();
             } catch (error) {
@@ -1258,6 +1264,23 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         // Do not paint an unfiltered floor while a display rule is processing it.
         return { text: '', cards: [], matches: 0 };
     };
+
+    const initialReadingReady = useMemo(() => {
+        if (!regexSources.size) return true;
+        if (regexDisplay?.rules !== activeRegexRules || regexDisplay.context !== regexContext) return false;
+        const depthSensitive = activeRegexRules.some(rule => rule.source?.minDepth !== undefined || rule.source?.maxDepth !== undefined);
+        return [...regexSources].every(([key, input]) => {
+            const displayed = regexDisplay.results.get(key);
+            return displayed?.input.text === input.text && (!depthSensitive || displayed.input.depth === input.depth);
+        });
+    }, [activeRegexRules, regexContext, regexDisplay, regexSources]);
+    useLayoutEffect(() => {
+        if (!messages.length || !initialReadingPendingRef.current || !initialReadingReady) return;
+        initialReadingPendingRef.current = false;
+        // Align only once after imported display rules have filled the timeline.
+        // Never override a reader's touch or wheel gesture during initial loading.
+        if (!initialReadingGestureRef.current) scrollReadingToLatest();
+    }, [initialReadingReady, messages.length, scrollReadingToLatest]);
 
     const generationBlocked = generationBusy || !!unsavedReply;
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
