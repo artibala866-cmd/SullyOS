@@ -61,7 +61,7 @@ export async function safeResponseJson(response: Response, options?: { keepInter
 }
 
 /** Retain received bytes, including when a gateway leaves the stream open. */
-async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ text: string; readError?: string }> {
+export async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ text: string; readError?: string }> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let text = '';
