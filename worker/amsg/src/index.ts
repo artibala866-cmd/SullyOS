@@ -1,3 +1,4 @@
+import { INLINE_EMOTION_OPEN, extractInlineEmotion } from '../../../utils/inlineEmotionBuff';
 import { resolveSullyCloudOwnership } from './cloudDataOwnership';
 import { reconcileStoppedReplies, stoppedReplyKey } from '../../../utils/amsgStoppedReply';
 /**
@@ -488,6 +489,8 @@ interface FireStash {
   sceneSong: { id?: number; name: string; artists: string } | null;
   /** 这条任务是不是即时对话（用户刚发完消息在等回复）；决定要不要写 outbox。 */
   instant: boolean;
+  /** 只有本次私聊主请求确实带了 Buff 指令，才允许消费同轮情绪数据。 */
+  inlineEmotionEnabled: boolean;
   /**
    * 这一轮的情绪评估（副 API）。onBeforeFire 起跑、onLLMOutput 收尾时 await，
    * 结论挂上最后一条 push。没配评估 / 不是即时对话时是 null。
@@ -2196,6 +2199,9 @@ export const amsgHooks = {
       // （resolveFireSceneSong 与 renderFireSceneBlock 共用判定），冻的必然是正文里那首。
       sceneSong: resolveFireSceneSong(pack.scene, ctx.now.getTime(), tz),
       instant,
+      inlineEmotionEnabled: instant && !!pack.chat?.messages?.some(m =>
+        m.role === 'system' && typeof m.content === 'string' && m.content.includes(INLINE_EMOTION_OPEN)
+      ),
       // 下面即时对话那一支起跑（要等请求消息拼完才知道给评估喂什么）。
       emotionEvalPromise: null,
       emotionLatePending: false,
@@ -2415,7 +2421,7 @@ export const amsgHooks = {
     // phone JSON to the user or mistake a NPC reply for their chat message.
     if (isRetiredAutonomyDelivery(ctx.metadata)) return { decision: 'skip-push', reason: 'declined' } as const;
     const raw = stripReasoningTags(ctx.llmOutputText || '');
-    const content = raw.includes('[[CLOUD_PHONE_REPLY:') ? extractCloudPhoneReply(raw, false).content : raw;
+    let content = raw.includes('[[CLOUD_PHONE_REPLY:') ? extractCloudPhoneReply(raw, false).content : raw;
 
     // 任务身份直接从 ctx 上读（sessionId 是给日志和去重用的不透明串，不拿它切）。
     const taskId = ctx.taskId != null ? String(ctx.taskId) : null;
@@ -2435,6 +2441,10 @@ export const amsgHooks = {
       throw new Error('AMSG2_FIRE_STASH_MISSING: onLLMOutput 读不到 ctx.scratch.fire，检查 amsg-server 是否仍共享 scratch');
     }
     const session = stash.session;
+    // 先剥离模型随正文给出的隐藏 Buff JSON，绝不能让它进入分段消息或 push 气泡。
+    // 未授权的回复即使偶然吐出这个标签也只剥离，绝不更新 Buff。
+    const inlineEmotion = extractInlineEmotion(content);
+    content = inlineEmotion.content;
 
     // 思考链两个来源：响应字段 + 正文内联 <think>。抄的是没 strip 过的原文
     // （上面那个 content 是剥完的）。字段名认三个，跟本地路径一样宽
@@ -2692,6 +2702,10 @@ export const amsgHooks = {
               ...(completionTokens !== undefined ? { completionTokens } : {}),
             };
           }
+        }
+        if (stash.inlineEmotionEnabled && inlineEmotion.raw) {
+          lastMeta.amsgEmotionDone = true;
+          lastMeta.amsgEmotionUpdate = inlineEmotion.raw;
         }
         if (stash.emotionEvalPromise) {
           const outcome = await raceEmotionEval(stash.emotionEvalPromise);
