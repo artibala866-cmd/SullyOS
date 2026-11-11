@@ -326,13 +326,15 @@ const DateSession: React.FC<DateSessionProps> = ({
     // Interaction State
     const messages = React.useMemo(() => encounterId ? historyMessages.filter(message => message.metadata?.dateEncounterId === encounterId) : historyMessages, [historyMessages, encounterId]);
     const { rules: offlineRules } = useAlchemyRules('offline');
-    const meetingRules = React.useMemo(() => offlineRules.filter(rule => !rule.presetId), [offlineRules]);
-    const alchemyDisplay = useAlchemyMessageResults(messages, meetingRules, 'offline');
+    // Meeting has no story preset: do not silently drop offline rules that
+    // happen to be bound to a specific story preset as well.
+    const meetingRules = offlineRules;
+    const alchemyDisplay = useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting');
     const spriteTextInput = React.useMemo<Message[]>(() => currentText ? [{
         id: -987654321, charId: char.id, role: 'assistant', type: 'text',
         content: currentText, timestamp: 0,
     } as Message] : [], [currentText, char.id]);
-    const spriteAlchemy = useAlchemyMessageResults(spriteTextInput, meetingRules, 'offline');
+    const spriteAlchemy = useAlchemyMessageResults(spriteTextInput, meetingRules, 'offline', 'meeting');
     // Do not replace original dialogue text: speech, state and turn replay must
     // continue to use currentText. Only the visible, fully typed text is filtered.
     const visibleSpriteText = isTextAnimating ? displayedText
