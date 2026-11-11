@@ -555,15 +555,7 @@ const ModePicker: React.FC<{
         </div>
        </div>
 
-       <section className="collab-mode-explanation mt-8 border-l-2 border-indigo-200 pl-4 text-left">
-         <p className="text-[13px] font-medium leading-6 text-slate-700">“你好。这里是我和你单独办正事的地方，先把规则说直白一点。”</p>
-         <dl className="mt-4 space-y-3 text-[11px] leading-5 text-slate-500">
-           <div><dt className="font-semibold text-slate-700">这是什么？</dt><dd>独立在 ChatApp 外围的工作窗口。我仍然是 {character.name}，但会把更多注意力放在拆解、制作、检查和交付上。</dd></div>
-           <div><dt className="font-semibold text-slate-700">两个模式差在哪？</dt><dd><b>沉浸式</b>会带日常聊天同款完整上下文和最近聊天，最像刚从聊天里一起过来；<b>中度</b>只记得我们是谁和最多 5 条相关记忆，更轻、更专心办事。</dd></div>
-           <div><dt className="font-semibold text-slate-700">会进入角色记忆吗？</dt><dd>默认不会。你可以手动把内容发回聊天，让它走日常聊天自己的记忆流程；也可以在归档窗口时选择只写入一条总结。</dd></div>
-           <div><dt className="font-semibold text-slate-700">“让角色在日常聊天中知道协同功能”有什么用？</dt><dd>开启后，{character.name} 会知道你们另有一个独立工作区，也能读取并发送文件柜里已有的文件。普通聊天不会变成工作模式，不能在那里新建、修改或整理文件；真正干活仍要进入这里。</dd></div>
-         </dl>
-       </section>
+       
 
        <div className="collab-mode-options mt-12 border-y border-slate-200/80">
         {(['immersive', 'focused'] as CollaborationMode[]).map((mode, index) => (
@@ -782,7 +774,7 @@ const ApiSettingsPanel: React.FC<{
           <section>
             <div className="mb-3">
               <h3 className="text-xs font-semibold text-slate-700">ChatApp 最近聊天</h3>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">每次生成前重新读取当前角色的最新私聊，不会冻结在刚进入协同工作时。只读取你选择的数量，避免无关闲聊长期占用上下文。</p>
+              
             </div>
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2">
               {CHAT_CONTEXT_OPTIONS.map(option => {
@@ -800,13 +792,13 @@ const ApiSettingsPanel: React.FC<{
                 );
               })}
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-600">“用户设定范围”会直接读取 ChatApp 当前实际使用的上下文范围（含自适应范围和手动断点）。最近 10／20 条也只在这个范围内选取，不会越过手动断点或记忆水位。沉浸式会沿用 ChatApp 的完整角色上下文；中度协同只附加这些最新对话。修改后会从下一次生成开始生效，包括已有窗口。</p>
+            
           </section>
 
           <section>
             <div className="mb-3">
               <h3 className="text-xs font-semibold text-slate-600">日常聊天感知</h3>
-              <p className="mt-0.5 text-[10px] text-slate-400">决定角色在普通聊天里是否知道协同入口和文件柜</p>
+              
             </div>
             <button
               type="button"
@@ -815,7 +807,7 @@ const ApiSettingsPanel: React.FC<{
             >
               <span>
                 <span className="block text-sm font-semibold text-slate-700">让角色知道自己有协同功能</span>
-                <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">开启后，角色会知道可以引导你从 ChatApp 加号页进入协同工作，也能读取、发送文件柜里已有的文件。不会向普通聊天注入制作规则，也不能在那里干活。</span>
+                
               </span>
               <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${chatCollaborationEnabled ? 'bg-indigo-600' : 'bg-slate-200'}`}>
                 <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${chatCollaborationEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
@@ -827,7 +819,7 @@ const ApiSettingsPanel: React.FC<{
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
                 <h3 className="text-xs font-semibold text-slate-600">使用已保存的连接</h3>
-                <p className="mt-0.5 text-[10px] text-slate-400">Key 会直接带入，不需要重新填写</p>
+                
               </div>
               <span className="max-w-[45%] truncate text-[10px] font-medium text-indigo-500">{profile.sourceName || '协同专用配置'}</span>
             </div>
