@@ -915,7 +915,7 @@ const WorldbookApp: React.FC = () => {
                     <label className="block">整组触发方式<select aria-label="整组触发方式" value={groupEditor.mode} onChange={event => setGroupEditor({ ...groupEditor, mode: event.target.value as 'keep' | 'constant' | 'keyword' })} className="mt-2 w-full rounded-xl border border-neutral-200 p-3">
                         <option value="keep">保持各条目原设置</option><option value="constant">全部常驻</option><option value="keyword">全部关键词触发</option>
                     </select></label>
-                    <p className="text-xs leading-relaxed text-neutral-500">修改本组全部 {groupedBooks[groupEditor.category]?.length || 0} 条，并同步到已经挂载它们的角色。保留原有条目、关键词和挂载关系；不会给其他角色新增挂载。停用的条目仍保持停用。</p>
+                    <p className="text-[10px] text-neutral-500">{groupedBooks[groupEditor.category]?.length || 0} 条</p>
                 </div>}
             </Modal>
 
