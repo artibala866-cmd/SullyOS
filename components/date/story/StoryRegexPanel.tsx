@@ -6,7 +6,7 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
-import { alchemyDomain, alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
@@ -258,13 +258,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         }))}
                         onDelete={rule => void save(current => {
                             if (!current.some(item => item.id === rule.id)) throw new Error('此规则已被删除');
-                            return current.filter(item => item.id !== rule.id);
+                            return removeAlchemyRule(current, rule.id);
                         })}
                         onDeleteFolder={(folder, selected) => void save(current => {
                             const ids = new Set(selected.map(rule => rule.id));
-                            return current.filter(item => !(ids.has(item.id)
-                                && (item.importGroup || '旧版规则') === folder
-                                && alchemyRuleSection(item) === section));
+                            return removeAlchemyFolderSection(current, folder, section, ids);
                         })} />
                 </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
