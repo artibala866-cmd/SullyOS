@@ -8,6 +8,7 @@ import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import { createStoryTheaterDraft, BUILTIN_NIGHT_SCREENING_PRESET } from './storyTheater';
 import { DB } from './db';
 import type { Message } from '../types';
+import type { StoryRegexRule } from './storyRegex';
 
 // Count actual old-floor parsing, not just whether a rendered node happened
 // to remain connected. OSProvider updates its clock every second in production.
@@ -23,6 +24,11 @@ vi.mock('./storyRegexDisplay', async importOriginal => {
     };
 });
 vi.mock('../components/os/TokenImg', () => ({ default: () => null }));
+vi.mock('./storyRegexRunner', async () => {
+    const { applyStoryRegex } = await import('./storyRegex');
+    return { runStoryRegex: async (values: any[], rules: any[], stage: 'display' | 'history', _signal?: AbortSignal, context?: any) =>
+        values.map(value => applyStoryRegex(value, rules, stage, context)) };
+});
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('剧情长楼层不被每秒全局时钟反复渲染', () => {
@@ -33,7 +39,7 @@ describe('剧情长楼层不被每秒全局时钟反复渲染', () => {
             charId: 'story-theater:clock-regression',
             role: index % 2 === 0 ? 'user' : 'assistant',
             type: 'text',
-            content: '固定楼层正文 ' + (index + 1),
+            content: '固定楼层正文 ' + (index + 1) + (index % 2 ? '[debug]' : ''),
             timestamp: 1700000000000 + index * 1000,
             metadata: { source: 'story_theater' },
         } as Message));
@@ -51,6 +57,12 @@ describe('剧情长楼层不被每秒全局时钟反复渲染', () => {
         document.body.append(host);
         const root = createRoot(host);
         const masks: never[] = [];
+        const regexRules: StoryRegexRule[] = [{
+            id: 'clock-filter', name: '隐藏调试信息', kind: 'filter', enabled: true,
+            domain: 'offline', targets: ['offline'], offlineScenes: ['story'],
+            presetId: BUILTIN_NIGHT_SCREENING_PRESET.id, pattern: '[\\[]debug[\\]]', flags: 'g',
+            replacement: '', display: true, history: false, instruction: '',
+        }];
         const onBack = () => {};
         const onEntryChange = () => {};
         const renderClock = (second: number) => root.render(
@@ -61,7 +73,7 @@ describe('剧情长楼层不被每秒全局时钟反复渲染', () => {
             }}>
                 <StoryTheaterThemeProvider>
                     <StoryTheaterSession entry={entry} preset={BUILTIN_NIGHT_SCREENING_PRESET}
-                        masks={masks} onBack={onBack} onEdit={onBack}
+                        masks={masks} regexRules={regexRules} onBack={onBack} onEdit={onBack}
                         onEntryChange={onEntryChange} onArchiveCommitted={onBack} />
                 </StoryTheaterThemeProvider>
             </OSPreviewProvider>,
@@ -71,6 +83,7 @@ describe('剧情长楼层不被每秒全局时钟反复渲染', () => {
             await vi.waitFor(async () => {
                 await act(async () => {});
                 expect(host.querySelectorAll('[data-story-floor]')).toHaveLength(80);
+                expect(host.textContent).not.toContain('[debug]');
             });
             const firstParagraph = host.querySelectorAll('[data-story-floor]')[1].querySelector('.meeting-prose');
             const initialParses = tracking.parseCalls;
