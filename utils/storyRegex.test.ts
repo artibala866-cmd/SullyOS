@@ -27,7 +27,9 @@ describe('剧情正则', () => {
         const blocks = parseStoryRegexDisplay(output, fromTavern);
         expect(blocks.map(block => block.kind)).toEqual(['story', 'html', 'story']);
         const markup = renderToStaticMarkup(React.createElement(StoryOutput, { content: source, regexResult: output, fromTavern, affinityInputs: [] }));
-        expect(markup).toContain('sandbox=""');
+        expect(markup).toContain('sandbox="allow-scripts"');
+        expect(markup).not.toContain('sandbox="allow-scripts allow-same-origin"');
+        expect(markup).toContain('nonce-sully-story-template-runtime');
         expect(markup.indexOf('前文')).toBeLessThan(markup.indexOf('<iframe'));
         expect(markup.indexOf('<iframe')).toBeLessThan(markup.indexOf('后文'));
         expect(markup).toContain('第二行');
