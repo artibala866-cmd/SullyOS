@@ -52,6 +52,12 @@ export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, 
         && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+/** A meeting has no story preset; all enabled offline rules apply there.
+ * Preset binding narrows STORY use only, never the in-person meeting. */
+export const alchemyRulesForMeeting = (rules: StoryRegexRule[]): StoryRegexRule[] =>
+    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline'))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
 /** Apply one compact folder switch to ONLY the selected rules in that folder.
  * Keep each rule's ID, enabled state, match/replace data and preset binding.
  * Beauty templates never move to the offline execution pipeline. */
@@ -97,6 +103,11 @@ export const removeAlchemyFolderSection = (
 export async function loadAlchemyRules(domain: AlchemyDomain, presetId = ''): Promise<StoryRegexRule[]> {
     const raw = await DB.getAsset(STORY_REGEX_ASSET);
     return alchemyRulesFor(readStoryRegexRules(raw), domain, presetId);
+}
+
+export async function loadMeetingAlchemyRules(): Promise<StoryRegexRule[]> {
+    const raw = await DB.getAsset(STORY_REGEX_ASSET);
+    return alchemyRulesForMeeting(readStoryRegexRules(raw));
 }
 
 export async function updateAlchemyRules(change: (rules: StoryRegexRule[]) => StoryRegexRule[]): Promise<StoryRegexRule[]> {
