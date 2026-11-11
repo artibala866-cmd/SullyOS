@@ -109,4 +109,34 @@ describe('糯叽机炼金术导入', () => {
             expect.stringContaining('限定角色'), expect.stringContaining('错误表达式'), expect.stringContaining('仅论坛'),
         ]));
     });
+    it('把 7.5 八股补丁的提示词独立注入请求，不把原文清空', () => {
+        const prompt = '[System: Living Persona Cognitive OS - Final Unified Enforced Edition v8.3]\n禁止套路化描写';
+        const { rules: [core] } = parseStoryRegexImport(JSON.stringify({
+            name: 'WS8.3-核心指令(全维度禁令声明)', pattern: '^(?=.)', flags: 'gm',
+            replacement: '', aiPrompt: prompt, applyOnDisplay: 0, applyOnPrompt: 1,
+            isHtmlTemplate: false, enabled: 1,
+        }));
+        expect(core.enabled).toBe(true);
+        expect(core.kind).toBe('filter');
+        expect(core.history).toBe(true);
+        expect(core.instruction).toBe(prompt);
+        expect(storyRegexInstruction(core, {}, '暂停剧情')).toBe(prompt);
+        expect(applyStoryRegex('原文内容', [core], 'history').text).toBe('原文内容');
+        expect(applyStoryRegex('原文内容', [core], 'display').text).toBe('原文内容');
+    });
+
+    it('番茄小剧场开启触发但无关键词时，不吞掉输出格式指令', () => {
+        const parsed = parseStoryRegexImport(JSON.stringify({
+            name: '番茄小剧场', pattern: '<minitheater>([\\s\\S]*?)</minitheater>',
+            isHtmlTemplate: true, parseMode: 'json', htmlTemplate: '<div>{{1.title}}</div>',
+            aiPrompt: '输出 <minitheater> 格式', triggerEnabled: 1, triggerKeywords: '',
+        }));
+        expect(parsed.warnings.join('')).toContain('关键词为空');
+        expect(parsed.rules[0].source?.triggerKeywords).toBeUndefined();
+        expect(storyRegexInstruction(parsed.rules[0], {}, '暂停当前剧情，写一个小剧场'))
+            .toBe('输出 <minitheater> 格式');
+        expect(applyStoryRegex('<minitheater>{"title":"苹果"}<\/minitheater>',
+            parsed.rules, 'display').cards[0].html).toContain('苹果');
+    });
+
 });
