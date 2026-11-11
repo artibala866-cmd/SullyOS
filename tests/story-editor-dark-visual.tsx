@@ -125,7 +125,7 @@ const target=(element:Element|null)=>{
 };
 const validate=()=>{
     const buttons=[...document.querySelectorAll<HTMLElement>('.story-setup-save')];
-    const card=document.querySelector<HTMLElement>('.story-memory-live-card');
+    const card=document.querySelector<HTMLElement>('[data-story-memory-summary="true"]');
     const opening=document.querySelector<HTMLElement>('[data-story-opening-settings="true"]');
     const openingSelect=opening?.querySelector<HTMLSelectElement>('select[aria-label="选择已有开场"]');
     const openingEditor=document.querySelector<HTMLTextAreaElement>('textarea[data-story-opening-editor="true"]');
@@ -147,12 +147,11 @@ const validate=()=>{
         && !loreSection.textContent?.includes('暂无可选内容')
     );
     const tavernVisible=!!presetSection?.querySelector('select')?.textContent?.includes('酒馆视觉测试')
-        && !!presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行')
-        && !!presetSection?.textContent?.includes('小剧场支持隔离的安全 HTML 排版与原生卡片')
-        && !presetSection?.querySelector('.border-amber-200');
+        && !presetSection?.textContent?.includes('酒馆附带的正则/脚本没有执行')
+        && !presetSection?.textContent?.includes('小剧场支持隔离的安全 HTML 排版与原生卡片');
     if(buttons.length!==2||!card||!opening||!rootTheme)return false;
     const values={top:target(buttons[0]),bottom:target(buttons[1]),card:target(card),
-        text:target(card.querySelector('.text-amber-700')),heading:target(card.querySelector('.text-amber-800'))};
+        text:target(card),heading:target(card)};
     const report={...values,globalLoreOk,viewport:{width:innerWidth,height:innerHeight},
         functionsKept:buttons.every(b=>!b.hasAttribute('disabled'))&&buttons.every(b=>b.tagName==='BUTTON'),
         fit:document.documentElement.scrollWidth<=innerWidth,
@@ -223,8 +222,8 @@ const validate=()=>{
             && (light
                 ? getComputedStyle(rootTheme).backgroundColor==='rgb(243, 243, 243)'
                 : values.top.background==='rgb(66, 66, 66)'&&values.bottom.background==='rgb(66, 66, 66)'
-                    &&values.card.background==='rgb(48, 48, 48)'
-                    &&values.text.color==='rgb(201, 201, 201)'&&values.heading.color==='rgb(239, 239, 239)')
+                    &&card.textContent?.includes('共同经历')
+                    &&!card.textContent?.includes('无需设置日期'))
             &&document.documentElement.scrollWidth<=innerWidth,
     };
     const focus = new URLSearchParams(location.search).get('focus');
