@@ -53,6 +53,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
     const visibleRules = rules.filter(rule => alchemyDomain(rule) === domain);
+    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
         setDraft(rule);
