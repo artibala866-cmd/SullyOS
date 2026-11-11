@@ -46,7 +46,8 @@ function Visual() {
     };
     React.useEffect(() => {
         if (params.get('expanded') === '1') {
-            document.querySelectorAll<HTMLDetailsElement>('details').forEach(detail => { detail.open = true; });
+            document.querySelectorAll<HTMLDetailsElement>('[data-alchemy-folders] > div > details')
+                .forEach(detail => { detail.open = true; });
         }
     }, []);
     React.useEffect(() => {
