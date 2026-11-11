@@ -136,6 +136,102 @@ try{
     }
   }
   await capture('desktop-1366',1366,768);
+
+  if (process.env.STUDY_PRESSURE_MODE==='1') {
+    await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    const seed=await evaluate(`(async()=>{
+      const date=new Date().toLocaleDateString('sv-SE');
+      const tasks=Array.from({length:550},(_,i)=>({id:'stress-task-'+i,title:'练习与画稿 '+i,done:false,sessions:0,
+        ...(i<240?{source:{kind:i%2?'homework':'commission',id:'stress-'+i}}:{})}));
+      const records=Array.from({length:7000},(_,i)=>({taskId:'stress-task-'+(i%550),
+        sessionId:'study-old-'+i,date,minutes:25}));
+      for(const [key,value] of Object.entries({tasks,records,selectedTask:tasks[0].id,
+        focusMinutes:25,session:{id:'stress-expired-once',mode:'focus',duration:25,
+          deadline:Date.now()-1000,taskId:tasks[0].id,usedChatWindows:[]},coachByChar:{}}))
+        localStorage.setItem('sully_pomodoro_v1_'+key,JSON.stringify(value));
+      const ws={commissions:Array.from({length:500},(_,i)=>({id:'stress-'+(2*i),title:'虚构画稿 '+i,
+        client:'',type:'',brief:'',acceptedAt:'',dueDate:'2026-12-15',stage:'草稿',priority:2,
+        status:'active',remainingMinutes:60,bufferMinutes:5,plannedDate:'',price:'',paid:false,note:'',order:i})),
+        homework:Array.from({length:500},(_,i)=>({id:'stress-'+(2*i+1),classId:'c'+i,
+          title:'虚构作业 '+i,dueAt:'2026-12-15T19:00',minutes:40,done:false,note:''})),
+        classes:Array.from({length:80},(_,i)=>({id:'c'+i,name:'课程 '+i,
+          weekday:i%7,start:'09:00',end:'10:00',until:'',teacher:'',location:'',note:''})),
+        notes:[],reminders:[],focusSettlements:[],privateChatPermissions:{},
+        dailyAvailableMinutes:240,planSlots:[],availability:[],coachActions:[]};
+      const dbName=(await indexedDB.databases()).find(x=>x.name?.includes('AetherOS_Data'))?.name;
+      if(!dbName)throw Error('study IndexedDB unavailable');
+      const db=await new Promise((res,rej)=>{const q=indexedDB.open(dbName);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+      await new Promise((res,rej)=>{const tx=db.transaction('assets','readwrite');
+        tx.objectStore('assets').put({id:'sully_workspace_v1',data:ws});
+        tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});
+      db.close();
+      window.__studyStressErrors=[];
+      window.addEventListener('error',e=>window.__studyStressErrors.push(String(e.message)));
+      window.addEventListener('unhandledrejection',e=>window.__studyStressErrors.push(String(e.reason)));
+      window.__studyStressModelCalls=0;
+      const original=window.fetch.bind(window);
+      window.fetch=(...args)=>{if(String(args[0]).includes('/chat/completions')){
+        window.__studyStressModelCalls++;return Promise.reject(Error('No model calls in stress run'));}
+        return original(...args);};
+      return {tasks:tasks.length,records:records.length,commissions:ws.commissions.length,homework:ws.homework.length};
+    })()`);
+    console.log('STUDY_PRESSURE_SEEDED='+JSON.stringify(seed));
+    if(seed.tasks!==550||seed.records!==7000)throw Error('Incomplete stress seed');
+    const left=await evaluate(`(()=>{
+      const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('aria-label')==='返回'
+        &&x.closest('header')?.querySelector('h1')?.textContent==='学习室');
+      b?.click();return !!b;
+    })()`);
+    if(!left)throw Error('Study app did not exit');
+    await sleep(2300);
+    const entered=await evaluate(`(()=>{
+      const b=[...document.querySelectorAll('button,[role=button],a')].find(x=>
+        (x.getAttribute('aria-label')||x.textContent||'').trim()==='学习室');
+      b?.click();return !!b;
+    })()`);
+    if(!entered)throw Error('Study app did not reopen');
+    await sleep(4800);
+    const once=await evaluate(`(()=>{
+      const r=JSON.parse(localStorage.getItem('sully_pomodoro_v1_records')||'[]');
+      const t=JSON.parse(localStorage.getItem('sully_pomodoro_v1_tasks')||'[]');
+      return {count:r.length,once:r.filter(x=>x.sessionId==='stress-expired-once').length,
+        sessions:t[0]?.sessions,session:JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null')};
+    })()`);
+    console.log('STUDY_PRESSURE_RECOVERY='+JSON.stringify(once));
+    if(once.count!==7001||once.once!==1||once.sessions!==1||once.session)throw Error('Timer recovery/dedup failure');
+    const result=await evaluate(`(async()=>{
+      const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+      const clickNav=name=>{
+        const nav=[...document.querySelectorAll('nav')].find(n=>[...n.querySelectorAll('button')]
+          .some(b=>b.textContent?.trim()==='专注'));
+        const button=[...(nav?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()===name);
+        button?.click();return !!button;
+      };
+      for(let i=0;i<36;i++){if(!clickNav(['排单','课程表','专注'][i%3]))
+        throw Error('missing tab '+i);await sleep(150);}
+      clickNav('专注');await sleep(350);
+      const start=document.querySelector('button[aria-label="开始专注"]');
+      if(!start)throw Error('missing start button');
+      start.click();await sleep(550);
+      const pause=document.querySelector('button[aria-label="暂停专注"]');
+      if(!pause)throw Error('could not start session');
+      pause.click();await sleep(500);
+      const paused=JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null');
+      if(paused?.pauseRemainingMs==null)throw Error('pause did not persist');
+      clickNav('课程表');await sleep(250);clickNav('专注');await sleep(250);
+      const stillPaused=!!document.querySelector('button[aria-label="继续专注"]');
+      const records=JSON.parse(localStorage.getItem('sully_pomodoro_v1_records')||'[]');
+      return {switches:36,stillPaused,records:records.length,
+        errors:window.__studyStressErrors,modelCalls:window.__studyStressModelCalls,
+        overflow:document.documentElement.scrollWidth>innerWidth+2,width:innerWidth};
+    })()`);
+    console.log('STUDY_PRESSURE_BROWSER='+JSON.stringify(result));
+    if(result.switches!==36||!result.stillPaused||result.records!==7001||
+      result.errors.length||result.modelCalls||result.overflow||result.width!==390)
+      throw Error('Study browser stress failure '+JSON.stringify(result).slice(0,1100));
+    await capture('study-pressure-390',390,844);
+  }
+
 }finally{
   socket.close();
 }
