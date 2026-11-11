@@ -230,21 +230,38 @@ export const hasStoryHtmlLayout = (source: string): boolean =>
 const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
 (() => {
     let lastHeight = 0;
+    let lastRawHeight = 0;
+    let lastViewportHeight = 0;
+    let viewportFeedbackHeight = 0;
     let sizeFrame = 0;
     const postSize = () => {
         sizeFrame = 0;
         const root = document.querySelector('.story-theater-html-content');
         if (!root) return;
-        // body.scrollHeight is at least the iframe viewport when imported CSS
-        // uses full-height layouts. Measuring it creates an ever-growing
-        // ResizeObserver → iframe-height feedback loop in long stories.
+        // Measure the authored root, never body.scrollHeight (which includes
+        // the iframe viewport). Imported cards may still use 100vh/min-height:
+        // enlarging their iframe makes that SAME card grow again forever.
         const rect = root.getBoundingClientRect();
         const bodyTop = document.body.getBoundingClientRect().top;
-        const height = Math.ceil(Math.max(root.scrollHeight, rect.height)
+        const rawHeight = Math.ceil(Math.max(root.scrollHeight, rect.height)
             + Math.max(0, rect.top - bodyTop) + 3);
-        // A viewport-sized custom layout can feed a few pixels of its
-        // previous iframe height back into itself. Ignore those tiny repeats,
-        // while still responding to real text/details growth.
+        const viewportHeight = window.innerHeight;
+        if (lastViewportHeight > 0 && Math.abs(viewportHeight - lastViewportHeight) > 2) {
+            const viewportDelta = viewportHeight - lastViewportHeight;
+            const contentDelta = rawHeight - lastRawHeight;
+            // Discount only content growth proportional to our OWN iframe
+            // viewport resize. Preserve actual text, images and details
+            // expanding while the viewport stays the same.
+            if (viewportDelta * contentDelta > 0
+                && Math.abs(contentDelta) > 3
+                && Math.abs(contentDelta) >= Math.abs(viewportDelta) * .25
+                && Math.abs(contentDelta) <= Math.abs(viewportDelta) * 2.5 + 3) {
+                viewportFeedbackHeight += contentDelta;
+            }
+        }
+        lastRawHeight = rawHeight;
+        lastViewportHeight = viewportHeight;
+        const height = Math.max(76, Math.ceil(rawHeight - viewportFeedbackHeight));
         if (lastHeight && Math.abs(height - lastHeight) <= 3) return;
         lastHeight = height;
         window.parent.postMessage({ type: 'sully-story-template-height', height }, '*');
