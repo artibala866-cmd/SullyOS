@@ -581,10 +581,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         followLatestRef.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32;
         scheduleVisibleFloor();
     }, [scheduleVisibleFloor]);
-    const pauseFollowingForReading = useCallback(() => {
-        // A wheel/touch gesture may begin before its first scroll event.
-        // Release follow immediately, so concurrent font/media reflow or a
-        // completed background reply cannot steal that gesture.
+    const pauseFollowingForReading = useCallback((event: React.UIEvent<HTMLElement>) => {
+        // Tapping the latest-floor actions should still follow their new reply;
+        // only a reading gesture, not an action button, disables auto-follow.
+        if (event.type === 'touchstart'
+            && (event.target as HTMLElement).closest('button, a, input, textarea, select, summary')) return;
+        // A wheel/touch gesture can begin before its first scroll event.
         followLatestRef.current = false;
     }, []);
     const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
