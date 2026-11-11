@@ -95,6 +95,24 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         return () => { mounted = false; };
     }, [addToast]);
 
+    // A rule may be edited from the meeting or chat manager while this story
+    // screen stays mounted. Refresh saved old-floor rendering on the next event.
+    useEffect(() => {
+        let active = true;
+        const refreshRules = () => {
+            void DB.getAsset(STORY_REGEX_ASSET).then(raw => {
+                if (active) setRegexRules(readStoryRegexRules(raw));
+            }).catch(error => {
+                if (active) addToast(`剧情正则刷新失败：${error instanceof Error ? error.message : '存储不可用'}`, 'error');
+            });
+        };
+        window.addEventListener(ALCHEMY_CHANGED, refreshRules);
+        return () => {
+            active = false;
+            window.removeEventListener(ALCHEMY_CHANGED, refreshRules);
+        };
+    }, [addToast]);
+
     const saveRegexRules = async (update: (current: StoryRegexRule[]) => StoryRegexRule[]) => {
         const stored = await DB.updateAssetRaw(STORY_REGEX_ASSET, raw => {
             if (raw !== null && typeof raw !== 'string') throw new Error('剧情正则数据格式无效');
