@@ -105,14 +105,6 @@ const JournalApp: React.FC = () => {
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(getLocalDateStr());
 
-    // Onboarding popup (一次性)
-    const [showIntro, setShowIntro] = useState<boolean>(() => {
-        try { return !localStorage.getItem(INTRO_SEEN_KEY); } catch { return false; }
-    });
-    const dismissIntro = () => {
-        try { localStorage.setItem(INTRO_SEEN_KEY, '1'); } catch {}
-        setShowIntro(false);
-    };
 
     // Editor State
     const [isThinking, setIsThinking] = useState(false);
@@ -842,29 +834,9 @@ ${charPart}
     );
 
     // 一次性弹窗:讲清楚新版交换日记的行为变化(自动同步 / 归档移到列表 / 宫殿入向量)
-    const introModal = showIntro ? (
-        <Modal
-            isOpen={showIntro}
-            title="交换日记 · 更新了"
-            onClose={dismissIntro}
-            footer={
-                <button onClick={dismissIntro} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
-                    我知道了
-                </button>
-            }
-        >
-            <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
-                <p className="font-bold text-neutral-700">几个新变化,先看一眼:</p>
-                <div className="rounded-2xl bg-neutral-50 border border-neutral-100 px-4 py-3 space-y-2">
-                    <p><span className="font-bold text-neutral-700">① 自动同步聊天:</span> 角色回复了你的日记之后,会自动变成一张漂亮卡片出现在和这个角色的聊天里 —— 不用再手动发送。你之后在日记本里改文字 / 删日记,聊天里那张卡片也会跟着同步。</p>
-                    <p><span className="font-bold text-neutral-700">② 单向日记不进记忆:</span> 如果你只是单方面写给角色看(没让 ta 回复),这一篇就不会进入任何记忆,按以前的方式存着就好。</p>
-                    <p><span className="font-bold text-neutral-700">③ 新日记不用管归档:</span> 本次更新<b>之后</b>新写的日记走的就是上面"自动同步聊天"那条线 —— 卡片进了聊天后，系统会像处理普通消息一样自动帮你整理。不需要也<b>不应该</b>再手动归档一次。所以新日记你看不到归档入口, 这是故意的。</p>
-                    <p><span className="font-bold text-neutral-700">④ 老日记还能手动归档:</span> 本次更新<b>之前</b>留下的老日记里, 如果是角色回复过的, <b>点进那篇日记, 右上角会有一个"归档"按钮</b>, 点一下就行 —— 就会把这篇日记整理进角色的记忆里，开了记忆宫殿的角色会记得更细。</p>
-                </div>
-                <p className="text-xs text-slate-400">这条提示只出现一次。</p>
-            </div>
-        </Modal>
-    ) : null;
+    // 自用界面不再弹出首次使用说明。
+    const introModal = null;
+
 
     // 归档结果弹窗: 让用户清楚知道生成了哪些内容、被送去了哪里
     const archiveResultModal = archiveResult ? (() => {
