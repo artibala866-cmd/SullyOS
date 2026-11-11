@@ -184,19 +184,37 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
 
 export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = ({ source, fallback, title, template = false }) => {
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
+    const frameRef = useRef<HTMLIFrameElement>(null);
+    const [frameHeight, setFrameHeight] = useState(safe.estimatedHeight);
+    useEffect(() => { setFrameHeight(safe.estimatedHeight); }, [safe.srcDoc, safe.estimatedHeight]);
+    useEffect(() => {
+        if (!template) return;
+        const receiveSize = (event: MessageEvent) => {
+            // Template iframes have opaque origins. A matching contentWindow
+            // is essential; arbitrary frames cannot control a card's height.
+            if (event.source !== frameRef.current?.contentWindow
+                || event.data?.type !== 'sully-story-template-height') return;
+            const height = event.data.height;
+            if (typeof height !== 'number' || !Number.isFinite(height)) return;
+            setFrameHeight(Math.max(76, Math.min(900, Math.ceil(height))));
+        };
+        window.addEventListener('message', receiveSize);
+        return () => window.removeEventListener('message', receiveSize);
+    }, [template]);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
             {fallback || safe.text || '此段仅包含无法安全显示的脚本或样式，未执行任何代码'}
         </div>;
     }
     return <iframe
+        ref={frameRef}
         title={title}
-        sandbox=''
+        sandbox={template ? 'allow-scripts' : ''}
         referrerPolicy='no-referrer'
         loading='lazy'
         srcDoc={safe.srcDoc}
         className='block w-full rounded-lg border border-violet-100 bg-white'
-        style={{ height: safe.estimatedHeight, minHeight: 76, maxHeight: '60vh', maxWidth: '100%' }}
+        style={{ height: frameHeight, minHeight: 76, maxHeight: template ? 'none' : '60vh', maxWidth: '100%' }}
     />;
 };
 
