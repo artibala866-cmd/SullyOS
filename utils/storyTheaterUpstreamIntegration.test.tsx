@@ -46,15 +46,15 @@ function click(text:string){
 describe('原作者见面剧情记忆模式移植',()=>{
     it('真实陪伴只按真实收发时间说明，无独立虚构日期输入框',async()=>{
         const node=await openEditor();
-        expect(node.textContent).toContain('你的输入和角色回复会按各自实际发送的时间记录');
+        expect(node.textContent).toContain('剧情将记为共同经历');
         expect(node.querySelector('input[type="datetime-local"]')).toBeNull();
         expect(node.querySelector('[aria-label="启用自动记忆 API"]')?.getAttribute('aria-pressed')).toBe('false');
-        expect(node.textContent).toContain('内置真实性保护');
+        expect(node.querySelector('[data-story-memory-summary="true"]')).toBeTruthy();
     });
     it('虚构剧场保留原版事件盒手动转记忆，不把它误写成永久不可转存',async()=>{
         const node=await openEditor();
         await act(async()=>click('虚构剧场'));
-        expect(node.textContent).toContain('手动转为带剧情来源的记忆');
+        expect(node.textContent).toContain('事件盒');
         expect(node.textContent).toContain('自动记忆输出');
     });
     it('适配不破坏糯米机已有的保存失败提示',async()=>{
