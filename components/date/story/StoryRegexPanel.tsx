@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CaretDown, Code, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
 import type { StoryTheaterPreset } from '../../../types';
-import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
+import { STORY_TEMPLATE_MAX_LENGTH, isBroadProseBan, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppearance';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
@@ -399,9 +399,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <label className='flex cursor-pointer items-center gap-2'><input type='checkbox' checked={draft.history} className='h-4 w-4 accent-[#626e63]'
                             onChange={event => patch({ history: event.target.checked })}/>请求过滤</label>
                         <label className='flex cursor-pointer items-center gap-2'>
-                            <input type='checkbox' checked={draft.source?.smartFilter !== false} className='h-4 w-4 accent-[#626e63]'
+                            <input type='checkbox' checked={draft.source?.smartFilter !== false && isBroadProseBan(draft)} className='h-4 w-4 accent-[#626e63]'
                                 onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })}/>
-                            短词保护
+                            误伤保护
                         </label>
                     </div>}
                     <details className='group/extra overflow-hidden rounded-2xl border border-[#e8e9e7] bg-white'>
