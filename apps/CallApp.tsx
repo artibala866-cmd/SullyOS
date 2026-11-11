@@ -75,7 +75,6 @@ import {
   loadCallPreferences,
   markCallUpdateAnnouncementSeen,
   saveCallPreferences,
-  shouldShowCallUpdateAnnouncement,
   type CallPreferences,
 } from '../utils/callPreferences';
 import {
@@ -540,7 +539,7 @@ const CallApp: React.FC = () => {
   });
   const [callPreferences, setCallPreferences] = useState<CallPreferences>(loadCallPreferences);
   const [showCallPreferences, setShowCallPreferences] = useState(false);
-  const [showCallUpdateAnnouncement, setShowCallUpdateAnnouncement] = useState(shouldShowCallUpdateAnnouncement);
+  const [showCallUpdateAnnouncement, setShowCallUpdateAnnouncement] = useState(false);
   useEffect(() => saveCallPreferences(callPreferences), [callPreferences]);
   // 电话 App 独立的浅色主题偏好（覆盖选人页/通话中/视频/记录页）
   const [callTheme, setCallTheme] = useState<'dark' | 'light'>(() => {
