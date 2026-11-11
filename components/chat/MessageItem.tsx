@@ -3242,7 +3242,7 @@ const MessageItem = React.memo(({
 
     // --- Enhanced Text Rendering (Markdown Lite) ---
     const renderContent = (text: string) => {
-        if (!isUser && m.type === 'text' && alchemyResult && text === displayContent) {
+        if (m.type === 'text' && alchemyResult && text === displayContent) {
             if (alchemyResult.cards.length) return <AlchemyMessageBody result={alchemyResult} />;
             text = alchemyResult.text;
         }
