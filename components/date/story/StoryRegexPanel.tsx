@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CaretDown, Code, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
 import type { StoryTheaterPreset } from '../../../types';
 import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
@@ -8,6 +8,8 @@ import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImpor
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
+import AlchemyHtmlFrame from '../../alchemy/AlchemyHtmlFrame';
+import { renderAlchemyTemplatePreview } from '../../../utils/alchemyTemplatePreview';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
 
@@ -55,6 +57,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const actionLock = useRef(false);
     useEffect(() => () => test.current?.abort(), []);
     const isTemplate = draft?.kind === 'template';
+    const liveHtml = useMemo(() => draft?.kind === 'template'
+        ? renderAlchemyTemplatePreview(draft) : '',
+        [draft?.kind, draft?.replacement, draft?.parseMode]);
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
     const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === activeSection);
@@ -324,7 +329,13 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             })}
                         </div>}
                     </div>
-                    <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
+                    {isTemplate && <section aria-label='HTML 实时效果' data-alchemy-live-preview
+                        className='min-w-0 overflow-hidden rounded-xl border border-neutral-200 bg-white p-2'>
+                        {liveHtml ? <div className='max-h-[260px] overflow-y-auto'>
+                            <AlchemyHtmlFrame html={liveHtml} fallback='' title={draft.name || 'HTML 效果'}/>
+                        </div> : <div className='grid h-24 place-items-center text-xs text-neutral-400'>HTML 效果</div>}
+                    </section>}
+                    {!isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                         <label className='min-w-0 text-xs font-medium text-neutral-600'>匹配正则
                             <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
                                 value={draft.pattern} spellCheck={false}
@@ -335,7 +346,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             <input className={fieldClass + ' font-mono text-xs'} value={draft.flags} spellCheck={false}
                                 onChange={event => patch({ flags: event.target.value })}/>
                         </label>
-                    </div>
+                    </div>}
                     <div className='min-w-0 space-y-1'>
                         <div className='flex items-center gap-2'>
                             <label htmlFor='alchemy-source' className='min-w-0 flex-1 text-xs font-semibold text-neutral-600'>
@@ -382,6 +393,17 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
                         <summary className='cursor-pointer text-xs font-medium text-neutral-600'>更多设置</summary>
                         <div className='mt-3 space-y-3'>
+                            {isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
+                                <label className='min-w-0 text-xs text-neutral-600'>匹配正则
+                                    <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
+                                        value={draft.pattern} spellCheck={false}
+                                        onChange={event => patch({ pattern: event.target.value })}/>
+                                </label>
+                                <label className='min-w-0 text-xs text-neutral-600'>修饰符
+                                    <input className={fieldClass + ' font-mono text-xs'} value={draft.flags}
+                                        spellCheck={false} onChange={event => patch({ flags: event.target.value })}/>
+                                </label>
+                            </div>}
                             <div className='grid grid-cols-2 gap-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>分组
                                     <input className={fieldClass} value={draft.importGroup || ''} maxLength={80}
