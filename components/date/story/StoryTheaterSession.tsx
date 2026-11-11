@@ -189,19 +189,40 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
     const [frameHeight, setFrameHeight] = useState(safe.estimatedHeight);
     useEffect(() => { setFrameHeight(safe.estimatedHeight); }, [safe.srcDoc, safe.estimatedHeight]);
     useEffect(() => {
-        if (!template) return;
-        const receiveSize = (event: MessageEvent) => {
-            // Template iframes have opaque origins. A matching contentWindow
-            // is essential; arbitrary frames cannot control a card's height.
-            if (event.source !== frameRef.current?.contentWindow
-                || event.data?.type !== 'sully-story-template-height') return;
-            const height = event.data.height;
-            if (typeof height !== 'number' || !Number.isFinite(height)) return;
-            setFrameHeight(Math.max(76, Math.min(900, Math.ceil(height))));
+        const receiveFrameMessage = (event: MessageEvent) => {
+            // Opaque-origin sandbox: only this exact iframe may change its
+            // measured size or forward a swipe to its reading scrollport.
+            const frame = frameRef.current;
+            if (!frame || event.source !== frame.contentWindow) return;
+            if (event.data?.type === 'sully-story-template-height') {
+                const height = event.data.height;
+                if (typeof height !== 'number' || !Number.isFinite(height)) return;
+                // Render the entire card in the outer timeline. A 520/900px
+                // capped iframe creates a second vertical scroller that traps
+                // Android touch gestures, especially in long saved stories.
+                const nextHeight = Math.max(76, Math.min(80000, Math.ceil(height)));
+                setFrameHeight(previous => previous === nextHeight ? previous : nextHeight);
+            } else if (event.data?.type === 'sully-story-template-scroll') {
+                const delta = event.data.deltaY;
+                if (typeof delta !== 'number' || !Number.isFinite(delta)) return;
+                let scrollport = frame.closest<HTMLElement>('.story-page-scroll');
+                if (!scrollport) {
+                    let ancestor = frame.parentElement;
+                    while (ancestor) {
+                        const overflow = getComputedStyle(ancestor).overflowY;
+                        if ((overflow === 'auto' || overflow === 'scroll') && ancestor.scrollHeight > ancestor.clientHeight) {
+                            scrollport = ancestor;
+                            break;
+                        }
+                        ancestor = ancestor.parentElement;
+                    }
+                }
+                if (scrollport) scrollport.scrollTop += Math.max(-240, Math.min(240, delta));
+            }
         };
-        window.addEventListener('message', receiveSize);
-        return () => window.removeEventListener('message', receiveSize);
-    }, [template]);
+        window.addEventListener('message', receiveFrameMessage);
+        return () => window.removeEventListener('message', receiveFrameMessage);
+    }, []);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
             {fallback || safe.text || '此段仅包含无法安全显示的脚本或样式，未执行任何代码'}
@@ -210,12 +231,12 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
     return <iframe
         ref={frameRef}
         title={title}
-        sandbox={template ? 'allow-scripts' : ''}
+        sandbox='allow-scripts'
         referrerPolicy='no-referrer'
         loading='lazy'
         srcDoc={safe.srcDoc}
         className='block w-full rounded-lg border border-violet-100 bg-white'
-        style={{ height: frameHeight, minHeight: 76, maxHeight: template ? 'none' : '60vh', maxWidth: '100%' }}
+        style={{ height: frameHeight, minHeight: 76, maxHeight: 'none', maxWidth: '100%', overflow: 'hidden' }}
     />;
 };
 
@@ -244,7 +265,9 @@ export const StoryOutput: React.FC<{
     const rendered = <div className='space-y-6'>
         {!hasScene && relationship}
         {blocks.map((block, index) => {
-            if (mainHtml.includes(block)) return null;
+            // The reading skin already renders regex cards above. Don't also
+            // mount duplicate sandbox frames inside the collapsed extras.
+            if (mainHtml.includes(block) || (reading && block.regexTemplate)) return null;
             const lines = splitDisplayLines(block.text);
             if (block.kind === 'thinking' || block.kind === 'tavern-extra') return <details key={index} className='group border-y border-slate-200'>
                 <summary className='list-none cursor-pointer py-3.5 flex items-center gap-2 text-[11px] font-semibold text-slate-600'>
@@ -334,7 +357,7 @@ export const StoryOutput: React.FC<{
         })}</div>
         {mainHtml.filter(block => !block.regexTemplate).map((block, index) => <SafeStoryHtml key={index} source={block.htmlSource || block.text}
             fallback={block.text} title={block.title || '安全排版'} />)}
-        {(blocks.some(block => block.kind !== 'story' && !mainHtml.includes(block)) || relationship) && <details className='mt-5 text-slate-500'>
+        {(blocks.some(block => block.kind !== 'story' && !mainHtml.includes(block) && !block.regexTemplate) || relationship) && <details className='mt-5 text-slate-500'>
             <summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}
         </details>}
     </div>;
@@ -1282,7 +1305,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             </div>
         </header>
 
-        <main ref={readingScrollRef} onScroll={handleReadingScroll} onWheel={pauseFollowingForReading} onTouchStart={pauseFollowingForReading} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'>
+        <main ref={readingScrollRef} onScroll={handleReadingScroll} onWheel={pauseFollowingForReading} onTouchStart={pauseFollowingForReading} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7' style={{ scrollBehavior: 'auto', scrollSnapType: 'none', touchAction: 'pan-y', overflowAnchor: 'auto' }}>
             <div ref={readingContentRef} className='max-w-2xl mx-auto'>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
