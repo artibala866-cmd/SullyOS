@@ -52,6 +52,18 @@ export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, 
         && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+/** Remove exactly the selected ID, never similarly named rules in other folders. */
+export const removeAlchemyRule = (rules: StoryRegexRule[], id: string): StoryRegexRule[] =>
+    rules.filter(rule => rule.id !== id);
+
+/** Deleting a displayed import folder affects only IDs shown in that
+ * category. A shared source file may contain beauty and prose rules. */
+export const removeAlchemyFolderSection = (
+    rules: StoryRegexRule[], folder: string, section: 'beauty' | 'rules', ids: ReadonlySet<string>,
+): StoryRegexRule[] => rules.filter(rule => !(ids.has(rule.id)
+    && (rule.importGroup || '旧版规则') === folder
+    && alchemyRuleSection(rule) === section));
+
 export async function loadAlchemyRules(domain: AlchemyDomain, presetId = ''): Promise<StoryRegexRule[]> {
     const raw = await DB.getAsset(STORY_REGEX_ASSET);
     return alchemyRulesFor(readStoryRegexRules(raw), domain, presetId);
