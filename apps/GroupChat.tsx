@@ -2154,14 +2154,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <Code className="w-6 h-6" weight="bold" />
                             </div>
-                            <span className="text-xs font-bold">正则美化</span>
-                        </button>
-                        <button onClick={() => { setAlchemySection('rules'); setShowAlchemy(true); setShowPanel('none'); }}
-                            className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
-                                <Code className="w-6 h-6" weight="bold" />
-                            </div>
-                            <span className="text-xs font-bold">规则正则</span>
+                            <span className="text-xs font-bold">正则</span>
                         </button>
                         <button onClick={openGroupSettings} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
