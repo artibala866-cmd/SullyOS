@@ -484,10 +484,6 @@ jobs:
             tail -n 30 output/story-cinema-after-close/stability-120.log || true
             exit 1
           }
-          # Unlike screenshots, this drives real device touch events inside
-          # sandboxed HTML; nested scroll trapping was the reported bug.
-          CHROME_BIN="$browser" node scripts/story-iframe-touch-audit.mjs             'http://127.0.0.1:5197/story-reading-scroll-visual.html?mode=novel&count=72&rich=1'
-          test -s output/story-iframe-touch/72-floor-end.png
           echo "STORY_CINEMA_SCREENSHOT_BEGIN"
           base64 -w0 output/story-cinema-after-close/cinema-390.png
           echo
@@ -505,4 +501,43 @@ jobs:
             output/story-cinema-after-close/
             output/story-iframe-touch/
             output/story-background/
+          if-no-files-found: ignore
+
+  touch-scroll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Real mobile finger swipes across 72 story floors and sandbox cards
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/story-iframe-touch-audit.mjs
+          pnpm exec vite --host 127.0.0.1 --port 5196 --strictPort > /tmp/story-touch-vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:5196/story-reading-scroll-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/story-touch-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          CHROME_BIN="$browser" node scripts/story-iframe-touch-audit.mjs             'http://127.0.0.1:5196/story-reading-scroll-visual.html?mode=novel&count=72&rich=1'
+          test -s output/story-iframe-touch/72-floor-end.png
+      - name: Attach long-story swipe screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-iframe-touch-72
+          path: output/story-iframe-touch/
           if-no-files-found: ignore
