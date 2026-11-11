@@ -669,7 +669,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </label>
         <section className="border border-neutral-200 bg-white rounded-xl p-3 text-xs space-y-2" aria-label="未来七天可用时间">
           <h3 className="text-sm font-semibold">未来七天 · 时间容量预估</h3>
-          <p className="text-neutral-600">同时间课程只扣一次；逾期作业按今天补做估算。仅按日汇总，并非精确到小时的自动预约。</p>
+          
           <div className="grid grid-cols-7 gap-2 items-end pt-2">
             {weekCapacity.map(day=><div className="min-w-0 text-center" key={day.date}>
               <span className="block truncate text-xs text-neutral-500">{day.date.slice(-2)}日</span>
@@ -690,7 +690,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           <h3 className="font-semibold">Char 排单建议 · 逐项审核</h3>
           <button className={mutedButton} disabled={applyingPlan} onClick={onClearPlan}>放弃建议</button>
         </div>
-        <p className="text-xs text-neutral-700">默认一项都不选。以下是 AI 候选时段与优先级建议，不代表已经执行；只有用户选择确认才保存，不修改客户交期。</p>
+        
         {planStale && <p role="alert" className="text-sm border border-neutral-500 rounded-lg p-2">
           生成后原排单或课程时间已变化，或换了 Char。此方案已过期，不能应用；请重新请求。
         </p>}
@@ -739,7 +739,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
           onClick={()=>void applyPlan()}>
           {applyingPlan?'正在保存…':'确认应用已选 '+planChecked.length+' 项'}
         </button>
-        <p className="text-xs text-neutral-500">如模型返回无效或越权字段，整份建议将被拒绝；绝不自动发消息给客户或更改交稿截止日。</p>
+        
       </section>}
       <div className="grid grid-cols-2 gap-2">
       <details className={disclosureClass+(data.commissions.length?'':' col-span-2')+' open:col-span-2'}>
@@ -922,7 +922,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       </details>
       {data.classes.length>0 && <details className={disclosureClass+' open:col-span-2'}>
         <summary className={summaryClass}><ListBullets size={18} weight="light"/> 课程 <span className="ml-auto text-xs text-neutral-500">{data.classes.length}</span></summary>
-        <p className="text-xs text-neutral-600">原有 PDF 自习室课程单独保存；这里只关联课程 ID，不复制、删除或重置旧章节及练习册。</p>
+        
         {studyCoursesError && <p role="alert" className="text-sm text-red-700">{studyCoursesError}</p>}
         <button className={mutedButton} type="button" disabled={studyCoursesLoading}
           onClick={()=>setStudyCoursesRefresh(x=>x+1)}>
@@ -1030,7 +1030,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
       {(orphaned.homework.length>0 || orphaned.notes.length>0) &&
         <details className={cardClass} aria-label="未归属作业与笔记">
           <summary className="cursor-pointer font-semibold text-sm">未归属资料（{orphaned.homework.length+orphaned.notes.length}）</summary>
-          <p className="text-xs text-neutral-600">来自已删除的学习室课程表记录或旧备份，原文保留。可以重新归类；不会修改旧自习室 PDF 或测验。</p>
+          
           {orphaned.homework.map(h=><div key={h.id} className="border-t pt-2 space-y-2">
             <p className="text-sm">{h.done?'✓ ':''}作业：{h.title} · 截止 {h.dueAt||'未设置'} · 原课程 ID：{h.classId}</p>
             <p className="text-xs whitespace-pre-wrap">{h.note}</p>
