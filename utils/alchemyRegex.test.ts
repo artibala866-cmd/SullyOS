@@ -199,6 +199,33 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(applyStoryRegex(text, [broad], 'history').text).toBe(text);
     });
 
+    it('protects literal strawberry eating and cooking, but filters explicitly matched strawberry cliches without calling AI', () => {
+        const broad = rule({
+            name: 'WS8.3-词汇级禁令', domain: 'offline',
+            source: { category: '八股净化' }, display: true, history: true,
+            pattern: '(像草莓一样|刚洗干净的一盒草莓|草莓蛋糕)',
+        });
+        const literal = '她端来刚洗干净的一盒草莓，吃完后又做了草莓蛋糕。';
+        const metaphor = '她的嘴唇像草莓一样红。';
+        for (const stage of ['display', 'history'] as const) {
+            const filtered = applyStoryRegex(literal + metaphor, [broad], stage);
+            expect(filtered.text).toContain('刚洗干净的一盒草莓');
+            expect(filtered.text).toContain('草莓蛋糕');
+            expect(filtered.text).toContain('吃完后');
+            expect(filtered.text).toContain('她的嘴唇红');
+            expect(filtered.text).not.toContain('像草莓一样');
+            expect(filtered.matches).toBe(1);
+        }
+        // A bare "草莓" keyword is ambiguous: never turn normal prose into
+        // "吃了" or "嘴唇像一样红" by blindly erasing the noun.
+        const bare = { ...broad, pattern: '草莓' };
+        expect(applyStoryRegex(literal + metaphor, [bare], 'display').text).toBe(literal + metaphor);
+        // Users may disable conservative protection when exact replacement
+        // was deliberately requested; this is opt-in and remains local.
+        const strict = { ...broad, source: { category: '八股净化', smartFilter: false } };
+        expect(applyStoryRegex(literal, [strict], 'display').text).not.toContain('刚洗干净的一盒草莓');
+    });
+
     it('reimporting old rules upgrades group/category without creating duplicates', () => {
         const [imported] = parseStoryRegexImport(JSON.stringify({
             name: '小法庭', pattern: '<court>(.*?)</court>',
