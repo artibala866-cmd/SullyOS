@@ -39,6 +39,8 @@ DB.getMessagesByCharId = async (charId: string, ..._args: any[]) =>
 const actor = { id: 'visual-actor', name: '林星', avatar: '', systemPrompt: '', worldview: '', memories: [], mountedWorldbooks: [] };
 const entry = {
     ...createStoryTheaterDraft(1), id: 'visual-story', title: '雨天以后',
+    // Keep the existing full-timeline stress tests intact; production defaults to 20.
+    readingBatchSize: Math.min(100, Math.max(10, floorCount)),
     characterIds: [actor.id], carryCharacterMemory: false,
 };
 const mockOS = {
@@ -79,6 +81,10 @@ const audit = () => {
     const scroll = document.querySelector<HTMLElement>('.story-page-scroll');
     const floors = scroll?.querySelectorAll<HTMLElement>('[data-story-floor]');
     if (!scroll || floors?.length !== floorCount) {
+        // For >100-floor audits, walk the same user-facing history button
+        // before measuring the full long-story fixture.
+        const loadOlder = scroll?.querySelector<HTMLButtonElement>('[data-story-load-more]');
+        if (loadOlder && !loadOlder.disabled) loadOlder.click();
         if (Date.now() - begin < 10000) setTimeout(audit, 90);
         else document.body.dataset.storyScrollReady = 'false';
         return;
