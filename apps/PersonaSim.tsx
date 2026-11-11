@@ -319,24 +319,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         </h1>
                     </div>
 
-                    {/* 体验卡 · 中二叠甲：显得很牛逼，同时声明这只是小剧场、不代表角色真实情况 */}
-                    <div className="relative rounded-2xl overflow-hidden mb-6 border border-[#a8a8a8]/25"
-                        style={{ background: 'linear-gradient(135deg, rgba(168, 168, 168,0.16), rgba(168, 168, 168,0.03))' }}>
-                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: ACCENT }} />
-                        <div className="absolute -top-8 -right-6 w-28 h-28 rounded-full blur-2xl pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(168, 168, 168,0.4), transparent 70%)' }} />
-                        <div className="relative p-4 pl-5">
-                            <div className="flex items-center justify-between mb-2.5">
-                                <span className="text-[9px] tracking-[0.28em] uppercase font-bold" style={{ color: ACCENT }}>✦ Experience Ticket · 体验卡</span>
-                                <span className="text-[8px] tracking-[0.2em] uppercase text-white/45 border border-white/15 rounded px-1.5 py-0.5">Fiction Only</span>
-                            </div>
-                            <p className="text-[11.5px] text-white/75 leading-relaxed" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>
-                                这是一张通往 TA 的体验卡。我们借这部手机，为你点演一段「<span style={{ color: ACCENT }}>可能发生过</span>」的人生切片——画面、独白与痕迹，皆由此刻的 AI 即兴演绎。
-                            </p>
-                            <p className="text-[10px] text-white/45 leading-relaxed mt-2.5 pt-2.5 border-t border-dashed border-white/15">
-                                ※ 它只是献给你的一出小剧场，是一种「如果」。<br />并不等于角色的真实经历或设定——纵情入戏，散场即忘，无需当真。
-                            </p>
-                        </div>
-                    </div>
+                    <div className="mb-4 text-[10px] tracking-widest text-white/40">✦ 虚构体验 · 不写入真实经历</div>
 
                     {/* mode tabs */}
                     <div className="flex gap-2 mb-4 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
