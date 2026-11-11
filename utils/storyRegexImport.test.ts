@@ -232,4 +232,64 @@ describe('糯叽机炼金术导入', () => {
         expect(result.warnings.join('')).toContain('绑定了糯叽机角色');
     });
 
+    it('按原版运行时处理 flags 全局、替换值 trimStrings 和 JSON order', () => {
+        const source = [
+            { name: '只修饰大小写', pattern: 'a', flags: 'i', replacement: 'X', order: 25 },
+            { name: '替换时修剪', pattern: 'a', flags: 'g', replacement: '$&*',
+                trimStrings: ['*'], order: 11 },
+        ];
+        const rules = parseStoryRegexImport(JSON.stringify(source)).rules;
+        expect(rules.map(rule => rule.order)).toEqual([11, 25]);
+        expect(rules[1].flags).toBe('gi');
+        expect(applyStoryRegex('a*a', [rules[0]], 'display').text).toBe('a*a');
+        expect(applyStoryRegex('a*a', [rules[0], rules[1]], 'display').text).toBe('X*X');
+    });
+
+    it('原版 ST 简写与量词、转义大括号互不干扰', () => {
+        const rows = [
+            { name: '炼金多选', pattern: '{刻,揉,融}进骨血', flags: 'g', replacement: '改写' },
+            { name: '量词', pattern: '\\d{2,5}', flags: 'g', replacement: 'NUM' },
+            { name: '字面花括号', pattern: '\\{刻,揉\\}', flags: 'g', replacement: 'LITERAL' },
+        ];
+        const rules = parseStoryRegexImport(JSON.stringify(rows)).rules;
+        expect(rules).toHaveLength(3);
+        expect(rules[0].pattern).toBe('{刻,揉,融}进骨血');
+        expect(applyStoryRegex('刻进骨血 揉进骨血 融进骨血', [rules[0]], 'display').text)
+            .toBe('改写 改写 改写');
+        expect(applyStoryRegex('12 123456', [rules[1]], 'display').text).toBe('NUM NUM6');
+        expect(applyStoryRegex('字面{刻,揉}', [rules[2]], 'display').text).toBe('字面LITERAL');
+    });
+
+    it('原版 order 保证模板先执行，后续过滤不能吞掉生成卡片', () => {
+        const rows = [
+            { name: '后续过滤', pattern: '<card>', replacement: '已清理', order: 20 },
+            { name: '卡片', pattern: '<card>([\\s\\S]*?)</card>', isHtmlTemplate: true,
+                htmlTemplate: '<div class="card">{{ $1 }}</div>', order: 10, parseMode: 'text' },
+        ];
+        const rules = parseStoryRegexImport(JSON.stringify(rows)).rules;
+        const rendered = applyStoryRegex('<card>内容</card> <card>第二张</card>', rules, 'display');
+        expect(rendered.cards).toHaveLength(2);
+        expect(rendered.cards[0].html).toContain('内容');
+        expect(rendered.cards[1].html).toContain('第二张');
+        expect(rendered.text).not.toContain('已清理');
+    });
+
+    it('再次导入有 order 和 renderMode 的同一张原卡不重复', () => {
+        const source = JSON.stringify({
+            name: '一张卡', pattern: '<ticket>([\\s\\S]*?)</ticket>', flags: 'g',
+            isHtmlTemplate: true, htmlTemplate: '<p>{{1.title}}</p>', parseMode: 'json',
+            renderMode: 'iframe', scenes: ['chat'], order: 11,
+        });
+        const [newRule] = parseStoryRegexImport(source).rules;
+        const oldRule = { ...newRule, order: undefined, source: {
+            ...newRule.source, scenes: undefined, renderMode: undefined,
+        } };
+        const merged = mergeStoryRegexImport([oldRule], [newRule], '');
+        expect(merged).toMatchObject({ added: 0, updated: 1, duplicates: 0 });
+        expect(merged.rules[0].order).toBe(11);
+        expect(mergeStoryRegexImport(merged.rules, [newRule], '')).toMatchObject({
+            added: 0, updated: 0, duplicates: 1,
+        });
+    });
+
 });
