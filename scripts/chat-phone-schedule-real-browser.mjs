@@ -117,7 +117,7 @@ try{
 
 
   const entered=await evaluate(`(()=>{
-    const names=['聊天','私聊'];
+    const names=['打开角色聊天','聊天','私聊'];
     const b=[...document.querySelectorAll('button,[role=button],a')]
       .find(el=>names.includes((el.getAttribute('aria-label')||el.textContent||'').trim()));
     b?.click();return !!b;
