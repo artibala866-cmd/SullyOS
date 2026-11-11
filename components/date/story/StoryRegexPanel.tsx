@@ -6,13 +6,14 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
-import { alchemyDomain, alchemySubcategory, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyDomain, alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
 
 interface Props {
     domain?: AlchemyDomain;
+    section?: 'beauty' | 'rules';
     rules: StoryRegexRule[];
     presets: StoryTheaterPreset[];
     onSave: (update: (rules: StoryRegexRule[]) => StoryRegexRule[]) => Promise<void>;
@@ -25,14 +26,17 @@ const primaryClass = 'inline-flex h-9 shrink-0 items-center justify-center gap-1
 const iconClass = 'grid w-10 h-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white disabled:opacity-40';
 
 
-function createRule(): StoryRegexRule {
+function createRule(section: 'beauty' | 'rules', domain: AlchemyDomain): StoryRegexRule {
     return {
-        id: crypto.randomUUID(), name: '', enabled: true, presetId: '', kind: 'filter',
+        id: crypto.randomUUID(), name: '', enabled: true, presetId: '',
+        kind: section === 'beauty' ? 'template' : 'filter',
+        domain: section === 'beauty' ? 'online' : domain,
+        targets: [section === 'beauty' ? 'online' : domain],
         pattern: '', flags: 'g', replacement: '', display: true, history: false, instruction: '',
     };
 }
 
-const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, domain = 'offline' }) => {
+const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, domain = 'offline', section = 'rules' }) => {
     const { registerBackHandler } = useOS();
     const [draft, setDraft] = useState<StoryRegexRule | null>(null);
     const [sample, setSample] = useState('');
@@ -52,7 +56,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const isTemplate = draft?.kind === 'template';
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
-    const visibleRules = rules.filter(rule => alchemyDomain(rule) === domain);
+    const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === section);
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
@@ -101,7 +105,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         if (!draft) return;
         try {
             validateStoryRegexRule(draft);
-            const rule = { ...draft, name: draft.name.trim(), instruction: draft.instruction.trim(), domain: draft.kind === 'template' ? 'online' as const : (draft.domain || domain) };
+            const rule: StoryRegexRule = {
+                ...draft, name: draft.name.trim(), instruction: draft.instruction.trim(),
+                domain: draft.kind === 'template' ? 'online' : (draft.domain || domain),
+                targets: draft.kind === 'template' ? ['online'] : alchemyRuleTargets(draft),
+            };
             const existing = rules.some(item => item.id === rule.id);
             void save(current => {
                 if (existing && !current.some(item => item.id === rule.id)) throw new Error('此规则已在另一窗口删除');
@@ -120,6 +128,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             ...rule,
             // Imported HTML card templates always belong to online beauty.
             domain: rule.kind === 'template' ? 'online' as const : domain,
+            targets: rule.kind === 'template' ? ['online'] as AlchemyDomain[] :
+                (rule.targets?.length ? rule.targets : [domain]),
             importGroup: folderName,
             subcategory: alchemySubcategory(rule),
         }));
@@ -167,8 +177,16 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             if (!controller.signal.aborted) setResult(output);
         });
     };
-    const scopeName = (presetId: string) => domain === 'online' ? '全部私聊 / 群聊' : presetId
-        ? presets.find(preset => preset.id === presetId)?.name || '预设已移除' : '全部剧情 / 见面';
+    const scopeName = (presetId: string, rule?: StoryRegexRule) => {
+        if (rule?.kind === 'template') return '私聊 / 群聊';
+        const scopes = alchemyRuleTargets(rule || createRule('rules', domain));
+        return [
+            scopes.includes('online') ? '私聊 / 群聊' : '',
+            scopes.includes('offline') ? (presetId
+                ? presets.find(preset => preset.id === presetId)?.name || '预设已移除'
+                : '剧情 / 见面') : '',
+        ].filter(Boolean).join(' + ');
+    };
     const scopeOptions = (presetId: string) => <>
         <option value=''>所有剧情预设</option>
         {presetId && !presets.some(preset => preset.id === presetId) && <option value={presetId}>预设已移除</option>}
@@ -179,13 +197,13 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             <div className='h-16 px-4 flex items-center gap-3'>
                 <button type='button' disabled={busy} aria-label='返回' onClick={goBack}
                     className='w-9 h-9 shrink-0 grid place-items-center rounded-full'><ArrowLeft size={20} /></button>
-                <h1 className='min-w-0 flex-1 truncate font-semibold'>{imported ? '导入正则' : draft ? '编辑正则' : domain === 'online' ? '美化正则 · 线上聊天' : '规则正则 · 剧情见面'}</h1>
+                <h1 className='min-w-0 flex-1 truncate font-semibold'>{imported ? '导入正则' : draft ? '编辑正则' : section === 'beauty' ? '美化正则 · 私聊群聊' : '规则正则 · 线上线下'}</h1>
                 {screen === 'list' ? <>
                     <button type='button' aria-label='导入糯叽机正则' title='导入糯叽机正则' disabled={busy}
                         onClick={() => upload.current?.click()} className={iconClass}>
                         {busy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}
                     </button>
-                    <button type='button' aria-label='新建正则' disabled={busy} onClick={() => open(createRule())}
+                    <button type='button' aria-label='新建正则' disabled={busy} onClick={() => open(createRule(section, domain))}
                         className={iconClass}><Plus size={17} /></button>
                     <input type='file' ref={upload} accept='.json,application/json' hidden onChange={event => {
                         const file = event.currentTarget.files?.[0];
@@ -206,7 +224,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <p className='mt-2 text-xs leading-5 text-slate-500'>可转换 {imported.rules.length} 条
                             {imported.rejected ? ` · 无法转换 ${imported.rejected} 条` : ''}</p>
                     </section>
-                    {domain === 'offline' && imported.rules.length > 0 && <label className='block text-xs font-semibold'>适用预设
+                    {section === 'rules' && domain === 'offline' && imported.rules.some(rule => rule.kind === 'filter') && <label className='block text-xs font-semibold'>适用预设
                         <select className={fieldClass} disabled={busy} aria-label='适用预设' value={importScope}
                             onChange={event => setImportScope(event.target.value)}>{scopeOptions(importScope)}</select>
                     </label>}
@@ -217,7 +235,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     <div className='divide-y divide-slate-200'>{imported.rules.map(rule => <div key={rule.id}
                         className='flex items-center justify-between gap-3 py-3 text-xs'>
                         <span className='min-w-0 break-words font-semibold'>{rule.name}</span>
-                        <span className='shrink-0 text-[11px] text-slate-500'>{rule.domain === 'online' ? '线上美化' : '线下规则'}{rule.enabled ? '' : ' · 停用'}</span>
+                        <span className='shrink-0 text-[11px] text-slate-500'>{rule.kind === 'template' ? '线上美化' : '规则 · ' + scopeName(rule.presetId, rule)}{rule.enabled ? '' : ' · 停用'}</span>
                     </div>)}</div>
                     <div className='flex justify-end gap-2'>
                         <button type='button' disabled={busy} onClick={goBack} className={actionClass}>取消</button>
@@ -229,7 +247,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     
                     {feedback && <p role='status' className='rounded-xl border border-slate-200 px-3 py-2 text-xs text-violet-700'>{feedback}</p>}
                     {!visibleRules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
-                        <div className='text-sm font-semibold'>还没有{domain === 'online' ? '美化' : '线下'}正则</div>
+                        <div className='text-sm font-semibold'>还没有{section === 'beauty' ? '美化' : '规则'}正则</div>
                     </div>}
                     <AlchemyRuleFolders rules={visibleRules} busy={busy} scopeName={scopeName}
                         onOpen={open} onToggle={rule => void save(current => current.map(item => {
