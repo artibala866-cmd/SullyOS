@@ -1598,9 +1598,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
           <p className="text-xs leading-relaxed text-slate-500">
             这是第二步。只有你真的想让角色在后台主动推送消息时，才需要点。
           </p>
-          {pushStatus?.transport === 'unified-push' ? (
-            
-          ) : (
+          {pushStatus?.transport !== 'unified-push' && (
             <p className="text-xs leading-relaxed text-slate-500">推送绑定保存排程时的设备；换设备后需重新保存排程。</p>
           )}
           {pushStatus?.needsDistributor ? (
