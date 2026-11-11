@@ -35,7 +35,8 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain("maxHeight: 'none'");
         expect(sessionSource).toContain("overflowAnchor: 'auto'");
         expect(sessionSource).toContain("(reading && block.regexTemplate)");
-        expect(sessionSource).not.toContain('if (viewport) viewport.scrollTop = viewport.scrollHeight');
+        // Only the follow-latest ResizeObserver branch may programmatically pin the end.
+        expect(sessionSource).toContain('if (!initialReadingPendingRef.current && followLatestRef.current)');
         expect(sessionSource).toContain('onWheel={pauseFollowingForReading}');
         expect(sessionSource).toContain('onTouchStart={pauseFollowingForReading}');
         expect(sessionSource).toContain('const previousId = lastReadMessageIdRef.current;');
