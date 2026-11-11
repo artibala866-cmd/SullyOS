@@ -12,7 +12,9 @@ describe('剧情导入的真实使用约束', () => {
     it('多文件导入只加入预设库，不擅自切换正在玩的剧情预设', () => {
         expect(editor).toContain('if (files.length === 1) {');
         expect(editor).toContain('setPresetImportFeedback(files.length === 1');
-        expect(editor).toContain('当前剧情预设未改变');
+        // 多文件不调用 setDraft；仅单文件导入分支会写入 presetId。
+        expect(editor).toContain('if (files.length === 1) {');
+        expect(editor).toContain('presetId: imported.id');
         expect(editor).toContain('presetImportLock.current = true');
         expect(editor).toContain("if (presetImportLock.current) {");
     });
@@ -21,7 +23,8 @@ describe('剧情导入的真实使用约束', () => {
         expect(storyHome).toContain('presetBatchLock.current = true');
         expect(storyHome).toContain('if (!files.length || presetBatchLock.current) return');
         expect(storyHome).toContain('disabled={presetBatchBusy}');
-        expect(storyHome).toContain('原有剧情没有被自动改动');
+        // 检查数据流程而不是把冗长说明文案当成功能契约。
+        expect(storyHome).toContain('if (await importPreset(file)) succeeded++');
     });
 
     it('正在被剧情引用的导入预设不能直接删除，编辑时必须提示全局连锁影响', () => {
