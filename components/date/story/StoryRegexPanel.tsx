@@ -292,7 +292,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <input type='checkbox' checked={draft.source?.smartFilter !== false}
                             onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })} />
                         保护易误删的短词
-                    </label>
+                    </label>}
                     <div className='grid grid-cols-2 gap-3'>
                         <label className='min-w-0 space-y-1 text-xs font-semibold'>用途
                             <select className={fieldClass} aria-label='用途' value={draft.kind} onChange={event => {
