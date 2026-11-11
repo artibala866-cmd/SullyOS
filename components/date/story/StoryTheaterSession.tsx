@@ -414,6 +414,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const [affinityDrafts, setAffinityDrafts] = useState<Record<string, AffinityDraft>>({});
     const [selectedAffinityActorId, setSelectedAffinityActorId] = useState('');
     const [visibleFloor, setVisibleFloor] = useState(0);
+    const [atReadingEnd, setAtReadingEnd] = useState(true);
     const [expandedArchivedIds, setExpandedArchivedIds] = useState<Set<number>>(() => new Set());
     const [exporting, setExporting] = useState(false);
     const [showQuickPreset, setShowQuickPreset] = useState(false);
@@ -469,6 +470,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         followLatestRef.current = true;
         lastReadMessageIdRef.current = null;
         setVisibleFloor(0);
+        setAtReadingEnd(true);
         setMessageMenu(null);
         setEditingMessage(null);
         setDeletingMessage(null);
@@ -561,6 +563,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         if (!viewport) return;
         const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         const nearBottom = distanceFromBottom <= 96;
+        setAtReadingEnd(current => current === nearBottom ? current : nearBottom);
         let floor = messages.length > 0 ? 1 : 0;
         if (nearBottom) {
             floor = messages.length;
@@ -1301,7 +1304,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </div>
             </details>
             <button type='button' onClick={() => setShowQuickPreset(true)} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' title='本剧情快速预设' aria-label='本剧情快速预设'><SlidersHorizontal size={16} /></button>
-            {messages.length > 0 && visibleFloor > 0 && visibleFloor < messages.length && <button type='button' onClick={() => scrollReadingToLatest('auto')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
+            {messages.length > 0 && !atReadingEnd && <button type='button' onClick={() => scrollReadingToLatest('auto')} className='grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 active:bg-slate-200' aria-label='回到最新楼层' title='回到最新楼层'><ArrowDown size={16} /></button>}
             </div>
         </header>
 
