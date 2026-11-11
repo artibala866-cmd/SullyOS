@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AlchemyRuleFolders from '../components/alchemy/AlchemyRuleFolders';
 import type { StoryRegexRule } from '../utils/storyRegex';
-import { alchemyRulesFor, type AlchemyDomain } from '../utils/alchemyRegex';
+import { alchemyDomain, type AlchemyDomain } from '../utils/alchemyRegex';
 const domain: AlchemyDomain = new URLSearchParams(location.search).get('domain') === 'offline' ? 'offline' : 'online';
 const templateNames = ['小法庭','豆包','弹幕','刮彩票','微信红包','番茄小剧场'];
 const filterNames = ['WS8.3-核心指令','WS8.3-词汇级禁令','WS8.3-句式级禁令','WS8.3-环境描写禁令','WS8.3-人物细节禁令','WS8.3-言情八股禁令','WS8.3-结尾禁令'];
@@ -21,11 +21,11 @@ const initial: StoryRegexRule[] = [
 function Visual(){
  const [rules,setRules] = useState(initial);
  const [opened,setOpened] = useState('');
- const filtered=useMemo(()=>alchemyRulesFor(rules,domain),[rules]);
+ const filtered=useMemo(()=>rules.filter(rule=>alchemyDomain(rule)===domain),[rules]);
  const expect=domain==='online'?6:7;
  const active=filtered.filter(r=>r.enabled).length;
  const toggle=(rule:StoryRegexRule)=>setRules(old=>old.map(r=>r.id===rule.id?{...r,enabled:!r.enabled}:r));
- const cross=alchemyRulesFor(rules,domain==='online'?'offline':'online');
+ const cross=rules.filter(rule=>alchemyDomain(rule)!==domain);
  React.useEffect(()=>{
   const found=document.querySelectorAll('[data-alchemy-rule]').length;
   const folders=document.querySelectorAll('[data-alchemy-folder]').length;
