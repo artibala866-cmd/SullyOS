@@ -131,7 +131,9 @@ try{
     const visible=node=>node&&node.getClientRects().length>0&&!node.closest('[hidden]');
     const wait=async(f,name,timeout=7500)=>{
       for(let t=0;t<timeout;t+=100){if(await f())return true;await pause(100);}
-      throw Error('Human chat-phone-schedule journey: '+name);
+      throw Error('Human chat-phone-schedule journey: '+name+
+        '; visible buttons: '+[...document.querySelectorAll('button')].filter(e=>e.getClientRects().length)
+          .map(e=>(e.getAttribute('aria-label')||e.textContent||'').trim()).filter(Boolean).slice(-24).join(' / '));
     };
     const buttons=(root=document)=>[...root.querySelectorAll('button')].filter(visible);
     const press=(text,root=document)=>{
@@ -291,8 +293,10 @@ try{
     press('微信',phone());
     await wait(()=>buttons(phone()).some(x=>x.textContent?.trim()==='我'),'phone WeChat menu');
     press('我',phone());
-    await wait(()=>buttons(phone()).some(x=>x.textContent?.trim()==='设置'),'phone settings entry');
-    press('设置',phone());
+    await wait(()=>buttons(phone()).some(x=>x.textContent?.trim().startsWith('设置')),'phone settings entry');
+    const phoneSettingsButton=buttons(phone()).find(x=>x.textContent?.trim().startsWith('设置'));
+    if(!phoneSettingsButton)throw Error('Phone settings action was absent');
+    phoneSettingsButton.click();
     await wait(()=>phone().textContent.includes('Char 手机自主生活'),'phone autonomy settings');
     const phoneAutonomy=[...phone().querySelectorAll('label')].find(l=>l.textContent.includes('Char 手机自主生活'))?.querySelector('input[type="checkbox"]');
     if(!phoneAutonomy)throw Error('Phone autonomous-life toggle not found');
