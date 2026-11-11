@@ -17,7 +17,6 @@ export default defineConfig({
       'utils/**/*.test.ts',
       'utils/storyTheaterUpstreamIntegration.test.tsx',
       'utils/largeHistoryStress.test.tsx',
-      'utils/couplesSpaceApp.test.tsx',
       'utils/couplesSpaceStress.test.tsx',
       'utils/largeHistoryStress.test.tsx',
       'worker/**/*.test.ts',
