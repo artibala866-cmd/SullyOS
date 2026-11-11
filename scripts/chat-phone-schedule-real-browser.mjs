@@ -202,7 +202,7 @@ try{
         });
       if(!target)throw Error('Missing feature tile '+label);
       const group=target.closest('[role="group"][aria-label^="聊天功能第 "]');
-      const page=group?.getAttribute('aria-label')?.match(/第 (\\d+) 页/)?.[1];
+      const page=group?.getAttribute('aria-label')?.match(/[0-9]+/)?.[0];
       if(!page)throw Error('Cannot find feature page for '+label);
       const pager=document.querySelector('button[aria-label="第 '+page+' 页"]');
       if(!pager)throw Error('Missing pager for '+label);
