@@ -271,12 +271,34 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
                         <input className={fieldClass} value={draft.name} onChange={event => patch({ name: event.target.value })} maxLength={80} />
                     </label>
+                    <div className='grid grid-cols-2 gap-2'>
+                        <label className='text-xs font-semibold'>导入分组
+                            <input className={fieldClass} value={draft.importGroup || ''} maxLength={80}
+                                onChange={event => patch({ importGroup: event.target.value })} placeholder='自定义' />
+                        </label>
+                        <label className='text-xs font-semibold'>小分类
+                            <input className={fieldClass} value={draft.subcategory || ''} maxLength={60}
+                                onChange={event => patch({ subcategory: event.target.value })} placeholder='未分类' />
+                        </label>
+                    </div>
+                    <label className='block text-xs font-semibold'>生效区域
+                        <select className={fieldClass} value={draft.domain || (draft.kind === 'template' ? 'online' : 'offline')}
+                            onChange={event => patch({ domain: event.target.value as AlchemyDomain, presetId: '' })}>
+                            <option value='online'>美化类 · 私聊 / 群聊</option>
+                            {draft.kind !== 'template' && <option value='offline'>规则类 · 剧情 / 见面</option>}
+                        </select>
+                    </label>
+                    {draft.kind === 'filter' && (draft.domain || domain) === 'offline' && <label className='flex items-center gap-2 text-xs'>
+                        <input type='checkbox' checked={draft.source?.smartFilter !== false}
+                            onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })} />
+                        保护易误删的短词
+                    </label>
                     <div className='grid grid-cols-2 gap-3'>
                         <label className='min-w-0 space-y-1 text-xs font-semibold'>用途
                             <select className={fieldClass} aria-label='用途' value={draft.kind} onChange={event => {
                                 const kind = event.target.value as StoryRegexRule['kind'];
                                 setPreviewStage('display');
-                                patch(kind === 'template' ? { kind, display: true } : { kind });
+                                patch(kind === 'template' ? { kind, domain: 'online', display: true, presetId: '' } : { kind });
                             }}>
                                 <option value='filter'>文字过滤</option><option value='template'>HTML 美化</option>
                             </select>
