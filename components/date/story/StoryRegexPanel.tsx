@@ -6,10 +6,12 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
+import { alchemyDomain, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
 
 interface Props {
+    domain?: AlchemyDomain;
     rules: StoryRegexRule[];
     presets: StoryTheaterPreset[];
     onSave: (update: (rules: StoryRegexRule[]) => StoryRegexRule[]) => Promise<void>;
@@ -29,7 +31,7 @@ function createRule(): StoryRegexRule {
     };
 }
 
-const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) => {
+const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, domain = 'offline' }) => {
     const { registerBackHandler } = useOS();
     const [draft, setDraft] = useState<StoryRegexRule | null>(null);
     const [sample, setSample] = useState('');
@@ -49,6 +51,16 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
     const isTemplate = draft?.kind === 'template';
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
+    const visibleRules = rules.filter(rule => alchemyDomain(rule) === domain);
+    const folders = new Map<string, Map<string, StoryRegexRule[]>>();
+    for (const rule of visibleRules) {
+        const folder = rule.importGroup || '旧版规则';
+        const category = rule.subcategory || rule.source?.category || (rule.kind === 'template' ? '互动卡片' : '文字规则');
+        if (!folders.has(folder)) folders.set(folder, new Map());
+        const groups = folders.get(folder)!;
+        if (!groups.has(category)) groups.set(category, []);
+        groups.get(category)!.push(rule);
+    }
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
@@ -97,7 +109,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
         if (!draft) return;
         try {
             validateStoryRegexRule(draft);
-            const rule = { ...draft, name: draft.name.trim(), instruction: draft.instruction.trim() };
+            const rule = { ...draft, name: draft.name.trim(), instruction: draft.instruction.trim(), domain: draft.kind === 'template' ? 'online' as const : (draft.domain || domain) };
             const existing = rules.some(item => item.id === rule.id);
             void save(current => {
                 if (existing && !current.some(item => item.id === rule.id)) throw new Error('此规则已在另一窗口删除');
@@ -111,6 +123,14 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
         if (file.size > MAX_STORY_REGEX_FILE_BYTES) throw new Error('正则文件超过 4 MB，请分批导出');
         const raw = await file.text();
         const parsed = parseStoryRegexImport(raw);
+        const folderName = file.name.replace(/\.(?:json|txt)$/i, '') || '导入的正则';
+        parsed.rules = parsed.rules.map(rule => ({
+            ...rule,
+            // Imported HTML card templates always belong to online beauty.
+            domain: rule.kind === 'template' ? 'online' as const : domain,
+            importGroup: folderName,
+            subcategory: rule.source?.category || (rule.kind === 'template' ? '互动卡片' : '文字规则'),
+        }));
         setFeedback('');
         setImportScope('');
         setImported({ ...parsed, filename: file.name });
@@ -155,8 +175,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
             if (!controller.signal.aborted) setResult(output);
         });
     };
-    const scopeName = (presetId: string) => presetId
-        ? presets.find(preset => preset.id === presetId)?.name || '预设已移除' : '所有剧情预设';
+    const scopeName = (presetId: string) => domain === 'online' ? '全部私聊 / 群聊' : presetId
+        ? presets.find(preset => preset.id === presetId)?.name || '预设已移除' : '全部剧情 / 见面';
     const scopeOptions = (presetId: string) => <>
         <option value=''>所有剧情预设</option>
         {presetId && !presets.some(preset => preset.id === presetId) && <option value={presetId}>预设已移除</option>}
@@ -167,7 +187,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
             <div className='h-16 px-4 flex items-center gap-3'>
                 <button type='button' disabled={busy} aria-label='返回' onClick={goBack}
                     className='w-9 h-9 shrink-0 grid place-items-center rounded-full'><ArrowLeft size={20} /></button>
-                <h1 className='min-w-0 flex-1 truncate font-semibold'>{imported ? '导入剧情正则' : draft ? '编辑正则' : '剧情正则'}</h1>
+                <h1 className='min-w-0 flex-1 truncate font-semibold'>{imported ? '导入正则' : draft ? '编辑正则' : domain === 'online' ? '美化正则 · 线上聊天' : '规则正则 · 剧情见面'}</h1>
                 {screen === 'list' ? <>
                     <button type='button' aria-label='导入糯叽机正则' title='导入糯叽机正则' disabled={busy}
                         onClick={() => upload.current?.click()} className={iconClass}>
@@ -194,7 +214,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                         <p className='mt-2 text-xs leading-5 text-slate-500'>可转换 {imported.rules.length} 条
                             {imported.rejected ? ` · 无法转换 ${imported.rejected} 条` : ''}</p>
                     </section>
-                    {imported.rules.length > 0 && <label className='block text-xs font-semibold'>适用预设
+                    {domain === 'offline' && imported.rules.length > 0 && <label className='block text-xs font-semibold'>适用预设
                         <select className={fieldClass} disabled={busy} aria-label='适用预设' value={importScope}
                             onChange={event => setImportScope(event.target.value)}>{scopeOptions(importScope)}</select>
                     </label>}
@@ -205,7 +225,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                     <div className='divide-y divide-slate-200'>{imported.rules.map(rule => <div key={rule.id}
                         className='flex items-center justify-between gap-3 py-3 text-xs'>
                         <span className='min-w-0 break-words font-semibold'>{rule.name}</span>
-                        <span className='shrink-0 text-[11px] text-slate-500'>{rule.kind === 'template' ? 'HTML 美化' : '文字过滤'}{rule.enabled ? '' : ' · 停用'}</span>
+                        <span className='shrink-0 text-[11px] text-slate-500'>{rule.domain === 'online' ? '线上美化' : '线下规则'}{rule.enabled ? '' : ' · 停用'}</span>
                     </div>)}</div>
                     <div className='flex justify-end gap-2'>
                         <button type='button' disabled={busy} onClick={goBack} className={actionClass}>取消</button>
@@ -216,11 +236,15 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                 </> : !draft ? <>
                     
                     {feedback && <p role='status' className='rounded-xl border border-slate-200 px-3 py-2 text-xs text-violet-700'>{feedback}</p>}
-                    {!rules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
-                        <div className='text-sm font-semibold'>还没有剧情正则</div>
+                    {!visibleRules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
+                        <div className='text-sm font-semibold'>还没有{domain === 'online' ? '美化' : '线下'}正则</div>
                     </div>}
-                    <div className='divide-y divide-slate-200'>
-                    {rules.map(rule => <div key={rule.id} className='flex items-center gap-3 py-2'>
+                    <div className='space-y-3'>
+                    {Array.from(folders, ([folder, subgroups]) => <details key={folder} className='rounded-xl border border-slate-200 bg-white px-3 py-2' open>
+                        <summary className='cursor-pointer text-sm font-semibold'>{folder} · {Array.from(subgroups.values()).reduce((sum, items) => sum + items.length, 0)} 条</summary>
+                        {Array.from(subgroups, ([category, items]) => <details key={category} className='ml-2 mt-2 border-l-2 border-slate-100 pl-3' open>
+                            <summary className='cursor-pointer text-xs font-semibold text-slate-500'>{category} · {items.length}</summary>
+                            {items.map(rule => <div key={rule.id} className='flex items-center gap-3 py-2'>
                         <button type='button' disabled={busy} onClick={() => open(rule)} className='flex min-w-0 flex-1 items-center gap-3 py-2 text-left'>
                             <span className={`h-2 w-2 shrink-0 rounded-full ${rule.enabled ? 'bg-violet-500' : 'bg-slate-300'}`} />
                             <span className='min-w-0 flex-1'>
@@ -240,6 +264,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                             {rule.enabled ? '已启用' : '已停用'}
                         </button>
                     </div>)}
+                        </details>)}
+                    </details>)}
                     </div>
                 </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
@@ -255,10 +281,10 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                                 <option value='filter'>文字过滤</option><option value='template'>HTML 美化</option>
                             </select>
                         </label>
-                        <label className='min-w-0 space-y-1 text-xs font-semibold'>适用预设
+                        {domain === 'offline' && <label className='min-w-0 space-y-1 text-xs font-semibold'>适用预设
                             <select className={fieldClass} aria-label='适用预设' value={draft.presetId}
                                 onChange={event => patch({ presetId: event.target.value })}>{scopeOptions(draft.presetId)}</select>
-                        </label>
+                        </label>}
                     </div>
                     <div className='grid grid-cols-2 gap-3'>
                         <label className='min-w-0 text-xs font-semibold'>作用对象
