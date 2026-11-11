@@ -302,19 +302,6 @@ const QQBridge: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5 no-scrollbar pb-20">
-        {/* Intro */}
-        <section className="bg-gradient-to-br from-neutral-50 to-neutral-50 rounded-3xl p-5 border border-neutral-100/80">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600"><Plugs weight="bold" className="w-4 h-4" /></div>
-            <h2 className="text-sm font-semibold text-slate-700 tracking-wider">怎么用</h2>
-          </div>
-          <ol className="text-[11px] leading-5 text-slate-600 list-decimal pl-5 space-y-1">
-            <li>在自己的小号上跑 NapCat（OneBot v11，反向 WebSocket 关掉，用「正向 WS」）。</li>
-            <li>把 NapCat 的正向 WS 地址（默认 <code className="bg-white px-1 rounded">ws://127.0.0.1:3001</code>）填到下面。</li>
-            <li>挑一个角色作为回复方，开关一打开就生效。</li>
-            <li>页面要保持打开（这是 A 方案的代价：你的浏览器 = 你的 LLM 后端）。</li>
-          </ol>
-        </section>
 
         {/* NapCat connection */}
         <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 space-y-3">
