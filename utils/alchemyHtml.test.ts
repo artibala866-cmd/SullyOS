@@ -65,6 +65,8 @@ describe('Native Nuoji HTML templates: actual browser document, not a preview sh
         expect(frame.srcDoc).toContain('<details>');
         expect(frame.srcDoc).toContain('overflow-x:auto');
         expect(frame.srcDoc).toContain('element.scrollHeight');
+        expect(frame.srcDoc).toContain('width: measuredWidth');
+        expect(frame.srcDoc).toContain('element.scrollWidth');
         expect(frame.srcDoc).not.toContain('document.documentElement.scrollHeight');
         expect(frame.srcDoc).toContain('MutationObserver');
     });
