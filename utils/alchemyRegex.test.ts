@@ -32,8 +32,21 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(alchemyRulesFor(rules, 'online')).toEqual([onlineText]);
         expect(alchemyRulesFor(rules, 'offline')).toEqual([offlineGlobal]);
         expect(alchemyRulesFor(rules, 'offline', 'story-1')).toEqual([offlinePreset, offlineGlobal]);
-        // Meeting has no preset ID, but it still receives BOTH rules.
-        expect(alchemyRulesForMeeting(rules)).toEqual([offlinePreset, offlineGlobal]);
+        // A story-preset binding never silently authorizes a meeting.
+        expect(alchemyRulesForMeeting(rules)).toEqual([offlineGlobal]);
+    });
+
+    it('separates story/meeting choices and allows an explicit meeting opt-in even with a story preset', () => {
+        const storyOnly = rule({ id: 'story-only', domain: 'offline', presetId: 'story-1' });
+        const both = rule({ id: 'both-scenes', domain: 'offline', presetId: 'story-1',
+            offlineScenes: ['story', 'meeting'] });
+        const meetingOnly = rule({ id: 'meeting-only', domain: 'offline', presetId: 'story-1',
+            offlineScenes: ['meeting'] });
+        const global = rule({ id: 'global', domain: 'offline' });
+        const saved = [storyOnly, both, meetingOnly, global];
+        expect(alchemyRulesForMeeting(saved)).toEqual([both, meetingOnly, global]);
+        expect(alchemyRulesFor(saved, 'offline', 'story-1')).toEqual([storyOnly, both, global]);
+        expect(alchemyRulesFor(saved, 'offline')).toEqual([global]);
     });
 
     it('auto-organizes the original two JSON file sets into readable small categories', () => {
