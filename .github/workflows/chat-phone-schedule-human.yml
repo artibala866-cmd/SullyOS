@@ -1,0 +1,88 @@
+name: Chat, phone, schedule and real-person actual journeys
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/chat-phone-schedule-human.yml'
+      - 'scripts/chat-phone-schedule-real-browser.mjs'
+      - 'apps/Chat.tsx'
+      - 'components/chat/CharacterPhone.tsx'
+      - 'components/chat/CharacterPhoneDesktop.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'components/chat/ChatModals.tsx'
+      - 'hooks/useChatAutoReply.ts'
+      - 'utils/realPerson*.ts'
+      - 'utils/characterPhone*.ts'
+      - 'utils/dailySchedule.ts'
+      - 'utils/scheduleFeature.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: chat-phone-schedule-human
+  cancel-in-progress: true
+jobs:
+  integrated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Integrated phone and chat permission regression
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: >-
+          pnpm exec vitest run
+          utils/chatAutoReply.test.ts
+          utils/realPersonMode.test.ts
+          utils/realPersonReplyTurn.test.ts
+          utils/realPersonReplyReadiness.test.ts
+          utils/realPersonReplyRhythm.test.ts
+          utils/phoneChatPiggyback.test.ts
+          utils/characterPhoneContext.test.ts
+          utils/characterLifeScheduleContext.test.ts
+          utils/characterPhoneAutonomy.test.ts
+          utils/characterPhoneAiRequest.test.ts
+          utils/characterPhoneLateResult.test.ts
+          utils/amsg2CharToggle.wiring.test.ts
+          utils/unsolicitedDeliveryGate.test.ts
+          utils/dailyScheduleForegroundRecovery.test.ts
+          utils/chatSchedulePresence.test.ts
+      - name: Build actual SullyOS app
+        run: pnpm run build
+      - name: Run a normal day's actions on real Chromium at mobile width
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/chat-phone-schedule-real-browser.mjs
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort >/tmp/integrated-human-vite.log 2>&1 &
+          server_pid=$!
+          chrome_pid=''
+          trap 'kill "$server_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/integrated-human-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9222 --remote-allow-origins='*' \
+            --user-data-dir=/tmp/integrated-human-clean-profile about:blank >/tmp/integrated-human-chrome.log 2>&1 &
+          chrome_pid=$!
+          INTEGRATED_SCREENSHOT_DIR=/tmp/integrated-human-screens \
+            node scripts/chat-phone-schedule-real-browser.mjs 2>&1 | tee /tmp/integrated-human.log
+          grep -q 'INTEGRATED_REAL_USER_JOURNEY=' /tmp/integrated-human.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integrated-chat-phone-schedule-mobile-shots
+          path: /tmp/integrated-human-screens/*.png
+          if-no-files-found: ignore
