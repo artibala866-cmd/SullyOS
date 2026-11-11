@@ -2297,7 +2297,7 @@ ${isInitialGeneration ? `
 
         <Modal
             isOpen={!!pendingCard}
-            title={pendingCard?.source === 'babylink' ? '导入 BabyLink 角色分享包' : '确认导入角色卡'}
+            title="导入角色"
             onClose={() => { if (!savingCard) setPendingCard(null); }}
             footer={<div className="flex w-full gap-2">
                 <button disabled={savingCard} onClick={() => setPendingCard(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-semibold disabled:opacity-50">取消</button>
@@ -2309,7 +2309,7 @@ ${isInitialGeneration ? `
             </div>}
         >
             {pendingCard && <div className="mb-3 min-[370px]:mb-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-2.5 min-[370px]:p-3">
-                <p className="mb-3 text-xs font-semibold text-neutral-700">选择导入内容（可多选）</p>
+                <p className="mb-2 text-xs font-semibold text-neutral-700">导入内容</p>
                 <div className="grid grid-cols-2 min-[370px]:grid-cols-3 gap-2">
                     {([
                         ['persona', '人设', selectedCardPreviews.filter(card => Boolean(
@@ -2362,17 +2362,11 @@ ${isInitialGeneration ? `
                             <span className="text-sm font-semibold break-words">{card.character.name}</span>
                             {characters.some(char => char.name.trim() === card.character.name.trim()) &&
                                 <span className="text-xs text-neutral-500">同名角色 · 增量导入</span>}
-                            <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
-                            <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
-                            <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '分享包未携带（原角色可能已有）' : (card.character.linkGreetings?.length || 0) + ' 条'}</span>
-                            {!!card.character.linkGreetings?.length && <span className="text-[10px] text-neutral-500 break-words">
-                                已识别：{card.character.linkGreetings.slice(0, 2).map(item => item.title).join(' · ')}
-                                {card.character.linkGreetings.length > 2 ? ` · +${card.character.linkGreetings.length - 2}` : ''}
-                            </span>}
-                            {card.imageProfile && <span className="text-xs text-neutral-600">生图：{card.imageProfile.reference
-                                ? (card.imageProfile.referenceEnabled === false ? '参考图已识别（原卡关闭）'
-                                    : card.imageProfile.referenceMode === 'composition' ? '构图参考图已识别' : '锁脸参考图已识别')
-                                : '已识别生图设定'} · 导入后自动关联到角色</span>}
+                            
+                            <span className="text-xs text-neutral-600">世界书：{card.worldbooks.length} 条</span>
+                            <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '未携带' : (card.character.linkGreetings?.length || 0) + ' 条'}</span>
+                            
+                            {card.imageProfile && <span className="text-xs text-neutral-600">生图已识别</span>}
                         </span>
                     </label>)}
                 </div>
@@ -2392,10 +2386,10 @@ ${isInitialGeneration ? `
                         <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
                         {characters.some(char => char.name.trim() === pendingCard.character.name.trim()) &&
                             <p className="text-xs text-neutral-500 mt-1">同名角色 · 增量导入</p>}
-                        <p className="text-xs text-neutral-500 mt-1">人设：{pendingCard.character.description || pendingCard.character.systemPrompt || pendingCard.character.worldview ? '已识别' : '仅有角色姓名'}</p>
+                        
                     </div>
                 </div>
-                <p className="text-sm text-neutral-700">世界书：{pendingCard.worldbooks.length} 条（启用 {pendingCard.worldbooks.filter(book => !book.disable).length}，停用 {pendingCard.worldbooks.filter(book => book.disable).length}）</p>
+                <p className="text-xs text-neutral-600">世界书：{pendingCard.worldbooks.length} 条</p>
                 {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl px-3 py-2 leading-relaxed">
                     <p className="font-semibold mb-1">部分内容未转换</p>
                     {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
