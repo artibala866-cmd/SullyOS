@@ -47,7 +47,6 @@ function formatTime(ts: number): { day: string; time: string } {
 const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) => {
     const [entries, setEntries] = useState<ApiCallLogEntry[]>([]);
     const [loading, setLoading] = useState(false);
-    const [showHelp, setShowHelp] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [capture, setCapture] = useState<ApiRequestCapture | null>(null);
     const [captureArmed, setCaptureArmedState] = useState(() => isApiRequestCaptureArmed());
@@ -134,62 +133,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
                 </div>
             }
         >
-            <div className="flex items-start justify-between gap-2 mb-3 px-1">
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                    只保留最近 <span className="font-semibold text-slate-500">5 天</span>的调用，超期自动丢弃。记录在你本地浏览器，不上传。
-                </p>
-                <button
-                    onClick={() => { if (!showHelp) trackEvent('打开实际后端字段说明'); setShowHelp(v => !v); }}
-                    className={`shrink-0 w-5 h-5 rounded-full text-[11px] font-bold leading-none flex items-center justify-center transition-colors ${
-                        showHelp ? 'bg-primary text-white' : 'bg-slate-200 text-slate-500'
-                    }`}
-                    aria-label="字段说明"
-                >
-                    ?
-                </button>
-            </div>
-
-            {showHelp && (
-                <div className="mb-3 rounded-2xl bg-neutral-50/70 border border-neutral-200/60 px-4 py-3 text-[11px] text-slate-600 leading-relaxed space-y-2">
-                    <p className="font-bold text-neutral-700">「实际后端」是什么——仅供参考，不是测谎仪</p>
-                    <p>
-                        它是<span className="font-semibold">对面在回复里自己报的模型名字</span>。注意：这个名字是对面自己填的，可以是真的，也可以是假的。
-                    </p>
-                    <p className="font-semibold">三种情况：</p>
-                    <p>
-                        <span className="font-semibold text-neutral-600">🟡 琥珀色 + ⚠️</span>：报的名字和你要的对不上。
-                        <span className="font-semibold">有可能</span>被换了便宜模型，但也可能只是站子标签没写整齐——别只凭这一行去定罪。
-                    </p>
-                    <p>
-                        <span className="font-semibold">⚪ 灰色</span>：名字基本一致，只是格式不同（比如少了 [渠道]、(按次)、gcli- 这类标签前缀）。正常。
-                    </p>
-                    <p>
-                        <span className="font-semibold">🫥 没有这一行</span>：最常见的情况。要么对面把你请求的名字<span className="font-semibold">原样抄了回来</span>（等于什么都没说），要么干脆没报。
-                        <span className="font-semibold">不代表有问题，也不代表没问题——就是从这条线索看不出来。</span>
-                    </p>
-                    <p>
-                        想判断有没有被偷偷换模型，要几个信号<span className="font-semibold">一起看</span>：token 数是否突然对不上（比如平时 4 万这次 1.5 万）、速度是否突变、角色是否突然变笨/掉格式。只有一个信号异常时，先观望，多攒几轮再说。
-                    </p>
-                    <div className="pt-2 border-t border-neutral-200/60 space-y-2">
-                        <p className="font-bold text-sky-700">带「☁️ 云端」的那些是什么</p>
-                        <p>
-                            开了<span className="font-semibold">即时对话</span>之后，聊天不再由这个页面发出去，而是交给你自己那台 Worker 在云端发——发完就能关页面，回复照样回得来。这类调用一样记在这里，只是有几处看不到：
-                        </p>
-                        <p>
-                            <span className="font-semibold">「生成中」</span>：云端已经收下，回复还没回来。收到回复才会变成成功。
-                        </p>
-                        <p>
-                            <span className="font-semibold">没有耗时、没有实际后端</span>：请求在云端发出，本地既量不到时间，也看不到对面自报的模型名。
-                        </p>
-                        <p>
-                            <span className="font-semibold text-neutral-600">「只算末轮」</span>：角色查了东西再接着说的那种，一轮里会调好几次模型，而云端只报得回最后一次的 token。这条记录上的数字<span className="font-semibold">比实际用量小</span>，别拿它去跟账单对齐。
-                        </p>
-                        <p>
-                            <span className="font-semibold">「已顶替」</span>：这条还没等到回复你就又发了一句，云端把两句合成一次回。这一轮不再单独等回复了。
-                        </p>
-                    </div>
-                </div>
-            )}
+            <p className="mb-3 px-1 text-[11px] text-slate-400">仅保留近 5 天 · 本地记录</p>
 
             <OneShotCapturePanel
                 capture={capture}
