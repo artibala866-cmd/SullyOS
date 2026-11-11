@@ -15,6 +15,9 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(group).toContain("domain='online'");
         expect(group).toContain('alchemyResult={alchemyResults.get(m.id)}');
         expect(group).toContain("loadAlchemyInstructions('online'");
+        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyDirectorMessages)");
+        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyMemberMessages)");
+        expect(ai).toContain("applyAlchemyRequestHistory('online', fullMessages)");
         expect((group.match(/loadAlchemyInstructions\('online'/g) || []).length).toBe(2);
         expect(ai).toContain("loadAlchemyInstructions('online'");
         expect(read('components/chat/MessageItem.tsx')).toContain('AlchemyMessageBody');
