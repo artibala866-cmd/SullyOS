@@ -11,6 +11,7 @@ import type { Message } from '../types';
 const params = new URLSearchParams(location.search);
 const mode = params.get('mode') || 'novel';
 const floorCount = Math.max(2, Math.min(240, Number(params.get('count')) || 26));
+const richStoryFrames = params.get('rich') === '1';
 const storySamples = [
     '他走到门口，像是还在犹豫要不要开口。',
     '雨声从屋檐滑下来，沿着窗框积起细小的水痕。\\n\\n林星没有立刻追问。他把伞放在玄关，手指在木柄上停了一瞬。',
@@ -23,9 +24,14 @@ const storySamples = [
 ];
 const rows = Array.from({ length: floorCount }, (_, i) => ({
     id: i + 1, charId: 'story-theater:visual-story', role: i % 2 === 0 ? 'user' : 'assistant',
-    type: 'text', content: storySamples[i % storySamples.length].replaceAll('\\n', '\n'),
+    type: 'text', content: richStoryFrames && i % 2 === 1
+        ? '<div class="story-test-html"><h3>第 ' + (i + 1) + ' 楼 · 长篇排版</h3>'
+            + Array.from({ length: 18 }, (_, part) => '<p>第 ' + (i + 1) + ' 楼，第 ' + (part + 1)
+                + ' 段。雨声沿着窗框落下，人物继续说话，完整的剧情内容应该随外层页面连续滚动。</p>').join('')
+            + '</div>'
+        : storySamples[i % storySamples.length].replaceAll('\\n', '\n'),
     timestamp: 1700000000000 + i * 60000,
-    metadata: { source: 'story_theater' },
+    metadata: { source: 'story_theater', ...(richStoryFrames && i % 2 === 1 ? { theaterSourceFormat: 'sillytavern' } : {}) },
 } as Message));
 const originalGetMessages = DB.getMessagesByCharId;
 DB.getMessagesByCharId = async (charId: string, ..._args: any[]) =>
@@ -141,6 +147,7 @@ const audit = () => {
             && floorDecoration.includes('✦');
         const valid = (mode !== 'cinema' || cinemaReady)
             && floors.length === floorCount
+            && (!richStoryFrames || scroll.querySelectorAll('iframe').length >= Math.floor(floorCount / 2))
             && !document.querySelector('button[aria-label="更早一页"]')
             && floorIndicatorClear
             && (focus === 'latest' ? (nearEnd && visibleCount.includes(`第 ${floorCount} 楼`) && !latestButton)
