@@ -20,6 +20,7 @@ on:
       - 'tests/alchemy-manager-visual.tsx'
       - 'alchemy-live-render-visual.html'
       - 'tests/alchemy-live-render-visual.tsx'
+      - 'tests/alchemy-live-browser.py'
       - 'components/chat/MessageItem.tsx'
       - 'components/chat/ChatInputArea.tsx'
       - 'apps/Chat.tsx'
@@ -148,7 +149,7 @@ jobs:
               --window-size=390,900 --virtual-time-budget=5500 \
               --screenshot="/tmp/alchemy-manager-shots/$scenario.png" "$url"
           done
-      - name: Verify matching online HTML is automatically rendered as live interactive cards
+      - name: Interact with live sandboxed HTML cards in real Chromium
         shell: bash
         run: |
           set -euo pipefail
@@ -156,24 +157,14 @@ jobs:
           pnpm exec vite --host 127.0.0.1 --port 5189 --strictPort >/tmp/alchemy-live-vite.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
           for i in {1..60}; do
-            curl -fsS http://127.0.0.1:5189/alchemy-live-render-visual.html >/dev/null && break || true
+            if curl -fsS http://127.0.0.1:5189/alchemy-live-render-visual.html >/dev/null; then ready=true; break; fi
             sleep 0.3
           done
-          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          url="http://127.0.0.1:5189/alchemy-live-render-visual.html"
-          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --window-size=390,920 --virtual-time-budget=6500 --dump-dom "$url" \
-            > /tmp/alchemy-live-card-shots/result.html
-          grep -q 'data-alchemy-live-card-ready="true"' /tmp/alchemy-live-card-shots/result.html || {
-            echo "Automatic imported-card rendering or sandbox sizing failed"
-            grep -o 'data-alchemy-live-card-report="[^"]*"' /tmp/alchemy-live-card-shots/result.html || true
-            tail -n 60 /tmp/alchemy-live-vite.log
-            exit 1
-          }
-          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-            --window-size=390,920 --virtual-time-budget=6500 \
-            --screenshot=/tmp/alchemy-live-card-shots/online-automatic-html.png "$url"
+          if [ "$ready" != true ]; then cat /tmp/alchemy-live-vite.log; exit 1; fi
+          python3 -m pip install --quiet playwright
+          python3 tests/alchemy-live-browser.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
