@@ -53,7 +53,7 @@ export interface StoryRegexRule {
         originalScope?: string;
         originalCharacterIds?: string[];
         triggerEnabled?: boolean;
-        /** true: preserve ambiguous words in broad prose-ban filters. */
+        /** Legacy saved flag. Ignored since local smart identification was withdrawn. */
         smartFilter?: boolean;
         /** Explicit local exceptions; keep any match containing a protected word. */
         protectWords?: string[];
@@ -219,69 +219,6 @@ function replacementFor(rule: StoryRegexRule): string {
     return index === 0 ? rule.replacement : choices[index - 1];
 }
 
-/**
- * Detect prose deletion rules independently of any imported topic, word list,
- * file name or rule category. Structural cleanup (HTML/JSON tags, anchors and
- * lookaheads) must keep its original exact regular-expression semantics.
- */
-export function isProseDeletionPattern(pattern: string): boolean {
-    const source = pattern.trim();
-    if (!source) return false;
-    if (/<(?:\/|[a-zA-Z!?])|\\x3c|\\u003c|&lt;/i.test(source)) return false;
-    if (/^\^|\$|\(\?[=!<]/.test(source)) return false;
-    return true;
-}
-
-/** An imported prose-deletion rule receives the same local guard by default. */
-export function isBroadProseBan(rule: StoryRegexRule): boolean {
-    if (rule.kind !== 'filter' || rule.replacement || rule.source?.smartFilter === false) return false;
-    if (!isProseDeletionPattern(rule.pattern)) return false;
-    return rule.source?.smartFilter === true
-        || !!rule.source?.originalRule
-        || !!rule.importGroup?.trim()
-        || !!rule.source?.originalScope
-        || !!rule.source?.category?.trim()
-        || /^WS\d/i.test(rule.name);
-}
-
-/**
- * Conservative zero-API guard for *all* imported prose deletion rules.
- * Analyze the complete matched expression without guessing any subject
- * ("fruit", "flowers", etc.) or inventing a new forbidden phrase.
- *
- * A plain short noun/adjective is not enough evidence to delete it. In contrast,
- * an authored full figurative construction can be removed as written. Numeric
- * quantifiers are a general signal of literal objects/events rather than
- * rhetorical decoration, even if the expression itself is longer.
- *
- * This intentionally refuses to pretend to be a semantic LLM. When a pattern
- * matches only an ambiguous word inside a metaphor, leave it untouched rather
- * than cut the noun and leave an ungrammatical fragment.
- */
-function protectBroadProseMatch(rule: StoryRegexRule, matched: string): boolean {
-    if (!isBroadProseBan(rule) || !matched.trim()) return false;
-    const phrase = matched.trim();
-    const figurativePattern = /(?:像|如同|犹如|宛如|仿佛|好似|仿若).{1,16}(?:般|一般|一样|似的)|(?:如|似).{1,12}(?:般|一样|似的)|[^，。！？；\s]{1,12}(?:般|似的)/;
-    const completeFigure = figurativePattern.test(phrase);
-    if (completeFigure) return false;
-
-    // A self-standing token (inside a sentence, a quote, or a simile) cannot
-    // be reliably classified from the author's regex alone.
-    const units = Array.from(phrase);
-    const plainToken = !/[\s，。！？；,.!?;<>[\]{}]/u.test(phrase);
-    if (plainToken && units.length <= 5) return true;
-
-    // Protect concrete counted objects no matter what the object is. Unlike a
-    // hardcoded food/flower list, this generalizes to unseen imported topics.
-    const quantity = /(?:\d+|[零〇一二两三四五六七八九十百千万几半多])(?:个|只|颗|粒|盒|瓶|杯|碗|盘|袋|束|朵|枝|支|片|块|张|件|本|把|根|斤|克|千克|米|厘米|份|碟|罐|篮|桶)/u;
-    // Counted concrete objects typically name their quantity near the start.
-    // Don't exempt a full authored cliche simply because a classifier occurs
-    // deep inside the phrase (e.g. a long metaphor ending in “一根…”).
-    const quantityAt = phrase.search(quantity);
-    if (quantityAt >= 0 && quantityAt <= 5) return true;
-    return false;
-}
-
 export function applyStoryRegex(
     value: string | StoryRegexInput, rules: StoryRegexRule[], stage: 'display' | 'history', context: StoryRegexContext = {},
 ): StoryRegexResult {
@@ -319,8 +256,6 @@ export function applyStoryRegex(
                     const matched = captures[0] || '';
                     const exceptions = rule.source?.protectWords || [];
                     if (exceptions.some(word => !!word.trim() && matched.includes(word.trim()))) return matched;
-                    // Preserve normal story content without a second API call.
-                    if (protectBroadProseMatch(rule, matched)) return matched;
                     matches++;
                     const replacement = expandStoryRegexReplacement(
                         replacementFor(rule),
