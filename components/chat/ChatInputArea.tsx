@@ -754,6 +754,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           </div>}
           <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
         </button>,
+        <button key="alchemy-beauty" type="button" onClick={() => onPanelAction('alchemy-beauty')}
+          className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-[#737373]">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center border border-neutral-100 bg-neutral-50 text-neutral-500">
+            <Code className="w-6 h-6" weight="bold" />
+          </div>
+          <span className="text-xs font-bold">正则美化</span>
+        </button>,
         <button key="thinking-settings"
           onClick={() => onPanelAction('thinking-settings')}
           className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${isDiscordStyle ? 'text-[#737373]' : 'text-[#737373]'}`}
