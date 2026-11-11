@@ -53,8 +53,13 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(menu).toContain("onPanelAction('alchemy-rules')");
         expect(privateChat).toContain("case 'alchemy-rules'");
         expect(group).toContain("setAlchemySection('rules')");
-        expect(manager).toContain("['beauty', '美化类']");
-        expect(manager).toContain("['rules', '规则类']");
+        expect(manager).toContain('StoryRegexPanel');
+        expect(panel).toContain("['beauty', 'HTML 美化']");
+        expect(panel).toContain("['rules', '规则']");
+        expect(panel).toContain("accept='.json,.txt,.html,.htm,application/json,text/html'");
+        expect(panel).toContain("setActiveSection(imported.rules.some(rule => rule.kind === 'template') ? 'beauty' : 'rules')");
+        expect(panel).toContain("isTemplate ? 'HTML 代码' : '替换内容'");
+        expect(panel).toContain("id='alchemy-source'");
         expect(panel).toContain("aria-label='规则生效范围'");
         expect(panel).toContain("onDeleteFolder={(folder, selected)");
         expect(panel).toContain("onDelete={rule");
