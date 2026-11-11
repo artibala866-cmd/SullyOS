@@ -18,6 +18,8 @@ on:
       - 'alchemy-visual.html'
       - 'alchemy-manager-visual.html'
       - 'tests/alchemy-manager-visual.tsx'
+      - 'alchemy-live-render-visual.html'
+      - 'tests/alchemy-live-render-visual.tsx'
       - 'components/chat/MessageItem.tsx'
       - 'components/chat/ChatInputArea.tsx'
       - 'apps/Chat.tsx'
@@ -146,6 +148,38 @@ jobs:
               --window-size=390,900 --virtual-time-budget=5500 \
               --screenshot="/tmp/alchemy-manager-shots/$scenario.png" "$url"
           done
+      - name: Verify matching online HTML is automatically rendered as live interactive cards
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/alchemy-live-card-shots
+          pnpm exec vite --host 127.0.0.1 --port 5189 --strictPort >/tmp/alchemy-live-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:5189/alchemy-live-render-visual.html >/dev/null && break || true
+            sleep 0.3
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          url="http://127.0.0.1:5189/alchemy-live-render-visual.html"
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,920 --virtual-time-budget=6500 --dump-dom "$url" \
+            > /tmp/alchemy-live-card-shots/result.html
+          grep -q 'data-alchemy-live-card-ready="true"' /tmp/alchemy-live-card-shots/result.html || {
+            echo "Automatic imported-card rendering or sandbox sizing failed"
+            grep -o 'data-alchemy-live-card-report="[^"]*"' /tmp/alchemy-live-card-shots/result.html || true
+            tail -n 60 /tmp/alchemy-live-vite.log
+            exit 1
+          }
+          "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,920 --virtual-time-budget=6500 \
+            --screenshot=/tmp/alchemy-live-card-shots/online-automatic-html.png "$url"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alchemy-live-chat-card-screenshot
+          path: /tmp/alchemy-live-card-shots/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:
