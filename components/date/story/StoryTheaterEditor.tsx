@@ -560,7 +560,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <div className='flex flex-wrap items-center justify-between gap-2'>
                             <div className='min-w-0'>
                                 <div className='text-[11px] font-semibold text-slate-700'>批量导入开场白</div>
-                                <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX · 每次最多 200 个 · 文件名按 1、2、10 排序</p>
+                                
                                 
                                 
                             </div>
@@ -735,7 +735,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     }
                 }} />
                 {presetImportFeedback && <p role='status' className='mt-2 text-[10px] leading-5 text-slate-500'>{presetImportFeedback}</p>}
-                {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条 · 按当前顺序与插入位置发送</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
+                {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
                 
 
                 <div className='mt-5 space-y-4 border-t border-slate-200 pt-4'>
