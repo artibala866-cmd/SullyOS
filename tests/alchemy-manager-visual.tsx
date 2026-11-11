@@ -98,6 +98,43 @@ async function run(){
       throw Error('HTML 实际代码不在编辑器');
     if(scenario!=='rules-edit' && code.getBoundingClientRect().top>650)
       throw Error('HTML 代码被挤到屏幕下面');
+    if(scenario==='rules-edit'){
+      const settings=[...document.querySelectorAll<HTMLDetailsElement>('details')]
+        .find(detail=>detail.querySelector('summary')?.textContent?.includes('更多设置'));
+      const scope=settings?.querySelector<HTMLElement>('[aria-label="规则生效范围"]');
+      const scenes=settings?.querySelector<HTMLElement>('[aria-label="线下规则生效位置"]');
+      if(!settings || !scope || !scenes || settings.open)
+        throw Error('生效范围与线下位置没有收纳进默认折叠的更多设置');
+      const summary=settings.querySelector('summary')!;
+      if(!summary.textContent?.includes('线下') || !summary.textContent?.includes('剧情') ||
+        !summary.textContent?.includes('见面'))
+        throw Error('收纳后没有显示生效范围摘要');
+      const pattern=document.querySelector<HTMLTextAreaElement>('textarea[value]') ||
+        [...document.querySelectorAll<HTMLTextAreaElement>('textarea')].find(el=>el.value.includes('think'));
+      if(!pattern || pattern.getBoundingClientRect().top>code.getBoundingClientRect().bottom)
+        throw Error('主要匹配正则应在收纳设置之前显示');
+      settings.open=true;
+      await sleep(70);
+      const online=scope.querySelector<HTMLInputElement>('input[aria-label="线上"]');
+      if(!online || online.checked || !online.closest('label'))
+        throw Error('生效范围切换控件缺失');
+      online.closest('label')!.click();
+      await waitFor(()=>!!scope.querySelector<HTMLInputElement>('input[aria-label="线上"]')?.checked,
+        '展开后线上开关可实际切换');
+      const meeting=scenes.querySelector<HTMLInputElement>('input[aria-label="见面生效"]');
+      if(!meeting || !meeting.checked || !meeting.closest('label'))
+        throw Error('见面位置开关缺失');
+      meeting.closest('label')!.click();
+      await waitFor(()=>!scenes.querySelector<HTMLInputElement>('input[aria-label="见面生效"]')?.checked,
+        '展开后见面位置可实际切换');
+      meeting.closest('label')!.click();
+      await waitFor(()=>!!scenes.querySelector<HTMLInputElement>('input[aria-label="见面生效"]')?.checked,
+        '恢复见面位置');
+      online.closest('label')!.click();
+      await waitFor(()=>!scope.querySelector<HTMLInputElement>('input[aria-label="线上"]')?.checked,
+        '恢复线下-only规则');
+      settings.open=false;
+    }
     if(scenario!=='rules-edit'){
       await waitFor(()=>!!document.querySelector<HTMLIFrameElement>(
         '[data-alchemy-live-preview] iframe[sandbox="allow-scripts"]'),'HTML 自动可视化效果');
