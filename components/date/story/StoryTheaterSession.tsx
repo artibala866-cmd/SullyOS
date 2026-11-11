@@ -441,6 +441,8 @@ const storyReadingSource = (message: Message): string => {
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPTY_REGEX_RULES, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
     const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, theme, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
+    const entryRef = useRef(entry);
+    entryRef.current = entry;
     // Only story-enabled offline rules enter saved-floor display, prompt
     // history and generation. A meeting-only rule must never leak here.
     const activeRegexRules = useMemo(() => alchemyRulesFor(regexRules, 'offline', preset.id),
@@ -491,6 +493,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const [visibleFloor, setVisibleFloor] = useState(0);
     const [atReadingEnd, setAtReadingEnd] = useState(true);
     const [expandedArchivedIds, setExpandedArchivedIds] = useState<Set<number>>(() => new Set());
+    // Only metadata remains resident for collapsed archives. Full original
+    // bodies exist solely while their archive group has been expanded.
+    const [archiveBodies, setArchiveBodies] = useState<Map<number, Message>>(() => new Map());
+    const [archiveReadErrors, setArchiveReadErrors] = useState<Set<number>>(() => new Set());
     const [exporting, setExporting] = useState(false);
     const [showQuickPreset, setShowQuickPreset] = useState(false);
     const [rerollingId, setRerollingId] = useState<number | null>(null);
@@ -517,6 +523,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const initialReadingGestureRef = useRef(false);
     const loadSequenceRef = useRef(0);
     const loadingOlderRef = useRef(false);
+    const archiveWantedRef = useRef(new Set<number>());
     const olderAnchorRef = useRef<{ key: string; top: number } | null>(null);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -530,7 +537,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 threadId, loadedFloorCount, message => message.metadata?.source === 'story_theater',
             );
             if (requestId !== loadSequenceRef.current) return;
-            setMessages(rows);
+            const savedEntry = entryRef.current;
+            setMessages(rows.map(row => mirrorArchived(row, savedEntry)
+                ? { ...row, content: '' } : row));
             setTotalFloorCount(totalCount);
             setHistoryLoaded(true);
         } finally {
@@ -564,6 +573,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setAffinityDrafts({});
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
+        setArchiveBodies(new Map());
+        setArchiveReadErrors(new Set());
+        archiveWantedRef.current.clear();
         olderAnchorRef.current = null;
         loadingOlderRef.current = false;
         setLoadingOlder(false);
@@ -831,13 +843,51 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [messages, scrollReadingToLatest, updateVisibleFloor]);
     const setArchiveExpanded = useCallback((messageIds: number[], open: boolean) => {
         followLatestRef.current = false;
+        messageIds.forEach(id => {
+            if (open) archiveWantedRef.current.add(id);
+            else archiveWantedRef.current.delete(id);
+        });
         setExpandedArchivedIds(current => {
             if (messageIds.every(id => current.has(id) === open)) return current;
             const next = new Set(current);
             messageIds.forEach(id => { if (open) next.add(id); else next.delete(id); });
             return next;
         });
-    }, []);
+        if (!open) {
+            setArchiveBodies(current => {
+                if (!messageIds.some(id => current.has(id))) return current;
+                const next = new Map(current);
+                messageIds.forEach(id => next.delete(id));
+                return next;
+            });
+            setArchiveReadErrors(current => {
+                if (!messageIds.some(id => current.has(id))) return current;
+                const next = new Set(current);
+                messageIds.forEach(id => next.delete(id));
+                return next;
+            });
+            return;
+        }
+        void Promise.all(messageIds.map(id => DB.getMessageById(id))).then(rows => {
+            const missing = messageIds.filter((id, index) => !rows[index]
+                || rows[index]?.charId !== threadId
+                || rows[index]?.metadata?.source !== 'story_theater');
+            setArchiveBodies(current => {
+                const next = new Map(current);
+                rows.forEach(row => {
+                    if (row && archiveWantedRef.current.has(row.id)
+                        && row.charId === threadId && row.metadata?.source === 'story_theater') {
+                        next.set(row.id, row);
+                    }
+                });
+                return next;
+            });
+            if (missing.length) setArchiveReadErrors(current => new Set([...current, ...missing]));
+        }).catch(error => {
+            setArchiveReadErrors(current => new Set([...current, ...messageIds]));
+            addToast(`归档原文读取失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+        });
+    }, [addToast, threadId]);
     const storedTokenInfo = useMemo(() => {
         const source = [...messages].reverse().find(message => Number(message.metadata?.theaterPromptTokens) > 0);
         return source ? {
@@ -1360,14 +1410,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const depth = messages.length - index - 1;
             const archived = mirrorArchived(message, entry);
             if (archived && !expandedArchivedIds.has(message.id)) continue;
-            const role = message.role;
-            add(String(message.id), { text: archived ? storyReadingSource(message) : message.content, role, depth });
+            const original = archived ? archiveBodies.get(message.id) : message;
+            if (!original) continue;
+            const role = original.role;
+            add(String(message.id), { text: archived ? storyReadingSource(original) : original.content, role, depth });
             const interrupted = message.metadata?.theaterInterruptedRewrite?.content;
             if (interrupted && !archived) add(`${message.id}:rewrite`, { text: interrupted, role: 'assistant', depth });
         }
         if (unsavedReply) add('unsaved', { text: unsavedReply.content, role: 'assistant', depth: 0 });
         return sources;
-    }, [activeRegexRules, entry, expandedArchivedIds, messages, unsavedReply]);
+    }, [activeRegexRules, archiveBodies, entry, expandedArchivedIds, messages, unsavedReply]);
     const [regexDisplay, setRegexDisplay] = useState<{
         rules: StoryRegexRule[]; context: typeof regexContext;
         results: Map<string, { input: StoryRegexInput; result: StoryRegexResult }>;
@@ -1557,12 +1609,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                                         <CaretDown size={14} className='shrink-0' />
                                     </summary>
                                     {isExpanded && <div className='border-t border-slate-100'>
-                                        {archivedRows.map((row, index) => <section key={row.id} className='border-b border-slate-100 py-5 last:border-0'>
-                                            <div className='mb-3 text-[10px] text-slate-400'>第 {floorIndexOffset + floorIndex + index + 1} 楼 · {row.role === 'user' ? '你的推进' : '剧场正文'}</div>
-                                            {row.role === 'user'
-                                                ? <StoryUserOutput className='whitespace-pre-wrap break-words text-sm leading-7 text-slate-600' content={row.content} regexResult={regexResultFor(String(row.id))} />
-                                                : <StoryOutputBody reading={storyReadingActive} content={storyReadingSource(row)} regexResult={regexResultFor(String(row.id))} fromTavern={row.metadata?.theaterSourceFormat === 'sillytavern' || (!row.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(row.content))} affinityInputs={affinityInputsByMessageId.get(row.id) || EMPTY_AFFINITY_INPUTS} />}
-                                        </section>)}
+                                        {archivedRows.map((row, index) => {
+                                            const original = archiveBodies.get(row.id);
+                                            return <section key={row.id} className='border-b border-slate-100 py-5 last:border-0'>
+                                                <div className='mb-3 text-[10px] text-slate-400'>第 {floorIndexOffset + floorIndex + index + 1} 楼 · {row.role === 'user' ? '你的推进' : '剧场正文'}</div>
+                                                {!original ? <p className='py-3 text-xs text-slate-400'>{archiveReadErrors.has(row.id) ? '原文暂不可读取' : '正在读取原文…'}</p>
+                                                    : original.role === 'user'
+                                                        ? <StoryUserOutput className='whitespace-pre-wrap break-words text-sm leading-7 text-slate-600' content={original.content} regexResult={regexResultFor(String(original.id))} />
+                                                        : <StoryOutputBody reading={storyReadingActive} content={storyReadingSource(original)} regexResult={regexResultFor(String(original.id))} fromTavern={original.metadata?.theaterSourceFormat === 'sillytavern' || (!original.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(original.content))} affinityInputs={affinityInputsByMessageId.get(original.id) || EMPTY_AFFINITY_INPUTS} />}
+                                            </section>;
+                                        })}
                                     </div>}
                                 </details>
                             </div>;
