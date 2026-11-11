@@ -78,7 +78,7 @@ const ImpressionPanel: React.FC<ImpressionPanelProps> = ({ impression, isGenerat
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-neutral-700">尚未生成印象档案</h3>
-                    <p className="text-sm text-neutral-400 mt-2 max-w-xs mx-auto">让 AI 回顾你们的长期记忆和近期互动，生成一份角色视角下的私密印象档案。</p>
+                    
                 </div>
                 <button
                     onClick={() => onGenerate('initial')}
