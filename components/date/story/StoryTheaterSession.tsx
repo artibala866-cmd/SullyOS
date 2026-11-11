@@ -55,6 +55,7 @@ import {
     hasStoryTheaterParticipant,
     resolveStoryPresetDocument,
     selectStoryArchiveBatch,
+    selectStoryArchiveContext,
     storyTheaterMemoryRecipientIds,
     storyTheaterThreadId,
     type StoryAffinityInput,
@@ -93,6 +94,9 @@ interface Props {
 
 interface AffinityDraft { delta: number; reason: string; awareness: 'noticed' | 'unnoticed'; }
 const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: 'unnoticed' };
+
+const storyArchiveGroupKey = (message: Message, entry: StoryTheaterEntry) =>
+    storyArchiveAtFloor(entry.archives, message.id)?.id || 'character-memory';
 
 const mirrorArchived = (message: Message, entry: StoryTheaterEntry): boolean => {
     if (storyArchiveAtFloor(entry.archives, message.id)) return true;
@@ -443,6 +447,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         return resolveStoryTheaterWorldbooks(worldbooks, characters).filter(book => ids.has(book.id));
     }, [worldbooks, characters, entry.selectedWorldbookIds]);
     const canStart = hasStoryTheaterParticipant(entry, characters);
+    const readingBatchSize = Math.max(10, Math.min(100, Math.round(Number(entry.readingBatchSize) || 20)));
+    const [loadedFloorCount, setLoadedFloorCount] = useState(readingBatchSize);
+    const [totalFloorCount, setTotalFloorCount] = useState(0);
     const [messages, setMessages] = useState<Message[]>([]);
     const [historyLoaded, setHistoryLoaded] = useState(false);
     const [initialReadingDisplayed, setInitialReadingDisplayed] = useState(false);
@@ -481,14 +488,23 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const lastReadMessageIdRef = useRef<number | null>(null);
     const initialReadingPendingRef = useRef(true);
     const initialReadingGestureRef = useRef(false);
+    const loadSequenceRef = useRef(0);
+    const olderAnchorRef = useRef<{ key: string; top: number } | null>(null);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
 
+    // The reading view fetches a bounded window. Generation, archiving and
+    // export request full snapshots separately only when they actually need one.
     const loadMessages = useCallback(async () => {
-        const rows = await DB.getMessagesByCharId(threadId, true);
-        setMessages(rows.filter(message => message.metadata?.source === 'story_theater').sort((a, b) => a.id - b.id));
+        const requestId = ++loadSequenceRef.current;
+        const { messages: rows, totalCount } = await DB.getRecentMessagesWithCount(
+            threadId, loadedFloorCount, message => message.metadata?.source === 'story_theater',
+        );
+        if (requestId !== loadSequenceRef.current) return;
+        setMessages(rows);
+        setTotalFloorCount(totalCount);
         setHistoryLoaded(true);
-    }, [threadId]);
+    }, [threadId, loadedFloorCount]);
 
     useEffect(() => {
         void loadMessages().catch(error => {
@@ -513,6 +529,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setAffinityDrafts({});
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
+        loadSequenceRef.current++;
+        olderAnchorRef.current = null;
+        setLoadedFloorCount(readingBatchSize);
+        setTotalFloorCount(0);
+        setMessages([]);
         setHistoryLoaded(false);
         setInitialReadingDisplayed(false);
         followLatestRef.current = true;
@@ -524,7 +545,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setMessageMenu(null);
         setEditingMessage(null);
         setDeletingMessage(null);
-    }, [entry.id]);
+    }, [entry.id, readingBatchSize]);
     const patchAffinityDraft = useCallback((characterId: string, patch: Partial<AffinityDraft>) => {
         setAffinityDrafts(current => ({
             ...current,
@@ -614,9 +635,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         const nearBottom = distanceFromBottom <= 96;
         setAtReadingEnd(current => current === nearBottom ? current : nearBottom);
-        let floor = messages.length > 0 ? 1 : 0;
+        let floor = messages.length > 0 ? Math.max(1, totalFloorCount - messages.length + 1) : 0;
         if (nearBottom) {
-            floor = messages.length;
+            floor = totalFloorCount;
         } else {
             const readingLine = viewport.getBoundingClientRect().top + Math.min(120, viewport.clientHeight * 0.24);
             const floorNodes = viewport.querySelectorAll<HTMLElement>('[data-story-floor]');
@@ -635,7 +656,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             }
         }
         setVisibleFloor(current => current === floor ? current : floor);
-    }, [messages.length]);
+    }, [messages.length, totalFloorCount]);
     // Scroll events can fire many times per frame on a long reading page.
     // Update the header at most once per paint instead of re-rendering every
     // floor repeatedly during a fast swipe.
@@ -681,6 +702,30 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         viewport.scrollTo({ top: viewport.scrollHeight, behavior });
         if (behavior === 'auto') updateVisibleFloor();
     }, [updateVisibleFloor]);
+
+    const loadOlderFloors = useCallback(() => {
+        if (messages.length >= totalFloorCount) return;
+        const viewport = readingScrollRef.current;
+        const anchor = viewport?.querySelector<HTMLElement>('[data-story-anchor]');
+        olderAnchorRef.current = anchor?.dataset.storyAnchor
+            ? { key: anchor.dataset.storyAnchor, top: anchor.getBoundingClientRect().top } : null;
+        followLatestRef.current = false;
+        initialReadingGestureRef.current = true;
+        setLoadedFloorCount(count => Math.min(totalFloorCount, count + readingBatchSize));
+    }, [messages.length, readingBatchSize, totalFloorCount]);
+    useLayoutEffect(() => {
+        const saved = olderAnchorRef.current;
+        if (!saved) return;
+        const viewport = readingScrollRef.current;
+        const anchor = [...(viewport?.querySelectorAll<HTMLElement>('[data-story-anchor]') || [])]
+            .find(node => node.dataset.storyAnchor === saved.key);
+        if (viewport && anchor) {
+            // Correct by actual geometry; native scroll anchoring may have
+            // already compensated part or all of the inserted height.
+            viewport.scrollTop += anchor.getBoundingClientRect().top - saved.top;
+        }
+        olderAnchorRef.current = null;
+    }, [messages]);
     useEffect(() => {
         const content = readingContentRef.current;
         if (!content) return;
@@ -767,8 +812,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         }
         setExporting(true);
         try {
+            const allMessages = (await DB.getMessagesByCharId(threadId, true))
+                .filter(message => message.metadata?.source === 'story_theater').sort((a, b) => a.id - b.id);
             const result = await shareOrDownloadFile({
-                content: formatStoryTheaterExport(entry, mask.name, actors.map(actor => actor.name), messages),
+                content: formatStoryTheaterExport(entry, mask.name, actors.map(actor => actor.name), allMessages),
                 fileName: makeStoryTheaterFileName(entry.title),
                 mimeType: 'text/plain;charset=utf-8',
                 preferDownloadOnWeb: true,
@@ -781,7 +828,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         } finally {
             setExporting(false);
         }
-    }, [actors, addToast, entry, exporting, mask.name, messages]);
+    }, [actors, addToast, entry, exporting, mask.name, messages.length, threadId]);
 
     const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<StoryCompletion> => {
         assertStoryApiConfigured(apiConfig);
@@ -1032,9 +1079,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 });
             let requestHistory = buildStoryRequestHistory(current, turnBoundary, message => {
                 const box = storyArchiveAtFloor(promptEntry.archives, message.id);
-                if (!box) return mirrorArchived(message, promptEntry);
-                return box.strategy === 'vector' ? vectorSource.archiveIds.has(box.id)
-                    : !!box.summary?.trim() && box.toMessageId < turnBoundary;
+                // Do not fall back to entire archived originals when vector recall misses.
+                return box ? box.toMessageId < turnBoundary : mirrorArchived(message, promptEntry);
             });
             const historySlots = effectivePreset.document.prompts.filter(prompt => prompt.marker === 'history' && !prompt.section);
             const appendUnslottedHistory = historySlots.length === 0;
@@ -1067,8 +1113,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             ]);
             const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
-            const summaries = promptEntry.archives.filter(archive => archive.summary && archive.toMessageId < turnBoundary)
-                .sort((a, b) => a.fromMessageId - b.fromMessageId)
+            const summaries = selectStoryArchiveContext(promptEntry.archives, turnBoundary)
                 .map((archive, index) => {
                     const first = floorNumbers.get(archive.fromMessageId), last = floorNumbers.get(archive.toMessageId);
                     const range = first && last ? '（第 ' + first + '–' + last + ' 楼）' : '';
@@ -1363,6 +1408,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [readingContentReady, messages.length, scrollReadingToLatest]);
 
     const generationBlocked = generationBusy || !!unsavedReply;
+    const floorIndexOffset = Math.max(0, totalFloorCount - messages.length);
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages, entry.archives);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
@@ -1400,7 +1446,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{actors.map(actor => actor.name).join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真实时间陪伴' : '虚构剧场'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小剧场[｜·]?\s*/, '')}` : ''}</span></span>
                     <span className='shrink-0 text-right leading-tight'>
                         <span className='block text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本轮实际使用的完整上下文' : '按本轮完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
-                        {messages.length > 0 && <span aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`} className='mt-1 block whitespace-nowrap text-[9px] font-medium tabular-nums text-slate-400'>第 {visibleFloor || 1}/{messages.length} 楼</span>}
+                        {messages.length > 0 && <span aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${totalFloorCount} 楼`} className='mt-1 block whitespace-nowrap text-[9px] font-medium tabular-nums text-slate-400'>第 {visibleFloor || 1}/{totalFloorCount} 楼</span>}
                     </span>
                     <CaretDown size={13} className='shrink-0 text-slate-400 transition-transform group-open:rotate-180' />
                 </summary>
@@ -1428,7 +1474,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     <p className='mt-6 text-[10px] text-slate-400'>{canWriteOpening ? '输入框留空，点击推进即可开场' : '这一幕由你先落笔'}</p>
                 </section> : entry.writesToCharacterMemory && <div className='mb-8 py-3 border-y border-amber-200 text-center text-[11px] text-amber-700'>和朋友们已经分别相处了一段时间……</div>}
 
-                {archivedFloorIds.length > 0 && <div className='mb-8 flex items-center justify-between gap-3 text-[10px] text-slate-400'><span>{archivedFloorIds.length} 楼旧正文已归档 · 可按楼展开</span><button onClick={toggleAllArchives} className='shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-violet-600'>{allArchivesExpanded ? '全部收起' : '全部展开'}</button></div>}
+                {messages.length < totalFloorCount && <div className='mb-6 flex justify-center'>
+                    <button type='button' data-story-load-more='true' onClick={loadOlderFloors}
+                        className='rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600'>
+                        加载更早 {Math.min(readingBatchSize, totalFloorCount - messages.length)} 层
+                    </button>
+                </div>}
 
                 <div className='divide-y divide-slate-200'>
                     {messages.map((message, floorIndex) => {
@@ -1477,7 +1528,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                             </details>}
                             {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBlocked} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
-                        return <div key={message.id} data-story-floor={floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
+                        return <div key={message.id} data-story-anchor={`floor:${message.id}`} data-story-floor={floorIndexOffset + floorIndex + 1} className='story-reading-floor scroll-mt-16 py-8 first:pt-0 last:pb-0'>
                             {floorHeading}
                             {floorBody}
                         </div>;
