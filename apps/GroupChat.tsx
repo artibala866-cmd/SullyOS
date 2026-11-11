@@ -516,7 +516,6 @@ const GroupChat: React.FC = () => {
     });
     const [messages, setMessages] = useState<Message[]>([]);
     const [showAlchemy, setShowAlchemy] = useState(false);
-    const [alchemySection, setAlchemySection] = useState<'beauty' | 'rules'>('beauty');
     const { rules: onlineAlchemyRules } = useAlchemyRules('online');
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const MESSAGE_PAGE_SIZE = 50;
@@ -2150,7 +2149,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             <span className="text-xs font-bold">红包</span>
                         </button>
 
-                        <button onClick={() => { setAlchemySection('beauty'); setShowAlchemy(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                        <button onClick={() => { setShowAlchemy(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <Code className="w-6 h-6" weight="bold" />
                             </div>
@@ -2212,7 +2211,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 }
             />
 
-            {showAlchemy && <AlchemyManagerScreen domain='online' initialSection={alchemySection} onClose={() => setShowAlchemy(false)} />}
+            {showAlchemy && <AlchemyManagerScreen domain='online' initialSection='beauty' onClose={() => setShowAlchemy(false)} />}
             {/* --- Modals --- */}
 
             {/* Group Settings Modal */}
