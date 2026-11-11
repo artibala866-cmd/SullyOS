@@ -37,22 +37,36 @@ describe('Native Nuoji HTML templates: actual browser document, not a preview sh
         expect(frame.srcDoc).toContain('data-alchemy-scratch="1"');
         expect(frame.srcDoc).toContain('pointerdown');
         expect(frame.srcDoc).toContain('getImageData');
-        expect(frame.srcDoc).not.toContain('onclick=');
+        expect(frame.srcDoc).toContain('onclick=');
         expect(frame.srcDoc).not.toContain('onerror=');
     });
 
-    it('keeps imported script, navigation and network isolated from the host app', () => {
+    it('runs imported local script interactions only in a network-blocked opaque sandbox', () => {
         const source = '<div class="main">原始卡片</div>'
             + '<script>window.attack=true</script><iframe src="https://example.invalid/"></iframe>'
             + '<img src="https://example.invalid/track.png" onerror="fetch(\'https://example.invalid/\')">';
         const frame = buildAlchemySandboxDocument(source);
         expect(frame.srcDoc).toContain('原始卡片');
-        expect(frame.srcDoc).not.toContain('window.attack');
-        expect(frame.srcDoc).not.toContain('onclick=');
-        expect(frame.srcDoc).not.toContain('onerror=');
+        expect(frame.srcDoc).toContain('window.attack=true');
+        expect(frame.srcDoc).toContain('onerror=');
+        expect(frame.srcDoc).toContain("script-src 'unsafe-inline'");
+        expect(frame.srcDoc).toContain("connect-src 'none'");
+        expect(frame.srcDoc).toContain("form-action 'none'");
         expect(frame.srcDoc).not.toContain('<iframe');
         expect(frame.srcDoc).toContain("img-src data: blob:");
         expect(frame.srcDoc).toContain("frame-src 'none'");
+    });
+
+    it('keeps authored buttons functional and measures content instead of the growing iframe viewport', () => {
+        const source = '<div style="width:420px"><button onclick="this.textContent=\'已打开\'">打开</button>'
+            + '<details><summary>展开</summary><p>完整内容</p></details></div>';
+        const frame = buildAlchemySandboxDocument(source);
+        expect(frame.srcDoc).toContain('this.textContent');
+        expect(frame.srcDoc).toContain('<details>');
+        expect(frame.srcDoc).toContain('overflow-x:auto');
+        expect(frame.srcDoc).toContain('element.scrollHeight');
+        expect(frame.srcDoc).not.toContain('document.documentElement.scrollHeight');
+        expect(frame.srcDoc).toContain('MutationObserver');
     });
 
     it('retains the original imported alchemy fields and automatically renders a matching JSON template', () => {
