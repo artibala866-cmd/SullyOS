@@ -471,6 +471,18 @@ jobs:
               --screenshot="output/story-cinema-after-close/${mode}-390.png" "$url" >/dev/null 2>&1
             test -s "output/story-cinema-after-close/${mode}-390.png"
           done
+          # Stress the actual 120-floor reader: late layout changes above a
+          # touch gesture must not move the reader away from the chosen floor.
+          stableurl="http://127.0.0.1:5197/story-reading-scroll-visual.html?mode=novel&focus=stability&count=120"
+          "$browser" --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --no-first-run \
+            --window-size=390,844 --force-device-scale-factor=1 --virtual-time-budget=8500 \
+            --dump-dom "$stableurl" > output/story-cinema-after-close/stability-120.html \
+            2> output/story-cinema-after-close/stability-120.log
+          grep -q 'data-story-scroll-ready="true"' output/story-cinema-after-close/stability-120.html || {
+            grep 'story-scroll-report' output/story-cinema-after-close/stability-120.html | tail -c 1400 || true
+            tail -n 30 output/story-cinema-after-close/stability-120.log || true
+            exit 1
+          }
           echo "STORY_CINEMA_SCREENSHOT_BEGIN"
           base64 -w0 output/story-cinema-after-close/cinema-390.png
           echo
