@@ -234,13 +234,7 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
                 updated++;
                 continue;
             }
-            // Restore author-defined order on reimport (old imports did not
-            // persist it), without overwriting the user's enabled toggle.
-            const oldIndex = rules.findIndex(current => key(current) === signature);
-            if (oldIndex !== -1 && rules[oldIndex].order == null && next.order != null) {
-                rules[oldIndex] = { ...rules[oldIndex], order: next.order };
-                updated++;
-            } else duplicates++;
+            duplicates++;
             continue;
         }
         // The prior importer discarded aiPrompt on prompt-stage text filters.
