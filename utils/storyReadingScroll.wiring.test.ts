@@ -25,6 +25,11 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
         expect(sessionSource).toContain('document.fonts.ready.then');
         expect(sessionSource).toContain('const syncLayout = () => scheduleVisibleFloor();');
+        expect(sessionSource).toContain("event.data?.type === 'sully-story-template-scroll'");
+        expect(sessionSource).toContain("scrollport.scrollTop +=");
+        expect(sessionSource).toContain("maxHeight: 'none'");
+        expect(sessionSource).toContain("overflowAnchor: 'auto'");
+        expect(sessionSource).toContain("(reading && block.regexTemplate)");
         expect(sessionSource).not.toContain('if (viewport) viewport.scrollTop = viewport.scrollHeight');
         expect(sessionSource).toContain('onWheel={pauseFollowingForReading}');
         expect(sessionSource).toContain('onTouchStart={pauseFollowingForReading}');
