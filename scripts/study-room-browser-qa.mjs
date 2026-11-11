@@ -161,8 +161,31 @@ try{
       const dbName=(await indexedDB.databases()).find(x=>x.name?.includes('AetherOS_Data'))?.name;
       if(!dbName)throw Error('study IndexedDB unavailable');
       const db=await new Promise((res,rej)=>{const q=indexedDB.open(dbName);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
-      await new Promise((res,rej)=>{const tx=db.transaction('assets','readwrite');
+      const courses=Array.from({length:240},(_,i)=>({
+        id:'stress-pdf-'+i,title:'虚构教材 '+i,
+        rawText:'章节正文段落 '.repeat(150),
+        chapters:Array.from({length:12},(_,j)=>({
+          id:'chapter-'+j,title:'测试章节 '+j,summary:'用于压力测试的短摘要',
+          difficulty:'normal',isCompleted:j<3,content:'缓存讲解文本 '.repeat(40)
+        })),
+        currentChapterIndex:3,createdAt:Date.now()-i*1000,
+        coverStyle:'#525252',totalProgress:25
+      }));
+      const quizzes=Array.from({length:420},(_,i)=>({
+        id:'stress-quiz-'+i,courseId:'stress-pdf-'+(i%240),
+        chapterId:'chapter-3',chapterTitle:'测试章节 3',
+        courseTitle:'虚构试卷 '+i,
+        questions:Array.from({length:8},(_,j)=>({
+          id:'question-'+j,type:'choice',stem:'测试问题 '+j,
+          options:['甲','乙','丙','丁'],answer:'A',explanation:'解释 '+j
+        })),
+        score:6,totalQuestions:8,aiReview:'仅测试本地成绩',
+        status:i%3?'graded':'in_progress',createdAt:Date.now()-i*50000
+      }));
+      await new Promise((res,rej)=>{const tx=db.transaction(['assets','courses','quizzes'],'readwrite');
         tx.objectStore('assets').put({id:'sully_workspace_v1',data:ws});
+        for(const course of courses)tx.objectStore('courses').put(course);
+        for(const quiz of quizzes)tx.objectStore('quizzes').put(quiz);
         tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});
       db.close();
       window.__studyStressErrors=[];
@@ -173,7 +196,7 @@ try{
       window.fetch=(...args)=>{if(String(args[0]).includes('/chat/completions')){
         window.__studyStressModelCalls++;return Promise.reject(Error('No model calls in stress run'));}
         return original(...args);};
-      return {tasks:tasks.length,records:records.length,commissions:ws.commissions.length,homework:ws.homework.length};
+      return {tasks:tasks.length,records:records.length,commissions:ws.commissions.length,homework:ws.homework.length,courses:courses.length,quizzes:quizzes.length};
     })()`);
     console.log('STUDY_PRESSURE_SEEDED='+JSON.stringify(seed));
     if(seed.tasks!==550||seed.records!==7000)throw Error('Incomplete stress seed');
@@ -230,6 +253,63 @@ try{
       result.errors.length||result.modelCalls||result.overflow||result.width!==390)
       throw Error('Study browser stress failure '+JSON.stringify(result).slice(0,1100));
     await capture('study-pressure-390',390,844);
+
+    // Open the actual nested PDF self-study UI while a focus session is paused.
+    // The bookshelf and practice book both read the seeded IndexedDB stores.
+    const enteredPdf=await evaluate(`(()=>{
+      const nav=[...document.querySelectorAll('nav')].find(n=>[...n.querySelectorAll('button')]
+        .some(b=>b.textContent?.trim()==='专注'));
+      const button=[...(nav?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='自习室');
+      button?.click();return !!button;
+    })()`);
+    if(!enteredPdf)throw Error('Could not navigate to self-study PDF bookshelf');
+    await sleep(3500);
+    const bookshelf=await evaluate(`(()=>{
+      const text=document.body.textContent||'';
+      return {lastCourse:text.includes('虚构教材 239'),
+        firstCourse:text.includes('虚构教材 0'),
+        count:[...document.querySelectorAll('.aspect-\\[4\\/5\\]')].length,
+        hasStudy:text.includes('自习室'),
+        errors:window.__studyStressErrors,
+        modelCalls:window.__studyStressModelCalls
+      };
+    })()`);
+    console.log('STUDY_PRESSURE_PDF_SHELF='+JSON.stringify(bookshelf));
+    if(!bookshelf.lastCourse||!bookshelf.firstCourse||!bookshelf.hasStudy||
+      bookshelf.errors.length||bookshelf.modelCalls)throw Error('Large PDF bookshelf incomplete');
+    await capture('study-pressure-pdf-shelf-390',390,844);
+    const openQuizzes=await evaluate(`(()=>{
+      const button=document.querySelector('button[title="练习册"]');
+      button?.click();return !!button;
+    })()`);
+    if(!openQuizzes)throw Error('Could not open the real practice book');
+    await sleep(2800);
+    const practice=await evaluate(`(()=>{
+      const text=document.body.textContent||'';
+      return {hasTitle:text.includes('练习册'),
+        firstQuiz:text.includes('虚构试卷 0'),
+        lastQuiz:text.includes('虚构试卷 419'),
+        errors:window.__studyStressErrors,
+        modelCalls:window.__studyStressModelCalls,
+        overflow:document.documentElement.scrollWidth>innerWidth+2
+      };
+    })()`);
+    console.log('STUDY_PRESSURE_PRACTICE_BOOK='+JSON.stringify(practice));
+    if(!practice.hasTitle||!practice.firstQuiz||!practice.lastQuiz||practice.errors.length||
+      practice.modelCalls||practice.overflow)throw Error('Large practice book incomplete');
+    await capture('study-pressure-practice-390',390,844);
+    // 320 px catches clipped mobile content under a fully populated bookshelf.
+    await cdp('Emulation.setDeviceMetricsOverride',{width:320,height:710,deviceScaleFactor:1,mobile:true});
+    await sleep(900);
+    const narrow=await evaluate(`({
+      width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth+2,
+      errors:window.__studyStressErrors,modelCalls:window.__studyStressModelCalls
+    })`);
+    console.log('STUDY_PRESSURE_PRACTICE_320='+JSON.stringify(narrow));
+    if(narrow.width!==320||narrow.overflow||narrow.errors.length||narrow.modelCalls)
+      throw Error('Study narrow practice book failed');
+    await capture('study-pressure-practice-320',320,710);
+
   }
 
 }finally{
