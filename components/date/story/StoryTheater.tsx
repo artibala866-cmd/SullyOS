@@ -459,11 +459,11 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             <div className='max-w-2xl mx-auto'>
                 <section className='story-cinema-rule pb-6 border-b border-slate-200'>
                     <div className='text-[9px] tracking-[.24em] uppercase font-bold text-violet-500'>Your theaters</div>
-                    <div className='mt-2 flex items-end justify-between gap-5'><div><h2 className='text-3xl font-serif font-semibold'>很多条剧情，<br />各自拥有一条时间线。</h2><p className='mt-3 text-[11px] leading-5 text-slate-500'>角色在新增时一次选定。世界书、记忆与预设的改动都只发生在这只沙盒里。</p></div><FilmSlate size={48} weight='duotone' className='shrink-0 text-violet-300' /></div>
+                    <div className='mt-2 flex items-end justify-between gap-5'><div><h2 className='text-3xl font-serif font-semibold'>很多条剧情，<br />各自拥有一条时间线。</h2></div><FilmSlate size={48} weight='duotone' className='shrink-0 text-violet-300' /></div>
                 </section>
 
                 <section className='py-6'>
-                    {entries.length === 0 ? <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: presets[0]?.id }); setView('editor'); }} className='w-full py-14 rounded-3xl border border-dashed border-slate-300 text-center'><span className='block text-sm font-semibold'>新增第一条剧情</span><span className='block mt-2 text-[10px] text-slate-400'>选择多位角色、记忆方式、世界书与原生预设</span></button> : <div className='divide-y divide-slate-200'>{entries.map(item => {
+                    {entries.length === 0 ? <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: presets[0]?.id }); setView('editor'); }} className='w-full py-14 rounded-3xl border border-dashed border-slate-300 text-center'><span className='block text-sm font-semibold'>新增第一条剧情</span></button> : <div className='divide-y divide-slate-200'>{entries.map(item => {
                         const cast = characters.filter(char => item.characterIds.includes(char.id));
                         const mask = resolveStoryTheaterMask(item.mask, userProfile, characters, masks);
                         const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;
@@ -486,7 +486,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
 
                 <section className='pt-6 border-t border-slate-200'>
                     <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button type='button' title='批量导入剧情预设' aria-label='批量导入剧情预设' disabled={presetBatchBusy} onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetBatchBusy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}</button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
-                    <p className='mt-2 text-[10px] leading-5 text-slate-500'>支持糯米机原生预设与酒馆 Chat Completion JSON 智能适配。保留提示词和开关顺序；酒馆外部脚本不会执行。导出统一为糯米机原生格式。</p>
+                    
                     <input ref={importInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
                         const files = Array.from(event.currentTarget.files || []);
                         event.currentTarget.value = '';
@@ -501,9 +501,9 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                                 if (await importPreset(file)) succeeded++;
                                 else failed++;
                             }
-                            setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。原有剧情没有被自动改动，请手动选择要用的预设。`);
+                            setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。`);
                         } catch (error) {
-                            setPresetBatchFeedback(`导入中断：${error instanceof Error ? error.message : '文件读取失败'}。已成功导入的预设仍保留，当前剧情没有被替换。`);
+                            setPresetBatchFeedback(`导入中断：${error instanceof Error ? error.message : '文件读取失败'}。`);
                         } finally {
                             presetBatchLock.current = false;
                             setPresetBatchBusy(false);
@@ -515,7 +515,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 <section className='border-t border-slate-200 pt-5'>
                     <button type='button' disabled={!regexReady} onClick={() => setView('regex')}
                         className='w-full flex items-center justify-between gap-3 py-3 text-left disabled:opacity-50'>
-                        <span className='min-w-0'><strong className='block text-sm'>剧情正则</strong><span className='mt-1 block text-[11px] text-slate-500'>导入糯叽机规则、HTML 模板与文字过滤</span></span>
+                        <span className='min-w-0'><strong className='block text-sm'>剧情正则</strong></span>
                         <span className='shrink-0 text-[11px] font-semibold text-violet-700'>{regexRules.filter(rule => rule.enabled).length} 条启用 <span aria-hidden='true'>›</span></span>
                     </button>
                 </section>
