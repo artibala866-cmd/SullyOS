@@ -328,6 +328,15 @@ const DateSession: React.FC<DateSessionProps> = ({
     const { rules: offlineRules } = useAlchemyRules('offline');
     const meetingRules = React.useMemo(() => offlineRules.filter(rule => !rule.presetId), [offlineRules]);
     const alchemyDisplay = useAlchemyMessageResults(messages, meetingRules, 'offline');
+    const spriteTextInput = React.useMemo<Message[]>(() => currentText ? [{
+        id: -987654321, charId: char.id, role: 'assistant', type: 'text',
+        content: currentText, timestamp: 0,
+    } as Message] : [], [currentText, char.id]);
+    const spriteAlchemy = useAlchemyMessageResults(spriteTextInput, meetingRules, 'offline');
+    // Do not replace original dialogue text: speech, state and turn replay must
+    // continue to use currentText. Only the visible, fully typed text is filtered.
+    const visibleSpriteText = isTextAnimating ? displayedText
+        : spriteAlchemy.get(-987654321)?.text ?? displayedText;
     const [input, setInput] = useState('');
     const [showInputBox, setShowInputBox] = useState(!peekStatus && !initialState);
     const [isTyping, setIsTyping] = useState(false); // Waiting for API
@@ -1338,7 +1347,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                     )}
                                 </div>
                                 <p className="date-session-dialogue-text text-white/90 text-[16px] leading-relaxed font-light tracking-wide drop-shadow-md mt-2 whitespace-pre-wrap" data-date-dialogue-text>
-                                    {displayedText}
+                                    {visibleSpriteText}
                                     {isTextAnimating && <span className="inline-block w-2 h-4 bg-white/70 ml-1 animate-pulse align-middle"></span>}
                                 </p>
                                 {!isTextAnimating && dialogueQueue.length > 0 && <div className="absolute bottom-3 right-4 animate-bounce opacity-70"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white"><path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" /></svg></div>}
