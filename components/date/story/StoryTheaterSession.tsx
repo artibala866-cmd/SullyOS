@@ -258,12 +258,15 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
     />;
 });
 
-export const StoryOutput: React.FC<{
+interface StoryOutputProps {
     content: string; onChoose?: (text: string) => void; affinityInputs: StoryAffinityInput[];
     fromTavern?: boolean; regexResult?: StoryRegexResult;
-}> = React.memo(({ content, onChoose, affinityInputs, fromTavern = false, regexResult }) => {
-    const {theme} = useOS();
-    const reading = meetingAppearance(theme.storyAppearance).id !== 'none';
+}
+
+// The live OS provider ticks every second to update the clock. Story floor
+// bodies must not subscribe to that global context: React.memo does not
+// block context updates, and hundreds of rich saved floors would re-render.
+const StoryOutputBody: React.FC<StoryOutputProps & { reading: boolean }> = React.memo(({ content, onChoose, affinityInputs, fromTavern = false, regexResult, reading }) => {
     const blocks = useMemo(() => parseStoryRegexDisplay(regexResult || { text: content, cards: [], matches: 0 }, fromTavern),
         [content, fromTavern, regexResult]);
     const hasProse = blocks.some(block => block.kind === 'story');
@@ -381,6 +384,11 @@ export const StoryOutput: React.FC<{
     </div>;
 });
 
+export const StoryOutput: React.FC<StoryOutputProps> = props => {
+    const { theme } = useOS();
+    return <StoryOutputBody {...props} reading={meetingAppearance(theme.storyAppearance).id !== 'none'} />;
+};
+
 const StoryUserOutput: React.FC<{ content: string; regexResult?: StoryRegexResult; className: string }> = React.memo(({ content, regexResult, className }) => {
     if (!regexResult?.cards.length) return <p className={className}>{regexResult?.text ?? content}</p>;
     return <div className={className}>{splitStoryRegexOutput(regexResult).map((part, index) => typeof part === 'string'
@@ -389,13 +397,14 @@ const StoryUserOutput: React.FC<{ content: string; regexResult?: StoryRegexResul
 
 const EMPTY_REGEX_RULES: StoryRegexRule[] = [];
 const EMPTY_AFFINITY_INPUTS: StoryAffinityInput[] = [];
+const PENDING_STORY_REGEX_RESULT: StoryRegexResult = { text: '', cards: [], matches: 0 };
 const storyReadingSource = (message: Message): string => {
     const greeting = message.metadata?.theaterOpeningGreeting;
     return greeting ? storyOpeningReadingText(message.content, greeting.greetingId, greeting.source) : message.content;
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPTY_REGEX_RULES, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
-    const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
+    const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, theme, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     // Only story-enabled offline rules enter saved-floor display, prompt
     // history and generation. A meeting-only rule must never leak here.
@@ -408,7 +417,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [characters, entry]);
     const mask = useMemo(() => resolveStoryTheaterMask(entry.mask, userProfile, characters, masks), [characters, entry.mask, masks, userProfile]);
     const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;
-    const regexContext = useMemo(() => ({ user: mask.name, char: actors.map(actor => actor.name).join('、') }), [mask.name, actors]);
+    // A refreshed character array can contain the same names. Key the display
+    // regex context by its actual macro values, not array object identity.
+    // Otherwise previously rendered floors temporarily become empty again.
+    const actorDisplayNames = actors.map(actor => actor.name).join('、');
+    const regexContext = useMemo(() => ({ user: mask.name, char: actorDisplayNames }), [mask.name, actorDisplayNames]);
+    const storyReadingActive = meetingAppearance(theme.storyAppearance).id !== 'none';
     const promptIdentityName = mask.name.trim() && mask.name.trim() !== '你' ? mask.name.trim() : '当前用户侧角色';
     const effectivePreset = useMemo<StoryTheaterPreset>(() => ({
         ...preset,
@@ -1286,12 +1300,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const regexResultFor = (key: string) => {
         const input = regexSources.get(key);
         if (!input) return undefined;
-        const cached = regexDisplay?.rules === activeRegexRules && regexDisplay.context === regexContext
+        // Keep an already-filtered floor visible while a refreshed macro
+        // context is calculated. Never replace the old content with an empty
+        // placeholder after it was displayed; doing so flashes every floor.
+        const cached = regexDisplay?.rules === activeRegexRules
             ? regexDisplay.results.get(key) : undefined;
         if (cached?.input.text === input.text && (cached.input.depth === input.depth
             || !activeRegexRules.some(rule => rule.source?.minDepth !== undefined || rule.source?.maxDepth !== undefined))) return cached.result;
-        // Do not paint an unfiltered floor while a display rule is processing it.
-        return { text: '', cards: [], matches: 0 };
+        // On first paint, wait for the new filter; never show unfiltered text.
+        return PENDING_STORY_REGEX_RESULT;
     };
 
     const initialReadingReady = useMemo(() => {
@@ -1411,7 +1428,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                                 {isExpanded && <div className='pb-5 pl-7'>
                                     {message.role === 'user'
                                         ? <StoryUserOutput className='text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} />
-                                        : <StoryOutput content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />}
+                                        : <StoryOutputBody reading={storyReadingActive} content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />}
                                 </div>}
                             </details>;
                         }
@@ -1420,11 +1437,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                         const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
                         return <article {...pressHandlersFor(message)}>
                             {message.metadata?.theaterInterruption && <p className='mb-3 text-xs leading-5 text-amber-700'>已保留收到的正文。{message.metadata.theaterInterruption}。可点击「继续」接着写。</p>}
-                            <StoryOutput content={message.content} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={setInput} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />
+                            <StoryOutputBody reading={storyReadingActive} content={message.content} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={setInput} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />
                             {interruptedRewrite && <details className='mt-3 text-xs leading-5 text-amber-700'>
                                 <summary>查看未写完的改写稿 · 原楼层已保留</summary>
                                 <p className='my-2'>{interruptedRewrite.interruption}</p>
-                                <StoryOutput content={interruptedRewrite.content} regexResult={regexResultFor(`${message.id}:rewrite`)} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
+                                <StoryOutputBody reading={storyReadingActive} content={interruptedRewrite.content} regexResult={regexResultFor(`${message.id}:rewrite`)} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
                             </details>}
                             {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBlocked} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
@@ -1436,7 +1453,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </div>
                 {unsavedReply && <section className='mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4'>
                     <p role='status' className='mb-2 text-xs text-amber-800'>已收到的正文暂存在此页面，请先复制或重试本地保存。</p>
-                    <StoryOutput content={unsavedReply.content} regexResult={regexResultFor('unsaved')} fromTavern={unsavedReply.fromTavern} affinityInputs={[]} />
+                    <StoryOutputBody reading={storyReadingActive} content={unsavedReply.content} regexResult={regexResultFor('unsaved')} fromTavern={unsavedReply.fromTavern} affinityInputs={[]} />
                     <div className='mt-3 flex gap-3 text-xs font-semibold text-violet-700'>
                         <button onClick={() => Promise.resolve().then(() => navigator.clipboard.writeText(unsavedReply.content))
                             .then(() => addToast('已复制正文', 'success'))
