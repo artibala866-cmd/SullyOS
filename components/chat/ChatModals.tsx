@@ -383,7 +383,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<button onClick={onImportEmoji} disabled={emojiImportBusy || emojiDocumentReading || emojiImportReview.entries.length === 0 || emojiImportReview.invalidLineNumbers.length > 0} className="w-full py-4 bg-primary text-white font-bold rounded-2xl disabled:opacity-50">{emojiImportBusy ? '正在导入…' : emojiDocumentReading ? '识别文件中…' : '添加至当前分类'}</button>}
             >
                 <div className="space-y-3">
-                    <p className="text-xs text-slate-400">将导入「{emojiImportCategoryName}」。支持「名称--链接」「名称：链接」「名称:链接」「链接 名称」，每行一条。</p>
+                    
                     <EmojiDocumentFilePicker active={modalType === 'emoji-import'} disabled={emojiImportBusy} onAppendText={value => setEmojiImportText(previous => [previous.trim(), value].filter(Boolean).join('\n'))} onReadingChange={setEmojiDocumentReading} />
                     {emojiImportText.trim() && (
                         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
@@ -760,7 +760,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             <li className="font-bold text-neutral-600">该功能非常规使用功能，全自动模式下记忆宫殿会自己处理，如您确认确实需要使用该功能，请点击“确认开始”</li>
                         </ul>
                     </div>
-                    <p className="text-[11px] text-slate-400">处理期间请保持应用打开，不要清空聊天。任何一批失败都不会移动水位线，可安全重试。</p>
+                    
                 </div>
             </Modal>
 
@@ -798,7 +798,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<><button onClick={() => onSetHistoryStart(undefined)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">清除用户断点</button><button onClick={() => { setModalType('none'); setHistoryPage(0); setHistorySearch(''); }} className="flex-1 py-3 bg-primary text-white font-bold rounded-2xl">完成</button></>}
             >
                 <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar p-1">
-                    <p className="text-xs text-slate-400 text-center mb-2"><b>短按</b>记录 = 设置用户断点（只能缩小范围） · <b>长按</b>普通消息 = 跳转查看原文。秘密小纸条在此查看，每张占一条上下文。</p>
+                    
                     <div className="grid gap-2 mb-2">
                         <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-[11px] text-neutral-800 leading-relaxed">
                             <b>紫色 · 记忆宫殿水位线</b>：此前消息已经处理，不会因调整上下文再次向量化。
