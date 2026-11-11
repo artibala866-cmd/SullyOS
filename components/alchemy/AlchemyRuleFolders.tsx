@@ -45,46 +45,13 @@ export default function AlchemyRuleFolders({
             const groupRules = Array.from(categories.values()).flat();
             const folderPending = pending?.type === 'folder' && pending.key === folder;
             const selection = alchemyFolderTargetSelection(groupRules);
-            return <details key={folder} className="relative rounded-xl border border-slate-200 bg-white px-3 py-2">
+            return <div key={folder} className="relative rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <details>
                 <summary className={'cursor-pointer truncate py-2 text-sm font-semibold ' +
                     (onSetFolderTargets && groupRules.some(rule => rule.kind === 'filter') ? 'pr-[111px]' : 'pr-10')}
                     title={folder} data-alchemy-folder={folder}>
                     {folder} <span className="text-xs font-normal text-slate-400">({groupRules.length})</span>
                 </summary>
-                <div className="absolute right-2 top-2 flex items-center gap-1.5">
-                    {onSetFolderTargets && groupRules.some(rule => rule.kind === 'filter') &&
-                        <select aria-label={'分组 ' + folder + ' 生效范围'} title="整组生效范围"
-                            disabled={busy} value={selection}
-                            onChange={event => {
-                                cancel();
-                                const chosen = event.target.value;
-                                if (chosen === 'mixed') return;
-                                onSetFolderTargets(folder, groupRules, chosen === 'both'
-                                    ? ['online', 'offline'] : [chosen as AlchemyDomain]);
-                            }}
-                            className="w-[67px] shrink-0 rounded-lg border border-slate-200 bg-stone-50 px-1 py-1.5 text-[11px] font-semibold text-slate-700">
-                            {selection === 'mixed' && <option value="mixed" disabled>混合</option>}
-                            <option value="online">线上</option>
-                            <option value="offline">线下</option>
-                            <option value="both">两边</option>
-                        </select>}
-                    {onDeleteFolder && <button type="button" disabled={busy}
-                        aria-label={'删除分组 ' + folder} title="删除分组"
-                        onClick={() => action('folder', folder, () => onDeleteFolder(folder, groupRules))}
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 text-rose-600">
-                        <Trash size={15} />
-                    </button>}
-                </div>
-                {folderPending && onDeleteFolder && <div className="mt-2 flex items-center gap-2 text-[11px]">
-                    <span className="min-w-0 flex-1 text-rose-700">删除这组 {groupRules.length} 条？</span>
-                    <button type="button" onClick={cancel} disabled={busy}
-                        className="shrink-0 rounded-full border px-2.5 py-1">取消</button>
-                    <button type="button" disabled={busy}
-                        onClick={() => action('folder', folder, () => onDeleteFolder(folder, groupRules))}
-                        className="shrink-0 rounded-full bg-rose-600 px-2.5 py-1 font-semibold text-white">
-                        确认删除分组
-                    </button>
-                </div>}
                 {Array.from(categories, ([category, items]) => <details key={category}
                     className="ml-2 mt-2 border-l-2 border-slate-100 pl-3">
                     <summary className="cursor-pointer py-1 text-xs font-semibold text-slate-500"
@@ -132,7 +99,42 @@ export default function AlchemyRuleFolders({
                         </div>;
                     })}
                 </details>)}
-            </details>;
+                </details>
+                <div className="absolute right-2 top-2 flex items-center gap-1.5">
+                    {onSetFolderTargets && groupRules.some(rule => rule.kind === 'filter') &&
+                        <select aria-label={'分组 ' + folder + ' 生效范围'} title="整组生效范围"
+                            disabled={busy} value={selection}
+                            onChange={event => {
+                                cancel();
+                                const chosen = event.target.value;
+                                if (chosen === 'mixed') return;
+                                onSetFolderTargets(folder, groupRules, chosen === 'both'
+                                    ? ['online', 'offline'] : [chosen as AlchemyDomain]);
+                            }}
+                            className="w-[67px] shrink-0 rounded-lg border border-slate-200 bg-stone-50 px-1 py-1.5 text-[11px] font-semibold text-slate-700">
+                            {selection === 'mixed' && <option value="mixed" disabled>混合</option>}
+                            <option value="online">线上</option>
+                            <option value="offline">线下</option>
+                            <option value="both">两边</option>
+                        </select>}
+                    {onDeleteFolder && <button type="button" disabled={busy}
+                        aria-label={'删除分组 ' + folder} title="删除分组"
+                        onClick={() => action('folder', folder, () => onDeleteFolder(folder, groupRules))}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 text-rose-600">
+                        <Trash size={15} />
+                    </button>}
+                </div>
+                {folderPending && onDeleteFolder && <div className="mt-2 flex items-center gap-2 text-[11px]">
+                    <span className="min-w-0 flex-1 text-rose-700">删除这组 {groupRules.length} 条？</span>
+                    <button type="button" onClick={cancel} disabled={busy}
+                        className="shrink-0 rounded-full border px-2.5 py-1">取消</button>
+                    <button type="button" disabled={busy}
+                        onClick={() => action('folder', folder, () => onDeleteFolder(folder, groupRules))}
+                        className="shrink-0 rounded-full bg-rose-600 px-2.5 py-1 font-semibold text-white">
+                        确认删除分组
+                    </button>
+                </div>}
+            </div>;
         })}
     </div>;
 }
