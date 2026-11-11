@@ -193,24 +193,23 @@ try{
     };
     const action=async(label)=>{
       await menu();
-      const buttonsOnPage=()=>buttons().find(x=>{
-        const value=x.textContent?.trim()||'';
-        return value===label||(label==='真人感'&&value.startsWith('真人感 · '));
-      });
-      const pageButtons=[...document.querySelectorAll('button[aria-label^="第 "]')]
-        .filter(x=>/^第 \d+ 页$/.test(x.getAttribute('aria-label')||''));
-      if(!buttonsOnPage()){
-        // Real users swipe through the feature pages; start from the first
-        // available page instead of assuming the menu always opens on page 1.
-        for(const page of pageButtons){
-          page.click();
-          await pause(160);
-          if(buttonsOnPage())break;
-        }
-      }
-      const selected=buttonsOnPage();
-      if(!selected)throw Error('Chat feature not available: '+label);
-      selected.click();await pause(190);
+      // Find the exact action on the actual paged tray. It may be on a hidden
+      // page; jump to that page with the user's existing pager dot.
+      const target=[...document.querySelectorAll('[role="group"][aria-label^="聊天功能第 "] button')]
+        .find(b=>{
+          const value=b.textContent?.trim()||'';
+          return value===label||(label==='真人感'&&value.startsWith('真人感 · '));
+        });
+      if(!target)throw Error('Missing feature tile '+label);
+      const group=target.closest('[role="group"][aria-label^="聊天功能第 "]');
+      const page=group?.getAttribute('aria-label')?.match(/第 (\\d+) 页/)?.[1];
+      if(!page)throw Error('Cannot find feature page for '+label);
+      const pager=document.querySelector('button[aria-label="第 '+page+' 页"]');
+      if(!pager)throw Error('Missing pager for '+label);
+      pager.click();
+      await wait(()=>visible(target),'feature tile '+label);
+      target.click();
+      await pause(190);
     };
     const closeMenu=()=>{
       const btn=document.querySelector('button[aria-label="聊天功能"]');
