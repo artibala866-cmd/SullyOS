@@ -125,9 +125,16 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         const raw = await file.text();
         if (/\.html?$/i.test(file.name)) {
             if (raw.length > STORY_TEMPLATE_MAX_LENGTH) throw new Error('HTML 文件过长');
+            const name = file.name.replace(/\.html?$/i, '');
+            // A standalone HTML file has no regex match tag or aiPrompt.
+            // Give it a unique, functioning card tag so saving immediately
+            // works and the existing chat completion can automatically emit it.
+            const tag = 'alchemy' + crypto.randomUUID().replace(/-/g, '').slice(0, 9);
             const html = { ...createRule('beauty', 'online'),
-                name: file.name.replace(/\.html?$/i, ''),
-                importGroup: file.name.replace(/\.html?$/i, ''),
+                name, importGroup: name,
+                pattern: '<' + tag + '>([\\s\\S]*?)</' + tag + '>',
+                instruction: '当适合使用「' + name + '」卡片展示内容时，以 <' + tag
+                    + '>内容</' + tag + '> 输出，不要附加代码块。',
                 replacement: raw, parseMode: 'text' as const,
             };
             setActiveSection('beauty');
