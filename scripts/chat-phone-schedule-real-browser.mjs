@@ -312,7 +312,7 @@ try{
     const pad=n=>String(n).padStart(2,'0');
     const date=[day.getFullYear(),pad(day.getMonth()+1),pad(day.getDate())].join('-');
     const charId=currentChar();
-    await writeRow('daily_schedules',{id:charId+'_'+date,charId,date,generatedAt:Date.now(),
+    await writeRow('daily_schedule',{id:charId+'_'+date,charId,date,generatedAt:Date.now(),
       slots:[{startTime:'00:00',activity:'在家准备学习计划',availability:'busy',
         description:'一份虚构角色的事先保存的计划',location:'书房'}]});
     window.dispatchEvent(new CustomEvent('sully:daily-schedule-saved',{detail:{charId}}));
@@ -325,7 +325,7 @@ try{
     // stop affecting live chat and phone.
     if(scheduleSection?.textContent.includes('已开启'))scheduleToggle().click();
     await wait(()=>scheduleSection?.textContent.includes('已关闭'),'turn schedule off');
-    const schedules=await readStore('daily_schedules');
+    const schedules=await readStore('daily_schedule');
     if(!schedules.some(row=>row.charId===charId&&row.slots?.[0]?.activity==='在家准备学习计划'))
       throw Error('Toggling schedule OFF erased historical plan');
     progress.push('old schedule retained but disabled as live context');
