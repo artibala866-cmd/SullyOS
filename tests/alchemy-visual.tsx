@@ -30,7 +30,7 @@ function Visual(){
   const found=document.querySelectorAll('[data-alchemy-rule]').length;
   const folders=document.querySelectorAll('[data-alchemy-folder]').length;
   const cats=document.querySelectorAll('[data-alchemy-category]').length;
-  document.body.dataset.alchemyScreenshotReady=String(found===expect&&folders===1&&cats>=2&&cross.length===(domain==='online'?6:6));
+  document.body.dataset.alchemyScreenshotReady=String(found===expect&&folders===1&&cats>=2&&cross.length===(domain==='online'?7:6));
   const out=document.getElementById('alchemy-report');
   if(out)out.textContent=JSON.stringify({domain,count:found,folders,categories:cats,active,crossCount:cross.length,opened});
  },[rules,opened,active,cross.length]);
