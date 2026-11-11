@@ -140,15 +140,44 @@ export function parseStoryRegexImport(raw: string): StoryRegexImportResult {
 }
 
 export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: StoryRegexRule[], presetId: string) {
-    const key = ({ id: _id, enabled: _enabled, ...rule }: StoryRegexRule) => JSON.stringify(rule);
-    const keys = new Set(existing.map(key));
-    const additions: StoryRegexRule[] = [];
+    // Earlier imports stored an empty array for enabled-but-empty keywords.
+    // Semantically this equals "no keyword restriction" and should not duplicate
+    // an existing template when the corrected importer is used again.
+    const key = ({ id: _id, enabled: _enabled, ...rule }: StoryRegexRule) => JSON.stringify({
+        ...rule,
+        ...(rule.source && {
+            source: {
+                ...rule.source,
+                triggerKeywords: rule.source.triggerKeywords?.length ? rule.source.triggerKeywords : undefined,
+            },
+        }),
+    });
+    const rules = [...existing];
+    const keys = new Set(rules.map(key));
+    let added = 0;
+    let updated = 0;
+    let duplicates = 0;
     for (const rule of imported) {
         const next = { ...rule, presetId };
         const signature = key(next);
-        if (keys.has(signature)) continue;
+        if (keys.has(signature)) { duplicates++; continue; }
+        // The prior importer discarded aiPrompt on prompt-stage text filters.
+        // Recover it from the user's original file on reimport, preserving the
+        // stored rule ID, enabled state, preset binding and other customizations.
+        const missingPrompt = rules.findIndex(current =>
+            !current.instruction.trim() && !!next.instruction.trim()
+            && key({ ...current, instruction: '' }) === key({ ...next, instruction: '' }));
+        if (missingPrompt !== -1) {
+            const old = rules[missingPrompt];
+            keys.delete(key(old));
+            rules[missingPrompt] = { ...old, instruction: next.instruction };
+            keys.add(key(rules[missingPrompt]));
+            updated++;
+            continue;
+        }
         keys.add(signature);
-        additions.push(next);
+        rules.push(next);
+        added++;
     }
-    return { rules: [...existing, ...additions], added: additions.length, duplicates: imported.length - additions.length };
+    return { rules, added, updated, duplicates };
 }
