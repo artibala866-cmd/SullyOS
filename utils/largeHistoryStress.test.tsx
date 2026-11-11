@@ -108,7 +108,7 @@ describe('isolated large-history load (never uses player saves)', () => {
         const root = createRoot(host);
         const view = () => <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
             <StoryTheaterSession entry={entry} preset={BUILTIN_NIGHT_SCREENING_PRESET}
-                masks={[]} onBack={() => {}} onEdit={() => {}} onArchiveCommitted={() => {}} />
+                masks={[]} onBack={() => {}} onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
         </StoryTheaterThemeProvider></OSPreviewProvider>;
         try {
             await act(async () => root.render(view()));
