@@ -65,6 +65,21 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('messages.map((message, floorIndex)');
     });
 
+    it('旧楼层正文不订阅每秒变化的 OSContext，正则宏刷新时不清空已绘制的楼层', () => {
+        const body = sessionSource.slice(sessionSource.indexOf('const StoryOutputBody:'), sessionSource.indexOf('export const StoryOutput:'));
+        expect(body).not.toContain('useOS()');
+        expect(sessionSource).toContain('const StoryOutputBody: React.FC');
+        expect(sessionSource).toContain('const storyReadingActive = meetingAppearance(theme.storyAppearance)');
+        expect(sessionSource).toContain('const actorDisplayNames = actors.map(actor => actor.name)');
+        expect(sessionSource).toContain('[mask.name, actorDisplayNames]');
+        expect(sessionSource).toContain('const actorIdentityKey = actors.map(actor => actor.id');
+        expect(sessionSource).toContain('[messages, actorIdentityKey]');
+        expect(sessionSource).toContain('return cached.result;');
+        expect(sessionSource).toContain('return PENDING_STORY_REGEX_RESULT;');
+        expect(sessionSource).toContain('<StoryOutputBody reading={storyReadingActive}');
+        expect(sessionSource).toContain('export const StoryOutput: React.FC<StoryOutputProps>');
+    });
+
     it('楼层提示只显示于顶部信息栏，阅读正文里没有悬浮遮挡', () => {
         expect(sessionSource).not.toContain('sticky top-2');
         expect(sessionSource).not.toContain('story-quick-preset pointer-events-none absolute');
@@ -83,7 +98,7 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('pressHandlersFor(message)');
         expect(sessionSource).toContain('toggleAllArchives');
         expect(sessionSource).toContain('onToggle={event => setArchiveExpanded');
-        expect(sessionSource).toContain('<StoryOutput content={message.content}');
+        expect(sessionSource).toContain('<StoryOutputBody reading={storyReadingActive} content={message.content}');
         expect(sessionSource).toContain('onClick={() => void send(message)}');
     });
     it('花里胡哨在关闭外观面板后仍作用于真实阅读楼层，素雅及自定义阅读不受影响', () => {
