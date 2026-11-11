@@ -91,7 +91,7 @@ export default function CharacterApiPanel({ character, onChange }: {
       {character.dialogueApi ? '目前使用的为：' : '目前跟随设置中的 API：'}
       {describeDialogueApi(character.dialogueApi || apiConfig)}
     </p>
-    <p className="text-[11px] text-neutral-400 leading-relaxed">用于私聊、见面、电话、群聊逐人回复、彼方角色活动和主动消息。App 独立 API 优先；TRPG 等统一生成和记忆、情绪、识图、语音合成仍用原配置。</p>
+    
     <div className="flex flex-wrap gap-2">
       <button type="button" onClick={open} className="px-3 py-2 text-xs font-bold rounded-xl bg-[#eeeeee] text-[#262626] active:scale-95 transition-transform">
         {character.dialogueApi ? '修改独立 API' : '为角色使用独立 API'}
