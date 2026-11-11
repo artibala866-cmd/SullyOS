@@ -54,7 +54,7 @@ const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply
         <section onClick={event => event.stopPropagation()} className='w-full max-w-xl max-h-[82%] rounded-t-[28px] sm:rounded-[28px] bg-stone-100 shadow-2xl flex flex-col overflow-hidden'>
             <header className='shrink-0 px-5 pt-5 pb-4 border-b border-slate-200'>
                 <div className='flex items-center gap-3'><span className='w-9 h-9 rounded-full bg-slate-900 text-white grid place-items-center'><SlidersHorizontal size={17} /></span><div className='min-w-0 flex-1'><div className='text-[9px] tracking-[.2em] uppercase font-bold text-neutral-500'>Quick preset</div><h2 className='text-sm font-bold truncate'>{document.name}</h2></div><button onClick={onClose} className='w-9 h-9 rounded-full grid place-items-center'><X size={18} /></button></div>
-                <div className='mt-3 flex items-center justify-between text-[9px] text-slate-400'><span>仅覆盖本剧情，不修改预设库</span><span>当前预设约 {tokenEstimate.toLocaleString()} tokens</span></div>
+                <div className='mt-2 text-right text-[9px] text-slate-400'>{tokenEstimate.toLocaleString()} tokens</div>
             </header>
 
             <main className='flex-1 overflow-y-auto px-5 py-5'>
@@ -104,7 +104,7 @@ const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply
                         return <button key={option.id || 'default'} onClick={() => choose(option.id)} className='w-full py-3.5 flex items-center gap-3 text-left'><span className={'w-5 h-5 rounded-full border grid place-items-center ' + (selected ? 'bg-neutral-600 border-neutral-600 text-white' : 'border-slate-300 text-transparent')}><Check size={12} weight='bold' /></span><span className='text-xs font-semibold'>{option.label}</span></button>;
                     })}</div>
                 </> : <div className='py-12 text-center text-xs leading-6 text-slate-400'>
-                    {imported ? '原作者没有明确的可切换分组，完整规则仍在预设制作器的专业版中。' : '这个预设没有可用于默认版的选项'}
+                    '暂无可选项'
                 </div>}
             </main>
 
