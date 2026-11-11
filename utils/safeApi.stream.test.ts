@@ -96,6 +96,48 @@ describe('safeFetchJson streaming', () => {
         expect(cancelled).toHaveBeenCalledOnce();
     });
 
+
+    it('正文完成后继续接收后置 usage，再由 DONE 结束长连接', async () => {
+        const cancelled = vi.fn();
+        vi.stubGlobal('fetch', vi.fn(async () => lingeringSseResponse([
+            'data: {"choices":[{"delta":{"content":"已生成"}}]}\\n\\n'.replaceAll('\\n', '\n'),
+            'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\\n\\n'.replaceAll('\\n', '\n'),
+            'data: {"choices":[],"usage":{"prompt_tokens":81,"completion_tokens":22}}\\n\\n'.replaceAll('\\n', '\n'),
+            'data: [DONE]\\n\\n'.replaceAll('\\n', '\n'),
+        ], cancelled)));
+        const data = await safeFetchJson(
+            'https://api.test/v1/chat/completions',
+            { method: 'POST', body: '{"stream":true}' },
+            0, 0, undefined, {},
+        );
+        expect(data.choices[0].message.content).toBe('已生成');
+        expect(data.usage).toEqual({ prompt_tokens: 81, completion_tokens: 22 });
+        expect(cancelled).toHaveBeenCalledOnce();
+    });
+
+    it('增量解析标准跨行 SSE 事件，不丢正文和思考通道', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => sseResponse([
+            'data: {"choices":[\\n'.replaceAll('\\n', '\n'),
+            'data: {"delta":{"content":"跨行正文","reasoning_content":"跨行思考"}}\\n'.replaceAll('\\n', '\n'),
+            'data: ]}\\n\\n'.replaceAll('\\n', '\n'),
+            'data: [DONE]\\n\\n'.replaceAll('\\n', '\n'),
+        ])));
+        const prose: string[] = [];
+        const thinking: string[] = [];
+        const data = await safeFetchJson(
+            'https://api.test/v1/chat/completions',
+            { method: 'POST', body: '{"stream":true}' },
+            0, 0, undefined, {
+                onDelta: delta => prose.push(delta),
+                onReasoningDelta: delta => thinking.push(delta),
+            },
+        );
+        expect(data.choices[0].message.content).toBe('跨行正文');
+        expect(data.choices[0].message.reasoning_content).toBe('跨行思考');
+        expect(prose).toEqual(['跨行正文']);
+        expect(thinking).toEqual(['跨行思考']);
+    });
+
     it('tool_calls 分片按 index 合并，不因流式丢失', async () => {
         const events = [
             'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"propose_cart_items","arguments":"{\\"items\\""}}]}}]}\n\n',
