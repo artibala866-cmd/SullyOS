@@ -172,7 +172,7 @@ describe('见面剧情编辑器真实点击及错误恢复', () => {
         expect(select).toBeTruthy();
         expect(select.disabled).toBe(true);
         expect(select.options[0].text).toBe('暂无可选开场');
-        expect(host!.textContent).toContain('点书签存为开场');
+        expect(host!.textContent).not.toContain('点书签存为开场');
         expect(host!.querySelector('button[aria-label="收藏为可选开场"]')).toBeTruthy();
         await clickButton('故事先写');
         expect(select.disabled).toBe(true);
