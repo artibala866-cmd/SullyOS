@@ -35,6 +35,7 @@ import { buildToolResultMessage, normalizeToolCallsForCompat } from '../utils/to
 import { toolCallFingerprint } from '../utils/agenticToolFeedback';
 import { buildChatRequestPayload } from '../utils/chatRequestPayload';
 import { loadAlchemyInstructions } from '../utils/alchemyRegex';
+import { applyAlchemyRequestHistory } from '../utils/alchemyMeeting';
 import { loadWorkspacePrivateChatBlock } from '../utils/workspacePrivateChat';
 import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
 import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
@@ -1036,6 +1037,12 @@ export const useChatAI = ({
             const emotionEvalEnabled = !!(!promptBuildSkipped && !isEmotionEvalSkipped() && isEmotionBuffEnabled(char));
             if (emotionEvalEnabled) fullMessages.push({ role: 'system', content: buildInlineEmotionInstruction(charForGen) });
 
+            // Match the same online rule's history stage within THIS request;
+            // only the temporary model payload is changed, never the DB.
+            if (!promptBuildSkipped) {
+                try { await applyAlchemyRequestHistory('online', fullMessages); }
+                catch (error) { console.warn('[Alchemy] online history rules skipped', error); }
+            }
             // 发送前汇总计时
             const perfPreApi = Math.round(performance.now() - perfSendT0);
             const stageStr = Object.entries(perfStages)
