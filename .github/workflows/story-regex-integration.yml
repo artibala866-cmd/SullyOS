@@ -54,6 +54,11 @@ jobs:
           echo 'No TypeScript errors in the story regex / viewer files'
       - name: Verify browser bundle compiles
         run: pnpm exec vite build
+      - name: Install Chinese fonts for readable mobile screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-list :lang=zh family | head -n 5
       - name: Verify online and offline grouped rule lists in Chromium; take real component screenshots
         shell: bash
         run: |
