@@ -29,6 +29,7 @@ import {
     buildStoryRequestHistory,
     storyArchiveAtFloor,
     storyAffinityInputsFromMessage,
+    normalizeAffinityInput,
     getStoryReplyInput,
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,

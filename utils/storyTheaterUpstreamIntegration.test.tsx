@@ -11,7 +11,13 @@ import { getStoryGenerationSnapshot } from './storyTheaterBackground';
 import { listStoryVectorMemories } from './storyTheaterVectorMemory';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
-import {createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
+import {BUILTIN_NIGHT_SCREENING_PRESET, createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
+import {applyStoryRegex, type StoryRegexRule} from './storyRegex';
+
+vi.mock('./storyRegexRunner', () => ({
+    runStoryRegex: async (texts: string[], rules: StoryRegexRule[], stage: 'display' | 'history') =>
+        texts.map(text => applyStoryRegex(text, rules, stage)),
+}));
 
 vi.mock('../components/os/TokenImg',()=>({default:()=>null}));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -322,4 +328,50 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
+});
+
+
+it('默认剧情预设同时套用固定卡片和历史过滤，续写保留标签及存档原文', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const preset = BUILTIN_NIGHT_SCREENING_PRESET;
+    const entry = { ...createStoryTheaterDraft(), presetId: preset.id, characterIds: ['actor'], carryCharacterMemory: false };
+    const thread = 'story-theater:' + entry.id;
+    const original = '<story_text>开头<app-card>收到消息</app-card>结尾<filter-me>隐藏内容</filter-me></story_text>';
+    await DB.saveMessage({ charId: thread, role: 'assistant', type: 'text', content: original,
+        metadata: { source: 'story_theater', theaterId: entry.id } });
+    const filter: StoryRegexRule = { id: 'filter', name: '去掉附注', enabled: true, kind: 'filter',
+        presetId: preset.id, pattern: '<filter-me>[\\s\\S]*?</filter-me>', flags: 'g',
+        replacement: '', display: true, history: true, instruction: '' };
+    const template: StoryRegexRule = { ...filter, id: 'template', name: '手机通知卡', kind: 'template',
+        pattern: '<app-card>([\\s\\S]*?)</app-card>', replacement: '<article><p>{{$1}}</p></article>',
+        instruction: '出现通知时使用 <app-card>通知内容</app-card>。' };
+    const otherPreset: StoryRegexRule = { ...filter, id: 'wrong-preset', presetId: 'elsewhere', pattern: '结尾' };
+    const os = {
+        characters: [{ id: 'actor', name: '林星', mountedWorldbooks: [] }], worldbooks: [],
+        userProfile: { name: '玩家' }, apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'story' },
+        memoryPalaceConfig: {}, remoteVectorConfig: {}, theme: { storyAppearance: { preset: 'novel' } }, addToast: vi.fn(),
+    } as any;
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+        Response.json({ choices: [{ finish_reason: 'stop', message: { content: '<story_text>新楼层</story_text>' } }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    HTMLElement.prototype.scrollTo = vi.fn();
+    await act(async () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+        <StoryTheaterSession entry={entry} preset={preset} regexRules={[filter, template, otherPreset]} masks={[]}
+            onBack={() => {}} onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
+    </StoryTheaterThemeProvider></OSPreviewProvider>));
+    await vi.waitFor(() => expect(host!.querySelector('iframe[title="手机通知卡"]')?.getAttribute('srcdoc')).toContain('收到消息'));
+    expect(host!.textContent).toContain('结尾');
+    expect(host!.textContent).not.toContain('隐藏内容');
+    await act(async () => click('继续当前剧情'));
+    await vi.waitFor(() => expect(host!.textContent).toContain('新楼层'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(payload.messages).toContainEqual(expect.objectContaining({ role: 'assistant',
+        content: expect.stringContaining('<app-card>收到消息</app-card>') }));
+    expect(JSON.stringify(payload.messages)).not.toContain('隐藏内容');
+    expect(payload.messages).toContainEqual(expect.objectContaining({ role: 'system',
+        content: expect.stringContaining(template.instruction) }));
+    expect((await DB.getMessagesByCharId(thread, true))[0].content).toBe(original);
 });

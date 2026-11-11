@@ -1476,7 +1476,7 @@ export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPrese
     ].filter(Boolean).join('\n');
 };
 
-const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffinityInput | undefined => {
+export const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffinityInput | undefined => {
     if (!value || typeof value !== 'object') return undefined;
     const delta = Math.max(-100, Math.min(100, Math.round(Number(value.delta) || 0)));
     const reason = String(value.reason || '').trim().slice(0, 200);
