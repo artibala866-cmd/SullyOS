@@ -9,6 +9,7 @@ import { findCharacterDateBgm } from '../utils/dateBgm';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, AppID } from '../types';
 import { DatePrompts, ApiMessage } from '../utils/datePrompts';
+import { applyMeetingAlchemyRequest } from '../utils/alchemyMeeting';
 import { stripDateSceneTagsForDisplay } from '../utils/dateScenes';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
 import type { PipelineResult } from '../utils/memoryPalace/pipeline';
@@ -463,6 +464,8 @@ const DateApp: React.FC = () => {
         // 原版允许被拉黑的双方当面交谈，不能把拒收私聊当成已读内容。
         const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
         if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
+        try { await applyMeetingAlchemyRequest(messages, modelText, { user: userProfile.name, char: char.name }); }
+        catch (error) { console.warn('[Alchemy] meeting rules unavailable', error); }
         const rawContent = await callLLM(messages, resolveDialogueApi(apiConfig, char).temperature ?? 0.85);
         const blockAction = extractCharacterBlockAction(rawContent);
         // 内部动作先从可见剧情剥除，不能变成气泡或语音正文。
@@ -510,6 +513,8 @@ const DateApp: React.FC = () => {
             }));
             const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
             if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
+            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: char.name }); }
+            catch (error) { console.warn('[Alchemy] meeting opening reroll rules unavailable', error); }
             const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
             const blockDecision = extractCharacterBlockAction(rawContent);
             const content = blockDecision.text;
@@ -550,6 +555,8 @@ const DateApp: React.FC = () => {
         // Reroll 略调高温度求多样性，但绝不低于用户配置的基线。
         const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
         if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
+        try { await applyMeetingAlchemyRequest(messages, lastUserMsg.content, { user: userProfile.name, char: char.name }); }
+        catch (error) { console.warn('[Alchemy] meeting reroll rules unavailable', error); }
         const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
         const blockAction = extractCharacterBlockAction(rawContent);
         // 生成成功后才删旧回复：保留原有重掷语义，同时不泄漏拉黑控制标签。
