@@ -470,13 +470,11 @@ async function readBodyWithStreaming(
             emit(asm.feedLine(merged), merged);
             return;
         } catch { /* Continue reading a multi-line JSON event. */ }
-        // A following standalone valid frame indicates the previous one was
-        // actually corrupt, not a multi-line event. Do not lose that next frame.
-        try {
-            JSON.parse(part);
-            discardMalformedMultipart();
-            emit(asm.feedLine(line), line);
-        } catch { multipart.push(part); }
+        // Keep collecting until the event closes: a middle "data:" line can
+        // itself be valid JSON while the outer choices array is still open.
+        // If the combined event is ultimately malformed, discardMalformedMultipart
+        // replays each physical line, preserving any valid independent frames.
+        multipart.push(part);
     };
     const consumeLines = () => {
         const lastNl = pending.lastIndexOf('\n');
