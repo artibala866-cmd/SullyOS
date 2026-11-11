@@ -2,8 +2,9 @@
  * Online alchemy HTML keeps the author's actual CSS/controls/layout inside an
  * opaque-origin iframe. This is NOT the story appendix sanitizer: that safe
  * reader deliberately strips many features needed by the original six cards.
- * Imported scripts and event handlers cannot execute, and the frame has no
- * network access or access to the parent app.
+ * Imported scripts and event handlers run only inside a sandboxed, opaque-origin
+ * frame. CSP blocks network, external scripts, navigation and form submission;
+ * the authored local interactions must not be silently reduced to decoration.
  */
 export interface AlchemySandboxDocument {
     srcDoc: string;
@@ -16,22 +17,35 @@ const escapeAttr = (value: string): string =>
 
 const BRIDGE = `(() => {
   let queued = false;
+  let lastHeight = 0;
   const postSize = () => {
-    let bottom = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight,
-      document.body.getBoundingClientRect().bottom + window.scrollY,
-    );
-    // Positioned / animated panels may extend below scrollHeight. Ignore
-    // viewport-fixed overlays to avoid a frame-height feedback loop.
-    let checked = 0;
+    // The iframe viewport itself grows when the parent changes its height.
+    // Measuring html/body.scrollHeight feeds that new height back forever and
+    // can clip, jump or balloon cards when a tab/accordion is opened.
+    let bottom = 0, checked = 0;
     for (const element of document.body.querySelectorAll('*')) {
-      if (++checked > 800) break;
-      if (getComputedStyle(element).position === 'fixed') continue;
+      if (++checked > 1600) break;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.position === 'fixed') continue;
       const rect = element.getBoundingClientRect();
-      if (rect.width && rect.height) bottom = Math.max(bottom, rect.bottom + window.scrollY);
+      if (!rect.width && !rect.height) continue;
+      bottom = Math.max(bottom, rect.bottom + window.scrollY,
+        rect.top + window.scrollY + Math.max(rect.height, element.scrollHeight || 0));
     }
-    parent.postMessage({ type: 'sully-alchemy-template-height', height: Math.ceil(bottom + 4) }, '*');
+    // Plain text outside tags also needs a real content measurement.
+    for (const child of document.body.childNodes) {
+      if (child.nodeType !== 3 || !child.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(child);
+      for (const rect of range.getClientRects())
+        bottom = Math.max(bottom, rect.bottom + window.scrollY);
+    }
+    let measured = Math.max(76, Math.ceil(bottom + 2));
+    if (Math.abs(measured - window.innerHeight) <= 4)
+      measured = Math.round(window.innerHeight);
+    if (Math.abs(measured - lastHeight) <= 2) return;
+    lastHeight = measured;
+    parent.postMessage({ type: 'sully-alchemy-template-height', height: measured }, '*');
   };
   const update = () => {
     if (queued) return;
@@ -49,6 +63,7 @@ const BRIDGE = `(() => {
   document.addEventListener('toggle', afterInteraction, true);
   window.addEventListener('resize', afterInteraction);
   window.addEventListener('load', afterInteraction);
+  document.addEventListener('load', afterInteraction, true);
   if ('ResizeObserver' in window) {
     const observer = new ResizeObserver(update);
     observer.observe(document.documentElement);
@@ -110,8 +125,10 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
     if (!source.trim() || source.length > MAX_TEMPLATE_HTML || typeof DOMParser === 'undefined')
         return { srcDoc: '', hasVisibleContent: false, estimatedHeight: 220 };
     const document = new DOMParser().parseFromString(source, 'text/html');
-    // Never execute author-supplied scripts. Reject nested browsing contexts.
-    document.querySelectorAll('script, iframe, frame, frameset, object, embed, applet, form, base, meta, link')
+    // Keep user-imported local scripts, inline interactions, forms and CSS:
+    // an opaque-origin sandbox plus restrictive CSP isolates them from the app.
+    // Nested frames, external stylesheets, plugins and base URLs remain blocked.
+    document.querySelectorAll('iframe, frame, frameset, object, embed, applet, base, meta, link')
         .forEach(node => node.remove());
 
     // Preserve the original WeChat packet's checkbox/label interaction.
@@ -135,13 +152,8 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
             img.remove();
         }
     }
-    // Inline event attributes are not allowed in the opaque frame. CSS-only
-    // radio tabs, animations, styling, buttons and authored SVG stay intact.
-    for (const element of document.querySelectorAll('*')) {
-        for (const attr of Array.from(element.attributes)) {
-            if (/^on/i.test(attr.name)) element.removeAttribute(attr.name);
-        }
-    }
+    // Authored onclick/change handlers may power real controls (not decoration).
+    // They stay in the isolated document; remote fetch and navigation are blocked.
 
     // Layout fidelity while a lazy/mobile browser has not yet delivered
     // the iframe height message. The first authored element's explicit height
@@ -157,23 +169,19 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
         rootPixels ? rootPixels + 24 : panelPixels || (document.querySelector('canvas') ? 360 : 220)));
 
     const body = document.body.innerHTML;
-    const styles = Array.from(document.head.querySelectorAll('style'))
+    const styles = Array.from(document.head.querySelectorAll('style,script'))
         .map(node => node.outerHTML).join('');
-    // Dynamic nonce; imported markup cannot supply its own executable script.
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    const nonce = Array.from(bytes, n => n.toString(16).padStart(2, '0')).join('');
-    const csp = [
+     const csp = [
         "default-src 'none'", "base-uri 'none'", "frame-src 'none'",
         "object-src 'none'", "connect-src 'none'", "form-action 'none'",
         "img-src data: blob:", "font-src data: blob:",
-        "style-src 'unsafe-inline'", "script-src 'nonce-" + nonce + "'",
+        "style-src 'unsafe-inline'", "script-src 'unsafe-inline'",
     ].join('; ');
     const srcDoc = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         + '<meta name="viewport" content="width=device-width,initial-scale=1">'
         + '<meta http-equiv="Content-Security-Policy" content="' + escapeAttr(csp) + '">'
-        + '<style>html,body{margin:0;padding:0;background:transparent;}body{overflow-x:hidden;}</style>'
+        + '<style>html,body{margin:0;padding:0;background:transparent;}body{overflow-x:auto;overflow-y:visible;max-width:100%;}</style>'
         + styles + '</head><body>' + body
-        + '<script nonce="' + nonce + '">' + BRIDGE + '</script></body></html>';
+        + '<script>' + BRIDGE + '</script></body></html>';
     return { srcDoc, hasVisibleContent: Boolean(body.trim()), estimatedHeight };
 }
