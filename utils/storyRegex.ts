@@ -21,8 +21,11 @@ export interface StoryRegexRule {
     enabled: boolean;
     presetId: string;
     kind: 'filter' | 'template';
-    /** Online: private/group chats; offline: story/in-person meeting. */
+    /** Legacy single scope, read as fallback when targets are absent. */
     domain?: 'online' | 'offline';
+    /** Independent execution switches. Filters may run online, offline or both;
+     * HTML templates are restricted to online regardless of imported metadata. */
+    targets?: Array<'online' | 'offline'>;
     /** Import file folder and per-rule author-defined subcategory. */
     importGroup?: string;
     subcategory?: string;
@@ -108,6 +111,12 @@ export function expandStoryRegexShorthand(pattern: string): string {
 
 export function validateStoryRegexRule(rule: StoryRegexRule): void {
     if (!rule.name.trim()) throw new Error('请输入规则名称');
+    if (rule.targets !== undefined && (!Array.isArray(rule.targets)
+        || !rule.targets.length
+        || rule.targets.some(target => target !== 'online' && target !== 'offline')))
+        throw new Error('规则至少选择一个生效场景');
+    if (rule.kind === 'template' && rule.targets?.includes('offline'))
+        throw new Error('HTML 美化只能用于私聊和群聊');
     if (!rule.pattern.trim()) throw new Error('请输入匹配正则');
     try {
         const pattern = rule.source && rule.source.substituteRegex !== 0
