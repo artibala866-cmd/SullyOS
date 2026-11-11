@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../context/OSContext', () => ({
     useOS: () => ({ theme: { storyAppearance: { preset: 'none' } } }),
 }));
-import { StoryOutput } from '../components/date/story/StoryTheaterSession';
+import { SafeStoryHtml, StoryOutput } from '../components/date/story/StoryTheaterSession';
 
 describe('实际剧情输出组件的酒馆 HTML 兼容保护', () => {
     it('嵌套小剧场原封不动归入既有折叠模块，HTML 只进 sandbox iframe', () => {
@@ -31,6 +33,34 @@ describe('实际剧情输出组件的酒馆 HTML 兼容保护', () => {
         expect(markup).not.toContain('onclick=');
         expect(markup).not.toContain('window.injected');
         expect(markup).toContain('Content-Security-Policy');
+    });
+    it('多张剧情 HTML 卡片仅共享一个窗口监听，尺寸消息不会引起其他楼层重绘', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = createRoot(host);
+        const add = vi.spyOn(window, 'addEventListener');
+        const remove = vi.spyOn(window, 'removeEventListener');
+        try {
+            await act(async () => root.render(<>
+                <SafeStoryHtml source='<p>卡片甲</p>' fallback='' title='卡片甲' />
+                <SafeStoryHtml source='<p>卡片乙</p>' fallback='' title='卡片乙' />
+            </>));
+            const frames = host.querySelectorAll<HTMLIFrameElement>('iframe');
+            expect(frames.length).toBe(2);
+            expect(add.mock.calls.filter(([type]) => type === 'message')).toHaveLength(1);
+            const initialOtherHeight = frames[1].style.height;
+            await act(async () => window.dispatchEvent(new MessageEvent('message', {
+                source: frames[0].contentWindow, data: { type: 'sully-story-template-height', height: 430 },
+            })));
+            expect(frames[0].style.height).toBe('430px');
+            expect(frames[1].style.height).toBe(initialOtherHeight);
+        } finally {
+            await act(async () => root.unmount());
+            expect(remove.mock.calls.filter(([type]) => type === 'message')).toHaveLength(1);
+            add.mockRestore();
+            remove.mockRestore();
+            host.remove();
+        }
     });
     it('原生小剧场保持现有聊天气泡，不新增 iframe', () => {
         const content = '<mini_theater><mt_title>原生频道</mt_title>'
