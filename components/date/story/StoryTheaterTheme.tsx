@@ -206,25 +206,26 @@ export const STORY_THEME_CSS = `
 .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor {
   position: relative;
   isolation: isolate;
-  border-radius: 18px;
-  padding-left: clamp(12px, 3vw, 24px);
-  padding-right: clamp(12px, 3vw, 24px);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--story-surface) 82%, transparent), transparent 80%);
-  box-shadow: inset 0 0 0 1px var(--story-cinema-wash);
+  border-radius: 0;
+  padding-left: clamp(4px, 1.2vw, 10px);
+  padding-right: clamp(4px, 1.2vw, 10px);
+  background: transparent;
+  box-shadow: none;
 }
 .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor::before {
-  content: '✧  ✦  ✧';
+  content: '✦';
   position: absolute;
-  top: 13px;
-  right: 16px;
+  top: 20px;
+  right: 9px;
   pointer-events: none;
   color: var(--story-cinema-trim);
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
-  letter-spacing: .18em;
+  opacity: .55;
+  letter-spacing: 0;
 }
 .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor > :first-child {
-  padding-right: 66px;
+  padding-right: 24px;
 }
 .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor .meeting-user-turn {
   border-left-color: var(--story-cinema-trim) !important;
@@ -233,13 +234,54 @@ export const STORY_THEME_CSS = `
   border-bottom-color: var(--story-cinema-trim) !important;
   background-image: linear-gradient(90deg, transparent, var(--story-cinema-wash) 55%, transparent);
 }
+/* Archive groups and history paging are light dividers, never nested cards. */
+.story-theme .story-archive-summary::before,
+.story-theme .story-archive-summary::after,
+.story-theme .story-load-more::before,
+.story-theme .story-load-more::after {
+  content: '';
+  display: block;
+  height: 1px;
+  min-width: 12px;
+  flex: 1 1 0;
+  background: color-mix(in srgb, var(--story-line) 55%, transparent);
+}
+.story-theme .story-load-more { gap: 10px; }
+.story-theme .story-load-more-button,
+.story-theme .story-archive-summary { color: var(--story-muted) !important; }
+.story-theme .story-load-more-button:hover,
+.story-theme .story-archive-summary:hover { color: var(--story-ink) !important; }
+.story-theme .story-archive-content {
+  border-top: 1px solid color-mix(in srgb, var(--story-line) 55%, transparent);
+}
+.story-theme .story-archive-content > section {
+  border-color: color-mix(in srgb, var(--story-line) 55%, transparent) !important;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor.story-archive-range {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor.story-archive-range::before {
+  content: none;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor.story-archive-range > :first-child {
+  padding-right: 0;
+}
+.story-theme.story-decor-cinema:not(.meeting-reading) .meeting-reading-page .divide-y.divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: color-mix(in srgb, var(--story-line) 45%, transparent) !important;
+}
 @media (max-width: 360px) {
   .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor::before {
-    right: 12px;
-    letter-spacing: 0;
+    right: 7px;
   }
   .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor > :first-child {
-    padding-right: 42px;
+    padding-right: 22px;
+  }
+  .story-theme.story-decor-cinema:not(.meeting-reading) .story-reading-floor.story-archive-range > :first-child {
+    padding-right: 0;
   }
 }
 body.ios-keyboard-open .story-theme .story-safe-footer { padding-bottom: 12px !important; }

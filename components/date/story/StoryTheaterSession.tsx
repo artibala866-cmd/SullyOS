@@ -1568,9 +1568,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     <p className='mt-6 text-[10px] text-slate-400'>{canWriteOpening ? '输入框留空，点击推进即可开场' : '这一幕由你先落笔'}</p>
                 </section> : entry.writesToCharacterMemory && <div className='mb-8 py-3 border-y border-amber-200 text-center text-[11px] text-amber-700'>和朋友们已经分别相处了一段时间……</div>}
 
-                {messages.length < totalFloorCount && <div className='mb-6 flex justify-center'>
+                {messages.length < totalFloorCount && <div className='story-load-more mb-8 flex items-center justify-center'>
                     <button type='button' data-story-load-more='true' onClick={loadOlderFloors} disabled={loadingOlder}
-                        className='rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600'>
+                        className='story-load-more-button shrink-0 rounded-full px-3 py-2 text-[11px] font-medium tracking-[.06em] text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50'>
                         {loadingOlder ? '加载中…' : `加载更早 ${Math.min(readingBatchSize, totalFloorCount - messages.length)} 层`}
                     </button>
                 </div>}
@@ -1599,16 +1599,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                             const archiveLabel = box?.strategy === 'vector'
                                 ? '独立向量归档' : box ? '事件盒归档' : '角色记忆归档';
                             return <div key={groupAnchor} data-story-floor={floorIndexOffset + floorIndex + 1}
-                                data-story-anchor={groupAnchor} className='story-reading-floor scroll-mt-16 py-5'>
+                                data-story-anchor={groupAnchor} className='story-reading-floor story-archive-range scroll-mt-16 py-7'>
                                 <details open={isExpanded}
                                     onToggle={event => setArchiveExpanded(archivedRows.map(row => row.id), event.currentTarget.open)}
-                                    className='rounded-xl border border-slate-200 bg-white px-4'>
-                                    <summary className='flex cursor-pointer list-none items-center gap-3 py-3 text-xs text-slate-500 [&::-webkit-details-marker]:hidden'>
-                                        <Archive size={14} className='shrink-0' />
-                                        <span className='min-w-0 flex-1'>第 {floorIndexOffset + floorIndex + 1}–{floorIndexOffset + nextIndex} 楼 · {archiveLabel} · 点击展开</span>
-                                        <CaretDown size={14} className='shrink-0' />
+                                    className='group'>
+                                    <summary className='story-archive-summary flex min-h-12 cursor-pointer list-none items-center justify-center gap-2.5 py-3 text-[11px] font-medium tracking-[.04em] text-slate-500 [&::-webkit-details-marker]:hidden'>
+                                        <Archive size={13} className='shrink-0 opacity-60' />
+                                        <span className='shrink-0 tabular-nums'>第 {floorIndexOffset + floorIndex + 1}–{floorIndexOffset + nextIndex} 楼</span>
+                                        <span className='shrink-0 text-slate-400' title={archiveLabel}>已归档</span>
+                                        <CaretDown size={13} className='shrink-0 opacity-60 group-open:rotate-180' />
                                     </summary>
-                                    {isExpanded && <div className='border-t border-slate-100'>
+                                    {isExpanded && <div className='story-archive-content mt-3 px-1 sm:px-3'>
                                         {archivedRows.map((row, index) => {
                                             const original = archiveBodies.get(row.id);
                                             return <section key={row.id} className='border-b border-slate-100 py-5 last:border-0'>
