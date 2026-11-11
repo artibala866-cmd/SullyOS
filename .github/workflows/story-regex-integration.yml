@@ -12,6 +12,7 @@ on:
       - 'components/date/story/StoryRegexPanel.tsx'
       - 'components/date/story/StoryTheater.tsx'
       - 'utils/alchemy*.ts'
+      - 'utils/alchemyTemplatePreview.test.ts'
       - 'hooks/useAlchemyRegex.ts'
       - 'components/alchemy/*.tsx'
       - 'tests/alchemy-visual.tsx'
@@ -46,7 +47,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Test imported regex instructions, safe HTML templates and source separation
-        run: pnpm exec vitest run utils/storyRegex.test.ts utils/storyRegexImport.test.ts utils/storyTheaterHtml.test.ts utils/alchemyRegex.test.ts utils/alchemyHtml.test.ts utils/alchemyIntegration.wiring.test.ts utils/alchemyRequestHistory.test.ts
+        run: pnpm exec vitest run utils/storyRegex.test.ts utils/storyRegexImport.test.ts utils/storyTheaterHtml.test.ts utils/alchemyRegex.test.ts utils/alchemyHtml.test.ts utils/alchemyTemplatePreview.test.ts utils/alchemyIntegration.wiring.test.ts utils/alchemyRequestHistory.test.ts
       - name: Review TypeScript diagnostics in regex implementation and story viewer
         shell: bash
         run: |
