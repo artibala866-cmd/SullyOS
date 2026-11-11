@@ -1412,7 +1412,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             if (archived && !expandedArchivedIds.has(message.id)) continue;
             const original = archived ? archiveBodies.get(message.id) : message;
             if (!original) continue;
-            const role = original.role;
+            const role = message.role;
             add(String(message.id), { text: archived ? storyReadingSource(original) : original.content, role, depth });
             const interrupted = message.metadata?.theaterInterruptedRewrite?.content;
             if (interrupted && !archived) add(`${message.id}:rewrite`, { text: interrupted, role: 'assistant', depth });
