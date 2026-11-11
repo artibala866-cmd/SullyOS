@@ -421,7 +421,7 @@ export const GroupMessageItem = React.memo(({
                                 <span className="truncate italic">"{buildReplySnapshotContent({ content: msg.replyTo.content })}"</span>
                             </div>
                         )}
-                        <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{alchemyResult && !isUser ? <AlchemyMessageBody result={alchemyResult} /> : msg.content}</div>
+                        <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{alchemyResult ? <AlchemyMessageBody result={alchemyResult} /> : msg.content}</div>
                     </div>
                 );
         }
