@@ -30,11 +30,25 @@ export function alchemySubcategory(rule: StoryRegexRule): string {
 }
 
 export const alchemyDomain = (rule: StoryRegexRule): AlchemyDomain =>
-    rule.domain === 'online' || rule.domain === 'offline'
-        ? rule.domain : rule.kind === 'template' ? 'online' : 'offline';
+    rule.kind === 'template' ? 'online' : rule.domain === 'online' || rule.domain === 'offline'
+        ? rule.domain : 'offline';
+
+/** Legacy rules retain their original single scene; new filters can choose
+ * two independent scenes. Beauty templates never execute offline. */
+export const alchemyRuleTargets = (rule: StoryRegexRule): AlchemyDomain[] =>
+    rule.kind === 'template' ? ['online'] :
+    Array.isArray(rule.targets) && rule.targets.length
+        ? (['online', 'offline'] as const).filter(target => rule.targets!.includes(target))
+        : [alchemyDomain(rule)];
+
+export const alchemyRuleAppliesTo = (rule: StoryRegexRule, domain: AlchemyDomain): boolean =>
+    alchemyRuleTargets(rule).includes(domain);
+
+export const alchemyRuleSection = (rule: StoryRegexRule): 'beauty' | 'rules' =>
+    rule.kind === 'template' ? 'beauty' : 'rules';
 
 export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, presetId = ''): StoryRegexRule[] =>
-    rules.filter(rule => rule.enabled && alchemyDomain(rule) === domain
+    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, domain
         && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
