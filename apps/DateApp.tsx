@@ -144,14 +144,6 @@ const DateApp: React.FC = () => {
     
     const encounterIdRef = useRef('');
     const [openingMode, setOpeningMode] = useState<'approach' | 'invite'>('approach');
-    const [showEntryNotice, setShowEntryNotice] = useState(() => {
-        try { return localStorage.getItem('sully-date-entry-guide-v1') !== 'seen'; }
-        catch { return true; }
-    });
-    const dismissEntryNotice = () => {
-        setShowEntryNotice(false);
-        try { localStorage.setItem('sully-date-entry-guide-v1', 'seen'); } catch { /* 当前打开期间仍不重复提示 */ }
-    };
     const peekRequestRef = useRef(0);
     // 仅预览不改变关系，确认进入见面后才应用原版拉黑动作。
     const peekBlockActionRef = useRef<{ charId: string; action: CharacterBlockAction; expected: CharacterProfile['chatBlock'] } | null>(null);
@@ -1077,15 +1069,7 @@ const DateApp: React.FC = () => {
                         <span className="block text-lg">直接见面</span><span className="block text-xs text-neutral-400 mt-2">不生成开场白，直接开始互动</span>
                     </button>
                 </div>
-                <Modal isOpen={showEntryNotice} title="选择这次见面的开场方式" onClose={dismissEntryNotice}
-                    footer={<button onClick={dismissEntryNotice} className="w-full py-3 rounded-2xl bg-neutral-800 text-white font-bold">知道了</button>}>
-                    <div className="space-y-4 text-sm leading-6 text-neutral-600">
-                        <p><strong className="block text-neutral-800">靠近他 · 你主动走过去</strong>先生成一段开场，看看他此刻在做什么，再由你走过去与他互动。</p>
-                        <p><strong className="block text-neutral-800">让他靠近 · 他主动来见你</strong>由角色结合上下文，以合理的方式来到你面前并开场，接下来由你回应。</p>
-                        <p><strong className="block text-neutral-800">直接见面 · 不生成开场白</strong>直接进入对话，你可以输入内容，也可以点“继续”让他先回应。</p>
-                        <p className="text-xs text-neutral-400">三种方式都会参考已有上下文，只是开场方式不同，不会清空之前的互动。</p>
-                    </div>
-                </Modal>
+
             </div>
         );
     }
