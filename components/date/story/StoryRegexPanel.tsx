@@ -7,6 +7,7 @@ import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { alchemyDomain, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
 
@@ -52,16 +53,6 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
     const visibleRules = rules.filter(rule => alchemyDomain(rule) === domain);
-    const folders = new Map<string, Map<string, StoryRegexRule[]>>();
-    for (const rule of visibleRules) {
-        const folder = rule.importGroup || '旧版规则';
-        const category = rule.subcategory || rule.source?.category || (rule.kind === 'template' ? '互动卡片' : '文字规则');
-        if (!folders.has(folder)) folders.set(folder, new Map());
-        const groups = folders.get(folder)!;
-        if (!groups.has(category)) groups.set(category, []);
-        groups.get(category)!.push(rule);
-    }
-    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
         setDraft(rule);
@@ -239,34 +230,13 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     {!visibleRules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
                         <div className='text-sm font-semibold'>还没有{domain === 'online' ? '美化' : '线下'}正则</div>
                     </div>}
-                    <div className='space-y-3'>
-                    {Array.from(folders, ([folder, subgroups]) => <details key={folder} className='rounded-xl border border-slate-200 bg-white px-3 py-2' open>
-                        <summary className='cursor-pointer text-sm font-semibold'>{folder} · {Array.from(subgroups.values()).reduce((sum, items) => sum + items.length, 0)} 条</summary>
-                        {Array.from(subgroups, ([category, items]) => <details key={category} className='ml-2 mt-2 border-l-2 border-slate-100 pl-3' open>
-                            <summary className='cursor-pointer text-xs font-semibold text-slate-500'>{category} · {items.length}</summary>
-                            {items.map(rule => <div key={rule.id} className='flex items-center gap-3 py-2'>
-                        <button type='button' disabled={busy} onClick={() => open(rule)} className='flex min-w-0 flex-1 items-center gap-3 py-2 text-left'>
-                            <span className={`h-2 w-2 shrink-0 rounded-full ${rule.enabled ? 'bg-violet-500' : 'bg-slate-300'}`} />
-                            <span className='min-w-0 flex-1'>
-                                <span className='block break-words text-xs font-semibold'>{rule.name}</span>
-                                <span className='mt-1 block truncate text-[11px] text-slate-500'>{rule.kind === 'template' ? 'HTML 美化' : '文字过滤'} · {scopeName(rule.presetId)}</span>
-                            </span>
-                            <CaretRight size={13} className='shrink-0 text-slate-400' />
-                        </button>
-                        <button type='button' disabled={busy} aria-pressed={rule.enabled} aria-label={`启用 ${rule.name}`}
-                            onClick={() => void save(current => current.map(item => {
-                                if (item.id !== rule.id) return item;
-                                const next = { ...item, enabled: !item.enabled };
-                                if (next.enabled) validateStoryRegexRule(next);
-                                return next;
-                            }))}
-                            className={`${actionClass} shrink-0 ${rule.enabled ? 'text-violet-700' : 'text-slate-500'}`}>
-                            {rule.enabled ? '已启用' : '已停用'}
-                        </button>
-                    </div>)}
-                        </details>)}
-                    </details>)}
-                    </div>
+                    <AlchemyRuleFolders rules={visibleRules} busy={busy} scopeName={scopeName}
+                        onOpen={open} onToggle={rule => void save(current => current.map(item => {
+                            if (item.id !== rule.id) return item;
+                            const next = { ...item, enabled: !item.enabled };
+                            if (next.enabled) validateStoryRegexRule(next);
+                            return next;
+                        }))} />
                 </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
                         <input className={fieldClass} value={draft.name} onChange={event => patch({ name: event.target.value })} maxLength={80} />
