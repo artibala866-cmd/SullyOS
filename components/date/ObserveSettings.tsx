@@ -158,7 +158,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                     {/* ── 每个维度的提示词与标签自定义 ── */}
                     <div>
                         <h4 className="text-[11px] font-bold text-slate-500 mb-1">每个部分生成什么（自定义提示词）</h4>
-                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">「显示标签」只改面板上的字样；「生成提示」决定这一格让 AI 写什么。留空即用默认。关掉的维度不会生成、面板上也不显示。</p>
+                        
                         <div className="space-y-2.5">
                             {OBSERVE_DIMENSIONS.map(dim => {
                                 const on = fields[dim.key]?.enabled !== false;
@@ -209,7 +209,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                 className="text-[10px] font-bold text-primary px-2.5 py-1 rounded-full bg-primary/5 hover:bg-primary/10 disabled:opacity-40 active:scale-95 transition-all"
                             >+ 添加（{customs.length}/{MAX_CUSTOM}）</button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">在四个默认维度之外，自己开观察项（如「穿着」「天气」「和你的距离」）。标签同时用于 AI 输出与面板显示。</p>
+                        
                         {customs.length === 0 ? (
                             <div className="text-[11px] text-slate-300 text-center py-3 border border-dashed border-slate-200 rounded-xl">还没有自定义维度，点「+ 添加」开一格</div>
                         ) : (
