@@ -163,4 +163,73 @@ describe('糯叽机炼金术导入', () => {
         expect(mergeStoryRegexImport(result.rules, imported, '')).toMatchObject({ added: 0, updated: 0, duplicates: 2 });
     });
 
+    it('按原版炼金术解析酒馆 extensions.regex_scripts 与独立 findRegex', () => {
+        const source = [{
+            scriptName: '只处理AI输出', findRegex: '/<think>[\\s\\S]*?<\\/think>/gi',
+            replaceString: '', placement: [2], promptOnly: true, markdownOnly: false,
+            disabled: false, minDepth: '0', maxDepth: '2', substituteRegex: 0,
+            trimStrings: ['无用文字'],
+        }, {
+            scriptName: '用户与角色都处理', findRegex: '/(开心|快乐)/g',
+            replaceString: '满足', placement: [1, 2], markdownOnly: true,
+            disabled: true,
+        }];
+        const variants = [
+            JSON.stringify({ extensions: { regex_scripts: source } }),
+            JSON.stringify({ regex_scripts: source }),
+            JSON.stringify(source),
+        ];
+        for (const data of variants) {
+            const result = parseStoryRegexImport(data);
+            expect(result.rejected).toBe(0);
+            expect(result.rules).toHaveLength(2);
+            const [aiOnly, both] = result.rules;
+            expect(aiOnly).toMatchObject({
+                name: '只处理AI输出', enabled: true, role: 'assistant', display: false,
+                history: true, flags: 'gi', source: { minDepth: 0, maxDepth: 2, substituteRegex: 0 },
+            });
+            expect(applyStoryRegex({ text: '正文<think>秘密</think>', role: 'assistant', depth: 1 },
+                result.rules, 'history').text).toBe('正文');
+            expect(applyStoryRegex({ text: '正文<think>秘密</think>', role: 'assistant', depth: 3 },
+                result.rules, 'history').text).toContain('<think>');
+            expect(both).toMatchObject({ enabled: false, role: 'both', display: true, history: false });
+        }
+        const single = parseStoryRegexImport(JSON.stringify({
+            scriptName: '单条', findRegex: '/abc/i', replaceString: '成功',
+        }));
+        expect(single.rules).toHaveLength(1);
+        expect(applyStoryRegex('ABC', single.rules, 'display').text).toBe('成功');
+    });
+
+    it('原版 placement 与 promptOnly/markdownOnly 的全部作用组合没有颠倒', () => {
+        const variants = [
+            { placement: [], markdownOnly: false, promptOnly: false, role: 'assistant', display: true, history: true },
+            { placement: [1], markdownOnly: false, promptOnly: true, role: 'user', display: false, history: true },
+            { placement: [1, 2], markdownOnly: true, promptOnly: false, role: 'both', display: true, history: false },
+            { placement: [1, 2], markdownOnly: true, promptOnly: true, role: 'both', display: true, history: true },
+        ] as const;
+        for (const [index, row] of variants.entries()) {
+            const converted = parseStoryRegexImport(JSON.stringify({
+                scriptName: '格式' + index, findRegex: '事件', replaceString: '处理',
+                placement: row.placement, markdownOnly: row.markdownOnly, promptOnly: row.promptOnly,
+            }));
+            const result = converted.rules[0];
+            expect(result).toMatchObject({ role: row.role, display: row.display, history: row.history });
+            expect(result.enabled).toBe(true);
+        }
+    });
+
+    it('原版花括号正则不被擅自改写，私聊限定不能误变全局', () => {
+        const rows = [{
+            name: '保留字面大括号', pattern: '字面{a,b}', replacement: '替换', flags: 'g',
+        }, {
+            name: '私聊单独生效', pattern: '秘密', replacement: '', scope: 'chat',
+            characterIds: [], scenes: ['chat'],
+        }];
+        const result = parseStoryRegexImport(JSON.stringify(rows));
+        expect(result.rules[0].pattern).toBe(rows[0].pattern);
+        expect(result.rules[1].enabled).toBe(false);
+        expect(result.warnings.join('')).toContain('绑定了糯叽机角色');
+    });
+
 });
