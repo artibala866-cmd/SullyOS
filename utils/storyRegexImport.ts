@@ -190,10 +190,12 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     // Earlier imports stored an empty array for enabled-but-empty keywords.
     // Semantically this equals "no keyword restriction" and should not duplicate
     // an existing template when the corrected importer is used again.
+    // Execution scopes are user choices, not part of the imported file's
+    // identity. Reimporting must not duplicate a rule after enabling both scenes.
     const key = ({ id: _id, enabled: _enabled, order: _order,
+        domain: _domain, targets: _targets,
         importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => JSON.stringify({
         ...rule,
-        domain: rule.domain || (rule.kind === 'template' ? 'online' : 'offline'),
         ...(rule.source && {
             source: {
                 ...rule.source,
@@ -203,6 +205,8 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
                 scenes: undefined,
                 renderMode: undefined,
                 category: undefined,
+                smartFilter: undefined,
+                protectWords: undefined,
                 originalScope: undefined,
                 originalCharacterIds: undefined,
                 triggerEnabled: undefined,
@@ -215,7 +219,9 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     let updated = 0;
     let duplicates = 0;
     for (const rule of imported) {
-        const next = { ...rule, presetId };
+        // Story preset bindings apply only to offline filters, never to
+        // HTML templates which are restricted to online chat.
+        const next = { ...rule, presetId: rule.kind === 'template' ? '' : presetId };
         const signature = key(next);
         if (keys.has(signature)) {
             // Old imports had no file folders. Attach the folder on reimport
