@@ -50,7 +50,11 @@ describe('真实酒馆五份预设的输出格式交叉审计', () => {
             '一封旧信放在桌面。','有人敲门','她应了一声','风吹动纸页','门外静下来','我们仍有故事','The story continues.']) {
             expect(safe.text).toContain(part);
         }
-        expect(safe.srcDoc).not.toContain('<script');
+        // Only the product-owned, nonce-locked height/touch bridge is present.
+        // Tavern-authored scripts and event handlers remain forbidden.
+        expect(safe.srcDoc).toContain('<script nonce="sully-story-template-runtime">');
+        expect(safe.srcDoc).not.toContain('allow-same-origin');
+        expect(safe.srcDoc).not.toContain('onerror=');
     });
     it('未识别或字段数不完整的写作间隙必须回退正文，不能删字', () => {
         expect(adaptTavernWritingInterlude('[Header|题目|Title][Content|不能丢]')).toBeUndefined();
