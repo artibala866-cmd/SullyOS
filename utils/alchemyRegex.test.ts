@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alchemyDomain, alchemyRulesFor, alchemyInstructions } from './alchemyRegex';
+import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory } from './alchemyRegex';
 import { applyStoryRegex, type StoryRegexRule } from './storyRegex';
 import { mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
 
@@ -32,6 +32,19 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(alchemyRulesFor(rules, 'online')).toEqual([onlineText]);
         expect(alchemyRulesFor(rules, 'offline')).toEqual([offlineGlobal]);
         expect(alchemyRulesFor(rules, 'offline', 'story-1')).toEqual([offlinePreset, offlineGlobal]);
+    });
+
+    it('auto-organizes the original two JSON file sets into readable small categories', () => {
+        const names = ['小法庭','豆包','弹幕','刮彩票','微信红包','番茄小剧场'];
+        expect(names.map(name => alchemySubcategory(rule({ name, kind: 'template' }))))
+            .toEqual(['法庭互动','聊天模拟','弹幕','互动礼物','互动礼物','小剧场']);
+        const other = ['WS8.3-核心指令','WS8.3-词汇级禁令',
+            'WS8.3-句式级禁令','WS8.3-环境描写禁令','WS8.3-人物细节禁令',
+            'WS8.3-言情八股禁令','WS8.3-弹性禁令'];
+        expect(other.map(name => alchemySubcategory(rule({ name }))))
+            .toEqual(['核心指令','词汇清理','句式清理','环境描写','人物细节','言情表达','表达与结尾']);
+        expect(alchemySubcategory(rule({ name: '自建美化', subcategory: '我自己的分类' })))
+            .toBe('我自己的分类');
     });
 
     it('only explicitly requested online cards inject format instructions in the existing API call', () => {
