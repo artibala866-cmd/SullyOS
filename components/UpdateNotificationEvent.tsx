@@ -506,44 +506,12 @@ const NetworkTransitNoticePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit 
             aria-labelledby="network-transit-notice-title"
         >
             <section className="relative flex max-h-full w-full max-w-[23rem] flex-col overflow-hidden rounded-[2rem] bg-[#f8fafc] text-slate-700 shadow-[0_24px_80px_rgba(15,23,42,0.4)] ring-1 ring-white/30">
-                <header className="shrink-0 bg-[linear-gradient(145deg,#334155,#475569)] px-6 pb-5 pt-6 text-white">
-                    <div className="mb-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-bold tracking-[0.16em] text-slate-200 ring-1 ring-white/15">
-                        例行维护 · 说明补充
-                    </div>
-                    <h2 id="network-transit-notice-title" className="text-[21px] font-black tracking-[-0.02em]">
-                        关于部分联网功能
-                    </h2>
-                    <p className="mt-2 text-[11px] leading-5 text-slate-300">
-                        这次只补充此前写得不够清楚的联网路径，功能和使用方式没有变化。
-                    </p>
+                <header className="shrink-0 bg-[linear-gradient(145deg,#334155,#475569)] px-6 py-5 text-white">
+                    <h2 id="network-transit-notice-title" className="text-[18px] font-bold">联网请求</h2>
                 </header>
-
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-6 py-5 text-[12px] leading-[1.75]">
-                    <p>
-                        例行排查中，我们发现部分功能对“请求会怎么走”的说明不够清楚。静态网页下，以下入口会在你实际启用或使用时经过网络 Worker：
-                    </p>
-                    <ul className="space-y-1.5 rounded-2xl bg-white px-3.5 py-3 text-[11px] leading-[1.65] ring-1 ring-slate-200/70">
-                        <li><b>聊天 / 实时感知：</b>Brave 联网搜索与新闻、Notion / 飞书日记、网页链接读取</li>
-                        <li><b>音乐 App：</b>网易云登录状态、搜索、歌单与播放相关请求</li>
-                        <li><b>小红书 Lite：</b>登录校验、搜索浏览、互动与发布</li>
-                        <li><b>语音 / 写歌：</b>Fish Audio 语音合成、Replicate / ACE-Step</li>
-                        <li><b>点单：</b>麦当劳与瑞幸 MCP</li>
-                        <li><b>云备份：</b>WebDAV；GitHub 的 Worker 中转路径当前默认关闭，仅在你手动开启后使用</li>
-                    </ul>
-                    <p>
-                        这些请求经过 Worker，只是为了替静态网页完成跨域请求并把结果返回。项目代码不会将请求内容写入数据库、对象存储或业务日志；转发完成后，项目侧没有可供回看或恢复的内容副本。Worker 源码公开可查。
-                    </p>
-                    <div className="rounded-2xl bg-sky-50 px-3.5 py-3 text-[11px] leading-[1.7] text-sky-900 ring-1 ring-sky-100">
-                        <p>
-                            这和你平时使用<b>联网搜索、第三方登录或在线音乐</b>时的接口请求相近：只有主动使用对应功能时，当次必要数据才会经过服务端，不会把 宝宝狗 的聊天记录或本地资料整体上传。
-                        </p>
-                        <p className="mt-1.5">
-                            如果你平时能够接受 API 中转站，可以把它作为参照：API 中转站能够接触完整的模型请求与聊天内容；这里的 Worker 只接触对应功能的当次请求，并在转发后不保留请求内容。
-                        </p>
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                        介意中转的话，可以关闭对应功能，或在设置中换成自己部署的 Worker。
-                    </p>
+                <div className="space-y-2 px-6 py-5 text-[12px] leading-5">
+                    <p>联网搜索、音乐、语音、写歌、点单、小红书等联网功能会在使用时通过 Worker 转发相关请求。</p>
+                    <p>可以在设置中更换 Worker。</p>
                 </div>
 
                 <footer className="grid shrink-0 grid-cols-[0.9fr_1.1fr] gap-2.5 border-t border-slate-200/70 bg-[#f8fafc] px-6 pb-6 pt-3">
@@ -590,13 +558,8 @@ const NavigationBallAnnouncement: React.FC<UpdatePopupProps> = ({ onDone, onExit
 };
 
 const UPDATE_QUEUE: { key: string; render: (props: UpdatePopupProps) => React.ReactNode }[] = [
-    { key: NAVIGATION_BALL_NOTICE_KEY, render: props => <NavigationBallAnnouncement {...props} /> },
-    { key: HOME_UPDATE_KEY, render: props => <HomeUpdateAnnouncement {...props} /> },
-    { key: SMALL_UPDATES_KEY, render: props => <SmallUpdatesPopup onDone={props.onDone} /> },
-    { key: HOLIDAY_NOTICE_KEY, render: props => <UserHolidayIntro {...props} /> },
-    { key: DECORATION_UPDATE_KEY, render: props => <DecorationUpdatePopup onClose={props.onExit}/> },
-    { key: NETWORK_TRANSIT_NOTICE_KEY_2026_08, render: (props) => <NetworkTransitNoticePopup {...props} /> },
-    { key: UPDATE_NOTIFICATION_KEY_2026_08_10, render: (props) => <Live2DUpdatePopup {...props} /> },
+    // 自用项目：不再轮流弹出功能发布报告或教程，只保留与联网数据有关的提示。
+    { key: NETWORK_TRANSIT_NOTICE_KEY_2026_08, render: props => <NetworkTransitNoticePopup {...props} /> },
 ];
 
 export const shouldShowUpdateNotification = (): boolean => UPDATE_QUEUE.some((entry) => !isUpdateSeen(entry.key));
