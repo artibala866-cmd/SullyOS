@@ -192,6 +192,10 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
             source: {
                 ...rule.source,
                 triggerKeywords: rule.source.triggerKeywords?.length ? rule.source.triggerKeywords : undefined,
+                // Descriptive metadata was added later; it does not change a
+                // rule's identity or warrant a second copy on reimport.
+                scenes: undefined,
+                renderMode: undefined,
             },
         }),
     });
