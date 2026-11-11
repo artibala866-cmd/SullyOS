@@ -386,7 +386,7 @@ try{
       const scoreShown=document.body.textContent.includes('1/2');
       const reviewShown=document.body.textContent.includes('下次多观察阴影边界。');
       const returnButton=[...document.querySelectorAll('button')].find(b=>
-        visible(b)&&b.textContent.trim()==='返回课堂');
+        visible(b)&&b.textContent.trim()==='返回练习册');
       if(!returnButton)throw Error('Review return button absent');
       returnButton.click();
       await wait(350);
