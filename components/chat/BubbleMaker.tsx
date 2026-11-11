@@ -1439,14 +1439,6 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                     {activeTab === 'css' && (
                         <div className="space-y-6 animate-fade-in h-full flex flex-col">
                             <div className="text-[10px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed space-y-2">
-                                <span className="font-bold block mb-1 text-slate-500">CSS 增强模式</span>
-                                可使用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-user</code>、<code className="bg-slate-200 px-1 rounded">.sully-bubble-ai</code> 定制气泡，使用 <code className="bg-slate-200 px-1 rounded">.sully-voice-bar</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-button</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-wave-segment</code> 单独定制语音条。
-                                <br/>连续消息可用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-group-last</code> 命中组末气泡；基础样式里的“尾巴出现位置”也会自动隐藏中间气泡的伪元素尾巴。
-                                <br/>支持使用 <code className="text-red-400">!important</code> 覆盖可视化编辑器的设置。
-                                <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2 text-[10px] text-indigo-700">
-                                    <div className="font-semibold">优先级说明：可视化参数 vs CSS 覆盖</div>
-                                    <div>1) 可视化滑杆/颜色面板先生成基础样式；2) 自定义 CSS 后应用；3) <code>!important</code> 仅对命中的属性强制生效，会压过同属性的可视化参数。</div>
-                                </div>
                                 <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
                                     <div>
                                         <div className={`text-[10px] font-semibold ${cssValidation.isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -1674,7 +1666,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                             return <button key={mode} type="button" onClick={() => updateStyle('tailMode', mode)} className={`rounded-xl border py-2 text-[10px] font-semibold transition ${selected ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 bg-white text-slate-500'}`}>{label}</button>;
                                         })}
                                     </div>
-                                    <p className="mt-1.5 text-[9px] leading-relaxed text-slate-400">适用于用 ::before / ::after 画出的 CSS 尾巴；“仅组末”就是 iMessage 那种连续消息只在最后一条保留尾巴。</p>
+                                    
                                 </div>
                             </div>
 
@@ -1714,7 +1706,7 @@ const ThemeMaker: React.FC<ThemeMakerProps> = ({embedded=false,initialTheme,onCl
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M7 4a3 3 0 0 1 6 0v6a3 3 0 1 1-6 0V4Z" /><path d="M5.5 9.643a.75.75 0 0 0-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.546A6.001 6.001 0 0 0 16 10v-.357a.75.75 0 0 0-1.5 0V10a4.5 4.5 0 0 1-9 0v-.357Z" /></svg>
                                     语音条样式
                                 </h3>
-                                <p className="mb-3 text-[9px] leading-relaxed text-slate-400">语音只出现在角色侧，因此这里始终写入角色气泡配置；在“用户气泡”页修改也会真实生效。需要改尺寸、圆角或布局，可到“自定义 CSS”使用 .sully-voice-bar。</p>
+                                
                                 <div className="sully-bubble-ai mb-4 rounded-2xl bg-slate-50 p-2">
                                     <button
                                         type="button"
