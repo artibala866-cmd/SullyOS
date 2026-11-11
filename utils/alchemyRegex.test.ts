@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory } from './alchemyRegex';
+import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory, alchemyRuleAppliesTo, alchemyRuleTargets, removeAlchemyRule, removeAlchemyFolderSection } from './alchemyRegex';
 import { applyStoryRegex, type StoryRegexRule } from './storyRegex';
 import { mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
 
@@ -45,6 +45,55 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
             .toEqual(['核心指令','词汇清理','句式清理','环境描写','人物细节','言情表达','表达与结尾']);
         expect(alchemySubcategory(rule({ name: '自建美化', subcategory: '我自己的分类' })))
             .toBe('我自己的分类');
+    });
+
+    it('enables text rules independently online, offline or in both, keeping legacy defaults', () => {
+        const both = rule({ id: 'both', name: '双方规则', domain: 'offline',
+            targets: ['online', 'offline'], instruction: '遵守格式' });
+        const online = rule({ id: 'only-online', name: '仅线上', domain: 'online', targets: ['online'] });
+        const offline = rule({ id: 'only-offline', name: '仅线下', domain: 'offline', targets: ['offline'] });
+        const oldOffline = rule({ id: 'old', name: '旧八股补丁' });
+        const disabled = rule({ id: 'off', name: '关闭', targets: ['online', 'offline'], enabled: false });
+        const html = rule({ id: 'beauty', name: '美化模板', kind: 'template', targets: ['offline'],
+            replacement: '<section>{{$1}}</section>' });
+        const all = [both, online, offline, oldOffline, disabled, html];
+        expect(alchemyRuleTargets(both)).toEqual(['online', 'offline']);
+        expect(alchemyRuleTargets(oldOffline)).toEqual(['offline']);
+        expect(alchemyRuleTargets(html)).toEqual(['online']);
+        expect(alchemyRuleAppliesTo(html, 'offline')).toBe(false);
+        expect(alchemyRulesFor(all, 'online').map(x => x.id)).toEqual(['both', 'only-online', 'beauty']);
+        expect(alchemyRulesFor(all, 'offline').map(x => x.id)).toEqual(['both', 'only-offline', 'old']);
+        expect(alchemyInstructions([both], 'online', {}, '晚上好')).toEqual(['遵守格式']);
+        expect(alchemyInstructions([both], 'offline', {}, '晚上好')).toEqual(['遵守格式']);
+    });
+
+    it('deletes by ID and limits a folder deletion to its visible category', () => {
+        const one = rule({ id: 'one', name: '同名规则', importGroup: '混合文件', targets: ['online', 'offline'] });
+        const two = rule({ id: 'two', name: '另一个过滤', importGroup: '混合文件' });
+        const card = rule({ id: 'card', name: '礼物卡', importGroup: '混合文件', kind: 'template' });
+        const elsewhere = rule({ id: 'elsewhere', name: '同名规则', importGroup: '其他文件' });
+        const all = [one, two, card, elsewhere];
+        expect(removeAlchemyRule(all, one.id).map(x => x.id)).toEqual(['two', 'card', 'elsewhere']);
+        expect(removeAlchemyFolderSection(all, '混合文件', 'rules', new Set(['one', 'two', 'card'])).map(x => x.id))
+            .toEqual(['card', 'elsewhere']);
+        expect(removeAlchemyFolderSection(all, '混合文件', 'beauty', new Set(['card'])).map(x => x.id))
+            .toEqual(['one', 'two', 'elsewhere']);
+        expect(removeAlchemyFolderSection(all, '混合文件', 'rules', new Set())).toEqual(all);
+    });
+
+    it('does not duplicate rules when reimported after selecting both online and offline', () => {
+        const original = rule({ name: '过滤标签', pattern: '<debug>(.*?)</debug>', domain: 'offline',
+            importGroup: '我的原文件' });
+        const modified = { ...original, targets: ['online', 'offline'] as Array<'online' | 'offline'>,
+            source: { smartFilter: false, protectWords: ['情绪'] }, enabled: false };
+        const imported = { ...original, id: 'new-import-id', domain: 'online' as const,
+            importGroup: '我的原文件' };
+        const merged = mergeStoryRegexImport([modified], [imported], '');
+        expect(merged.added).toBe(0);
+        expect(merged.duplicates).toBe(1);
+        expect(merged.rules[0].targets).toEqual(['online', 'offline']);
+        expect(merged.rules[0].enabled).toBe(false);
+        expect(merged.rules[0].source?.protectWords).toEqual(['情绪']);
     });
 
     it('only explicitly requested online cards inject format instructions in the existing API call', () => {
