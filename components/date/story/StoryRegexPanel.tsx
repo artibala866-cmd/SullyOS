@@ -6,7 +6,7 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
-import { alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
@@ -263,7 +263,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         onDeleteFolder={(folder, selected) => void save(current => {
                             const ids = new Set(selected.map(rule => rule.id));
                             return removeAlchemyFolderSection(current, folder, section, ids);
-                        })} />
+                        })}
+                        onSetFolderTargets={section === 'rules' ? (folder, selected, targets) => void save(current => {
+                            const ids = new Set(selected.map(rule => rule.id));
+                            return setAlchemyFolderTargets(current, folder, ids, targets);
+                        }) : undefined} />
                 </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
                         <input className={fieldClass} value={draft.name} onChange={event => patch({ name: event.target.value })} maxLength={80} />
