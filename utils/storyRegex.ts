@@ -143,7 +143,7 @@ export function readStoryRegexRules(raw: string | null): StoryRegexRule[] {
 }
 
 export function storyRegexApplies(rule: StoryRegexRule, stage: 'display' | 'history', input?: StoryRegexInput): boolean {
-    if (!rule.enabled || (stage === 'display' ? (!rule.display && (rule.kind !== 'template' || Boolean(rule.source))) : (rule.kind !== 'filter' || !rule.history))) return false;
+    if (!rule.enabled || (stage === 'display' ? !rule.display : (rule.kind !== 'filter' || !rule.history))) return false;
     if (!input) return true;
     const role = rule.role ?? 'assistant';
     if (role !== 'both' && role !== (input.role ?? 'assistant')) return false;
