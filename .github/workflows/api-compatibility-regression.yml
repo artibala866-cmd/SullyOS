@@ -1,0 +1,64 @@
+name: API request and response compatibility regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/api-compatibility-regression.yml'
+      - 'utils/safeApi.ts'
+      - 'utils/safeApi*.test.ts'
+      - 'utils/streamUpgrade.ts'
+      - 'utils/streamUpgrade.test.ts'
+      - 'utils/storyTheaterCompletionIntegrity.ts'
+      - 'utils/storyTheaterCompletionIntegrity.test.ts'
+      - 'utils/storyTheaterArchive.ts'
+      - 'utils/claudeProxyCompat.ts'
+      - 'utils/samplingParamCompat.ts'
+      - 'utils/apiConnectionPreflight.ts'
+      - 'utils/apiBillingRetry.wiring.test.ts'
+      - 'hooks/useChatAI.ts'
+      - 'context/OSContext.tsx'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: api-compatibility-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check API transport, parameters, billing, story archives and phone cancellation
+        run: |
+          pnpm exec vitest run \
+            utils/safeApi.stream.test.ts \
+            utils/safeApi.apiCallLog.test.ts \
+            utils/streamUpgrade.test.ts \
+            utils/storyTheaterCompletionIntegrity.test.ts \
+            utils/storyTheaterArchive.test.ts \
+            utils/samplingParamCompat.test.ts \
+            utils/apiConnectionPreflight.test.ts \
+            utils/apiBillingRetry.wiring.test.ts \
+            utils/claudeProxyCompat.test.ts \
+            utils/mcpRetryBillingSafety.test.ts \
+            utils/characterPhoneAiRequest.test.ts \
+            utils/storyMemoryApi.test.ts
+      - name: Check API-related TypeScript diagnostics
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/api-compatibility-tsc.log 2>&1 || true
+          grep -E '^(utils/(safeApi|streamUpgrade|storyTheaterCompletionIntegrity|storyTheaterArchive|samplingParamCompat|apiConnectionPreflight|claudeProxyCompat|characterPhoneAiRequest|storyMemoryApi)(\\.stream|\\.test|\\.apiCallLog)?\\.ts|hooks/useChatAI\\.ts|context/OSContext\\.tsx)[(]' /tmp/api-compatibility-tsc.log > /tmp/api-compatibility-target-errors.log || true
+          if [ -s /tmp/api-compatibility-target-errors.log ]; then
+            cat /tmp/api-compatibility-target-errors.log
+            exit 1
+          fi
+          echo 'API compatibility TypeScript diagnostics clean.'
