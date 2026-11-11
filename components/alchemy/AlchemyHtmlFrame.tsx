@@ -17,7 +17,8 @@ export default function AlchemyHtmlFrame({
                 event.data?.type !== 'sully-alchemy-template-height') return;
             const pixels = event.data.height;
             if (typeof pixels !== 'number' || !Number.isFinite(pixels)) return;
-            setHeight(Math.max(76, Math.min(1100, Math.ceil(pixels))));
+            // Keep full authored HTML visible; a fixed 1100px cap clipped tall cards.
+            setHeight(Math.max(76, Math.min(16000, Math.ceil(pixels))));
         };
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
