@@ -10,12 +10,12 @@ const initial: StoryRegexRule[] = [
  ...templateNames.map((name, i): StoryRegexRule => ({
   id:'beauty-'+i,name,enabled:true,presetId:'',kind:'template',domain:'online',pattern:'<tag>(.*?)</tag>',flags:'g',
   replacement:'<div>{{$1}}</div>',display:true,history:false,instruction:'',
-  importGroup:'糯叽叽 HTML 模板 6 则',subcategory:i>3?'红包与剧情':'互动卡片',
+  importGroup:'糯叽叽 HTML 模板 6 则',
  })),
  ...filterNames.map((name, i): StoryRegexRule => ({
   id:'rules-'+i,name,enabled:i!==5,presetId:'',kind:'filter',domain:'offline',pattern:'坏词',flags:'g',
   replacement:'',display:true,history:false,instruction:i===0?'角色指令':'',
-  importGroup:'7.5 八股正则补丁',subcategory:i===0?'核心指令':i<4?'词句清理':'叙事表达',
+  importGroup:'7.5 八股正则补丁',source:{category:'八股净化'},
  })),
 ];
 function Visual(){
