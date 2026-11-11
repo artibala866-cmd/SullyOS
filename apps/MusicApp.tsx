@@ -857,7 +857,7 @@ const MusicApp: React.FC = () => {
                 >{q}</button>
               ))}
             </div>
-            <div className="text-[10px] mt-1.5 leading-relaxed" style={{ color: C.muted }}>这是优先请求的音质档位，实际播放质量以音源服务返回为准；QQ 匿名来源可能无法报告码率。lossless / hires 可能需要会员授权。</div>
+            <div className="text-[10px] mt-1.5 leading-relaxed" style={{ color: C.muted }}>音质以音源为准，无损可能需会员。</div>
           </div>
           <div className="space-y-3 pt-1">
             <button
