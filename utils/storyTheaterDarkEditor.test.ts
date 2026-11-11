@@ -37,15 +37,11 @@ describe('见面剧情深色界面三处白块', () => {
         expect(rule).toContain('color: #f0f0f0 !important');
         expect(contrast('#424242', '#f0f0f0')).toBeGreaterThan(8);
     });
-    it('真实时间陪伴说明板在黑色界面使用深灰，所有说明文字保持清晰可读', () => {
-        expect(editor).toContain("story-memory-live-card mt-5 p-4");
-        expect(editor).toContain('内置真实性保护');
-        const panel = cssBlock('.story-theme.story-theme-dark .story-memory-live-card');
-        expect(panel).toContain('background-color: #303030 !important');
-        expect(panel).toContain('border-color: #494949 !important');
-        expect(cssBlock('.story-theme.story-theme-dark .story-memory-live-card .text-amber-700')).toContain('color: #c9c9c9 !important');
-        expect(cssBlock('.story-theme.story-theme-dark .story-memory-live-card .text-amber-800')).toContain('color: #efefef !important');
-        expect(contrast('#303030', '#c9c9c9')).toBeGreaterThan(7);
+    it('真实时间陪伴使用紧凑状态提示，不再撑起长篇说明卡', () => {
+        expect(editor).toContain("data-story-memory-summary='true'");
+        expect(editor).toContain('剧情将记为共同经历');
+        expect(editor).not.toContain("story-memory-live-card mt-5 p-4");
+        expect(editor).not.toContain('跟随真实时间：你的输入和角色回复');
     });
     it('只在深色剧情主题作用，浅色剧情和陪伴模式不覆盖', () => {
         for (const selector of [
