@@ -475,6 +475,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const readingBatchSize = Math.max(10, Math.min(100, Math.round(Number(entry.readingBatchSize) || 20)));
     const [loadedFloorCount, setLoadedFloorCount] = useState(readingBatchSize);
     const [totalFloorCount, setTotalFloorCount] = useState(0);
+    const [loadingOlder, setLoadingOlder] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const [historyLoaded, setHistoryLoaded] = useState(false);
     const [initialReadingDisplayed, setInitialReadingDisplayed] = useState(false);
@@ -515,6 +516,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const initialReadingPendingRef = useRef(true);
     const initialReadingGestureRef = useRef(false);
     const loadSequenceRef = useRef(0);
+    const loadingOlderRef = useRef(false);
     const olderAnchorRef = useRef<{ key: string; top: number } | null>(null);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -523,13 +525,20 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     // export request full snapshots separately only when they actually need one.
     const loadMessages = useCallback(async () => {
         const requestId = ++loadSequenceRef.current;
-        const { messages: rows, totalCount } = await DB.getRecentMessagesWithCount(
-            threadId, loadedFloorCount, message => message.metadata?.source === 'story_theater',
-        );
-        if (requestId !== loadSequenceRef.current) return;
-        setMessages(rows);
-        setTotalFloorCount(totalCount);
-        setHistoryLoaded(true);
+        try {
+            const { messages: rows, totalCount } = await DB.getRecentMessagesWithCount(
+                threadId, loadedFloorCount, message => message.metadata?.source === 'story_theater',
+            );
+            if (requestId !== loadSequenceRef.current) return;
+            setMessages(rows);
+            setTotalFloorCount(totalCount);
+            setHistoryLoaded(true);
+        } finally {
+            if (requestId === loadSequenceRef.current) {
+                loadingOlderRef.current = false;
+                setLoadingOlder(false);
+            }
+        }
     }, [threadId, loadedFloorCount]);
 
     useEffect(() => {
@@ -556,6 +565,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
         olderAnchorRef.current = null;
+        loadingOlderRef.current = false;
+        setLoadingOlder(false);
         setLoadedFloorCount(readingBatchSize);
         setTotalFloorCount(0);
         setMessages([]);
@@ -745,7 +756,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [updateVisibleFloor]);
 
     const loadOlderFloors = useCallback(() => {
-        if (messages.length >= totalFloorCount) return;
+        if (loadingOlderRef.current || messages.length >= totalFloorCount) return;
+        loadingOlderRef.current = true;
+        setLoadingOlder(true);
         const viewport = readingScrollRef.current;
         const anchor = viewport?.querySelector<HTMLElement>('[data-story-anchor]');
         olderAnchorRef.current = anchor?.dataset.storyAnchor
@@ -1504,9 +1517,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </section> : entry.writesToCharacterMemory && <div className='mb-8 py-3 border-y border-amber-200 text-center text-[11px] text-amber-700'>和朋友们已经分别相处了一段时间……</div>}
 
                 {messages.length < totalFloorCount && <div className='mb-6 flex justify-center'>
-                    <button type='button' data-story-load-more='true' onClick={loadOlderFloors}
+                    <button type='button' data-story-load-more='true' onClick={loadOlderFloors} disabled={loadingOlder}
                         className='rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600'>
-                        加载更早 {Math.min(readingBatchSize, totalFloorCount - messages.length)} 层
+                        {loadingOlder ? '加载中…' : `加载更早 ${Math.min(readingBatchSize, totalFloorCount - messages.length)} 层`}
                     </button>
                 </div>}
 
@@ -1514,7 +1527,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     {messages.map((message, floorIndex) => {
                         const archived = mirrorArchived(message, entry);
                         const floorHeading = <div className='mb-5 flex items-baseline gap-2.5 text-[10px] tracking-[.08em] text-slate-400'>
-                            <span className='font-semibold tabular-nums text-slate-500'>{String(floorIndex + 1).padStart(2, '0')}</span>
+                            <span className='font-semibold tabular-nums text-slate-500'>{String(floorIndexOffset + floorIndex + 1).padStart(2, '0')}</span>
                             <span aria-hidden='true' className='text-slate-300'>/</span>
                             <span>{message.role === 'user' ? '你的推进' : '剧场正文'}</span>
                         </div>;
