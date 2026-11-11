@@ -83,7 +83,7 @@ export function expandStoryRegexShorthand(pattern: string): string {
         if (end < 0) { output += character; continue; }
         const options = pattern.slice(index + 1, end).split(',').map(item => item.trim());
         if (options.length < 2 || options.some(item => !item || /[{}]/.test(item))
-            || options.every(item => /^\\d+$/.test(item))) {
+            || options.every(item => /^\d+$/.test(item))) {
             output += character; continue;
         }
         output += '(?:' + options.join('|') + ')';
