@@ -21,6 +21,9 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect((group.match(/loadAlchemyInstructions\('online'/g) || []).length).toBe(2);
         expect(ai).toContain("loadAlchemyInstructions('online'");
         expect(read('components/chat/MessageItem.tsx')).toContain('AlchemyMessageBody');
+        expect(read('components/alchemy/AlchemyMessageBody.tsx')).toContain('AlchemyHtmlFrame');
+        expect(read('components/alchemy/AlchemyHtmlFrame.tsx')).toContain('sandbox="allow-scripts"');
+        expect(read('components/alchemy/AlchemyHtmlFrame.tsx')).toContain('buildAlchemySandboxDocument');
         expect(read('hooks/useAlchemyRegex.ts')).toContain('runStoryRegex(');
         expect(read('hooks/useAlchemyRegex.ts')).toContain("message.role === 'user'");
         expect(read('hooks/useAlchemyRegex.ts')).toContain("role: message.role as 'assistant' | 'user'");
@@ -40,6 +43,9 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(screen).toContain("domain='offline'");
         expect(screen).toContain('alchemyDisplay.get(msg.id)?.text');
         expect(screen).toContain('spriteAlchemy.get(-987654321)?.text');
+        expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting')");
+        expect(read('utils/alchemyMeeting.ts')).toContain('loadMeetingAlchemyRules()');
+        expect(read('utils/alchemyRegex.ts')).toContain('alchemyRulesForMeeting');
         expect(screen).toContain('const galShownText = currentText');
     });
 
@@ -66,6 +72,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(panel).toContain("setActiveSection(imported.rules.some(rule => rule.kind === 'template') ? 'beauty' : 'rules')");
         expect(panel).toContain("isTemplate ? 'HTML 代码' : '替换内容'");
         expect(panel).toContain("id='alchemy-source'");
+        expect(panel).toContain("!isTemplate && <details");
         expect(panel).toContain("aria-label='规则生效范围'");
         expect(panel).toContain("onDeleteFolder={(folder, selected)");
         expect(panel).toContain("onDelete={rule");
