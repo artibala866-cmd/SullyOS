@@ -19,7 +19,7 @@
  * 重发付费生成请求：中转可能已经把第一份交给上游，静默重发会造成重复扣费。
  */
 
-import { isSseResponseText, parseSseToCompletion } from './safeApi';
+import { isSseResponseText, parseSseToCompletion, readRecoverableBody } from './safeApi';
 
 const API_CONFIG_KEY = 'os_api_config';
 
@@ -47,7 +47,13 @@ export function upgradeChatBodyToStream(bodyStr: string): string | null {
     if (parsed.stream === true) return null;  // 调用方自己开了流式：不碰
     parsed.stream = true;
     // include_usage：让末尾 chunk 带 usage，token 计费徽标 / API 调用记录不缺数
-    parsed.stream_options = { include_usage: true };
+    // The transparent transport adapter must not erase caller-specific
+    // OpenAI-compatible stream options while requesting usage accounting.
+    parsed.stream_options = {
+        ...(parsed.stream_options && typeof parsed.stream_options === 'object' && !Array.isArray(parsed.stream_options)
+            ? parsed.stream_options : {}),
+        include_usage: true,
+    };
     return JSON.stringify(parsed);
 }
 
@@ -58,10 +64,18 @@ export function upgradeChatBodyToStream(bodyStr: string): string | null {
  * 只在响应 ok 时调用；错误响应由调用方原样透传给业务层的错误处理。
  */
 export async function assembleUpgradedResponse(response: Response): Promise<Response> {
-    const text = await response.text();
+    // SSE providers sometimes send finish_reason/[DONE] without closing HTTP.
+    // Reuse the story reader's terminal-aware drain (with a short trailing-usage
+    // grace period), rather than waiting forever on Response.text().
+    const { text, readError } = response.body
+        ? await readRecoverableBody(response.body)
+        : { text: await response.text(), readError: undefined };
     if (isSseResponseText(text, response.headers.get('content-type'))) {
         const assembled = parseSseToCompletion(text);
         if (assembled) {
+            // Preserve transport evidence for readers which can retain
+            // incomplete prose; never silently turn a broken SSE into success.
+            if (readError) assembled.__sullyBodyReadError = readError;
             // Some compatible providers end with [DONE] but omit a finish_reason.
             // Either a terminal reason or an explicit DONE frame is evidence of
             // completion; having only content chunks is NOT.
@@ -79,6 +93,9 @@ export async function assembleUpgradedResponse(response: Response): Promise<Resp
         }
         // 拼不出任何 chunk：按原文透传，让调用方的解析器报出带 preview 的错误
     }
+    // Raw/non-SSE interrupted reads used to reject via response.text();
+    // keep that failure behavior rather than blessing malformed JSON.
+    if (readError) throw new Error(`HTTP ${response.status} 响应读取中断（${readError}）`);
     return new Response(text, {
         status: response.status,
         statusText: response.statusText,
