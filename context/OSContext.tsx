@@ -3538,9 +3538,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (stored) await DB.saveAsset(`icon_${appId}`, stored);
       else await DB.deleteAsset(`icon_${appId}`);
   };
-  const addToast = (message: string, type: Toast['type'] = 'info') => {
+  // Stable across the global clock tick: dependent story effects must not
+  // re-fetch IndexedDB history every second.
+  const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
       toastSequencerRef.current?.enqueue(message, type);
-  };
+  }, []);
   const showError = (title: string, details: string) => {
       setErrorDialog({ title, details });
       // showError 是分发型入口，title 由调用方传。这里写显式白名单：

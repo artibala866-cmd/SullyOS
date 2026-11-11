@@ -247,6 +247,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     characterMemoryDates: {},
     carryCharacterMemory: false,
     characterContextLimits: {},
+    readingBatchSize: 20,
     archiveAfter: 40,
     archiveKeepRecent: 5,
     archiveStrategy: 'summary',
@@ -282,6 +283,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         characterMemoryDates: entry.characterMemoryDates || {},
         carryCharacterMemory: entry.writesToCharacterMemory ? true : entry.carryCharacterMemory !== false,
         characterContextLimits: entry.characterContextLimits || {},
+        readingBatchSize: Math.round(clampNumber(entry.readingBatchSize, 10, 100, 20)),
         archiveAfter,
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
@@ -308,6 +310,24 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
 /** The range stored on the story owns the archive; orphaned floor flags are legacy metadata. */
 export const storyArchiveAtFloor = (archives: StoryTheaterArchive[], messageId: number) =>
     archives.find(box => box.fromMessageId <= messageId && messageId <= box.toMessageId);
+
+/** Old original prose stays archived. Only a bounded set of recent event boxes
+ * is sent automatically; earlier boxes remain available for explicit review
+ * and the independent vector-recall pipeline. */
+export const selectStoryArchiveContext = (
+    archives: StoryTheaterArchive[], beforeId: number, budget = 6000,
+): StoryTheaterArchive[] => {
+    const eligible = archives.filter(box => box.toMessageId < beforeId && !!box.summary?.trim())
+        .sort((a, b) => b.toMessageId - a.toMessageId);
+    const selected: StoryTheaterArchive[] = [];
+    let used = 0;
+    for (const box of eligible) {
+        if (selected.length >= 8 || (selected.length > 0 && used + box.summary.length > budget)) break;
+        selected.push(box);
+        used += box.summary.length;
+    }
+    return selected.reverse();
+};
 
 /**
  * 达到水位线后只归档最旧部分，并至少保留最近若干楼。

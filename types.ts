@@ -2271,6 +2271,8 @@ export interface StoryTheaterEntry {
     carryCharacterMemory: boolean;
     /** 携带记忆时，每位演员附带的最近原文条数，默认 100。 */
     characterContextLimits: Record<string, number>;
+    /** 本剧情每次读取的楼层数量；与模型的上下文范围独立。 */
+    readingBatchSize?: number;
     /** 独立剧场累计多少条未归档正文后触发归档。 */
     archiveAfter: number;
     /** 归档时至少留在会话里的最近楼层数；旧数据默认 5。 */
