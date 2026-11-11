@@ -1228,10 +1228,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           </section>
           </PhoneSettingsGroup>}
           {showPhoneSettings('advanced','清除 管理 删除 数据 清理 备忘录 钱包 账号 浏览')&&<CharacterPhoneClearManager characterId={characterId} disabled={busy||sharedWechatRefreshing||npcMomentLoading}/>}
-          <p className="px-2 text-xs leading-5 text-[#888]">
-            默认省额度。自定义仅调整共享 API 预算；微信、浏览器和个人资料仍有独立冷却，避免空转刷请求。档位到时间不会自动触发角色行为；仅在有已保存的经历或未回复的 NPC 消息、且日程允许时才考虑调用。不会在网页关闭后持续请求。
-            手动刷新和显式点击的生成按钮仍可使用聊天 API。主动消息 2.0 使用原来独立的机制，不受这里的预算影响。
-          </p>
+
         </div>}
       </main>
       {screen === 'thread' && active && !isPrivateThread && !isWechatPayThread && <form className="flex shrink-0 items-center gap-2 border-t border-[#ddd] bg-[#f8f8f8] px-3 py-3" onSubmit={e=>{e.preventDefault();const guidance=chatComposer;setChatComposer('');void generate(active.contactId||active.name,guidance);}}><input aria-label="聊天续写方向" placeholder="输入聊天方向（可留空）" value={chatComposer} onChange={e=>setChatComposer(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2.5 text-sm outline-none"/><button type="submit" disabled={busy} className="shrink-0 rounded-lg bg-[#07b75b] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busy?'续写中…':'发送'}</button></form>}
