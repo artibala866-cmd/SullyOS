@@ -3098,7 +3098,7 @@ ${sentencePlan}`;
       <div className="max-w-[20rem]">
         <span className="mx-auto mb-4 block h-9 w-9 animate-spin rounded-full border-2 border-white/15 border-t-neutral-300" />
         <div className="text-sm leading-relaxed text-white/85">{avatarImportStatus}</div>
-        <div className="mt-3 text-[10px] leading-relaxed text-white/40">包含 8K 贴图的模型首次导入可能需要 10–30 秒。请保持当前页面打开，不要重复点击按钮；完成后会自动进入动作权限页面。</div>
+        
       </div>
     </div>
   ) : null;
@@ -3348,7 +3348,7 @@ ${sentencePlan}`;
                     <FolderOpen size={12} weight="bold" /> L2D 文件夹
                   </button>
                 </div>
-                <p className="px-1 text-[9px] leading-relaxed text-white/30">L2D 文件夹：选择包含 *.model3.json 的整个文件夹；不要只选择 model3.json。ZIP：把这个模型文件夹整体压缩后选择 ZIP。</p>
+                
                 {selectedChar?.videoAvatar?.format === 'live2d' && (
                   <details className="group border-t border-white/[0.07] pt-2">
                     <summary className="flex cursor-pointer list-none items-center justify-between px-1 py-1 text-[10px] text-white/35">
