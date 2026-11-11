@@ -36,6 +36,11 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         const date = read('apps/DateApp.tsx');
         const screen = read('components/date/DateSession.tsx');
         expect(story).toContain("alchemyRulesFor(regexRules, 'offline', preset.id)");
+        expect(story).not.toContain("alchemyRuleAppliesTo(rule, 'offline')");
+        expect(story).toContain('const regexSources = useMemo(');
+        expect(story).toContain("runStoryRegex(batch.map(([, input]) => input), activeRegexRules, 'display'");
+        expect(story).toContain("runStoryRegex(floors.map(({ input }) => input), activeRegexRules, 'history'");
+        expect(read('components/date/story/StoryTheater.tsx')).toContain('window.addEventListener(ALCHEMY_CHANGED, refreshRules)');
         expect(date).toContain('applyMeetingAlchemyRequest(messages, modelText');
         expect(date).toContain('applyMeetingAlchemyRequest(messages, lastUserMsg.content');
         expect(date).toContain("applyMeetingAlchemyRequest(messages, ''");
@@ -46,6 +51,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting')");
         expect(read('utils/alchemyMeeting.ts')).toContain('loadMeetingAlchemyRules()');
         expect(read('utils/alchemyRegex.ts')).toContain('alchemyRulesForMeeting');
+        expect(read('utils/alchemyRegex.ts')).toContain("alchemyOfflineScenes(rule).includes('meeting')");
         expect(screen).toContain('const galShownText = currentText');
     });
 
