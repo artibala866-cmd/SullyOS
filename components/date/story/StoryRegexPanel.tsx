@@ -255,7 +255,17 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             const next = { ...item, enabled: !item.enabled };
                             if (next.enabled) validateStoryRegexRule(next);
                             return next;
-                        }))} />
+                        }))}
+                        onDelete={rule => void save(current => {
+                            if (!current.some(item => item.id === rule.id)) throw new Error('此规则已被删除');
+                            return current.filter(item => item.id !== rule.id);
+                        })}
+                        onDeleteFolder={(folder, selected) => void save(current => {
+                            const ids = new Set(selected.map(rule => rule.id));
+                            return current.filter(item => !(ids.has(item.id)
+                                && (item.importGroup || '旧版规则') === folder
+                                && alchemyRuleSection(item) === section));
+                        })} />
                 </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
                     <label className='block space-y-1 text-xs font-semibold'>规则名称
                         <input className={fieldClass} value={draft.name} onChange={event => patch({ name: event.target.value })} maxLength={80} />
@@ -270,19 +280,29 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 onChange={event => patch({ subcategory: event.target.value })} placeholder='未分类' />
                         </label>
                     </div>
-                    <label className='block text-xs font-semibold'>生效区域
-                        <select className={fieldClass} value={draft.domain || (draft.kind === 'template' ? 'online' : 'offline')}
-                            onChange={event => patch({ domain: event.target.value as AlchemyDomain, presetId: '' })}>
-                            <option value='online'>美化类 · 私聊 / 群聊</option>
-                            {draft.kind !== 'template' && <option value='offline'>规则类 · 剧情 / 见面</option>}
-                        </select>
-                    </label>
-                    {draft.kind === 'filter' && (draft.domain || domain) === 'offline' && <label className='flex items-center gap-2 text-xs'>
+                    {isTemplate ? <p className='text-xs font-semibold text-slate-600'>适用：私聊 / 群聊</p> :
+                        <div className='space-y-2 text-xs' role='group' aria-label='规则生效范围'>
+                            <p className='font-semibold'>规则生效范围（可两边同时开启）</p>
+                            {(['online', 'offline'] as const).map(target => {
+                                const selected = alchemyRuleTargets(draft);
+                                return <label key={target} className='flex items-center gap-2'>
+                                    <input type='checkbox' checked={selected.includes(target)}
+                                        disabled={selected.length === 1 && selected.includes(target)}
+                                        onChange={event => patch({
+                                            targets: event.target.checked
+                                                ? [...selected, target]
+                                                : selected.filter(value => value !== target),
+                                        })} />
+                                    {target === 'online' ? '线上 · 私聊 / 群聊' : '线下 · 剧情 / 见面'}
+                                </label>;
+                            })}
+                        </div>}
+                    {draft.kind === 'filter' && <label className='flex items-center gap-2 text-xs'>
                         <input type='checkbox' checked={draft.source?.smartFilter !== false}
                             onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })} />
                         保护易误删的短词
                     </label>}
-                    {draft.kind === 'filter' && (draft.domain || domain) === 'offline' &&
+                    {draft.kind === 'filter' &&
                         <label className='block text-xs font-semibold'>保留词
                             <input className={fieldClass} value={(draft.source?.protectWords || []).join('，')}
                                 onChange={event => patch({ source: { ...draft.source,
@@ -290,16 +310,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 } })} placeholder='情绪，草莓' />
                         </label>}
                     <div className='grid grid-cols-2 gap-3'>
-                        <label className='min-w-0 space-y-1 text-xs font-semibold'>用途
-                            <select className={fieldClass} aria-label='用途' value={draft.kind} onChange={event => {
-                                const kind = event.target.value as StoryRegexRule['kind'];
-                                setPreviewStage('display');
-                                patch(kind === 'template' ? { kind, domain: 'online', display: true, presetId: '' } : { kind });
-                            }}>
-                                <option value='filter'>文字过滤</option><option value='template'>HTML 美化</option>
-                            </select>
-                        </label>
-                        {domain === 'offline' && <label className='min-w-0 space-y-1 text-xs font-semibold'>适用预设
+                        <div className='min-w-0 space-y-1 text-xs font-semibold'>
+                            <span className='block'>类型</span>
+                            <div className={fieldClass}>{isTemplate ? 'HTML 美化' : '规则过滤'}</div>
+                        </div>
+                        {!isTemplate && alchemyRuleTargets(draft).includes('offline') && presets.length > 0 && <label className='min-w-0 space-y-1 text-xs font-semibold'>适用预设
                             <select className={fieldClass} aria-label='适用预设' value={draft.presetId}
                                 onChange={event => patch({ presetId: event.target.value })}>{scopeOptions(draft.presetId)}</select>
                         </label>}
