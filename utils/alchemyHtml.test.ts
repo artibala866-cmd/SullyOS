@@ -30,7 +30,7 @@ describe('Native Nuoji HTML templates: actual browser document, not a preview sh
         const source = '<div><input type="checkbox" class="wx-hb-chk">'
             + '<label class="wx-hb-bubble" onclick="this.previousElementSibling.checked=true">打开红包</label>'
             + '<div><canvas width="240" height="100"></canvas>'
-            + '<img src="x" onerror="function init(){wrap.querySelector(\\'canvas\\').getContext(\\'2d\\')}"></div></div>';
+            + '<img src="x" onerror="function init(){wrap.querySelector(\'canvas\').getContext(\'2d\')}"></div></div>';
         const frame = buildAlchemySandboxDocument(source);
         expect(frame.srcDoc).toContain('for="alchemy-toggle-1"');
         expect(frame.srcDoc).toContain('id="alchemy-toggle-1"');
@@ -44,7 +44,7 @@ describe('Native Nuoji HTML templates: actual browser document, not a preview sh
     it('keeps imported script, navigation and network isolated from the host app', () => {
         const source = '<div class="main">原始卡片</div>'
             + '<script>window.attack=true</script><iframe src="https://example.invalid/"></iframe>'
-            + '<img src="https://example.invalid/track.png" onerror="fetch(\\'https://example.invalid/\\')">';
+            + '<img src="https://example.invalid/track.png" onerror="fetch(\'https://example.invalid/\')">';
         const frame = buildAlchemySandboxDocument(source);
         expect(frame.srcDoc).toContain('原始卡片');
         expect(frame.srcDoc).not.toContain('window.attack');
