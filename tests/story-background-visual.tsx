@@ -29,6 +29,10 @@ globalThis.fetch = async (url, options) => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 };
 DB.getMessagesByCharId = async (charId: string) => charId === thread ? messages.slice() : [];
+DB.getRecentMessagesWithCount = async (charId: string, limit: number, accept?: (message: Message) => boolean) =>
+    charId === thread
+        ? { messages: messages.filter(message => !accept || accept(message)).slice(-limit), totalCount: messages.length }
+        : { messages: [], totalCount: 0 };
 DB.saveStoryTheaterTurn = async (central: Omit<Message, 'id'>) => {
     const row = { ...central, id: ++latestId } as Message;
     messages.push(row);
