@@ -212,8 +212,8 @@ function replacementFor(rule: StoryRegexRule): string {
 export function isProseDeletionPattern(pattern: string): boolean {
     const source = pattern.trim();
     if (!source) return false;
-    if (/<[!/a-zA-Z]|<\\\/?|\\x3c|\\u003c|&lt;/i.test(source)) return false;
-    if (/^\^|\$$|\(\?[:=!<]/.test(source)) return false;
+    if (/<(?:\/|[a-zA-Z!?])|\\x3c|\\u003c|&lt;/i.test(source)) return false;
+    if (/^\^|\$|\(\?[=!<]/.test(source)) return false;
     return true;
 }
 
