@@ -6,13 +6,16 @@ const themeSource = readFileSync(new URL('../components/date/story/StoryTheaterT
 const visualSource = readFileSync(new URL('../tests/story-reading-scroll-visual.tsx', import.meta.url), 'utf8');
 
 describe('见面剧情连续楼层阅读', () => {
-    it('不再按十条分页，保留每条消息原序与楼层定位', () => {
+    it('按剧情设置只从数据库读取最近一批，并保留全部历史的真实楼层编号', () => {
+        expect(sessionSource).toContain('DB.getRecentMessagesWithCount(');
+        expect(sessionSource).toContain('threadId, loadedFloorCount');
+        expect(sessionSource).toContain('setTotalFloorCount(totalCount)');
+        expect(sessionSource).toContain('setLoadedFloorCount(count => Math.min(totalFloorCount, count + readingBatchSize))');
+        expect(sessionSource).toContain("data-story-load-more='true'");
+        expect(sessionSource).toContain('data-story-floor={floorIndexOffset + floorIndex + 1}');
+        expect(sessionSource).toContain('data-story-anchor={groupAnchor}');
+        expect(sessionSource).toContain('olderAnchorRef.current');
         expect(sessionSource).not.toContain('StoryPagination');
-        expect(sessionSource).not.toContain('STORY_PAGE_SIZE');
-        expect(sessionSource).not.toContain('pageMessages.map');
-        expect(sessionSource).toContain('messages.map((message, floorIndex)');
-        expect(sessionSource).toContain('data-story-floor={floorIndex + 1}');
-        expect(sessionSource).toContain('第 {visibleFloor || 1}/{messages.length} 楼');
     });
 
     it('滚动时更新楼数，阅读旧楼层时不被生成或编辑动作拉回底部', () => {
@@ -66,9 +69,9 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('= React.memo(');
         expect(sessionSource).toContain('affinityInputsByMessageId.get(message.id)');
         expect(sessionSource).toContain('onChoose={setInput}');
-        // No duplicate, staggered rendering of only the newest floors: every
-        // saved floor remains in DOM when the initial display is finally ready.
+        // The mounted window is stable; older pages are only added on request.
         expect(sessionSource).toContain('messages.map((message, floorIndex)');
+        expect(sessionSource).toContain('const readingContentReady = initialReadingDisplayed');
     });
 
     it('旧楼层正文不订阅每秒变化的 OSContext，正则宏刷新时不清空已绘制的楼层', () => {
@@ -92,8 +95,8 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain("aria-label='本剧情快速预设'");
         expect(sessionSource).not.toContain('pointer-events-none absolute inset-x-0 z-10');
         expect(sessionSource).toContain("className='shrink-0 text-right leading-tight'");
-        expect(sessionSource).toContain("aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${messages.length} 楼`}");
-        expect(sessionSource.indexOf('第 {visibleFloor || 1}/{messages.length} 楼'))
+        expect(sessionSource).toContain("aria-label={`当前第 ${visibleFloor || 1} 楼，共 ${totalFloorCount} 楼`}");
+        expect(sessionSource.indexOf('第 {visibleFloor || 1}/{totalFloorCount} 楼'))
             .toBeLessThan(sessionSource.indexOf('<main ref={readingScrollRef}'));
         expect(sessionSource).toContain("className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'");
         expect(visualSource).toContain("focus === 'stability'");
@@ -102,8 +105,11 @@ describe('见面剧情连续楼层阅读', () => {
 
     it('保留楼层长按、归档展开、最近一轮重写与剧情正文组件', () => {
         expect(sessionSource).toContain('pressHandlersFor(message)');
-        expect(sessionSource).toContain('toggleAllArchives');
+        expect(sessionSource).not.toContain('toggleAllArchives');
         expect(sessionSource).toContain('onToggle={event => setArchiveExpanded');
+        expect(sessionSource).toContain('archivedRows.map((row, index) =>');
+        expect(sessionSource).toContain('isExpanded && <div');
+        expect(sessionSource).not.toContain('if (!box) return mirrorArchived(message, promptEntry)');
         expect(sessionSource).toContain('<StoryOutputBody reading={storyReadingActive} content={message.content}');
         expect(sessionSource).toContain('onClick={() => void send(message)}');
     });
