@@ -1,4 +1,4 @@
-import { storyRegexApplies, type StoryRegexResult, type StoryRegexRule } from './storyRegex';
+import { storyRegexApplies, type StoryRegexContext, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from './storyRegex';
 
 let worker: Worker | undefined;
 let pending: Promise<unknown> = Promise.resolve();
@@ -6,11 +6,12 @@ let pending: Promise<unknown> = Promise.resolve();
 // A user's regex can take exponential time. Run it off the UI thread and
 // terminate that worker if it stalls, including when running a test sample.
 export function runStoryRegex(
-    texts: string[], rules: StoryRegexRule[], stage: 'display' | 'history', signal?: AbortSignal,
+    texts: (string | StoryRegexInput)[], rules: StoryRegexRule[], stage: 'display' | 'history',
+    signal?: AbortSignal, context: StoryRegexContext = {},
 ): Promise<StoryRegexResult[]> {
     const applicable = rules.filter(rule => storyRegexApplies(rule, stage));
     if (!applicable.length || !texts.length) {
-        return Promise.resolve(texts.map(text => ({ text, cards: [], matches: 0 })));
+        return Promise.resolve(texts.map(value => ({ text: typeof value === 'string' ? value : value.text, cards: [], matches: 0 })));
     }
     const job = pending.then(() => new Promise<StoryRegexResult[]>((resolve, reject) => {
         if (signal?.aborted) { reject(signal.reason); return; }
@@ -36,7 +37,11 @@ export function runStoryRegex(
             if (data.error) reject(new Error(data.error));
             else resolve(data.results);
         };
-        active.postMessage({ texts, rules: applicable, stage });
+        try {
+            active.postMessage({ texts, rules: applicable, stage, context });
+        } catch (error) {
+            fail(error);
+        }
     }));
     pending = job.catch(() => {});
     return job;

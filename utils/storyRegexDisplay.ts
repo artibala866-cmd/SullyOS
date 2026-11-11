@@ -3,6 +3,13 @@ import type { StoryRegexResult } from './storyRegex';
 
 export type StoryRegexDisplayBlock = StoryDisplayBlock & { regexTemplate?: true };
 
+export function splitStoryRegexOutput(result: StoryRegexResult) {
+    if (!result.cards.length) return [result.text];
+    const cards = new Map(result.cards.map(card => [card.token, card]));
+    const tokens = new RegExp('(' + result.cards.map(card => card.token).join('|') + ')', 'g');
+    return result.text.split(tokens).map(part => cards.get(part) ?? part);
+}
+
 export function parseStoryRegexDisplay(result: StoryRegexResult, fromTavern: boolean): StoryRegexDisplayBlock[] {
     const blocks = parseStoryDisplayBlocks(result.text, fromTavern);
     if (!result.cards.length) return blocks;

@@ -21,6 +21,10 @@ const SAFE_CSS_PROPERTIES = new Set(
     'color background background-color background-image background-position background-size background-repeat opacity font font-family font-size font-weight font-style line-height letter-spacing text-align text-decoration text-transform text-shadow white-space word-break overflow-wrap display flex flex-direction flex-wrap align-items align-content justify-content gap row-gap column-gap grid grid-template-columns grid-template-rows grid-column grid-row width min-width max-width height min-height max-height padding padding-top padding-right padding-bottom padding-left margin margin-top margin-right margin-bottom margin-left border border-width border-style border-color border-radius border-top border-bottom border-left border-right border-collapse box-shadow vertical-align list-style list-style-type list-style-position overflow overflow-x overflow-y object-fit'.split(' '),
 );
 
+const TEMPLATE_CSS_PROPERTIES = new Set(
+    'position inset inset-block inset-inline top right bottom left z-index aspect-ratio box-sizing transform transform-origin flex-grow flex-shrink flex-basis grid-auto-flow grid-auto-rows grid-auto-columns align-self justify-self place-items place-content border-top-left-radius border-top-right-radius border-bottom-left-radius border-bottom-right-radius object-position filter backdrop-filter'.split(' '),
+);
+
 const escapeHtml = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -28,7 +32,7 @@ const safeCssValue = (value: string): boolean =>
     value.length <= 350
     && !/url\s*\(|@|expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding|\\|[<>]|[\u0000-\u0008]/i.test(value);
 
-const cleanDeclarations = (value: string): string => value.split(';')
+const cleanDeclarations = (value: string, template: boolean): string => value.split(';')
     .map(part => {
         const index = part.indexOf(':');
         if (index < 1) return '';
@@ -37,35 +41,43 @@ const cleanDeclarations = (value: string): string => value.split(';')
         // Preserve readable text even when imported styles try to hide it.
         if (['display', 'visibility', 'opacity', 'width', 'height', 'max-height', 'font-size', 'line-height']
             .includes(prop) && /^(?:none|hidden|collapse|transparent|0(?:px|em|rem|%)?)$/i.test(raw)) return '';
-        return SAFE_CSS_PROPERTIES.has(prop) && safeCssValue(raw) ? prop + ':' + raw : '';
+        const allowed = SAFE_CSS_PROPERTIES.has(prop) || (template && (TEMPLATE_CSS_PROPERTIES.has(prop) || /^--[\w-]+$/.test(prop)));
+        return allowed && safeCssValue(raw) ? prop + ':' + raw : '';
     }).filter(Boolean).join(';');
 
-export const sanitizeStoryScopedCss = (source: string): string => {
+export const sanitizeStoryScopedCss = (source: string, template = false): string => {
     const css = String(source || '').slice(0, 24000).replace(/\/\*[\s\S]*?\*\//g, '');
     const rules: string[] = [];
     const matches = css.matchAll(/([^{}]+)\{([^{}]*)\}/g);
     for (const match of matches) {
         if (rules.length >= 80) break;
         const rawSelector = match[1].trim();
-        if (!rawSelector || /@|[{}<>\\]|:has\s*\(|:host|:root/i.test(rawSelector)) continue;
-        const declarations = cleanDeclarations(match[2]);
+        if (!rawSelector || /@|[{}<>\\]|:has\s*\(|:host/i.test(rawSelector) || (!template && /:root/i.test(rawSelector))) continue;
+        const declarations = cleanDeclarations(match[2], template);
         if (!declarations) continue;
-        const selectors = rawSelector.split(',').map(s => s.trim()).filter(s =>
-            s.length <= 150 && /^[\w\s.#:[\]=~>"'()+*|-]+$/.test(s)
-            && !/^(?:html|body|:root)\b/i.test(s));
-        if (!selectors.length) continue;
-        rules.push(selectors.map(s => '.story-theater-html-content ' + s).join(',') + '{' + declarations + '}');
+        const selectors = rawSelector.split(',').map(value => value.trim()).flatMap(selector => {
+            if (selector.length > 150 || !/^[\w\s.#:[\]=~>"'()+*|-]+$/.test(selector)) return [];
+            const root = /^(?:html|body|:root|\.ta-tpl-scope)(?=\s|[>.:#\[]|$)/i;
+            if (root.test(selector)) {
+                if (!template) return [];
+                const child = selector.replace(root, '').replace(/^\s+body(?=\s|[>.:#\[]|$)/i, '');
+                return ['.story-theater-html-content' + child];
+            }
+            if (/:root/i.test(selector)) return [];
+            return ['.story-theater-html-content ' + selector];
+        });
+        if (selectors.length) rules.push(selectors.join(',') + '{' + declarations + '}');
     }
     return rules.join('\n');
 };
 
-const sanitizeNode = (node: Node): string => {
+const sanitizeNode = (node: Node, template: boolean): string => {
     if (node.nodeType === 3) return escapeHtml(node.textContent || '');
     if (node.nodeType !== 1) return '';
     const element = node as Element;
     const tag = element.tagName.toLowerCase();
     if (DROP_SUBTREE.has(tag)) return '';
-    const children = Array.from(element.childNodes).map(sanitizeNode).join('');
+    const children = Array.from(element.childNodes).map(child => sanitizeNode(child, template)).join('');
     if (tag === 'style') return '';
     if (!ALLOWED_ELEMENTS.has(tag)) return children;
     const attributes: string[] = [];
@@ -78,7 +90,7 @@ const sanitizeNode = (node: Node): string => {
             continue;
         }
         if (key === 'style') {
-            const styles = cleanDeclarations(value);
+            const styles = cleanDeclarations(value, template);
             if (styles) attributes.push('style="' + escapeHtml(styles) + '"');
         } else if (['class', 'id', 'title', 'alt', 'role', 'aria-label', 'dir'].includes(key)) {
             if (!/[<>\u0000-\u001f]/.test(value)) attributes.push(key + '="' + escapeHtml(value) + '"');
@@ -149,7 +161,7 @@ export const adaptTavernWritingInterlude = (raw: string): string | undefined => 
 export const hasStoryHtmlLayout = (source: string): boolean =>
     /<(?:div|section|article|table|thead|tbody|tr|td|th|style|img|figure|figcaption|p|h[1-6]|ul|ol|li|blockquote|pre|details|summary)\b/i.test(source);
 
-export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
+export const sanitizeStoryTheaterHtml = (source: string, template = false): SafeStoryHtml => {
     // Do not silently truncate a large authored appendix. Keep all its text
     // in the existing plain-text fallback rather than showing a partial card.
     if (String(source || '').length > 150000) {
@@ -171,8 +183,8 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     }
     const document = new DOMParser().parseFromString(raw, 'text/html');
     const styles = Array.from(document.querySelectorAll('style')).map(element => element.textContent || '').join('\n');
-    const css = sanitizeStoryScopedCss(styles);
-    const html = Array.from(document.body.childNodes).map(sanitizeNode).join('');
+    const css = sanitizeStoryScopedCss(styles, template);
+    const html = Array.from(document.body.childNodes).map(child => sanitizeNode(child, template)).join('');
     // Fallback text comes from the sanitized subtree, never script/style text.
     const text = new DOMParser().parseFromString(html, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() || '';
     const hasVisibleContent = Boolean(html.replace(/<[^>]*>/g, '').trim() || /<(?:img|hr|table)\b/i.test(html));
@@ -198,8 +210,8 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
     // Closed <details> may show only a 1-line summary. Keep the sandbox
     // compact rather than reserving a tall empty panel for hidden content;
     // expanded content remains scrollable within the iframe.
-    const estimatedHeight = Math.max(76, Math.min(520,
-        22 + lines * 22 + blockLines * 17 + visibleDetails * 32 + images * 145));
+    const estimatedHeight = Math.max(template ? 104 : 76, Math.min(520,
+        (template ? 60 : 22) + lines * 22 + blockLines * 17 + visibleDetails * 32 + images * (template ? 220 : 145)));
     const baseCss = [
         'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere}',
         '.story-theater-html-content{box-sizing:border-box;max-width:100%;overflow-x:auto;padding:8px 2px}',

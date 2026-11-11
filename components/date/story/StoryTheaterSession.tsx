@@ -2,9 +2,9 @@ import {meetingAppearance} from '../../../utils/meetingAppearance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
-import { storyRegexApplies, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
+import { storyRegexApplies, storyRegexInstruction, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
-import { parseStoryRegexDisplay } from '../../../utils/storyRegexDisplay';
+import { parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
@@ -182,8 +182,8 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
     })}</div>
 </div>;
 
-export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string }> = ({ source, fallback, title }) => {
-    const safe = useMemo(() => sanitizeStoryTheaterHtml(source), [source]);
+export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = ({ source, fallback, title, template = false }) => {
+    const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
             {fallback || safe.text || '此段仅包含无法安全显示的脚本或样式，未执行任何代码'}
@@ -239,7 +239,7 @@ export const StoryOutput: React.FC<{
                 </div>
             </details>;
             if (block.kind === 'html') {
-                const layout = <SafeStoryHtml source={block.htmlSource || block.text}
+                const layout = <SafeStoryHtml template={block.regexTemplate} source={block.htmlSource || block.text}
                     fallback={block.text} title={block.title || '安全排版'} />;
                 return !block.regexTemplate && block.title?.includes('剧场')
                     ? <details key={index} className='group border-y border-violet-200'>
@@ -310,7 +310,7 @@ export const StoryOutput: React.FC<{
         <div className='meeting-prose'>{blocks.map((block, index) => {
             if (block.kind === 'story') return <p key={index}>{block.text}</p>;
             if (!block.regexTemplate) return null;
-            return <div className='my-4' key={index}><SafeStoryHtml source={block.htmlSource || block.text}
+            return <div className='my-4' key={index}><SafeStoryHtml template source={block.htmlSource || block.text}
                 fallback={block.text} title={block.title || '安全排版'} /></div>;
         })}</div>
         {mainHtml.filter(block => !block.regexTemplate).map((block, index) => <SafeStoryHtml key={index} source={block.htmlSource || block.text}
@@ -319,6 +319,12 @@ export const StoryOutput: React.FC<{
             <summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}
         </details>}
     </div>;
+};
+
+const StoryUserOutput: React.FC<{ content: string; regexResult?: StoryRegexResult; className: string }> = ({ content, regexResult, className }) => {
+    if (!regexResult?.cards.length) return <p className={className}>{regexResult?.text ?? content}</p>;
+    return <div className={className}>{splitStoryRegexOutput(regexResult).map((part, index) => typeof part === 'string'
+        ? <p key={index}>{part}</p> : <SafeStoryHtml key={index} template source={part.html} fallback={part.fallback} title={part.title} />)}</div>;
 };
 
 const EMPTY_REGEX_RULES: StoryRegexRule[] = [];
@@ -339,6 +345,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [characters, entry]);
     const mask = useMemo(() => resolveStoryTheaterMask(entry.mask, userProfile, characters, masks), [characters, entry.mask, masks, userProfile]);
     const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;
+    const regexContext = useMemo(() => ({ user: mask.name, char: actors.map(actor => actor.name).join('、') }), [mask.name, actors]);
     const promptIdentityName = mask.name.trim() && mask.name.trim() !== '你' ? mask.name.trim() : '当前用户侧角色';
     const effectivePreset = useMemo<StoryTheaterPreset>(() => ({
         ...preset,
@@ -830,7 +837,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const isContinueTurn = isReroll
                 ? rerollWithoutInput || previousUser?.metadata?.theaterContinue === true
                 : continueRequested || (retry && latest?.metadata?.theaterContinue === true);
-            const modelText = isContinueTurn ? buildStoryContinueInstruction(promptIdentityName) : text;
+            let modelText = isContinueTurn ? buildStoryContinueInstruction(promptIdentityName) : text;
+            const currentUserInput = { text, role: 'user' as const, depth: 0 };
+            if (!isContinueTurn && !assistantOpening && activeRegexRules.some(rule => storyRegexApplies(rule, 'history', currentUserInput))) {
+                const [filtered] = await runStoryRegex([currentUserInput], activeRegexRules, 'history', undefined, regexContext);
+                modelText = filtered.text;
+                if (!modelText.trim()) throw new Error('本轮输入被剧情正则过滤为空，请调整规则或补充内容');
+            }
             const draftAffinityInputs = affinityEnabled ? actors.map(actor => {
                 const draft = affinityDrafts[actor.id] || EMPTY_AFFINITY_DRAFT;
                 return normalizeAffinityInput({ ...draft, characterId: actor.id, characterName: actor.name }, actor);
@@ -879,10 +892,21 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const appendUnslottedHistory = historySlots.length === 0;
             const sendsHistory = appendUnslottedHistory || historySlots.some(prompt => prompt.enabled);
             if (sendsHistory && activeRegexRules.some(rule => storyRegexApplies(rule, 'history'))) {
-                const assistantFloors = requestHistory.filter(({ message }) => message.role === 'assistant');
-                const filtered = await runStoryRegex(assistantFloors.map(({ message }) => message.content), activeRegexRules, 'history');
-                assistantFloors.forEach(({ message }, index) => { message.content = filtered[index].text; });
-                requestHistory = requestHistory.filter(({ message }) => message.role !== 'assistant' || message.content.trim());
+                const floors = requestHistory.flatMap(({ row, message }, index) => {
+                    if (row.metadata?.theaterContinue) return [];
+                    const role = message.role === 'user' ? 'user' : 'assistant';
+                    const input: StoryRegexInput = { role, text: role === 'user' ? row.content : message.content,
+                        depth: requestHistory.length - index - 1 };
+                    return activeRegexRules.some(rule => storyRegexApplies(rule, 'history', input)) ? [{ row, message, input }] : [];
+                });
+                const filtered = await runStoryRegex(floors.map(({ input }) => input), activeRegexRules, 'history', undefined, regexContext);
+                const removed = new Set<StoryApiMessage>();
+                floors.forEach(({ row, message, input }, index) => {
+                    if (!filtered[index].text.trim()) removed.add(message);
+                    else message.content = input.role === 'user'
+                        ? appendStoryAffinityInputs(filtered[index].text, storyAffinityInputsFromMessage(row)) : filtered[index].text;
+                });
+                requestHistory = requestHistory.filter(({ message }) => !removed.has(message));
             }
             const latestAssistant = requestHistory[requestHistory.map(item => item.message.role).lastIndexOf('assistant')];
             const precedingFloor = requestHistory.at(-1);
@@ -932,6 +956,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     ? '执行本轮指令推进剧情，保留用户执笔权。'
                     : `直接回应第 ${turnFloor} 楼本轮用户推进，旧楼里的行动和对白按已发生的历史处理。`,
             ].join('\n');
+            const regexInstructions = activeRegexRules.map(rule => storyRegexInstruction(rule, regexContext,
+                [...requestHistory.slice(-6).map(({ message }) => message.content), modelText].join('\n'))).filter(Boolean);
             let compiled!: ReturnType<typeof compileStoryPreset>;
             const payload = ContextBuilder.buildWorldbookRequest<StoryApiMessage>({
                 books: selectedBooks, userName: promptIdentityName, charName: actors.map(actor => actor.name).join('、'),
@@ -968,8 +994,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     ...(multiAffinityGuide ? [{ role: 'system' as const, content: multiAffinityGuide }] : []),
                     ...(affinityEnabled ? [{ role: 'system' as const, content: RELATIONSHIP_TEXTURE_GUIDE }] : []),
                     ...(affinityAwarenessReminder ? [{ role: 'system' as const, content: affinityAwarenessReminder }] : []),
-                    ...activeRegexRules.filter(rule => rule.kind === 'template' && rule.instruction.trim())
-                        .map(rule => ({ role: 'system' as const, content: rule.instruction })),
+                    ...regexInstructions.map(content => ({ role: 'system' as const, content })),
                     { role: 'system' as const, content: identityGuard },
                     { role: 'system' as const, content: continuity },
                     ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
@@ -1086,38 +1111,82 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             setSending(false);
             setRerollingId(null);
         }
-    }, [canStart, activeRegexRules, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
+    }, [canStart, activeRegexRules, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, promptIdentityName, regexContext, saveCentralAndMirrors, selectedBooks, threadId]);
 
     const generationBusy = sending || backgroundTask?.phase === 'running';
     const unsavedReply = backgroundTask?.unsavedReply;
     const regexSources = useMemo(() => {
-        if (!activeRegexRules.some(rule => storyRegexApplies(rule, 'display'))) return [];
-        return [...new Set([
-            ...messages.filter(message => message.role === 'assistant').flatMap(message => {
-                const interrupted = message.metadata?.theaterInterruptedRewrite?.content;
-                const source = mirrorArchived(message, entry) ? storyReadingSource(message) : message.content;
-                return interrupted ? [source, interrupted] : [source];
-            }),
-            ...(unsavedReply ? [unsavedReply.content] : []),
-        ])];
-    }, [activeRegexRules, entry, messages, unsavedReply]);
+        const sources = new Map<string, StoryRegexInput>();
+        const add = (key: string, input: StoryRegexInput) => {
+            if (activeRegexRules.some(rule => storyRegexApplies(rule, 'display', input))) sources.set(key, input);
+        };
+        for (const [index, message] of messages.entries()) {
+            if (message.role !== 'assistant' && message.role !== 'user' || message.metadata?.theaterContinue) continue;
+            const depth = messages.length - index - 1;
+            const archived = mirrorArchived(message, entry);
+            if (archived && !expandedArchivedIds.has(message.id)) continue;
+            const role = message.role;
+            add(String(message.id), { text: archived ? storyReadingSource(message) : message.content, role, depth });
+            const interrupted = message.metadata?.theaterInterruptedRewrite?.content;
+            if (interrupted && !archived) add(`${message.id}:rewrite`, { text: interrupted, role: 'assistant', depth });
+        }
+        if (unsavedReply) add('unsaved', { text: unsavedReply.content, role: 'assistant', depth: 0 });
+        return sources;
+    }, [activeRegexRules, entry, expandedArchivedIds, messages, unsavedReply]);
     const [regexDisplay, setRegexDisplay] = useState<{
-        rules: StoryRegexRule[]; results: Map<string, StoryRegexResult>;
+        rules: StoryRegexRule[]; context: typeof regexContext;
+        results: Map<string, { input: StoryRegexInput; result: StoryRegexResult }>;
     }>();
+    const regexDisplayRef = useRef(regexDisplay);
+    regexDisplayRef.current = regexDisplay;
     useEffect(() => {
-        if (!regexSources.length) return;
+        if (!regexSources.size) return;
         const controller = new AbortController();
-        void runStoryRegex(regexSources, activeRegexRules, 'display', controller.signal).then(results => {
-            if (!controller.signal.aborted) setRegexDisplay({
-                rules: activeRegexRules, results: new Map(regexSources.map((source, index) => [source, results[index]])),
-            });
-        }).catch(error => {
-            if (!controller.signal.aborted) addToast(`剧情正则显示失败，已显示原文：${error.message}`, 'error');
+        const previous = regexDisplayRef.current;
+        const reuse = previous?.rules === activeRegexRules && previous.context === regexContext;
+        const depthSensitive = activeRegexRules.some(rule => rule.source?.minDepth !== undefined || rule.source?.maxDepth !== undefined);
+        const results = new Map<string, { input: StoryRegexInput; result: StoryRegexResult }>();
+        const pending = [...regexSources].filter(([key, input]) => {
+            const cached = reuse ? previous?.results.get(key) : undefined;
+            if (cached && cached.input.text === input.text && (!depthSensitive || cached.input.depth === input.depth)) {
+                results.set(key, { input, result: cached.result });
+                return false;
+            }
+            return true;
         });
+        const commit = () => {
+            if (!controller.signal.aborted) setRegexDisplay({ rules: activeRegexRules, context: regexContext, results: new Map(results) });
+        };
+        void (async () => {
+            try {
+                for (let offset = 0; offset < pending.length && !controller.signal.aborted; offset += 24) {
+                    const batch = pending.slice(offset, offset + 24);
+                    const converted = await runStoryRegex(batch.map(([, input]) => input), activeRegexRules, 'display', controller.signal, regexContext);
+                    batch.forEach(([key, input], index) => results.set(key, { input, result: converted[index] }));
+                    commit();
+                }
+                if (!pending.length && reuse && previous?.results.size !== results.size) commit();
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                for (const [key, input] of pending) {
+                    if (!results.has(key)) results.set(key, { input, result: { text: input.text, cards: [], matches: 0 } });
+                }
+                commit();
+                addToast(`剧情正则显示失败，已显示受影响楼层的原文：${error instanceof Error ? error.message : '正则处理失败'}`, 'error');
+            }
+        })();
         return () => controller.abort();
-    }, [activeRegexRules, addToast, regexSources]);
-    const regexResultFor = (source: string) => regexDisplay?.rules === activeRegexRules
-        ? regexDisplay.results.get(source) : undefined;
+    }, [activeRegexRules, addToast, regexContext, regexSources]);
+    const regexResultFor = (key: string) => {
+        const input = regexSources.get(key);
+        if (!input) return undefined;
+        const cached = regexDisplay?.rules === activeRegexRules && regexDisplay.context === regexContext
+            ? regexDisplay.results.get(key) : undefined;
+        if (cached?.input.text === input.text && (cached.input.depth === input.depth
+            || !activeRegexRules.some(rule => rule.source?.minDepth !== undefined || rule.source?.maxDepth !== undefined))) return cached.result;
+        // Do not paint an unfiltered floor while a display rule is processing it.
+        return { text: '', cards: [], matches: 0 };
+    };
 
     const generationBlocked = generationBusy || !!unsavedReply;
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
@@ -1208,21 +1277,21 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                                 </summary>
                                 {isExpanded && <div className='pb-5 pl-7'>
                                     {message.role === 'user'
-                                        ? <p className='text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p>
-                                        : <StoryOutput content={storyReadingSource(message)} regexResult={regexResultFor(storyReadingSource(message))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />}
+                                        ? <StoryUserOutput className='text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} />
+                                        : <StoryOutput content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />}
                                 </div>}
                             </details>;
                         }
-                        if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><p className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
+                        if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><StoryUserOutput className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} /></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
                         const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
                         return <article {...pressHandlersFor(message)}>
                             {message.metadata?.theaterInterruption && <p className='mb-3 text-xs leading-5 text-amber-700'>已保留收到的正文。{message.metadata.theaterInterruption}。可点击「继续」接着写。</p>}
-                            <StoryOutput content={message.content} regexResult={regexResultFor(message.content)} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />
+                            <StoryOutput content={message.content} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />
                             {interruptedRewrite && <details className='mt-3 text-xs leading-5 text-amber-700'>
                                 <summary>查看未写完的改写稿 · 原楼层已保留</summary>
                                 <p className='my-2'>{interruptedRewrite.interruption}</p>
-                                <StoryOutput content={interruptedRewrite.content} regexResult={regexResultFor(interruptedRewrite.content)} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
+                                <StoryOutput content={interruptedRewrite.content} regexResult={regexResultFor(`${message.id}:rewrite`)} fromTavern={interruptedRewrite.fromTavern} affinityInputs={[]} />
                             </details>}
                             {isLatest && !message.metadata?.theaterOpeningGreeting && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={generationBlocked} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}换一种写法</button></div>}</article>;
                         })();
@@ -1234,7 +1303,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </div>
                 {unsavedReply && <section className='mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4'>
                     <p role='status' className='mb-2 text-xs text-amber-800'>已收到的正文暂存在此页面，请先复制或重试本地保存。</p>
-                    <StoryOutput content={unsavedReply.content} regexResult={regexResultFor(unsavedReply.content)} fromTavern={unsavedReply.fromTavern} affinityInputs={[]} />
+                    <StoryOutput content={unsavedReply.content} regexResult={regexResultFor('unsaved')} fromTavern={unsavedReply.fromTavern} affinityInputs={[]} />
                     <div className='mt-3 flex gap-3 text-xs font-semibold text-violet-700'>
                         <button onClick={() => Promise.resolve().then(() => navigator.clipboard.writeText(unsavedReply.content))
                             .then(() => addToast('已复制正文', 'success'))
