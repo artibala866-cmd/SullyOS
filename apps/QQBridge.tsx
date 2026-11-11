@@ -4,7 +4,7 @@ import { useOS } from '../context/OSContext';
 import { useChatAI } from '../hooks/useChatAI';
 import { DB } from '../utils/db';
 import { Message } from '../types';
-import { Plugs, Power, Trash, Plug } from '@phosphor-icons/react';
+import { Power, Trash, Plug } from '@phosphor-icons/react';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import TokenImg from '../components/os/TokenImg';
 import { trackEvent } from '../utils/analytics';
