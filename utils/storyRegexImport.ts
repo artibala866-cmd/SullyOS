@@ -14,8 +14,40 @@ const asRecord = (value: unknown): SourceRecord | undefined =>
 const asText = (value: unknown): string => typeof value === 'string' ? value : '';
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
 const switchOn = (value: unknown, fallback = false): boolean => value == null ? fallback : value === true || value === 1;
-const depth = (value: unknown): number | undefined =>
-    typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+const depth = (value: unknown): number | undefined => {
+    // SillyTavern JSON accepts numeric depths; some exported scripts serialize
+    // them as strings. Reject fractions, negative numbers and empty strings.
+    const parsed = typeof value === 'number' ? value :
+        typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN;
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
+};
+
+/** Native alchemy imports SillyTavern regex_scripts and a single findRegex. */
+function tavernRegexRow(row: SourceRecord, index: number): SourceRecord {
+    const findRegex = asText(row.findRegex);
+    const placement = Array.isArray(row.placement) ? row.placement : [];
+    const appliesUser = placement.includes(1);
+    const appliesAssistant = !placement.length || placement.some(value => value !== 1);
+    const markdownOnly = switchOn(row.markdownOnly);
+    const promptOnly = switchOn(row.promptOnly);
+    return {
+        name: asText(row.scriptName) || asText(row.name) || `酒馆正则 #${index + 1}`,
+        enabled: !switchOn(row.disabled),
+        pattern: findRegex,
+        flags: '',
+        replacement: asText(row.replaceString),
+        trimStrings: strings(row.trimStrings),
+        substituteRegex: row.substituteRegex ?? 0,
+        minDepth: row.minDepth,
+        maxDepth: row.maxDepth,
+        role: appliesUser && appliesAssistant ? 'both' : appliesUser ? 'user' : 'assistant',
+        applyOnDisplay: markdownOnly || !promptOnly,
+        applyOnPrompt: promptOnly || !markdownOnly,
+        scope: 'global',
+        scenes: [],
+        order: index,
+    };
+}
 
 function legacyRows(row: SourceRecord): SourceRecord[] {
     const subRules = row.subRules;
@@ -37,13 +69,10 @@ function legacyRows(row: SourceRecord): SourceRecord[] {
 function convertRule(row: SourceRecord, index: number, warn: (message: string) => void): StoryRegexRule[] {
     const name = asText(row.name).trim() || `炼金规则 ${index + 1}`;
     if (typeof row.pattern !== 'string') throw new Error('缺少糯叽机匹配正则 pattern');
+    // Keep authors' RegExp grammar byte-for-byte. Rewriting {a,b} to (a|b)
+    // would change the meaning of a valid or intentionally literal pattern.
     const literal = /^\/([\s\S]+)\/([a-z]*)$/i.exec(row.pattern.trim());
-    const pattern = (literal?.[1] ?? row.pattern.trim())
-        .replace(/(?<!\\)\{([^{}\n]*,[^{}\n]*)\}/g, (token, body: string) => {
-            if (/^\s*\d*\s*,\s*\d*\s*$/.test(body) || body.includes('\\')) return token;
-            const choices = body.split(',').map(item => item.trim()).filter(Boolean);
-            return choices.length > 1 ? '(?:' + choices.join('|') + ')' : token;
-        });
+    const pattern = literal?.[1] ?? row.pattern.trim();
     const rawFlags = (literal?.[2] || asText(row.flags)).trim();
     const flags = [...new Set((rawFlags + (rawFlags.includes('g') ? '' : 'g')).split(''))].sort().join('');
     const template = switchOn(row.isHtmlTemplate, Boolean(asText(row.htmlTemplate).trim()));
@@ -62,7 +91,9 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     const display = switchOn(row.applyOnDisplay, true);
     const history = !template && switchOn(row.applyOnPrompt);
     let enabled = switchOn(row.enabled, true);
-    const scoped = row.scope === 'character' || (row.scope === 'chat' && Array.isArray(row.characterIds) && row.characterIds.length > 0);
+    // Neither a private-chat scope nor a character-ID scope can be faithfully
+    // mapped to a story preset. Never silently widen these rules to all stories.
+    const scoped = row.scope === 'character' || row.scope === 'chat';
     const scenes = strings(row.scenes);
     const otherScenes = scenes.length > 0 && !scenes.some(scene => scene === 'chat' || scene === 'isekai' || scene === 'story');
     if (scoped || otherScenes) {
@@ -117,11 +148,18 @@ export function parseStoryRegexImport(raw: string): StoryRegexImportResult {
         throw new Error('文件不是有效的 JSON，请使用糯叽机炼金术导出的正则文件');
     }
     const root = asRecord(value);
-    const rows = Array.isArray(value) ? value : Array.isArray(root?.rules) ? root.rules : root ? [root] : [];
+    const extensions = asRecord(root?.extensions);
+    const rows = Array.isArray(value) ? value :
+        Array.isArray(extensions?.regex_scripts) ? extensions.regex_scripts :
+        Array.isArray(root?.regex_scripts) ? root.regex_scripts :
+        Array.isArray(root?.rules) ? root.rules : root ? [root] : [];
     if (!rows.length) throw new Error('文件里没有正则规则');
+    const tavern = rows.some(value => typeof asRecord(value)?.findRegex === 'string'
+        || typeof asRecord(value)?.replaceString === 'string');
     const ordered = rows.flatMap((value, index) => {
         const row = asRecord(value);
-        return row ? legacyRows(row).map(rule => ({ row: rule, index, order: typeof rule.order === 'number' ? rule.order : index }))
+        return row ? (tavern ? [typeof row.findRegex === 'string' ? tavernRegexRow(row, index) : row]
+            : legacyRows(row)).map(rule => ({ row: rule, index, order: typeof rule.order === 'number' ? rule.order : index }))
             : [{ row: {}, index, order: index }];
     }).sort((a, b) => a.order - b.order || a.index - b.index);
     const result: StoryRegexImportResult = { rules: [], warnings: [], rejected: 0 };
