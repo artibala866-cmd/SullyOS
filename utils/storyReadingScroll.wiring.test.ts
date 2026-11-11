@@ -22,7 +22,9 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('onScroll={handleReadingScroll}');
         expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {');
         expect(sessionSource).toContain('scheduleVisibleFloor();');
-        expect(sessionSource).toContain('requestAnimationFrame(() => {');
+        expect(sessionSource).toContain('requestAnimationFrame(flush)');
+        expect(sessionSource).toContain('readingScrollFallbackRef.current = setTimeout(() => {');
+        expect(sessionSource).toContain('cancelAnimationFrame(readingScrollFrameRef.current)');
         expect(sessionSource).toContain('cancelAnimationFrame(readingScrollFrameRef.current)');
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
