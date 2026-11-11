@@ -134,6 +134,9 @@ const FORMAT_CUES: Array<[RegExp, RegExp]> = [
 ];
 
 const shouldSendTemplateInstruction = (rule: StoryRegexRule, recentText: string): boolean => {
+    // A manually created / standalone HTML template explicitly supplies its
+    // format instruction, so it must function without a hardcoded name cue.
+    if (!rule.source && rule.instruction.trim()) return true;
     const needles = rule.source?.triggerKeywords || [];
     // Native imported templates must stay functional WITHOUT a manual preview.
     // triggerEnabled=0 means the author's aiPrompt is always present in the
