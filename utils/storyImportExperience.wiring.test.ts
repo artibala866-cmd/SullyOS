@@ -57,7 +57,9 @@ describe('剧情导入的真实使用约束', () => {
         expect(archiveEnd).toBeGreaterThan(archiveStart);
         const archiveMarkup = session.slice(archiveStart, archiveEnd);
         expect(archiveMarkup).toContain('<details open={isExpanded}');
-        expect(archiveMarkup).toContain('archivedRows.map((row, index) => <section');
+        expect(archiveMarkup).toContain('archivedRows.map((row, index) => {');
+        expect(archiveMarkup).toContain('archiveBodies.get(row.id)');
+        expect(archiveMarkup).toContain('!original ? <p');
         expect(archiveMarkup).not.toContain('pressHandlersFor(');
         expect(archiveMarkup).not.toContain('onClick={() => void send(');
     });
