@@ -1,0 +1,76 @@
+name: Large story and chat history stress
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/large-history-stress.yml'
+      - 'utils/largeHistoryStress.test.tsx'
+      - 'components/date/story/StoryTheaterSession.tsx'
+      - 'utils/db.ts'
+      - 'utils/storyTheater.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: large-history-stress
+  cancel-in-progress: false
+jobs:
+  synthetic-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 1200 story floors, 5000 chat messages, 1000-floor UI with archive and page switching
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: pnpm exec vitest run utils/largeHistoryStress.test.tsx --reporter=verbose
+      - name: Check stress fixture TypeScript
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/stress-tsc.log 2>&1 || true
+          if grep -E '^utils/largeHistoryStress\.test\.tsx\(' /tmp/stress-tsc.log; then
+            exit 1
+          fi
+  chromium-reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Touch-scroll real StoryTheaterSession in Chromium with rich HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5196 --strictPort > /tmp/stress-vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5196/story-reading-scroll-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/stress-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          CHROME_BIN="$browser" node scripts/story-iframe-touch-audit.mjs \
+            'http://127.0.0.1:5196/story-reading-scroll-visual.html?mode=novel&count=72&rich=1'
+      - name: Upload gesture image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: large-history-baseline-chrome
+          path: output/story-iframe-touch/
+          if-no-files-found: ignore
