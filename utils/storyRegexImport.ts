@@ -1,5 +1,5 @@
 import { hasStoryHtmlLayout } from './storyTheaterHtml';
-import { escapeStoryRegexLiteral, isProseDeletionPattern, validateStoryRegexRule, type StoryRegexRule } from './storyRegex';
+import { escapeStoryRegexLiteral, validateStoryRegexRule, type StoryRegexRule } from './storyRegex';
 
 export const MAX_STORY_REGEX_FILE_BYTES = 4 * 1024 * 1024;
 export interface StoryRegexImportResult {
@@ -124,10 +124,6 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
         ...(replacementChoices.length > 0 && !template && { replacementChoices }),
         source: {
             originalRule: { ...row },
-            // Automatically enable the same subject-agnostic local safeguard on
-            // every imported prose-deletion filter. Never rewrite user patterns,
-            // inject instructions or affect structural tag cleanup.
-            ...(!template && !replacement && isProseDeletionPattern(pattern) && { smartFilter: true }),
             trim: switchOn(row.trim) || undefined,
             scenes: scenes.length ? scenes : undefined,
             renderMode: row.renderMode === 'inline' || row.renderMode === 'iframe' ? row.renderMode : undefined,
