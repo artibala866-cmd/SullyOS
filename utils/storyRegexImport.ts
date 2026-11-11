@@ -51,6 +51,12 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     const [replacement = '', ...replacementChoices] = Array.isArray(rawReplacement)
         ? strings(rawReplacement) : [asText(rawReplacement)];
     const css = asText(row.cssScope).trim();
+    const triggerKeywords = (Array.isArray(row.triggerKeywords)
+        ? strings(row.triggerKeywords) : asText(row.triggerKeywords).split(/[,，、\n;；]/))
+        .map(value => value.trim()).filter(Boolean);
+    if (switchOn(row.triggerEnabled) && !triggerKeywords.length) {
+        warn('关键词触发已开启但关键词为空，按无关键词限制处理，格式指令会正常参与续写');
+    }
     const html = asText(row.htmlTemplate);
     if (template && !html.trim()) throw new Error('HTML 模板为空');
     const display = switchOn(row.applyOnDisplay, true);
@@ -78,7 +84,7 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
         id: crypto.randomUUID(),
         name, enabled, presetId: '', kind: template ? 'template' : 'filter', pattern, flags,
         replacement: template ? (css ? `<style>${css}</style>\n${html}` : html) : replacement,
-        display, history, instruction: template ? asText(row.aiPrompt).trim() : '',
+        display, history, instruction: template || history ? asText(row.aiPrompt).trim() : '',
         role: row.role === 'user' || row.role === 'both' ? row.role : 'assistant',
         ...(template && { parseMode: row.parseMode === 'kv' || row.parseMode === 'json' ? row.parseMode : 'text' }),
         ...(replacementChoices.length > 0 && !template && { replacementChoices }),
@@ -88,8 +94,7 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
             substituteRegex: row.substituteRegex === 0 || row.substituteRegex === 2 ? row.substituteRegex : 1,
             minDepth: depth(row.minDepth),
             maxDepth: depth(row.maxDepth),
-            ...(switchOn(row.triggerEnabled) && { triggerKeywords: (Array.isArray(row.triggerKeywords)
-                ? strings(row.triggerKeywords) : asText(row.triggerKeywords).split(/[,，、\n;；]/)).map(value => value.trim()).filter(Boolean) }),
+            ...(switchOn(row.triggerEnabled) && triggerKeywords.length > 0 && { triggerKeywords }),
         },
     };
     if ((rule.source?.minDepth ?? 0) > (rule.source?.maxDepth ?? Infinity)) throw new Error('最小楼层深度超过最大深度');
