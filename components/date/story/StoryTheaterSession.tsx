@@ -669,7 +669,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         // A wheel/touch gesture can begin before its first scroll event.
         initialReadingGestureRef.current = true;
         followLatestRef.current = false;
-    }, []);
+        // A reading gesture can precede the browser's native scroll event,
+        // especially after an iframe or programmatic scrollIntoView. Recheck
+        // the visible floor after the gesture to keep the jump control current.
+        scheduleVisibleFloor();
+    }, [scheduleVisibleFloor]);
     const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
         const viewport = readingScrollRef.current;
         if (!viewport) return;
