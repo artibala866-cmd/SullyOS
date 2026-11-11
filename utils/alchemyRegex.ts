@@ -175,13 +175,3 @@ export async function loadAlchemyInstructions(
     const rules = await loadAlchemyRules(domain);
     return alchemyInstructions(rules, domain, context, recentText);
 }
-
-export function protectAmbiguousFilter(rule: StoryRegexRule, matched: string): boolean {
-    const category = rule.source?.category || '';
-    const isBroadStyleBan = /^WS\d/i.test(rule.name) || /八股净化|词汇级禁令|句式级禁令/.test(category + rule.name);
-    if (rule.source?.smartFilter === false || !isBroadStyleBan) return false;
-    // A local regex cannot infer an author's meaning. Removing everyday words
-    // from the middle of a sentence is irreversible, so preserve short matches
-    // unless the user explicitly switches the rule to strict matching.
-    return rule.replacement === '' && matched.length < 6 && !/[<>[\]{}]/.test(matched);
-}
