@@ -194,7 +194,7 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     // Execution scopes are user choices, not part of the imported file's
     // identity. Reimporting must not duplicate a rule after enabling both scenes.
     const key = ({ id: _id, enabled: _enabled, order: _order,
-        domain: _domain, targets: _targets,
+        domain: _domain, targets: _targets, offlineScenes: _offlineScenes,
         importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => {
         const stableSource = rule.source ? {
             ...rule.source,
@@ -225,7 +225,12 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     for (const rule of imported) {
         // Story preset bindings apply only to offline filters, never to
         // HTML templates which are restricted to online chat.
-        const next = { ...rule, presetId: rule.kind === 'template' ? '' : presetId };
+        const hasStoryTarget = rule.kind === 'filter'
+            && (rule.targets?.length ? rule.targets.includes('offline') : rule.domain !== 'online')
+            && (!rule.offlineScenes?.length || rule.offlineScenes.includes('story'));
+        // The scope dropdown is for stories only. A meeting-only or online
+        // rule must never carry a hidden story-preset dependency.
+        const next = { ...rule, presetId: hasStoryTarget ? presetId : '' };
         const signature = key(next);
         if (keys.has(signature)) {
             // Old imports had no file folders. Attach the folder on reimport
