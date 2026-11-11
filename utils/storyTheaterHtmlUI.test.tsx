@@ -23,7 +23,9 @@ describe('实际剧情输出组件的酒馆 HTML 兼容保护', () => {
         expect(markup).toContain('正常剧情结束');
         expect(markup).toContain('酒馆小剧场');
         expect(markup).toContain('<iframe');
-        expect(markup).toContain('sandbox=""');
+        expect(markup).toContain('sandbox="allow-scripts"');
+        expect(markup).not.toContain('allow-same-origin');
+        expect(markup).toContain('sully-story-template-scroll');
         expect(markup).toContain('srcDoc=');
         expect(markup).toContain('小剧场正文');
         expect(markup).not.toContain('onclick=');
