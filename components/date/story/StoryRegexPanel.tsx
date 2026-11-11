@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CaretRight, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, CaretDown, Code, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
 import type { StoryTheaterPreset } from '../../../types';
 import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppearance';
@@ -20,10 +20,10 @@ interface Props {
     onBack: () => void;
 }
 
-const fieldClass = 'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800';
-const actionClass = 'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40';
-const primaryClass = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-40';
-const iconClass = 'grid w-10 h-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white disabled:opacity-40';
+const fieldClass = 'mt-1 w-full min-w-0 rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-[13px] font-normal text-neutral-800 outline-none focus:border-neutral-400';
+const actionClass = 'inline-flex min-h-8 items-center justify-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-40';
+const primaryClass = 'inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-neutral-900 px-3 text-xs font-semibold text-white disabled:opacity-40';
+const iconClass = 'grid h-9 w-9 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white disabled:opacity-40';
 
 
 function createRule(section: 'beauty' | 'rules', domain: AlchemyDomain): StoryRegexRule {
@@ -39,6 +39,7 @@ function createRule(section: 'beauty' | 'rules', domain: AlchemyDomain): StoryRe
 const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, domain = 'offline', section = 'rules' }) => {
     const { registerBackHandler } = useOS();
     const [draft, setDraft] = useState<StoryRegexRule | null>(null);
+    const [activeSection, setActiveSection] = useState<'beauty' | 'rules'>(section);
     const [sample, setSample] = useState('');
     const [result, setResult] = useState<StoryRegexResult | null>(null);
     const [error, setError] = useState('');
@@ -56,7 +57,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const isTemplate = draft?.kind === 'template';
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
-    const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === section);
+    const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === activeSection);
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
@@ -122,6 +123,17 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const readImport = (file: File) => perform(async () => {
         if (file.size > MAX_STORY_REGEX_FILE_BYTES) throw new Error('正则文件超过 4 MB，请分批导出');
         const raw = await file.text();
+        if (/\.html?$/i.test(file.name)) {
+            if (raw.length > STORY_TEMPLATE_MAX_LENGTH) throw new Error('HTML 文件过长');
+            const html = { ...createRule('beauty', 'online'),
+                name: file.name.replace(/\.html?$/i, ''),
+                importGroup: file.name.replace(/\.html?$/i, ''),
+                replacement: raw, parseMode: 'text' as const,
+            };
+            setActiveSection('beauty');
+            open(html);
+            return;
+        }
         const parsed = parseStoryRegexImport(raw);
         const folderName = file.name.replace(/\.(?:json|txt)$/i, '') || '导入的正则';
         parsed.rules = parsed.rules.map(rule => ({
@@ -149,6 +161,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             const counts = [`已导入 ${merge.added} 条`, merge.updated ? `补全旧规则 ${merge.updated} 条` : '', merge.duplicates ? `跳过重复 ${merge.duplicates} 条` : '',
                 imported.rejected ? `未转换 ${imported.rejected} 条` : ''].filter(Boolean);
             setFeedback(counts.join(' · '));
+            setActiveSection(imported.rules.some(rule => rule.kind === 'template') ? 'beauty' : 'rules');
             setImported(null);
         });
     };
