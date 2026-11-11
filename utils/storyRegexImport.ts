@@ -194,25 +194,27 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     // identity. Reimporting must not duplicate a rule after enabling both scenes.
     const key = ({ id: _id, enabled: _enabled, order: _order,
         domain: _domain, targets: _targets,
-        importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => JSON.stringify({
-        ...rule,
-        ...(rule.source && {
-            source: {
-                ...rule.source,
-                triggerKeywords: rule.source.triggerKeywords?.length ? rule.source.triggerKeywords : undefined,
-                // Descriptive metadata was added later; it does not change a
-                // rule's identity or warrant a second copy on reimport.
-                scenes: undefined,
-                renderMode: undefined,
-                category: undefined,
-                smartFilter: undefined,
-                protectWords: undefined,
-                originalScope: undefined,
-                originalCharacterIds: undefined,
-                triggerEnabled: undefined,
-            },
-        }),
-    });
+        importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => {
+        const stableSource = rule.source ? {
+            ...rule.source,
+            triggerKeywords: rule.source.triggerKeywords?.length ? rule.source.triggerKeywords : undefined,
+            scenes: undefined,
+            renderMode: undefined,
+            category: undefined,
+            smartFilter: undefined,
+            protectWords: undefined,
+            originalScope: undefined,
+            originalCharacterIds: undefined,
+            triggerEnabled: undefined,
+        } : {};
+        const cleanSource = Object.fromEntries(
+            Object.entries(stableSource).filter(([, value]) => value !== undefined),
+        );
+        return JSON.stringify({
+            ...rule,
+            source: Object.keys(cleanSource).length ? cleanSource : undefined,
+        });
+    };
     const rules = [...existing];
     const keys = new Set(rules.map(key));
     let added = 0;
