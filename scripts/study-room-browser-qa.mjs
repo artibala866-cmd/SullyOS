@@ -201,14 +201,11 @@ try{
 
       // Monday: enter timetable and manually record a single real class.
       nav('课程表');
+      await until(()=>!![...document.querySelectorAll('summary')].find(x=>visible(x)&&x.textContent?.includes('新建')),'new-class section');
+      const create=[...document.querySelectorAll('summary')].find(x=>visible(x)&&x.textContent?.includes('新建'));
+      if(!create)throw Error('Missing expand-new-class action');create.click();
       await until(()=>!![...document.querySelectorAll('input[aria-label="课程名称"]')].find(visible),'class editor');
-      const classField=[...document.querySelectorAll('input[aria-label="课程名称"]')].find(visible);
-      if(!visible(classField)){
-        const create=[...document.querySelectorAll('summary')].find(x=>visible(x)&&x.textContent?.includes('新建'));
-        if(!create)throw Error('Missing expand-new-class action');create.click();
-      }
       value('input[aria-label="课程名称"]','周三透视基础课');
-      value('input[type="time"]','09:00');
       const classForm=[...document.querySelectorAll('form')].find(f=>visible(f)&&f.querySelector('input[aria-label="课程名称"]'));
       if(!classForm)throw Error('Class form absent');
       const times=[...classForm.querySelectorAll('input[type="time"]')];
