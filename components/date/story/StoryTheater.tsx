@@ -19,6 +19,8 @@ import {
     storyTheaterThreadId,
     withBuiltInStoryPresets,
 } from '../../../utils/storyTheater';
+import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexRule } from '../../../utils/storyRegex';
+import StoryRegexPanel from './StoryRegexPanel';
 import StoryMaskBox from './StoryMaskBox';
 import StoryPresetMaker from './StoryPresetMaker';
 import StoryTheaterEditor from './StoryTheaterEditor';
@@ -38,7 +40,7 @@ interface Props {
     onClose: () => void;
 }
 
-type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives';
+type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors' | 'archives' | 'regex';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
     const { characters, worldbooks, userProfile, apiConfig, apiPresets, addToast, remoteVectorConfig, updateCharacter, importStoryOpeningDocuments } = useOS();
@@ -47,6 +49,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     viewRef.current = view;
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
+    const [regexRules, setRegexRules] = useState<StoryRegexRule[]>([]);
     const [masks, setMasks] = useState<StoryTheaterMask[]>([]);
     const [activeEntry, setActiveEntry] = useState<StoryTheaterEntry | null>(null);
     const [editingPreset, setEditingPreset] = useState<StoryTheaterPreset | null>(null);
@@ -78,6 +81,21 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     }, [addToast]);
 
     useEffect(() => { void reload().catch(error => addToast(error instanceof Error ? `剧情列表读取失败：${error.message}` : '剧情列表读取失败，请检查本地存储', 'error')); }, [reload, addToast]);
+    useEffect(() => {
+        let mounted = true;
+        void DB.getAsset(STORY_REGEX_ASSET).then(raw => {
+            if (mounted) setRegexRules(readStoryRegexRules(raw));
+        }).catch(error => {
+            if (mounted) addToast(`剧情正则读取失败：${error instanceof Error ? error.message : '存储不可用'}`, 'error');
+        });
+        return () => { mounted = false; };
+    }, [addToast]);
+
+    const saveRegexRules = async (next: StoryRegexRule[]) => {
+        await DB.saveAsset(STORY_REGEX_ASSET, JSON.stringify(next));
+        setRegexRules(next);
+    };
+
     // The submission can finish after the session (or even the whole Meet app)
     // has unmounted. When this parent is visible, refresh from IndexedDB, not
     // from the callback or entry object captured by the old session.
@@ -364,6 +382,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         }
     }, [addToast]);
 
+    if (view === 'regex') return <StoryRegexPanel rules={regexRules} presets={presets} onSave={saveRegexRules} onBack={() => setView('list')} />;
+
     if (view === 'preset' && editingPreset) return <StoryPresetMaker key={editingPreset.id}
         preset={editingPreset}
         usedByStoryCount={entries.filter(item => item.presetId === editingPreset.id).length}
@@ -411,7 +431,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     if (view === 'session' && activeEntry) {
         const preset = presets.find(item => item.id === activeEntry.presetId) || BUILTIN_NIGHT_SCREENING_PRESET;
         const hasVectorArchive = !activeEntry.writesToCharacterMemory || activeEntry.archives.some(archive => archive.strategy === 'vector');
-        return <StoryTheaterSession entry={activeEntry} preset={preset} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} onArchiveCommitted={next => { setActiveEntry(current => current?.id === next.id && viewRef.current !== 'editor' ? next : current); setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt)); }} />;
+        return <StoryTheaterSession entry={activeEntry} preset={preset} regexRules={regexRules} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} onArchiveCommitted={next => { setActiveEntry(current => current?.id === next.id && viewRef.current !== 'editor' ? next : current); setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt)); }} />;
     }
 
     return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
@@ -484,6 +504,13 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                     }} />
                     {presetBatchFeedback && <p role='status' className='mt-2 break-words text-[10px] leading-5 text-slate-500'>{presetBatchFeedback}</p>}
                     <div className='mt-4 divide-y divide-slate-200'>{presets.map(preset => <div key={preset.id} className='flex items-center gap-2'><button onClick={() => { setEditingPreset(preset); setView('preset'); }} className='min-w-0 flex-1 py-3 flex items-center gap-3 text-left'><span className={`w-2 h-2 rounded-full ${preset.builtIn ? 'bg-amber-400' : 'bg-violet-500'}`} /><span className='min-w-0 flex-1 text-xs font-semibold truncate'>{preset.name}</span><span className='text-[9px] text-slate-400'>{preset.builtIn ? '内置只读' : `${preset.document.prompts.length} 条`}</span></button><button onClick={() => { void downloadStoryPreset(preset); }} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' title={`导出 ${preset.name}`}><DownloadSimple size={15} /></button></div>)}</div>
+                </section>
+                <section className='border-t border-slate-200 pt-5'>
+                    <button type='button' onClick={() => setView('regex')}
+                        className='w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left flex items-center justify-between gap-3'>
+                        <span><strong className='block text-sm'>剧情正则</strong><span className='mt-1 block text-xs text-slate-500'>HTML 模板与文字过滤</span></span>
+                        <span className='shrink-0 text-xs text-violet-700'>{regexRules.filter(rule => rule.enabled).length} 条启用 <span aria-hidden='true'>›</span></span>
+                    </button>
                 </section>
             </div>
         </main>

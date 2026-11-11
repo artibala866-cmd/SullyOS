@@ -156,8 +156,7 @@ export const sanitizeStoryTheaterHtml = (source: string): SafeStoryHtml => {
         return { srcDoc: '', text: 'HTML 附录过长，已使用完整文字展示', hasVisibleContent: false, estimatedHeight: 76 };
     }
     // A Tavern display-regex often produces fenced ```html blocks.
-    // The regex executor is deliberately absent, but the renderer can safely
-    // parse HTML already present inside a code fence without showing the ticks.
+    // Accept fenced HTML from model output and user-authored templates.
     const raw = String(source || '').slice(0, 150000)
         .replace(/```html\s*\r?\n([\s\S]*?)\r?\n```/gi, (_whole, inner: string) =>
             hasStoryHtmlLayout(inner) ? inner : _whole);
