@@ -510,6 +510,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const readingContentRef = useRef<HTMLDivElement>(null);
     const followLatestRef = useRef(true);
     const readingScrollFrameRef = useRef<number | null>(null);
+    const readingScrollFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastReadMessageIdRef = useRef<number | null>(null);
     const initialReadingPendingRef = useRef(true);
     const initialReadingGestureRef = useRef(false);
@@ -686,13 +687,29 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     // floor repeatedly during a fast swipe.
     const scheduleVisibleFloor = useCallback(() => {
         if (readingScrollFrameRef.current !== null) return;
-        readingScrollFrameRef.current = requestAnimationFrame(() => {
+        const flush = () => {
+            if (readingScrollFrameRef.current === null) return;
             readingScrollFrameRef.current = null;
+            if (readingScrollFallbackRef.current !== null) {
+                clearTimeout(readingScrollFallbackRef.current);
+                readingScrollFallbackRef.current = null;
+            }
             updateVisibleFloor();
-        });
+        };
+        readingScrollFrameRef.current = requestAnimationFrame(flush);
+        // Android WebView and headless/occluded browsers can suspend RAF
+        // while the scrollport has already moved. Keep the floor indicator and
+        // latest-jump button accurate without forcing any additional scrolling.
+        readingScrollFallbackRef.current = setTimeout(() => {
+            if (readingScrollFrameRef.current !== null) {
+                cancelAnimationFrame(readingScrollFrameRef.current);
+                flush();
+            }
+        }, 96);
     }, [updateVisibleFloor]);
     useEffect(() => () => {
         if (readingScrollFrameRef.current !== null) cancelAnimationFrame(readingScrollFrameRef.current);
+        if (readingScrollFallbackRef.current !== null) clearTimeout(readingScrollFallbackRef.current);
     }, []);
     const handleReadingScroll = useCallback(() => {
         const viewport = readingScrollRef.current;
