@@ -143,9 +143,24 @@ export function readStoryRegexRules(raw: string | null): StoryRegexRule[] {
     if (!raw) return [];
     const rules: unknown = JSON.parse(raw);
     if (!Array.isArray(rules)) throw new Error('正则规则数据格式无效');
-    return rules.filter((rule): rule is StoryRegexRule => rule && ['filter', 'template'].includes(rule.kind)
-        && ['id', 'name', 'presetId', 'pattern', 'flags', 'replacement', 'instruction'].every(key => typeof rule[key] === 'string')
-        && ['enabled', 'display', 'history'].every(key => typeof rule[key] === 'boolean'));
+    // Earlier saved imports may predate mandatory preset/prompt fields.
+    // Fill neutral defaults in memory, without changing storage or switches.
+    return rules.flatMap((value): StoryRegexRule[] => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+        const row = value as Record<string, unknown>;
+        if (row.kind !== 'filter' && row.kind !== 'template') return [];
+        if (!['id', 'name', 'pattern', 'replacement'].every(key => typeof row[key] === 'string')) return [];
+        if (!['enabled', 'display', 'history'].every(key => typeof row[key] === 'boolean')) return [];
+        if (row.presetId != null && typeof row.presetId !== 'string') return [];
+        if (row.instruction != null && typeof row.instruction !== 'string') return [];
+        if (row.flags != null && typeof row.flags !== 'string') return [];
+        return [{
+            ...row,
+            presetId: row.presetId ?? '',
+            instruction: row.instruction ?? '',
+            flags: row.flags ?? 'g',
+        } as StoryRegexRule];
+    });
 }
 
 export function storyRegexApplies(rule: StoryRegexRule, stage: 'display' | 'history', input?: StoryRegexInput): boolean {
@@ -221,9 +236,12 @@ export function isProseDeletionPattern(pattern: string): boolean {
 export function isBroadProseBan(rule: StoryRegexRule): boolean {
     if (rule.kind !== 'filter' || rule.replacement || rule.source?.smartFilter === false) return false;
     if (!isProseDeletionPattern(rule.pattern)) return false;
-    return rule.source?.smartFilter === true || !!rule.source?.originalRule
-        || /^WS\d/i.test(rule.name)
-        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
+    return rule.source?.smartFilter === true
+        || !!rule.source?.originalRule
+        || !!rule.importGroup?.trim()
+        || !!rule.source?.originalScope
+        || !!rule.source?.category?.trim()
+        || /^WS\d/i.test(rule.name);
 }
 
 /**
