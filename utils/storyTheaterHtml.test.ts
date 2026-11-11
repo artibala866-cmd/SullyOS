@@ -205,7 +205,7 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(rich.srcDoc).toContain('const rect = root.getBoundingClientRect();');
         expect(rich.srcDoc).toContain('Math.max(root.scrollHeight, rect.height)');
         expect(rich.srcDoc).not.toContain('Math.max(document.body.scrollHeight');
-        expect(rich.srcDoc).toContain('if (height === lastHeight) return;');
+        expect(rich.srcDoc).toContain('Math.abs(height - lastHeight) <= 3');
         expect(rich.srcDoc).toContain("sully-story-template-scroll");
         expect(rich.srcDoc).toContain("touchmove");
         expect(rich.srcDoc).toContain("event.preventDefault()");
