@@ -220,7 +220,7 @@ export function applyStoryRegex(
                     const offset = args.pop() as number;
                     const captures = args as (string | undefined)[];
                     const matched = captures[0] || '';
-                    const broadBan = /^WS\d/i.test(rule.name)
+                    const broadBan = rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
                         || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
                     // Conservative, deterministic recognition. Keep normal words
                     // such as 情绪/草莓 and the untouched history; no extra API.
