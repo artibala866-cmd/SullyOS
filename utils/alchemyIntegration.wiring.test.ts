@@ -50,9 +50,12 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         const manager = read('components/alchemy/AlchemyManagerScreen.tsx');
         const panel = read('components/date/story/StoryRegexPanel.tsx');
         const folders = read('components/alchemy/AlchemyRuleFolders.tsx');
-        expect(menu).toContain("onPanelAction('alchemy-rules')");
+        expect(menu).toContain("onPanelAction('alchemy-beauty')");
+        expect(menu).toContain('正则</span>');
+        expect(menu).not.toContain('key="alchemy-rules"');
         expect(privateChat).toContain("case 'alchemy-rules'");
-        expect(group).toContain("setAlchemySection('rules')");
+        expect(group).toContain("setAlchemySection('beauty')");
+        expect(group).not.toContain('规则正则</span>');
         expect(manager).toContain('StoryRegexPanel');
         expect(panel).toContain("['beauty', 'HTML 美化']");
         expect(panel).toContain("['rules', '规则']");
