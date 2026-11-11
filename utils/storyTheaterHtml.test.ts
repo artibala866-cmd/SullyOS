@@ -217,7 +217,7 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
 
     it('100vh 卡片不会把自己的 iframe 高度反复反馈成新的正文高度', () => {
         const safe = sanitizeStoryTheaterHtml('<div style="min-height:100vh">剧情内容</div>', true);
-        const trustedScript = safe.srcDoc.match(/<script nonce="sully-story-template-runtime">([\\s\\S]*?)<\\/script>/)?.[1];
+        const trustedScript = safe.srcDoc.match(/<script nonce="sully-story-template-runtime">([\s\S]*?)<\/script>/)?.[1];
         expect(trustedScript).toBeTruthy();
         let viewportHeight = 520;
         let addedContentHeight = 0;
