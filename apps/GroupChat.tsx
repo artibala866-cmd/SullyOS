@@ -56,6 +56,10 @@ import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing
 import ChromeCssEditor from '../components/chat/ChromeCssEditor';
 import WhiteboxSoundEditor from '../components/chat/WhiteboxSoundEditor';
 import HtmlCard from '../components/chat/HtmlCard';
+import AlchemyMessageBody from '../components/alchemy/AlchemyMessageBody';
+import AlchemyManagerScreen from '../components/alchemy/AlchemyManagerScreen';
+import { useAlchemyRules, useAlchemyMessageResults } from '../hooks/useAlchemyRegex';
+import type { StoryRegexResult } from '../utils/storyRegex';
 import { WhiteboxSound, parseWhiteboxSound, upsertWhiteboxSound, stripWhiteboxSoundDirective, resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
 import { buildHtmlPrompt } from '../utils/htmlPrompt';
 import { materializeVisionDescriptions } from '../utils/visionApi';
@@ -137,6 +141,7 @@ export const GroupPacketCard = ({ msg, nameOf, onOpen }: {
 // --- Sub-Component: Group Message Bubble ---
 export const GroupMessageItem = React.memo(({
     msg,
+    alchemyResult,
     isUser,
     char,
     userAvatar,
@@ -160,6 +165,7 @@ export const GroupMessageItem = React.memo(({
     showTimestamp = 'always',
 }: {
     msg: Message,
+    alchemyResult?: StoryRegexResult,
     isUser: boolean,
     char?: CharacterProfile,
     userAvatar: string,
@@ -414,7 +420,7 @@ export const GroupMessageItem = React.memo(({
                                 <span className="truncate italic">"{buildReplySnapshotContent({ content: msg.replyTo.content })}"</span>
                             </div>
                         )}
-                        <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{msg.content}</div>
+                        <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{alchemyResult && !isUser ? <AlchemyMessageBody result={alchemyResult} /> : msg.content}</div>
                     </div>
                 );
         }
@@ -507,6 +513,8 @@ const GroupChat: React.FC = () => {
         if (intent.resourceId && !target) addToast('这个群聊已不存在，请重新设置槽位', 'error');
     });
     const [messages, setMessages] = useState<Message[]>([]);
+    const [showAlchemy, setShowAlchemy] = useState(false);
+    const { rules: onlineAlchemyRules } = useAlchemyRules('online');
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const MESSAGE_PAGE_SIZE = 50;
     const [visibleCount, setVisibleCount] = useState(MESSAGE_PAGE_SIZE);
@@ -673,6 +681,7 @@ const GroupChat: React.FC = () => {
     }, [messages, activeGroup?.id, activeGroup?.chromeCustomCss, activeGroup?.chatSound, osTheme.chatChromeCustomCss, osTheme.chatSound]);
 
     const displayMessages = useMemo(() => messages.slice(-visibleCount), [messages, visibleCount]);
+    const alchemyResults = useAlchemyMessageResults(displayMessages, onlineAlchemyRules, 'online');
     const collapsedCount = Math.max(0, totalMsgCount - messages.length);
 
     const canReroll = useMemo(() => {
@@ -2018,6 +2027,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <GroupMessageItem
                             key={m.id || i}
                             msg={m}
+                            alchemyResult={alchemyResults.get(m.id)}
                             isUser={isUser}
                             char={char}
                             userAvatar={userProfile.avatar}
@@ -2113,6 +2123,12 @@ ${memberTimeline || '(暂无互动记录)'}
                             <span className="text-xs font-bold">红包</span>
                         </button>
 
+                        <button onClick={() => { setShowAlchemy(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
+                                <Code className="w-6 h-6" weight="bold" />
+                            </div>
+                            <span className="text-xs font-bold">正则美化</span>
+                        </button>
                         <button onClick={openGroupSettings} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-neutral-50 text-neutral-500 border-neutral-100">
                                 <GearSix className="w-6 h-6" weight="bold" />
@@ -2169,6 +2185,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 }
             />
 
+            {showAlchemy && <AlchemyManagerScreen domain='online' onClose={() => setShowAlchemy(false)} />}
             {/* --- Modals --- */}
 
             {/* Group Settings Modal */}
