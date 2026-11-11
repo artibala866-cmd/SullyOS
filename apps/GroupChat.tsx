@@ -2211,7 +2211,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                 className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'roundRobin' ? 'border-neutral-400 bg-neutral-50 ring-1 ring-neutral-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                             >
                                 <div className="text-xs font-bold text-slate-700">轮询模式</div>
-                                <p className="text-[9px] text-slate-400 mt-1 leading-tight">每位成员单独调用一次 API，按顺序逐个发言（每人必发言）。更真实、彻底防串号，但更慢，token 消耗约为导演模式 × 成员数。</p>
+                                <p className="text-[10px] text-amber-600 mt-1">每位成员分别调用 API，费用会增加。</p>
                             </div>
                         </div>
                     </div>
@@ -2222,7 +2222,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex-1 pr-3">
                                 <div className="text-xs font-bold text-slate-700">成员独立气泡</div>
-                                <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">开启后每位成员完整沿用其私聊气泡主题（AI 侧，包含自定义 CSS 与装饰）；关闭则全员统一。</p>
+                                
                             </div>
                             <div
                                 onClick={() => setTempMemberBubbleIndependent(v => !v)}
@@ -2253,7 +2253,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">AI 上下文条数 ({contextLimit})</label>
                         <input type="range" min="20" max="5000" step="10" value={contextLimit} onChange={e => { const v = parseInt(e.target.value); setContextLimit(v); localStorage.setItem('groupchat_context_limit', String(v)); }} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>5000 (超长记忆)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">角色每次发言时参考多少条群聊历史。越多越连贯，但越慢、越费 token。</p>
+                        
                     </div>
 
                     {/* 互通在本群独立开关；旧群保留已有默认行为。 */}
@@ -2261,7 +2261,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <div className="text-sm font-bold text-slate-700">私聊互通</div>
-                                <p className="text-[11px] text-slate-500 leading-relaxed mt-1">群成员能参考各自与用户的私聊；私聊也能参考本群公开消息。不会把 A 的私聊给 B。</p>
+                                
                             </div>
                             <button type="button" role="switch" aria-checked={tempPrivateChatSync}
                                 aria-label="私聊互通" onClick={() => setTempPrivateChatSync(v => !v)}
@@ -2276,7 +2276,7 @@ ${memberTimeline || '(暂无互动记录)'}
                                     value={tempPrivateChatHistoryLimit} onChange={e => setTempPrivateChatHistoryLimit(Number(e.target.value))}
                                     onBlur={() => setTempPrivateChatHistoryLimit(n => clampGroupPrivateHistoryLimit(n))}
                                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700" />
-                                <p className="text-[11px] text-slate-500">默认每位成员最近 20 条私聊，可设 1～200 条；仍遵守各自私聊的上下文与归档边界。</p>
+                                
                             </div>
                         )}
                     </div>
@@ -2286,7 +2286,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">私聊里"近期群活动"取条数 ({tempPrivateContextCap})</label>
                         <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>500 (完整)</span></div>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">成员私聊时读取多少条本群公开消息；不会读取其他人的私聊。</p>
+                        
                     </div>}
 
                     {/* Member Timeline Cap */}
@@ -2294,7 +2294,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">成员互动时间线条数 ({tempMemberTimelineCap})</label>
                         <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-neutral-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>200 (完整)</span></div>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">本群时间线的群聊条数。开启互通后，私聊原文会另外按上方条数读取，不会被群聊挤掉。</p>
+                        
                     </div>
 
                     {/* 公共话题盒：一次总结，全群共享，并在成盒时送达所有成员私聊。 */}
@@ -2338,7 +2338,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             <div className="w-9 h-9 rounded-xl bg-neutral-50 flex items-center justify-center">✦</div>
                             <div>
                                 <div className="text-[10px] font-bold text-slate-600">内置 · 群聊共同记忆总结</div>
-                                <p className="text-[9px] text-slate-400 mt-0.5 leading-4">总结机会读取全体成员的简介、核心设定、世界观、写作人格与核心记忆，不再复用私聊归档风格。</p>
+                                
                             </div>
                         </div>
 
@@ -2675,7 +2675,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 footer={<button onClick={() => { if (activeGroup) { updateGroup(activeGroup.id, { htmlModeCustomPrompt: tempHtmlPrompt }); setActiveGroup({ ...activeGroup, htmlModeCustomPrompt: tempHtmlPrompt }); } setModalType('none'); addToast('已保存', 'success'); }} className="w-full py-3 bg-neutral-500 text-white font-bold rounded-2xl shadow-lg shadow-neutral-200">保存</button>}
             >
                 <div className="space-y-3">
-                    <p className="text-[10px] text-slate-400 leading-relaxed">追加在内置 HTML 提示词之后（不覆盖）。可以写卡片风格偏好、常用配色、想要的卡片类型等。</p>
+                    
                     <textarea
                         value={tempHtmlPrompt}
                         onChange={e => setTempHtmlPrompt(e.target.value)}
