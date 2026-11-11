@@ -13,20 +13,21 @@ const archivedBlock = source.slice(
 );
 
 describe('剧情正常记忆归档原文入口', () => {
-    it('真实时间陪伴归档后仍使用可展开原文的 details，而不是不可点击占位', () => {
-        expect(archivedBlock).toContain("!archive && entry.writesToCharacterMemory\n                                ? '已作为正常记忆归档'");
-        expect(archivedBlock).toContain('展开查看原文');
+    it('连续归档段默认折叠，只有展开后才挂载原文和 HTML', () => {
+        expect(archivedBlock).toContain('storyArchiveGroupKey(message, entry)');
+        expect(archivedBlock).toContain("box ? '事件盒归档' : '角色记忆归档'");
         expect(archivedBlock).toContain('<details open={isExpanded}');
-        expect(archivedBlock).toContain('open={isExpanded}');
-        expect(archivedBlock).toContain('{isExpanded &&');
-        expect(archivedBlock).not.toContain('if (entry.writesToCharacterMemory) return <div');
+        expect(archivedBlock).toContain('archivedRows.map((row, index) =>');
+        expect(archivedBlock).toContain('{isExpanded && <div');
+        expect(archivedBlock).not.toContain('toggleAllArchives');
     });
 
-    it('连续阅读、批量展开和完整导出接线不会退化', () => {
+    it('分页保留原始楼号，导出仍然读取全部数据库原文', () => {
         expect(source).toContain('messages.map((message, floorIndex) =>');
-        expect(source).toContain('data-story-floor={floorIndex + 1}');
-        expect(source).toContain("allArchivesExpanded ? '全部收起' : '全部展开'");
+        expect(source).toContain('data-story-floor={floorIndexOffset + floorIndex + 1}');
+        expect(source).toContain("data-story-load-more='true'");
         expect(source).toContain("title='导出全部剧情原文'");
-        expect(source).toContain('onClick={toggleAllArchives}');
+        expect(source).toContain('const allMessages = (await DB.getMessagesByCharId(threadId, true))');
+        expect(source).toContain('formatStoryTheaterExport(entry, mask.name, actors.map(actor => actor.name), allMessages)');
     });
 });
