@@ -10,6 +10,7 @@ on:
       - 'test/fixtures/story-editor-dark.html'
       - 'tests/story-editor-dark-visual.tsx'
       - 'scripts/story-lore-device-viewport.mjs'
+      - 'scripts/story-iframe-touch-audit.mjs'
       - 'apps/DateApp.tsx'
       - 'context/MusicContext.tsx'
       - 'utils/dateBgm*.ts'
@@ -483,6 +484,10 @@ jobs:
             tail -n 30 output/story-cinema-after-close/stability-120.log || true
             exit 1
           }
+          # Unlike screenshots, this drives real device touch events inside
+          # sandboxed HTML; nested scroll trapping was the reported bug.
+          CHROME_BIN="$browser" node scripts/story-iframe-touch-audit.mjs             'http://127.0.0.1:5197/story-reading-scroll-visual.html?mode=novel&count=72&rich=1'
+          test -s output/story-iframe-touch/72-floor-end.png
           echo "STORY_CINEMA_SCREENSHOT_BEGIN"
           base64 -w0 output/story-cinema-after-close/cinema-390.png
           echo
@@ -498,5 +503,6 @@ jobs:
             output/meet-scenes/
             output/meet-landscape/
             output/story-cinema-after-close/
+            output/story-iframe-touch/
             output/story-background/
           if-no-files-found: ignore
