@@ -4,6 +4,31 @@ import { readStoryRegexRules, storyRegexInstruction, STORY_REGEX_ASSET, type Sto
 export type AlchemyDomain = 'online' | 'offline';
 export const ALCHEMY_CHANGED = 'sully-alchemy-regex-changed';
 
+/** Classify only within the imported file. Keep an author's explicit
+ * subcategory unchanged; use local name patterns for generic original groups. */
+export function alchemySubcategory(rule: StoryRegexRule): string {
+    if (rule.subcategory?.trim()) return rule.subcategory.trim();
+    const name = rule.name;
+    if (rule.kind === 'template') {
+        if (/小法庭|审判|裁决/.test(name)) return '法庭互动';
+        if (/豆包|问答|聊天/.test(name)) return '聊天模拟';
+        if (/弹幕/.test(name)) return '弹幕';
+        if (/刮|彩票|红包|礼物/.test(name)) return '互动礼物';
+        if (/小剧场|番茄|小说/.test(name)) return '小剧场';
+        return rule.source?.category || '互动卡片';
+    }
+    if (/^WS\d|八股净化/.test(name + (rule.source?.category || ''))) {
+        if (/核心指令/.test(name)) return '核心指令';
+        if (/词汇级/.test(name)) return '词汇清理';
+        if (/句式级/.test(name)) return '句式清理';
+        if (/环境描写/.test(name)) return '环境描写';
+        if (/人物细节/.test(name)) return '人物细节';
+        if (/言情八股/.test(name)) return '言情表达';
+        if (/弹性禁令|结尾/.test(name)) return '表达与结尾';
+    }
+    return rule.source?.category || '文字规则';
+}
+
 export const alchemyDomain = (rule: StoryRegexRule): AlchemyDomain =>
     rule.domain === 'online' || rule.domain === 'offline'
         ? rule.domain : rule.kind === 'template' ? 'online' : 'offline';
