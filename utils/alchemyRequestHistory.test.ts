@@ -36,9 +36,9 @@ describe('Online and offline prompt-history rules never rewrite saved message ob
         expect(request[2]).not.toBe(source[2]);
     });
 
-    it('meeting executes a preset-bound offline rule with no preset, without a second API call', async () => {
+    it('meeting executes an explicitly enabled meeting rule even when bound to a story preset, without a second API call', async () => {
         const stored = rule({ id: 'bound-story', presetId: 'my-story-preset',
-            targets: ['offline'], domain: 'offline',
+            targets: ['offline'], offlineScenes: ['story', 'meeting'], domain: 'offline',
             instruction: '不要透露隐藏字段', role: 'both' });
         const spy = vi.spyOn(DB, 'getAsset').mockResolvedValue(JSON.stringify([stored]));
         try {
