@@ -81,7 +81,7 @@ function checkedStoryArchiveSections(summary: string, affinity: string[]): strin
     const headings = [...summary.matchAll(archiveSectionStart)];
     const parts = archiveHeadings.map((heading, index) => {
         const section = headings[index];
-        if (section?.[1] !== heading) throw new Error('归档总结缺少或错排「' + heading + '」，本次未保存，原文和旧归档已保留');
+        if (!section || section[1] !== heading) throw new Error('归档总结缺少或错排「' + heading + '」，本次未保存，原文和旧归档已保留');
         const text = summary.slice(section.index + section[0].length, headings[index + 1]?.index).trim();
         if (!text || /^[-—–/\s]+$/.test(text)) throw new Error('归档总结的「' + heading + '」为空，本次未保存，原文和旧归档已保留');
         if (index === 0 && text === UNSPECIFIED) throw new Error('归档总结没有关键事件，本次未保存，原文和旧归档已保留');
