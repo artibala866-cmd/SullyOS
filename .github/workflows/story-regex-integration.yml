@@ -77,7 +77,7 @@ jobs:
           for domain in online offline; do
             url="http://127.0.0.1:5187/alchemy-visual.html?domain=$domain"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-              --window-size=390,880 --virtual-time-budget=4500 --dump-dom "$url" \
+              --window-size=390,1150 --virtual-time-budget=4500 --dump-dom "$url" \
               > "/tmp/alchemy-shots/$domain.html"
             grep -q 'data-alchemy-screenshot-ready="true"' "/tmp/alchemy-shots/$domain.html" || {
               echo "Failed real rule-folder component UI: $domain"
@@ -86,7 +86,7 @@ jobs:
               exit 1
             }
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
-              --window-size=390,880 --virtual-time-budget=4500 \
+              --window-size=390,1150 --virtual-time-budget=4500 \
               --screenshot="/tmp/alchemy-shots/$domain.png" "$url"
           done
       - uses: actions/upload-artifact@v4
