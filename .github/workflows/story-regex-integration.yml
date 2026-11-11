@@ -74,20 +74,32 @@ jobs:
           done
           if [ "$ready" != true ]; then cat /tmp/alchemy-visual-vite.log; exit 1; fi
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          for domain in online offline; do
-            url="http://127.0.0.1:5187/alchemy-visual.html?domain=$domain"
+          for view in online-beauty online-rules offline-rules; do
+            domain="${view%%-*}"
+            section="${view#*-}"
+            url="http://127.0.0.1:5187/alchemy-visual.html?domain=$domain&section=$section"
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
               --window-size=390,1150 --virtual-time-budget=4500 --dump-dom "$url" \
-              > "/tmp/alchemy-shots/$domain.html"
-            grep -q 'data-alchemy-screenshot-ready="true"' "/tmp/alchemy-shots/$domain.html" || {
-              echo "Failed real rule-folder component UI: $domain"
-              grep -o 'alchemy-report[^>]*>[^<]*' "/tmp/alchemy-shots/$domain.html" || true
+              > "/tmp/alchemy-shots/$view.html"
+            grep -q 'data-alchemy-screenshot-ready="true"' "/tmp/alchemy-shots/$view.html" || {
+              echo "Failed real rule-folder component UI: $view"
+              grep -o 'alchemy-report[^>]*>[^<]*' "/tmp/alchemy-shots/$view.html" || true
               tail -n 40 /tmp/alchemy-visual-vite.log
               exit 1
             }
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
               --window-size=390,1150 --virtual-time-budget=4500 \
-              --screenshot="/tmp/alchemy-shots/$domain.png" "$url"
+              --screenshot="/tmp/alchemy-shots/$view.png" "$url"
+            for action in rule-delete folder-delete; do
+              "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                --window-size=390,1150 --virtual-time-budget=4500 --dump-dom "$url&action=$action" \
+                > "/tmp/alchemy-shots/$view-$action.html"
+              grep -q 'data-alchemy-delete-ready="true"' "/tmp/alchemy-shots/$view-$action.html" || {
+                echo "Failed confirmed deletion UI: $view $action"
+                grep -o 'alchemy-delete-report[^>]*>[^<]*' "/tmp/alchemy-shots/$view-$action.html" || true
+                exit 1
+              }
+            done
           done
       - uses: actions/upload-artifact@v4
         if: always()
