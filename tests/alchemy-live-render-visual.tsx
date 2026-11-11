@@ -5,6 +5,11 @@ import { applyStoryRegex } from '../utils/storyRegex';
 import AlchemyMessageBody from '../components/alchemy/AlchemyMessageBody';
 import { alchemyInstructions } from '../utils/alchemyRegex';
 
+let bridgeMessages = 0;
+window.addEventListener('message', event => {
+    if (event.data?.type === 'sully-alchemy-template-height') bridgeMessages++;
+});
+
 const rules = parseStoryRegexImport(JSON.stringify([
     {
         name:'微信红包', scope:'global', scenes:['chat'], enabled:1, isHtmlTemplate:true,
@@ -51,7 +56,8 @@ const assert=()=>{
     const sizes=frames.map(frame=>Number.parseFloat(frame.style.height));
     const resized=sizes.length===2&&sizes[0]>240&&sizes[1]>260;
     const prompts=expectedPrompts.length===2;
-    document.body.dataset.alchemyLiveCardReady=String(hasSource&&resized&&prompts);
-    document.body.dataset.alchemyLiveCardReport=JSON.stringify({hasSource,resized,prompts,sizes});
+    const bridgeWorks=bridgeMessages>=2;
+    document.body.dataset.alchemyLiveCardReady=String(hasSource&&resized&&prompts&&bridgeWorks);
+    document.body.dataset.alchemyLiveCardReport=JSON.stringify({hasSource,resized,prompts,sizes,bridgeMessages});
 };
 window.setTimeout(assert, 2600);
