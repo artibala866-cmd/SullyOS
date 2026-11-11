@@ -204,41 +204,66 @@ function replacementFor(rule: StoryRegexRule): string {
     return index === 0 ? rule.replacement : choices[index - 1];
 }
 
-/** Which rules get the conservative local prose guard by default. */
+/**
+ * Detect prose deletion rules independently of any imported topic, word list,
+ * file name or rule category. Structural cleanup (HTML/JSON tags, anchors and
+ * lookaheads) must keep its original exact regular-expression semantics.
+ */
+export function isProseDeletionPattern(pattern: string): boolean {
+    const source = pattern.trim();
+    if (!source) return false;
+    if (/<[!/a-zA-Z]|<\\\/?|\\x3c|\\u003c|&lt;/i.test(source)) return false;
+    if (/^\^|\$$|\(\?[:=!<]/.test(source)) return false;
+    return true;
+}
+
+/** An imported prose-deletion rule receives the same local guard by default. */
 export function isBroadProseBan(rule: StoryRegexRule): boolean {
-    return rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
+    if (rule.kind !== 'filter' || rule.replacement || rule.source?.smartFilter === false) return false;
+    if (!isProseDeletionPattern(rule.pattern)) return false;
+    return rule.source?.smartFilter === true || !!rule.source?.originalRule
+        || /^WS\d/i.test(rule.name)
         || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
 }
 
 /**
- * Offline, conservative ambiguity guard for broad prose-ban filters.
- * No model, embedding or network call is involved.
- * It keeps literal food actions when an imported pattern spans >6 characters.
- * Authors still control the matched range; no nearby text is secretly erased.
+ * Conservative zero-API guard for *all* imported prose deletion rules.
+ * Analyze the match's own grammatical shape and its sentence surroundings;
+ * never infer a subject ("fruit", "flowers", etc.) or invent a banned phrase.
+ *
+ * A plain short noun/adjective is not enough evidence to delete it. In contrast,
+ * an authored full figurative construction can be removed as written. Numeric
+ * quantifiers are a general signal of literal objects/events rather than
+ * rhetorical decoration, even if the expression itself is longer.
+ *
+ * This intentionally refuses to pretend to be a semantic LLM. When a pattern
+ * matches only an ambiguous word inside a metaphor, leave it untouched rather
+ * than cut the noun and leave an ungrammatical fragment.
  */
 function protectBroadProseMatch(rule: StoryRegexRule, matched: string, source: string, offset: number): boolean {
-    if (rule.source?.smartFilter === false || rule.replacement) return false;
-    const broadBan = isBroadProseBan(rule);
-    if (!broadBan) return false;
-    // Only an explicitly matched figure of speech may bypass short-word
-    // protection. Bare fruit words remain so a sentence isn't left broken.
-    const explicitSimile = /(?:像|似|如|仿佛).{0,8}草莓(?:般|一样|似的)|草莓(?:般|似的|一样)/.test(matched);
-    if (matched.includes('草莓')) {
-        const fruitOffset = offset + matched.indexOf('草莓');
-        const before = source.slice(Math.max(0, fruitOffset - 20), fruitOffset);
-        const after = source.slice(fruitOffset + 2, fruitOffset + 22);
-        const figurative = explicitSimile
-            || (/(?:像|如|仿佛|好似|犹如).{0,12}$/.test(before)
-                && /^(?:一样|一般|般|似的|红|甜)/.test(after))
-            || /(?:唇|脸|面颊|眼尾|眼眸|吻|肌肤|神情|感情).{0,12}(?:像|似|如|仿佛).{0,10}$/.test(before)
-            || /^(?:般|似的|一样|色的?(?:唇|脸)|味的?(?:吻|气息))/.test(after);
-        const literal = /(?:吃|咬|尝|买|洗|切|摘|采|种|拿|端|煮|烤|榨|递|送|嚼|吞|挑|剥).{0,10}$/.test(before)
-            || /(?:一盒|一篮|一盘|一碗|一斤|几颗|几盒|超市|水果店|果摊|厨房|冰箱|餐桌).{0,10}$/.test(before)
-            || /^(?:蛋糕|牛奶|冰淇淋|果酱|果汁|奶昔|慕斯|派|酸奶|汁|果肉|籽|叶|蒂|味|放进|洗净|切开|切块|吃掉|入口|装进|递给|端上)/.test(after);
-        // If context is mixed, err on the side of keeping real story content.
-        if (literal && !figurative) return true;
+    if (!isBroadProseBan(rule) || !matched.trim()) return false;
+    const phrase = matched.trim();
+    const withinSentence = source.slice(
+        Math.max(0, offset - 32), Math.min(source.length, offset + matched.length + 32));
+    const figurativePattern = /(?:像|如同|犹如|宛如|仿佛|好似|仿若).{1,16}(?:般|一般|一样|似的)|(?:如|似).{1,12}(?:般|一样|似的)|[^，。！？；\s]{1,12}(?:般|似的)/;
+    const completeFigure = figurativePattern.test(phrase);
+    if (completeFigure) return false;
+
+    // A self-standing token (inside a sentence, a quote, or a simile) cannot
+    // be reliably classified from the author's regex alone.
+    const units = Array.from(phrase);
+    const plainToken = !/[\s，。！？；,.!?;<>[\]{}]/u.test(phrase);
+    if (plainToken && units.length <= 5) return true;
+
+    // Protect concrete counted objects no matter what the object is. Unlike a
+    // hardcoded food/flower list, this generalizes to unseen imported topics.
+    const quantity = /(?:\d+|[零〇一二两三四五六七八九十百千万几半多])(?:个|只|颗|粒|盒|瓶|杯|碗|盘|袋|束|朵|枝|支|片|块|张|件|本|把|根|斤|克|千克|米|厘米|份|碟|罐|篮|桶)/u;
+    if (quantity.test(phrase) && !figurativePattern.test(withinSentence.slice(
+        Math.max(0, offset - Math.max(0, offset - 32)),
+        Math.max(0, offset - Math.max(0, offset - 32)) + matched.length))) {
+        return true;
     }
-    return !explicitSimile && matched.length < 6 && !/[<>[\]{}]/.test(matched);
+    return false;
 }
 
 export function applyStoryRegex(
