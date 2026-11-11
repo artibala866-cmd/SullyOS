@@ -426,7 +426,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             </label>)}
                         </div>
                     </details>
-                    <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
+                    {!isTemplate && <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
                         <summary className='cursor-pointer text-xs font-medium text-neutral-600'>测试规则</summary>
                         <div className='mt-3 space-y-2'>
                             {!isTemplate && draft.display && draft.history &&
@@ -445,7 +445,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 {!result.text && <p className='text-neutral-400'>无输出</p>}
                             </div>}
                         </div>
-                    </details>
+                    </details>}
                     {rules.some(item => item.id === draft.id) && <div className='flex items-center gap-2 pt-1'>
                         {confirmDelete && <button type='button' onClick={() => setConfirmDelete(false)} className={actionClass}>取消</button>}
                         <button type='button' onClick={() => confirmDelete
