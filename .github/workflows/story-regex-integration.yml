@@ -16,6 +16,8 @@ on:
       - 'components/alchemy/*.tsx'
       - 'tests/alchemy-visual.tsx'
       - 'alchemy-visual.html'
+      - 'alchemy-manager-visual.html'
+      - 'tests/alchemy-manager-visual.tsx'
       - 'components/chat/MessageItem.tsx'
       - 'components/chat/ChatInputArea.tsx'
       - 'apps/Chat.tsx'
@@ -116,6 +118,40 @@ jobs:
               }
             done
           done
+      - name: Check real regex manager UI, visible HTML source and import on mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/alchemy-manager-shots
+          pnpm exec vite --host 127.0.0.1 --port 5188 --strictPort > /tmp/alchemy-manager-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:5188/alchemy-manager-visual.html >/dev/null && break || true
+            sleep 0.3
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for scenario in beauty-list rules-list beauty-edit rules-edit import-raw-html import-json-html; do
+            url="http://127.0.0.1:5188/alchemy-manager-visual.html?view=$scenario"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,900 --virtual-time-budget=5500 --dump-dom "$url" \
+              > "/tmp/alchemy-manager-shots/$scenario.html"
+            if ! grep -q 'data-alchemy-manager-ready="true"' "/tmp/alchemy-manager-shots/$scenario.html"; then
+              echo "Failed real editor interaction: $scenario"
+              grep -o 'data-alchemy-manager-error="[^"]*"' "/tmp/alchemy-manager-shots/$scenario.html" || true
+              tail -n 30 /tmp/alchemy-manager-vite.log
+              exit 1
+            fi
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,900 --virtual-time-budget=5500 \
+              --screenshot="/tmp/alchemy-manager-shots/$scenario.png" "$url"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alchemy-real-manager-mobile-screenshots
+          path: /tmp/alchemy-manager-shots/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:
