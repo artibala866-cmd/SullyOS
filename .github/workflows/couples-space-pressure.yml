@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/couples-space-pressure.yml'
       - 'utils/couplesSpaceStress.test.tsx'
-      - 'utils/couplesSpaceApp.test.tsx'
+      - 'utils/couplesSpaceApp.test.ts'
       - 'utils/couplesSpace.ts'
       - 'utils/couplesChat.ts'
       - 'apps/CouplesSpaceApp.tsx'
@@ -36,7 +36,7 @@ jobs:
       - name: Full couples app regression plus 4800-record/400-operation stress
         env:
           SULLY_TEST_OFFLINE: '1'
-        run: pnpm exec vitest run utils/couplesSpace.test.ts utils/couplesSpaceApp.test.tsx utils/couplesSpaceStress.test.tsx --reporter=verbose
+        run: pnpm exec vitest run utils/couplesSpace.test.ts utils/couplesSpaceApp.test.ts utils/couplesSpaceStress.test.tsx --reporter=verbose
       - name: Targeted TypeScript typecheck
         shell: bash
         run: |
