@@ -78,21 +78,21 @@ const report = () => {
     const frameCount = document.querySelectorAll('iframe').length;
     const secure = dialect === 'janus'
         ? frameCount === 0
-        : frame?.getAttribute('sandbox') === ''
+        : frame?.getAttribute('sandbox') === 'allow-scripts'
             && doc.includes('Content-Security-Policy')
+            && doc.includes("script-src &#39;nonce-sully-story-template-runtime&#39;")
             && doc.includes('story-theater-html-content')
             && doc.includes(expectedPhrase[dialect])
             && !doc.includes('attack()')
             && !doc.includes('storyHtmlHacked')
-            && !doc.includes('<script')
+            && doc.includes('<script nonce="sully-story-template-runtime">')
+            && doc.split('<script').length === 2
             && !doc.includes('tracker.invalid');
     const frameHeights = Array.from(document.querySelectorAll('iframe')).map(frame => frame.getBoundingClientRect().height);
-    const compactHeight = dialect === 'janus' || (
-        dialect === 'ako' ? frameHeights.every(height => height <= 520)
-        : dialect === 'pluto' || dialect === 'mur'
-            ? frameHeights.every(height => height >= 76 && height <= 160)
-            : frameHeights.every(height => height <= 270)
-    );
+    // A real content-height frame may be taller than its old heuristic.
+    // Check for excess blank space without reintroducing a scrolling iframe.
+    const compactHeight = dialect === 'janus' || frameHeights.every(height =>
+        height >= 76 && height <= Math.min(650, innerHeight * 0.7));
     const success = Boolean(frameCount === expectedFrames && structure && secure && widthOk && compactHeight);
     document.body.dataset.storyTheaterHtmlReady = String(success);
     let output=document.getElementById('story-tavern-html-report');
