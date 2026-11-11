@@ -17,14 +17,19 @@ describe('见面剧情连续楼层阅读', () => {
 
     it('滚动时更新楼数，阅读旧楼层时不被生成或编辑动作拉回底部', () => {
         expect(sessionSource).toContain('onScroll={handleReadingScroll}');
-        expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {\n        updateVisibleFloor(true);');
-        expect(sessionSource).not.toContain('requestAnimationFrame');
+        expect(sessionSource).toContain('const handleReadingScroll = useCallback(() => {');
+        expect(sessionSource).toContain('scheduleVisibleFloor();');
+        expect(sessionSource).toContain('requestAnimationFrame(() => {');
+        expect(sessionSource).toContain('cancelAnimationFrame(readingScrollFrameRef.current)');
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
         expect(sessionSource).toContain('document.fonts.ready.then');
-        expect(sessionSource).toContain('if (followLatestRef.current) {\n                const viewport = readingScrollRef.current;');
-        expect(sessionSource).toContain('updateVisibleFloor');
-        expect(sessionSource).toContain('if (trackReaderScroll) followLatestRef.current = nearBottom');
+        expect(sessionSource).toContain('const syncLayout = () => scheduleVisibleFloor();');
+        expect(sessionSource).not.toContain('if (viewport) viewport.scrollTop = viewport.scrollHeight');
+        expect(sessionSource).toContain('onWheel={pauseFollowingForReading}');
+        expect(sessionSource).toContain('onTouchStart={pauseFollowingForReading}');
+        expect(sessionSource).toContain('const previousId = lastReadMessageIdRef.current;');
+        expect(sessionSource).toContain('latestId > previousId');
         expect(sessionSource).toContain("viewport.scrollTo({ top: viewport.scrollHeight, behavior });");
         expect(sessionSource).not.toContain('scrollIntoView');
         expect(sessionSource).toContain("aria-label='回到最新楼层'");
@@ -42,6 +47,8 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource.indexOf('第 {visibleFloor || 1}/{messages.length} 楼'))
             .toBeLessThan(sessionSource.indexOf('<main ref={readingScrollRef}'));
         expect(sessionSource).toContain("className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'");
+        expect(visualSource).toContain("focus === 'stability'");
+        expect(visualSource).toContain('anchorDrift');
     });
 
     it('保留楼层长按、归档展开、最近一轮重写与剧情正文组件', () => {
