@@ -205,10 +205,34 @@ const subscribeStoryFrameMessages = (frame: HTMLIFrameElement, listener: (event:
     };
 };
 
+// Saved measurements prevent rich archived cards from restarting at a
+// short estimate every time a reader leaves and re-enters the story.
+const storyFrameHeightCache = new Map<string, number>();
+const storyFrameHeightKey = (source: string): string => {
+    let hash = 2166136261;
+    for (let i = 0; i < source.length; i++) hash = Math.imul(hash ^ source.charCodeAt(i), 16777619);
+    return `${Math.round(window.innerWidth)}:${source.length}:${hash >>> 0}`;
+};
+const storeStoryFrameHeight = (key: string, height: number): void => {
+    storyFrameHeightCache.delete(key);
+    storyFrameHeightCache.set(key, height);
+    if (storyFrameHeightCache.size > 120) {
+        const oldest = storyFrameHeightCache.keys().next().value;
+        if (oldest) storyFrameHeightCache.delete(oldest);
+    }
+};
+
 export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = React.memo(({ source, fallback, title, template = false }) => {
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
     const frameRef = useRef<HTMLIFrameElement>(null);
-    const [frameHeight, setFrameHeight] = useState(safe.estimatedHeight);
+    const heightKey = useMemo(() => storyFrameHeightKey(safe.srcDoc), [safe.srcDoc]);
+    const [frameHeight, setFrameHeight] = useState(() => storyFrameHeightCache.get(heightKey) ?? safe.estimatedHeight);
+    useEffect(() => {
+        const cached = storyFrameHeightCache.get(heightKey);
+        // On a new template with no measurement, preserve the old height until
+        // its iframe reports the real layout rather than flashing an estimate.
+        if (cached !== undefined) setFrameHeight(cached);
+    }, [heightKey]);
     // Keep the last measured height while a regex/template refresh loads its new srcDoc.
     // Resetting to the initial estimate collapses settled floors for a frame.
     useEffect(() => {
@@ -224,6 +248,7 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
                 // capped iframe creates a second vertical scroller that traps
                 // Android touch gestures, especially in long saved stories.
                 const nextHeight = Math.max(76, Math.min(80000, Math.ceil(height)));
+                storeStoryFrameHeight(heightKey, nextHeight);
                 setFrameHeight(previous => previous === nextHeight ? previous : nextHeight);
             } else if (event.data?.type === 'sully-story-template-scroll') {
                 const delta = event.data.deltaY;
@@ -250,7 +275,7 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
         };
         const frame = frameRef.current;
         return frame ? subscribeStoryFrameMessages(frame, receiveFrameMessage) : undefined;
-    }, []);
+    }, [heightKey]);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
             {fallback || safe.text || '此段仅包含无法安全显示的脚本或样式，未执行任何代码'}
