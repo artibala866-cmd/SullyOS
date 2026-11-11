@@ -25,7 +25,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         const story = read('components/date/story/StoryTheaterSession.tsx');
         const date = read('apps/DateApp.tsx');
         const screen = read('components/date/DateSession.tsx');
-        expect(story).toContain("alchemyDomain(rule) === 'offline'");
+        expect(story).toContain("alchemyRuleAppliesTo(rule, 'offline')");
         expect(date).toContain('applyMeetingAlchemyRequest(messages, modelText');
         expect(date).toContain('applyMeetingAlchemyRequest(messages, lastUserMsg.content');
         expect(date).toContain("applyMeetingAlchemyRequest(messages, ''");
@@ -34,6 +34,27 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(screen).toContain('alchemyDisplay.get(msg.id)?.text');
         expect(screen).toContain('spriteAlchemy.get(-987654321)?.text');
         expect(screen).toContain('const galShownText = currentText');
+    });
+
+    it('exposes rule manager online and offline with confirmed list-level deletion', () => {
+        const privateChat = read('apps/Chat.tsx');
+        const group = read('apps/GroupChat.tsx');
+        const menu = read('components/chat/ChatInputArea.tsx');
+        const manager = read('components/alchemy/AlchemyManagerScreen.tsx');
+        const panel = read('components/date/story/StoryRegexPanel.tsx');
+        const folders = read('components/alchemy/AlchemyRuleFolders.tsx');
+        expect(menu).toContain("onPanelAction('alchemy-rules')");
+        expect(privateChat).toContain("case 'alchemy-rules'");
+        expect(group).toContain("setAlchemySection('rules')");
+        expect(manager).toContain("['beauty', '美化类']");
+        expect(manager).toContain("['rules', '规则类']");
+        expect(panel).toContain("aria-label='规则生效范围'");
+        expect(panel).toContain("onDeleteFolder={(folder, selected)");
+        expect(panel).toContain("onDelete={rule");
+        expect(folders).toContain("aria-label={'删除规则 ' + rule.name}");
+        expect(folders).toContain("aria-label={'删除分组 ' + folder}");
+        expect(folders).toContain('确认删除');
+        expect(folders).toContain('取消');
     });
 
     it('only uses local DB and regex worker, never a second LLM request for regex classification', () => {
