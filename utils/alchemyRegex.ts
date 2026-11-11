@@ -44,18 +44,27 @@ export const alchemyRuleTargets = (rule: StoryRegexRule): AlchemyDomain[] =>
 export const alchemyRuleAppliesTo = (rule: StoryRegexRule, domain: AlchemyDomain): boolean =>
     alchemyRuleTargets(rule).includes(domain);
 
+/** A story preset belongs to the story only. Meetings have no story preset,
+ * and must never acquire a preset-bound filter just because it is offline.
+ * Users can explicitly opt a preset-bound rule into meetings. */
+export const alchemyOfflineScenes = (rule: StoryRegexRule): Array<'story' | 'meeting'> =>
+    rule.offlineScenes?.length ? (['story', 'meeting'] as const).filter(scene => rule.offlineScenes!.includes(scene))
+        : rule.presetId ? ['story'] : ['story', 'meeting'];
+
 export const alchemyRuleSection = (rule: StoryRegexRule): 'beauty' | 'rules' =>
     rule.kind === 'template' ? 'beauty' : 'rules';
 
 export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, presetId = ''): StoryRegexRule[] =>
     rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, domain)
-        && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
+        && (domain === 'online' || (alchemyOfflineScenes(rule).includes('story')
+            && (!rule.presetId || (presetId !== '' && rule.presetId === presetId)))))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-/** A meeting has no story preset; all enabled offline rules apply there.
- * Preset binding narrows STORY use only, never the in-person meeting. */
+/** A meeting has no story preset. Only its explicitly selected offline
+ * scene runs; legacy rules bound to story presets default to story only. */
 export const alchemyRulesForMeeting = (rules: StoryRegexRule[]): StoryRegexRule[] =>
-    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline'))
+    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline')
+        && alchemyOfflineScenes(rule).includes('meeting'))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
 /** Apply one compact folder switch to ONLY the selected rules in that folder.
