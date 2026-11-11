@@ -204,6 +204,38 @@ function replacementFor(rule: StoryRegexRule): string {
     return index === 0 ? rule.replacement : choices[index - 1];
 }
 
+/**
+ * Offline, conservative ambiguity guard for broad prose-ban filters.
+ * No model, embedding or network call is involved.
+ * It keeps literal food actions when an imported pattern spans >6 characters.
+ * Authors still control the matched range; no nearby text is secretly erased.
+ */
+function protectBroadProseMatch(rule: StoryRegexRule, matched: string, source: string, offset: number): boolean {
+    if (rule.source?.smartFilter === false || rule.replacement) return false;
+    const broadBan = rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
+        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
+    if (!broadBan) return false;
+    // Only an explicitly matched figure of speech may bypass short-word
+    // protection. Bare fruit words remain so a sentence isn't left broken.
+    const explicitSimile = /(?:像|似|如|仿佛).{0,8}草莓(?:般|一样|似的)|草莓(?:般|似的|一样)/.test(matched);
+    if (matched.includes('草莓')) {
+        const fruitOffset = offset + matched.indexOf('草莓');
+        const before = source.slice(Math.max(0, fruitOffset - 20), fruitOffset);
+        const after = source.slice(fruitOffset + 2, fruitOffset + 22);
+        const figurative = explicitSimile
+            || (/(?:像|如|仿佛|好似|犹如).{0,12}$/.test(before)
+                && /^(?:一样|一般|般|似的|红|甜)/.test(after))
+            || /(?:唇|脸|面颊|眼尾|眼眸|吻|肌肤|神情|感情).{0,12}(?:像|似|如|仿佛).{0,10}$/.test(before)
+            || /^(?:般|似的|一样|色的?(?:唇|脸)|味的?(?:吻|气息))/.test(after);
+        const literal = /(?:吃|咬|尝|买|洗|切|摘|采|种|拿|端|煮|烤|榨|递|送|嚼|吞|挑|剥).{0,10}$/.test(before)
+            || /(?:一盒|一篮|一盘|一碗|一斤|几颗|几盒|超市|水果店|果摊|厨房|冰箱|餐桌).{0,10}$/.test(before)
+            || /^(?:蛋糕|牛奶|冰淇淋|果酱|果汁|奶昔|慕斯|派|酸奶|汁|果肉|籽|叶|蒂|味|放进|洗净|切开|切块|吃掉|入口|装进|递给|端上)/.test(after);
+        // If context is mixed, err on the side of keeping real story content.
+        if (literal && !figurative) return true;
+    }
+    return !explicitSimile && matched.length < 6 && !/[<>[\]{}]/.test(matched);
+}
+
 export function applyStoryRegex(
     value: string | StoryRegexInput, rules: StoryRegexRule[], stage: 'display' | 'history', context: StoryRegexContext = {},
 ): StoryRegexResult {
@@ -241,12 +273,8 @@ export function applyStoryRegex(
                     const matched = captures[0] || '';
                     const exceptions = rule.source?.protectWords || [];
                     if (exceptions.some(word => !!word.trim() && matched.includes(word.trim()))) return matched;
-                    const broadBan = rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
-                        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
-                    // Conservative, deterministic recognition. Keep normal words
-                    // such as 情绪/草莓 and the untouched history; no extra API.
-                    if (rule.source?.smartFilter !== false && broadBan && !rule.replacement
-                        && matched.length < 6 && !/[<>[\]{}]/.test(matched)) return matched;
+                    // Preserve normal story content without a second API call.
+                    if (protectBroadProseMatch(rule, matched, originalInput, offset)) return matched;
                     matches++;
                     const replacement = expandStoryRegexReplacement(
                         replacementFor(rule),
