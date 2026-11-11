@@ -357,6 +357,52 @@ try{
     if(!reading.cachedShown||!reading.reviewAction||reading.modelCalls||reading.errors.length)
       throw Error('Returning reader cannot see saved teaching without generating AI: '+JSON.stringify(reading));
     await capture('human-resume-pdf',390,844);
+
+    // A returning learner reopens an old graded worksheet, reads corrections,
+    // and presses Back. It must return to the practice book, not a blank class.
+    const oldQuiz=await evaluate(`(async()=>{
+      const wait=ms=>new Promise(r=>setTimeout(r,ms));
+      const until=async(fn,label)=>{
+        for(let t=0;t<65;t++){if(fn())return;await wait(100);}
+        throw Error('Cannot resume past worksheet: '+label);
+      };
+      const visible=e=>e&&e.getClientRects().length>0;
+      const tutorButton=document.querySelector('button[aria-label="选择本课助教"]');
+      const classHeader=tutorButton?.parentElement?.parentElement;
+      const back=classHeader?.querySelector('button');
+      if(!back)throw Error('Saved lesson has no return to bookshelf');
+      back.click();
+      await until(()=>!![...document.querySelectorAll('button[title="练习册"]')].find(visible),'bookshelf');
+      document.querySelector('button[title="练习册"]').click();
+      await until(()=>document.body.textContent.includes('练习册')
+        &&[...document.querySelectorAll('div')].some(e=>String(e.className).includes('border-slate-100')
+        &&e.textContent.includes('光影基础：继续上次的课')),'practice history');
+      const oldCard=[...document.querySelectorAll('div')].find(e=>visible(e)
+        &&String(e.className).includes('border-slate-100')
+        &&e.textContent.includes('光影基础：继续上次的课'));
+      if(!oldCard)throw Error('Saved graded worksheet disappeared');
+      oldCard.click();
+      await until(()=>document.body.textContent.includes('批改结果'),'graded review');
+      const scoreShown=document.body.textContent.includes('1/2');
+      const reviewShown=document.body.textContent.includes('下次多观察阴影边界。');
+      const returnButton=[...document.querySelectorAll('button')].find(b=>
+        visible(b)&&b.textContent.trim()==='返回课堂');
+      if(!returnButton)throw Error('Review return button absent');
+      returnButton.click();
+      await wait(350);
+      const backInPractice=document.body.textContent.includes('练习册')
+        &&document.body.textContent.includes('光影基础：继续上次的课')
+        &&!document.body.textContent.includes('批改结果');
+      return {scoreShown,reviewShown,backInPractice,
+        modelCalls:window.__humanJourneyModelCalls,
+        errors:window.__humanJourneyErrors};
+    })()`);
+    console.log('STUDY_HUMAN_RESUME_GRADED_QUIZ='+JSON.stringify(oldQuiz));
+    if(!oldQuiz.scoreShown||!oldQuiz.reviewShown||!oldQuiz.backInPractice||
+      oldQuiz.errors.length||oldQuiz.modelCalls)
+      throw Error('Past practice review failed real return journey: '+JSON.stringify(oldQuiz));
+    await capture('human-graded-quiz',390,844);
+
   }
 
 
