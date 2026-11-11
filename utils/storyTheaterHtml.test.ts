@@ -192,7 +192,23 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(ordinary.srcDoc).not.toContain('type="radio"');
         expect(ordinary.srcDoc).not.toContain('@keyframes dmRoll');
         expect(ordinary.srcDoc).not.toContain('<svg');
-        expect(ordinary.srcDoc).toContain("script-src &#39;none&#39;");
+        // Ordinary HTML also needs the first-party size/touch bridge. CSP still
+        // blocks all author scripts; the frame stays opaque-origin sandboxed.
+        expect(ordinary.srcDoc).toContain("script-src &#39;nonce-sully-story-template-runtime&#39;");
+        expect(ordinary.srcDoc).toContain('sully-story-template-scroll');
+        expect(ordinary.srcDoc).not.toContain('allow-same-origin');
+    });
+
+    it('长卡片只测量真实正文高度，不用 iframe 视口做连续高度反馈', () => {
+        const rich = sanitizeStoryTheaterHtml('<article>' + '<p>不截断的剧情正文</p>'.repeat(120) + '</article>', true);
+        expect(rich.estimatedHeight).toBe(520);
+        expect(rich.srcDoc).toContain('const rect = root.getBoundingClientRect();');
+        expect(rich.srcDoc).toContain('Math.max(root.scrollHeight, rect.height)');
+        expect(rich.srcDoc).not.toContain('Math.max(document.body.scrollHeight');
+        expect(rich.srcDoc).toContain('if (height === lastHeight) return;');
+        expect(rich.srcDoc).toContain("sully-story-template-scroll");
+        expect(rich.srcDoc).toContain("touchmove");
+        expect(rich.srcDoc).toContain("event.preventDefault()");
     });
 
     it('刮刮乐只使用自带画布运行时，不执行作者的 onerror 或脚本', () => {
