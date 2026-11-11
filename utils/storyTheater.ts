@@ -322,9 +322,10 @@ export const selectStoryArchiveContext = (
     const selected: StoryTheaterArchive[] = [];
     let used = 0;
     for (const box of eligible) {
-        if (selected.length >= 8 || (selected.length > 0 && used + box.summary.length > budget)) break;
+        const summaryLength = box.summary?.length ?? 0;
+        if (selected.length >= 8 || (selected.length > 0 && used + summaryLength > budget)) break;
         selected.push(box);
-        used += box.summary.length;
+        used += summaryLength;
     }
     return selected.reverse();
 };
