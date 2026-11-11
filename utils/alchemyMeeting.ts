@@ -1,5 +1,5 @@
-import { alchemyInstructions, loadAlchemyRules, type AlchemyDomain } from './alchemyRegex';
-import { storyRegexApplies, type StoryRegexContext, type StoryRegexInput, type StoryRegexRule } from './storyRegex';
+import { loadAlchemyRules, loadMeetingAlchemyRules, type AlchemyDomain } from './alchemyRegex';
+import { storyRegexApplies, storyRegexInstruction, type StoryRegexContext, type StoryRegexInput, type StoryRegexRule } from './storyRegex';
 import { runStoryRegex } from './storyRegexRunner';
 
 export interface AlchemyRequestMessage {
@@ -43,9 +43,10 @@ export async function applyAlchemyRequestHistory<T extends AlchemyRequestMessage
 export async function applyMeetingAlchemyRequest<T extends AlchemyRequestMessage>(
     messages: T[], recentText: string, context: StoryRegexContext,
 ): Promise<void> {
-    const rules = await loadAlchemyRules('offline');
+    const rules = await loadMeetingAlchemyRules();
     if (!rules.length) return;
     await applyAlchemyRequestHistoryRules(messages, rules);
-    const guides = alchemyInstructions(rules, 'offline', context, recentText);
+    const guides = rules.map(rule => storyRegexInstruction(rule, context, recentText))
+        .filter(Boolean).slice(0, 20);
     if (guides.length) messages.unshift({ role: 'system', content: guides.join('\n\n') } as T);
 }
