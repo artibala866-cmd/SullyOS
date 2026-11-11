@@ -319,4 +319,56 @@ describe('糯叽机炼金术导入', () => {
         expect(combined.rules[0].offlineScenes).toEqual(['story']);
     });
 
+    it('auto-enables the same local guard for arbitrary imported prose without extra prompts', () => {
+        const topics = ['雨伞', '玻璃', '珊瑚', '钥匙', '松鼠'];
+        const rows = topics.map((topic, index) => ({
+            name: '原作者自由名称 ' + index, category: '自定义集合' + index,
+            pattern: '(像' + topic + '一样|' + topic + ')',
+            flags: 'g', replacement: '', enabled: 1, applyOnDisplay: 1,
+            applyOnPrompt: 1, aiPrompt: '',
+        }));
+        const imported = parseStoryRegexImport(JSON.stringify(rows));
+        expect(imported.rules).toHaveLength(topics.length);
+        expect(imported.rules.every(rule => rule.source?.smartFilter === true)).toBe(true);
+        for (const [index, topic] of topics.entries()) {
+            const rule = imported.rules[index];
+            expect(rule.instruction).toBe('');
+            const sentence = '她拿起' + topic + '，然后说它像' + topic + '一样。';
+            for (const stage of ['display', 'history'] as const) {
+                const result = applyStoryRegex(sentence, [rule], stage);
+                expect(result.text).toBe('她拿起' + topic + '，然后说它。');
+                expect(result.matches).toBe(1);
+            }
+            const strict = { ...rule, source: { ...rule.source, smartFilter: false } };
+            expect(applyStoryRegex('拿起' + topic, [strict], 'display').text).toBe('拿起');
+        }
+    });
+
+    it('guards full literal quantity phrases for new subjects without rewriting imported patterns', () => {
+        const { rules: [rule] } = parseStoryRegexImport(JSON.stringify({
+            name: '用户的任意表达规则', category: '随意分组',
+            pattern: '(两把雨伞|三块玻璃|半瓶墨水|像玻璃一样)',
+            enabled: true, replacement: '', applyOnDisplay: true,
+        }));
+        expect(rule.source?.smartFilter).toBe(true);
+        expect(rule.pattern).toBe('(两把雨伞|三块玻璃|半瓶墨水|像玻璃一样)');
+        const result = applyStoryRegex('买了两把雨伞，拾起三块玻璃，又倒出半瓶墨水。他的心像玻璃一样。', [rule], 'display');
+        expect(result.text).toBe('买了两把雨伞，拾起三块玻璃，又倒出半瓶墨水。他的心。');
+        expect(result.matches).toBe(1);
+    });
+
+    it('does not change structural cleanup rules or inject instructions on import', () => {
+        const raw = [
+            { name: '自带结构清理', pattern: '<ooc>[\\s\\S]*?</ooc>', flags: 'g',
+                replacement: '', applyOnDisplay: true, applyOnPrompt: true, aiPrompt: '' },
+            { name: '短词正则', pattern: '翡翠', replacement: '', applyOnDisplay: true,
+                aiPrompt: '' },
+        ];
+        const { rules } = parseStoryRegexImport(JSON.stringify(raw));
+        expect(rules[0].source?.smartFilter).toBeUndefined();
+        expect(rules[1].source?.smartFilter).toBe(true);
+        expect(applyStoryRegex('正文<ooc>隐藏</ooc>', [rules[0]], 'display').text).toBe('正文');
+        expect(rules.map(rule => rule.instruction)).toEqual(['', '']);
+    });
+
 });
