@@ -713,16 +713,21 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
 
     const handleTeach = async (course: StudyCourse, chapterIdx: number, forceRegenerate: boolean = false, tutorOverride:CharacterProfile|null=null) => {
         const tutor=tutorOverride||selectedChar;
-
-        if (!tutor || !effectiveApi.apiKey) return;
-        
         const chapter = course.chapters[chapterIdx];
-        
-        // 1. Check if we already have content (History Review) and NOT forcing regen
-        if (chapter.content && !forceRegenerate) {
-            skipTypingRef.current = true; // Signal to skip animation for cached content
-            setClassroomState('idle'); 
+
+        // Reading saved course content is local and must never require a live
+        // tutor, paid API key, or a fresh model call.
+        if (chapter?.content && !forceRegenerate) {
+            skipTypingRef.current = true;
+            setClassroomState('idle');
             setCurrentText(chapter.content);
+            return;
+        }
+        if (!chapter || !tutor || !effectiveApi.apiKey) {
+            skipTypingRef.current = true;
+            setClassroomState('idle');
+            setCurrentText(!chapter ? '没有找到本章内容'
+                : !tutor ? '请先选择助教' : '本章尚未生成讲解，请先配置学习室 API');
             return;
         }
 
