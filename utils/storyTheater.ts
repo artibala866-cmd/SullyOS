@@ -1666,7 +1666,7 @@ export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; nam
         '- 从最近一次多人 <affinity_panel> 中按 character_id 读取各自完整状态；没有旧记录时，该角色的 C→U、U→C 从 50 开始，五维依据角色卡与共同经历建立。旧历史只有单人面板时，只能迁移给姓名明确匹配的角色。',
         '- C→U 与 trust、security、possessive_pull、emotional_pressure、repair_will 只读取对应角色的亲历事实、性格、处境与后果；不得用某个角色的变化影响另一位角色。',
         '- 最新 <u_affinity_updates> 只出现本轮由用户填写变化的角色。某角色没有对应更新时，其 U→C 绝对值保持不变，delta 记 +0，原因写“本轮未填写”。',
-        '- U→C 新值 = 该角色上一轮 U→C + 对应 delta，并限制在 0—100。不得用某个角色的变化影响另一位角色。',
+        '- U→C 新值 = 该角色上一轮 U→C + 对应 delta，并限制在 0—100。',
         '- 你只需正确决定每个 delta；前端会依据上一轮绝对值复算 C→U 与 U→C score，防止心算错误。',
         '- 察觉规则只作用于同一条 u_affinity 指向的角色；其他角色不会因为同伴被选择为“已察觉”而共享透视。',
         '',
