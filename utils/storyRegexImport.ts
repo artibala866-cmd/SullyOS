@@ -217,6 +217,21 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
             } else duplicates++;
             continue;
         }
+        // Older versions always appended g, even if the original author did
+        // not request global replacement. Correct the stored flags on explicit
+        // reimport without duplicating an otherwise identical rule.
+        const forcedGlobal = [...new Set((next.flags + 'g').split(''))].sort().join('');
+        const legacyGlobal = next.flags.includes('g') ? -1 : rules.findIndex(current =>
+            !!current.source && current.flags === forcedGlobal
+            && key({ ...current, flags: next.flags }) === signature);
+        if (legacyGlobal !== -1) {
+            const old = rules[legacyGlobal];
+            keys.delete(key(old));
+            rules[legacyGlobal] = { ...old, flags: next.flags, order: next.order ?? old.order };
+            keys.add(key(rules[legacyGlobal]));
+            updated++;
+            continue;
+        }
         // The prior importer discarded aiPrompt on prompt-stage text filters.
         // Recover it from the user's original file on reimport, preserving the
         // stored rule ID, enabled state, preset binding and other customizations.
