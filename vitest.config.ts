@@ -17,6 +17,7 @@ export default defineConfig({
       'utils/**/*.test.ts',
       'utils/storyTheaterUpstreamIntegration.test.tsx',
       'utils/largeHistoryStress.test.tsx',
+      'utils/largeHistoryStress.test.tsx',
       'worker/**/*.test.ts',
       'scripts/**/*.test.ts',
       // Reusable 3D motion architecture runs lightweight Node-only tests.
