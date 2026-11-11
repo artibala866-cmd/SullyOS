@@ -21,6 +21,11 @@ export interface StoryRegexRule {
     enabled: boolean;
     presetId: string;
     kind: 'filter' | 'template';
+    /** Online: private/group chats; offline: story/in-person meeting. */
+    domain?: 'online' | 'offline';
+    /** Import file folder and per-rule author-defined subcategory. */
+    importGroup?: string;
+    subcategory?: string;
     /** Alchemy order: lower values run first; equal values keep import order. */
     order?: number;
     pattern: string;
@@ -42,6 +47,8 @@ export interface StoryRegexRule {
         originalScope?: string;
         originalCharacterIds?: string[];
         triggerEnabled?: boolean;
+        /** true: preserve ambiguous words in broad prose-ban filters. */
+        smartFilter?: boolean;
         substituteRegex?: 0 | 1 | 2;
         minDepth?: number;
         maxDepth?: number;
@@ -207,12 +214,19 @@ export function applyStoryRegex(
             const updated = fragments.map((fragment, index) => {
                 if (index % 2) return fragment;
                 return fragment.replace(regex, (...args: unknown[]) => {
-                    matches++;
                     const named = typeof args.at(-1) === 'object'
                         ? args.pop() as Record<string, string> : undefined;
                     const originalInput = args.pop() as string;
                     const offset = args.pop() as number;
                     const captures = args as (string | undefined)[];
+                    const matched = captures[0] || '';
+                    const broadBan = /^WS\d/i.test(rule.name)
+                        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
+                    // Conservative, deterministic recognition. Keep normal words
+                    // such as 情绪/草莓 and the untouched history; no extra API.
+                    if (rule.source?.smartFilter !== false && broadBan && !rule.replacement
+                        && matched.length < 6 && !/[<>[\]{}]/.test(matched)) return matched;
+                    matches++;
                     const replacement = expandStoryRegexReplacement(
                         replacementFor(rule),
                         /\{\{([^{}]+)\}\}|\$(\$|&|\x60|'|\d{1,2}|<[^>]+>)/g,
