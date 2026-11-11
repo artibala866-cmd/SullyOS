@@ -116,9 +116,14 @@ function storyRegexMacros(text: string, context: StoryRegexContext, escape = fal
 }
 
 export function storyRegexInstruction(rule: StoryRegexRule, context: StoryRegexContext, recentText: string): string {
-    if (!storyRegexApplies(rule, 'display') || rule.kind !== 'template' || !rule.instruction.trim()) return '';
+    // Imported prompt-only filters carry an aiPrompt but have no display replacement.
+    // Their instructions belong in the request, not in the displayed or historical text.
+    if (!rule.enabled || !rule.instruction.trim()) return '';
+    if (rule.kind === 'template' ? !rule.display : !rule.history) return '';
     const keywords = rule.source?.triggerKeywords;
-    if (keywords && !keywords.some(keyword => recentText.toLowerCase().includes(keyword.toLowerCase()))) return '';
+    // A source may enable keyword triggering without providing any keywords.
+    // An empty list means no keyword restriction, never an impossible trigger.
+    if (keywords?.length && !keywords.some(keyword => recentText.toLowerCase().includes(keyword.toLowerCase()))) return '';
     return rule.source ? storyRegexMacros(rule.instruction, context) : rule.instruction;
 }
 
