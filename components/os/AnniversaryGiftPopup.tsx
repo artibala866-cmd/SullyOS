@@ -169,7 +169,7 @@ export default function AnniversaryGiftPopup({ onClose }: { onClose: () => void 
               <span>累计充值</span><strong>¥ 0.00</strong>
             </div>
             <p className="anniversary-owned">两张壁纸 + 一枚头像框，周年免费赠礼。</p>
-            <p className="anniversary-hint">现在一键换装，或下载原图留作纪念。<br />解压后，可在壁纸和头像框设置中自行上传。</p>
+            
           </> : <fieldset className="anniversary-options" disabled={busy}>
             <label className="anniversary-character-label" htmlFor="anniversary-character">给哪位角色的聊天换装？</label>
             <select id="anniversary-character" value={characterId} onChange={e => setCharacterId(e.target.value)}>
@@ -186,7 +186,7 @@ export default function AnniversaryGiftPopup({ onClose }: { onClose: () => void 
               <label className="anniversary-option"><input type="checkbox" checked={phone} onChange={e => setPhone(e.target.checked)} /><span>手机桌面壁纸<small>整部手机共用</small></span></label>
               <select aria-label="周年手机壁纸" disabled={!phone || busy} value={phoneWallpaper} onChange={e => setPhoneWallpaper(e.target.value)}>{ANNIVERSARY_WALLPAPERS.map(w => <option key={w.id} value={w.url}>{w.name}</option>)}</select>
             </div>
-            <p className="anniversary-hint">换装会同步切换为默认紫色主题；聊天装扮搭配默认紫色气泡，壁纸与头像框按勾选项应用。</p>
+            <p className="anniversary-hint">应用后将切换为默认紫色主题。</p>
           </fieldset>}
           {error && <p className="anniversary-error" role="alert">{error}</p>}
         </div>
