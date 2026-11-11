@@ -23,18 +23,11 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({char, onClea
 
     return (
         <div className="space-y-4">
-            <div>
-                <div className="text-xs font-bold text-slate-700 mb-1">🎭 情绪 Buff</div>
-                <div className="text-[11px] text-slate-500 leading-relaxed space-y-1">
-                    <p>与私聊回复共用同一次 API 调用，不再单独请求情绪评估模型，也不需要配置副 API。</p>
-                    <p>关闭时不添加情绪生成指令、不发起情绪请求、不更新或显示 Buff；已保存的状态会保留，重新开启后继续使用。</p>
-                </div>
-            </div>
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3">
                 <div>
                     <span className="text-xs font-bold text-slate-700">情绪 Buff</span>
-                    <p className="mt-1 text-[10px] text-slate-500">只随正常私聊生成，不额外扣一次 API 费用</p>
+                    <p className="mt-1 text-[10px] text-slate-500">随私聊生成 · 无额外 API 请求</p>
                 </div>
                 <button type="button" role="switch" aria-label="情绪 Buff" aria-checked={enabled}
                     onClick={() => onToggle(!enabled)}
