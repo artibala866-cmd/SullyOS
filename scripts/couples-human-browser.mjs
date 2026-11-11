@@ -186,9 +186,15 @@ try{
       b.click();await wait(()=>document.querySelector('.couple-records-'+kind),'open '+label);
     };
     const returnHero=async()=>{
-      const h=document.querySelector('.couple-header button[aria-label="返回"]');
-      if(!h)throw Error('Couple header back not found');
-      h.click();await wait(()=>!!document.querySelector('.couple-ios-hero'),'back to space');
+      // Details, compose and feature screens each occupy their own back level.
+      // Match a human pressing the visible Back arrow until they see the space.
+      for(let i=0;i<4;i++){
+        if(document.querySelector('.couple-ios-hero'))return;
+        const h=document.querySelector('.couple-header button[aria-label="返回"]');
+        if(!h)throw Error('Couple header back not found');
+        h.click();await pause(220);
+      }
+      await wait(()=>!!document.querySelector('.couple-ios-hero'),'back to space');
     };
     const edit=async(kind,title,body)=>{
       await wait(()=>!!document.querySelector('.couple-compose-'+kind),'compose '+kind);
