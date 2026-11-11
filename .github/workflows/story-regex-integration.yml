@@ -14,6 +14,8 @@ on:
       - 'utils/alchemy*.ts'
       - 'hooks/useAlchemyRegex.ts'
       - 'components/alchemy/*.tsx'
+      - 'tests/alchemy-visual.tsx'
+      - 'alchemy-visual.html'
       - 'components/chat/MessageItem.tsx'
       - 'components/chat/ChatInputArea.tsx'
       - 'apps/Chat.tsx'
@@ -52,3 +54,39 @@ jobs:
           echo 'No TypeScript errors in the story regex / viewer files'
       - name: Verify browser bundle compiles
         run: pnpm exec vite build
+      - name: Verify online and offline grouped rule lists in Chromium; take real component screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/alchemy-shots
+          pnpm exec vite --host 127.0.0.1 --port 5187 --strictPort > /tmp/alchemy-visual-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:5187/alchemy-visual.html >/dev/null; then ready=true; break; fi
+            sleep 0.3
+          done
+          if [ "$ready" != true ]; then cat /tmp/alchemy-visual-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for domain in online offline; do
+            url="http://127.0.0.1:5187/alchemy-visual.html?domain=$domain"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,880 --virtual-time-budget=4500 --dump-dom "$url" \
+              > "/tmp/alchemy-shots/$domain.html"
+            grep -q 'data-alchemy-screenshot-ready="true"' "/tmp/alchemy-shots/$domain.html" || {
+              echo "Failed real rule-folder component UI: $domain"
+              grep -o 'alchemy-report[^>]*>[^<]*' "/tmp/alchemy-shots/$domain.html" || true
+              tail -n 40 /tmp/alchemy-visual-vite.log
+              exit 1
+            }
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,880 --virtual-time-budget=4500 \
+              --screenshot="/tmp/alchemy-shots/$domain.png" "$url"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alchemy-classified-rule-mobile-screenshots
+          path: /tmp/alchemy-shots/*.png
+          if-no-files-found: ignore
