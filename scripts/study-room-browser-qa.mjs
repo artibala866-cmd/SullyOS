@@ -268,7 +268,7 @@ try{
       const text=document.body.textContent||'';
       return {lastCourse:text.includes('虚构教材 239'),
         firstCourse:text.includes('虚构教材 0'),
-        count:[...document.querySelectorAll('.aspect-\\[4\\/5\\]')].length,
+      count:[...document.querySelectorAll('div')].filter(node=>String(node.className||'').includes('aspect-[4/5]')).length,
         hasStudy:text.includes('自习室'),
         errors:window.__studyStressErrors,
         modelCalls:window.__studyStressModelCalls
