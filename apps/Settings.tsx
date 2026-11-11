@@ -302,10 +302,6 @@ const McpServersCard: React.FC<{
                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                 </label>
             </div>
-            <div className="border-l-2 border-neutral-300 pl-3 text-[10px] leading-relaxed text-neutral-700/80">
-                
-                
-            </div>
             {servers.map(server => (
                 <div key={server.id} className="bg-white/70 border border-neutral-100 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -3192,12 +3188,7 @@ const Settings: React.FC = () => {
               <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
                   <p className="text-[10px] text-neutral-700 leading-relaxed">国内网络可能需要代理。</p>
               </div>
-              <div className="bg-neutral-50 rounded-xl p-3">
-                  
-              </div>
-              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-800 leading-relaxed">WebDAV 使用 Apps Password，不是账户登录密码。</p>
-              </div>
+              <p className="text-[10px] text-slate-400">密码请填 Apps Password。</p>
               <div>
                   <label className="text-[11px] text-slate-500 font-medium mb-1 block">WebDAV 地址</label>
                   <input type="url" value={cbUrl} onChange={(e) => setCbUrl(e.target.value)} placeholder="https://xxx.infini-cloud.net/dav/" className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 outline-none" />
@@ -3236,14 +3227,8 @@ const Settings: React.FC = () => {
           out owner via /user and auto-create a private 'sully-backup' repo. */}
       <Modal isOpen={showGithubModal} title="GitHub 备份" onClose={() => setShowGithubModal(false)}>
           <div className="space-y-4 p-1">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                  
-                  
-              </div>
 
-              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-800 leading-relaxed">Token 过期后需重新连接。</p>
-              </div>
+              <p className="text-[10px] text-slate-400">Token 过期后需重新连接。</p>
 
               <a
                   href="https://github.com/settings/tokens/new?scopes=repo&description=Sully%20%E5%A4%87%E4%BB%BD"
@@ -3875,7 +3860,7 @@ const Settings: React.FC = () => {
                           </div>
                            <button onClick={testFeishuApi} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试读取连接</button>
                           {renderRtTestStatus('feishu')}
-                           <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-relaxed text-neutral-700">测试不写入；保存需新增记录权限。</p>
+                           <p className="text-[10px] text-slate-400">保存需新增记录权限。</p>
                            <p className="text-[10px] text-neutral-500/70 leading-relaxed">飞书应用需多维表格编辑权限。</p>
                       </div>
                   )}
