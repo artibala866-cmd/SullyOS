@@ -670,7 +670,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         initialReadingGestureRef.current = true;
         followLatestRef.current = false;
         // A reading gesture can precede the browser's native scroll event,
-        // especially after an iframe or programmatic scrollIntoView. Recheck
+        // especially after nested iframe motion or a direct jump. Recheck
         // the visible floor after the gesture to keep the jump control current.
         scheduleVisibleFloor();
     }, [scheduleVisibleFloor]);
