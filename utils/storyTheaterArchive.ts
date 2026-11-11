@@ -70,7 +70,8 @@ export const STORY_ARCHIVE_INSTRUCTION = [
 
 function storyArchiveAffinity(message: Message): string[] {
     return storyAffinityInputsFromMessage(message).map(({ characterId, characterName, delta, reason, awareness }) => {
-        const character = (characterName === '当前角色' && characterId ? characterId : characterName).replace(/\s+/g, ' ');
+        const displayedName = characterName === '当前角色' && characterId ? characterId : characterName;
+        const character = (displayedName || characterId || '当前角色').replace(/\s+/g, ' ');
         const visibility = awareness === 'noticed' ? '允许察觉' : '未告知角色';
         return character + ' · 用户对角色 · ' + (delta >= 0 ? '+' : '') + delta + ' · ' + visibility
             + (reason ? ' · 原因：' + reason.replace(/\s+/g, ' ') : '');
