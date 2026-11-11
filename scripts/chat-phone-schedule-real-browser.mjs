@@ -191,19 +191,24 @@ try{
     };
     const action=async(label)=>{
       await menu();
-      for(let i=0;i<4;i++){
-        const b=buttons().find(x=>{
-          const value=x.textContent?.trim()||'';
-          return value===label||(label==='真人感'&&value.startsWith('真人感 · '));
-        });
-        if(b){b.click();await pause(190);return;}
-        const pagination=[...document.querySelectorAll('button[aria-label^="第 "]')]
-          .find(x=>visible(x)&&x.getAttribute('aria-label')==='第 '+(i+2)+' 页');
-        if(!pagination)break;
-        pagination.click();
-        await pause(160);
+      const buttonsOnPage=()=>buttons().find(x=>{
+        const value=x.textContent?.trim()||'';
+        return value===label||(label==='真人感'&&value.startsWith('真人感 · '));
+      });
+      const pageButtons=[...document.querySelectorAll('button[aria-label^="第 "]')]
+        .filter(x=>/^第 \d+ 页$/.test(x.getAttribute('aria-label')||''));
+      if(!buttonsOnPage()){
+        // Real users swipe through the feature pages; start from the first
+        // available page instead of assuming the menu always opens on page 1.
+        for(const page of pageButtons){
+          page.click();
+          await pause(160);
+          if(buttonsOnPage())break;
+        }
       }
-      throw Error('Chat feature not available: '+label);
+      const selected=buttonsOnPage();
+      if(!selected)throw Error('Chat feature not available: '+label);
+      selected.click();await pause(190);
     };
     const closeMenu=()=>{
       const btn=document.querySelector('button[aria-label="聊天功能"]');
