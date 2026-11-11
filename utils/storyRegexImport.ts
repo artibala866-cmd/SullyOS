@@ -231,18 +231,36 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
             // Old imports had no file folders. Attach the folder on reimport
             // without duplicating rules or altering user-enabled switches.
             const oldIndex = rules.findIndex(current => key(current) === signature);
-            if (oldIndex !== -1 && ((!rules[oldIndex].importGroup && next.importGroup)
-                || (!rules[oldIndex].subcategory && next.subcategory)
-                || (rules[oldIndex].order == null && next.order != null))) {
+            if (oldIndex !== -1) {
                 const old = rules[oldIndex];
-                rules[oldIndex] = { ...old,
-                    importGroup: old.importGroup || next.importGroup,
-                    subcategory: old.subcategory || next.subcategory,
-                    order: old.order ?? next.order,
-                    domain: old.domain || next.domain,
-                };
-                updated++;
-                continue;
+                const source = next.source && old.source ? {
+                    ...next.source, ...old.source,
+                    originalRule: old.source.originalRule ?? next.source.originalRule,
+                    scenes: old.source.scenes ?? next.source.scenes,
+                    renderMode: old.source.renderMode ?? next.source.renderMode,
+                    category: old.source.category ?? next.source.category,
+                    originalScope: old.source.originalScope ?? next.source.originalScope,
+                    originalCharacterIds: old.source.originalCharacterIds ?? next.source.originalCharacterIds,
+                    triggerEnabled: old.source.triggerEnabled ?? next.source.triggerEnabled,
+                } : old.source ?? next.source;
+                if ((!old.importGroup && next.importGroup)
+                    || (!old.subcategory && next.subcategory)
+                    || (old.order == null && next.order != null)
+                    || (!old.source?.originalRule && next.source?.originalRule)
+                    || (!old.source?.renderMode && next.source?.renderMode)
+                    || (!old.source?.scenes?.length && next.source?.scenes?.length)) {
+                    // Preserve ID, enabled state, user-edited targets/filters and
+                    // preset binding while restoring original imported metadata.
+                    rules[oldIndex] = { ...old,
+                        importGroup: old.importGroup || next.importGroup,
+                        subcategory: old.subcategory || next.subcategory,
+                        order: old.order ?? next.order,
+                        domain: old.domain || next.domain,
+                        source,
+                    };
+                    updated++;
+                    continue;
+                }
             }
             duplicates++;
             continue;
