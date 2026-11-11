@@ -20,7 +20,7 @@ import {
     withBuiltInStoryPresets,
 } from '../../../utils/storyTheater';
 import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexRule } from '../../../utils/storyRegex';
-import { ALCHEMY_CHANGED, alchemyDomain } from '../../../utils/alchemyRegex';
+import { ALCHEMY_CHANGED, alchemyRuleAppliesTo } from '../../../utils/alchemyRegex';
 import StoryRegexPanel from './StoryRegexPanel';
 import StoryMaskBox from './StoryMaskBox';
 import StoryPresetMaker from './StoryPresetMaker';
@@ -518,7 +518,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                     <button type='button' disabled={!regexReady} onClick={() => setView('regex')}
                         className='w-full flex items-center justify-between gap-3 py-3 text-left disabled:opacity-50'>
                         <span className='min-w-0'><strong className='block text-sm'>剧情正则</strong></span>
-                        <span className='shrink-0 text-[11px] font-semibold text-violet-700'>{regexRules.filter(rule => rule.enabled && alchemyDomain(rule) === 'offline').length} 条启用 <span aria-hidden='true'>›</span></span>
+                        <span className='shrink-0 text-[11px] font-semibold text-violet-700'>{regexRules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline')).length} 条启用 <span aria-hidden='true'>›</span></span>
                     </button>
                 </section>
             </div>
