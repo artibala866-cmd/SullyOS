@@ -35,7 +35,7 @@ describe('private chat: one-call inline Buff', () => {
 
     it('wires both private-chat routes to one main call and prevents a separate emotion request', () => {
         const hook = readFileSync('hooks/useChatAI.ts', 'utf8');
-        const mainReply = hook.slice(hook.indexOf('export function useChatAI'));
+        const mainReply = hook.slice(hook.indexOf('export const useChatAI'));
         expect(mainReply).toContain('buildInlineEmotionInstruction(charForGen)');
         expect(mainReply).toContain('applyEmotionEvalRaw(inlineEmotion.raw!, charForGen)');
         expect(mainReply).toContain('computeStreamPreviewBubbles(stripInlineEmotion(fullText))');
