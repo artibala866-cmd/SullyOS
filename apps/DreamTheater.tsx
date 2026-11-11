@@ -867,12 +867,9 @@ const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = (
                 {showHelp && (
                     <DreamPopup title="🌙 梦境规则" onClose={() => setShowHelp(false)}
                         actions={<button onClick={() => setShowHelp(false)} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#131313]" style={{ background: '#d7d7d7' }}>明白了</button>}>
-                        <div className="text-left space-y-2">
-                            <p>· 一天原则上只看 <b className="text-white/80">一个</b> {char.name} 的梦。重复生成会被提醒，你仍可选「少管我！」继续。</p>
-                            <p>· 但同一天对同一个人，最多只能看到 <b className="text-white/80">{DREAM_DAILY_TYPE_CAP} 种</b>不同类型的梦——看满了就明天再来。</p>
-                            <p>· 一共有 <b className="text-white/80">{ALL_ARCHETYPES.length}</b> 种梦，其中含 <b style={{ color: '#e0e0e0' }}>1 个隐藏款 · 深眠</b>，小概率才会遇到。</p>
-                            <p>· 做完一场梦会抽到对应的梦境小猫，集进收藏册。</p>
-                            <p>· ta 不会记得这些梦，但醒来会残留一层说不清的情绪。「梦的残页」里可长按删除某一页。</p>
+                        <div className="text-left space-y-1">
+                            <p>每日最多 {DREAM_DAILY_TYPE_CAP} 种梦，梦境不写入真实经历。</p>
+                            <p>梦境小猫自动收藏。</p>
                         </div>
                     </DreamPopup>
                 )}
