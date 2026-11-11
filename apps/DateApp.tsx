@@ -332,6 +332,8 @@ const DateApp: React.FC = () => {
             }));
             const inPersonBlock = buildInPersonCharBlockInstruction(c.chatBlock, userProfile?.name || '用户');
             if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
+            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: c.name }); }
+            catch (error) { console.warn('[Alchemy] meeting opening guidance unavailable', error); }
             const content = await callLLM(messages, resolveDialogueApi(apiConfig, c).temperature ?? 0.85, c);
             const action = extractCharacterBlockAction(content);
             if (requestId === peekRequestRef.current) {
