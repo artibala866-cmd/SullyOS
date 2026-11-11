@@ -205,62 +205,77 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         {presetId && !presets.some(preset => preset.id === presetId) && <option value={presetId}>预设已移除</option>}
         {presets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
     </>;
-    return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
-        <header className='story-safe-header shrink-0 border-b border-slate-200'>
-            <div className='h-16 px-4 flex items-center gap-3'>
+    return <div className='flex h-full w-full min-h-0 flex-col bg-[#f7f7f7] text-neutral-800'>
+        <header className='story-safe-header shrink-0 border-b border-neutral-200/70 bg-[#f7f7f7]'>
+            <div className='flex h-14 items-center gap-2 px-4'>
                 <button type='button' disabled={busy} aria-label='返回' onClick={goBack}
-                    className='w-9 h-9 shrink-0 grid place-items-center rounded-full'><ArrowLeft size={20} /></button>
-                <h1 className='min-w-0 flex-1 truncate font-semibold'>{imported ? '导入正则' : draft ? '编辑正则' : section === 'beauty' ? '美化正则 · 私聊群聊' : '规则正则 · 线上线下'}</h1>
+                    className='grid h-9 w-9 shrink-0 place-items-center rounded-full'><ArrowLeft size={21} /></button>
+                <h1 className='min-w-0 flex-1 truncate text-base font-semibold'>
+                    {imported ? '导入正则' : draft ? '编辑正则' : '正则'}
+                </h1>
                 {screen === 'list' ? <>
-                    <button type='button' aria-label='导入糯叽机正则' title='导入糯叽机正则' disabled={busy}
-                        onClick={() => upload.current?.click()} className={iconClass}>
-                        {busy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}
+                    <button type='button' aria-label='导入正则或 HTML' title='导入正则或 HTML'
+                        disabled={busy} onClick={() => upload.current?.click()} className={iconClass}>
+                        {busy ? <SpinnerGap size={18} className='animate-spin'/> : <UploadSimple size={18}/>}
                     </button>
-                    <button type='button' aria-label='新建正则' disabled={busy} onClick={() => open(createRule(section, domain))}
-                        className={iconClass}><Plus size={17} /></button>
-                    <input type='file' ref={upload} accept='.json,application/json' hidden onChange={event => {
-                        const file = event.currentTarget.files?.[0];
-                        event.currentTarget.value = '';
-                        if (file) void readImport(file);
-                    }} />
-                </> : draft && <button type='button' disabled={busy} onClick={saveDraft} className={primaryClass}>
-                    <FloppyDisk size={15} />保存规则
-                </button>}
+                    <button type='button' aria-label='新建正则' title='新建正则' disabled={busy}
+                        onClick={() => open(createRule(activeSection, domain))} className={iconClass}><Plus size={19}/></button>
+                    <input type='file' ref={upload} accept='.json,.txt,.html,.htm,application/json,text/html' hidden
+                        onChange={event => {
+                            const file = event.currentTarget.files?.[0];
+                            event.currentTarget.value = '';
+                            if (file) void readImport(file);
+                        }}/>
+                </> : draft ? <button type='button' onClick={saveDraft} disabled={busy}
+                    className={primaryClass}><FloppyDisk size={15}/>保存</button> : null}
             </div>
+            {screen === 'list' && <nav className='flex gap-2 px-4 pb-3' aria-label='正则分类'>
+                {([['beauty', 'HTML 美化'], ['rules', '规则']] as const).map(([value, name]) =>
+                    <button key={value} type='button' aria-pressed={activeSection === value}
+                        onClick={() => { setActiveSection(value); setFeedback(''); }}
+                        className={'flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold ' +
+                            (activeSection === value ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 border border-neutral-200')}>
+                        {value === 'beauty' && <Code size={15}/>}
+                        {name}<span className='opacity-60'>{rules.filter(item => alchemyRuleSection(item) === value).length}</span>
+                    </button>)}
+            </nav>}
         </header>
-        <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 pb-24'>
-            <div className='mx-auto max-w-2xl space-y-4'>
-                {error && <p role='alert' className='rounded-xl border border-rose-200 px-3 py-2.5 text-xs leading-5 text-rose-700'>{error}</p>}
+        <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20'>
+            <div className='mx-auto max-w-xl space-y-3'>
+                {error && <p role='alert' className='text-xs text-rose-700'>{error}</p>}
                 {imported ? <>
-                    <section className='border-b border-slate-200 pb-4'>
-                        <h2 className='break-all text-base font-semibold'>{imported.filename}</h2>
-                        <p className='mt-2 text-xs leading-5 text-slate-500'>可转换 {imported.rules.length} 条
-                            {imported.rejected ? ` · 无法转换 ${imported.rejected} 条` : ''}</p>
-                    </section>
-                    {section === 'rules' && domain === 'offline' && imported.rules.some(rule => rule.kind === 'filter') && <label className='block text-xs font-semibold'>适用预设
-                        <select className={fieldClass} disabled={busy} aria-label='适用预设' value={importScope}
-                            onChange={event => setImportScope(event.target.value)}>{scopeOptions(importScope)}</select>
-                    </label>}
-                    {imported.warnings.length > 0 && <section className='rounded-xl border border-amber-200 px-3 py-3 text-xs leading-5 text-amber-700'>
-                        <h2 className='font-semibold'>转换提示</h2>
-                        <ul className='mt-1 space-y-1 break-words'>{imported.warnings.map((note, index) => <li key={index}>{note}</li>)}</ul>
-                    </section>}
-                    <div className='divide-y divide-slate-200'>{imported.rules.map(rule => <div key={rule.id}
-                        className='flex items-center justify-between gap-3 py-3 text-xs'>
-                        <span className='min-w-0 break-words font-semibold'>{rule.name}</span>
-                        <span className='shrink-0 text-[11px] text-slate-500'>{rule.kind === 'template' ? '线上美化' : '规则 · ' + scopeName(rule.presetId, rule)}{rule.enabled ? '' : ' · 停用'}</span>
-                    </div>)}</div>
-                    <div className='flex justify-end gap-2'>
+                    <div className='flex items-center gap-2'>
+                        <span className='min-w-0 flex-1 truncate text-sm font-semibold'>{imported.filename}</span>
+                        <span className='shrink-0 text-xs text-neutral-500'>{imported.rules.length} 条</span>
+                    </div>
+                    {activeSection === 'rules' && domain === 'offline' && imported.rules.some(item => item.kind === 'filter') &&
+                        <label className='block text-xs text-neutral-600'>适用预设
+                            <select className={fieldClass} value={importScope}
+                                onChange={event => setImportScope(event.target.value)}>{scopeOptions(importScope)}</select>
+                        </label>}
+                    <details className='rounded-lg bg-white px-3 py-2 text-xs' open>
+                        <summary className='cursor-pointer font-medium'>导入内容</summary>
+                        <div className='mt-2 divide-y divide-neutral-100'>
+                            {imported.rules.map(item => <div key={item.id} className='flex gap-2 py-2'>
+                                <span className='min-w-0 flex-1 truncate'>{item.name}</span>
+                                <span className='shrink-0 text-neutral-400'>{item.kind === 'template' ? 'HTML' : '规则'}</span>
+                            </div>)}
+                        </div>
+                    </details>
+                    {!!imported.warnings.length && <details className='text-xs text-neutral-500'>
+                        <summary className='cursor-pointer'>转换提示 ({imported.warnings.length})</summary>
+                        <div className='mt-1 space-y-1'>{imported.warnings.map((note, index) =>
+                            <p key={index}>{note}</p>)}</div>
+                    </details>}
+                    <div className='flex items-center justify-end gap-2 pt-2'>
                         <button type='button' disabled={busy} onClick={goBack} className={actionClass}>取消</button>
-                        <button type='button' disabled={busy || !imported.rules.length} onClick={confirmImport} className={primaryClass}>
-                            <UploadSimple size={15} />{busy ? '导入中' : '确认导入'}
-                        </button>
+                        <button type='button' disabled={busy || !imported.rules.length} onClick={confirmImport}
+                            className={primaryClass}><UploadSimple size={15}/>导入</button>
                     </div>
                 </> : !draft ? <>
-                    
-                    {feedback && <p role='status' className='rounded-xl border border-slate-200 px-3 py-2 text-xs text-violet-700'>{feedback}</p>}
-                    {!visibleRules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
-                        <div className='text-sm font-semibold'>还没有{section === 'beauty' ? '美化' : '规则'}正则</div>
+                    {feedback && <p role='status' className='text-xs text-neutral-500'>{feedback}</p>}
+                    {!visibleRules.length && <div className='py-12 text-center text-sm text-neutral-400'>
+                        暂无{activeSection === 'beauty' ? ' HTML 美化' : '规则'}
                     </div>}
                     <AlchemyRuleFolders rules={visibleRules} busy={busy} scopeName={scopeName}
                         onOpen={open} onToggle={rule => void save(current => current.map(item => {
@@ -273,172 +288,174 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             if (!current.some(item => item.id === rule.id)) throw new Error('此规则已被删除');
                             return removeAlchemyRule(current, rule.id);
                         })}
-                        onDeleteFolder={(folder, selected) => void save(current => {
-                            const ids = new Set(selected.map(rule => rule.id));
-                            return removeAlchemyFolderSection(current, folder, section, ids);
-                        })}
-                        onSetFolderTargets={section === 'rules' ? (folder, selected, targets) => void save(current => {
-                            const ids = new Set(selected.map(rule => rule.id));
-                            return setAlchemyFolderTargets(current, folder, ids, targets);
-                        }) : undefined} />
-                </> : <fieldset disabled={busy} className='m-0 min-w-0 border-0 p-0 space-y-4 disabled:opacity-70'>
-                    <label className='block space-y-1 text-xs font-semibold'>规则名称
-                        <input className={fieldClass} value={draft.name} onChange={event => patch({ name: event.target.value })} maxLength={80} />
+                        onDeleteFolder={(folder, selected) => void save(current =>
+                            removeAlchemyFolderSection(current, folder, activeSection,
+                                new Set(selected.map(item => item.id))))}
+                        onSetFolderTargets={activeSection === 'rules' ? (folder, selected, targets) =>
+                            void save(current => setAlchemyFolderTargets(current, folder,
+                                new Set(selected.map(item => item.id)), targets)) : undefined}/>
+                </> : <fieldset disabled={busy} className='min-w-0 space-y-3 border-0 p-0 disabled:opacity-60'>
+                    <label className='block text-xs font-medium text-neutral-600'>名称
+                        <input className={fieldClass} maxLength={80} value={draft.name}
+                            onChange={event => patch({ name: event.target.value })} placeholder='正则名称'/>
                     </label>
-                    <div className='grid grid-cols-2 gap-2'>
-                        <label className='text-xs font-semibold'>导入分组
-                            <input className={fieldClass} value={draft.importGroup || ''} maxLength={80}
-                                onChange={event => patch({ importGroup: event.target.value })} placeholder='自定义' />
-                        </label>
-                        <label className='text-xs font-semibold'>小分类
-                            <input className={fieldClass} value={draft.subcategory || ''} maxLength={60}
-                                onChange={event => patch({ subcategory: event.target.value })} placeholder='未分类' />
-                        </label>
-                    </div>
-                    {isTemplate ? <p className='text-xs font-semibold text-slate-600'>适用：私聊 / 群聊</p> :
-                        <div className='space-y-2 text-xs' role='group' aria-label='规则生效范围'>
-                            <p className='font-semibold'>规则生效范围（可两边同时开启）</p>
+                    <div className='flex flex-wrap items-center gap-2 text-xs'>
+                        {isTemplate ? <span className='rounded-md bg-white px-2 py-1.5 text-neutral-500'>
+                            <Code size={14} className='mr-1 inline-block'/>HTML · 线上
+                        </span> : <div role='group' aria-label='规则生效范围' className='flex items-center gap-1.5'>
                             {(['online', 'offline'] as const).map(target => {
                                 const selected = alchemyRuleTargets(draft);
-                                return <label key={target} className='flex items-center gap-2'>
-                                    <input type='checkbox' checked={selected.includes(target)}
-                                        disabled={selected.length === 1 && selected.includes(target)}
-                                        onChange={event => patch({
-                                            targets: event.target.checked
-                                                ? [...selected, target]
-                                                : selected.filter(value => value !== target),
-                                        })} />
-                                    {target === 'online' ? '线上 · 私聊 / 群聊' : '线下 · 剧情 / 见面'}
+                                const checked = selected.includes(target);
+                                return <label key={target} className={'flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 ' +
+                                    (checked ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 bg-white text-neutral-500')}>
+                                    <input type='checkbox' className='sr-only' aria-label={target === 'online' ? '线上' : '线下'}
+                                        checked={checked} disabled={checked && selected.length === 1}
+                                        onChange={event => patch({ targets: event.target.checked
+                                            ? [...selected, target] : selected.filter(value => value !== target) })}/>
+                                    {target === 'online' ? '线上' : '线下'}
                                 </label>;
                             })}
                         </div>}
-                    {draft.kind === 'filter' && <label className='flex items-center gap-2 text-xs'>
-                        <input type='checkbox' checked={draft.source?.smartFilter !== false}
-                            onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })} />
-                        保护易误删的短词
-                    </label>}
-                    {draft.kind === 'filter' &&
-                        <label className='block text-xs font-semibold'>保留词
-                            <input className={fieldClass} value={(draft.source?.protectWords || []).join('，')}
-                                onChange={event => patch({ source: { ...draft.source,
-                                    protectWords: event.target.value.split(/[,，、;；\n]/).map(word => word.trim()).filter(Boolean),
-                                } })} placeholder='情绪，草莓' />
-                        </label>}
-                    <div className='grid grid-cols-2 gap-3'>
-                        <div className='min-w-0 space-y-1 text-xs font-semibold'>
-                            <span className='block'>类型</span>
-                            <div className={fieldClass}>{isTemplate ? 'HTML 美化' : '规则过滤'}</div>
+                        <span className='ml-auto text-[11px] text-neutral-400'>{isTemplate ? '代码可编辑' : '私聊 / 群聊 · 剧情 / 见面'}</span>
+                    </div>
+                    <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
+                        <label className='min-w-0 text-xs font-medium text-neutral-600'>匹配正则
+                            <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
+                                value={draft.pattern} spellCheck={false}
+                                placeholder={isTemplate ? '<card>([\\s\\S]*?)</card>' : '<think>[\\s\\S]*?</think>'}
+                                onChange={event => patch({ pattern: event.target.value })}/>
+                        </label>
+                        <label className='min-w-0 text-xs font-medium text-neutral-600'>修饰符
+                            <input className={fieldClass + ' font-mono text-xs'} value={draft.flags} spellCheck={false}
+                                onChange={event => patch({ flags: event.target.value })}/>
+                        </label>
+                    </div>
+                    <div className='min-w-0 space-y-1'>
+                        <div className='flex items-center gap-2'>
+                            <label htmlFor='alchemy-source' className='min-w-0 flex-1 text-xs font-semibold text-neutral-600'>
+                                {isTemplate ? 'HTML 代码' : '替换内容'}
+                            </label>
+                            {isTemplate && <>
+                                <label className='cursor-pointer text-[11px] font-medium text-neutral-600'>
+                                    <UploadSimple size={14} className='mr-1 inline-block'/>导入 HTML
+                                    <input type='file' accept='.html,.htm,text/html' className='sr-only' onChange={event => {
+                                        const file = event.currentTarget.files?.[0];
+                                        event.currentTarget.value = '';
+                                        if (file) void loadTemplateFile(file, false);
+                                    }}/>
+                                </label>
+                                <label className='cursor-pointer text-[11px] text-neutral-500'>
+                                    插入图片
+                                    <input type='file' accept='image/png,image/jpeg,image/webp' className='sr-only' onChange={event => {
+                                        const file = event.currentTarget.files?.[0];
+                                        event.currentTarget.value = '';
+                                        if (file) void loadTemplateFile(file, true);
+                                    }}/>
+                                </label>
+                            </>}
                         </div>
-                        {!isTemplate && alchemyRuleTargets(draft).includes('offline') && presets.length > 0 && <label className='min-w-0 space-y-1 text-xs font-semibold'>适用预设
-                            <select className={fieldClass} aria-label='适用预设' value={draft.presetId}
-                                onChange={event => patch({ presetId: event.target.value })}>{scopeOptions(draft.presetId)}</select>
-                        </label>}
-                    </div>
-                    <div className='grid grid-cols-2 gap-3'>
-                        <label className='min-w-0 text-xs font-semibold'>作用对象
-                            <select className={fieldClass} aria-label='作用对象' value={draft.role || 'assistant'}
-                                onChange={event => patch({ role: event.target.value as StoryRegexRule['role'] })}>
-                                <option value='assistant'>角色输出</option><option value='user'>我的推进</option><option value='both'>两者</option>
-                            </select>
-                        </label>
-                        {isTemplate && <label className='min-w-0 text-xs font-semibold'>捕获组格式
-                            <select className={fieldClass} aria-label='捕获组格式' value={draft.parseMode || 'text'}
-                                onChange={event => patch({ parseMode: event.target.value as StoryRegexRule['parseMode'] })}>
-                                <option value='text'>纯文字</option><option value='kv'>键值</option><option value='json'>JSON</option>
-                            </select>
-                        </label>}
-                    </div>
-                    <div className='grid grid-cols-[minmax(0,1fr)_4.5rem] gap-3'>
-                        <label className='min-w-0 space-y-1 text-xs font-semibold'>匹配正则
-                            <textarea className={`${fieldClass} font-mono`} rows={2} value={draft.pattern} spellCheck={false}
-                                placeholder={isTemplate ? '<app-card>([\\s\\S]*?)</app-card>' : '<think>[\\s\\S]*?</think>'}
-                                onChange={event => patch({ pattern: event.target.value })} />
-                        </label>
-                        <label className='min-w-0 space-y-1 text-xs font-semibold'>修饰符
-                            <input className={`${fieldClass} font-mono`} value={draft.flags} spellCheck={false} placeholder='g'
-                                onChange={event => patch({ flags: event.target.value })} />
-                        </label>
-                    </div>
-                    
-                    <label className='block space-y-1 text-xs font-semibold'>{isTemplate ? 'HTML 模板' : '替换为'}
-                        <textarea className={`${fieldClass} font-mono`} rows={isTemplate ? 7 : 3} value={draft.replacement}
+                        <textarea id='alchemy-source'
+                            className={'w-full min-w-0 resize-y rounded-lg border border-neutral-200 bg-white p-3 font-mono text-xs leading-5 text-neutral-800 outline-none focus:border-neutral-400 ' +
+                                (isTemplate ? 'min-h-[280px]' : 'min-h-[80px]')}
+                            rows={isTemplate ? 14 : 4} value={draft.replacement}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
-                            placeholder={isTemplate ? '<div class="app-card">{{$1}}</div>' : '留空即删除匹配内容'}
-                            onChange={event => patch({ replacement: event.target.value })} />
-                    </label>
-                    {draft.replacementChoices?.map((value, index) => <label key={index} className='block text-xs font-semibold'>
-                        随机替换项 {index + 2}
-                        <textarea className={`${fieldClass} font-mono`} rows={2} value={value} onChange={event => {
-                            patch({ replacementChoices: draft.replacementChoices?.map((item, position) => position === index ? event.target.value : item) });
-                        }} />
-                    </label>)}
-                    {isTemplate ? <>
-                        <div className='flex flex-wrap items-center gap-2'>
-                            <label className={`${actionClass} cursor-pointer`}>载入 HTML 文件
-                                <input type='file' accept='.html,.htm,text/html' className='sr-only' onChange={event => {
-                                    const file = event.currentTarget.files?.[0];
-                                    event.currentTarget.value = '';
-                                    if (file) void loadTemplateFile(file, false);
-                                }} />
-                            </label>
-                            <label className={`${actionClass} cursor-pointer`}>插入截图
-                                <input type='file' accept='image/png,image/jpeg,image/webp' className='sr-only' onChange={event => {
-                                    const file = event.currentTarget.files?.[0];
-                                    event.currentTarget.value = '';
-                                    if (file) void loadTemplateFile(file, true);
-                                }} />
-                            </label>
-                        </div>
-                        
-                        {draft.source && <label className='flex items-center gap-2 text-xs'>
-                            <input type='checkbox' checked={draft.display} onChange={event => patch({ display: event.target.checked })} />阅读时显示模板
-                        </label>}
-                        <label className='block space-y-1 text-xs font-semibold'>输出格式指令（选填）
-                            <textarea className={fieldClass} rows={3} value={draft.instruction} maxLength={4000}
-                                placeholder='例如：剧情出现手机通知时，用 <app-card>通知正文</app-card> 输出。'
-                                onChange={event => patch({ instruction: event.target.value })} />
-                        </label>
-                    </> : <div className='space-y-2 text-xs'>
-                        <p className='font-semibold'>过滤时机</p>
-                        <label className='flex items-center gap-2'><input type='checkbox' checked={draft.display}
-                            onChange={event => {
-                                if (!event.target.checked && draft.history) setPreviewStage('history');
-                                patch({ display: event.target.checked });
-                            }} />阅读时</label>
-                        <label className='flex items-center gap-2'><input type='checkbox' checked={draft.history}
-                            onChange={event => {
-                                if (!event.target.checked && draft.display) setPreviewStage('display');
-                                patch({ history: event.target.checked });
-                            }} />续写请求时</label>
-                        <p className='text-slate-500'>用 <code>$1</code> 引用捕获组。原始楼层保留，可随时停用规则。</p>
-                    </div>}
-                    <section className='space-y-3 rounded-2xl border border-slate-200 bg-white p-4'>
-                        {!isTemplate && draft.display && draft.history && <label className='block text-xs font-semibold'>试跑时机
-                            <select className={fieldClass} aria-label='试跑时机' value={previewStage} onChange={event => {
-                                setPreviewStage(event.target.value as 'display' | 'history'); setResult(null);
-                            }}><option value='display'>阅读</option><option value='history'>续写请求</option></select>
-                        </label>}
-                        <label className='block space-y-1 text-xs font-semibold'>测试文本
-                            <textarea className={fieldClass} value={sample} rows={3} onChange={event => {
-                                setSample(event.target.value);
-                                setResult(null);
-                            }} placeholder='粘贴一段剧情文本' />
-                        </label>
-                        <button type='button' disabled={!sample} className={actionClass} onClick={() => void preview()}>试跑规则</button>
-                        {result && <div className='space-y-2' aria-live='polite'>
-                            <p className='text-xs text-slate-500'>匹配 {result.matches} 处</p>
-                            {previewParts.map((part, index) => typeof part === 'string'
-                                ? part && <p key={index} className='whitespace-pre-wrap break-words text-sm'>{part}</p>
-                                : <SafeStoryHtml key={index} template source={part.html} fallback={part.fallback} title={part.title} />)}
-                            {!result.text && <p className='text-xs text-slate-500'>过滤后为空</p>}
-                        </div>}
-                    </section>
-                    <div className='flex flex-wrap items-center gap-2'>
-                        {rules.some(item => item.id === draft.id) && <button type='button'
-                            onClick={() => confirmDelete ? void save(current => current.filter(item => item.id !== draft.id), true) : setConfirmDelete(true)}
-                            className={`${actionClass} inline-flex items-center gap-1 text-rose-700`}><Trash size={15} />{confirmDelete ? '确认删除' : '删除'}</button>}
-                        <button type='button' onClick={saveDraft} className={`${primaryClass} ml-auto`}><FloppyDisk size={15} />保存规则</button>
+                            placeholder={isTemplate ? '<div>{{$1}}</div>' : ''}
+                            onChange={event => patch({ replacement: event.target.value })}/>
                     </div>
+                    {!isTemplate && <div className='flex flex-wrap items-center gap-4 text-xs text-neutral-600'>
+                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.display}
+                            onChange={event => patch({ display: event.target.checked })}/>显示过滤</label>
+                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.history}
+                            onChange={event => patch({ history: event.target.checked })}/>请求过滤</label>
+                        <label className='ml-auto flex items-center gap-1.5'>
+                            <input type='checkbox' checked={draft.source?.smartFilter !== false}
+                                onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })}/>
+                            短词保护
+                        </label>
+                    </div>}
+                    <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
+                        <summary className='cursor-pointer text-xs font-medium text-neutral-600'>更多设置</summary>
+                        <div className='mt-3 space-y-3'>
+                            <div className='grid grid-cols-2 gap-2'>
+                                <label className='min-w-0 text-xs text-neutral-600'>分组
+                                    <input className={fieldClass} value={draft.importGroup || ''} maxLength={80}
+                                        onChange={event => patch({ importGroup: event.target.value })} placeholder='自定义'/>
+                                </label>
+                                <label className='min-w-0 text-xs text-neutral-600'>小分类
+                                    <input className={fieldClass} value={draft.subcategory || ''} maxLength={60}
+                                        onChange={event => patch({ subcategory: event.target.value })} placeholder='未分类'/>
+                                </label>
+                            </div>
+                            <div className='grid grid-cols-2 gap-2'>
+                                <label className='min-w-0 text-xs text-neutral-600'>作用对象
+                                    <select className={fieldClass} value={draft.role || 'assistant'}
+                                        onChange={event => patch({ role: event.target.value as StoryRegexRule['role'] })}>
+                                        <option value='assistant'>角色输出</option><option value='user'>我的输入</option><option value='both'>两者</option>
+                                    </select>
+                                </label>
+                                {isTemplate ? <label className='min-w-0 text-xs text-neutral-600'>数据格式
+                                    <select className={fieldClass} value={draft.parseMode || 'text'}
+                                        onChange={event => patch({ parseMode: event.target.value as StoryRegexRule['parseMode'] })}>
+                                        <option value='text'>文字</option><option value='kv'>键值</option><option value='json'>JSON</option>
+                                    </select>
+                                </label> : alchemyRuleTargets(draft).includes('offline') && presets.length > 0 ?
+                                    <label className='min-w-0 text-xs text-neutral-600'>剧情预设
+                                        <select className={fieldClass} value={draft.presetId}
+                                            onChange={event => patch({ presetId: event.target.value })}>{scopeOptions(draft.presetId)}</select>
+                                    </label> : null}
+                            </div>
+                            {!isTemplate && <label className='block text-xs text-neutral-600'>保留词
+                                <input className={fieldClass} value={(draft.source?.protectWords || []).join('，')}
+                                    onChange={event => patch({ source: { ...draft.source,
+                                        protectWords: event.target.value.split(/[,，、;；\n]/).map(word => word.trim()).filter(Boolean),
+                                    } })}/>
+                            </label>}
+                            <label className='block text-xs text-neutral-600'>{isTemplate ? '格式指令' : '规则指令'}
+                                <textarea className={fieldClass + ' font-mono text-xs'} rows={3}
+                                    value={draft.instruction} maxLength={4000}
+                                    onChange={event => patch({ instruction: event.target.value })}/>
+                            </label>
+                            {isTemplate && <label className='flex items-center gap-2 text-xs'>
+                                <input type='checkbox' checked={draft.display} onChange={event => patch({ display: event.target.checked })}/>
+                                显示 HTML
+                            </label>}
+                            {draft.replacementChoices?.map((value, index) => <label key={index} className='block text-xs'>
+                                随机替换 {index + 2}
+                                <textarea className={fieldClass + ' font-mono text-xs'} rows={2} value={value}
+                                    onChange={event => patch({ replacementChoices: draft.replacementChoices?.map(
+                                        (item, position) => position === index ? event.target.value : item) })}/>
+                            </label>)}
+                        </div>
+                    </details>
+                    <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
+                        <summary className='cursor-pointer text-xs font-medium text-neutral-600'>测试规则</summary>
+                        <div className='mt-3 space-y-2'>
+                            {!isTemplate && draft.display && draft.history &&
+                                <select className={fieldClass} value={previewStage}
+                                    onChange={event => { setPreviewStage(event.target.value as 'display' | 'history'); setResult(null); }}>
+                                    <option value='display'>显示</option><option value='history'>请求</option>
+                                </select>}
+                            <textarea className={fieldClass} rows={3} value={sample}
+                                onChange={event => { setSample(event.target.value); setResult(null); }}/>
+                            <button type='button' disabled={!sample} onClick={() => void preview()} className={actionClass}>试跑</button>
+                            {result && <div aria-live='polite' className='space-y-2 text-xs'>
+                                <span className='text-neutral-400'>匹配 {result.matches} 处</span>
+                                {previewParts.map((part, index) => typeof part === 'string' ?
+                                    part && <p key={index} className='whitespace-pre-wrap break-words'>{part}</p> :
+                                    <SafeStoryHtml key={index} template source={part.html} fallback={part.fallback} title={part.title}/>)}
+                                {!result.text && <p className='text-neutral-400'>无输出</p>}
+                            </div>}
+                        </div>
+                    </details>
+                    {rules.some(item => item.id === draft.id) && <div className='flex items-center gap-2 pt-1'>
+                        {confirmDelete && <button type='button' onClick={() => setConfirmDelete(false)} className={actionClass}>取消</button>}
+                        <button type='button' onClick={() => confirmDelete
+                            ? void save(current => current.filter(item => item.id !== draft.id), true)
+                            : setConfirmDelete(true)}
+                            className='inline-flex h-8 items-center gap-1 rounded-full px-2 text-xs text-rose-600'>
+                            <Trash size={14}/>{confirmDelete ? '确认删除' : '删除规则'}
+                        </button>
+                    </div>}
                 </fieldset>}
             </div>
         </main>
