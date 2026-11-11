@@ -17,12 +17,12 @@ const escapeAttr = (value: string): string =>
 
 const BRIDGE = `(() => {
   let queued = false;
-  let lastHeight = 0;
+  let lastHeight = 0, lastWidth = 0;
   const postSize = () => {
     // The iframe viewport itself grows when the parent changes its height.
     // Measuring html/body.scrollHeight feeds that new height back forever and
     // can clip, jump or balloon cards when a tab/accordion is opened.
-    let bottom = 0, checked = 0;
+    let bottom = 0, right = 0, checked = 0;
     for (const element of document.body.querySelectorAll('*')) {
       if (++checked > 1600) break;
       const style = getComputedStyle(element);
@@ -31,21 +31,28 @@ const BRIDGE = `(() => {
       if (!rect.width && !rect.height) continue;
       bottom = Math.max(bottom, rect.bottom + window.scrollY,
         rect.top + window.scrollY + Math.max(rect.height, element.scrollHeight || 0));
+      right = Math.max(right, rect.right + window.scrollX,
+        rect.left + window.scrollX + Math.max(rect.width, element.scrollWidth || 0));
     }
     // Plain text outside tags also needs a real content measurement.
     for (const child of document.body.childNodes) {
       if (child.nodeType !== 3 || !child.textContent.trim()) continue;
       const range = document.createRange();
       range.selectNodeContents(child);
-      for (const rect of range.getClientRects())
+      for (const rect of range.getClientRects()) {
         bottom = Math.max(bottom, rect.bottom + window.scrollY);
+        right = Math.max(right, rect.right + window.scrollX);
+      }
     }
     let measured = Math.max(76, Math.ceil(bottom + 2));
     if (Math.abs(measured - window.innerHeight) <= 4)
       measured = Math.round(window.innerHeight);
-    if (Math.abs(measured - lastHeight) <= 2) return;
+    const measuredWidth = Math.max(1, Math.ceil(right));
+    if (Math.abs(measured - lastHeight) <= 2 &&
+        Math.abs(measuredWidth - lastWidth) <= 2) return;
     lastHeight = measured;
-    parent.postMessage({ type: 'sully-alchemy-template-height', height: measured }, '*');
+    lastWidth = measuredWidth;
+    parent.postMessage({ type: 'sully-alchemy-template-height', height: measured, width: measuredWidth }, '*');
   };
   const update = () => {
     if (queued) return;
@@ -174,7 +181,7 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
      const csp = [
         "default-src 'none'", "base-uri 'none'", "frame-src 'none'",
         "object-src 'none'", "connect-src 'none'", "form-action 'none'",
-        "img-src data: blob:", "font-src data: blob:",
+        "img-src data: blob: https:", "font-src data: blob: https:",
         "style-src 'unsafe-inline'", "script-src 'unsafe-inline'",
     ].join('; ');
     const srcDoc = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
