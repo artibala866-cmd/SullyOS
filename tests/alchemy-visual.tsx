@@ -2,52 +2,120 @@ import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import AlchemyRuleFolders from '../components/alchemy/AlchemyRuleFolders';
 import type { StoryRegexRule } from '../utils/storyRegex';
-import { alchemyDomain, type AlchemyDomain } from '../utils/alchemyRegex';
-const domain: AlchemyDomain = new URLSearchParams(location.search).get('domain') === 'offline' ? 'offline' : 'online';
-const templateNames = ['小法庭','豆包','弹幕','刮彩票','微信红包','番茄小剧场'];
-const filterNames = ['WS8.3-核心指令','WS8.3-词汇级禁令','WS8.3-句式级禁令','WS8.3-环境描写禁令','WS8.3-人物细节禁令','WS8.3-言情八股禁令','WS8.3-结尾禁令'];
+import {
+    alchemyRuleSection, alchemyRuleTargets, removeAlchemyRule,
+    removeAlchemyFolderSection, type AlchemyDomain,
+} from '../utils/alchemyRegex';
+
+const params = new URLSearchParams(location.search);
+const domain: AlchemyDomain = params.get('domain') === 'offline' ? 'offline' : 'online';
+const section: 'rules' | 'beauty' = domain === 'offline' || params.get('section') === 'rules' ? 'rules' : 'beauty';
+const action = params.get('action') || '';
+const templateNames = ['小法庭', '豆包', '弹幕', '刮彩票', '微信红包', '番茄小剧场'];
+const filterNames = ['WS8.3-核心指令', 'WS8.3-词汇级禁令', 'WS8.3-句式级禁令',
+    'WS8.3-环境描写禁令', 'WS8.3-人物细节禁令', 'WS8.3-言情八股禁令', 'WS8.3-结尾禁令'];
 const initial: StoryRegexRule[] = [
- ...templateNames.map((name, i): StoryRegexRule => ({
-  id:'beauty-'+i,name,enabled:true,presetId:'',kind:'template',domain:'online',pattern:'<tag>(.*?)</tag>',flags:'g',
-  replacement:'<div>{{$1}}</div>',display:true,history:false,instruction:'',
-  importGroup:'糯叽叽 HTML 模板 6 则',
- })),
- ...filterNames.map((name, i): StoryRegexRule => ({
-  id:'rules-'+i,name,enabled:i!==5,presetId:'',kind:'filter',domain:'offline',pattern:'坏词',flags:'g',
-  replacement:'',display:true,history:false,instruction:i===0?'角色指令':'',
-  importGroup:'7.5 八股正则补丁',source:{category:'八股净化'},
- })),
+    ...templateNames.map((name, i): StoryRegexRule => ({
+        id: 'beauty-' + i, name, enabled: true, presetId: '', kind: 'template', domain: 'online',
+        pattern: '<tag>(.*?)</tag>', flags: 'g', replacement: '<div>{{$1}}</div>',
+        display: true, history: false, instruction: '', importGroup: '糯叽叽 HTML 模板 6 则',
+    })),
+    ...filterNames.map((name, i): StoryRegexRule => ({
+        id: 'rules-' + i, name, enabled: i !== 5, presetId: '', kind: 'filter', domain: 'offline',
+        ...(i === 1 ? { targets: ['online', 'offline'] as Array<'online' | 'offline'> } : {}),
+        pattern: '坏词', flags: 'g', replacement: '', display: true, history: false,
+        instruction: i === 0 ? '角色指令' : '', importGroup: '7.5 八股正则补丁',
+        source: { category: '八股净化' },
+    })),
 ];
-function Visual(){
- const [rules,setRules] = useState(initial);
- const [opened,setOpened] = useState('');
- const filtered=useMemo(()=>rules.filter(rule=>alchemyDomain(rule)===domain),[rules]);
- const expect=domain==='online'?6:7;
- const active=filtered.filter(r=>r.enabled).length;
- const toggle=(rule:StoryRegexRule)=>setRules(old=>old.map(r=>r.id===rule.id?{...r,enabled:!r.enabled}:r));
- const cross=rules.filter(rule=>alchemyDomain(rule)!==domain);
- React.useEffect(()=>{
-  const found=document.querySelectorAll('[data-alchemy-rule]').length;
-  const folders=document.querySelectorAll('[data-alchemy-folder]').length;
-  const cats=document.querySelectorAll('[data-alchemy-category]').length;
-  document.body.dataset.alchemyScreenshotReady=String(found===expect&&folders===1&&cats>=2&&cross.length===(domain==='online'?7:6));
-  const out=document.getElementById('alchemy-report');
-  if(out)out.textContent=JSON.stringify({domain,count:found,folders,categories:cats,active,crossCount:cross.length,opened});
- },[rules,opened,active,cross.length]);
- return <main className="max-w-md mx-auto min-h-screen bg-stone-100">
-  <header className="bg-white border-b border-slate-200 px-5 py-5">
-   <div className="text-[11px] tracking-wide text-slate-400">糯米机 · 正则管理</div>
-   <h1 className="font-bold text-[19px] mt-1">{domain==='online'?'美化类 · 私聊 / 群聊':'规则类 · 剧情 / 见面'}</h1>
-   <div className="text-xs text-slate-500 mt-2">导入文件 → 小分类 → 单条规则</div>
-  </header>
-  <section className="p-4 space-y-3">
-   <p className="px-1 text-[12px] text-slate-500">{filtered.length} 条规则 · {active} 条开启</p>
-   <AlchemyRuleFolders rules={filtered} scopeName={()=>domain==='online'?'全部私聊 / 群聊':'全部剧情 / 见面'}
-    onOpen={rule=>setOpened(rule.name)} onToggle={toggle}/>
-   {opened&&<p className="rounded-xl bg-white px-4 py-3 text-xs text-slate-600">已打开：{opened}</p>}
-   <p className="p-2 text-[11px] text-slate-400">两套分类独立显示；原始规则数据保持不变</p>
-  </section>
-  <output id="alchemy-report" hidden/>
- </main>;
+
+function Visual() {
+    const [rules, setRules] = useState(initial);
+    const [opened, setOpened] = useState('');
+    const filtered = useMemo(() => rules.filter(rule => alchemyRuleSection(rule) === section), [rules]);
+    const expected = section === 'beauty' ? 6 : 7;
+    const active = filtered.filter(rule => rule.enabled).length;
+    const toggle = (rule: StoryRegexRule) =>
+        setRules(old => old.map(item => item.id === rule.id ? { ...item, enabled: !item.enabled } : item));
+    const deleteRule = (rule: StoryRegexRule) => setRules(old => removeAlchemyRule(old, rule.id));
+    const deleteFolder = (folder: string, selected: StoryRegexRule[]) => {
+        const ids = new Set(selected.map(rule => rule.id));
+        setRules(old => removeAlchemyFolderSection(old, folder, section, ids));
+    };
+    React.useEffect(() => {
+        const found = document.querySelectorAll('[data-alchemy-rule]').length;
+        const folders = document.querySelectorAll('[data-alchemy-folder]').length;
+        const categories = document.querySelectorAll('[data-alchemy-category]').length;
+        const hasDelete = document.querySelectorAll('button[aria-label^="删除规则"]').length === found &&
+            document.querySelectorAll('button[aria-label^="删除分组"]').length === folders;
+        document.body.dataset.alchemyScreenshotReady =
+            String(found === expected && folders === 1 && categories >= 2 && hasDelete &&
+                rules.length === 13);
+        const out = document.getElementById('alchemy-report');
+        if (out) out.textContent = JSON.stringify({
+            domain, section, count: found, folders, categories, active, totalRecords: rules.length,
+            bothTargets: rules.filter(rule => alchemyRuleTargets(rule).length === 2).length,
+            hasDelete, opened,
+        });
+    }, [rules, opened, active]);
+
+    // Browser-only interaction QA. This clicks the *actual* delete buttons:
+    // the first click must not mutate any rule; second confirmation must
+    // remove only the intended category while keeping the other category.
+    React.useEffect(() => {
+        if (!action) return;
+        const isFolder = action === 'folder-delete';
+        const selector = isFolder ? 'button[aria-label^="删除分组"]' : 'button[aria-label^="删除规则"]';
+        const target = document.querySelector<HTMLButtonElement>(selector);
+        if (!target) return;
+        target.click();
+        window.setTimeout(() => {
+            const before = document.querySelectorAll('[data-alchemy-rule]').length;
+            const unchanged = before === expected &&
+                document.querySelectorAll('[data-alchemy-rule]').length === expected;
+            const confirmText = isFolder ? '确认删除分组' : '确认删除';
+            const confirmation = [...document.querySelectorAll<HTMLButtonElement>('button')]
+                .find(button => button.textContent?.trim() === confirmText);
+            const wasConfirmed = !!confirmation;
+            confirmation?.click();
+            window.setTimeout(() => {
+                const after = document.querySelectorAll('[data-alchemy-rule]').length;
+                const success = unchanged && wasConfirmed && after === (isFolder ? 0 : expected - 1) &&
+                    rulesRemainingAfterDelete() === (isFolder ? 13 - expected : 12);
+                document.body.dataset.alchemyDeleteReady = String(success);
+                const out = document.getElementById('alchemy-delete-report');
+                if (out) out.textContent = JSON.stringify({ action, section, unchanged, wasConfirmed, after, success });
+            }, 120);
+        }, 120);
+        // Explicit DOM count used only in the browser harness.
+        function rulesRemainingAfterDelete() {
+            return Number(document.body.dataset.alchemyTotalRecords || 'NaN');
+        }
+    }, []);
+
+    React.useEffect(() => {
+        document.body.dataset.alchemyTotalRecords = String(rules.length);
+    }, [rules]);
+
+    return <main className="mx-auto min-h-screen max-w-md bg-stone-100">
+        <header className="border-b border-slate-200 bg-white px-5 py-5">
+            <div className="text-[11px] tracking-wide text-slate-400">糯米机 · 正则管理</div>
+            <h1 className="mt-1 text-[19px] font-bold">{section === 'beauty'
+                ? '美化类 · 私聊 / 群聊' : domain === 'online'
+                    ? '规则类 · 私聊 / 群聊' : '规则类 · 剧情 / 见面'}</h1>
+            <div className="mt-2 text-xs text-slate-500">导入文件 → 小分类 → 单条规则</div>
+        </header>
+        <section className="space-y-3 p-4">
+            <p className="px-1 text-[12px] text-slate-500">{filtered.length} 条规则 · {active} 条开启</p>
+            <AlchemyRuleFolders rules={filtered} scopeName={(_, rule) => rule?.kind === 'template'
+                ? '私聊 / 群聊' : alchemyRuleTargets(rule!).map(target => target === 'online'
+                    ? '私聊 / 群聊' : '剧情 / 见面').join(' + ')}
+                onOpen={rule => setOpened(rule.name)} onToggle={toggle}
+                onDelete={deleteRule} onDeleteFolder={deleteFolder} />
+            {opened && <p className="rounded-xl bg-white px-4 py-3 text-xs text-slate-600">已打开：{opened}</p>}
+        </section>
+        <output id="alchemy-report" hidden />
+        <output id="alchemy-delete-report" hidden />
+    </main>;
 }
-createRoot(document.getElementById('visual')!).render(<Visual/>);
+createRoot(document.getElementById('visual')!).render(<Visual />);
