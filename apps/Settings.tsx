@@ -282,19 +282,14 @@ const McpServersCard: React.FC<{
                 </div>
                 <button onClick={addServer} className="text-[11px] font-bold text-neutral-600 bg-neutral-100 px-2.5 py-1 rounded-lg active:scale-95 transition-transform">+ 添加</button>
             </div>
-            <p className="text-[10px] text-neutral-700/70 leading-relaxed">
-                接入任意标准 MCP 服务器（Streamable HTTP）：填 URL → 测试连接 → 打开开关，角色就能在聊天里调用这些工具。
-                被浏览器 CORS 拦住时配「代理 URL」：本地跑 <code className="bg-neutral-100/80 px-1 rounded">node scripts/mcp-proxy.mjs</code>，或把 <code className="bg-neutral-100/80 px-1 rounded">worker/mcp-proxy</code> 部署到你自己的 Cloudflare 账号。配置只存本机，详见 docs/mcp-client.md。
-            </p>
+            
             <div className="flex items-center justify-between gap-3 bg-white/70 border border-neutral-100 rounded-xl px-3 py-2.5">
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
                         <div className="text-xs font-bold text-slate-700">原生 tools 工具调用</div>
                         <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[8px] font-bold text-neutral-700">推荐</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-                        开启后发送标准 tools，调用更稳定、参数更可靠。只有模型或中转明确不支持 function calling 时才关闭，退回文字兼容模式。
-                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">不支持 function calling 时关闭。</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input type="checkbox" checked={useNativeTools} onChange={e => {
@@ -308,12 +303,8 @@ const McpServersCard: React.FC<{
                 </label>
             </div>
             <div className="border-l-2 border-neutral-300 pl-3 text-[10px] leading-relaxed text-neutral-700/80">
-                <p>
-                    <b>简单说：</b>tools / function calling 是聊天模型的一项能力，让角色用标准格式告诉 API“要调用哪个工具、传什么参数”，系统才能真正执行；不支持时，模型可能只会把工具调用写成普通聊天文字。
-                </p>
-                <p className="mt-1.5 text-neutral-600/75">
-                    不知道自己的模型或中转是否支持？请询问你所使用的 API 负责人或售卖方，确认是否支持 <b>tools / function calling（函数调用）</b>。拿不准时保持开启；只有对方明确说不支持，或请求出现 tools / function calling 报错时再关闭。
-                </p>
+                
+                
             </div>
             {servers.map(server => (
                 <div key={server.id} className="bg-white/70 border border-neutral-100 rounded-xl p-3 space-y-2">
@@ -471,9 +462,7 @@ const McpServersCard: React.FC<{
                     )}
                 </div>
             ))}
-            <p className="text-[10px] text-neutral-700/60 leading-relaxed bg-neutral-100/40 rounded-lg px-2 py-1.5">
-                开启 MCP 工具后，聊天会改用本地工具请求，本轮思考链会让位给工具调用；发布、下单、删除等操作仍会先征得你的确认。Token、自定义请求头与配置保存在本机；若配置了代理，请求会按你的设置经该代理转发。
-            </p>
+            <p className="text-[10px] text-neutral-700/60 leading-relaxed bg-neutral-100/40 rounded-lg px-2 py-1.5">发布、下单和删除等操作仍须确认。</p>
         </div>
     );
 };
@@ -1969,9 +1958,7 @@ const Settings: React.FC = () => {
                 </div>
             }
         >
-            <p className="text-xs text-slate-500 leading-relaxed">
-                如果交换日记的自定义 CSS 把返回键、设置键遮住或变得无法点击，可以从这里直接清除日记主题与 CSS，不影响日记内容。
-            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">只清除日记美化，不删除正文。</p>
             <button
                 type="button"
                 disabled={!hasJournalAppearanceOverride}
@@ -1992,10 +1979,7 @@ const Settings: React.FC = () => {
                 <div className="flex items-center gap-2 mb-2">
                     <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest">一键还原外观</h2>
                 </div>
-                <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
-                    把主题色、壁纸、字体、应用图标、桌面小组件、装饰贴纸全部还原成最初始状态。在不同版本之间反复导入预设导致图标错乱时使用。<br/>
-                    <span className="text-slate-400">已保存的外观预设不会被删除，随时还能切回去。</span>
-                </p>
+                <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">恢复初始外观，不删除已保存的预设。</p>
                 {!confirmAppearanceReset ? (
                     <button onClick={() => setConfirmAppearanceReset(true)}
                         className="w-full py-2.5 bg-white text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
@@ -2161,9 +2145,7 @@ const Settings: React.FC = () => {
                     </div>
                 )}
 
-                <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
-                    一个 ZIP 可以包含多个角色模型。恢复时请先导入上方普通数据，再导入模型包；系统会逐个读取、逐个写入。一次选择多个模型包时，也会按选择顺序处理。
-                </p>
+                
                 {avatarModelInventory && avatarModelInventory.missingCount > 0 && (
                     <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
                         有 {avatarModelInventory.missingCount} 个角色只剩模型索引，本地二进制已经丢失，无法导出。
@@ -2204,9 +2186,7 @@ const Settings: React.FC = () => {
             <button onClick={handleCleanupResidue} disabled={isCleaningResidue} className="w-full py-3 mb-2 bg-neutral-50 border border-neutral-100 text-neutral-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50">
                 {isCleaningResidue ? '正在扫描…' : '一键清理表情包残留'}
             </button>
-            <p className="text-[10px] text-slate-400 px-1 mb-4 leading-relaxed">
-                清理已删除角色遗留的「幽灵表情包」：专属分类的角色没了之后，单聊表情面板看不到它、群聊面板却还冒出来。先扫描列出结果，确认后才会删除。
-            </p>
+            
 
             <button onClick={() => setShowResetConfirm(true)} className="w-full py-3 bg-neutral-50 border border-neutral-100 text-neutral-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
                 格式化系统 (出厂设置)
@@ -2342,10 +2322,7 @@ const Settings: React.FC = () => {
                 </div>
             )}
 
-            <p className="text-[10px] text-slate-400 px-1 mt-3 leading-relaxed">
-                备份始终存放在你自己的 WebDAV 或 GitHub 账号中，项目不建立用户备份数据库。
-                网页 WebDAV 因跨域限制需要中转；GitHub 默认直连，网络受限时可自行开启中转。
-            </p>
+            <p className="text-[10px] text-slate-400 px-1 mt-3 leading-relaxed">备份存储在自己的 WebDAV 或 GitHub 账户。</p>
         </SettingsSection>
 
         {/* AI 连接设置区域 */}
@@ -2515,11 +2492,7 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
 
-                <p className="text-[10px] text-slate-400 leading-relaxed px-1">
-                    开启后，每张聊天图片只会先交给这里的视觉模型识别一次，并把结果写成
-                    <span className="font-semibold text-neutral-600"> [图片：模型看到的内容] </span>
-                    再发给主 API；之后聊天和重 roll 都直接复用，不会重复识图扣费。关闭时完全沿用原来的图片发送逻辑。
-                </p>
+                <p className="text-[10px] text-slate-400 leading-relaxed px-1">新图片识图一次，后续复用结果。</p>
 
                 <div className="rounded-2xl border border-neutral-100 bg-white/70 p-3">
                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -2708,7 +2681,7 @@ const Settings: React.FC = () => {
                 <div className="group">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">鱼声 Fish Audio Key</label>
                     <input type="password" name="fish-api-key" autoComplete="new-password" spellCheck={false} value={localFishKey} onChange={(e) => setLocalFishKey(e.target.value)} placeholder="Fish Audio API Key（fish.audio 控制台签发）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
-                    <p className="text-[11px] text-slate-400 mt-1 pl-1">在 <a href="https://fish.audio/zh-CN/developers/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">fish.audio 开发者页</a> 拿 Key（<span className="text-neutral-600 font-medium">需梯子</span>）。角色音色在「角色 → 语音」里填 reference_id。静态网页环境会在合成时通过网络 Worker 转发 Key 与待合成文字，项目不主动留存。</p>
+                    <p className="text-[11px] text-slate-400 mt-1 pl-1">Fish Audio 的 Key 与语音文本经 Worker 传输。</p>
 
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 mb-1.5 block pl-1">鱼声模型</label>
                     <select
@@ -2741,9 +2714,7 @@ const Settings: React.FC = () => {
                         placeholder="ElevenLabs API Key"
                         className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1 pl-1">
-                        在 <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">ElevenLabs API Keys</a> 创建。角色音色在「角色 → 语音」填写 Voice ID；网页端合成会通过项目代理转发，不写入服务端存储。
-                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1 pl-1">ElevenLabs 的 Key 与语音文本经 Worker 传输。</p>
 
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 mb-1.5 block pl-1">ElevenLabs 模型</label>
                     <select
@@ -2755,9 +2726,7 @@ const Settings: React.FC = () => {
                             <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
-                    <p className="text-[11px] text-slate-400 mt-1 pl-1">
-                        Flash v2.5 默认更适合实时聊天；v3 支持更丰富的方括号 Audio Tags。切换后对应的内置语音提示规则也会同步切换。
-                    </p>
+                    
 
                     <details className="mt-3 rounded-xl border border-slate-200/60 bg-white/35 px-3 py-2">
                         <summary className="cursor-pointer text-[11px] font-semibold text-slate-500 select-none">声音参数（高级）</summary>
@@ -2841,9 +2810,7 @@ const Settings: React.FC = () => {
 
                     {showVoicePrompts && (
                         <div className="mt-3 space-y-4">
-                            <p className="text-[11px] text-neutral-600 leading-relaxed pl-0.5">
-                                ⚠️ 这是给模型的格式说明（停顿标记 / 情绪标签 / 动作词等），不是角色人设。改坏了可能导致语音标记解析失败——拿不准就点「清空」回到默认。改完记得点下面的「保存」。
-                            </p>
+                            <p className="text-[11px] text-neutral-600 leading-relaxed pl-0.5">格式标记错误可能导致语音解析失败。</p>
 
                             {([
                                 ['minimax', 'MiniMax 语音指南', localVoicePromptMinimax, setLocalVoicePromptMinimax, VOICE_ACTING_GUIDE, '聊天 + 电话 · MiniMax 引擎时生效'] as const,
@@ -2961,7 +2928,7 @@ const Settings: React.FC = () => {
                                     <span className="shrink-0 w-5 h-5 rounded-full bg-neutral-500 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">3</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="text-[12px] text-stone-700 font-medium">绑卡充值（必须）</div>
-                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">Replicate 没有免费试用额度，需先绑信用卡。<span className="text-neutral-600 font-semibold">国内卡基本不行</span>，建议 Visa / MC 美区卡。最低充 $1（约 ¥7.3）≈ 50-100 首歌。</p>
+                                        <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">Replicate 需付费使用。</p>
                                     </div>
                                 </div>
                                 <div className="mt-2 pt-2.5 border-t border-neutral-200/40 flex gap-2 items-start">
@@ -3087,9 +3054,7 @@ const Settings: React.FC = () => {
                 </span>
             }
         >
-            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-                主动消息 2.0 的 Worker 用这对密钥签推送：一键部署会自动沿用，手动部署时把它们填进 Worker 的环境变量。重新生成之后要重新部署 Worker 才能生效。
-            </p>
+            <p className="text-xs text-slate-500 mb-3 leading-relaxed">更换推送密钥后需重新部署 Worker。</p>
             <button
                 type="button"
                 onClick={() => setShowVapidModal(true)}
@@ -3131,9 +3096,7 @@ const Settings: React.FC = () => {
                     配置
                 </button>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-                角色到点自动给你发消息，App 关着也能收。需要你自己部署一个 Cloudflare Worker（自带 D1 数据库 + 定时触发），在配置里填地址即可。聊天上云（即时对话）与定时主动消息都由它承担。
-            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">需自行部署 Cloudflare Worker。</p>
             <button type="button" onClick={() => setShowAmsgCloudData(true)} className="mt-3 w-full rounded-2xl border border-neutral-100 bg-neutral-50/60 px-4 py-3 text-left text-xs text-neutral-700">
                 <span className="block font-semibold">云端数据管理</span>
                 <span className="mt-1 block text-[11px] text-slate-500">查看 Worker 实际保存的数据，按项清理或彻底移除角色。</span>
@@ -3212,21 +3175,9 @@ const Settings: React.FC = () => {
                         <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-500"></div>
                     </label>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                    只数「哪个页面被打开了、哪个功能被用了一次」，记忆条数 / 角色数落在哪个区间，
-                    以及你这台设备打开页面花了多久（浏览器自己测的毫秒数）。
-                    不碰你和角色的任何对话、记忆、设定，不碰你输入的任何文字，不碰 API 和 MCP 配置。
-                </p>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                    宝宝狗 的功能已经多到我们自己也扫不完，但「哪些真的有人用、大家配置时卡在哪一步」
-                    基本靠猜。留着这个开关开着能帮我们看清这些，好把精力放在有人用的地方。
-                    不想参与就关掉，功能一点不受影响。
-                </p>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
-                    浏览器开了 Do Not Track 的话，不用动这个开关也会自动跳过。
-                    关掉之后当场就不再发，下次启动连统计脚本都不会加载。想自己核实的话，按 F12 打开 Network 面板，
-                    这个页面发出的每一个请求装了什么都在你自己的浏览器里。
-                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">使用统计不包含对话、设定或密钥。</p>
+                
+                <p className="text-[10px] text-slate-400 leading-relaxed">关闭后停止上报；遵守浏览器 DNT。</p>
             </div>
         </SettingsSection>
         )}
@@ -3239,25 +3190,13 @@ const Settings: React.FC = () => {
       <Modal isOpen={showCloudModal} title="云端备份配置" onClose={() => setShowCloudModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-700 leading-relaxed">
-                      <b>🪜 需要梯子</b><br/>
-                      InfiniCloud 是日本的服务，国内直连通常打不开注册页、也无法同步备份。<b>注册和之后每次同步都需要保持梯子开启</b>，否则会连接失败或超时。
-                  </p>
+                  <p className="text-[10px] text-neutral-700 leading-relaxed">国内网络可能需要代理。</p>
               </div>
               <div className="bg-neutral-50 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-700 leading-relaxed">
-                      <b>快速上手 (InfiniCloud, 免费 20GB):</b><br/>
-                      1. 注册 <a href="https://infini-cloud.net/" target="_blank" rel="noopener noreferrer" className="text-neutral-600 underline font-bold hover:text-neutral-800">infini-cloud.net ↗</a>（邮箱验证）<br/>
-                      2. 登录后 <b>My Page</b> 最底 → 勾选 <b>Turn on Apps Connection</b><br/>
-                      3. 顶栏 <b>Apps</b> → 复制 <b>WebDAV URL</b> / <b>Connection ID</b> / <b>Apps Password</b><br/>
-                      4. 用户名填 <b>Connection ID</b>（不是邮箱），密码填 <b>Apps Password</b>
-                  </p>
+                  
               </div>
               <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-800 leading-relaxed">
-                      <b>⚠️ Apps Password ≠ 登录密码</b><br/>
-                      <b>Apps Password</b> 是 <b>Apps</b> 页面里显示在 <b>WebDAV URL</b>、<b>Connection ID</b> <b>下方</b>的一串<b>可复制</b>的应用专用密码，往下滚就能看到。直接把它复制粘贴到上面的"密码"框即可，用账号登录密码会 401。
-                  </p>
+                  <p className="text-[10px] text-neutral-800 leading-relaxed">WebDAV 使用 Apps Password，不是账户登录密码。</p>
               </div>
               <div>
                   <label className="text-[11px] text-slate-500 font-medium mb-1 block">WebDAV 地址</label>
@@ -3298,29 +3237,12 @@ const Settings: React.FC = () => {
       <Modal isOpen={showGithubModal} title="GitHub 备份" onClose={() => setShowGithubModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                  <p className="text-[11px] text-slate-700 leading-relaxed">
-                      <b>三步连接 GitHub：</b><br/>
-                      ① 点下面按钮跳到 GitHub 创建 Token<br/>
-                      ② 复制 token，回来粘到下面框里<br/>
-                      ③ 点 <b>测试并连接</b> — 我们会自动帮你建好私有仓库 <code className="bg-white px-1 rounded">{ghRepo || 'sully-backup'}</code>
-                  </p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-slate-200 pt-2">
-                      <b>连接成功不等于上传一定能通。</b> GitHub 网页、账号接口和 ZIP 附件上传分别使用
-                      <code className="mx-0.5 bg-white px-1 rounded">github.com</code>、
-                      <code className="mx-0.5 bg-white px-1 rounded">api.github.com</code>、
-                      <code className="mx-0.5 bg-white px-1 rounded">uploads.github.com</code>。
-                      不同网络、梯子分流和 iOS PWA 可能只接管其中一部分，所以会出现“网页能进但上传失败”或“开着梯子反而不通”。
-                  </p>
+                  
+                  
               </div>
 
               <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3">
-                  <p className="text-[10px] text-neutral-800 leading-relaxed">
-                      <b>⚠️ 在 GitHub 那一页只改一处:</b><br/>
-                      把 <b>Expiration</b>(有效期)下拉框 <b>从 90天 改成 No expiration</b>（永不过期）。
-                      不改的话 90 天后 token 过期，备份会突然 401。<br/>
-                      其它都别动 —— Note 已经填好「Sully 备份」，<b>repo</b> 权限已经勾上了，
-                      直接拉到最底点绿色 <b>Generate token</b> 即可。
-                  </p>
+                  <p className="text-[10px] text-neutral-800 leading-relaxed">Token 过期后需重新连接。</p>
               </div>
 
               <a
@@ -3341,10 +3263,7 @@ const Settings: React.FC = () => {
                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                       className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-mono focus:border-slate-500 focus:ring-1 focus:ring-slate-300 outline-none"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                      Token 保存在本机配置中。GitHub 默认直连；如果附件域名不通，可在下方高级选项开启应用内中转。
-                      仅在你手动开启后，Token 才会随 GitHub 请求经过所选 Worker，项目不会主动留存。
-                  </p>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Token 保存在本机；启用中转时会经过 Worker。</p>
               </div>
 
               <button
@@ -3410,10 +3329,7 @@ const Settings: React.FC = () => {
                           勾选状态会立即保存，不必重新连接。系统梯子可能因规则分流、节点或 PWA 未接管而漏掉
                           <code className="mx-0.5 bg-white px-1 rounded">uploads.github.com</code>；应用内中转是另一条独立线路，也可能被某些网络拦截。
                       </p>
-                      <p className="text-[10px] text-slate-400 leading-relaxed pl-5">
-                          中转只负责转发，备份仍存放在你的 GitHub 私有仓库；项目不建立备份数据库，也不主动留存 Token 或备份文件。
-                          大于 32MB 时会自动分片，并在全部完成后发布。
-                      </p>
+                      <p className="text-[10px] text-slate-400 leading-relaxed pl-5">中转不会改变备份存储位置。</p>
                   </div>
               )}
 
@@ -3795,10 +3711,7 @@ const Settings: React.FC = () => {
                                   Brave Search（回落源 · <span className="text-neutral-400">不建议配置</span>）
                               </summary>
                               <div className="mt-2 space-y-1.5">
-                                  <p className="text-[10px] text-slate-400/90 leading-relaxed">
-                                      上面的中文热榜在国内场景比 Brave 好用一万倍，<b className="text-slate-500">基本不需要配这个</b>。
-                                      它只是热榜彻底拉不到时的英文回落，配了反而可能盖掉中文热点。除非你清楚自己在做什么，否则留空即可。
-                                  </p>
+                                  
                                   <input type="password" value={rtNewsApiKey} onChange={e => setRtNewsApiKey(e.target.value)} className="w-full bg-white/60 border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono text-slate-500" placeholder="（不建议）brave.com/search/api" />
                                   
                               </div>
@@ -3828,9 +3741,7 @@ const Settings: React.FC = () => {
                       </a>
                   </div>
 
-                  <p className="text-[10px] text-neutral-800/70 leading-relaxed">
-                      聊天里粘贴普通网页时，原有提取失败后会自动用 Firecrawl 读取动态页面；再失败仍会回落 Jina 与 Worker，不会因额度耗尽让分享失效。免费计划目前每月约 1,000 页。
-                  </p>
+                  
 
                   {!firecrawlKeyInput.trim() && (
                       <ol className="rounded-xl border border-neutral-200/80 bg-white/70 px-3 py-2 text-[10px] text-neutral-900/75 leading-relaxed space-y-1">
@@ -3888,9 +3799,7 @@ const Settings: React.FC = () => {
                       </p>
                   )}
 
-                  <p className="text-[9px] text-slate-400 leading-relaxed">
-                      Key 仅保存在当前设备，并由设备直接连接 Firecrawl，不经过项目 Worker。请求明确关闭 Firecrawl 页面缓存；请勿分享需要登录的私密链接。
-                  </p>
+                  <p className="text-[9px] text-slate-400 leading-relaxed">请勿发送需要登录的私密链接。</p>
               </div>
               )}
 
@@ -3925,12 +3834,7 @@ const Settings: React.FC = () => {
                                   填写后角色可以偶尔看到你的笔记标题，温馨地提起你写的内容。留空则不启用。
                               </p>
                           </div>
-                          <p className="text-[10px] text-neutral-500/70 leading-relaxed">
-                               1. 在 <a href="https://www.notion.so/my-integrations" target="_blank" className="underline">Notion开发者</a> 创建Integration（新版 Token 以 ntn_ 开头，老版以 secret_ 开头，都能用）<br/>
-                               2. 创建一个日记数据库，添加"Name"(标题)和"Date"(日期)属性<br/>
-                               3. 在数据库右上角菜单中 Connect 你的 Integration<br/>
-                               Token 保存在本机配置中；启用后，所选数据库的请求会由网络 Worker 转发，项目不主动留存日记内容。
-                          </p>
+                          <p className="text-[10px] text-neutral-500/70 leading-relaxed">Notion 需要数据库编辑权限。</p>
                       </div>
                   )}
               </div>
@@ -3971,17 +3875,8 @@ const Settings: React.FC = () => {
                           </div>
                            <button onClick={testFeishuApi} className="w-full py-2 bg-neutral-100 text-neutral-600 text-xs font-bold rounded-xl active:scale-95 transition-transform">测试读取连接</button>
                           {renderRtTestStatus('feishu')}
-                           <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-relaxed text-neutral-700">
-                               测试不会新增记录，只验证凭据、读取权限和 Table ID。读取成功但写入提示 Forbidden，说明还缺新增记录权限。
-                           </p>
-                           <p className="text-[10px] text-neutral-500/70 leading-relaxed">
-                                1. 在 <a href="https://open.feishu.cn/app" target="_blank" className="underline">飞书开放平台</a> 创建企业自建应用，获取 App ID 和 Secret<br/>
-                                2. 开通「查看、评论、编辑和管理多维表格」权限，创建并发布新版本，完成管理员审批<br/>
-                                3. 在目标多维表格的「添加文档应用」中加入该应用，并授予可编辑权限（开了高级权限时也要允许新增记录）<br/>
-                                4. 添加字段: 标题(文本)、内容(文本)、日期(日期)、心情(文本)、角色(文本)<br/>
-                                5. 从多维表格 URL 中获取 App Token 和 Table ID<br/>
-                                App Secret 保存在本机配置中；启用后，多维表格请求会由网络 Worker 转发，项目不主动留存表格内容。
-                           </p>
+                           <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-relaxed text-neutral-700">测试不写入；保存需新增记录权限。</p>
+                           <p className="text-[10px] text-neutral-500/70 leading-relaxed">飞书应用需多维表格编辑权限。</p>
                       </div>
                   )}
               </div>
@@ -3999,9 +3894,7 @@ const Settings: React.FC = () => {
                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">
-                      本地模式继续可用：xiaohongshu-mcp 走 MCP 协议，xhs-bridge / Skills 走本地 /api。MCP 保留兼容，但不再承诺随其上游版本持续适配；新配置建议使用下方持续维护的 Lite。
-                  </p>
+                  <p className="text-[10px] text-neutral-500/70 leading-relaxed">旧本地模式仍可用。</p>
                   {rtXhsMcpEnabled && rtXhsMode === 'local' && (
                       <div className="space-y-2">
                           <div>
@@ -4020,11 +3913,7 @@ const Settings: React.FC = () => {
                                   <input value={rtXhsUserId} onChange={e => setRtXhsUserId(e.target.value)} className="w-full bg-white/80 border border-neutral-200 rounded-xl px-3 py-2 text-[11px] font-mono" placeholder="可选，用于查看主页" />
                               </div>
                           </div>
-                          <p className="text-[10px] text-neutral-500/70 leading-relaxed">
-                              <b>MCP 模式:</b> 下载 xiaohongshu-mcp + 运行脚本，URL 填 http://localhost:18060/mcp（代理则 18061/mcp）<br/>
-                              <b>Skills 模式:</b> URL 填 http://localhost:18061/api（需 Python + xhs-bridge.mjs，额外支持视频/长文）<br/>
-                              系统按 URL 结尾自动判断（/mcp 或 /api）。
-                          </p>
+                          
                       </div>
                   )}
               </div>
@@ -4083,9 +3972,7 @@ const Settings: React.FC = () => {
                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-neutral-700/70 leading-relaxed">
-                      启用后，在聊天里点 + 号 → 第二页 → 麦当劳，发送"麦请求"激活，角色就能为你查菜单、查门店、点麦乐送/到店取餐/团餐、积分兑券、查活动。
-                  </p>
+                  
                   {mcdEnabled && (
                       <div className="space-y-2">
                           <div>
@@ -4100,12 +3987,7 @@ const Settings: React.FC = () => {
                                   {mcdTestStatus}
                               </div>
                           )}
-                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">
-                              1. 访问 <a href="https://open.mcd.cn/mcp" target="_blank" className="underline">open.mcd.cn/mcp</a> 用麦当劳账号登录申请 Token<br/>
-                              2. Token 保存在本机配置中；使用点单功能时会随 MCP 请求由网络 Worker 转发，项目不主动留存<br/>
-                              3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
-                              4. 仅中国大陆 (不含港澳台)
-                          </p>
+                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">真实下单前需确认，Token 经 Worker 传输。</p>
                       </div>
                   )}
               </div>
@@ -4123,9 +4005,7 @@ const Settings: React.FC = () => {
                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-500"></div>
                       </label>
                   </div>
-                  <p className="text-[10px] text-neutral-700/70 leading-relaxed">
-                      启用后，在聊天里点 + 号 → 第二页 → 瑞一杯，发送"瑞一杯"激活，角色就能为你查门店、搜咖啡、选规格、下单到店自提、查取餐码。
-                  </p>
+                  
                   {luckinEnabled && (
                       <div className="space-y-2">
                           <div>
@@ -4140,12 +4020,7 @@ const Settings: React.FC = () => {
                                   {luckinTestStatus}
                               </div>
                           )}
-                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">
-                              1. 访问 <a href="https://open.lkcoffee.com" target="_blank" className="underline">open.lkcoffee.com</a> 用瑞幸账号登录，复制 Token（有效期约 1 个月）<br/>
-                              2. Token 保存在本机配置中；使用点单功能时会随 MCP 请求由网络 Worker 转发，项目不主动留存<br/>
-                              3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
-                              4. 上游需经 Worker 代理 (/mcp/luckin)，请确保已部署最新 worker
-                          </p>
+                          <p className="text-[10px] text-neutral-700/70 leading-relaxed">真实下单前需确认，Token 经 Worker 传输。</p>
                       </div>
                   )}
               </div>
@@ -4172,31 +4047,16 @@ const Settings: React.FC = () => {
           <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
               <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-neutral-700">MCP 工具服务器</p>
-                  <p>
-                      MCP（Model Context Protocol）是一套开放协议。接上资料库、联网搜索、笔记或智能家居后，
-                      Sully 可以在聊天中调用它们。MCP 配置不会覆盖角色设定、关系或记忆。
-                  </p>
+                  
               </div>
               <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-neutral-700">🏠 为什么服务器要自己准备？</p>
-                  <p>
-                      宝宝狗 的核心前端可以静态部署，也没有强制所有 MCP 流量经过项目方的中央代理。
-                      URL 和凭据默认留在本机，工具服务器需要你自己准备，三选一：
-                  </p>
-                  <p>
-                      ☁️ <b>用现成的云端 MCP 服务</b>：对方给你一个公网 https 地址（可能还有 Token），直接填进配置即可。<br/>
-                      🖥️ <b>跑在自己电脑上</b>：电脑上的浏览器直接填 <code className="bg-white/80 px-1 rounded">http://localhost:端口</code>；
-                      想在手机上也能用，再配个内网穿透（如 Cloudflare Tunnel）。<br/>
-                      🚀 <b>自己部署到云上</b>：VPS / Cloudflare / Zeabur 等，任何设备随时可用。
-                  </p>
+                  
+                  
               </div>
               <div className="bg-neutral-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-neutral-700">🚧 测试连接报「Failed to fetch」？</p>
-                  <p>
-                      八成是浏览器的 CORS 跨域拦截（静态网页的另一个代价）。能改服务器就在服务器端配好 CORS；
-                      改不了就在配置里填「代理 URL」——本地跑一个小代理，或把仓库里的 Worker 代理部署到你自己的
-                      Cloudflare 账号，教程里都有现成步骤。
-                  </p>
+                  
               </div>
               <div className="space-y-2">
                   <a
@@ -4260,9 +4120,7 @@ const Settings: React.FC = () => {
               <p className="text-xs text-slate-400 break-all">
                   Worker 地址：{resetCloudFailure?.workerUrl}
               </p>
-              <p className="text-xs text-neutral-500">
-                  仍然重置的话，本地会归零，而云端那些没清掉的定时任务还会到点运行、消耗你的 API 额度。重置之后本地不再保存连接信息，只能去 Cloudflare 后台手动删掉那个 D1 数据库。
-              </p>
+              <p className="text-xs text-neutral-500">本地重置不取消云端任务，可能继续消耗 API 费用。</p>
           </div>
       </Modal>
 
