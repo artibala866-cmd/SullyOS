@@ -104,7 +104,7 @@ const StoryQuickPresetPanel: React.FC<Props> = ({ document, hasOverride, onApply
                         return <button key={option.id || 'default'} onClick={() => choose(option.id)} className='w-full py-3.5 flex items-center gap-3 text-left'><span className={'w-5 h-5 rounded-full border grid place-items-center ' + (selected ? 'bg-neutral-600 border-neutral-600 text-white' : 'border-slate-300 text-transparent')}><Check size={12} weight='bold' /></span><span className='text-xs font-semibold'>{option.label}</span></button>;
                     })}</div>
                 </> : <div className='py-12 text-center text-xs leading-6 text-slate-400'>
-                    '暂无可选项'
+                    暂无可选项
                 </div>}
             </main>
 
