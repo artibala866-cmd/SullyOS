@@ -9,6 +9,10 @@ export interface StoryRegexInput {
 export interface StoryRegexContext {
     user?: string;
     char?: string;
+    userGender?: string;
+    charGender?: string;
+    userAvatar?: string;
+    charAvatar?: string;
 }
 
 export interface StoryRegexRule {
@@ -17,6 +21,8 @@ export interface StoryRegexRule {
     enabled: boolean;
     presetId: string;
     kind: 'filter' | 'template';
+    /** Alchemy order: lower values run first; equal values keep import order. */
+    order?: number;
     pattern: string;
     flags: string;
     replacement: string;
@@ -29,6 +35,8 @@ export interface StoryRegexRule {
     source?: {
         trim?: boolean;
         trimStrings?: string[];
+        scenes?: string[];
+        renderMode?: 'inline' | 'iframe';
         substituteRegex?: 0 | 1 | 2;
         minDepth?: number;
         maxDepth?: number;
@@ -57,6 +65,33 @@ export function compileStoryRegex(pattern: string, flags: string): RegExp {
     return new RegExp(literal?.[1] ?? pattern, literal?.[2] ?? flags.trim());
 }
 
+export function expandStoryRegexShorthand(pattern: string): string {
+    // Native Text Alchemist supports {a,b,c} as alternatives but JS
+    // quantifiers ({2,5}) and escaped literals (\\{a,b\\}) must survive.
+    let output = '';
+    let characterClass = false;
+    for (let index = 0; index < pattern.length; index++) {
+        const character = pattern[index];
+        if (character === '\\' && index + 1 < pattern.length) {
+            output += character + pattern[++index];
+            continue;
+        }
+        if (character === '[') characterClass = true;
+        else if (character === ']') characterClass = false;
+        if (character !== '{' || characterClass) { output += character; continue; }
+        const end = pattern.indexOf('}', index + 1);
+        if (end < 0) { output += character; continue; }
+        const options = pattern.slice(index + 1, end).split(',').map(item => item.trim());
+        if (options.length < 2 || options.some(item => !item || /[{}]/.test(item))
+            || options.every(item => /^\\d+$/.test(item))) {
+            output += character; continue;
+        }
+        output += '(?:' + options.join('|') + ')';
+        index = end;
+    }
+    return output;
+}
+
 export function validateStoryRegexRule(rule: StoryRegexRule): void {
     if (!rule.name.trim()) throw new Error('请输入规则名称');
     if (!rule.pattern.trim()) throw new Error('请输入匹配正则');
@@ -64,7 +99,7 @@ export function validateStoryRegexRule(rule: StoryRegexRule): void {
         const pattern = rule.source && rule.source.substituteRegex !== 0
             ? storyRegexMacros(rule.pattern, { user: '用户', char: '角色' }, rule.source.substituteRegex === 2)
             : rule.pattern;
-        compileStoryRegex(pattern, rule.flags);
+        compileStoryRegex(rule.source ? expandStoryRegexShorthand(pattern) : pattern, rule.flags);
     } catch {
         throw new Error('正则或修饰符无效，请检查括号、转义和重复修饰符');
     }
@@ -97,6 +132,10 @@ export function escapeStoryRegexLiteral(text: string): string {
 
 function macroValue(key: string, context: StoryRegexContext): string | undefined {
     if (key === 'user' || key === 'char') return context[key];
+    if (key === 'user.gender') return context.userGender;
+    if (key === 'char.gender') return context.charGender;
+    if (key === 'user.avatar') return context.userAvatar;
+    if (key === 'char.avatar') return context.charAvatar;
     if (key === 'time' || key === 'date') {
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -105,7 +144,7 @@ function macroValue(key: string, context: StoryRegexContext): string | undefined
     }
     if (!key.startsWith('random:')) return undefined;
     const values = key.slice(7).split(',').map(value => value.trim()).filter(Boolean);
-    return values[Math.floor(Math.random() * values.length)];
+    return values.length ? values[Math.floor(Math.random() * values.length)] : undefined;
 }
 
 function storyRegexMacros(text: string, context: StoryRegexContext, escape = false): string {
@@ -139,72 +178,90 @@ export function applyStoryRegex(
 ): StoryRegexResult {
     const input = typeof value === 'string' ? { text: value } : value;
     const { text } = input;
-    const regexFor = (rule: StoryRegexRule) => compileStoryRegex(
-        rule.source && rule.source.substituteRegex !== 0
-            ? storyRegexMacros(rule.pattern, context, rule.source.substituteRegex === 2) : rule.pattern,
-        rule.flags,
-    );
+    const regexFor = (rule: StoryRegexRule) => {
+        const pattern = rule.source && rule.source.substituteRegex !== 0
+            ? storyRegexMacros(rule.pattern, context, rule.source.substituteRegex === 2) : rule.pattern;
+        return compileStoryRegex(rule.source ? expandStoryRegexShorthand(pattern) : pattern, rule.flags);
+    };
     const cards: StoryRegexCard[] = [];
     let matches = 0;
-    let source = text;
-    // Filters operate on source text. Templates run last so later rules
-    // cannot accidentally rewrite generated CSS, markup or captured values.
-    const applicable = rules.filter(rule => storyRegexApplies(rule, stage, input));
-    for (const rule of applicable.filter(rule => rule.kind === 'filter')) {
-        const regex = regexFor(rule);
-        let outputLength = source.length;
-        source = source.replace(regex, (...args: unknown[]) => {
-            matches++;
-            const named = typeof args.at(-1) === 'object' ? args.pop() as Record<string, string> : undefined;
-            const input = args.pop() as string;
-            const offset = args.pop() as number;
-            const captures = args as (string | undefined)[];
-            const replacement = expandStoryRegexReplacement(replacementFor(rule), /\{\{([^{}]+)\}\}|\$(\$|&|\x60|'|\d{1,2}|<[^>]+>)/g, ([token, macro, key]) => {
-                if (macro) {
-                    if (!rule.source) return token;
-                    return macro.trim().toLowerCase() === 'match' ? captures[0] || '' : macroValue(macro.trim(), context) ?? token;
-                }
-                if (rule.source) {
-                    if (key.startsWith('<')) return named?.[key.slice(1, -1)] ?? token;
-                    return /^\d+$/.test(key) ? captures[Number(key)] ?? token : token;
-                }
-                if (key === '$') return '$';
-                if (key === '&') return captures[0] || '';
-                if (key === '\x60') return input.slice(0, offset);
-                if (key === "'") return input.slice(offset + (captures[0]?.length || 0));
-                if (key.startsWith('<')) return named ? named[key.slice(1, -1)] ?? '' : token;
-                const index = Number(key);
-                if (index > 0 && index < captures.length) return captures[index] ?? '';
-                const first = Number(key[0]);
-                if (key.length === 2 && first > 0 && first < captures.length) return (captures[first] ?? '') + key[1];
-                return token;
-            }, Math.max(500000, text.length) - outputLength + (captures[0]?.length || 0));
-            const cleaned = (rule.source?.trimStrings || []).reduce((current, strip) => strip ? current.split(strip).join('') : current, replacement);
-            outputLength += cleaned.length - (captures[0]?.length || 0);
-            return cleaned;
-        });
-        if (rule.source?.trim) source = source.trim();
-    }
-    const templates = applicable.filter(rule => rule.kind === 'template');
-    if (!templates.length) return { text: source, cards, matches };
+    // Fragments alternate between raw source text and opaque card tokens.
+    // This respects original order even when a filter follows a template,
+    // without letting subsequent rules rewrite generated HTML/CSS.
+    let fragments = [text];
     let prefix = 'SULLYREGEXCARD';
-    while (source.includes(prefix)) prefix += 'X';
-    let fragments = [source];
+    while (text.includes(prefix)) prefix += 'X';
     let htmlLength = 0;
-    for (const rule of templates) {
+    const applicable = rules.filter(rule => storyRegexApplies(rule, stage, input))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    for (const rule of applicable) {
         const regex = regexFor(rule);
+        if (rule.kind === 'filter') {
+            let outputLength = fragments.join('').length;
+            const updated = fragments.map((fragment, index) => {
+                if (index % 2) return fragment;
+                return fragment.replace(regex, (...args: unknown[]) => {
+                    matches++;
+                    const named = typeof args.at(-1) === 'object'
+                        ? args.pop() as Record<string, string> : undefined;
+                    const originalInput = args.pop() as string;
+                    const offset = args.pop() as number;
+                    const captures = args as (string | undefined)[];
+                    const replacement = expandStoryRegexReplacement(
+                        replacementFor(rule),
+                        /\{\{([^{}]+)\}\}|\$(\$|&|\x60|'|\d{1,2}|<[^>]+>)/g,
+                        ([token, macro, key]) => {
+                            if (macro) {
+                                if (!rule.source) return token;
+                                return macro.trim().toLowerCase() === 'match'
+                                    ? captures[0] || '' : macroValue(macro.trim(), context) ?? token;
+                            }
+                            if (key === '$') return '$';
+                            if (key === '&') return captures[0] || '';
+                            if (key === '\x60') return originalInput.slice(0, offset);
+                            if (key === "'") return originalInput.slice(offset + (captures[0]?.length || 0));
+                            if (key.startsWith('<')) return named
+                                ? named[key.slice(1, -1)] ?? '' : token;
+                            const capture = Number(key);
+                            if (capture > 0 && capture < captures.length) return captures[capture] ?? '';
+                            const first = Number(key[0]);
+                            if (key.length === 2 && first > 0 && first < captures.length) {
+                                return (captures[first] ?? '') + key[1];
+                            }
+                            return token;
+                        }, Math.max(500000, text.length) - outputLength + (captures[0]?.length || 0),
+                    );
+                    outputLength += replacement.length - (captures[0]?.length || 0);
+                    return replacement;
+                });
+            });
+            fragments = updated;
+            // Source alchemy applies trimStrings to the resulting text, not
+            // just to an individual replacement. Keep rendered cards opaque.
+            if (rule.source?.trimStrings?.length) {
+                fragments = fragments.map((fragment, index) => index % 2 ? fragment
+                    : rule.source!.trimStrings!.reduce((result, strip) =>
+                        strip ? result.split(strip).join('') : result, fragment));
+            }
+            if (rule.source?.trim) {
+                fragments[0] = fragments[0].trimStart();
+                fragments[fragments.length - 1] = fragments[fragments.length - 1].trimEnd();
+            }
+            continue;
+        }
+
         const next: string[] = [];
-        let matchedFloor = false;
-        // Only match the remaining source fragments. Cards are opaque to
-        // subsequent rules, so a broad template cannot swallow an earlier one.
+        let matchedRule = false;
         for (const [index, fragment] of fragments.entries()) {
-            if (index % 2 || (matchedFloor && !regex.global)) {
+            if (index % 2 || (matchedRule && !regex.global)) {
                 next.push(fragment);
                 continue;
             }
             let cursor = 0;
             fragment.replace(regex, (...args: unknown[]) => {
-                const named = typeof args.at(-1) === 'object' ? args.pop() as Record<string, string> : undefined;
+                const named = typeof args.at(-1) === 'object'
+                    ? args.pop() as Record<string, string> : undefined;
                 args.pop();
                 const offset = args.pop() as number;
                 const captures = args as (string | undefined)[];
@@ -217,7 +274,7 @@ export function applyStoryRegex(
                     key => rule.source ? macroValue(key, context) : undefined,
                 );
                 htmlLength += html.length;
-                matchedFloor = true;
+                matchedRule = true;
                 const token = prefix + cards.length + 'END';
                 cards.push({ token, title: rule.name, html, fallback: matched });
                 next.push(fragment.slice(cursor, offset), token);
