@@ -240,11 +240,9 @@ export function isBroadProseBan(rule: StoryRegexRule): boolean {
  * matches only an ambiguous word inside a metaphor, leave it untouched rather
  * than cut the noun and leave an ungrammatical fragment.
  */
-function protectBroadProseMatch(rule: StoryRegexRule, matched: string, source: string, offset: number): boolean {
+function protectBroadProseMatch(rule: StoryRegexRule, matched: string): boolean {
     if (!isBroadProseBan(rule) || !matched.trim()) return false;
     const phrase = matched.trim();
-    const withinSentence = source.slice(
-        Math.max(0, offset - 32), Math.min(source.length, offset + matched.length + 32));
     const figurativePattern = /(?:像|如同|犹如|宛如|仿佛|好似|仿若).{1,16}(?:般|一般|一样|似的)|(?:如|似).{1,12}(?:般|一样|似的)|[^，。！？；\s]{1,12}(?:般|似的)/;
     const completeFigure = figurativePattern.test(phrase);
     if (completeFigure) return false;
@@ -258,11 +256,7 @@ function protectBroadProseMatch(rule: StoryRegexRule, matched: string, source: s
     // Protect concrete counted objects no matter what the object is. Unlike a
     // hardcoded food/flower list, this generalizes to unseen imported topics.
     const quantity = /(?:\d+|[零〇一二两三四五六七八九十百千万几半多])(?:个|只|颗|粒|盒|瓶|杯|碗|盘|袋|束|朵|枝|支|片|块|张|件|本|把|根|斤|克|千克|米|厘米|份|碟|罐|篮|桶)/u;
-    if (quantity.test(phrase) && !figurativePattern.test(withinSentence.slice(
-        Math.max(0, offset - Math.max(0, offset - 32)),
-        Math.max(0, offset - Math.max(0, offset - 32)) + matched.length))) {
-        return true;
-    }
+    if (quantity.test(phrase)) return true;
     return false;
 }
 
@@ -304,7 +298,7 @@ export function applyStoryRegex(
                     const exceptions = rule.source?.protectWords || [];
                     if (exceptions.some(word => !!word.trim() && matched.includes(word.trim()))) return matched;
                     // Preserve normal story content without a second API call.
-                    if (protectBroadProseMatch(rule, matched, originalInput, offset)) return matched;
+                    if (protectBroadProseMatch(rule, matched)) return matched;
                     matches++;
                     const replacement = expandStoryRegexReplacement(
                         replacementFor(rule),
