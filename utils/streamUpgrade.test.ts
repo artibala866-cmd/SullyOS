@@ -26,8 +26,6 @@ describe('upgradeChatBodyToStream', () => {
         expect(upgradeChatBodyToStream('not-json')).toBeNull();
         expect(upgradeChatBodyToStream('[1,2]')).toBeNull();
     });
-});
-
 
     it('保留调用方其他流式参数及输出上限', () => {
         const body = {
@@ -42,6 +40,7 @@ describe('upgradeChatBodyToStream', () => {
             include_obfuscation: false, vendor_option: 'kept', include_usage: true,
         });
     });
+});
 
 describe('assembleUpgradedResponse', () => {
 
@@ -49,12 +48,12 @@ describe('assembleUpgradedResponse', () => {
         const encoder = new TextEncoder();
         const body = new ReadableStream<Uint8Array>({
             start(controller) {
-                controller.enqueue(encoder.encode(
+                controller.enqueue(encoder.encode((
                     'data: {"choices":[{"delta":{"content":"长回复完整"}}]}\\n\\n' +
                     'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\\n\\n' +
                     'data: {"choices":[],"usage":{"prompt_tokens":123,"completion_tokens":45}}\\n\\n' +
                     'data: [DONE]\\n\\n'
-                .replaceAll('\\n', '\n')));
+                ).replaceAll('\\n', '\n')));
                 // Intentionally never close: an open gateway socket is not
                 // evidence that generation is still running after DONE.
             },
