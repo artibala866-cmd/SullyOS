@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { storyRegexApplies, storyRegexInstruction, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
-import { alchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyRuleAppliesTo } from '../../../utils/alchemyRegex';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
@@ -355,7 +355,7 @@ const storyReadingSource = (message: Message): string => {
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPTY_REGEX_RULES, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
     const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
-    const activeRegexRules = useMemo(() => regexRules.filter(rule => rule.enabled && alchemyDomain(rule) === 'offline' && (!rule.presetId || rule.presetId === preset.id))
+    const activeRegexRules = useMemo(() => regexRules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline') && (!rule.presetId || rule.presetId === preset.id))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
         [regexRules, preset.id]);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
