@@ -126,6 +126,10 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
             trim: switchOn(row.trim) || undefined,
             scenes: scenes.length ? scenes : undefined,
             renderMode: row.renderMode === 'inline' || row.renderMode === 'iframe' ? row.renderMode : undefined,
+            category: asText(row.category) || undefined,
+            originalScope: asText(row.scope) || undefined,
+            originalCharacterIds: strings(row.characterIds),
+            triggerEnabled: switchOn(row.triggerEnabled),
             trimStrings: strings(row.trimStrings).filter(Boolean),
             substituteRegex: row.substituteRegex === 0 || row.substituteRegex === 2 ? row.substituteRegex : 1,
             minDepth: depth(row.minDepth),
@@ -196,6 +200,10 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
                 // rule's identity or warrant a second copy on reimport.
                 scenes: undefined,
                 renderMode: undefined,
+                category: undefined,
+                originalScope: undefined,
+                originalCharacterIds: undefined,
+                triggerEnabled: undefined,
             },
         }),
     });
