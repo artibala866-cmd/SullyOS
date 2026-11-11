@@ -98,6 +98,23 @@ async function run(){
       throw Error('HTML 实际代码不在编辑器');
     if(scenario!=='rules-edit' && code.getBoundingClientRect().top>650)
       throw Error('HTML 代码被挤到屏幕下面');
+    if(scenario!=='rules-edit'){
+      await waitFor(()=>!!document.querySelector<HTMLIFrameElement>(
+        '[data-alchemy-live-preview] iframe[sandbox="allow-scripts"]'),'HTML 自动可视化效果');
+      const frame=document.querySelector<HTMLIFrameElement>('[data-alchemy-live-preview] iframe')!;
+      if(!frame.srcdoc.includes('HTML') && !frame.srcdoc.includes('卡片代码'))
+        throw Error('预览没有真实 HTML 卡片内容');
+      if(document.querySelector('button')?.textContent?.includes('试跑'))
+        throw Error('HTML 预览不应要求手动点击试跑');
+      const nativeSetter=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')?.set;
+      if(!nativeSetter)throw Error('无法编辑 HTML 源码');
+      const updated=code.value+'<b>实时修改已生效</b>';
+      nativeSetter.call(code,updated);
+      code.dispatchEvent(new Event('input',{bubbles:true}));
+      await waitFor(()=>document.querySelector<HTMLIFrameElement>(
+        '[data-alchemy-live-preview] iframe')?.srcdoc.includes('实时修改已生效')||false,
+        '修改源码后自动更新可视化');
+    }
     if(!document.querySelector('button')?.getAttribute('aria-label') && !document.querySelector('h1'))
       throw Error('原始编辑头部缺失');
   }
