@@ -148,22 +148,10 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             const imported = parseStoryTheaterPreset(text, source.name);
             const result = await DB.importStoryTheaterPreset(imported);
             setCustomPresets(current => [result.preset, ...current.filter(item => item.id !== result.preset.id)]);
-            addToast(result.upgraded
-                ? `已为「${result.preset.name}」补齐原作者分组，原预设及所有开关未改变`
-                : result.duplicate
-                    ? `相同剧情预设已存在，已选择「${result.preset.name}」；未重复保存`
-                    : `已导入${result.preset.document.sourceFormat === 'sillytavern' ? '酒馆适配' : '糯米机'}剧情预设「${result.preset.name}」`, 'success');
-            if (result.preset.document.sourceFormat === 'sillytavern') {
-                const warnings = result.preset.document.importWarnings || [];
-                const skippedScripts = warnings.some(warning => /启用正则|启用脚本/.test(warning));
-                const htmlTheater = warnings.some(warning => warning.includes('酒馆小剧场/HTML'));
-                if (skippedScripts || htmlTheater) {
-                    addToast(`酒馆兼容提醒：${[
-                        skippedScripts ? '正则/脚本不执行' : '',
-                        htmlTheater ? '小剧场支持安全 HTML/原生卡片；依赖酒馆正则或脚本的美化不保证一致' : '',
-                        '可在预设制作器查看并关闭不适配的指令',
-                    ].filter(Boolean).join('；')}`, 'info');
-                }
+            addToast(result.duplicate ? `预设已存在：「${result.preset.name}」` : `已导入：「${result.preset.name}」`, 'success');
+            if (result.preset.document.sourceFormat === 'sillytavern' &&
+                (result.preset.document.importWarnings || []).some(warning => /启用正则|启用脚本/.test(warning))) {
+                addToast('外部脚本未执行', 'info');
             }
             return result.preset;
         } catch (error: any) {
@@ -505,7 +493,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 </section>
 
                 <section className='pt-6 border-t border-slate-200'>
-                    <div className='flex items-center justify-between'><div><div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>Native presets</div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button type='button' title='批量导入剧情预设' aria-label='批量导入剧情预设' disabled={presetBatchBusy} onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetBatchBusy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}</button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
+                    <div className='flex items-center justify-between'><div><h2 className='mt-1 text-lg font-semibold'>宝宝狗预设制作器</h2></div><div className='flex gap-2'><button type='button' title='批量导入剧情预设' aria-label='批量导入剧情预设' disabled={presetBatchBusy} onClick={() => importInput.current?.click()} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetBatchBusy ? <SpinnerGap size={17} className='animate-spin' /> : <UploadSimple size={17} />}</button><button onClick={() => { setEditingPreset(createBlankStoryPreset()); setView('preset'); }} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center'><Plus size={17} /></button></div></div>
                     
                     <input ref={importInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
                         const files = Array.from(event.currentTarget.files || []);
