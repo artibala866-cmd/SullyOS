@@ -529,7 +529,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setAffinityDrafts({});
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
-        loadSequenceRef.current++;
         olderAnchorRef.current = null;
         setLoadedFloorCount(readingBatchSize);
         setTotalFloorCount(0);
@@ -775,24 +774,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             updateVisibleFloor();
         }
     }, [messages, scrollReadingToLatest, updateVisibleFloor]);
-    const archivedFloorIds = useMemo(() => messages.filter(message => mirrorArchived(message, entry)).map(message => message.id), [entry, messages]);
-    const allArchivesExpanded = archivedFloorIds.length > 0 && archivedFloorIds.every(id => expandedArchivedIds.has(id));
-    const toggleAllArchives = useCallback(() => {
+    const setArchiveExpanded = useCallback((messageIds: number[], open: boolean) => {
         followLatestRef.current = false;
         setExpandedArchivedIds(current => {
+            if (messageIds.every(id => current.has(id) === open)) return current;
             const next = new Set(current);
-            if (archivedFloorIds.every(id => next.has(id))) archivedFloorIds.forEach(id => next.delete(id));
-            else archivedFloorIds.forEach(id => next.add(id));
-            return next;
-        });
-    }, [archivedFloorIds]);
-    const setArchiveExpanded = useCallback((messageId: number, open: boolean) => {
-        followLatestRef.current = false;
-        setExpandedArchivedIds(current => {
-            if (current.has(messageId) === open) return current;
-            const next = new Set(current);
-            if (open) next.add(messageId);
-            else next.delete(messageId);
+            messageIds.forEach(id => { if (open) next.add(id); else next.delete(id); });
             return next;
         });
     }, []);
@@ -1489,32 +1476,43 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                             <span aria-hidden='true' className='text-slate-300'>/</span>
                             <span>{message.role === 'user' ? '你的推进' : '剧场正文'}</span>
                         </div>;
-                        const floorBody = (() => {
                         if (archived) {
-                            const archive = storyArchiveAtFloor(entry.archives, message.id);
-                            const archiveLabel = !archive && entry.writesToCharacterMemory
-                                ? '已作为正常记忆归档'
-                                : archive?.strategy === 'vector'
-                                    ? '已存入本剧情向量分区'
-                                    : '已收进剧场事件盒';
-                            const isExpanded = expandedArchivedIds.has(message.id);
-                            return <details open={isExpanded} onToggle={event => setArchiveExpanded(message.id, event.currentTarget.open)} className='group rounded-xl border border-slate-200 px-4'>
-                                <summary className='list-none cursor-pointer py-3 flex items-center gap-3 text-slate-400 [&::-webkit-details-marker]:hidden'>
-                                    <Archive size={13} className='shrink-0' />
-                                    <span className='min-w-0 flex-1'>
-                                        <strong className='block text-[10px] font-semibold tracking-wide'>{archiveLabel}</strong>
-                                        <span className='block mt-0.5 text-[9px]'>{message.role === 'user' ? '你的推进' : '剧场正文'} · 展开查看原文</span>
-                                        <span className='block mt-1 text-[9px] leading-4'>已归档楼层仅供回看，暂不直接编辑，以免原文与记忆摘要不一致</span>
-                                    </span>
-                                    <CaretDown size={14} className='shrink-0 transition-transform group-open:rotate-180' />
-                                </summary>
-                                {isExpanded && <div className='pb-5 pl-7'>
-                                    {message.role === 'user'
-                                        ? <StoryUserOutput className='text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} />
-                                        : <StoryOutputBody reading={storyReadingActive} content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />}
-                                </div>}
-                            </details>;
+                            const groupKey = storyArchiveGroupKey(message, entry);
+                            const previous = messages[floorIndex - 1];
+                            if (previous && mirrorArchived(previous, entry)
+                                && storyArchiveGroupKey(previous, entry) === groupKey) return null;
+                            let nextIndex = floorIndex + 1;
+                            while (nextIndex < messages.length
+                                && mirrorArchived(messages[nextIndex], entry)
+                                && storyArchiveGroupKey(messages[nextIndex], entry) === groupKey) nextIndex++;
+                            const archivedRows = messages.slice(floorIndex, nextIndex);
+                            const groupAnchor = `archive:${groupKey}:${archivedRows[archivedRows.length - 1].id}`;
+                            const isExpanded = archivedRows.some(row => expandedArchivedIds.has(row.id));
+                            const box = storyArchiveAtFloor(entry.archives, message.id);
+                            const archiveLabel = box?.strategy === 'vector'
+                                ? '独立向量归档' : box ? '事件盒归档' : '角色记忆归档';
+                            return <div key={groupAnchor} data-story-floor={floorIndexOffset + floorIndex + 1}
+                                data-story-anchor={groupAnchor} className='story-reading-floor scroll-mt-16 py-5'>
+                                <details open={isExpanded}
+                                    onToggle={event => setArchiveExpanded(archivedRows.map(row => row.id), event.currentTarget.open)}
+                                    className='rounded-xl border border-slate-200 bg-white px-4'>
+                                    <summary className='flex cursor-pointer list-none items-center gap-3 py-3 text-xs text-slate-500 [&::-webkit-details-marker]:hidden'>
+                                        <Archive size={14} className='shrink-0' />
+                                        <span className='min-w-0 flex-1'>第 {floorIndexOffset + floorIndex + 1}–{floorIndexOffset + nextIndex} 楼 · {archiveLabel} · 点击展开</span>
+                                        <CaretDown size={14} className='shrink-0' />
+                                    </summary>
+                                    {isExpanded && <div className='border-t border-slate-100'>
+                                        {archivedRows.map((row, index) => <section key={row.id} className='border-b border-slate-100 py-5 last:border-0'>
+                                            <div className='mb-3 text-[10px] text-slate-400'>第 {floorIndexOffset + floorIndex + index + 1} 楼 · {row.role === 'user' ? '你的推进' : '剧场正文'}</div>
+                                            {row.role === 'user'
+                                                ? <StoryUserOutput className='whitespace-pre-wrap break-words text-sm leading-7 text-slate-600' content={row.content} regexResult={regexResultFor(String(row.id))} />
+                                                : <StoryOutputBody reading={storyReadingActive} content={storyReadingSource(row)} regexResult={regexResultFor(String(row.id))} fromTavern={row.metadata?.theaterSourceFormat === 'sillytavern' || (!row.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(row.content))} affinityInputs={affinityInputsByMessageId.get(row.id) || EMPTY_AFFINITY_INPUTS} />}
+                                        </section>)}
+                                    </div>}
+                                </details>
+                            </div>;
                         }
+                        const floorBody = (() => {
                         if (message.role === 'user') return <section {...pressHandlersFor(message)} className='meeting-user-turn pl-4 border-l-2 border-violet-300'><div className='meeting-user-label text-[9px] tracking-[.16em] font-bold text-violet-500'>你写下</div><StoryUserOutput className='meeting-prose mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} /></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
                         const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
