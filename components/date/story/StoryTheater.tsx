@@ -501,7 +501,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                                 if (await importPreset(file)) succeeded++;
                                 else failed++;
                             }
-                            setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。`);
+                            setPresetBatchFeedback(`已导入或找到 ${succeeded} 份预设${failed ? `，${failed} 份失败` : ''}。原有剧情没有被自动改动。`);
                         } catch (error) {
                             setPresetBatchFeedback(`导入中断：${error instanceof Error ? error.message : '文件读取失败'}。`);
                         } finally {
