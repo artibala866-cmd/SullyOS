@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/large-history-stress.yml'
       - 'utils/largeHistoryStress.test.tsx'
+      - 'vitest.config.ts'
       - 'components/date/story/StoryTheaterSession.tsx'
       - 'utils/db.ts'
       - 'utils/storyTheater.ts'
