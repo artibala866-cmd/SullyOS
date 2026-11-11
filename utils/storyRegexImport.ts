@@ -202,6 +202,11 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
         importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => {
         const stableSource = rule.source ? {
             ...rule.source,
+            // Old exports omitted empty/default options while new imports
+            // serialize them. These represent the same execution behavior.
+            trimStrings: rule.source.trimStrings?.length ? rule.source.trimStrings : undefined,
+            substituteRegex: rule.source.substituteRegex === 1 && !/\\{\\{/.test(rule.pattern)
+                ? undefined : rule.source.substituteRegex,
             triggerKeywords: rule.source.triggerKeywords?.length ? rule.source.triggerKeywords : undefined,
             scenes: undefined,
             renderMode: undefined,
