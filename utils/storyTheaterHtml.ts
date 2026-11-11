@@ -242,7 +242,10 @@ const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
         const bodyTop = document.body.getBoundingClientRect().top;
         const height = Math.ceil(Math.max(root.scrollHeight, rect.height)
             + Math.max(0, rect.top - bodyTop) + 3);
-        if (height === lastHeight) return;
+        // A viewport-sized custom layout can feed a few pixels of its
+        // previous iframe height back into itself. Ignore those tiny repeats,
+        // while still responding to real text/details growth.
+        if (lastHeight && Math.abs(height - lastHeight) <= 3) return;
         lastHeight = height;
         window.parent.postMessage({ type: 'sully-story-template-height', height }, '*');
     };
