@@ -282,26 +282,28 @@ const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
             return;
         }
         const point = event.touches[0];
-        touch = { x: point.clientX, y: point.clientY, time: performance.now(), velocity: 0, axis: '' };
+        // screenY stays fixed to the actual finger while the parent moves
+        // this iframe. clientY is iframe-relative: feeding it back into the
+        // parent scroll creates alternating up/down movement (the root bug).
+        touch = { x: point.screenX, y: point.screenY, time: performance.now(), velocity: 0, axis: '' };
     }, { passive: true });
     document.addEventListener('touchmove', event => {
         if (!touch || event.touches.length !== 1) return;
         const point = event.touches[0];
-        const dx = Math.abs(point.clientX - touch.x);
-        const dy = Math.abs(point.clientY - touch.y);
+        const dx = Math.abs(point.screenX - touch.x);
+        const dy = Math.abs(point.screenY - touch.y);
         if (!touch.axis && Math.max(dx,dy) >= 4) touch.axis = dy > dx ? 'y' : 'x';
         if (touch.axis !== 'y') return;
         event.preventDefault();
-        const deltaY = touch.y - point.clientY;
+        const deltaY = touch.y - point.screenY;
         const time = performance.now();
         const elapsed = Math.max(8, time - touch.time);
         touch.velocity = touch.velocity * .35 + (deltaY / elapsed) * .65;
-        touch.y = point.clientY;
+        touch.y = point.screenY;
         touch.time = time;
-        // The iframe can miss early gesture samples while Android decides
-        // which surface owns the swipe; a modest gain restores natural
-        // finger-to-page travel without affecting mouse-wheel or controls.
-        forward(deltaY * 1.3);
+        // Forward the true physical finger travel exactly once; never
+        // compensate using iframe-relative coordinates or an arbitrary gain.
+        forward(deltaY);
     }, { passive: false });
     const finishTouch = () => {
         if (!touch) return;
@@ -309,12 +311,12 @@ const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
         touch = null;
         if (Math.abs(speed) < .12) return;
         let previous = performance.now();
-        let velocity = Math.max(-3, Math.min(3, speed * 1.3));
+        let velocity = Math.max(-3, Math.min(3, speed));
         const tick = now => {
             const dt = Math.min(32, now - previous);
             previous = now;
             forward(velocity * dt);
-            velocity *= Math.exp(-dt / 250);
+            velocity *= Math.exp(-dt / 195);
             inertiaFrame = Math.abs(velocity) > .08 ? requestAnimationFrame(tick) : 0;
         };
         inertiaFrame = requestAnimationFrame(tick);
