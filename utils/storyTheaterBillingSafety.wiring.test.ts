@@ -46,7 +46,7 @@ describe('story theater billing safety wiring', () => {
         expect(storySource).toContain('prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model)');
         expect(editorSource).toContain("value={draft.omitSamplingParams === true}");
         expect(editorSource).toContain("update('omitSamplingParams', value)");
-        expect(editorSource).toContain('默认关闭');
+        expect(editorSource).toContain('不发送高级采样参数');
         expect(storySource).toContain('浏览器未收到可读取的 HTTP 响应');
         expect(interceptorSource).toContain('recentSuccessfulFetches.set(requestComparisonKey');
         expect(interceptorSource).toContain('summarizeFetchRequestBody((sendArgs[1] as any)?.body)');
