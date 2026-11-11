@@ -28,7 +28,67 @@ describe('upgradeChatBodyToStream', () => {
     });
 });
 
+
+    it('保留调用方其他流式参数及输出上限', () => {
+        const body = {
+            model: 'my-model', stream: false, max_tokens: 30000,
+            temperature: 1.2, stream_options: { include_obfuscation: false, vendor_option: 'kept' },
+        };
+        const upgraded = JSON.parse(upgradeChatBodyToStream(JSON.stringify(body))!);
+        expect(upgraded.stream).toBe(true);
+        expect(upgraded.max_tokens).toBe(30000);
+        expect(upgraded.temperature).toBe(1.2);
+        expect(upgraded.stream_options).toEqual({
+            include_obfuscation: false, vendor_option: 'kept', include_usage: true,
+        });
+    });
+
 describe('assembleUpgradedResponse', () => {
+
+    it('完成后上游不关闭连接：收到 DONE 也能立即交付，且保留用量', async () => {
+        const encoder = new TextEncoder();
+        const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(encoder.encode(
+                    'data: {"choices":[{"delta":{"content":"长回复完整"}}]}\\n\\n' +
+                    'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\\n\\n' +
+                    'data: {"choices":[],"usage":{"prompt_tokens":123,"completion_tokens":45}}\\n\\n' +
+                    'data: [DONE]\\n\\n'
+                .replaceAll('\\n', '\n')));
+                // Intentionally never close: an open gateway socket is not
+                // evidence that generation is still running after DONE.
+            },
+        });
+        const response = await assembleUpgradedResponse(new Response(body, {
+            headers: { 'Content-Type': 'text/event-stream' },
+        }));
+        const data = await response.json();
+        expect(response.headers.get('X-Sully-Stream-Terminal')).toBe('1');
+        expect(data.choices[0].message.content).toBe('长回复完整');
+        expect(data.usage).toEqual({ prompt_tokens: 123, completion_tokens: 45 });
+    });
+
+    it('流中途断线：保留可恢复正文，并标明未完成和传输错误', async () => {
+        const encoder = new TextEncoder();
+        let sent = false;
+        const body = new ReadableStream<Uint8Array>({
+            pull(controller) {
+                if (!sent) {
+                    sent = true;
+                    controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"半段正文"}}]}\\n\\n'.replaceAll('\\n', '\n')));
+                } else {
+                    controller.error(new TypeError('connection reset'));
+                }
+            },
+        });
+        const response = await assembleUpgradedResponse(new Response(body, {
+            headers: { 'Content-Type': 'text/event-stream' },
+        }));
+        const data = await response.json();
+        expect(response.headers.get('X-Sully-Stream-Terminal')).toBe('0');
+        expect(data.choices[0].message.content).toBe('半段正文');
+        expect(data.__sullyBodyReadError).toContain('connection reset');
+    });
     it('SSE 响应 → 拼回标准 chat.completion JSON', async () => {
         const sse = [
             'data: {"id":"c1","model":"real-backend","choices":[{"delta":{"role":"assistant","content":"你好"}}]}',
