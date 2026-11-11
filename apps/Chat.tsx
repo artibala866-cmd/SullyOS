@@ -302,7 +302,6 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [showAlchemy, setShowAlchemy] = useState(false);
-    const [alchemySection, setAlchemySection] = useState<'beauty' | 'rules'>('beauty');
     const { rules: onlineAlchemyRules } = useAlchemyRules('online');
     const [characterPhoneOpen, setCharacterPhoneOpen] = useState(false);
     const [avatarRevision, setAvatarRevision] = useState(0);
@@ -2225,7 +2224,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if ([
             'transfer', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
             'meetup', 'proactive', 'active-msg-2', 'schedule', 'life-pacing', 'mcd-request', 'luckin-request',
-            'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration', 'alchemy-beauty', 'alchemy-rules',
+            'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration', 'alchemy-beauty',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
             // send-emoji / select-category 这些是「挑哪一个」，不进名单。
             'poke', 'emoji-import', 'add-category', 'mcd-end', 'luckin-end',
@@ -2233,8 +2232,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             trackEvent('打开聊天功能面板项', { action: type });
         }
         switch (type) {
-            case 'alchemy-beauty': setShowPanel('none'); setAlchemySection('beauty'); setShowAlchemy(true); break;
-            case 'alchemy-rules': setShowPanel('none'); setAlchemySection('rules'); setShowAlchemy(true); break;
+            case 'alchemy-beauty': setShowPanel('none'); setShowAlchemy(true); break;
             case 'private-chat-opening':
                 setShowPanel('none');
                 if (messages.some(isChatPreviewMessage) || isTyping || instantChatPending) {
@@ -4156,7 +4154,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             className={`sully-chat-root ${chatRootClass} ${isWeixinBaiyuCss(char.chromeCustomCss || osTheme.chatChromeCustomCss) ? 'sully-wy-native' : ''} ${blackWhiteFacebook ? 'sully-chat-monochrome' : ''} ${wechatBubble ? 'sully-chat-wechat' : ''} ${qqBubble ? 'sully-chat-qq' : ''}`}
             style={chatRootStyle}
         >
-             {showAlchemy && <AlchemyManagerScreen domain='online' initialSection={alchemySection} onClose={() => setShowAlchemy(false)} />}
+             {showAlchemy && <AlchemyManagerScreen domain='online' initialSection='beauty' onClose={() => setShowAlchemy(false)} />}
              {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
                  同为 !important 时后写的胜，手写美化代码永远可覆盖可视化设置。 */}
              {chatFineTuneCss && <style>{chatFineTuneCss}</style>}
