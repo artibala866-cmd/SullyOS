@@ -204,6 +204,12 @@ function replacementFor(rule: StoryRegexRule): string {
     return index === 0 ? rule.replacement : choices[index - 1];
 }
 
+/** Which rules get the conservative local prose guard by default. */
+export function isBroadProseBan(rule: StoryRegexRule): boolean {
+    return rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
+        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
+}
+
 /**
  * Offline, conservative ambiguity guard for broad prose-ban filters.
  * No model, embedding or network call is involved.
@@ -212,8 +218,7 @@ function replacementFor(rule: StoryRegexRule): string {
  */
 function protectBroadProseMatch(rule: StoryRegexRule, matched: string, source: string, offset: number): boolean {
     if (rule.source?.smartFilter === false || rule.replacement) return false;
-    const broadBan = rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
-        || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
+    const broadBan = isBroadProseBan(rule);
     if (!broadBan) return false;
     // Only an explicitly matched figure of speech may bypass short-word
     // protection. Bare fruit words remain so a sentence isn't left broken.
