@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Message } from '../types';
 import { DB } from '../utils/db';
-import { ALCHEMY_CHANGED, alchemyRulesFor, alchemyRuleAppliesTo, updateAlchemyRules, type AlchemyDomain } from '../utils/alchemyRegex';
+import { ALCHEMY_CHANGED, alchemyRulesFor, alchemyRulesForMeeting, alchemyRuleAppliesTo, updateAlchemyRules, type AlchemyDomain } from '../utils/alchemyRegex';
 import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexResult, type StoryRegexRule } from '../utils/storyRegex';
 import { runStoryRegex } from '../utils/storyRegexRunner';
 
@@ -37,8 +37,9 @@ export function useAlchemyRules(domain: AlchemyDomain) {
  * quote snapshots and outgoing model context stay byte-for-byte intact. */
 const EMPTY_ALCHEMY_RESULTS = new Map<number, StoryRegexResult>();
 
-export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexRule[], domain: AlchemyDomain) {
-    const active = useMemo(() => alchemyRulesFor(rules, domain), [rules, domain]);
+export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexRule[], domain: AlchemyDomain, scene: 'default' | 'meeting' = 'default') {
+    const active = useMemo(() => scene === 'meeting' ? alchemyRulesForMeeting(rules)
+        : alchemyRulesFor(rules, domain), [rules, domain, scene]);
     const [cache, setCache] = useState<{
         messages: Message[]; active: StoryRegexRule[]; results: Map<number, StoryRegexResult>;
     } | null>(null);
