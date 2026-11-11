@@ -139,4 +139,28 @@ describe('糯叽机炼金术导入', () => {
             parsed.rules, 'display').cards[0].html).toContain('苹果');
     });
 
+    it('重导入旧版两份正则时自动补全丢失的核心指令、不制造第二条同名规则', () => {
+        const payload = JSON.stringify([
+            { name: 'WS8.3-核心指令(全维度禁令声明)', pattern: '^(?=.)',
+                flags: 'gm', replacement: '', aiPrompt: '核心禁令内容', applyOnDisplay: 0, applyOnPrompt: 1 },
+            { name: '番茄小剧场', pattern: '<minitheater>([\\s\\S]*?)</minitheater>',
+                htmlTemplate: '<p>{{1.title}}</p>', isHtmlTemplate: 1, parseMode: 'json',
+                aiPrompt: '番茄格式指令', triggerEnabled: 1, triggerKeywords: '' },
+        ]);
+        const imported = parseStoryRegexImport(payload).rules;
+        const older = imported.map((rule, index) => ({
+            ...rule,
+            ...(index === 0 ? { instruction: '' } : {}),
+            ...(index === 1 ? { source: { ...rule.source, triggerKeywords: [] } } : {}),
+        }));
+        const saved = readStoryRegexRules(JSON.stringify(older));
+        const result = mergeStoryRegexImport(saved, imported, '');
+        expect(result).toMatchObject({ added: 0, updated: 1, duplicates: 1 });
+        expect(result.rules).toHaveLength(2);
+        expect(result.rules[0].id).toBe(saved[0].id);
+        expect(result.rules[0].instruction).toBe('核心禁令内容');
+        expect(storyRegexInstruction(result.rules[0], {}, '继续')).toBe('核心禁令内容');
+        expect(mergeStoryRegexImport(result.rules, imported, '')).toMatchObject({ added: 0, updated: 0, duplicates: 2 });
+    });
+
 });
