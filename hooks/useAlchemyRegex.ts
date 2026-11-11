@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Message } from '../types';
 import { DB } from '../utils/db';
-import { ALCHEMY_CHANGED, alchemyRulesFor, updateAlchemyRules, type AlchemyDomain } from '../utils/alchemyRegex';
+import { ALCHEMY_CHANGED, alchemyRulesFor, alchemyRuleAppliesTo, updateAlchemyRules, type AlchemyDomain } from '../utils/alchemyRegex';
 import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexResult, type StoryRegexRule } from '../utils/storyRegex';
 import { runStoryRegex } from '../utils/storyRegexRunner';
 
@@ -29,7 +29,7 @@ export function useAlchemyRules(domain: AlchemyDomain) {
         setAll(result);
     }, []);
     const visible = useMemo(() => all.filter(rule =>
-        (rule.domain || (rule.kind === 'template' ? 'online' : 'offline')) === domain), [all, domain]);
+        alchemyRuleAppliesTo(rule, domain)), [all, domain]);
     return { all, rules: visible, active: alchemyRulesFor(visible, domain), loaded, error, save, reload };
 }
 
