@@ -472,7 +472,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     <div className="mb-5 flex items-center justify-between">
                         <div className="pr-4">
                             <label className="text-[11px] text-slate-500 font-bold block">细节深挖引导</label>
-                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">从已有对话和现场细节中寻找可选线索，减少空话；不相关时可以跳过，也允许简短回应。</p>
+                            
                         </div>
                         <button
                             onClick={() => patchStyleConfig({ digDeeper: styleConfig.digDeeper === false ? undefined : false })}
