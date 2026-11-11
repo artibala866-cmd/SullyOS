@@ -1013,10 +1013,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             </span>
           </div>
 
-          <p className="text-xs leading-relaxed text-slate-500">
-            在 Cloudflare 建一枚 API Token 粘进来，建数据库、传后端代码、写密钥、加定时触发
-            全都自动做完。不用 GitHub 账号，手机上也走得完。
-          </p>
+          
 
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1.5">
             <p className="text-[11px] font-bold text-slate-600">建 Token 时这三项权限都要勾上</p>
@@ -1073,10 +1070,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 autoComplete="off"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-neutral-400"
               />
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                后端地址会长这样：<code className="font-mono">sullyos-amsg.你填的.workers.dev</code>。
-                这个名字定了就是这个账号所有 Worker 共用的，之后不好改。
-              </p>
+              
             </div>
           ) : null}
 
@@ -1093,11 +1087,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             <p className="text-[11px] leading-relaxed text-neutral-600 whitespace-pre-line">{provisionError}</p>
           ) : null}
 
-          <p className="text-[10px] leading-relaxed text-slate-400">
-            浏览器不能直接调 Cloudflare 的接口（它不给跨域），所以这枚 Token 会经过本站的
-            网络代理 Worker 转发一次。部署完它会作为密钥存进<strong>你自己的</strong> Worker，
-            以后「更新后端」用的就是它；本页不保存。介意的话可以照下面的手动方式装。
-          </p>
+          <p className="text-[10px] leading-relaxed text-slate-400">部署 Token 将经网络代理转发。</p>
         </div>
         )}
 
@@ -1117,10 +1107,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
 
           {deployOpen ? (
             <div className="space-y-3">
-              <p className="text-xs leading-relaxed text-slate-500">
-                全程在网页上点，不用装东西也不用敲命令，大约 15 分钟。第一次做建议直接照着
-                <strong>图文教程</strong>走，下面是简版。
-              </p>
+              
 
               <ol className="text-xs leading-relaxed text-slate-500 space-y-1.5 list-decimal list-outside pl-4">
                 <li>
@@ -1147,10 +1134,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 <li>部署完在 Settings → Variables and secrets 按下面的清单填密钥，再 Deploy 一次。</li>
               </ol>
 
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                D1 绑定和「每分钟检查一次」的定时触发器都写在仓库里，会自动带上，不用手动加。
-                以后想更新，回你 fork 的仓库点一下 <strong>Sync fork</strong> 就行，CF 会自动重新部署。
-              </p>
+              
 
               <div className="grid grid-cols-3 gap-2">
                 {/* 三个出口合成一个事件带 target 枚举：它们是部署流程同一步的三条岔路，
@@ -1223,10 +1207,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                       </button>
                     ) : null}
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    必须和「推送凭据 (VAPID)」面板里的是<strong>同一对</strong>——
-                    整个站点只有一个浏览器推送订阅，Worker 用别的密钥对签推送会 403。
-                  </p>
+                  <p className="text-[11px] text-slate-400">VAPID 必须与当前推送凭据一致。</p>
                 </div>
 
                 <div className="space-y-1">
@@ -1276,10 +1257,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                       复制 Worker 代码
                     </button>
 
-                    <p className="text-[11px] leading-relaxed text-slate-400">
-                      这条路每次 Worker 更新都要重新粘一遍，D1 绑定和定时触发器也得自己加，容易漏。
-                      能用 GitHub 的话还是走上面的 fork 流程。
-                    </p>
+                    
                   </div>
                 ) : null}
               </div>
@@ -1331,11 +1309,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
 
               {denoProxyOpen ? (
                 <div className="mt-2 space-y-2">
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    <code className="font-mono">workers.dev</code> 这个域名在国内连不上。
-                    办法是给它套一个门面：Worker 和数据全都留在 Cloudflare 不动，
-                    只在外面加一层只管转发的 Deno，然后把地址换成 Deno 那个。
-                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">国内网络可能无法连接 workers.dev。</p>
 
                   <ol className="text-[11px] leading-relaxed text-slate-500 space-y-1.5 list-decimal list-outside pl-4">
                     <li>
@@ -1372,11 +1346,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     </button>
                   </div>
 
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    收消息不走这一层——推送是 Cloudflare 直接发给手机的，
-                    所以这层就算挂了也只影响你打开这个面板改配置。
-                    部署好后打开 <code className="font-mono">/__proxy-health</code> 能看它活着没。
-                  </p>
+                  
                 </div>
               ) : null}
             </div>
@@ -1452,10 +1422,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               {AMSG_BUNDLE_CHANNEL === 'preview' && workerVersion?.state === 'outdated' && workerVersion.deployedChannel !== 'preview' ? (
                 <div className="space-y-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
                   <div className="text-xs font-bold text-neutral-800">手机免粘贴大文件升级旧 Worker</div>
-                  <p className="text-xs leading-relaxed text-neutral-600">
-                    不要在 Cloudflare 的 Edit code 中粘贴整份文件。打开原 Worker 的
-                    Settings → Variables and Secrets → Add，新增类型为 Text 的变量：
-                  </p>
+                  <p className="text-xs leading-relaxed text-neutral-600">请在 Worker 环境变量中添加密钥。</p>
                   <div className="rounded-lg bg-white p-2 text-xs text-neutral-700">
                     <div className="font-mono font-bold">AMSG_BUNDLE_URL</div>
                     <div className="mt-1 break-all font-mono">https://artibala866-cmd.github.io/SullyOS-Dev-Preview/amsg-worker.bundle.js</div>
@@ -1467,9 +1434,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                         .catch(() => addToast('复制失败，可以手动复制上方链接', 'error'));
                     }}
                     className="text-xs font-bold text-neutral-700 underline">复制更新源短链接</button>
-                  <p className="text-xs leading-relaxed text-neutral-600">
-                    保存该变量后回到这里。不要新建 Worker，不要修改 AMSG_MASTER_KEY、VAPID、DB 或 Cron。
-                  </p>
+                  <p className="text-xs leading-relaxed text-neutral-600">只修改这项密钥，勿新建 Worker。</p>
                   <label className="flex items-start gap-2 text-xs leading-relaxed text-neutral-700">
                     <input type="checkbox" checked={previewSourceReady}
                       onChange={(event) => setPreviewSourceReady(event.target.checked)}
@@ -1481,10 +1446,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     className="w-full rounded-xl bg-neutral-700 py-2.5 text-xs font-bold text-white disabled:opacity-40">
                     用原 Worker 自更新到测试版
                   </button>
-                  <p className="text-[11px] leading-relaxed text-neutral-500">
-                    只传一条更新请求，由云端自己下载完整代码；如果提示缺 CF_API_TOKEN，请使用本页下方的「补装更新能力」。
-                    完成后自动核对实际运行版本，不会仅凭「更新成功」字样宣布完成。
-                  </p>
+                  
                 </div>
               ) : null}
               {AMSG_BUNDLE_CHANNEL === 'preview' && workerVersion?.deployedChannel === 'preview' ? (
@@ -1557,11 +1519,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
               {attachOpen ? (
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
                   <p className="text-[11px] font-bold text-slate-600">给这台后端补一把更新用的钥匙</p>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    建一枚只勾 <strong>Account → Workers Scripts : Edit</strong> 的 Cloudflare API Token
-                    粘进来（<strong>Start Date 留空</strong>），宝宝狗 会把它写进你这台 Worker。
-                    做完一次以后更新就都是点上面那个按钮了。
-                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">Token 需 Workers Scripts: Edit 权限。</p>
                   <a
                     href={CF_TOKEN_URL}
                     target="_blank"
@@ -1621,10 +1579,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     <p className="text-[11px] leading-relaxed text-neutral-600 whitespace-pre-line">{attachError}</p>
                   ) : null}
 
-                  <p className="text-[10px] leading-relaxed text-slate-400">
-                    这一步只往你的 Worker 里加这一条密钥，不动代码、不动数据库、不动已有的密钥。
-                    Token 写进去之后就留在你自己的 Worker 里，本页不保存。
-                  </p>
+                  <p className="text-[10px] leading-relaxed text-slate-400">仅修改 Worker 密钥，不变更数据库。</p>
                 </div>
               ) : null}
             </div>
@@ -1644,15 +1599,9 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             这是第二步。只有你真的想让角色在后台主动推送消息时，才需要点。
           </p>
           {pushStatus?.transport === 'unified-push' ? (
-            <p className="text-xs leading-relaxed text-slate-500">
-              Android App 通过开放的 UnifiedPush 收消息，不依赖 Firebase 或 Google 服务。
-              ntfy 只负责在后台唤醒本 App，AMSG Worker 仍是你自己部署的那一台。
-            </p>
+            
           ) : (
-            <p className="text-xs leading-relaxed text-slate-500">
-              推送跟着「排程时所在的设备」走：每条任务到点后，推给保存这条排程时用的那台设备。
-              换了设备（或者换了浏览器）之后，在新设备上把排程重新保存一次，之后的推送就发到这台。
-            </p>
+            <p className="text-xs leading-relaxed text-slate-500">推送绑定保存排程时的设备；换设备后需重新保存排程。</p>
           )}
           {pushStatus?.needsDistributor ? (
             <a
@@ -1691,17 +1640,11 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 : instantChatBlockedReason ? '已开启 · 暂不生效' : '已开启'}
             </span>
           </div>
-          <p className="text-xs leading-relaxed text-slate-500">
-            开了以后，你发出的每一条消息都由这台 Worker 去生成回复，回复走推送回来。
-            发完就能切后台、关掉应用，回来时消息已经在那儿了。关掉则回到本地直连生成。
-          </p>
+          <p className="text-xs leading-relaxed text-slate-500">开启后由 Worker 生成聊天回复。</p>
           {instantChatBlockedReason ? (
             <p className="text-xs leading-relaxed text-neutral-600">{instantChatBlockedReason}</p>
           ) : (
-            <p className="text-[11px] leading-relaxed text-slate-400">
-              没有逐字吐出，生成期间显示「正在输入…」；云端明确报错才会提示重发，
-              只要还在生成或重试就一直等（LLM 慢不算失败）。
-            </p>
+            
           )}
           <button
             type="button"
@@ -1717,8 +1660,8 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
 
         <div className="bg-neutral-50 border border-neutral-100 rounded-2xl p-4 text-xs leading-relaxed text-neutral-700 space-y-2">
           <div className="font-bold text-neutral-800">风险说明</div>
-          <p>开了 2.0 以后，主动消息内容、提示词、相关配置，都会进入你自己部署的 Worker 及其 D1 数据库。</p>
-          <p>这是你自己的 Worker、你自己的库，项目不会额外接一个中心服务器。但只要数据进库，能碰到这台 Worker / 数据库的人（也就是你自己）就能看到这些内容。</p>
+          <p>开启后聊天相关内容将存入个人 Worker / D1。</p>
+          
           <p>如果你不接受把私密提示词、API Key 放进自己部署的服务，就不要开 2.0。</p>
         </div>
 
@@ -1740,17 +1683,11 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                   <span className="font-mono text-neutral-600">{maskActiveMsgUserId(config.userId)}</span>
                 </div>
               </div>
-              <p className="text-[11px] leading-relaxed text-slate-500">
-                Worker 侧的环境变量清单见上面「部署 Worker」一节。发布的 Worker 代码默认 CORS 全开
-                （<code className="font-mono">origin: '*'</code>），想收紧就把它改成自己站点的域名再部署。
-              </p>
+              <p className="text-[11px] leading-relaxed text-slate-500">Worker 默认允许跨域访问，注意访问控制。</p>
               {onOpenCloudData ? (
                 <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
                   <div className="font-semibold text-slate-700">云端数据</div>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
-                    直接查看 Worker 保存的任务、上下文、凭据和结果，按实际范围清理。
-                    本机未关联的角色也会显示；其他设备可能还在使用。
-                  </p>
+                  
                   <button
                     onClick={onOpenCloudData}
                     className="w-full py-2.5 bg-slate-100 text-slate-700 font-bold rounded-2xl active:scale-95 transition-transform"
