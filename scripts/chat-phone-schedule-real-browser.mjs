@@ -308,7 +308,10 @@ try{
 
     // Back to private chat. A historical schedule is one realistic retained
     // plan from earlier use, not thousands of fabricated records.
-    phoneBack();phoneBack();
+    phoneBack();
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='微信'),'return to WeChat from settings');
+    await pause(180);
+    phoneBack();
     await wait(()=>!!phone().querySelector('button.cp-home-shortcut'),'leave phone settings');
     press('退出查手机',phone());
     await wait(()=>!phone(),'close phone');
