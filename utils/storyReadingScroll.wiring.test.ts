@@ -24,7 +24,12 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain('const floorNodes = viewport.querySelectorAll');
         expect(sessionSource).toContain('new ResizeObserver(syncLayout)');
         expect(sessionSource).toContain('document.fonts.ready.then');
-        expect(sessionSource).toContain('const syncLayout = () => scheduleVisibleFloor();');
+        expect(sessionSource).toContain('const syncLayout = () => {');
+        expect(sessionSource).toContain('if (!initialReadingPendingRef.current && followLatestRef.current)');
+        expect(sessionSource).toContain('viewport.scrollTop = viewport.scrollHeight;');
+        expect(sessionSource).toContain("scrollport.dispatchEvent(new Event('story-reader-gesture'));");
+        expect(sessionSource).toContain("viewport?.addEventListener('story-reader-gesture', stopFollowingOnFrameSwipe)");
+        expect(sessionSource).not.toContain('followLatestRef.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32;');
         expect(sessionSource).toContain("event.data?.type === 'sully-story-template-scroll'");
         expect(sessionSource).toContain("scrollport.scrollTop +=");
         expect(sessionSource).toContain("maxHeight: 'none'");

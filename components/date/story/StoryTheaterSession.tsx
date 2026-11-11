@@ -205,7 +205,8 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
     const frameRef = useRef<HTMLIFrameElement>(null);
     const [frameHeight, setFrameHeight] = useState(safe.estimatedHeight);
-    useEffect(() => { setFrameHeight(safe.estimatedHeight); }, [safe.srcDoc, safe.estimatedHeight]);
+    // Keep the last measured height while a regex/template refresh loads its new srcDoc.
+    // Resetting to the initial estimate collapses settled floors for a frame.
     useEffect(() => {
         const receiveFrameMessage = (event: MessageEvent) => {
             // Opaque-origin sandbox: only this exact iframe may change its
@@ -235,7 +236,12 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
                         ancestor = ancestor.parentElement;
                     }
                 }
-                if (scrollport) scrollport.scrollTop += Math.max(-240, Math.min(240, delta));
+                if (scrollport) {
+                    // Forwarded iframe swipes never reach React's outer touch handlers.
+                    // Mark them as real reading gestures before moving the scrollport.
+                    scrollport.dispatchEvent(new Event('story-reader-gesture'));
+                    scrollport.scrollTop += Math.max(-240, Math.min(240, delta));
+                }
             }
         };
         const frame = frameRef.current;
@@ -648,7 +654,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         if (!viewport) return;
         // Auto-follow is for readers actually at the end, not merely browsing
         // within the final floor. This must not run from layout observers.
-        followLatestRef.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32;
+        // Layout reflows also emit scroll events. They must not turn off
+        // follow-latest without an actual reading gesture.
+        if (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32) {
+            followLatestRef.current = true;
+        }
         scheduleVisibleFloor();
     }, [scheduleVisibleFloor]);
     const pauseFollowingForReading = useCallback((event: React.UIEvent<HTMLElement>) => {
@@ -670,9 +680,23 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     useEffect(() => {
         const content = readingContentRef.current;
         if (!content) return;
-        // ResizeObserver is measurement-only. Browser scroll anchoring keeps
-        // older content under the finger when earlier floors change height.
-        const syncLayout = () => scheduleVisibleFloor();
+        // On first entry, older iframe cards often finish measuring after the
+        // initial jump to the latest floor. Keep the actual latest content
+        // anchored until the user really starts reading elsewhere; never
+        // re-anchor while they are swiping through older floors.
+        const syncLayout = () => {
+            if (!initialReadingPendingRef.current && followLatestRef.current) {
+                const viewport = readingScrollRef.current;
+                if (viewport) viewport.scrollTop = viewport.scrollHeight;
+            }
+            scheduleVisibleFloor();
+        };
+        const stopFollowingOnFrameSwipe = () => {
+            initialReadingGestureRef.current = true;
+            followLatestRef.current = false;
+        };
+        const viewport = readingScrollRef.current;
+        viewport?.addEventListener('story-reader-gesture', stopFollowingOnFrameSwipe);
         const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
         observer?.observe(content);
         let mounted = true;
@@ -683,6 +707,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         }
         return () => {
             mounted = false;
+            viewport?.removeEventListener('story-reader-gesture', stopFollowingOnFrameSwipe);
             observer?.disconnect();
         };
     }, [scheduleVisibleFloor]);

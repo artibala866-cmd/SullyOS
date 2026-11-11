@@ -62,6 +62,25 @@ describe('实际剧情输出组件的酒馆 HTML 兼容保护', () => {
             host.remove();
         }
     });
+    it('模板正文刷新时保留已测量高度，避免旧楼层瞬间塌缩再展开', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const root = createRoot(host);
+        try {
+            await act(async () => root.render(<SafeStoryHtml source='<p>原正文</p>' fallback='' title='正文' />));
+            const frame = host.querySelector('iframe')!;
+            await act(async () => window.dispatchEvent(new MessageEvent('message', {
+                source: frame.contentWindow, data: { type: 'sully-story-template-height', height: 520 },
+            })));
+            expect(frame.style.height).toBe('520px');
+            await act(async () => root.render(<SafeStoryHtml source='<p>新正文新正文</p>' fallback='' title='正文' />));
+            expect(host.querySelector('iframe')).toBe(frame);
+            expect(frame.style.height).toBe('520px');
+        } finally {
+            await act(async () => root.unmount());
+            host.remove();
+        }
+    });
     it('原生小剧场保持现有聊天气泡，不新增 iframe', () => {
         const content = '<mini_theater><mt_title>原生频道</mt_title>'
             + '<mt_ai><name>甲</name><text>左侧消息</text></mt_ai>'
