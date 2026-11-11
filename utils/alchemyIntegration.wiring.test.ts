@@ -53,8 +53,11 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(menu).toContain("onPanelAction('alchemy-beauty')");
         expect(menu).toContain('正则</span>');
         expect(menu).not.toContain('key="alchemy-rules"');
-        expect(privateChat).toContain("case 'alchemy-rules'");
-        expect(group).toContain("setAlchemySection('beauty')");
+        expect(privateChat).toContain("case 'alchemy-beauty'");
+        expect(privateChat).not.toContain("case 'alchemy-rules'");
+        expect(group).toContain("initialSection='beauty'");
+        expect(group).toContain("setShowAlchemy(true)");
+
         expect(group).not.toContain('规则正则</span>');
         expect(manager).toContain('StoryRegexPanel');
         expect(panel).toContain("['beauty', 'HTML 美化']");
