@@ -74,6 +74,12 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         const strict = applyStoryRegex(text, [{ ...broad, source: { smartFilter: false } }], 'display').text;
         expect(strict).not.toContain('草莓');
         expect(strict).not.toContain('情绪');
+        const exception = applyStoryRegex(text, [{
+            ...broad,
+            source: { smartFilter: false, protectWords: ['草莓'] },
+        }], 'display').text;
+        expect(exception).toContain('吃草莓');
+        expect(exception).not.toContain('整理情绪');
         // Only display changed; same plain text is kept for role memory/history.
         expect(applyStoryRegex(text, [broad], 'history').text).toBe(text);
     });
