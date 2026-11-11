@@ -1639,10 +1639,8 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
             </span>
           </div>
           <p className="text-xs leading-relaxed text-slate-500">开启后由 Worker 生成聊天回复。</p>
-          {instantChatBlockedReason ? (
+          {instantChatBlockedReason && (
             <p className="text-xs leading-relaxed text-neutral-600">{instantChatBlockedReason}</p>
-          ) : (
-            
           )}
           <button
             type="button"
