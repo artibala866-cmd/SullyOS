@@ -8,6 +8,7 @@
 export interface AlchemySandboxDocument {
     srcDoc: string;
     hasVisibleContent: boolean;
+    estimatedHeight: number;
 }
 const MAX_TEMPLATE_HTML = 150000;
 const escapeAttr = (value: string): string =>
@@ -18,7 +19,7 @@ const BRIDGE = "(() => {\n const postSize = () => {\n  const height = Math.ceil(
 
 export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocument {
     if (!source.trim() || source.length > MAX_TEMPLATE_HTML || typeof DOMParser === 'undefined')
-        return { srcDoc: '', hasVisibleContent: false };
+        return { srcDoc: '', hasVisibleContent: false, estimatedHeight: 220 };
     const document = new DOMParser().parseFromString(source, 'text/html');
     // Never execute author-supplied scripts. Reject nested browsing contexts.
     document.querySelectorAll('script, iframe, frame, frameset, object, embed, applet, form, base, meta, link')
@@ -53,6 +54,19 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
         }
     }
 
+    // Layout fidelity while a lazy/mobile browser has not yet delivered
+    // the iframe height message. The first authored element's explicit height
+    // takes precedence; larger CSS tab-panels and scratch canvases are next.
+    const rootStyle = document.body.firstElementChild?.getAttribute('style') || '';
+    const rootPixels = Number(/(?:^|;)\s*height\s*:\s*(\d+)px/i.exec(rootStyle)?.[1] || 0);
+    const cssText = Array.from(document.querySelectorAll('style'))
+        .map(node => node.textContent || '').join(' ');
+    const cssHeights = [...cssText.matchAll(/(?:^|[;{])\s*height\s*:\s*(\d+)px/gi)]
+        .map(match => Number(match[1])).filter(value => value > 250 && value < 850);
+    const panelPixels = cssHeights.length ? Math.max(...cssHeights) + 42 : 0;
+    const estimatedHeight = Math.max(110, Math.min(900,
+        rootPixels ? rootPixels + 24 : panelPixels || (document.querySelector('canvas') ? 360 : 220)));
+
     const body = document.body.innerHTML;
     const styles = Array.from(document.head.querySelectorAll('style'))
         .map(node => node.outerHTML).join('');
@@ -72,5 +86,5 @@ export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocum
         + '<style>html,body{margin:0;padding:0;background:transparent;}body{overflow-x:hidden;}</style>'
         + styles + '</head><body>' + body
         + '<script nonce="' + nonce + '">' + BRIDGE + '</script></body></html>';
-    return { srcDoc, hasVisibleContent: Boolean(body.trim()) };
+    return { srcDoc, hasVisibleContent: Boolean(body.trim()), estimatedHeight };
 }
