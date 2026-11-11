@@ -49,7 +49,7 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
 
     it('enables text rules independently online, offline or in both, keeping legacy defaults', () => {
         const both = rule({ id: 'both', name: '双方规则', domain: 'offline',
-            targets: ['online', 'offline'], instruction: '遵守格式' });
+            targets: ['online', 'offline'], history: true, instruction: '遵守格式' });
         const online = rule({ id: 'only-online', name: '仅线上', domain: 'online', targets: ['online'] });
         const offline = rule({ id: 'only-offline', name: '仅线下', domain: 'offline', targets: ['offline'] });
         const oldOffline = rule({ id: 'old', name: '旧八股补丁' });
