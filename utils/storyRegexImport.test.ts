@@ -250,14 +250,16 @@ describe('糯叽机炼金术导入', () => {
             { name: '炼金多选', pattern: '{刻,揉,融}进骨血', flags: 'g', replacement: '改写' },
             { name: '量词', pattern: '\\d{2,5}', flags: 'g', replacement: 'NUM' },
             { name: '字面花括号', pattern: '\\{刻,揉\\}', flags: 'g', replacement: 'LITERAL' },
+            { name: '单项简写', pattern: '称呼{宝宝}', flags: 'g', replacement: '亲昵称呼' },
         ];
         const rules = parseStoryRegexImport(JSON.stringify(rows)).rules;
-        expect(rules).toHaveLength(3);
+        expect(rules).toHaveLength(4);
         expect(rules[0].pattern).toBe('{刻,揉,融}进骨血');
         expect(applyStoryRegex('刻进骨血 揉进骨血 融进骨血', [rules[0]], 'display').text)
             .toBe('改写 改写 改写');
         expect(applyStoryRegex('12 123456', [rules[1]], 'display').text).toBe('NUM NUM6');
         expect(applyStoryRegex('字面{刻,揉}', [rules[2]], 'display').text).toBe('字面LITERAL');
+        expect(applyStoryRegex('称呼宝宝', [rules[3]], 'display').text).toBe('亲昵称呼');
     });
 
     it('原版 order 保证模板先执行，后续过滤不能吞掉生成卡片', () => {
