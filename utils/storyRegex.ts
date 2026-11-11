@@ -256,7 +256,11 @@ function protectBroadProseMatch(rule: StoryRegexRule, matched: string): boolean 
     // Protect concrete counted objects no matter what the object is. Unlike a
     // hardcoded food/flower list, this generalizes to unseen imported topics.
     const quantity = /(?:\d+|[零〇一二两三四五六七八九十百千万几半多])(?:个|只|颗|粒|盒|瓶|杯|碗|盘|袋|束|朵|枝|支|片|块|张|件|本|把|根|斤|克|千克|米|厘米|份|碟|罐|篮|桶)/u;
-    if (quantity.test(phrase)) return true;
+    // Counted concrete objects typically name their quantity near the start.
+    // Don't exempt a full authored cliche simply because a classifier occurs
+    // deep inside the phrase (e.g. a long metaphor ending in “一根…”).
+    const quantityAt = phrase.search(quantity);
+    if (quantityAt >= 0 && quantityAt <= 5) return true;
     return false;
 }
 
