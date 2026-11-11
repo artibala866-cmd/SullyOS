@@ -21,9 +21,9 @@ interface Props {
     onBack: () => void;
 }
 
-const fieldClass = 'mt-1 w-full min-w-0 rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-[13px] font-normal text-neutral-800 outline-none focus:border-neutral-400';
-const actionClass = 'inline-flex min-h-8 items-center justify-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-40';
-const primaryClass = 'inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-neutral-900 px-3 text-xs font-semibold text-white disabled:opacity-40';
+const fieldClass = 'mt-1.5 block w-full min-w-0 rounded-xl border border-[#e5e7e5] bg-white px-3 py-2.5 text-[13px] font-normal leading-5 text-neutral-800 outline-none transition-colors focus:border-[#a7aea8] focus:ring-2 focus:ring-[#dfe5df]/60';
+const actionClass = 'inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 disabled:opacity-40';
+const primaryClass = 'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#292d2a] px-3.5 text-xs font-semibold text-white shadow-sm disabled:opacity-40';
 const iconClass = 'grid h-9 w-9 shrink-0 place-items-center rounded-full border border-neutral-200 bg-white disabled:opacity-40';
 
 
@@ -226,8 +226,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         {presetId && !presets.some(preset => preset.id === presetId) && <option value={presetId}>预设已移除</option>}
         {presets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
     </>;
-    return <div className='flex h-full w-full min-h-0 flex-col bg-[#f7f7f7] text-neutral-800'>
-        <header className='story-safe-header shrink-0 border-b border-neutral-200/70 bg-[#f7f7f7]'>
+    return <div className='flex h-full w-full min-h-0 flex-col bg-[#f8f8f7] text-neutral-800'>
+        <header className='story-safe-header shrink-0 border-b border-[#eaeae7] bg-white/95'>
             <div className='flex h-14 items-center gap-2 px-4'>
                 <button type='button' disabled={busy} aria-label='返回' onClick={goBack}
                     className='grid h-9 w-9 shrink-0 place-items-center rounded-full'><ArrowLeft size={21} /></button>
@@ -261,8 +261,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     </button>)}
             </nav>}
         </header>
-        <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-20'>
-            <div className='mx-auto max-w-xl space-y-3'>
+        <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-20'>
+            <div className='mx-auto max-w-xl space-y-4'>
                 {error && <p role='alert' className='text-xs text-rose-700'>{error}</p>}
                 {imported ? <>
                     <div className='flex items-center gap-2'>
@@ -333,64 +333,72 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         onSetFolderTargets={activeSection === 'rules' ? (folder, selected, targets) =>
                             void save(current => setAlchemyFolderTargets(current, folder,
                                 new Set(selected.map(item => item.id)), targets)) : undefined}/>
-                </> : <fieldset disabled={busy} className='min-w-0 space-y-3 border-0 p-0 disabled:opacity-60'>
-                    <label className='block text-xs font-medium text-neutral-600'>名称
+                </> : <fieldset disabled={busy} className='min-w-0 space-y-5 border-0 p-0 disabled:opacity-60'>
+                    <label className='block text-[13px] font-medium text-neutral-700'>名称
                         <input className={fieldClass} maxLength={80} value={draft.name}
                             onChange={event => patch({ name: event.target.value })} placeholder='正则名称'/>
                     </label>
-                    <div className='flex flex-wrap items-center gap-2 text-xs'>
-                        {isTemplate ? <span className='rounded-md bg-white px-2 py-1.5 text-neutral-500'>
-                            <Code size={14} className='mr-1 inline-block'/>HTML · 线上
-                        </span> : <div role='group' aria-label='规则生效范围' className='flex items-center gap-1.5'>
-                            {(['online', 'offline'] as const).map(target => {
-                                const selected = alchemyRuleTargets(draft);
-                                const checked = selected.includes(target);
-                                return <label key={target} className={'flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 ' +
-                                    (checked ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 bg-white text-neutral-500')}>
-                                    <input type='checkbox' className='sr-only' aria-label={target === 'online' ? '线上' : '线下'}
-                                        checked={checked} disabled={checked && selected.length === 1}
-                                        onChange={event => patch({ targets: event.target.checked
-                                            ? [...selected, target] : selected.filter(value => value !== target) })}/>
-                                    {target === 'online' ? '线上' : '线下'}
-                                </label>;
-                            })}
-                        </div>}
+                    <div className='space-y-3 rounded-2xl border border-[#eaeae7] bg-white px-3.5 py-3.5'>
+                        <div className='space-y-2'>
+                            <div className='text-[12px] font-medium text-neutral-600'>生效范围</div>
+                            {isTemplate ? <span className='inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#f1f2f0] px-3 text-[12px] font-medium text-[#475248]'>
+                                <Code size={14}/>HTML · 线上
+                            </span> : <div role='group' aria-label='规则生效范围'
+                                className='inline-flex max-w-full items-center gap-1 rounded-xl bg-[#f3f4f2] p-1'>
+                                {(['online', 'offline'] as const).map(target => {
+                                    const selected = alchemyRuleTargets(draft);
+                                    const checked = selected.includes(target);
+                                    return <label key={target} className={'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-4 text-[12px] font-medium transition-colors ' +
+                                        (checked ? 'bg-white text-[#303830] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-neutral-500')}>
+                                        <input type='checkbox' className='sr-only' aria-label={target === 'online' ? '线上' : '线下'}
+                                            checked={checked} disabled={checked && selected.length === 1}
+                                            onChange={event => patch({ targets: event.target.checked
+                                                ? [...selected, target] : selected.filter(value => value !== target) })}/>
+                                        {target === 'online' ? '线上' : '线下'}
+                                    </label>;
+                                })}
+                            </div>}
+                        </div>
+                        {!isTemplate && alchemyRuleTargets(draft).includes('offline') &&
+                            <div className='space-y-2 border-t border-[#f0f0ee] pt-3'>
+                                <div className='text-[12px] font-medium text-neutral-600'>线下位置</div>
+                                <div role='group' aria-label='线下规则生效位置'
+                                    className='inline-flex max-w-full items-center gap-1 rounded-xl bg-[#f3f4f2] p-1'>
+                                    {(['story', 'meeting'] as const).map(scene => {
+                                        const selected = alchemyOfflineScenes(draft);
+                                        const checked = selected.includes(scene);
+                                        return <label key={scene} className={'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-4 text-[12px] font-medium transition-colors ' +
+                                            (checked ? 'bg-white text-[#303830] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-neutral-500')}>
+                                            <input type='checkbox' className='sr-only' aria-label={scene === 'story' ? '剧情生效' : '见面生效'}
+                                                checked={checked} disabled={checked && selected.length === 1}
+                                                onChange={event => patch({ offlineScenes: event.target.checked
+                                                    ? [...selected, scene] : selected.filter(value => value !== scene) })}/>
+                                            {scene === 'story' ? '剧情' : '见面'}
+                                        </label>;
+                                    })}
+                                </div>
+                            </div>}
                     </div>
-                    {!isTemplate && alchemyRuleTargets(draft).includes('offline') &&
-                        <div role='group' aria-label='线下规则生效位置' className='flex items-center gap-1.5 text-xs'>
-                            {(['story', 'meeting'] as const).map(scene => {
-                                const selected = alchemyOfflineScenes(draft);
-                                const checked = selected.includes(scene);
-                                return <label key={scene} className={'flex cursor-pointer items-center rounded-md border px-2 py-1.5 ' +
-                                    (checked ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 bg-white text-neutral-500')}>
-                                    <input type='checkbox' className='sr-only' aria-label={scene === 'story' ? '剧情生效' : '见面生效'}
-                                        checked={checked} disabled={checked && selected.length === 1}
-                                        onChange={event => patch({ offlineScenes: event.target.checked
-                                            ? [...selected, scene] : selected.filter(value => value !== scene) })}/>
-                                    {scene === 'story' ? '剧情' : '见面'}
-                                </label>;
-                            })}
-                        </div>}
                     {isTemplate && <section aria-label='HTML 实时效果' data-alchemy-live-preview
                         className='min-w-0 rounded-xl border border-neutral-200 bg-white p-2'>
                         {liveHtml ? <AlchemyHtmlFrame html={liveHtml} fallback='' title={draft.name || 'HTML 效果'}/>
                             : <div className='grid h-24 place-items-center text-xs text-neutral-400'>HTML 效果</div>}
                     </section>}
-                    {!isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
-                        <label className='min-w-0 text-xs font-medium text-neutral-600'>匹配正则
+                    {!isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_5rem] gap-3'>
+                        <label className='min-w-0 text-[13px] font-medium text-neutral-700'>匹配正则
                             <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
                                 value={draft.pattern} spellCheck={false}
                                 placeholder={isTemplate ? '<card>([\\s\\S]*?)</card>' : '<think>[\\s\\S]*?</think>'}
                                 onChange={event => patch({ pattern: event.target.value })}/>
                         </label>
-                        <label className='min-w-0 text-xs font-medium text-neutral-600'>修饰符
+                        <label className='min-w-0 text-[13px] font-medium text-neutral-700'>修饰符
                             <input className={fieldClass + ' font-mono text-xs'} value={draft.flags} spellCheck={false}
                                 onChange={event => patch({ flags: event.target.value })}/>
                         </label>
                     </div>}
-                    <div className='min-w-0 space-y-1'>
+                    <div className='min-w-0 space-y-1.5'>
                         <div className='flex items-center gap-2'>
-                            <label htmlFor='alchemy-source' className='min-w-0 flex-1 text-xs font-semibold text-neutral-600'>
+                            <label htmlFor='alchemy-source' className='min-w-0 flex-1 text-[13px] font-medium text-neutral-700'>
                                 {isTemplate ? 'HTML 代码' : '替换内容'}
                             </label>
                             {isTemplate && <>
@@ -413,27 +421,29 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             </>}
                         </div>
                         <textarea id='alchemy-source'
-                            className={'w-full min-w-0 resize-y rounded-lg border border-neutral-200 bg-white p-3 font-mono text-xs leading-5 text-neutral-800 outline-none focus:border-neutral-400 ' +
-                                (isTemplate ? 'min-h-[152px]' : 'min-h-[80px]')}
-                            rows={isTemplate ? 7 : 4} value={draft.replacement}
+                            className={'block w-full min-w-0 resize-y rounded-xl border border-[#e5e7e5] bg-white p-3 font-mono text-[13px] leading-6 text-neutral-800 outline-none transition-colors focus:border-[#a7aea8] focus:ring-2 focus:ring-[#dfe5df]/60 ' +
+                                (isTemplate ? 'min-h-[152px]' : 'min-h-[96px]')}
+                            rows={isTemplate ? 7 : 3} value={draft.replacement}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
                             placeholder={isTemplate ? '<div>{{$1}}</div>' : ''}
                             onChange={event => patch({ replacement: event.target.value })}/>
                     </div>
-                    {!isTemplate && <div className='flex flex-wrap items-center gap-4 text-xs text-neutral-600'>
-                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.display} className='accent-neutral-800'
+                    {!isTemplate && <div className='grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-[#eaeae7] bg-white px-3.5 py-3 text-[12px] text-neutral-700 sm:grid-cols-3'>
+                        <label className='flex cursor-pointer items-center gap-2'><input type='checkbox' checked={draft.display} className='h-4 w-4 accent-[#626e63]'
                             onChange={event => patch({ display: event.target.checked })}/>显示过滤</label>
-                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.history} className='accent-neutral-800'
+                        <label className='flex cursor-pointer items-center gap-2'><input type='checkbox' checked={draft.history} className='h-4 w-4 accent-[#626e63]'
                             onChange={event => patch({ history: event.target.checked })}/>请求过滤</label>
-                        <label className='ml-auto flex items-center gap-1.5'>
-                            <input type='checkbox' checked={draft.source?.smartFilter !== false} className='accent-neutral-800'
+                        <label className='flex cursor-pointer items-center gap-2'>
+                            <input type='checkbox' checked={draft.source?.smartFilter !== false} className='h-4 w-4 accent-[#626e63]'
                                 onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })}/>
                             短词保护
                         </label>
                     </div>}
-                    <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
-                        <summary className='cursor-pointer text-xs font-medium text-neutral-600'>更多设置</summary>
-                        <div className='mt-3 space-y-3'>
+                    <details className='group/extra overflow-hidden rounded-2xl border border-[#e8e9e7] bg-white'>
+                        <summary className='flex min-h-12 cursor-pointer list-none items-center gap-2.5 px-3.5 py-3 text-[13px] font-medium text-neutral-700'>
+                            <CaretDown size={15} className='-rotate-90 text-neutral-400 transition-transform group-open/extra:rotate-0'/>更多设置
+                        </summary>
+                        <div className='space-y-4 border-t border-[#f0f0ee] px-3.5 pb-4 pt-3'>
                             {isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>匹配正则
                                     <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
@@ -445,7 +455,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                         spellCheck={false} onChange={event => patch({ flags: event.target.value })}/>
                                 </label>
                             </div>}
-                            <div className='grid grid-cols-2 gap-2'>
+                            <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>分组
                                     <input className={fieldClass} value={draft.importGroup || ''} maxLength={80}
                                         onChange={event => patch({ importGroup: event.target.value })} placeholder='自定义'/>
@@ -455,7 +465,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                         onChange={event => patch({ subcategory: event.target.value })} placeholder='未分类'/>
                                 </label>
                             </div>
-                            <div className='grid grid-cols-2 gap-2'>
+                            <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>作用对象
                                     <select className={fieldClass} value={draft.role || 'assistant'}
                                         onChange={event => patch({ role: event.target.value as StoryRegexRule['role'] })}>
@@ -496,9 +506,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             </label>)}
                         </div>
                     </details>
-                    {!isTemplate && <details className='rounded-lg border border-neutral-200 bg-white px-3 py-2.5'>
-                        <summary className='cursor-pointer text-xs font-medium text-neutral-600'>测试规则</summary>
-                        <div className='mt-3 space-y-2'>
+                    {!isTemplate && <details className='group/test overflow-hidden rounded-2xl border border-[#e8e9e7] bg-white'>
+                        <summary className='flex min-h-12 cursor-pointer list-none items-center gap-2.5 px-3.5 py-3 text-[13px] font-medium text-neutral-700'>
+                            <CaretDown size={15} className='-rotate-90 text-neutral-400 transition-transform group-open/test:rotate-0'/>测试规则
+                        </summary>
+                        <div className='space-y-3 border-t border-[#f0f0ee] px-3.5 pb-4 pt-3'>
                             {!isTemplate && draft.display && draft.history &&
                                 <select className={fieldClass} value={previewStage}
                                     onChange={event => { setPreviewStage(event.target.value as 'display' | 'history'); setResult(null); }}>
