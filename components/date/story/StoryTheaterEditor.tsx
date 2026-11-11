@@ -561,8 +561,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             <div className='min-w-0'>
                                 <div className='text-[11px] font-semibold text-slate-700'>批量导入开场白</div>
                                 <p className='mt-0.5 text-[10px] leading-4 text-slate-400'>TXT / DOCX · 每次最多 200 个 · 文件名按 1、2、10 排序</p>
-                                <p className='mt-0.5 text-[9px] leading-4 text-slate-400'>先校验整批，若有损坏文件则整批不保存，避免缺篇；DOCX 只读取文字，不保留图片和原排版</p>
-                                <p className='mt-0.5 text-[9px] leading-4 text-slate-400'>导入会保存到选中角色的开场库，其他使用该角色的剧情也能选用；不会覆盖已有剧情正文</p>
+                                
+                                
                             </div>
                             <button type='button' data-story-opening-import-button='true'
                                 disabled={!actors.length || !onImportGreetings || maskLocked || importGreetingBusy || greetingBusy || createGreetingBusy || editingGreeting || confirmGreetingDelete || chooseGreetingActor}
@@ -647,8 +647,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 <div className='mt-6 flex items-start justify-between gap-3 border-t border-slate-200 pt-5'>
                     <div className='min-w-0'>
                         <div className='text-sm font-semibold'>自动记忆 API</div>
-                        <p className='mt-1 text-[10px] leading-5 text-slate-500'>默认关闭。开启后，本剧情的自动事件盒、向量召回与归档、角色记忆整理可在续写前后额外调用 API，站点可能另计费用。没有设置专用 API 时，部分整理会使用主 API。</p>
-                        <p className='mt-1 text-[10px] leading-5 text-slate-500'>关闭时仍可使用已保存的正文和本地记忆。长剧情会继续使用未归档原文，可能增加正文请求的输入量。</p>
+                        <p className='mt-1 text-[10px] text-amber-700'>开启可能产生额外 API 费用。</p>
+                        
                     </div>
                     <Toggle label='启用自动记忆 API' value={draft.automaticMemoryApiEnabled === true}
                         onChange={enabled => update('automaticMemoryApiEnabled', enabled)} />
@@ -656,7 +656,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 <div className='mt-6 pt-5 border-t border-slate-200' data-story-memory-api-settings>
                     <div className='flex items-start justify-between gap-3'>
                         <div className='min-w-0'><div className='text-sm font-semibold'>剧情记忆总结副 API</div>
-                            <p className='mt-1 text-[10px] leading-5 text-slate-500'>仅本剧情的事件盒自动／手动总结与独立向量归档中的文字提取使用。正文仍走主 API；真实陪伴的共享角色记忆整理、事件盒转角色记忆继续走全局记忆配置，防止副 API 污染其他聊天。</p>
+                            
                         </div>
                         <Toggle label='使用剧情记忆副 API' value={!!draft.memorySummaryApi}
                             onChange={enabled => update('memorySummaryApi', enabled ? (draft.memorySummaryApi || { baseUrl: '', apiKey: '', model: '' }) : undefined)} />
@@ -687,29 +687,27 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                                 onChange={event => update('memorySummaryApi', { ...draft.memorySummaryApi!, model: event.target.value })}
                                 placeholder='gemini-...' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />
                         </label>
-                        <p className='text-[10px] leading-5 text-slate-500'>选择预设只复制当前 URL / Key / Model；之后修改或删除预设也不会让本剧情暗中切换。副 API 不可用时会报错并保留原文，绝不偷偷回退到昂贵主 API。</p>
-                        {storyMemoryApiSharesGateway(draft.memorySummaryApi, mainApi) && <p role='status' data-story-memory-gateway-warning className='rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-800'>副 API 与剧情主 API 使用同一接口站点，即使模型不同，也可能共享站点限流、并发限制和额度。建议使用真正独立的站点与账户；这个设置不会改变主 API 本身。</p>}
-                        <p className='text-[10px] leading-5 text-slate-500'>事件盒摘要会代替已归档的旧正文进入后续主模型上下文。便宜模型若记错剧情，会影响续写质量；建议先检查事件盒摘要，错误可在事件盒中重新总结。导入备份后记得核对地址、密钥和模型：本剧情保留配置快照；副 API 需要支持非流式 Chat Completions，不跟随主 API 的流式开关。</p>
+                        
+                        {storyMemoryApiSharesGateway(draft.memorySummaryApi, mainApi) && <p role='status' data-story-memory-gateway-warning className='text-[10px] text-amber-700'>副 API 与主 API 同站点，可能共享限流和额度。</p>}
+                        
                         {memoryApiError && <p role='alert' className='rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] leading-5 text-rose-700'>{memoryApiError}</p>}
                     </div>}
                 </div>
             </section>
             <section className='pt-6 border-t border-slate-200'>
-                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>04 / Lore</div><div className='flex items-center justify-between gap-3'><h2 className='mt-1 text-lg font-semibold'>世界书沙盒</h2>{draft.selectedWorldbookIds.length > 0 && <span className='text-[10px] text-slate-500'>已选 {draft.selectedWorldbookIds.length}</span>}</div><p className='text-[10px] text-slate-500'>从全局世界书库选择，仅对本剧情生效，不改变角色挂载。</p>
+                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>04 / Lore</div><div className='flex items-center justify-between gap-3'><h2 className='mt-1 text-lg font-semibold'>世界书沙盒</h2>{draft.selectedWorldbookIds.length > 0 && <span className='text-[10px] text-slate-500'>已选 {draft.selectedWorldbookIds.length}</span>}</div>
                 {books.length > 8 && <input type='search' aria-label='搜索剧情世界书' value={worldbookSearch} onChange={event => setWorldbookSearch(event.target.value)} placeholder='搜索世界书名称或分类' className='mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-violet-400' />}
                 <div role='group' aria-label='剧情世界书列表' className={`mt-3 divide-y divide-slate-100 border-y border-slate-200 ${books.length > 12 ? 'max-h-[44vh] overflow-y-auto overscroll-contain' : ''}`}>{books.length === 0 ? <div className='py-6 text-center text-xs text-slate-400'>全局世界书库暂无可选内容</div> : visibleBooks.length === 0 ? <div className='py-6 text-center text-xs text-slate-400'>没有匹配的世界书</div> : visibleBooks.map(book => { const selected = draft.selectedWorldbookIds.includes(book.id); return <button type='button' key={book.id} aria-pressed={selected} aria-label={`世界书：${book.title}`} onClick={() => setDraft(current => ({ ...current, selectedWorldbookIds: current.selectedWorldbookIds.includes(book.id) ? current.selectedWorldbookIds.filter(id => id !== book.id) : [...current.selectedWorldbookIds, book.id], updatedAt: Date.now() }))} className='w-full py-3 flex items-center gap-3 text-left'><span className={`w-4 h-4 shrink-0 rounded border text-[10px] text-center text-white ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`}>{selected ? '✓' : ''}</span><span className='min-w-0'><span className='block text-xs font-semibold truncate'>{book.title}</span><span className='block text-[9px] text-slate-400 truncate'>{book.category || '未分类'}{book.disable ? ' · 已停用' : ''}{duplicatedWorldbookTitles.has(book.title.trim().toLocaleLowerCase()) ? ` · ${book.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 32) || '无正文'}` : ''}</span></span></button>; })}</div>
                 {missingSelectedBooks.length > 0 && <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-amber-700'><span>有 {missingSelectedBooks.length} 条已选世界书暂不可用（已删除或 ID 冲突），不会发送</span><button type='button' onClick={() => setDraft(current => ({ ...current, selectedWorldbookIds: current.selectedWorldbookIds.filter(id => !missingSelectedBooks.includes(id)), updatedAt: Date.now() }))} className='shrink-0 underline underline-offset-2'>清除失效选择</button></div>}
             </section>
             <section className='pt-6 border-t border-slate-200'>
-                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2><p className='text-[10px] text-slate-500'>支持糯米机原生预设和酒馆 Chat Completion JSON；单文件导入自动选中，批量导入只加入预设库，不替换当前剧情。</p>
+                <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>05 / Preset</div><h2 className='mt-1 text-lg font-semibold'>装载剧情预设</h2>
                 {presets.length > 12 && <div className='mt-3'>
                     <input type='search' aria-label='搜索剧情预设' value={presetSearch}
                         onChange={event => setPresetSearch(event.target.value)}
                         placeholder={`搜索预设名称（共 ${presets.length} 份）`}
                         className='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none' />
-                    <p role='status' className='mt-1 text-[10px] text-slate-400'>
-                        {presetSearch.trim() ? `匹配 ${presets.filter(item => item.name.toLocaleLowerCase('zh-CN').includes(presetSearch.trim().toLocaleLowerCase('zh-CN'))).length} 份；当前预设始终保留在下拉列表中` : '可按预设名称搜索；不必逐项翻找'}
-                    </p>
+                    
                 </div>}
                 <div className='mt-3 flex gap-2'><select disabled={presetImportBusy} value={preset?.id || ''} onChange={event => { setDraft(current => ({ ...current, presetId: event.target.value, presetOverride: undefined, updatedAt: Date.now() })); setPresetSearch(''); }} className='min-w-0 flex-1 px-3 py-3 rounded-xl bg-white border border-slate-200 text-xs'>{matchingPresets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type='button' title='导入一个或多个剧情预设' aria-label='导入剧情预设' disabled={presetImportBusy} onClick={() => fileInput.current?.click()} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-40'>{presetImportBusy ? <SpinnerGap size={18} className='animate-spin' /> : <UploadSimple size={18} />}</button><button disabled={!preset} onClick={() => { if (preset) void downloadStoryPreset(preset); }} className='w-11 rounded-xl bg-white border border-slate-200 grid place-items-center disabled:opacity-30'><DownloadSimple size={18} /></button></div>
                 <input ref={fileInput} type='file' multiple accept='.json,.png,application/json,image/png' className='hidden' onChange={async event => {
@@ -735,9 +733,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         }
                         setPresetImportFeedback(files.length === 1
                             ? importedCount ? '预设导入成功，已选为本剧情预设；保存并进入后生效。' : '预设导入失败，当前剧情配置未改变。'
-                            : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}；当前剧情预设未改变。请从下拉列表手动选择要使用的预设。`);
+                            : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}。`);
                     } catch (error) {
-                        setPresetImportFeedback(`预设导入中断：${error instanceof Error ? error.message : '文件读取失败'}。已有结果保留，当前剧情配置不会自动更换。`);
+                        setPresetImportFeedback(`预设导入中断：${error instanceof Error ? error.message : '文件读取失败'}。`);
                     } finally {
                         presetImportLock.current = false;
                         setPresetImportBusy(false);
@@ -745,17 +743,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                 }} />
                 {presetImportFeedback && <p role='status' className='mt-2 text-[10px] leading-5 text-slate-500'>{presetImportFeedback}</p>}
                 {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条 · 按当前顺序与插入位置发送</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
-                {(skippedTavernRegex || htmlTavernTheater) && <p className='mt-2 text-[10px] leading-5 text-amber-700'>
-                    {skippedTavernRegex ? '酒馆附带的正则/脚本没有执行。' : ''}
-                    {htmlTavernTheater ? '小剧场支持隔离的安全 HTML 排版与原生卡片；酒馆插件特效无法完全复刻。' : ''}
-                    如需避免格式冲突，可在制作器检查并关闭相应的酒馆规则；不会自动删除你的预设内容。
-                </p>}
+                
 
                 <div className='mt-5 space-y-4 border-t border-slate-200 pt-4'>
                     <label className='flex items-center justify-between gap-4'>
                         <span>
                             <span className='block text-sm font-semibold'>本剧情最大输出</span>
-                            <span className='mt-1 block text-[10px] leading-5 text-slate-500'>单位为 tokens，最高 30,000。留空沿用预设（{normalizeStoryOutputTokens(sourceDoc?.generation.maxTokens).toLocaleString('zh-CN')}）。</span>
+                            
                         </span>
                         <input type='number' min={STORY_MIN_OUTPUT_TOKENS} max={STORY_MAX_OUTPUT_TOKENS} step={1}
                             value={draft.outputMaxTokens ?? ''} placeholder='沿用预设'
@@ -763,28 +757,28 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             className='w-24 shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-xs' />
                     </label>
                     <div className='flex items-start justify-between gap-5'>
-                        <div><div className='text-sm font-semibold'>长回复流式传输</div><p className='mt-1 text-[10px] leading-5 text-slate-500'>开启后分段接收正文，减少非流式等待整包返回时的断连。关闭时沿用主 API 的流式设置。</p></div>
+                        <div><div className='text-sm font-semibold'>长回复流式传输</div></div>
                         <Toggle label='长回复流式传输' value={draft.streamStoryOutput === true} onChange={value => update('streamStoryOutput', value)} />
                     </div>
                 </div>
                 <div className='mt-5 pt-4 border-t border-slate-200'>
                     <div className='flex items-start justify-between gap-5'>
-                        <div><div className='text-sm font-semibold'>不发送高级采样参数</div><p className='mt-1 text-[10px] leading-5 text-slate-500'>默认关闭。仅当接口不接受这些字段时开启；开启后不发送 top_p、frequency_penalty 和 presence_penalty。</p></div>
+                        <div><div className='text-sm font-semibold'>不发送高级采样参数</div></div>
                         <Toggle label='不发送高级采样参数' value={draft.omitSamplingParams === true} onChange={value => update('omitSamplingParams', value)} />
                     </div>
-                    {draft.omitSamplingParams && <p className='mt-3 border-l-2 border-amber-400 pl-3 text-[10px] leading-5 text-amber-700'>这会忽略当前预设中的三项参数，包括非默认值。正常支持酒馆参数的接口请保持关闭。</p>}
+                    
                 </div>
                 <div className='mt-5 pt-4 border-t border-slate-200'>
                     <div className='flex items-start justify-between gap-5'>
-                        <div><div className='text-sm font-semibold'>400 兼容模式</div><p className='mt-1 text-[10px] leading-5 text-slate-500'>仅当接口提示“最后一条消息必须是 user”时开启。</p></div>
+                        <div><div className='text-sm font-semibold'>400 兼容模式</div></div>
                         <Toggle label='400 兼容模式' value={draft.forceUserLastMessage === true} onChange={value => update('forceUserLastMessage', value)} />
                     </div>
-                    {draft.forceUserLastMessage && <p className='mt-3 border-l-2 border-amber-400 pl-3 text-[10px] leading-5 text-amber-700'>开启后会用系统指令代替原生助手预填，可能削弱格式与文风效果。优先建议更换支持该预设的模型。</p>}
+                    
                 </div>
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>06 / Budget</div>
-                <div className='mt-2 flex items-end justify-between gap-4'><div><h2 className='text-lg font-semibold'>静态配置预算</h2><p className='mt-1 text-[10px] leading-5 text-slate-500'>这里只比较角色、世界书、预设与归档；剧场内会按续写实际使用的完整上下文统计历史、召回和本轮输入。</p></div><strong className='text-2xl font-serif'>{Object.values(tokenPreview).reduce((sum, value) => sum + value, 0).toLocaleString()}</strong></div>
+                <div className='mt-2 flex items-end justify-between gap-4'><div><h2 className='text-lg font-semibold'>静态配置预算</h2></div><strong className='text-2xl font-serif'>{Object.values(tokenPreview).reduce((sum, value) => sum + value, 0).toLocaleString()}</strong></div>
                 <div className='mt-4 grid grid-cols-4 gap-2'>{Object.entries({ '角色': tokenPreview.actor, '世界书': tokenPreview.book, '预设': tokenPreview.preset, '归档': tokenPreview.archive }).map(([label, value]) => <div key={label} className='py-3 rounded-xl bg-white border border-slate-200 text-center'><div className='text-[9px] text-slate-400'>{label}</div><div className='mt-1 text-xs font-bold'>{value.toLocaleString()}</div></div>)}</div>
             </section>
             <button onClick={save} disabled={saving} className='story-setup-save w-full py-4 rounded-2xl bg-slate-900 text-white text-sm font-bold disabled:opacity-30'>{saving ? '正在保存……' : '保存并进入剧情'}</button>
