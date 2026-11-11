@@ -179,7 +179,7 @@ const UserApp: React.FC = () => {
                             </div>
                         </div>
                         <input type="file" aria-label="更换档案头像" disabled={identityBusy || avatarBusy || bioFileBusy} ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                        <p className="mt-2 text-center text-[10px] text-slate-400">整体头像：所有聊天的默认。想在某个角色那儿换一副面孔？下面「分角色聊天头像」里设。</p>
+                        
 
                         <UserSaveSection disabled={avatarBusy || bioFileBusy} onBusyChange={setIdentityBusy} />
                     </div>
