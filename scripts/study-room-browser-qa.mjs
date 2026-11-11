@@ -137,6 +137,232 @@ try{
   }
   await capture('desktop-1366',1366,768);
 
+  if (process.env.STUDY_HUMAN_MODE==='1') {
+    // One ordinary learner journey, not a random-click or volume benchmark.
+    // Everything runs in the disposable empty browser profile from this CI job.
+    await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    const studyDay=await evaluate(`(async()=>{
+      const wait=ms=>new Promise(r=>setTimeout(r,ms));
+      const until=async(f,label,ms=6500)=>{
+        for(let t=0;t<ms;t+=100){if(await f())return true;await wait(100);}
+        throw Error('Learning journey blocked: '+label);
+      };
+      const visible=e=>e&&e.getClientRects().length>0;
+      const controls=()=>[...document.querySelectorAll('button')].filter(visible);
+      const press=text=>{
+        const b=controls().find(x=>x.textContent?.trim()===text&&!x.disabled);
+        if(!b)throw Error('Missing action: '+text);
+        b.click();return b;
+      };
+      const nav=text=>{
+        const bar=[...document.querySelectorAll('nav')].find(x=>[...x.querySelectorAll('button')]
+          .some(b=>b.textContent?.trim()==='专注'));
+        const b=[...(bar?.querySelectorAll('button')||[])].find(x=>x.textContent?.trim()===text);
+        if(!b)throw Error('Missing section: '+text);
+        b.click();
+      };
+      const value=(selector,v)=>{
+        const el=[...document.querySelectorAll(selector)].find(visible);
+        if(!el)throw Error('Missing form field '+selector);
+        const proto=el instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype
+          :el instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto,'value').set.call(el,String(v));
+        el.dispatchEvent(new Event('input',{bubbles:true}));
+        el.dispatchEvent(new Event('change',{bubbles:true}));
+        return el;
+      };
+      const due=new Date();due.setDate(due.getDate()+5);
+      const two=n=>String(n).padStart(2,'0');
+      const deadline=[due.getFullYear(),two(due.getMonth()+1),two(due.getDate())].join('-')+'T19:00';
+      const dbName=(await indexedDB.databases()).find(d=>d.name?.includes('AetherOS_Data'))?.name;
+      if(!dbName)throw Error('No actual app IndexedDB');
+      const db=await new Promise((res,rej)=>{
+        const req=indexedDB.open(dbName);
+        req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);
+      });
+      const workspace=()=>new Promise((res,rej)=>{
+        const tx=db.transaction('assets','readonly');
+        const req=tx.objectStore('assets').get('sully_workspace_v1');
+        req.onsuccess=()=>res(req.result?.data||{classes:[],homework:[],notes:[]});
+        req.onerror=()=>rej(req.error);
+      });
+      window.__humanJourneyErrors=[];
+      window.__humanJourneyModelCalls=0;
+      window.addEventListener('error',e=>window.__humanJourneyErrors.push(String(e.message)));
+      window.addEventListener('unhandledrejection',e=>window.__humanJourneyErrors.push(String(e.reason)));
+      const oldFetch=window.fetch.bind(window);
+      window.fetch=(...args)=>{
+        if(String(args[0]).includes('/chat/completions')){
+          window.__humanJourneyModelCalls++;
+          return Promise.reject(Error('QA blocks paid AI; this scenario never requested it'));
+        }
+        return oldFetch(...args);
+      };
+
+      // Monday: enter timetable and manually record a single real class.
+      nav('课程表');
+      await until(()=>!![...document.querySelectorAll('input[aria-label="课程名称"]')].find(visible),'class editor');
+      const classField=[...document.querySelectorAll('input[aria-label="课程名称"]')].find(visible);
+      if(!visible(classField)){
+        const create=[...document.querySelectorAll('summary')].find(x=>visible(x)&&x.textContent?.includes('新建'));
+        if(!create)throw Error('Missing expand-new-class action');create.click();
+      }
+      value('input[aria-label="课程名称"]','周三透视基础课');
+      value('input[type="time"]','09:00');
+      const classForm=[...document.querySelectorAll('form')].find(f=>visible(f)&&f.querySelector('input[aria-label="课程名称"]'));
+      if(!classForm)throw Error('Class form absent');
+      const times=[...classForm.querySelectorAll('input[type="time"]')];
+      value('input[aria-label="老师或班级"]','线稿练习');
+      const timeValue=(el,v)=>{
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,v);
+        el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));
+      };
+      if(times.length!==2)throw Error('Course start and end fields missing');
+      timeValue(times[0],'09:00');timeValue(times[1],'10:30');
+      await wait(180);press('保存课程');
+      await until(async()=>(await workspace()).classes?.some(c=>c.name==='周三透视基础课'),'save class');
+
+      // The same course gets one homework and a note, as a learner normally does.
+      await until(()=>!![...document.querySelectorAll('input[aria-label="新增作业"]')].find(visible),'homework field');
+      value('input[aria-label="新增作业"]','透视课练习：两张速写');
+      value('input[aria-label="作业截止时间"]',deadline);
+      await wait(140);press('添加作业');
+      await until(async()=>(await workspace()).homework?.some(h=>h.title==='透视课练习：两张速写'),'save homework');
+      value('textarea[placeholder="记下刚学到的知识"]','先找消失点，再检查物体投影。');
+      await wait(140);press('保存笔记');
+      await until(async()=>(await workspace()).notes?.some(n=>n.body==='先找消失点，再检查物体投影。'),'save note');
+      const initial=await workspace();
+      const exercise=initial.homework.find(x=>x.title==='透视课练习：两张速写');
+      if(!exercise||exercise.done||initial.classes.length!==1||initial.homework.length!==1||initial.notes.length!==1)
+        throw Error('Ordinary course, homework or note state inconsistent');
+
+      // After class: start studying this precise homework, pause for an errand,
+      // switch back to the timetable and return without losing the same round.
+      press('为作业开始专注');
+      await until(()=>!!document.querySelector('button[aria-label="暂停专注"]'),'start linked focus');
+      const round=JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null');
+      if(round?.mode!=='focus'||!round.taskId)throw Error('Linked focus not started');
+      const tasks=JSON.parse(localStorage.getItem('sully_pomodoro_v1_tasks')||'[]');
+      if(!tasks.some(t=>t.id===round.taskId&&t.source?.id===exercise.id))
+        throw Error('Focus is not connected to the selected homework');
+      document.querySelector('button[aria-label="暂停专注"]').click();
+      await until(()=>JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null')?.pauseRemainingMs!=null,'pause');
+      nav('课程表');await wait(400);
+      nav('专注');await until(()=>!!document.querySelector('button[aria-label="继续专注"]'),'return to paused session');
+      const pauseRound=JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null');
+      if(pauseRound.id!==round.id)throw Error('Tab switch changed focus round');
+      document.querySelector('button[aria-label="继续专注"]').click();
+      await until(()=>!!document.querySelector('button[aria-label="暂停专注"]'),'resume focus');
+
+      // Student checks the accompanying Char phone, then closes it.
+      document.querySelector('button[aria-label="打开 Char 悬浮手机"]')?.click();
+      await until(()=>!!document.querySelector('[aria-label="Char 手机私聊"]'),'open Char phone');
+      if(!document.body.textContent.includes('限额陪聊'))throw Error('Focus chat limit was bypassed');
+      document.querySelector('button[aria-label="关闭 Char 手机"]')?.click();
+      await wait(140);
+
+      // Interruption should *not* be treated as learning completion.
+      document.querySelector('button[aria-label="结束或退出本轮选项"]')?.click();
+      await until(()=>!!controls().find(b=>b.textContent?.trim()==='继续专注'),'confirm-before-stop dialog');
+      press('继续专注');await wait(130);
+      if(!JSON.parse(localStorage.getItem('sully_pomodoro_v1_session')||'null'))
+        throw Error('Continue-from-exit unexpectedly erased timer');
+      document.querySelector('button[aria-label="结束或退出本轮选项"]')?.click();
+      await wait(130);press('中断本轮，留在学习室');
+      await until(()=>localStorage.getItem('sully_pomodoro_v1_session')==='null','interrupt round');
+      const storedRecords=JSON.parse(localStorage.getItem('sully_pomodoro_v1_records')||'[]');
+      if(storedRecords.length!==0)throw Error('Interrupted homework was falsely credited');
+      const pending=await workspace();
+      if(pending.homework.find(h=>h.id===exercise.id)?.done)throw Error('Timer falsely completed homework');
+
+      // It is the learner, not the timer or companion, who marks the work done.
+      nav('课程表');
+      await until(()=>!![...document.querySelectorAll('input[aria-label="完成透视课练习：两张速写"]')].find(visible),'homework completion checkbox');
+      document.querySelector('input[aria-label="完成透视课练习：两张速写"]').click();
+      await until(async()=>(await workspace()).homework.some(h=>h.id===exercise.id&&h.done),'save manual completion');
+      const end=await workspace();
+      db.close();
+      if(window.__humanJourneyModelCalls!==0||window.__humanJourneyErrors.length)
+        throw Error('Unexpected AI usage or script errors '+JSON.stringify({calls:window.__humanJourneyModelCalls,errors:window.__humanJourneyErrors}));
+      return {className:end.classes[0].name,homework:end.homework[0].title,
+        noteCount:end.notes.length,manualCompleted:end.homework[0].done,
+        savedFocusCount:storedRecords.length,sessionStillOpen:false,
+        modelCalls:window.__humanJourneyModelCalls,errors:window.__humanJourneyErrors,
+        beforeDeadline:deadline};
+    })()`);
+    console.log('STUDY_HUMAN_CLASS_HOMEWORK_FOCUS='+JSON.stringify(studyDay));
+    await capture('human-homework-finished',390,844);
+
+    // A returning learner already has one saved PDF and one graded practice
+    // sheet. Seed only that past history; the interactions below use real UI.
+    const past=await evaluate(`(async()=>{
+      const name=(await indexedDB.databases()).find(d=>d.name?.includes('AetherOS_Data'))?.name;
+      const db=await new Promise((res,rej)=>{
+        const q=indexedDB.open(name);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);
+      });
+      const course={id:'human-reading-1',title:'光影基础：继续上次的课',
+        rawText:'光源决定受光面和背光面。',currentChapterIndex:0,
+        chapters:[
+          {id:'ch-1',title:'明暗五调子',summary:'理解明暗的层次',
+            difficulty:'easy',isCompleted:false,content:'课程笔记：先确认光源，再绘制明暗交界线。'},
+          {id:'ch-2',title:'投影练习',summary:'分析光源方向',
+            difficulty:'normal',isCompleted:false,content:'下一节课：观察投影的形状。'}],
+        createdAt:Date.now()-86400000,coverStyle:'#777777',totalProgress:0};
+      const quiz={id:'human-past-quiz-1',courseId:course.id,chapterId:'ch-1',
+        chapterTitle:'明暗五调子',courseTitle:course.title,createdAt:Date.now()-3600000,
+        status:'graded',score:1,totalQuestions:2,aiReview:'下次多观察阴影边界。',
+        questions:[
+          {id:'q1',type:'choice',stem:'明暗交界线与什么有关？',options:['光源','画框','画纸'],answer:'A',
+            userAnswer:'A',isCorrect:true,explanation:'取决于光线'},
+          {id:'q2',type:'true_false',stem:'所有投影都向同一方向。',answer:'false',
+            userAnswer:'true',isCorrect:false,explanation:'需要观察光源'}]};
+      await new Promise((res,rej)=>{const t=db.transaction(['courses','quizzes'],'readwrite');
+        t.objectStore('courses').put(course);t.objectStore('quizzes').put(quiz);
+        t.oncomplete=res;t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);
+      });
+      db.close();return {course:course.title,quiz:quiz.courseTitle};
+    })()`);
+    console.log('STUDY_HUMAN_PAST_SESSION='+JSON.stringify(past));
+
+    const reading=await evaluate(`(async()=>{
+      const wait=ms=>new Promise(r=>setTimeout(r,ms));
+      const visible=e=>e&&e.getClientRects().length>0;
+      const until=async(fn,label)=>{
+        for(let i=0;i<65;i++){if(fn())return;await wait(100);}
+        throw Error('Human PDF journey: '+label);
+      };
+      const nav=[...document.querySelectorAll('nav')].find(n=>[...n.querySelectorAll('button')]
+        .some(b=>b.textContent?.trim()==='专注'));
+      const btn=[...(nav?.querySelectorAll('button')||[])].find(b=>b.textContent?.trim()==='自习室');
+      if(!btn)throw Error('Self-study launcher missing');btn.click();
+      await until(()=>[...document.querySelectorAll('div')].some(e=>visible(e)&&String(e.className).includes('aspect-[4/5]')&&e.textContent.includes('光影基础：继续上次的课')),'load saved PDF course');
+      const cover=[...document.querySelectorAll('div')].find(e=>visible(e)
+        &&String(e.className).includes('aspect-[4/5]')&&e.textContent.includes('光影基础：继续上次的课'));
+      cover.click();
+      await until(()=>document.body.textContent.includes('明暗五调子'),'enter cached classroom');
+      await wait(1100);
+      const cachedShown=document.body.textContent.includes('课程笔记：先确认光源');
+      const reviewAction=!![...document.querySelectorAll('button')].find(b=>visible(b)&&b.getAttribute('title')==='刷题');
+      if(!reviewAction)throw Error('Old course lacks practice action');
+
+      // Back to bookshelf using the classroom's real navigation.
+      const courseBack=[...document.querySelectorAll('button')].find(b=>visible(b)
+        &&b.closest('div')?.parentElement?.textContent?.includes('明暗五调子')
+        &&!!b.querySelector('svg'));
+      // Use chapter/back header only if present; otherwise report exact state
+      // instead of silently assuming that the learner returned.
+      const practiceButton=[...document.querySelectorAll('button')].find(b=>visible(b)&&b.title==='刷题');
+      return {cachedShown,reviewAction,courseBackFound:!!courseBack,
+        modelCalls:window.__humanJourneyModelCalls,
+        errors:window.__humanJourneyErrors};
+    })()`);
+    console.log('STUDY_HUMAN_RESUME_PDF='+JSON.stringify(reading));
+    if(!reading.cachedShown||!reading.reviewAction||reading.modelCalls||reading.errors.length)
+      throw Error('Returning reader cannot see saved teaching without generating AI: '+JSON.stringify(reading));
+    await capture('human-resume-pdf',390,844);
+  }
+
+
   if (process.env.STUDY_PRESSURE_MODE==='1') {
     await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     const seed=await evaluate(`(async()=>{
