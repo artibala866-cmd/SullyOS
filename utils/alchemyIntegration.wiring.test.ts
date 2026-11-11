@@ -72,6 +72,10 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(panel).toContain("setActiveSection(imported.rules.some(rule => rule.kind === 'template') ? 'beauty' : 'rules')");
         expect(panel).toContain("isTemplate ? 'HTML 代码' : '替换内容'");
         expect(panel).toContain("id='alchemy-source'");
+        expect(panel).toContain('data-alchemy-live-preview');
+        expect(panel).toContain('renderAlchemyTemplatePreview(draft)');
+        expect(panel).toContain('<AlchemyHtmlFrame html={liveHtml}');
+        expect(panel).toContain("{!isTemplate && <details");
         expect(panel).toContain("!isTemplate && <details");
         expect(panel).toContain("aria-label='规则生效范围'");
         expect(panel).toContain("onDeleteFolder={(folder, selected)");
