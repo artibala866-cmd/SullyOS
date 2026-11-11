@@ -1,0 +1,62 @@
+name: Couples Space real user journeys
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/couples-human.yml'
+      - 'scripts/couples-human-browser.mjs'
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'apps/couplesSpace/**'
+      - 'utils/couplesSpace.ts'
+      - 'utils/couplesChat.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couples-space-human-journeys
+  cancel-in-progress: true
+jobs:
+  real-relationship:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build real Couples Space
+        run: pnpm run build
+      - name: Run realistic relationship story in isolated mobile Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/couples-human-browser.mjs
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort >/tmp/couples-human-vite.log 2>&1 &
+          server_pid=$!
+          chrome_pid=''
+          trap 'kill "$server_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/couples-human-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9222 --remote-allow-origins='*' \
+            --user-data-dir=/tmp/couples-human-clean-profile about:blank >/tmp/couples-human-chrome.log 2>&1 &
+          chrome_pid=$!
+          COUPLE_SCREENSHOT_DIR=/tmp/couples-human-screens \
+            node scripts/couples-human-browser.mjs 2>&1 | tee /tmp/couples-human.log
+          grep -q 'COUPLES_HUMAN_COMPLETE=' /tmp/couples-human.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: couples-real-life-mobile-screenshots
+          path: /tmp/couples-human-screens/*.png
+          if-no-files-found: ignore
