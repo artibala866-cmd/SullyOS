@@ -198,54 +198,43 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(alchemyInstructions(rules, 'offline', {}, '发红包')).toEqual([]);
     });
 
-    it('conservatively preserves ambiguous short words in original eight-part prose filter', () => {
+    it('executes imported regex exactly instead of guessing what a short word means', () => {
         const broad = rule({
-            name: 'WS8.3-词汇级禁令(误伤保护)', domain: 'offline',
-            source: { category: '八股净化' }, pattern: '(情绪|草莓|压死骆驼的最后一根稻草)',
+            name: 'WS8.3-词汇级禁令', domain: 'offline',
+            source: { category: '八股净化', smartFilter: true },
+            pattern: '(情绪|草莓|压死骆驼的最后一根稻草)',
         });
         const text = '我正在整理情绪，想吃草莓；压死骆驼的最后一根稻草并不是今天。';
-        const safe = applyStoryRegex(text, [broad], 'display').text;
-        expect(safe).toContain('整理情绪');
-        expect(safe).toContain('吃草莓');
-        expect(safe).not.toContain('压死骆驼的最后一根稻草');
-        const strict = applyStoryRegex(text, [{ ...broad, source: { smartFilter: false } }], 'display').text;
-        expect(strict).not.toContain('草莓');
-        expect(strict).not.toContain('情绪');
-        const exception = applyStoryRegex(text, [{
-            ...broad,
-            source: { smartFilter: false, protectWords: ['草莓'] },
-        }], 'display').text;
-        expect(exception).toContain('吃草莓');
-        expect(exception).not.toContain('整理情绪');
-        // Only display changed; same plain text is kept for role memory/history.
+        const expected = '我正在整理，想吃；并不是今天。';
+        expect(applyStoryRegex(text, [broad], 'display').text).toBe(expected);
+        // Previously saved smartFilter values must have no effect anymore.
+        for (const savedFlag of [false, true, undefined]) {
+            const stored = { ...broad, source: { ...broad.source, smartFilter: savedFlag } };
+            expect(applyStoryRegex(text, [stored], 'display').text).toBe(expected);
+        }
+        // Author-provided explicit protected words are not a heuristic.
+        const protectedRule = { ...broad, source: { protectWords: ['草莓'] } };
+        expect(applyStoryRegex(text, [protectedRule], 'display').text)
+            .toBe('我正在整理，想吃草莓；并不是今天。');
         expect(applyStoryRegex(text, [broad], 'history').text).toBe(text);
     });
 
-    it('protects literal strawberry eating and cooking, but filters explicitly matched strawberry cliches without calling AI', () => {
+    it('matches literal and figurative wording only according to the imported expression', () => {
         const broad = rule({
             name: 'WS8.3-词汇级禁令', domain: 'offline',
             source: { category: '八股净化' }, display: true, history: true,
             pattern: '(像草莓一样|刚洗干净的一盒草莓|草莓蛋糕)',
         });
-        const literal = '她端来刚洗干净的一盒草莓，吃完后又做了草莓蛋糕。';
-        const metaphor = '她的嘴唇像草莓一样红。';
+        const original = '她端来刚洗干净的一盒草莓，吃完后又做了草莓蛋糕。她的嘴唇像草莓一样红。';
+        const expected = original.replace(/像草莓一样|刚洗干净的一盒草莓|草莓蛋糕/g, '');
         for (const stage of ['display', 'history'] as const) {
-            const filtered = applyStoryRegex(literal + metaphor, [broad], stage);
-            expect(filtered.text).toContain('刚洗干净的一盒草莓');
-            expect(filtered.text).toContain('草莓蛋糕');
-            expect(filtered.text).toContain('吃完后');
-            expect(filtered.text).toContain('她的嘴唇红');
-            expect(filtered.text).not.toContain('像草莓一样');
-            expect(filtered.matches).toBe(1);
+            const result = applyStoryRegex(original, [broad], stage);
+            expect(result.text).toBe(expected);
+            expect(result.matches).toBe(3);
         }
-        // A bare "草莓" keyword is ambiguous: never turn normal prose into
-        // "吃了" or "嘴唇像一样红" by blindly erasing the noun.
-        const bare = { ...broad, pattern: '草莓' };
-        expect(applyStoryRegex(literal + metaphor, [bare], 'display').text).toBe(literal + metaphor);
-        // Users may disable conservative protection when exact replacement
-        // was deliberately requested; this is opt-in and remains local.
-        const strict = { ...broad, source: { category: '八股净化', smartFilter: false } };
-        expect(applyStoryRegex(literal, [strict], 'display').text).not.toContain('刚洗干净的一盒草莓');
+        const bare = { ...broad, pattern: '草莓', source: { smartFilter: true } };
+        expect(applyStoryRegex(original, [bare], 'display').text)
+            .toBe(original.replace(/草莓/g, ''));
     });
 
     it('reimporting old rules upgrades group/category without creating duplicates', () => {
