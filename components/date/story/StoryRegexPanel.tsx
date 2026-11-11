@@ -6,7 +6,7 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
-import { alchemyDomain, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyDomain, alchemySubcategory, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import { useOS } from '../../../context/OSContext';
 import { SafeStoryHtml } from './StoryTheaterSession';
@@ -121,7 +121,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             // Imported HTML card templates always belong to online beauty.
             domain: rule.kind === 'template' ? 'online' as const : domain,
             importGroup: folderName,
-            subcategory: rule.source?.category || (rule.kind === 'template' ? '互动卡片' : '文字规则'),
+            subcategory: alchemySubcategory(rule),
         }));
         setFeedback('');
         setImportScope('');
