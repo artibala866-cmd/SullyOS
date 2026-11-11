@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory, alchemyRuleAppliesTo, alchemyRuleTargets, removeAlchemyRule, removeAlchemyFolderSection, alchemyFolderTargetSelection, setAlchemyFolderTargets } from './alchemyRegex';
+import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory, alchemyRuleAppliesTo, alchemyRuleTargets, removeAlchemyRule, removeAlchemyFolderSection, alchemyFolderTargetSelection, setAlchemyFolderTargets, alchemyRulesForMeeting } from './alchemyRegex';
 import { applyStoryRegex, type StoryRegexRule } from './storyRegex';
 import { mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
 
@@ -32,6 +32,8 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(alchemyRulesFor(rules, 'online')).toEqual([onlineText]);
         expect(alchemyRulesFor(rules, 'offline')).toEqual([offlineGlobal]);
         expect(alchemyRulesFor(rules, 'offline', 'story-1')).toEqual([offlinePreset, offlineGlobal]);
+        // Meeting has no preset ID, but it still receives BOTH rules.
+        expect(alchemyRulesForMeeting(rules)).toEqual([offlinePreset, offlineGlobal]);
     });
 
     it('auto-organizes the original two JSON file sets into readable small categories', () => {
@@ -124,6 +126,27 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(merged.rules[0].targets).toEqual(['online', 'offline']);
         expect(merged.rules[0].enabled).toBe(false);
         expect(merged.rules[0].source?.protectWords).toEqual(['情绪']);
+    });
+
+    it('native imported HTML format prompts are automatic within the existing call', () => {
+        const base = rule({ kind: 'template', name: '小法庭',
+            pattern: '<court>([\\s\\S]*?)</court>',
+            replacement: '<article>{{1.title}}</article>',
+            parseMode: 'json', source: { triggerEnabled: false, renderMode: 'iframe' },
+            instruction: '遇到委屈或生气时输出 <court> JSON' });
+        expect(alchemyInstructions([base], 'online', {}, '我刚刚回家')).toEqual([
+            '遇到委屈或生气时输出 <court> JSON',
+        ]);
+        const explicit = { ...base, source: {
+            ...base.source, triggerEnabled: true, triggerKeywords: ['番外'],
+        } };
+        expect(alchemyInstructions([explicit], 'online', {}, '我刚刚回家')).toEqual([]);
+        expect(alchemyInstructions([explicit], 'online', {}, '写个番外')).toHaveLength(1);
+        expect(alchemyInstructions([base], 'offline', {}, '写个番外')).toEqual([]);
+        expect(applyStoryRegex('<court>{"title":"原生法庭"}</court>',
+            [base], 'display').cards[0].html).toContain('原生法庭');
+        expect(applyStoryRegex('<court>{"title":"原生法庭"}</court>',
+            [{ ...base, display: false }], 'display').cards).toHaveLength(0);
     });
 
     it('only explicitly requested online cards inject format instructions in the existing API call', () => {
