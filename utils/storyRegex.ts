@@ -49,6 +49,8 @@ export interface StoryRegexRule {
         triggerEnabled?: boolean;
         /** true: preserve ambiguous words in broad prose-ban filters. */
         smartFilter?: boolean;
+        /** Explicit local exceptions; keep any match containing a protected word. */
+        protectWords?: string[];
         substituteRegex?: 0 | 1 | 2;
         minDepth?: number;
         maxDepth?: number;
@@ -220,6 +222,8 @@ export function applyStoryRegex(
                     const offset = args.pop() as number;
                     const captures = args as (string | undefined)[];
                     const matched = captures[0] || '';
+                    const exceptions = rule.source?.protectWords || [];
+                    if (exceptions.some(word => !!word.trim() && matched.includes(word.trim()))) return matched;
                     const broadBan = rule.source?.smartFilter === true || /^WS\d/i.test(rule.name)
                         || /八股净化|词汇级禁令|句式级禁令/.test((rule.source?.category || '') + rule.name);
                     // Conservative, deterministic recognition. Keep normal words
