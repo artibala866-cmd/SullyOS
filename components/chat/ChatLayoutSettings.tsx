@@ -335,7 +335,7 @@ export default function ChatLayoutSettings({theme,updateTheme}:{theme:OSTheme;up
     const showHeaderBuffs = theme.chatHideHeaderBuffs !== true;
 
 return <div><details className="chat-decoration-layout-group"><summary>内置布局</summary><div>
-                    <p className="mb-3 text-[10px] text-slate-400">一键换整套聊天壳（含头像、气泡、间距与细节微调），切预设会先清掉微调残留。</p>
+                    
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {presets.map((preset) => (
                             <button
@@ -369,7 +369,7 @@ return <div><details className="chat-decoration-layout-group"><summary>内置布
                 <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2.5">
                     <div className="min-w-0 pr-3">
                         <div className="text-[11px] font-bold text-slate-700">显示情绪栏</div>
-                        <div className="mt-0.5 text-[10px] text-slate-400">角色名下方的情绪 buff 胶囊；关掉后顶栏更干净（位置/样式也可在「进阶」里用 .sully-chat-buffs 调）。</div>
+                        
                     </div>
                     <button
                         onClick={() => updateTheme({ chatHideHeaderBuffs: showHeaderBuffs })}
@@ -401,7 +401,7 @@ return <div><details className="chat-decoration-layout-group"><summary>内置布
 <details className="chat-decoration-layout-group" open><summary>细节微调</summary><div><ChatFineTunePanel value={theme} onChange={updateTheme}/><button className="chat-decoration-link" onClick={()=>updateTheme({...FINE_TUNE_DEFAULTS})}>微调恢复默认</button></div></details>
 <details className="chat-decoration-layout-group"><summary>表情包与输入栏</summary><div>
                     <ChoiceGroup title="表情包大小" items={choices.emojiSize} value={theme.chatEmojiSize || 'small'} onPick={(value) => updateTheme({ chatEmojiSize: value as OSTheme['chatEmojiSize'] })} />
-                    <p className="mt-2 text-[10px] text-slate-400">调整当前范围内的表情包图片尺寸；全局默认也会用于群聊。用自定义 CSS 调过尺寸的美化会继续覆盖这里的设置。</p>
+                    
                     <div className="mt-4">
                         <ChoiceGroup title="输入栏风格" items={choices.input} value={inputStyle} onPick={(value) => updateTheme({ chatInputStyle: value as OSTheme['chatInputStyle'] })} />
                     </div>
