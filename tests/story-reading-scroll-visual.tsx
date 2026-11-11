@@ -78,10 +78,30 @@ const audit = () => {
         return;
     }
     const focus = params.get('focus');
+    let anchorDrift: number | null = null;
     const focusReading = () => {
         if (focus === 'middle') floors[Math.floor(floorCount / 2)].scrollIntoView({ block: 'start', behavior: 'instant' });
         if (focus === 'top') scroll.scrollTop = 0;
         if (focus === 'middle' || focus === 'top') scroll.dispatchEvent(new Event('scroll', { bubbles: true }));
+        if (focus === 'stability') {
+            // A rapid touch swipe can precede the corresponding scroll event.
+            // Reflowing several old floors at that moment must preserve the
+            // actual reading position instead of snapping to the newest floor.
+            const anchor = floors[Math.floor(floorCount * 0.6)];
+            anchor.scrollIntoView({ block: 'start', behavior: 'instant' });
+            scroll.dispatchEvent(new Event('touchstart', { bubbles: true }));
+            const topBefore = anchor.getBoundingClientRect().top;
+            const earlierFloor = floors[0];
+            const initialHeight = earlierFloor.getBoundingClientRect().height;
+            let reflows = 0;
+            const reflow = () => {
+                reflows += 1;
+                earlierFloor.style.minHeight = `${initialHeight + reflows * 240}px`;
+                if (reflows < 3) setTimeout(reflow, 70);
+                else setTimeout(() => { anchorDrift = Math.abs(anchor.getBoundingClientRect().top - topBefore); }, 200);
+            };
+            reflow();
+        }
         if (focus === 'latest') {
             // Exercise the real user interaction rather than mutating scrollTop
             // after a font reflow and accidentally cancelling follow-latest.
@@ -125,6 +145,7 @@ const audit = () => {
             && floorIndicatorClear
             && (focus === 'latest' ? (nearEnd && visibleCount.includes(`第 ${floorCount} 楼`) && !latestButton)
                 : (focus === 'middle' || focus === 'top') ? (!nearEnd && !!latestButton)
+                : focus === 'stability' ? (!nearEnd && !!latestButton && anchorDrift !== null && anchorDrift <= 8)
                 : true)
             && (document.querySelector('.story-reading-floor')?.getBoundingClientRect().width || 0) > 200
             && document.documentElement.scrollWidth <= innerWidth;
@@ -135,7 +156,7 @@ const audit = () => {
             valid, cinemaReady, floorDecoration, count: floors.length, displayedProgress: progress?.textContent,
             indicatorInHeader: floorIndicatorClear, hasLatestButton: !!latestButton,
             scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
-            scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight, scrollTop: scroll.scrollTop, nearEnd,
+            scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight, scrollTop: scroll.scrollTop, nearEnd, anchorDrift,
         });
         document.body.append(output);
     }, 1800);
