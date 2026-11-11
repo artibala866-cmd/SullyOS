@@ -34,6 +34,7 @@ import { buildMcpOpenAITools, buildMcpRejectedToolsFallbackBody, buildMcpTextFal
 import { buildToolResultMessage, normalizeToolCallsForCompat } from '../utils/toolCallCompat';
 import { toolCallFingerprint } from '../utils/agenticToolFeedback';
 import { buildChatRequestPayload } from '../utils/chatRequestPayload';
+import { loadAlchemyInstructions } from '../utils/alchemyRegex';
 import { loadWorkspacePrivateChatBlock } from '../utils/workspacePrivateChat';
 import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
 import { prepareInboxBeforeChat } from '../utils/activeMsgRuntime';
@@ -999,6 +1000,20 @@ export const useChatAI = ({
                 : photoInstruction('private', char.id, contextMsgs.slice(-8).some(m => m.role === 'assistant' && m.type === 'image'), !!instantChatRoute);
             if (photo.text) fullMessages.unshift({role:'system',content:photo.text} as any);
             const promptBuildSkipped = payload.flags.promptBuildSkipped;
+            if (!promptBuildSkipped) {
+                const latestUser = [...currentMsgs].reverse().find(item => item.role === 'user');
+                const recentText = typeof latestUser?.content === 'string' ? latestUser.content.slice(-500) : '';
+                try {
+                    const guidance = await loadAlchemyInstructions('online', recentText, {
+                        user: userProfile.name, char: char.name,
+                    });
+                    if (guidance.length) fullMessages.unshift({
+                        role: 'system', content: guidance.join('\n\n'),
+                    } as any);
+                } catch (error) {
+                    console.warn('[Alchemy] online guidance unavailable; keep normal one-call reply', error);
+                }
+            }
             if (payload.flags.mcdActive) {
                 console.log(`🍔 [MCD-MiniApp] 注入协同点餐上下文 step=${mcdMiniSnap?.step} cartItems=${mcdMiniSnap?.cart?.length || 0} menuItems=${mcdMiniSnap?.menuMeals ? Object.keys(mcdMiniSnap.menuMeals).length : 0} nutrition=${mcdMiniSnap?.nutritionData ? mcdMiniSnap.nutritionData.length : 0}字`);
             }
