@@ -1072,7 +1072,7 @@ const WorkspacePanel: React.FC<Props> = ({section, focusTasks, records, onFocus,
         </div>
         <details className="mb-4 text-xs text-neutral-600">
           <summary className="cursor-pointer">仅共享进度摘要 · 查看规则</summary>
-          <p className="mt-2">每个 Char 独立授权，默认关闭。仅分享课程时间、作业状态或画稿排期；不分享客户、价格、需求、笔记和 PDF 原文。关闭授权不删除已发送消息及历史记忆。</p>
+          <p className="mt-2">仅分享进度，不共享客户、价格、笔记或原文。</p>
         </details>
       <StudyCharPicker compact characters={characters} selectedId={selectedCharId} onSelect={onSelectChar}/>
       {(['study','commissions'] as const).map(category => {
