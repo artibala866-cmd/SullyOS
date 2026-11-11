@@ -1,5 +1,5 @@
 import {meetingAppearance} from '../../../utils/meetingAppearance';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { storyRegexApplies, storyRegexInstruction, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
@@ -411,6 +411,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const readingScrollRef = useRef<HTMLElement>(null);
     const readingContentRef = useRef<HTMLDivElement>(null);
     const followLatestRef = useRef(true);
+    const readingScrollFrameRef = useRef<number | null>(null);
+    const lastReadMessageIdRef = useRef<number | null>(null);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
 
@@ -442,6 +444,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
         followLatestRef.current = true;
+        lastReadMessageIdRef.current = null;
         setVisibleFloor(0);
         setMessageMenu(null);
         setEditingMessage(null);
@@ -526,24 +529,22 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             setMutatingMessage(false);
         }
     }, [addToast, deletingMessage, entry.id, entry.writesToCharacterMemory, loadMessages, mutatingMessage]);
-    // Reading is one continuous scroll. Only follow new replies while the reader
-    // is already near the end; editing or expanding an older floor must not jump away.
-    const updateVisibleFloor = useCallback((trackReaderScroll = false) => {
+    // Only an actual new floor or an explicit jump may move the reader.
+    // Late images, fonts and display-regex batches can resize hundreds of old
+    // floors; snapping on every ResizeObserver notification fights the user's
+    // swipe and makes long stories bounce between positions.
+    const updateVisibleFloor = useCallback(() => {
         const viewport = readingScrollRef.current;
         if (!viewport) return;
         const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         const nearBottom = distanceFromBottom <= 96;
-        // Only an actual scroll may change follow mode. Text/font reflow should
-        // not cancel auto-follow before a newly generated reply is positioned.
-        if (trackReaderScroll) followLatestRef.current = nearBottom;
         let floor = messages.length > 0 ? 1 : 0;
         if (nearBottom) {
             floor = messages.length;
         } else {
             const readingLine = viewport.getBoundingClientRect().top + Math.min(120, viewport.clientHeight * 0.24);
             const floorNodes = viewport.querySelectorAll<HTMLElement>('[data-story-floor]');
-            // Binary search keeps progress in sync on every scroll event without
-            // measuring every old floor in long-running stories.
+            // O(log n) geometry checks even when a story contains many floors.
             let low = 0;
             let high = floorNodes.length - 1;
             while (low <= high) {
@@ -559,11 +560,33 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         }
         setVisibleFloor(current => current === floor ? current : floor);
     }, [messages.length]);
-    // Update synchronously with the scroll position: animation-frame callbacks can
-    // lag behind a fast swipe or a programmatic jump to an earlier floor.
-    const handleReadingScroll = useCallback(() => {
-        updateVisibleFloor(true);
+    // Scroll events can fire many times per frame on a long reading page.
+    // Update the header at most once per paint instead of re-rendering every
+    // floor repeatedly during a fast swipe.
+    const scheduleVisibleFloor = useCallback(() => {
+        if (readingScrollFrameRef.current !== null) return;
+        readingScrollFrameRef.current = requestAnimationFrame(() => {
+            readingScrollFrameRef.current = null;
+            updateVisibleFloor();
+        });
     }, [updateVisibleFloor]);
+    useEffect(() => () => {
+        if (readingScrollFrameRef.current !== null) cancelAnimationFrame(readingScrollFrameRef.current);
+    }, []);
+    const handleReadingScroll = useCallback(() => {
+        const viewport = readingScrollRef.current;
+        if (!viewport) return;
+        // Auto-follow is for readers actually at the end, not merely browsing
+        // within the final floor. This must not run from layout observers.
+        followLatestRef.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 32;
+        scheduleVisibleFloor();
+    }, [scheduleVisibleFloor]);
+    const pauseFollowingForReading = useCallback(() => {
+        // A wheel/touch gesture may begin before its first scroll event.
+        // Release follow immediately, so concurrent font/media reflow or a
+        // completed background reply cannot steal that gesture.
+        followLatestRef.current = false;
+    }, []);
     const scrollReadingToLatest = useCallback((behavior: ScrollBehavior = 'auto') => {
         const viewport = readingScrollRef.current;
         if (!viewport) return;
@@ -571,20 +594,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         viewport.scrollTo({ top: viewport.scrollHeight, behavior });
         if (behavior === 'auto') updateVisibleFloor();
     }, [updateVisibleFloor]);
-    // Fonts, media and archived-floor expansion change the height of older
-    // content without emitting a scroll event. Keep the floor counter accurate.
     useEffect(() => {
         const content = readingContentRef.current;
         if (!content) return;
-        const syncLayout = () => {
-            // Follow late font/media reflow only when the reader chose the latest floor.
-            // Expanding archived history explicitly disables following, preserving position.
-            if (followLatestRef.current) {
-                const viewport = readingScrollRef.current;
-                if (viewport) viewport.scrollTop = viewport.scrollHeight;
-            }
-            updateVisibleFloor();
-        };
+        // ResizeObserver is measurement-only. Browser scroll anchoring keeps
+        // older content under the finger when earlier floors change height.
+        const syncLayout = () => scheduleVisibleFloor();
         const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
         observer?.observe(content);
         let mounted = true;
@@ -597,11 +612,19 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             mounted = false;
             observer?.disconnect();
         };
-    }, [updateVisibleFloor]);
-    useEffect(() => {
-        if (followLatestRef.current) scrollReadingToLatest();
-        else updateVisibleFloor();
-    }, [messages.length, sending, scrollReadingToLatest, updateVisibleFloor]);
+    }, [scheduleVisibleFloor]);
+    useLayoutEffect(() => {
+        const latestId = messages[messages.length - 1]?.id ?? null;
+        const previousId = lastReadMessageIdRef.current;
+        lastReadMessageIdRef.current = latestId;
+        // Re-fetching, editing, deleting or changing an archive does not add
+        // a new floor. Don't scroll just because component state changed.
+        if (latestId !== null && (previousId === null || latestId > previousId) && followLatestRef.current) {
+            scrollReadingToLatest();
+        } else {
+            updateVisibleFloor();
+        }
+    }, [messages, scrollReadingToLatest, updateVisibleFloor]);
     const archivedFloorIds = useMemo(() => messages.filter(message => mirrorArchived(message, entry)).map(message => message.id), [entry, messages]);
     const allArchivesExpanded = archivedFloorIds.length > 0 && archivedFloorIds.every(id => expandedArchivedIds.has(id));
     const toggleAllArchives = useCallback(() => {
@@ -1257,7 +1280,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             </div>
         </header>
 
-        <main ref={readingScrollRef} onScroll={handleReadingScroll} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'>
+        <main ref={readingScrollRef} onScroll={handleReadingScroll} onWheel={pauseFollowingForReading} onTouchStart={pauseFollowingForReading} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7'>
             <div ref={readingContentRef} className='max-w-2xl mx-auto'>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
