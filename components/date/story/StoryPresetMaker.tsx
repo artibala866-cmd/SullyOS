@@ -252,16 +252,16 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         <div className='mt-5 divide-y divide-slate-200 border-y border-slate-200'>
             {STORY_GENERATION_FIELDS.map(([key, label, technicalLabel, min, max, step, help]) => <label key={key} className='block py-4'>
                 <span className='flex items-center gap-4'><span className='min-w-0 flex-1'><strong className='block text-xs text-slate-700'>{label}</strong><span className='mt-0.5 block text-[8px] uppercase tracking-wide text-slate-400'>{technicalLabel}</span></span><input disabled={readOnly} type='number' min={min} max={max} step={step} value={draft.document.generation[key]} onChange={event => patchDocument({ generation: { ...draft.document.generation, [key]: Number(event.target.value) } })} className='w-24 shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-right text-sm font-semibold outline-none disabled:opacity-50' /></span>
-                <span className='mt-2 block text-[9px] leading-4 text-slate-400'>{help}</span>
+                
             </label>)}
         </div>
-        {draft.document.generation.temperature > 1 && <p className='mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-5 text-amber-800'>当前温度高于 1：OpenAI 类模型会保留这个值；使用 Claude 时会自动按 1.0 发送，避免第三方中转直接返回 400。</p>}
+        {draft.document.generation.temperature > 1 && <p className='mt-2 text-[10px] text-amber-700'>Claude 温度上限为 1.0。</p>}
     </>;
 
     const renderGeneration = () => <section>
         <button onClick={() => setActiveGroupKey(null)} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>续写参数</h2>
-        <p className='mt-2 text-[10px] leading-5 text-slate-500'>这些值会跟着预设保存。一般保持原值；接口报参数错误时再按提示调整。</p>
+        
         {renderGenerationFields()}
         <label className='block mt-4'><span className='text-[10px] text-slate-500'>正文起笔</span><textarea disabled={readOnly} value={draft.document.assistantPrefill || ''} onChange={event => patchDocument({ assistantPrefill: event.target.value })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 font-mono text-[11px] disabled:opacity-50' /></label>
     </section>;
@@ -270,8 +270,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         if (!activeGroup) return null;
         return <section>
             <button onClick={leaveGroup} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
-            <div className='flex items-start justify-between gap-4'><div><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>{activeGroup.label}</h2><p className='mt-2 text-[10px] leading-5 text-slate-500'>{activeGroup.description}</p></div>{activeGroup.protected && <span className='shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-[9px] font-bold text-amber-700'><LockSimple size={12} />受保护</span>}</div>
-            {activeGroup.protected && <div className='mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] leading-6 text-amber-800'>这里是宝宝狗连接角色、你的身份、世界书与历史的骨架。可以上下调整发送顺序，但不能修改内容、开关、消息位置或类型，也不能删除。</div>}
+            <div className='flex items-start justify-between gap-4'><div><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>{activeGroup.label}</h2></div>{activeGroup.protected && <span className='shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-[9px] font-bold text-amber-700'><LockSimple size={12} />受保护</span>}</div>
+            {activeGroup.protected && }
             {activeGroup.customSectionId && !readOnly && <div className='mt-5 space-y-3'>
                 <label className='block text-xs text-slate-500'>分组名称<input aria-label='分组名称' value={activeGroup.label} onChange={event => replaceDocument(renameStoryPresetGroup(draft.document, activeGroup.customSectionId!, event.target.value))} onBlur={event => replaceDocument(renameStoryPresetGroup(draft.document, activeGroup.customSectionId!, event.target.value.trim() || '自定义分组'))} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200 text-slate-800' /></label>
                 <button onClick={() => { replaceDocument(ungroupStoryPresetGroup(draft.document, activeGroup.customSectionId!)); setActiveGroupKey(null); setSelectedId(''); }} className='text-xs text-slate-500 underline'>取消分组，保留所有条目</button>
@@ -373,43 +373,39 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                     </div>
                                 </div>}
                             </section>;
-                        }) : <p className='py-6 text-xs leading-6 text-slate-500'>没有发现明确的原作者选择组；完整提示词保留在专业版里。</p>}
+                        }) : <p className='py-6 text-xs text-slate-400'>无可选分组</p>}
                     </div> : <div className='divide-y divide-slate-200'>{STORY_PRESET_SIMPLE_CHOICES.filter(choice =>
                         choice.ids.some(id => draft.document.prompts.some(prompt => prompt.id === id))).map(choice => {
                         const nativeActive = choice.ids.find(id => draft.document.prompts.find(prompt => prompt.id === id)?.enabled);
-                        return <section key={choice.label} className='py-6'><h2 className='text-sm font-bold'>{choice.label}</h2><p className='mt-1 text-[10px] text-slate-400'>{choice.hint}</p>
+                        return <section key={choice.label} className='py-6'><h2 className='text-sm font-bold'>{choice.label}</h2>
                             <div className='mt-3 flex flex-wrap gap-2'>{choice.options.map(option => {
                                 const selectedOption = option.id ? nativeActive === option.id : !nativeActive;
                                 return <button key={option.id || 'default'} disabled={readOnly} onClick={() => selectSimpleChoice(choice, option.id)}
                                     className={`px-3 py-2 rounded-full border text-[11px] font-semibold disabled:opacity-60 ${selectedOption ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600'}`}>{option.label}</button>;
                             })}</div></section>;
                     })}</div>}
-                    <section className='py-6 border-t border-slate-200'><h2 className='text-sm font-bold'>续写参数</h2><p className='mt-1 text-[10px] leading-5 text-slate-400'>跟着这份预设保存；看不懂时保持原值即可。</p>{renderGenerationFields()}</section>
+                    <section className='py-6 border-t border-slate-200'><h2 className='text-sm font-bold'>续写参数</h2>{renderGenerationFields()}</section>
                     {!readOnly && <section className='pt-5 border-t border-slate-200'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-2 w-full px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                 </> : activeGroupKey === '__generation__' ? renderGeneration() : activeGroup ? renderGroupDetails() : <>
-                    <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h1 className='mt-1 text-3xl font-serif font-semibold'>先选大区，再看细节</h1><p className='mt-3 text-[11px] leading-6 text-slate-500'>{tavernBrowse ? '酒馆分隔标题自动整理成浏览区；搜索后直接点条目编辑，不会修改原始发送顺序。' : '手机上一次只展开一个区。上下箭头移动整区；进入大区后才会显示内部条目。'}</p></section>
+                    <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h1 className='mt-1 text-3xl font-serif font-semibold'>先选大区，再看细节</h1></section>
                     {!readOnly && <div className='flex gap-2 py-4'><input aria-label='新分组名称' value={newGroupName} onChange={event => setNewGroupName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') addGroup(); }} placeholder='新分组名称' className='min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs' /><button disabled={!newGroupName.trim()} onClick={addGroup} className='shrink-0 flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40'><Plus size={14} />新增分组</button></div>}
                     {tavernBrowse && <div className='mb-3'>
                         <input aria-label='搜索酒馆预设提示词' value={promptQuery} onChange={event => setPromptQuery(event.target.value)}
                             placeholder='搜索分类或全部提示词…' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs outline-none focus:border-violet-300' />
-                        <p className='mt-2 text-[10px] text-slate-500'>已按作者明确分隔标题整理 {groups.length} 个浏览区 · 不修改原始条目</p>
+                        
                     </div>}
                     <div className='divide-y divide-slate-200'>{matchingGroups.map(group => {
                         const index = groups.findIndex(item => item.key === group.key);
                         const groupPrompts = draft.document.prompts.filter(prompt => group.promptIds.includes(prompt.id) && !isStoryPresetSectionMarker(prompt));
                         const enabled = groupPrompts.filter(prompt => prompt.enabled).length;
-                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[10px] text-slate-400 truncate'>{group.description}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
-                    })}<button onClick={() => setActiveGroupKey('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong><span className='block mt-1 text-[10px] text-slate-400'>Temperature、Top P、惩罚项与最大输出</span></button></div>
+                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
+                    })}<button onClick={() => setActiveGroupKey('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong></button></div>
                     {!readOnly && <section className='pt-6 border-t border-slate-200 grid gap-3 sm:grid-cols-2'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label><label><span className='text-[10px] font-bold text-slate-500'>说明</span><input value={draft.document.description || ''} onChange={event => patchDocument({ description: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                     {!readOnly && onDelete && <section className='mt-8 border-t border-slate-200 pt-4'>
                         {!confirmDelete ? <button type='button' onClick={() => { setConfirmDelete(true); setDeleteError(''); }}
                             className='w-full py-3 text-xs font-bold text-rose-500'>删除这个预设</button> : <div className='rounded-xl border border-rose-200 px-3 py-3'>
                             <p className='text-xs font-semibold text-rose-700'>确认删除「{draft.name}」？</p>
-                            <p className='mt-2 text-[10px] leading-5 text-slate-500'>
-                                {usedByStoryCount > 0
-                                    ? `仍有 ${usedByStoryCount} 条剧情在使用。请先进入对应剧情设置更换预设，才能删除。`
-                                    : '删除后无法在制作器中撤销，请确认已保留需要的预设文件。'}
-                            </p>
+                            <p className='mt-2 text-[10px] text-slate-500'>{usedByStoryCount > 0 ? `仍有 ${usedByStoryCount} 条剧情在使用` : '删除后无法撤销'}</p>
                             <div className='mt-3 flex gap-2'>
                                 <button type='button' disabled={deleting} onClick={() => setConfirmDelete(false)}
                                     className='min-h-10 flex-1 rounded-lg border border-slate-200 bg-white text-xs'>取消</button>
