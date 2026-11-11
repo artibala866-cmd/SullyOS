@@ -38,6 +38,12 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain("viewport.scrollTo({ top: viewport.scrollHeight, behavior });");
         expect(sessionSource).not.toContain('scrollIntoView');
         expect(sessionSource).toContain("aria-label='回到最新楼层'");
+        // A tall final floor is not necessarily the bottom: keep the explicit
+        // jump control visible until the scrollbar itself reaches the end.
+        expect(sessionSource).toContain('const [atReadingEnd, setAtReadingEnd] = useState(true)');
+        expect(sessionSource).toContain('setAtReadingEnd(current => current === nearBottom ? current : nearBottom)');
+        expect(sessionSource).toContain('messages.length > 0 && !atReadingEnd');
+        expect(sessionSource).not.toContain('visibleFloor < messages.length && <button');
         expect(sessionSource).toContain("followLatestRef.current = false;");
         expect(sessionSource).toContain("followLatestRef.current = true;");
     });
