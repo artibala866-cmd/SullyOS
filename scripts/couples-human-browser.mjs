@@ -305,13 +305,38 @@ try{
     const reopened=await current();
     if(reopened.entries.length!==3||reopened.points.me!==100||reopened.id===first.id)
       throw Error('Reopening lost history/points or failed generation rollover');
+    // Later that day: spend a genuinely earned reward on one voucher,
+    // use it once in chat, then verify that it was sent and consumed.
+    await goShelf('收藏');
+    const ticketShop=[...document.querySelectorAll('.couple-ios-spotlight,.couple-ios-link')]
+      .find(x=>x.textContent.includes('羁绊商店'));
+    if(!ticketShop)throw Error('The voucher shop disappeared on reunion');
+    ticketShop.click();
+    await wait(()=>!!document.querySelector('.bond-ticket-room'),'reenter shop');
+    hit('button[aria-label="兑换昵称卡"]','buy a nickname voucher');
+    await wait(async()=>(await current()).bags.me.nickname===1,'voucher credited to wallet');
+    await wait(()=>!!document.querySelector('.bond-ticket-wallet'),'open new voucher');
+    window.prompt=()=> '想给你起一个只有我们知道的昵称';
+    click('使用卡券 ↗');
+    await wait(async()=>(await current()).played.length===1,'play one owned voucher');
+    const consumed=await current();
+    if(consumed.bags.me.nickname!==0||consumed.points.me!==65)
+      throw Error('Voucher was not properly deducted from inventory and points');
+    const chatMessages=()=>new Promise((resolve,reject)=>{
+      const req=db.transaction('messages','readonly').objectStore('messages').getAll();
+      req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);
+    });
+    await wait(async()=>(await chatMessages()).some(m=>m.content?.includes('昵称卡')),'voucher delivered to native chat');
+    const dispatched=(await chatMessages()).filter(m=>m.content?.includes('昵称卡'));
+    if(dispatched.length!==1)throw Error('Voucher delivery duplicated in ordinary chat');
+
     if(window.__couplesHumanModelCalls||window.__couplesHumanErrors.length)
       throw Error('Unexpected model use or browser error '+JSON.stringify({
         calls:window.__couplesHumanModelCalls,errors:window.__couplesHumanErrors}));
     const metrics={partner:reopened.members[0],status:reopened.status,
       records:reopened.entries.map(x=>x.kind),wishComplete:reopened.entries.find(x=>x.kind==='wish').done,
       capsuleStillSealed:!reopened.entries.find(x=>x.kind==='capsule').opened,
-      points:reopened.points,claims:reopened.claims,
+      points:consumed.points,claims:consumed.claims, voucherDelivered:dispatched.length, played:consumed.played.length,
       modelCalls:window.__couplesHumanModelCalls,errors:window.__couplesHumanErrors};
     db.close();
     return metrics;
