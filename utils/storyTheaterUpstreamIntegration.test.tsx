@@ -361,7 +361,12 @@ it('默认剧情预设同时套用固定卡片和历史过滤，续写保留标�
         <StoryTheaterSession entry={entry} preset={preset} regexRules={[filter, template, otherPreset]} masks={[]}
             onBack={() => {}} onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
     </StoryTheaterThemeProvider></OSPreviewProvider>));
-    await vi.waitFor(() => expect(host!.querySelector('iframe[title="手机通知卡"]')?.getAttribute('srcdoc')).toContain('收到消息'));
+    await vi.waitFor(async () => {
+        // History is staged until the asynchronous display-regex paint is ready.
+        // Flush the real React update before asserting the mounted HTML card.
+        await act(async () => {});
+        expect(host!.querySelector('iframe[title="手机通知卡"]')?.getAttribute('srcdoc')).toContain('收到消息');
+    });
     expect(host!.textContent).toContain('结尾');
     expect(host!.textContent).not.toContain('隐藏内容');
     await act(async () => click('继续当前剧情'));
