@@ -9,6 +9,18 @@ on:
       - 'utils/storyTheaterHtml.test.ts'
       - 'components/date/story/StoryTheaterSession.tsx'
       - 'components/date/story/StoryPresetMaker.tsx'
+      - 'components/date/story/StoryRegexPanel.tsx'
+      - 'components/date/story/StoryTheater.tsx'
+      - 'utils/alchemy*.ts'
+      - 'hooks/useAlchemyRegex.ts'
+      - 'components/alchemy/*.tsx'
+      - 'components/chat/MessageItem.tsx'
+      - 'components/chat/ChatInputArea.tsx'
+      - 'apps/Chat.tsx'
+      - 'apps/GroupChat.tsx'
+      - 'apps/DateApp.tsx'
+      - 'components/date/DateSession.tsx'
+      - 'hooks/useChatAI.ts'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,12 +39,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Test imported regex instructions, safe HTML templates and source separation
-        run: pnpm exec vitest run utils/storyRegex.test.ts utils/storyRegexImport.test.ts utils/storyTheaterHtml.test.ts
+        run: pnpm exec vitest run utils/storyRegex.test.ts utils/storyRegexImport.test.ts utils/storyTheaterHtml.test.ts utils/alchemyRegex.test.ts
       - name: Review TypeScript diagnostics in regex implementation and story viewer
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/story-regex-tsc.log 2>&1 || true
-          grep -E '^(utils/storyRegex[^/]*\.ts|utils/storyTheaterHtml(\.test)?\.ts|components/date/story/StoryTheaterSession\.tsx|components/date/story/StoryPresetMaker\.tsx)\(' /tmp/story-regex-tsc.log > /tmp/story-regex-target-errors.log || true
+          grep -E '^(utils/(storyRegex[^/]*|storyTheaterHtml(\.test)?|alchemy[^/]*)\.ts|hooks/(useAlchemyRegex|useChatAI)\.ts|components/(alchemy/[^/]+|date/DateSession|date/story/(StoryTheaterSession|StoryTheater|StoryRegexPanel|StoryPresetMaker)|chat/(MessageItem|ChatInputArea))\.tsx|apps/(Chat|GroupChat|DateApp)\.tsx)\(' /tmp/story-regex-tsc.log > /tmp/story-regex-target-errors.log || true
           if [ -s /tmp/story-regex-target-errors.log ]; then
             cat /tmp/story-regex-target-errors.log
             exit 1
