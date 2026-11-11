@@ -20,6 +20,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // evolveFlowNarrative 保留为低频深刷新备用，日常意识流由副 API 的情绪评估同轮产出（innerState 字段）
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isEmotionBuffEnabled } from '../utils/emotionFeature';
+import { buildInlineEmotionInstruction, extractInlineEmotion, stripInlineEmotion } from '../utils/inlineEmotionBuff';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
 // UI 钩子工具 propose_cart_items。MCP 实际调用都在 McdMiniApp 组件内做, useChatAI
@@ -58,9 +59,6 @@ import { getPendingTasks, hasActiveAiTask, isAmsg2EnabledForChar } from '../util
 import { buildAmsg2NoticesText, buildAmsg2TaskContextText, collectAmsg2TaskContext, insertAmsg2TaskContextBlock } from '../utils/amsg2TaskContext';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { announceInstantChatRoute, getInstantChatPending, resolveInstantChatReadiness, sendInstantChatTurn, stageInstantChatExpiredNotices } from '../utils/amsgInstantChat';
-// worker 模块的常量叶子（零运行时依赖，前端引它不带进 worker 环境）：
-// 云端 fire 的总时长上限，安全网超时从它推导，worker 调预算时前端自动跟上。
-import { INSTANT_TOTAL_TIMEOUT_MS } from '../worker/amsg/src/instantChat';
 import { appendInstantTraceEntry } from '../utils/instantTraceLog';
 import { AMSG2_TOOL_NAMES, buildAmsg2Tools, createAmsg2ToolSession, executeAmsg2ToolWithOutcome, isAmsg2GlobalReady, type Amsg2ToolOutcome } from '../utils/amsg2ToolBridge';
 import { AMSG2_EMPTY_REPLY_PROMPT, AMSG2_WRAP_UP_PROMPT, createAmsg2StallTracker, extractToolRoundLeadIn, mergeToolRoundLeadIns } from '../utils/amsg2ToolLoop';
@@ -79,27 +77,7 @@ import {
     loadCharacterContextRange,
 } from '../utils/chatContextRange';
 
-// ─── 云端情绪评估的安全网定时器（模块级，按角色）───
-// 为什么不放 hook 里：结论（emotionDone）是全局事件，用户切了角色、离开聊天页之后
-// 照样会到，而 hook 里的监听是跟着当前挂载角色走的——单个 ref 存定时器的话，切走再回来
-// 结论到了也没人清，安全网到点就弹「worker 可能是旧版，请重新部署」的假告警；给 B 布防
-// 还会静默吞掉 A 的真告警。按 charId 记、模块级监听清，两个都治。
-const cloudEmotionTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const clearCloudEmotionTimer = (charId: unknown): void => {
-    if (typeof charId !== 'string') return;
-    const timer = cloudEmotionTimers.get(charId);
-    if (timer != null) {
-        clearTimeout(timer);
-        cloudEmotionTimers.delete(charId);
-    }
-};
-if (typeof window !== 'undefined') {
-    // emotionDone 是「这一轮评估有结论了」（成败都发）：flush 落结果、收尾判失败两条路
-    // 都会广播。不论哪个角色、Chat 挂没挂载，结论一到就撤掉对应的安全网。
-    window.addEventListener(CHAT_GEN_EVENTS.emotionDone, (e) => {
-        clearCloudEmotionTimer((e as CustomEvent).detail?.charId);
-    });
-}
+// ─── 历史专用评估函数保留；私聊 Buff 与正文同轮生成 ───
 
 // ─── 情绪评估（副API，fire & forget）───
 
@@ -555,7 +533,7 @@ export const useChatAI = ({
     const [evolvedNarrative, setEvolvedNarrative] = useState<string>('');
 
     // 云端情绪评估安全网到点时判断「用户现在看的还是不是布防那个角色」用（防止过期
-    // 定时器把当前角色的徽章错熄）。定时器本体在模块级 cloudEmotionTimers（按角色记）。
+    // 当前角色切换不再需要独立情绪请求的定时器。
     const currentCharIdRef = useRef<string | null>(null);
     currentCharIdRef.current = char?.id ?? null;
 
@@ -1038,117 +1016,10 @@ export const useChatAI = ({
             // Save for dev debug viewer
             setLastSystemPrompt(systemPrompt);
 
-            // 3. 情绪评估 (副 API). 直接复用已 build 好的 systemPrompt 和 cleanedApiMessages，确保情绪
-            //    评估和主 API 看到的上下文完全一致；同时产出 innerState（意识流），注入下一轮 system prompt。
-            //    未单独配置情绪 API 时回退到主 apiConfig。
-            //    ── 路径分叉 ──
-            //    - 本地 fetch 模式: 客户端 fire-and-forget 跑 eval (前端活着).
-            //    - 即时对话: 不在客户端跑, 改把 eval prompt + 副 API 凭据一起交给 worker, worker 跑完
-            //      把结果推回来, 客户端 flush 时落 buff —— 这样前端被杀也算数, 且不会跟客户端 eval
-            //      双跑双扣费. 见下方即时对话分支 + activeMsgRuntime.
-            //    走哪条跟着 instantChatRoute（构建 payload 前冻结的同一回合终值）走，这里绝不自己
-            //    再判一次，否则可能「按上云把评估打包走了，实际却走本地」，情绪底色悄悄停更。
+            // 私聊正文与 Buff 同轮生成，关闭则不注入、不评估、不另发 API。
+            // 本地请求与即时云端请求共用 fullMessages。
             const emotionEvalEnabled = !!(!promptBuildSkipped && !isEmotionEvalSkipped() && isEmotionBuffEnabled(char));
-            // 评估跟随全局流式开关（专用情绪 API 自带 stream 字段时以它为准）
-            const evalStream: boolean = !!(apiConfig.stream ?? false);
-            const emotionApi = emotionEvalEnabled
-                ? ((char.emotionConfig!.api?.baseUrl)
-                    ? { ...char.emotionConfig!.api!, stream: (char.emotionConfig!.api as any).stream ?? evalStream }
-                    : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model, stream: evalStream })
-                : null;
-            // 本地路径的情绪评估：主 fetch 发出后立即发射（见下方调用点）。
-            // 历史备注：曾为串行中转做过 1.5s 错峰（评估抢跑会把主回复压后一个评估时长），
-            // 用户侧已排查确认当前渠道无该并发问题，2026-07 应用户要求取消延迟。
-            // 上云模式不受影响：worker 那边自己安排评估的时机。
-            const fireLocalEmotionEval = (emotionEvalEnabled && !instantChatRoute && emotionApi) ? () => {
-                setEmotionStatus('evaluating');
-                evaluateEmotionBackground(charForGen, userProfile, systemPrompt, cleanedApiMessages, emotionApi, replyRun.signal,
-                    replyRun.secretSourceIds.then(ids => ids.length ? {source: 'chat' as const, messageIds: ids} : undefined))
-                    .then((innerState) => {
-                        if (innerState) setEvolvedNarrative(innerState);
-                    })
-                    .finally(() => {
-                        setEmotionStatus('');
-                    });
-            } : null;
-            // 交给云端跑的那份评估配置（提示词模板 + 副 API 凭据），即时对话把它放进任务
-            // metadata.amsgEmotionEval（那份走加密信封）。
-            // Cloud callbacks cannot prove ownership of every local reply bubble yet.
-            // Do not generate unowned secrets; ordinary cloud emotion evaluation continues.
-            const cloudEmotionEval = (emotionEvalEnabled && instantChatRoute && emotionApi)
-                ? {
-                    // includeContext=false: 不嵌 system prompt + 对话历史 (worker 复用本次请求的 messages 作前文),
-                    // 把 emotionEval 块压到最小, 不把上下文在请求体里重复一份.
-                    prompt: buildEmotionEvalPrompt(
-                        charForGen, userProfile, systemPrompt, cleanedApiMessages, false
-                    ),
-                    homeSecretRequestId: undefined,
-                    api: { baseUrl: emotionApi.baseUrl, apiKey: emotionApi.apiKey, model: emotionApi.model },
-                }
-                : undefined;
-
-            // 上云的情绪评估在 worker 跑 (副 API), 客户端看不到 LLM 调用时机, 但仍要给用户一个
-            // "情绪更新中" 的可见信号 (header 徽章, 跟本地模式一致), 否则 "发送中" 消失后一片空白像死了.
-            //
-            // 正常的熄灭信号只有一个: worker 把结论推回来之后派发的 CHAT_GEN_EVENTS.emotionDone
-            // (Chat 页的徽章和全局横幅各自监听, 都不依赖本 hook 存活 —— 用户切走 Chat 也能正常熄灭).
-            // 剩下两种情况自己收场: 这一轮压根没发出去 —— 下面的失败分支当场调
-            // extinguishCloudEmotionBadge; 结论永远没回来 (worker 被杀 / 推送丢了 / 用户部署的是旧版)
-            // —— 徽章的 setTimeout 和横幅的 TTL 同时到点, 两边用的是同一个数.
-            //
-            // 这个数按 worker 最长能跑多久给：worker 那条 fire 的总时长上限是 INSTANT_TOTAL_TIMEOUT_MS
-            // （工具循环也算在内），评估结果又是跟着主回复的最后一条推送回来的——直接从 worker 模块
-            // import 那个数 + 一分钟推送在途余量，worker 侧调预算时这里自动跟上
-            // （ChatBroadcast 的横幅 TTL 同样从它推导，见那边注释）。
-            const cloudEvalTimeoutMs = INSTANT_TOTAL_TIMEOUT_MS + 60_000;
-            /**
-             * 熄灭「情绪更新中」的三件套：撤掉安全网、灭页内徽章、灭全局横幅。
-             *
-             * 这一轮没发出去时失败分支要调它 —— 云端根本不会跑评估，那个正常的熄灭信号
-             * 永远不会来。少调一处的表现是：徽章亮着直到安全网到点，然后弹一句
-             * 「worker 可能是旧版」的提示，而真实原因是这条消息压根没发出去。
-             */
-            const extinguishCloudEmotionBadge = () => {
-                clearCloudEmotionTimer(char.id);
-                setEmotionStatus('');
-                announceChatGen(CHAT_GEN_EVENTS.emotionEnd, { charId: char.id, charName: char.name });
-            };
-            if (cloudEmotionEval) {
-                setEmotionStatus('evaluating');
-                // 横幅这一条的存活上限跟徽章同一个数：不带的话横幅按自己那档默认值（本地评估的
-                // 量级）扫，即时对话会出现「横幅先没了、徽章还亮着」，看着像出了两次故障。
-                announceChatGen(CHAT_GEN_EVENTS.emotionStart, {
-                    charId: char.id, charName: char.name, ttlMs: cloudEvalTimeoutMs,
-                });
-                // 布防按 charId 记进模块级 map。到点先看这一轮死没死透：即时对话的待收
-                // 记录还在 = 云端还没给结论（worker 的 2/4/6 分钟重试梯子完全可能把合法
-                // 回复拖过这个点）——这不是「无回音」，安静续期一小段再看，别抢在状态机
-                // 前面宣判、把一个好端端的 worker 说成旧版让用户白重部署。待收记录没了
-                // 而结论（emotionDone）一直没来，才是真的「跑完了但没人回音」。
-                const charIdAtArm = char.id;
-                const charNameAtArm = char.name;
-                const armCloudEmotionSafetyNet = (delayMs: number) => {
-                    clearCloudEmotionTimer(charIdAtArm);
-                    cloudEmotionTimers.set(charIdAtArm, setTimeout(() => {
-                        cloudEmotionTimers.delete(charIdAtArm);
-                        if (getInstantChatPending(charIdAtArm)) {
-                            armCloudEmotionSafetyNet(60_000);
-                            return;
-                        }
-                        // 徽章只熄「布防那个角色」的：用户已切到别的角色时，这个 setter
-                        // 管的是人家的徽章，不能碰。
-                        if (currentCharIdRef.current === charIdAtArm) setEmotionStatus('');
-                        // 超时无回音最常见的原因是用户部署的 worker 版本过旧（不支持情绪评估、
-                        // 压根不会推结果回来），其次是 worker 被杀/推送丢失。过去这里
-                        // 静默熄灯, 用户只看到「情绪永远不更新」—— 给一条可操作的提示。
-                        announceChatGen(CHAT_GEN_EVENTS.emotionFailed, {
-                            charId: charIdAtArm, charName: charNameAtArm,
-                            reason: '云端情绪评估超时无回音——worker 可能是旧版（不支持情绪评估），请到 设置→主动消息 2.0 重新部署 worker 后重试',
-                        });
-                    }, delayMs));
-                };
-                armCloudEmotionSafetyNet(cloudEvalTimeoutMs);
-            }
+            if (emotionEvalEnabled) fullMessages.push({ role: 'system', content: buildInlineEmotionInstruction(charForGen) });
 
             // 发送前汇总计时
             const perfPreApi = Math.round(performance.now() - perfSendT0);
@@ -1362,10 +1233,6 @@ export const useChatAI = ({
                         }
                         : {}),
                     userProfile, groups, realtimeConfig,
-                    // 情绪评估也交给云端：worker 到点和主回复并行跑，结果随最后一条推送回来
-                    // （见 worker/amsg/src/emotionEval.ts）。放在这里而不是本地 fire 一枪，
-                    // 是因为用户发完就能关页面——留在本地的话，页面一关情绪底色就停更了。
-                    ...(cloudEmotionEval ? { emotionEval: cloudEmotionEval } : {}),
                 }));
                 if (instantChatResult.superseded && opts?.automaticUserReply) {
                     // A newer turn arrived during the cloud POST. This is not a
@@ -1392,9 +1259,6 @@ export const useChatAI = ({
                     setMessages(await replyStep(async () => DB.getRecentMessagesByCharId(char.id, 200)));
                     if (showError) showError('即时对话发送失败', reason);
                     else addToast(reason, 'error');
-                    // 没发出去 → 云端不会跑评估，那个正常的熄灭信号永不到达。当场自己熄，
-                    // 否则「情绪更新中」要一直亮到 11 分钟后安全网到点。
-                    if (cloudEmotionEval) extinguishCloudEmotionBadge();
                 }
                 return;
             }
@@ -1429,7 +1293,7 @@ export const useChatAI = ({
                 onDelta: (_delta: string, fullText: string) => {
                     if (replyRun.signal.aborted || (opts?.automaticUserReply && chatComposerWaitMs(char.id) > 0)) return;
                     if (streamPreviewEligible) {
-                        const bubbles = computeStreamPreviewBubbles(fullText);
+                        const bubbles = computeStreamPreviewBubbles(stripInlineEmotion(fullText));
                         latestStreamPreviewBubbles = bubbles;
                         if (bubbles.length > 0) streamPreviewShown = true;
                         setStreamingBubbles(prev =>
@@ -1523,26 +1387,7 @@ export const useChatAI = ({
             console.log(`⏱ [API call] ${Math.round(performance.now() - apiT0)}ms`);
             updateTokenUsage(data, historyMsgCount, 'initial');
 
-            // Only successful, non-filtered main replies may start the optional
-            // background emotion evaluation. It remains asynchronous; no new
-            // delay is imposed on the chat response itself.
-            const firstChoice = data?.choices?.[0];
-            const finishReason = String(firstChoice?.finish_reason || '').toLowerCase();
-            const firstMessage = firstChoice?.message;
-            const firstContent = firstMessage?.content;
-            // Reasoning-only output is not a delivered reply: do not spend an
-            // additional emotion request when there is still no visible text.
-            const hasVisibleText = typeof firstContent === 'string'
-                ? !!firstContent.trim()
-                : Array.isArray(firstContent) && firstContent.some(part =>
-                    typeof part === 'string' ? !!part.trim() : !!part?.text?.trim(),
-                );
-            const hasDeliverableReply = hasVisibleText
-                || (Array.isArray(firstMessage?.tool_calls) && firstMessage.tool_calls.length > 0);
-            if (!replyRun.signal.aborted && hasDeliverableReply &&
-                !['content_filter', 'length', 'max_tokens'].includes(finishReason)) {
-                fireLocalEmotionEval?.();
-            }
+            // Buff 跟随本次回复，不再启动副 API 请求。
 
             // MCP 多阶段展示：工具前的角色文字先落库，最终工具结果回复仍走统一后处理。
             const displayedMcpLeadIns = new Set<string>();
@@ -2134,8 +1979,10 @@ export const useChatAI = ({
             const rawAiContent = amsg2LeadIns.length
                 ? mergeToolRoundLeadIns(amsg2LeadIns, data.choices?.[0]?.message?.content || '')
                 : data.choices?.[0]?.message?.content || '';
-            const puffAvatarMatch = /\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*(-?\d+)|"src"\s*:\s*"user_avatar")\s*\}/i.exec(rawAiContent);
-            const withoutPuffAvatar = rawAiContent.replace(/\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*-?\d+|"src"\s*:\s*"user_avatar")\s*\}/gi, '').trim();
+            const inlineEmotion = emotionEvalEnabled ? extractInlineEmotion(rawAiContent) : null;
+            const displayAiContent = inlineEmotion ? inlineEmotion.content : stripInlineEmotion(rawAiContent);
+            const puffAvatarMatch = /\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*(-?\d+)|"src"\s*:\s*"user_avatar")\s*\}/i.exec(displayAiContent);
+            const withoutPuffAvatar = displayAiContent.replace(/\{\s*"t"\s*:\s*"set_avatar"\s*,\s*(?:"n"\s*:\s*-?\d+|"src"\s*:\s*"user_avatar")\s*\}/gi, '').trim();
             const avatarChoiceMatch = /<char_avatar_choice\s+id=["']([^"']+)["']\s*\/>/i.exec(withoutPuffAvatar);
             const blockDecision = extractCharacterBlockDirective(withoutPuffAvatar);
             const avatarCleanContent = blockDecision.text.replace(/<char_avatar_choice\s+id=["'][^"']+["']\s*\/>/gi, '').trim();
@@ -2161,6 +2008,11 @@ export const useChatAI = ({
             }
             // 角色拉黑用户后禁止迟到回复；用户拉黑角色则仍须展示对方的「发送失败」回复。
             if (characterBlocksUser(charRef.current?.chatBlock)) return;
+            // 回复过期/拉黑检查通过后落情绪；DB 端还会核验实时开关，拒绝关闭后的迟到结果。
+            if (emotionEvalEnabled && inlineEmotion?.raw && avatarCleanContent && !replyRun.signal.aborted) {
+                const innerState = await replyStep(() => applyEmotionEvalRaw(inlineEmotion.raw!, charForGen));
+                if (innerState) setEvolvedNarrative(innerState);
+            }
             if (avatarCleanContent) await replyStep(async () => applyAssistantPostProcessing(avatarCleanContent, {
                 replyRun,
                 photoPermission: photo.permission,
