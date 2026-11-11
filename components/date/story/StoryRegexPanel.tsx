@@ -178,7 +178,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                 const selected = imported.rules.map(rule =>
                     rule.kind === 'filter' && alchemyRuleTargets(rule).includes('offline')
                         ? { ...rule, offlineScenes: [...importScenes] } : rule);
-                const result = mergeStoryRegexImport(current, selected, importScope);
+                // When only meetings are selected, do not persist a stale
+                // story preset that was previously picked in this dialog.
+                const result = mergeStoryRegexImport(current, selected, importScenes.includes('story') ? importScope : '');
                 merge = result;
                 return result.rules;
             });
