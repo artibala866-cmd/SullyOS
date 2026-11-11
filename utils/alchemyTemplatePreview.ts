@@ -33,9 +33,11 @@ const exampleValue = (key: string): string => {
 
 function put(target: Record<string, unknown>, path: string, value: unknown): void {
     const keys = path.split('.').filter(Boolean).slice(0, 8);
+    if (keys.some(key => ['__proto__', 'constructor', 'prototype'].includes(key))) return;
     let current = target;
     for (const key of keys.slice(0, -1)) {
-        if (!current[key] || typeof current[key] !== 'object') current[key] = {};
+        if (!Object.prototype.hasOwnProperty.call(current, key) || typeof current[key] !== 'object')
+            current[key] = Object.create(null);
         current = current[key] as Record<string, unknown>;
     }
     if (keys.length) current[keys[keys.length - 1]] = value;
@@ -51,14 +53,14 @@ export function renderAlchemyTemplatePreview(rule: Pick<StoryRegexRule, 'replace
     for (const match of template.matchAll(fields)) {
         const index = Number(match[1]);
         if (index < 1 || index > 16) continue;
-        if (!examples.has(index)) examples.set(index, {});
+        if (!examples.has(index)) examples.set(index, Object.create(null));
         put(examples.get(index)!, match[2], exampleValue(match[2].split('.').at(-1) || ''));
     }
     const loop = /\{\{#each:(\d+)\.([\w\u3400-\u9fff.]+)\}\}([\s\S]*?)\{\{\/each\}\}/g;
     for (const match of template.matchAll(loop)) {
         const index = Number(match[1]);
         if (index < 1 || index > 16) continue;
-        if (!examples.has(index)) examples.set(index, {});
+        if (!examples.has(index)) examples.set(index, Object.create(null));
         const row: Record<string, string> = {};
         for (const value of match[3].matchAll(/\{\{([\w\u3400-\u9fff.]+)\}\}/g))
             row[value[1]] = exampleValue(value[1]);
