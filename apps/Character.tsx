@@ -1644,7 +1644,7 @@ ${isInitialGeneration ? `
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
                                            <p className="text-xs font-bold text-neutral-700">聊天 · 时间感知强化</p>
-                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认开。开启后角色会知道现实时间和你们多久没聊；关掉后不再提供现实时间与消息时间戳，更适合架空剧情。</p>
+                                           
                                        </div>
                                        <button
                                            onClick={() => handleChange('timeAwarenessEnabled', formData.timeAwarenessEnabled === false)}
@@ -1660,7 +1660,7 @@ ${isInitialGeneration ? `
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
                                            <p className="text-xs font-bold text-neutral-700">自定义时区</p>
-                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认关（跟随本机）。开启后角色活在自己的时区里，按所选时区过日子，也知道和你有时差——适合异国恋、角色身处异国。</p>
+                                           
                                        </div>
                                        <button
                                            onClick={() => handleChange('customTimezoneEnabled', !formData.customTimezoneEnabled)}
@@ -1688,7 +1688,7 @@ ${isInitialGeneration ? `
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
                                            <p className="text-xs font-bold text-neutral-700">线下时间感知（约会）</p>
-                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认开。见面时剧情会跟着现实时间走。关掉后剧情脱离现实时间线，更适合纯架空。</p>
+                                           
                                        </div>
                                        <button
                                            onClick={() => handleChange('dateTimeAwarenessEnabled', formData.dateTimeAwarenessEnabled === false ? undefined : false)}
@@ -1707,7 +1707,7 @@ ${isInitialGeneration ? `
                            <div className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0, 0, 0,0.03)] border border-black/[0.06] space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block">生活记录注入</label>
-                                   <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
+                                   
                                </div>
 
                                {/* 总开关 */}
@@ -1715,7 +1715,7 @@ ${isInitialGeneration ? `
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
                                            <p className="text-xs font-bold text-neutral-700">总开关</p>
-                                           <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">默认关。关闭时不注入任何生活记录内容，连代记指令的用法都不会教给角色。</p>
+                                           
                                        </div>
                                        <button
                                            onClick={() => { handleChange('lifeRecordEnabled', !formData.lifeRecordEnabled); trackEvent('开启角色生活记录注入', { state: formData.lifeRecordEnabled ? 'off' : 'on' }); }}
@@ -1776,7 +1776,7 @@ ${isInitialGeneration ? `
                                        </button>
                                    </div>
                                </div>
-                               <p className="text-[11px] text-neutral-500">已有 voice_id 可直接填，不依赖查询。聊天角色配置后，后续接 TTS 可直接读取。</p>
+                               
 
                                <div className="rounded-2xl border border-neutral-200/60 bg-neutral-50/40 p-2.5 space-y-2">
                                    <div className="flex items-center justify-between gap-2">
@@ -1854,7 +1854,7 @@ ${isInitialGeneration ? `
                                        className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="粘贴 reference_id 或整条 fish.audio 链接"
                                    />
-                                   <p className="text-[10px] text-neutral-400">从 fish.audio 选好音色后，把那一页的链接（含 ?modelId=…）或 32 位 id 直接贴进来都行，会自动识别。设置里语音选「鱼声 Fish」后该角色就用它合成；与上面的 MiniMax voice_id 各存各的。</p>
+                                   
                                </div>
 
                                {/* ElevenLabs 音色：角色独立保存，设置页只负责 Key / 模型。 */}
@@ -1879,7 +1879,7 @@ ${isInitialGeneration ? `
                                        className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-neutral-200"
                                        placeholder="粘贴 Voice ID 或 ElevenLabs 音色页面链接"
                                    />
-                                   <p className="text-[10px] text-neutral-400">从 ElevenLabs Voices / Voice Library 复制 Voice ID；也可直接粘贴含 voiceId 的页面链接。设置里语音选 ElevenLabs 后使用，与 MiniMax、鱼声音色分别保存。</p>
+                                   
                                </div>
 
                                {/* 语速：三家 TTS 共用 voiceProfile.speed */}
@@ -1900,7 +1900,7 @@ ${isInitialGeneration ? `
                                        })}
                                        className="w-full accent-primary"
                                    />
-                                   <p className="text-[10px] text-neutral-400">越小越慢、越像娓娓道来。1.0 正常；觉得“赶”就拉到 0.85–0.95。MiniMax、鱼声与 ElevenLabs 共用该角色的语速。</p>
+                                   
                                </div>
 
                                {(voiceOptions.system.length + voiceOptions.voice_cloning.length + voiceOptions.voice_generation.length) > 0 && (
@@ -1990,7 +1990,7 @@ ${isInitialGeneration ? `
                                    </svg>
                                    分享 / 导出角色卡
                                </button>
-                               <p className="text-[10px] text-neutral-400 text-center mt-2">导出内容不包含记忆库和聊天记录</p>
+                               
                            </div>
                        </div>
                    )}
@@ -2291,7 +2291,7 @@ ${isInitialGeneration ? `
                         ))}
                     </div>
                 )}
-                <p className="text-[10px] text-neutral-400 leading-relaxed bg-neutral-50 p-2.5 rounded-xl">删除分组不会删除角色，组内角色会回到「未分组」。给角色指派分组：进入角色的「设定」页。</p>
+                
             </div>
         </Modal>
 
@@ -2343,13 +2343,11 @@ ${isInitialGeneration ? `
                         </label>;
                     })}
                 </div>
-                {enabledImportSections.greetings && privateChatOpeningCount > 0 && <p className="mt-2 text-[11px] text-neutral-700">
-                    已识别 {privateChatOpeningCount} 段私聊开场白。导入后可在角色的私聊「+」菜单中选用。
-                </p>}
-                <p className="mt-2 text-[11px] text-neutral-500"><span className="min-[370px]:hidden">未选模块不变，保留聊天与记忆。</span><span className="hidden min-[370px]:inline">仅更新勾选的模块；相同内容自动跳过，保留原角色的聊天和记忆。</span></p>
+                
+                
             </div>}
             {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">
-                <p className="text-xs text-neutral-600">共 {pendingCard.cards.length} 个角色，勾选需要导入的角色及其专属世界书：</p>
+                <p className="text-xs text-neutral-500">{pendingCard.cards.length} 个角色</p>
                 <div className="max-h-[48vh] overflow-y-auto space-y-2">
                     {pendingCard.cards.map((card, index) => <label key={index} className="flex items-start gap-3 p-3 border border-neutral-200 rounded-xl">
                         <input type="checkbox" checked={selectedImportIndices.includes(index)} disabled={savingCard}
@@ -2363,7 +2361,7 @@ ${isInitialGeneration ? `
                         <span className="flex flex-col gap-1 min-w-0">
                             <span className="text-sm font-semibold break-words">{card.character.name}</span>
                             {characters.some(char => char.name.trim() === card.character.name.trim()) &&
-                                <span className="text-xs text-neutral-500">发现同名角色 · 将核对身份并增量更新，不会直接复制</span>}
+                                <span className="text-xs text-neutral-500">同名角色 · 增量导入</span>}
                             <span className="text-xs text-neutral-500">人设：{card.character.systemPrompt || card.character.description ? '已识别' : '仅姓名'}</span>
                             <span className="text-xs text-neutral-600">世界书 {card.worldbooks.length} 条 · 启用 {card.worldbooks.filter(book => !book.disable).length} · 停用 {card.worldbooks.filter(book => book.disable).length}</span>
                             <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '分享包未携带（原角色可能已有）' : (card.character.linkGreetings?.length || 0) + ' 条'}</span>
@@ -2378,7 +2376,7 @@ ${isInitialGeneration ? `
                         </span>
                     </label>)}
                 </div>
-                {pendingCard.cards.some(card => card.linkOpeningPayloadOmitted) && <p className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3 leading-relaxed">这份 Link 分享图片未携带部分角色的独立开场白数据，不能据此判断 Link 原角色没有开场白。此次导入不会删除糯米机中已有的开场白，也不会从人设中的“开场白锚点”猜测、捏造正文。</p>}
+                {pendingCard.cards.some(card => card.linkOpeningPayloadOmitted) && <p className="text-[11px] text-amber-700">分享包缺少部分开场白；本地内容会保留。</p>}
                 {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">
                     {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
                 </div>}
@@ -2393,13 +2391,13 @@ ${isInitialGeneration ? `
                     <div className="min-w-0">
                         <p className="font-semibold text-base text-neutral-900 break-words">{pendingCard.character.name}</p>
                         {characters.some(char => char.name.trim() === pendingCard.character.name.trim()) &&
-                            <p className="text-xs text-neutral-500 mt-1">发现同名角色 · 将核对身份，匹配后增量更新并保留聊天记忆</p>}
+                            <p className="text-xs text-neutral-500 mt-1">同名角色 · 增量导入</p>}
                         <p className="text-xs text-neutral-500 mt-1">人设：{pendingCard.character.description || pendingCard.character.systemPrompt || pendingCard.character.worldview ? '已识别' : '仅有角色姓名'}</p>
                     </div>
                 </div>
                 <p className="text-sm text-neutral-700">世界书：{pendingCard.worldbooks.length} 条（启用 {pendingCard.worldbooks.filter(book => !book.disable).length}，停用 {pendingCard.worldbooks.filter(book => book.disable).length}）</p>
                 {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl px-3 py-2 leading-relaxed">
-                    <p className="font-semibold mb-1">部分外部设定无法等价转换：</p>
+                    <p className="font-semibold mb-1">部分内容未转换</p>
                     {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
                 </div>}
             </div>}
