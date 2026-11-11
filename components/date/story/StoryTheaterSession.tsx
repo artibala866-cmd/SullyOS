@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { deleteStoryTheaterFloor, loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION, updateStoryTheaterFloor } from '../../../utils/storyTheaterReply';
 import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImport';
 import { storyRegexApplies, storyRegexInstruction, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
-import { alchemyRuleAppliesTo } from '../../../utils/alchemyRegex';
+import { alchemyRulesFor } from '../../../utils/alchemyRegex';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
@@ -397,8 +397,9 @@ const storyReadingSource = (message: Message): string => {
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPTY_REGEX_RULES, masks, onBack, onEdit, onOpenVectorMemory, onOpenArchives, onEntryChange, onArchiveCommitted }) => {
     const { characters, worldbooks, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
-    const activeRegexRules = useMemo(() => regexRules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, 'offline') && (!rule.presetId || rule.presetId === preset.id))
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    // Only story-enabled offline rules enter saved-floor display, prompt
+    // history and generation. A meeting-only rule must never leak here.
+    const activeRegexRules = useMemo(() => alchemyRulesFor(regexRules, 'offline', preset.id),
         [regexRules, preset.id]);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
     const memoryActors = useMemo(() => {
