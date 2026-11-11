@@ -107,7 +107,7 @@ const CallPreferencesSheet: React.FC<CallPreferencesSheetProps> = ({
           {incrementalVoice !== undefined && <label className="flex items-center gap-3 py-3">
             <span className="min-w-0 flex-1">
               <span className={`block text-[13px] font-medium ${lightTheme ? 'text-[#262239]/90' : 'text-white/85'}`}>边想边说</span>
-              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>写好一句就开始说。需要文字接口支持流式；高质量视频演出会先完成动作排练，再开始说话。</span>
+              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>需要文字接口支持流式。</span>
             </span>
             <input type="checkbox" checked={incrementalVoice} onChange={event => onIncrementalChange?.(event.target.checked)} className="h-5 w-5" style={{ accentColor }} />
           </label>}
@@ -121,7 +121,7 @@ const CallPreferencesSheet: React.FC<CallPreferencesSheetProps> = ({
             </span>
             <span className="min-w-0 flex-1">
               <span className={`block text-[13px] font-medium ${lightTheme ? 'text-[#262239]/90' : 'text-white/85'}`}>自动播放语音</span>
-              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>默认开启并沿用你的选择。关掉后，语音和视频通话都只在你点“播放语音”时才生成，避免额外消耗额度。</span>
+              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>关闭后不自动生成语音。</span>
             </span>
             <button
               type="button"
@@ -150,7 +150,7 @@ const CallPreferencesSheet: React.FC<CallPreferencesSheetProps> = ({
             </span>
             <span className="min-w-0 flex-1">
               <span className={`block text-[13px] font-medium ${lightTheme ? 'text-[#262239]/90' : 'text-white/85'}`}>沉默后主动接话</span>
-              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>按需开启。通话安静较久时，对方最多主动接话两次；默认关闭，不会自行发起请求。</span>
+              <span className={`mt-0.5 block text-[10px] leading-4 ${lightTheme ? 'text-[#262239]/55' : 'text-white/38'}`}>最多主动接话两次。</span>
             </span>
             <button
               type="button"
