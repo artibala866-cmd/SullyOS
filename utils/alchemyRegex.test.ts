@@ -49,6 +49,28 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(alchemyRulesFor(saved, 'offline')).toEqual([global]);
     });
 
+    it('applies isolated story and meeting rules to old display and future request history', () => {
+        const storyOnly = rule({ id: 's', name: '剧情专属', domain: 'offline',
+            targets: ['offline'], offlineScenes: ['story'], presetId: 'novel',
+            pattern: '线下标记', replacement: '剧情文字', history: true });
+        const meetingOnly = rule({ id: 'm', name: '见面专属', domain: 'offline',
+            targets: ['offline'], offlineScenes: ['meeting'], presetId: 'novel',
+            pattern: '线下标记', replacement: '见面文字', history: true });
+        const universal = rule({ id: 'b', name: '双方生效', domain: 'offline',
+            targets: ['offline'], offlineScenes: ['story', 'meeting'],
+            pattern: '共同标记', replacement: '正常内容', history: true });
+        const saved = [storyOnly, meetingOnly, universal];
+        const source = '线下标记；共同标记';
+        for (const stage of ['display', 'history'] as const) {
+            expect(applyStoryRegex(source, alchemyRulesFor(saved, 'offline', 'novel'), stage).text)
+                .toBe('剧情文字；正常内容');
+            expect(applyStoryRegex(source, alchemyRulesForMeeting(saved), stage).text)
+                .toBe('见面文字；正常内容');
+            expect(applyStoryRegex(source, alchemyRulesFor(saved, 'offline', 'other'), stage).text)
+                .toBe('线下标记；正常内容');
+        }
+    });
+
     it('auto-organizes the original two JSON file sets into readable small categories', () => {
         const names = ['小法庭','豆包','弹幕','刮彩票','微信红包','番茄小剧场'];
         expect(names.map(name => alchemySubcategory(rule({ name, kind: 'template' }))))
