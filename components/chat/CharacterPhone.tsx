@@ -1013,23 +1013,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                 className={'rounded-xl px-3 py-3 text-sm '+(settingsView===v.id?'bg-white font-semibold shadow-sm text-[#222]':'text-[#777]')}>
                 {v.label}</button>)}
           </div>}
-          {!settingsQuery && settingsView==='common' && <section className="rounded-2xl bg-[#f5f5f5] px-4 py-3 text-xs leading-5 text-[#666]" aria-label="当前手机运行方式">
-            <strong className="block text-[13px] text-[#333]">当前使用方式</strong>
-            <p>{npcAutonomyEnabled && phonePrefs.backgroundApiEnabled
-              ? '允许 Char 在网页前台、遇到已有生活事件或需要回复的 NPC 时自主处理手机'
-              : '独立自主生成已暂停；查看已有内容、手动生成仍可使用'}</p>
-            <p>{phonePrefs.chatPiggybackEnabled
-              ? '私聊同轮附带手机内容：已开启'
-              : '私聊同轮附带手机内容：未开启'}</p>
-            <p>每个应用仍遵守原来的手动／自动选择；无需为普通浏览调整下面的高级参数。</p>
-          </section>}
+          
           {showPhoneSettings('common',"微信 消息 生成 推送 公众号 服务号 微信支付 支付 账单 聊天 丰富 精简 密度") && <PhoneSettingsGroup title="微信消息生成" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">微信消息生成</h3>
-            <p className="text-xs leading-5 text-[#888]">手动刷新采用一次批量请求，按 Char 的设定生成不同会话；不会为每条公众号通知单独调用 API。</p>
+            
             <div className="rounded-xl border border-[#e7e7e7] bg-[#fafafa] p-3">
               <h4 className="text-[13px] font-semibold text-[#444]">一键生成微信内容</h4>
-              <p className="mt-1 text-xs leading-5 text-[#888]">手动：只用一次 API 生成微信消息、联系人、NPC 朋友圈及 Char 的可选动态。第一次建立内容，之后依据人设、日程和已保存聊天续写。原有的单项生成按钮保留。</p>
+              
               <button type="button" disabled={wechatSuiteBusy||busy||sharedWechatRefreshing||npcMomentLoading||momentBusy}
                 onClick={()=>void generateFullWechatManually()}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#343434] px-3 py-3 text-xs text-white disabled:opacity-40">
@@ -1041,7 +1032,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ececec] bg-[#fafafa] px-3 py-3 text-xs">
               <span className="min-w-0">
                 <strong className="block text-[13px] font-semibold text-[#444]">自动更新优先处理微信与朋友圈</strong>
-                <span className="mt-1 block leading-5 text-[#888]">开启后，遇到有依据的手机活动机会时优先处理 NPC 微信与朋友圈；关闭后允许其他已开启的手机自主功能参与，不代表关闭 NPC 微信续聊。没有待回复消息或已发生的生活事件时不会仅因定时检查而生成。这个优先项不会修改“Char 手机自主生活”总开关；总开关关闭时，优先项保持设置但不会触发自动生成。要暂停独立自主生成，可关闭“Char 手机自主生活”或“允许独立后台 AI 请求”。</span>
+                
               </span>
               <input type="checkbox" checked={inboxPrefs.autoFullWeChat}
                 onChange={e=>{
@@ -1064,7 +1055,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           {showPhoneSettings('advanced',"应用 安装 卸载 社交 微博 Ins Instagram X 哔哩哔哩 B站 豆瓣 抖音 邮箱 晋江 网易云") && <PhoneSettingsGroup title="可选应用安装" searching={!!settingsQuery}>
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <h3 className="sr-only">Char 的可选应用安装</h3>
-            <p className="text-xs leading-5 text-[#888]">首次进入只根据 Char 性格分析一次；基础软件永远保留。以后可以手动安装、卸载九款可选应用。</p>
+            
             <div className="divide-y divide-[#eee]">
               {CHARACTER_PHONE_SOCIAL_APPS.map(appId=><label key={appId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="flex min-w-0 items-center gap-2">
@@ -1091,7 +1082,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           <section className="space-y-3 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 text-sm">
               <span><span className="block font-semibold">查手机独立 API</span>
-                <span className="mt-1 block text-xs leading-5 text-[#888]">只供当前 Char 的微信、朋友圈、浏览器、备忘录和钱包 AI 使用，不改私聊和主动消息</span></span>
+                </span>
               <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={phoneApiSettings.enabled}
                 onChange={e=>changePhoneApiSettings({enabled:e.target.checked})}/>
             </label>
@@ -1104,7 +1095,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                   <option value="">选择现有预设…</option>
                   {apiPresets.map(p=><option key={p.id} value={p.id}>{p.group?`${p.group} / `:''}{p.name}</option>)}
                 </select>
-                <span className="block text-[11px] leading-5 text-[#888]">复制预设的地址、Key、模型到当前 Char 的查手机；不改全局预设，可继续单独编辑。</span>
+                
               </label>
               <label className="block space-y-1"><span>API 地址</span>
                 <input type="url" autoComplete="off" placeholder="https://.../v1" value={phoneApiSettings.baseUrl}
@@ -1121,18 +1112,14 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                   onChange={e=>changePhoneApiSettings({model:e.target.value})}
                   className="w-full rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-2.5 outline-none focus:border-[#666]"/>
               </label>
-              <p className="text-xs leading-5 text-[#777]">
-                {/^https?:\/\//i.test(phoneApiSettings.baseUrl)&&phoneApiSettings.apiKey&&phoneApiSettings.model
-                  ? '独立 API 已启用；关闭开关即可恢复使用原聊天 API。'
-                  : '请填完整的地址、Key 和模型；未填完整时暂用原聊天 API。'}
-              </p>
+              
             </div>}
           </section>
           </PhoneSettingsGroup>}
           {showPhoneSettings('common',"自主 真人感 生活 NPC 自动 总开关") && <PhoneSettingsGroup title="Char 手机自主生活" searching={!!settingsQuery}>
           <label className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-4 text-sm">
             <span className="space-y-1"><span className="block font-semibold text-[#222]">Char 手机自主生活</span>
-              <span className="block text-xs leading-5 text-[#777]">控制独立前台自主任务（NPC 微信、朋友圈、浏览器和个人资料）；关闭后手动生成和私聊同轮生成选项不受影响</span></span>
+              </span>
             <input type="checkbox" className="h-5 w-5 accent-[#444]" checked={npcAutonomyEnabled}
               onChange={event=>{try{setCharacterPhoneAutonomyEnabled(characterId,event.target.checked);setNpcAutonomyEnabled(event.target.checked);}catch{setError('设置保存失败');}}}/>
           </label>
@@ -1170,7 +1157,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
                   onChange={e=>{if(e.target.value!=='')changeMomentPrefs({npcPostIntervalMinutes:Number(e.target.value)});}}
                   className="w-24 rounded-lg border border-[#ddd] px-2 py-2 text-right"/>
               </label>
-              <p className="text-[11px] leading-5 text-[#888]">安静／正常／热闹：NPC 每天最多尝试新动态 1／2／3 次；每日互动最多 4／8／12 次、每条动态最多 4／8／12 条评论。熟人互认才可以互评，同一个人一条主评论及至多一次回复；禁止接龙和重复台词。自主生成仍受全局调用预算与总开关保护。</p>
+              
             </>}
           </section>
           </PhoneSettingsGroup>}
@@ -1178,19 +1165,19 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
           <section className="space-y-4 rounded-2xl bg-white p-4">
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">私聊同轮生成 NPC 微信／朋友圈</strong>
-                <span className="block mt-1 leading-5 text-[#888]">角色私聊回复可以在同次生成中附带虚构 NPC 手机互动。此项会增加同一次回复的输出 token，由此处独立授权。</span></span>
+                <span className="block mt-1 text-[11px] text-[#999]">同轮生成会增加输出 Token。</span></span>
               <input type="checkbox" checked={phonePrefs.chatPiggybackEnabled}
                 onChange={e=>changePhonePrefs({chatPiggybackEnabled:e.target.checked})}
                 className="h-5 w-5 shrink-0 accent-[#444]"/>
             </label>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-[#ddd] bg-[#fafafa] px-3 py-3 text-xs">
               <span><strong className="block text-[13px]">允许独立后台 AI 请求</strong>
-                <span className="block mt-1 leading-5 text-[#888]">关闭后，手机的独立自主 AI 任务不会再调用接口；原有手动生成、User 私聊，以及另行开启的“私聊同轮生成”不受影响。开启后仍遵守下方共享预算。</span></span>
+                </span>
               <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#444]" checked={phonePrefs.backgroundApiEnabled}
                 onChange={e=>changePhonePrefs({backgroundApiEnabled:e.target.checked})}/>
             </label>
             <div><h3 className="sr-only">AI 自主调用频率</h3>
-              <p className="mt-1 text-xs leading-5 text-[#888]">档位只限制自主 API 的每日使用上限与请求间隔，不是自动发送时间表。只有出现已保存的生活事件、未回复的 NPC 消息等真实契机，系统才会考虑后台请求。手动生成不占用该预算。</p>
+              
             </div>
             <div className="grid grid-cols-4 gap-1.5 text-xs">
               {([{id:'economy',label:'省额度'},{id:'balanced',label:'均衡'},
