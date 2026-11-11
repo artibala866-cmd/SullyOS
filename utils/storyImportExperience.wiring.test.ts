@@ -48,9 +48,17 @@ describe('剧情导入的真实使用约束', () => {
         expect(editor).toContain('return preset && !results.some(item => item.id === preset.id) ? [preset, ...results] : results');
     });
 
-    it('长开场白明确告知上下文风险；归档原文明确为只读，不诱导危险编辑', () => {
+    it('长开场白提示上下文风险；归档只读回看不暴露编辑动作', () => {
         expect(editor).toContain('selectedGreeting.content.length > 12000');
         expect(editor).toContain('后续上下文长度');
-        expect(session).toContain('已归档楼层仅供回看');
+        const archiveStart = session.indexOf('const archiveLabel = box?.strategy');
+        const archiveEnd = session.indexOf('const floorBody = (() => {', archiveStart);
+        expect(archiveStart).toBeGreaterThan(0);
+        expect(archiveEnd).toBeGreaterThan(archiveStart);
+        const archiveMarkup = session.slice(archiveStart, archiveEnd);
+        expect(archiveMarkup).toContain('<details open={isExpanded}');
+        expect(archiveMarkup).toContain('archivedRows.map((row, index) => <section');
+        expect(archiveMarkup).not.toContain('pressHandlersFor(');
+        expect(archiveMarkup).not.toContain('onClick={() => void send(');
     });
 });
