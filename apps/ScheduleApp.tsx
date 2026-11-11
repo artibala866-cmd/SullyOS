@@ -830,7 +830,7 @@ const ScheduleApp: React.FC = () => {
               ?workspaceSnapshot?.commissions.find(c=>c.id===pendingCoachAction.slot!.itemId)?.title||'原事项'
               :workspaceSnapshot?.homework.find(h=>h.id===pendingCoachAction.slot!.itemId)?.title||'原事项'}</p>
           <p>{pendingCoachAction.slot.date} {pendingCoachAction.slot.start}–{pendingCoachAction.slot.end}（仅候选，尚未写入日程）</p>
-          <p className="text-neutral-500">此建议只来自真实委托、作业、课程和你提供的可用时间；不是 Char 已做出的修改。</p>
+          
           <div className="flex gap-2">
             <button className={btn+' min-h-11 px-3'} disabled={coachDecisionBusy}
               onClick={()=>void resolveCoachPlan(pendingCoachAction.id,true)}>确认写入原日程</button>
@@ -939,7 +939,7 @@ const ScheduleApp: React.FC = () => {
             </div>)}
           </div>
           <div className="text-sm">专注清单已勾选：{tasks.filter(t => t.done).length} 项</div>
-          <p className="text-xs text-neutral-600">专注清单勾选不等于原委托交付或作业完成；原事项须你单独确认。已完成轮次可在原事项中手动核算剩余时间。</p>
+          
           {linkedFocusTotals.length>0 && <div className="space-y-2 border-t border-neutral-200 pt-3">
             <h3 className="text-sm font-semibold">专注记录与原事项</h3>
             {linkedFocusTotals.map(({task,minutes})=><div key={task.id}
@@ -1015,7 +1015,7 @@ const ScheduleApp: React.FC = () => {
               <label className="text-xs text-neutral-600">结束<input aria-label="免打扰结束" type="time" className="mt-1 w-full min-w-0 rounded-xl border border-neutral-200 bg-[#fafafa] p-2 text-sm" value={coachSetting.quietEnd} onChange={e=>updateCoachSetting({quietEnd:e.target.value})}/></label>
             </div>}
           </>}
-          <p className="mt-4 text-xs leading-relaxed text-neutral-500">只在学习室空闲时，根据真实事项变化显示提醒；相同事项当天不重复，专注或休息时保持安静。本机提醒不是 Char 消息。仅开启上方独立授权后，才可能由模型在学习室内发出真实回复；不会向普通私聊或 AMSG 自动推送。</p>
+          
         </section>
       </div>}
 
