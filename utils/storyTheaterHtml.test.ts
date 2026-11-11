@@ -208,6 +208,10 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(rich.srcDoc).toContain('Math.abs(height - lastHeight) <= 3');
         expect(rich.srcDoc).toContain("sully-story-template-scroll");
         expect(rich.srcDoc).toContain("touchmove");
+        expect(rich.srcDoc).toContain('point.screenY');
+        expect(rich.srcDoc).toContain('point.screenX');
+        expect(rich.srcDoc).not.toContain('touch.y - point.clientY');
+        expect(rich.srcDoc).not.toContain('touch.y = point.clientY');
         expect(rich.srcDoc).toContain("event.preventDefault()");
     });
 
