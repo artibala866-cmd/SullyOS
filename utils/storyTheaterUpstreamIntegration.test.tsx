@@ -331,7 +331,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
 });
 
 
-it('默认剧情预设同时套用固定卡片和历史过滤，续写保留标签及存档原文', async () => {
+it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -362,16 +362,13 @@ it('默认剧情预设同时套用固定卡片和历史过滤，续写保留标�
             onBack={() => {}} onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
     </StoryTheaterThemeProvider></OSPreviewProvider>));
     await vi.waitFor(async () => {
-        // History is staged until the asynchronous display-regex paint is ready.
         await act(async () => {});
-        const frame = host!.querySelector('iframe[title="手机通知卡"]');
-        if (!frame) {
-            const message = host!.textContent?.slice(0, 700);
-            const floors = host!.querySelectorAll('[data-story-floor]').length;
-            throw new Error(`Missing story card; floorCount=${floors}; restore=${message}`);
-        }
-        expect(frame.getAttribute('srcdoc')).toContain('收到消息');
+        expect(host!.querySelectorAll('[data-story-floor]')).toHaveLength(1);
+        expect(host!.textContent).toContain('结尾');
+        expect(host!.textContent).not.toContain('隐藏内容');
     });
+    // 美化 HTML 模板属于在线功能，剧情线下只有规则过滤。
+    expect(host!.querySelector('iframe[title="手机通知卡"]')).toBeNull();
     expect(host!.textContent).toContain('结尾');
     expect(host!.textContent).not.toContain('隐藏内容');
     await act(async () => click('继续当前剧情'));
@@ -381,7 +378,6 @@ it('默认剧情预设同时套用固定卡片和历史过滤，续写保留标�
     expect(payload.messages).toContainEqual(expect.objectContaining({ role: 'assistant',
         content: expect.stringContaining('<app-card>收到消息</app-card>') }));
     expect(JSON.stringify(payload.messages)).not.toContain('隐藏内容');
-    expect(payload.messages).toContainEqual(expect.objectContaining({ role: 'system',
-        content: expect.stringContaining(template.instruction) }));
+    expect(JSON.stringify(payload.messages)).not.toContain(template.instruction);
     expect((await DB.getMessagesByCharId(thread, true))[0].content).toBe(original);
 });
