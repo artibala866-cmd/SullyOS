@@ -57,6 +57,12 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const actionLock = useRef(false);
     useEffect(() => () => test.current?.abort(), []);
     const isTemplate = draft?.kind === 'template';
+    const scopeDescription = !draft ? '' : draft.kind === 'template' ? '线上' : [
+        alchemyRuleTargets(draft).includes('online') ? '线上' : '',
+        alchemyRuleTargets(draft).includes('offline')
+            ? ['线下', ...alchemyOfflineScenes(draft).map(scene => scene === 'story' ? '剧情' : '见面')].join(' · ')
+            : '',
+    ].filter(Boolean).join(' + ');
     const liveHtml = useMemo(() => draft?.kind === 'template'
         ? renderAlchemyTemplatePreview(draft) : '',
         [draft?.kind, draft?.replacement, draft?.parseMode]);
@@ -338,47 +344,6 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <input className={fieldClass} maxLength={80} value={draft.name}
                             onChange={event => patch({ name: event.target.value })} placeholder='正则名称'/>
                     </label>
-                    <div className='space-y-3 rounded-2xl border border-[#eaeae7] bg-white px-3.5 py-3.5'>
-                        <div className='space-y-2'>
-                            <div className='text-[12px] font-medium text-neutral-600'>生效范围</div>
-                            {isTemplate ? <span className='inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#f1f2f0] px-3 text-[12px] font-medium text-[#475248]'>
-                                <Code size={14}/>HTML · 线上
-                            </span> : <div role='group' aria-label='规则生效范围'
-                                className='inline-flex max-w-full items-center gap-1 rounded-xl bg-[#f3f4f2] p-1'>
-                                {(['online', 'offline'] as const).map(target => {
-                                    const selected = alchemyRuleTargets(draft);
-                                    const checked = selected.includes(target);
-                                    return <label key={target} className={'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-4 text-[12px] font-medium transition-colors ' +
-                                        (checked ? 'bg-white text-[#303830] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-neutral-500')}>
-                                        <input type='checkbox' className='sr-only' aria-label={target === 'online' ? '线上' : '线下'}
-                                            checked={checked} disabled={checked && selected.length === 1}
-                                            onChange={event => patch({ targets: event.target.checked
-                                                ? [...selected, target] : selected.filter(value => value !== target) })}/>
-                                        {target === 'online' ? '线上' : '线下'}
-                                    </label>;
-                                })}
-                            </div>}
-                        </div>
-                        {!isTemplate && alchemyRuleTargets(draft).includes('offline') &&
-                            <div className='space-y-2 border-t border-[#f0f0ee] pt-3'>
-                                <div className='text-[12px] font-medium text-neutral-600'>线下位置</div>
-                                <div role='group' aria-label='线下规则生效位置'
-                                    className='inline-flex max-w-full items-center gap-1 rounded-xl bg-[#f3f4f2] p-1'>
-                                    {(['story', 'meeting'] as const).map(scene => {
-                                        const selected = alchemyOfflineScenes(draft);
-                                        const checked = selected.includes(scene);
-                                        return <label key={scene} className={'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-4 text-[12px] font-medium transition-colors ' +
-                                            (checked ? 'bg-white text-[#303830] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-neutral-500')}>
-                                            <input type='checkbox' className='sr-only' aria-label={scene === 'story' ? '剧情生效' : '见面生效'}
-                                                checked={checked} disabled={checked && selected.length === 1}
-                                                onChange={event => patch({ offlineScenes: event.target.checked
-                                                    ? [...selected, scene] : selected.filter(value => value !== scene) })}/>
-                                            {scene === 'story' ? '剧情' : '见面'}
-                                        </label>;
-                                    })}
-                                </div>
-                            </div>}
-                    </div>
                     {isTemplate && <section aria-label='HTML 实时效果' data-alchemy-live-preview
                         className='min-w-0 rounded-xl border border-neutral-200 bg-white p-2'>
                         {liveHtml ? <AlchemyHtmlFrame html={liveHtml} fallback='' title={draft.name || 'HTML 效果'}/>
@@ -440,10 +405,49 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         </label>
                     </div>}
                     <details className='group/extra overflow-hidden rounded-2xl border border-[#e8e9e7] bg-white'>
-                        <summary className='flex min-h-12 cursor-pointer list-none items-center gap-2.5 px-3.5 py-3 text-[13px] font-medium text-neutral-700'>
-                            <CaretDown size={15} className='-rotate-90 text-neutral-400 transition-transform group-open/extra:rotate-0'/>更多设置
+                        <summary className='flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-neutral-700'>
+                            <CaretDown size={15} className='-rotate-90 shrink-0 text-neutral-400 transition-transform group-open/extra:rotate-0'/>
+                            <span className='shrink-0'>更多设置</span>
+                            <span className='ml-auto min-w-0 truncate text-right text-[11px] font-normal text-neutral-400'>{scopeDescription}</span>
                         </summary>
                         <div className='space-y-4 border-t border-[#f0f0ee] px-3.5 pb-4 pt-3'>
+                            {!isTemplate && <section aria-label='生效场景设置' className='space-y-3'>
+                                <div className='flex flex-wrap items-center justify-between gap-2'>
+                                    <span className='shrink-0 text-[12px] text-neutral-600'>生效范围</span>
+                                    <div role='group' aria-label='规则生效范围' className='inline-flex items-center gap-1 rounded-lg bg-[#f3f4f2] p-0.5'>
+                                        {(['online', 'offline'] as const).map(target => {
+                                            const selected = alchemyRuleTargets(draft);
+                                            const checked = selected.includes(target);
+                                            return <label key={target} className={'inline-flex min-h-8 cursor-pointer items-center justify-center rounded-md px-3 text-[12px] transition-colors ' +
+                                                (checked ? 'bg-white font-medium text-[#303830] shadow-sm' : 'text-neutral-500')}>
+                                                <input type='checkbox' className='sr-only' aria-label={target === 'online' ? '线上' : '线下'}
+                                                    checked={checked} disabled={checked && selected.length === 1}
+                                                    onChange={event => patch({ targets: event.target.checked
+                                                        ? [...selected, target] : selected.filter(value => value !== target) })}/>
+                                                {target === 'online' ? '线上' : '线下'}
+                                            </label>;
+                                        })}
+                                    </div>
+                                </div>
+                                {alchemyRuleTargets(draft).includes('offline') && <div className='flex flex-wrap items-center justify-between gap-2'>
+                                    <span className='shrink-0 text-[12px] text-neutral-600'>线下位置</span>
+                                    <div role='group' aria-label='线下规则生效位置' className='inline-flex items-center gap-1 rounded-lg bg-[#f3f4f2] p-0.5'>
+                                        {(['story', 'meeting'] as const).map(scene => {
+                                            const selected = alchemyOfflineScenes(draft);
+                                            const checked = selected.includes(scene);
+                                            return <label key={scene} className={'inline-flex min-h-8 cursor-pointer items-center justify-center rounded-md px-3 text-[12px] transition-colors ' +
+                                                (checked ? 'bg-white font-medium text-[#303830] shadow-sm' : 'text-neutral-500')}>
+                                                <input type='checkbox' className='sr-only' aria-label={scene === 'story' ? '剧情生效' : '见面生效'}
+                                                    checked={checked} disabled={checked && selected.length === 1}
+                                                    onChange={event => patch({ offlineScenes: event.target.checked
+                                                        ? [...selected, scene] : selected.filter(value => value !== scene) })}/>
+                                                {scene === 'story' ? '剧情' : '见面'}
+                                            </label>;
+                                        })}
+                                    </div>
+                                </div>}
+                            </section>}
+
                             {isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>匹配正则
                                     <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
