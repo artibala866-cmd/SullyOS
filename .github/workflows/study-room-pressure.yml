@@ -1,0 +1,91 @@
+name: Study Room high-pressure QA
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/study-room-pressure.yml'
+      - 'utils/studyRoomPressure.test.ts'
+      - 'scripts/study-room-browser-qa.mjs'
+      - 'apps/ScheduleApp.tsx'
+      - 'apps/StudyApp.tsx'
+      - 'apps/WorkspacePanel.tsx'
+      - 'utils/sullyWorkspace.ts'
+      - 'utils/studyFocusProgress.ts'
+      - 'utils/studyRoomCompanion.ts'
+      - 'utils/studyRoomLocalBackup.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: study-room-high-pressure
+  cancel-in-progress: false
+jobs:
+  workspace-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Test 1400 commissions, 1800 homework, 10000 focus rows, 60 concurrent edits
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: pnpm exec vitest run utils/studyRoomPressure.test.ts utils/studyFocusProgress.test.ts utils/studyRoomReminders.test.ts utils/studyRoomLocalBackup.test.ts --reporter=verbose
+      - name: Typecheck new pressure tests
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false >/tmp/study-stress-tsc.txt 2>&1 || true
+          if grep -E '^utils/studyRoomPressure\.test\.ts[(]' /tmp/study-stress-tsc.txt; then exit 1; fi
+  actual-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build actual game app
+        run: pnpm run build
+      - name: Launch browser and stress actual study screen
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/study-room-browser-qa.mjs
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/study-pressure-preview.log 2>&1 &
+          server_pid=$!
+          chrome_pid=''
+          trap 'kill "$server_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/study-pressure-preview.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9222 --remote-allow-origins='*' \
+            --user-data-dir=/tmp/study-pressure-chrome about:blank > /tmp/study-pressure-browser.log 2>&1 &
+          chrome_pid=$!
+          STUDY_PRESSURE_MODE=1 STUDY_SCREENSHOT_DIR=/tmp/study-pressure-screens \
+            node scripts/study-room-browser-qa.mjs || {
+              tail -80 /tmp/study-pressure-browser.log || true
+              tail -80 /tmp/study-pressure-preview.log || true
+              exit 1
+            }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: study-room-real-pressure-mobile
+          path: /tmp/study-pressure-screens/*.png
+          if-no-files-found: ignore
