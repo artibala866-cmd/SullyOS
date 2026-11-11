@@ -80,17 +80,23 @@ try {
   await delay(650);
   const settled=await js(state);
   if(settled.top+32<after.top)throw Error('Reader rebounded after swipe: '+JSON.stringify({after,settled}));
-  for(let i=0;i<10;i++){
+  console.log('Initial gesture:',JSON.stringify({before,idle,after,settled}));
+  const progress=[];
+  for(let i=0;i<30;i++){
     const pos=await js('(() => {const s=document.querySelector(".story-page-scroll"),v=s.getBoundingClientRect();const f=[...s.querySelectorAll("iframe")].find(x=>{const r=x.getBoundingClientRect();return r.top<v.bottom-200&&r.bottom>v.top+260&&r.height>250});const r=f?.getBoundingClientRect();return {top:s.scrollTop,max:s.scrollHeight-s.clientHeight,x:r?Math.max(r.left+50,125):125,y:r?Math.min(v.bottom-105,r.bottom-40):v.bottom-115};})()');
     if(pos.max-pos.top<120)break;
     await swipe(pos.x,pos.y,pos.y-235);
-    await delay(500);
+    await delay(480);
+    const newTop=await js('document.querySelector(".story-page-scroll").scrollTop');
+    progress.push({i,from:pos.top,to:newTop,remaining:pos.max-newTop,x:pos.x,y:pos.y});
+    if(i>1 && newTop-pos.top<3 && pos.max-newTop>250) break;
   }
   const end=await js(state);
-  if(end.max-end.top>500)throw Error('Cannot reach final story floors by continuous swipes: '+JSON.stringify(end));
   await mkdir('output/story-iframe-touch',{recursive:true});
   const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('output/story-iframe-touch/72-floor-end.png',Buffer.from(shot.data,'base64'));
+  console.log('Swipe progress:',JSON.stringify(progress));
+  if(end.max-end.top>180)throw Error('Cannot reach final story floors by continuous swipes: '+JSON.stringify(end));
   console.log('PASS: 72 floors, 36 HTML frames, touch follows reader, no rebound and newest floor reachable');
   console.log(JSON.stringify({before,idle,after,settled,end}));
 } finally {
