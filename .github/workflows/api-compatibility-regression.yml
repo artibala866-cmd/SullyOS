@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/api-compatibility-tsc.log 2>&1 || true
-          grep -E '^(utils/(safeApi|streamUpgrade|storyTheaterCompletionIntegrity|storyTheaterArchive|samplingParamCompat|apiConnectionPreflight|claudeProxyCompat|characterPhoneAiRequest|storyMemoryApi)(\\.stream|\\.test|\\.apiCallLog)?\\.ts|hooks/useChatAI\\.ts|context/OSContext\\.tsx)[(]' /tmp/api-compatibility-tsc.log > /tmp/api-compatibility-target-errors.log || true
+          grep -E '^(utils/(safeApi|streamUpgrade|storyTheaterCompletionIntegrity|storyTheaterArchive|samplingParamCompat|apiConnectionPreflight|claudeProxyCompat|characterPhoneAiRequest|storyMemoryApi)[^/]*[.]ts|hooks/useChatAI[.]ts|context/OSContext[.]tsx)[(]' /tmp/api-compatibility-tsc.log > /tmp/api-compatibility-target-errors.log || true
           if [ -s /tmp/api-compatibility-target-errors.log ]; then
             cat /tmp/api-compatibility-target-errors.log
             exit 1
