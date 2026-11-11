@@ -4,7 +4,7 @@ import AlchemyRuleFolders from '../components/alchemy/AlchemyRuleFolders';
 import type { StoryRegexRule } from '../utils/storyRegex';
 import {
     alchemyRuleSection, alchemyRuleTargets, removeAlchemyRule,
-    removeAlchemyFolderSection, type AlchemyDomain,
+    removeAlchemyFolderSection, setAlchemyFolderTargets, alchemyFolderTargetSelection, type AlchemyDomain,
 } from '../utils/alchemyRegex';
 
 const params = new URLSearchParams(location.search);
@@ -37,33 +37,66 @@ function Visual() {
     const active = filtered.filter(rule => rule.enabled).length;
     const toggle = (rule: StoryRegexRule) =>
         setRules(old => old.map(item => item.id === rule.id ? { ...item, enabled: !item.enabled } : item));
+    const setFolderTargets = (folder: string, selected: StoryRegexRule[], targets: AlchemyDomain[]) =>
+        setRules(old => setAlchemyFolderTargets(old, folder, new Set(selected.map(rule => rule.id)), targets));
     const deleteRule = (rule: StoryRegexRule) => setRules(old => removeAlchemyRule(old, rule.id));
     const deleteFolder = (folder: string, selected: StoryRegexRule[]) => {
         const ids = new Set(selected.map(rule => rule.id));
         setRules(old => removeAlchemyFolderSection(old, folder, section, ids));
     };
     React.useEffect(() => {
+        if (params.get('expanded') === '1') {
+            document.querySelectorAll<HTMLDetailsElement>('details').forEach(detail => { detail.open = true; });
+        }
+    }, []);
+    React.useEffect(() => {
         const found = document.querySelectorAll('[data-alchemy-rule]').length;
         const folders = document.querySelectorAll('[data-alchemy-folder]').length;
         const categories = document.querySelectorAll('[data-alchemy-category]').length;
         const hasDelete = document.querySelectorAll('button[aria-label^="删除规则"]').length === found &&
             document.querySelectorAll('button[aria-label^="删除分组"]').length === folders;
+        const groupScope = document.querySelector<HTMLSelectElement>('select[aria-label^="分组"]');
+        const scopeVisible = !groupScope || groupScope.getBoundingClientRect().width > 0;
+        const hasScope = section === 'beauty' ? !groupScope : !!groupScope && scopeVisible;
         document.body.dataset.alchemyScreenshotReady =
             String(found === expected && folders === 1 && categories >= 2 && hasDelete &&
-                rules.length === 13);
+                hasScope && rules.length === 13);
         const out = document.getElementById('alchemy-report');
         if (out) out.textContent = JSON.stringify({
             domain, section, count: found, folders, categories, active, totalRecords: rules.length,
             bothTargets: rules.filter(rule => alchemyRuleTargets(rule).length === 2).length,
-            hasDelete, opened,
+            hasDelete, hasScope, groupScope: groupScope?.value, opened,
         });
     }, [rules, opened, active]);
+
+    // Exercise the actual collapsed-header scope selector without opening the folder.
+    React.useEffect(() => {
+        if (!action.startsWith('scope-') || section !== 'rules') return;
+        const chosen = action.slice('scope-'.length) as 'online' | 'offline' | 'both';
+        const target = document.querySelector<HTMLSelectElement>('select[aria-label^="分组"]');
+        const before = target?.value;
+        const shown = !!target && target.getBoundingClientRect().width > 0;
+        if (!target || !['online', 'offline', 'both'].includes(chosen)) return;
+        target.value = chosen;
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        window.setTimeout(() => {
+            const current = document.body.dataset.alchemySelectedTargets || '';
+            const allMatch = current.split(',').every(value => value === chosen) && current.length > 0;
+            const elsewhereIntact = document.body.dataset.alchemyOtherTargets === 'online' &&
+                document.body.dataset.alchemyTotalRecords === '13';
+            const success = shown && before === 'mixed' && allMatch && elsewhereIntact;
+            document.body.dataset.alchemyScopeReady = String(success);
+            const out = document.getElementById('alchemy-scope-report');
+            if (out) out.textContent = JSON.stringify({ chosen, before, shown, current, elsewhereIntact, success });
+        }, 150);
+    }, []);
 
     // Browser-only interaction QA. This clicks the *actual* delete buttons:
     // the first click must not mutate any rule; second confirmation must
     // remove only the intended category while keeping the other category.
     React.useEffect(() => {
-        if (!action) return;
+        if (action !== 'rule-delete' && action !== 'folder-delete') return;
+        document.querySelectorAll<HTMLDetailsElement>('details').forEach(detail => { detail.open = true; });
         const isFolder = action === 'folder-delete';
         const selector = isFolder ? 'button[aria-label^="删除分组"]' : 'button[aria-label^="删除规则"]';
         const target = document.querySelector<HTMLButtonElement>(selector);
@@ -95,6 +128,12 @@ function Visual() {
 
     React.useEffect(() => {
         document.body.dataset.alchemyTotalRecords = String(rules.length);
+        document.body.dataset.alchemySelectedTargets = rules.filter(rule => rule.kind === 'filter' &&
+            rule.importGroup === '7.5 八股正则补丁').map(rule => {
+            const targets = alchemyRuleTargets(rule);
+            return targets.length === 2 ? 'both' : targets[0];
+        }).join(',');
+        document.body.dataset.alchemyOtherTargets = alchemyRuleTargets(rules[0])[0];
     }, [rules]);
 
     return <main className="mx-auto min-h-screen max-w-md bg-stone-100">
@@ -111,11 +150,13 @@ function Visual() {
                 ? '私聊 / 群聊' : alchemyRuleTargets(rule!).map(target => target === 'online'
                     ? '私聊 / 群聊' : '剧情 / 见面').join(' + ')}
                 onOpen={rule => setOpened(rule.name)} onToggle={toggle}
-                onDelete={deleteRule} onDeleteFolder={deleteFolder} />
+                onDelete={deleteRule} onDeleteFolder={deleteFolder}
+                onSetFolderTargets={section === 'rules' ? setFolderTargets : undefined} />
             {opened && <p className="rounded-xl bg-white px-4 py-3 text-xs text-slate-600">已打开：{opened}</p>}
         </section>
         <output id="alchemy-report" hidden />
         <output id="alchemy-delete-report" hidden />
+        <output id="alchemy-scope-report" hidden />
     </main>;
 }
 createRoot(document.getElementById('visual')!).render(<Visual />);
