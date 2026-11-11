@@ -45,12 +45,13 @@ export default function AlchemyRuleFolders({
             const groupRules = Array.from(categories.values()).flat();
             const folderPending = pending?.type === 'folder' && pending.key === folder;
             const selection = alchemyFolderTargetSelection(groupRules);
-            return <details key={folder} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <div className="flex min-w-0 items-center gap-2">
-                    <summary className="min-w-0 flex-1 cursor-pointer truncate py-1 text-sm font-semibold"
-                        title={folder} data-alchemy-folder={folder}>
-                        {folder} <span className="text-xs font-normal text-slate-400">({groupRules.length})</span>
-                    </summary>
+            return <details key={folder} className="relative rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <summary className={'cursor-pointer truncate py-2 text-sm font-semibold ' +
+                    (onSetFolderTargets && groupRules.some(rule => rule.kind === 'filter') ? 'pr-[111px]' : 'pr-10')}
+                    title={folder} data-alchemy-folder={folder}>
+                    {folder} <span className="text-xs font-normal text-slate-400">({groupRules.length})</span>
+                </summary>
+                <div className="absolute right-2 top-2 flex items-center gap-1.5">
                     {onSetFolderTargets && groupRules.some(rule => rule.kind === 'filter') &&
                         <select aria-label={'分组 ' + folder + ' 生效范围'} title="整组生效范围"
                             disabled={busy} value={selection}
