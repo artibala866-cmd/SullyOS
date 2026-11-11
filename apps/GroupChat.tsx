@@ -2324,10 +2324,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         </div>
                         <div className="rounded-2xl border border-neutral-100 bg-gradient-to-br from-neutral-50 to-neutral-50 p-3.5 space-y-2">
                             <p className="text-[11px] font-bold text-neutral-700">一份总结，全群共同记住</p>
-                            <p className="text-[10px] leading-5 text-neutral-600/80">
-                                最近 {GROUP_TOPIC_HOT_ZONE} 条始终保留原文；更早的记录累计 {GROUP_TOPIC_BUFFER_THRESHOLD} 条后{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自动整理' : '等待你手动整理'}成公共话题盒。
-                                盒子只属于本群，同时会作为卡片送到每位成员私聊，之后可被各自的私聊上下文与归档正常理解。
-                            </p>
+
                             <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-[10px]">
                                 <span className="text-slate-500">热区以前待整理</span>
                                 <span className={`font-bold ${topicPendingCount >= GROUP_TOPIC_BUFFER_THRESHOLD ? 'text-neutral-500' : 'text-slate-500'}`}>{topicPendingCount} / {GROUP_TOPIC_BUFFER_THRESHOLD} 条</span>
