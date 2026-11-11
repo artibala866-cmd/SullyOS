@@ -373,6 +373,7 @@ const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCh
     // Practice Book State
     const [allQuizzes, setAllQuizzes] = useState<QuizSession[]>([]);
     const [reviewingQuiz, setReviewingQuiz] = useState<QuizSession | null>(null);
+    const [quizReturnMode, setQuizReturnMode] = useState<'classroom' | 'practice_book'>('classroom');
     const [deleteQuizTarget, setDeleteQuizTarget] = useState<QuizSession | null>(null);
     // Follow-up Q&A state
     const [askingQuestionId, setAskingQuestionId] = useState<string>(''); // which question is being asked about
@@ -692,6 +693,7 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
         setSelectedChar(tutor||null);
         setShowCourseTutors(false);
         setMode('classroom');
+        setQuizReturnMode('classroom');
         setChatHistory([]);
         
         // Find first incomplete chapter or stay on current if valid
@@ -1253,6 +1255,8 @@ ${resultsText}
     };
 
     const resumeQuiz = (quiz: QuizSession) => {
+        // Resuming a practice-book sheet must return to that book, not a stale classroom.
+        setQuizReturnMode('practice_book');
         setQuizSession(quiz);
         if (quiz.status === 'graded') {
             setMode('quiz_review');
@@ -1437,7 +1441,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
                 {/* Header */}
                 <div className="bg-white/95 backdrop-blur-md px-4 pb-4 flex items-center justify-between z-30 border-b border-[#e9e9e9]" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
-                    <button onClick={() => { setMode('classroom'); setReviewingQuiz(null); }} className="bg-[#f3f3f3] text-[#333333] p-2 rounded-full hover:bg-[#e9e9e9] transition-colors border border-[#e5e5e5]">
+                    <button onClick={() => { setMode(quizReturnMode); setReviewingQuiz(null); }} className="bg-[#f3f3f3] text-[#333333] p-2 rounded-full hover:bg-[#e9e9e9] transition-colors border border-[#e5e5e5]">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                     </button>
                     <div className="text-center">
@@ -1550,8 +1554,8 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
 
                 {/* Bottom Bar */}
                 <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-[#e5e5e5] p-4 z-30 pb-safe">
-                    <button onClick={() => { setMode('classroom'); setReviewingQuiz(null); }} className="w-full h-12 bg-neutral-600 hover:bg-neutral-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-all">
-                        返回课堂
+                    <button onClick={() => { setMode(quizReturnMode); setReviewingQuiz(null); }} className="w-full h-12 bg-neutral-600 hover:bg-neutral-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-all">
+                        {quizReturnMode==='practice_book'?'返回练习册':'返回课堂'}
                     </button>
                 </div>
             </div>
@@ -1572,7 +1576,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                                     const updated = { ...quizSession, questions: quizSession.questions.map(q => ({ ...q, userAnswer: quizUserAnswers[q.id] || q.userAnswer })) };
                                     DB.saveQuiz(updated);
                                 }
-                                setMode('classroom');
+                                setMode(quizReturnMode);
                             }} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                             </button>
