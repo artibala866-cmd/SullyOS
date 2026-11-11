@@ -316,7 +316,6 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 </label>;
                             })}
                         </div>}
-                        <span className='ml-auto text-[11px] text-neutral-400'>{isTemplate ? '代码可编辑' : '私聊 / 群聊 · 剧情 / 见面'}</span>
                     </div>
                     <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                         <label className='min-w-0 text-xs font-medium text-neutral-600'>匹配正则
@@ -356,19 +355,19 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         </div>
                         <textarea id='alchemy-source'
                             className={'w-full min-w-0 resize-y rounded-lg border border-neutral-200 bg-white p-3 font-mono text-xs leading-5 text-neutral-800 outline-none focus:border-neutral-400 ' +
-                                (isTemplate ? 'min-h-[280px]' : 'min-h-[80px]')}
-                            rows={isTemplate ? 14 : 4} value={draft.replacement}
+                                (isTemplate ? 'min-h-[152px]' : 'min-h-[80px]')}
+                            rows={isTemplate ? 7 : 4} value={draft.replacement}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
                             placeholder={isTemplate ? '<div>{{$1}}</div>' : ''}
                             onChange={event => patch({ replacement: event.target.value })}/>
                     </div>
                     {!isTemplate && <div className='flex flex-wrap items-center gap-4 text-xs text-neutral-600'>
-                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.display}
+                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.display} className='accent-neutral-800'
                             onChange={event => patch({ display: event.target.checked })}/>显示过滤</label>
-                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.history}
+                        <label className='flex items-center gap-1.5'><input type='checkbox' checked={draft.history} className='accent-neutral-800'
                             onChange={event => patch({ history: event.target.checked })}/>请求过滤</label>
                         <label className='ml-auto flex items-center gap-1.5'>
-                            <input type='checkbox' checked={draft.source?.smartFilter !== false}
+                            <input type='checkbox' checked={draft.source?.smartFilter !== false} className='accent-neutral-800'
                                 onChange={event => patch({ source: { ...draft.source, smartFilter: event.target.checked } })}/>
                             短词保护
                         </label>
