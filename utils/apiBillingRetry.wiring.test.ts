@@ -28,7 +28,7 @@ describe('billing safety across settings, chat and background evaluation', () =>
         expect(palaceSettings).not.toContain('rerankDocuments(');
     });
 
-    it('does not retry failed emotion evaluations and does not launch them before the main result', () => {
+    it('does not retry legacy evaluations or start any second paid emotion request from private chat', () => {
         const start = chat.indexOf('export async function evaluateEmotionBackground(');
         const end = chat.indexOf('interface UseChatAIProps', start);
         expect(start).toBeGreaterThan(0);
@@ -36,12 +36,12 @@ describe('billing safety across settings, chat and background evaluation', () =>
         const evaluation = chat.slice(start, end);
         expect(evaluation.match(/safeFetchJson\(/g)).toHaveLength(1);
         expect(evaluation).not.toContain('retrying non-stream');
-        const initialReply = chat.indexOf("purpose: '聊天回复' }, streamHooks");
-        const scheduleEval = chat.indexOf('fireLocalEmotionEval?.();', initialReply);
-        expect(initialReply).toBeGreaterThan(0);
-        expect(scheduleEval).toBeGreaterThan(initialReply);
-        const beforeMainRequest = chat.slice(chat.indexOf('const streamHooks:', initialReply - 7000), initialReply);
-        expect(beforeMainRequest).not.toContain('fireLocalEmotionEval?.();');
+        const privateChat = chat.slice(chat.indexOf('export const useChatAI ='));
+        expect(privateChat).toContain('buildInlineEmotionInstruction(charForGen)');
+        expect(privateChat).toContain('applyEmotionEvalRaw(inlineEmotion.raw!, charForGen)');
+        expect(privateChat).not.toContain('fireLocalEmotionEval');
+        expect(privateChat).not.toContain('cloudEmotionEval');
+        expect(privateChat).not.toContain('evaluateEmotionBackground(');
     });
 
     it('warns that paid vision/image generation tests can still charge on failure', () => {
