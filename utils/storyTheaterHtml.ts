@@ -298,26 +298,31 @@ const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
         touch.velocity = touch.velocity * .35 + (deltaY / elapsed) * .65;
         touch.y = point.clientY;
         touch.time = time;
-        forward(deltaY);
+        // The iframe can miss early gesture samples while Android decides
+        // which surface owns the swipe; a modest gain restores natural
+        // finger-to-page travel without affecting mouse-wheel or controls.
+        forward(deltaY * 1.3);
     }, { passive: false });
     const finishTouch = () => {
         if (!touch) return;
-        const speed = touch.axis === 'y' && performance.now() - touch.time < 90 ? touch.velocity : 0;
+        const speed = touch.axis === 'y' && performance.now() - touch.time < 130 ? touch.velocity : 0;
         touch = null;
         if (Math.abs(speed) < .12) return;
         let previous = performance.now();
-        let velocity = Math.max(-3, Math.min(3, speed));
+        let velocity = Math.max(-3, Math.min(3, speed * 1.3));
         const tick = now => {
             const dt = Math.min(32, now - previous);
             previous = now;
             forward(velocity * dt);
-            velocity *= Math.exp(-dt / 195);
+            velocity *= Math.exp(-dt / 250);
             inertiaFrame = Math.abs(velocity) > .08 ? requestAnimationFrame(tick) : 0;
         };
         inertiaFrame = requestAnimationFrame(tick);
     };
     document.addEventListener('touchend', finishTouch, { passive: true });
-    document.addEventListener('touchcancel', () => { touch = null; stopInertia(); }, { passive: true });
+    // A reflowing iframe can receive touchcancel before touchend. Treat that
+    // as a release, otherwise the gesture suddenly loses all its momentum.
+    document.addEventListener('touchcancel', finishTouch, { passive: true });
     document.addEventListener('wheel', event => {
         if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
         stopInertia();
