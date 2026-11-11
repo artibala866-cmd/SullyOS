@@ -74,7 +74,9 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     const literal = /^\/([\s\S]+)\/([a-z]*)$/i.exec(row.pattern.trim());
     const pattern = literal?.[1] ?? row.pattern.trim();
     const rawFlags = (literal?.[2] || asText(row.flags)).trim();
-    const flags = [...new Set((rawFlags + (rawFlags.includes('g') ? '' : 'g')).split(''))].sort().join('');
+    // JS regex `g` is meaningful: absent g means only the first match.
+    // Preserve the author's flags instead of silently making every rule global.
+    const flags = rawFlags;
     const template = switchOn(row.isHtmlTemplate, Boolean(asText(row.htmlTemplate).trim()));
     const rawReplacement = row.replacement;
     const [replacement = '', ...replacementChoices] = Array.isArray(rawReplacement)
@@ -114,6 +116,7 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     const rule: StoryRegexRule = {
         id: crypto.randomUUID(),
         name, enabled, presetId: '', kind: template ? 'template' : 'filter', pattern, flags,
+        order: typeof row.order === 'number' && Number.isFinite(row.order) ? row.order : index,
         replacement: template ? (css ? `<style>${css}</style>\n${html}` : html) : replacement,
         display, history, instruction: template || history ? asText(row.aiPrompt).trim() : '',
         role: row.role === 'user' || row.role === 'both' ? row.role : 'assistant',
@@ -121,6 +124,8 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
         ...(replacementChoices.length > 0 && !template && { replacementChoices }),
         source: {
             trim: switchOn(row.trim) || undefined,
+            scenes: scenes.length ? scenes : undefined,
+            renderMode: row.renderMode === 'inline' || row.renderMode === 'iframe' ? row.renderMode : undefined,
             trimStrings: strings(row.trimStrings).filter(Boolean),
             substituteRegex: row.substituteRegex === 0 || row.substituteRegex === 2 ? row.substituteRegex : 1,
             minDepth: depth(row.minDepth),
@@ -181,7 +186,7 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     // Earlier imports stored an empty array for enabled-but-empty keywords.
     // Semantically this equals "no keyword restriction" and should not duplicate
     // an existing template when the corrected importer is used again.
-    const key = ({ id: _id, enabled: _enabled, ...rule }: StoryRegexRule) => JSON.stringify({
+    const key = ({ id: _id, enabled: _enabled, order: _order, ...rule }: StoryRegexRule) => JSON.stringify({
         ...rule,
         ...(rule.source && {
             source: {
@@ -198,7 +203,16 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     for (const rule of imported) {
         const next = { ...rule, presetId };
         const signature = key(next);
-        if (keys.has(signature)) { duplicates++; continue; }
+        if (keys.has(signature)) {
+            // Restore author-defined order on reimport (old imports did not
+            // persist it), without overwriting the user's enabled toggle.
+            const oldIndex = rules.findIndex(current => key(current) === signature);
+            if (oldIndex !== -1 && rules[oldIndex].order == null && next.order != null) {
+                rules[oldIndex] = { ...rules[oldIndex], order: next.order };
+                updated++;
+            } else duplicates++;
+            continue;
+        }
         // The prior importer discarded aiPrompt on prompt-stage text filters.
         // Recover it from the user's original file on reimport, preserving the
         // stored rule ID, enabled state, preset binding and other customizations.
