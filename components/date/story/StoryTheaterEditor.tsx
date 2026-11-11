@@ -726,7 +726,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         }
                         setPresetImportFeedback(files.length === 1
                             ? importedCount ? '预设导入成功，已选为本剧情预设；保存并进入后生效。' : '预设导入失败，当前剧情配置未改变。'
-                            : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}。`);
+                            : `已导入或找到 ${importedCount} 份预设${failedCount ? `，${failedCount} 份失败` : ''}。当前剧情预设未改变。`);
                     } catch (error) {
                         setPresetImportFeedback(`预设导入中断：${error instanceof Error ? error.message : '文件读取失败'}。`);
                     } finally {
