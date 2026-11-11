@@ -48,6 +48,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const [feedback, setFeedback] = useState('');
     const [imported, setImported] = useState<(StoryRegexImportResult & { filename: string }) | null>(null);
     const [importScope, setImportScope] = useState('');
+    const [importScenes, setImportScenes] = useState<Array<'story' | 'meeting'>>(['story', 'meeting']);
     const [previewStage, setPreviewStage] = useState<'display' | 'history'>('display');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const test = useRef<AbortController | null>(null);
@@ -158,6 +159,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         }));
         setFeedback('');
         setImportScope('');
+        setImportScenes(['story', 'meeting']);
         setImported({ ...parsed, filename: file.name });
     });
     const confirmImport = () => {
@@ -165,7 +167,12 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         void perform(async () => {
             let merge = { added: 0, updated: 0, duplicates: 0 };
             await onSave(current => {
-                const result = mergeStoryRegexImport(current, imported.rules, importScope);
+                // A story preset restricts story playback only. Meetings have no
+                // preset: explicitly persist the selected scenes on import.
+                const selected = imported.rules.map(rule =>
+                    rule.kind === 'filter' && alchemyRuleTargets(rule).includes('offline')
+                        ? { ...rule, offlineScenes: [...importScenes] } : rule);
+                const result = mergeStoryRegexImport(current, selected, importScope);
                 merge = result;
                 return result.rules;
             });
@@ -262,11 +269,29 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <span className='min-w-0 flex-1 truncate text-sm font-semibold'>{imported.filename}</span>
                         <span className='shrink-0 text-xs text-neutral-500'>{imported.rules.length} 条</span>
                     </div>
-                    {activeSection === 'rules' && domain === 'offline' && imported.rules.some(item => item.kind === 'filter') &&
-                        <label className='block text-xs text-neutral-600'>适用预设
+                    {imported.rules.some(item => item.kind === 'filter' && alchemyRuleTargets(item).includes('offline')) && <>
+                        <div role='group' aria-label='导入线下规则生效位置' className='space-y-2 text-xs text-neutral-600'>
+                            <span>线下生效位置</span>
+                            <div className='flex items-center gap-2'>
+                                {(['story', 'meeting'] as const).map(scene => {
+                                    const checked = importScenes.includes(scene);
+                                    return <label key={scene} className={'flex cursor-pointer items-center rounded-md border px-3 py-1.5 ' +
+                                        (checked ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 bg-white text-neutral-500')}>
+                                        <input type='checkbox' className='sr-only'
+                                            aria-label={scene === 'story' ? '导入剧情生效' : '导入见面生效'}
+                                            checked={checked} disabled={checked && importScenes.length === 1}
+                                            onChange={event => setImportScenes(previous => event.target.checked
+                                                ? [...previous, scene] : previous.filter(value => value !== scene))}/>
+                                        {scene === 'story' ? '剧情' : '见面'}
+                                    </label>;
+                                })}
+                            </div>
+                        </div>
+                        {importScenes.includes('story') && <label className='block text-xs text-neutral-600'>剧情预设（仅影响剧情，见面不需要预设）
                             <select className={fieldClass} value={importScope}
                                 onChange={event => setImportScope(event.target.value)}>{scopeOptions(importScope)}</select>
                         </label>}
+                    </>}
                     <details className='rounded-lg bg-white px-3 py-2 text-xs' open>
                         <summary className='cursor-pointer font-medium'>导入内容</summary>
                         <div className='mt-2 divide-y divide-neutral-100'>
