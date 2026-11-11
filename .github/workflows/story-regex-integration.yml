@@ -90,6 +90,21 @@ jobs:
             "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
               --window-size=390,1150 --virtual-time-budget=4500 \
               --screenshot="/tmp/alchemy-shots/$view.png" "$url"
+            "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,1150 --virtual-time-budget=4500 \
+              --screenshot="/tmp/alchemy-shots/$view-expanded.png" "$url&expanded=1"
+            if [ "$section" = "rules" ]; then
+              for scope in online offline both; do
+                "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                  --window-size=390,1150 --virtual-time-budget=4500 --dump-dom "$url&action=scope-$scope" \
+                  > "/tmp/alchemy-shots/$view-scope-$scope.html"
+                grep -q 'data-alchemy-scope-ready="true"' "/tmp/alchemy-shots/$view-scope-$scope.html" || {
+                  echo "Failed real collapsed-header group scope switch: $view $scope"
+                  grep -o 'alchemy-scope-report[^>]*>[^<]*' "/tmp/alchemy-shots/$view-scope-$scope.html" || true
+                  exit 1
+                }
+              done
+            fi
             for action in rule-delete folder-delete; do
               "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
                 --window-size=390,1150 --virtual-time-budget=4500 --dump-dom "$url&action=$action" \
