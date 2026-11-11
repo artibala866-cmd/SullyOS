@@ -190,8 +190,10 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     // Earlier imports stored an empty array for enabled-but-empty keywords.
     // Semantically this equals "no keyword restriction" and should not duplicate
     // an existing template when the corrected importer is used again.
-    const key = ({ id: _id, enabled: _enabled, order: _order, ...rule }: StoryRegexRule) => JSON.stringify({
+    const key = ({ id: _id, enabled: _enabled, order: _order,
+        importGroup: _group, subcategory: _sub, ...rule }: StoryRegexRule) => JSON.stringify({
         ...rule,
+        domain: rule.domain || (rule.kind === 'template' ? 'online' : 'offline'),
         ...(rule.source && {
             source: {
                 ...rule.source,
@@ -216,6 +218,22 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
         const next = { ...rule, presetId };
         const signature = key(next);
         if (keys.has(signature)) {
+            // Old imports had no file folders. Attach the folder on reimport
+            // without duplicating rules or altering user-enabled switches.
+            const oldIndex = rules.findIndex(current => key(current) === signature);
+            if (oldIndex !== -1 && ((!rules[oldIndex].importGroup && next.importGroup)
+                || (!rules[oldIndex].subcategory && next.subcategory)
+                || (rules[oldIndex].order == null && next.order != null))) {
+                const old = rules[oldIndex];
+                rules[oldIndex] = { ...old,
+                    importGroup: old.importGroup || next.importGroup,
+                    subcategory: old.subcategory || next.subcategory,
+                    order: old.order ?? next.order,
+                    domain: old.domain || next.domain,
+                };
+                updated++;
+                continue;
+            }
             // Restore author-defined order on reimport (old imports did not
             // persist it), without overwriting the user's enabled toggle.
             const oldIndex = rules.findIndex(current => key(current) === signature);
