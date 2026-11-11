@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory, alchemyRuleAppliesTo, alchemyRuleTargets, removeAlchemyRule, removeAlchemyFolderSection } from './alchemyRegex';
+import { alchemyDomain, alchemyRulesFor, alchemyInstructions, alchemySubcategory, alchemyRuleAppliesTo, alchemyRuleTargets, removeAlchemyRule, removeAlchemyFolderSection, alchemyFolderTargetSelection, setAlchemyFolderTargets } from './alchemyRegex';
 import { applyStoryRegex, type StoryRegexRule } from './storyRegex';
 import { mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
 
@@ -79,6 +79,36 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         expect(removeAlchemyFolderSection(all, '混合文件', 'beauty', new Set(['card'])).map(x => x.id))
             .toEqual(['one', 'two', 'elsewhere']);
         expect(removeAlchemyFolderSection(all, '混合文件', 'rules', new Set())).toEqual(all);
+    });
+
+    it('switches a whole imported rule folder online, offline or both without touching other groups or user switches', () => {
+        const a = rule({ id: 'a', importGroup: '八股补丁', domain: 'offline',
+            presetId: 'tavern-A', source: { protectWords: ['草莓'] } });
+        const b = rule({ id: 'b', importGroup: '八股补丁', targets: ['online'],
+            enabled: false, subcategory: '句式清理' });
+        const other = rule({ id: 'c', importGroup: '别的补丁', targets: ['online'] });
+        const beauty = rule({ id: 'card', kind: 'template', importGroup: '八股补丁',
+            replacement: '<div>{{$1}}</div>', targets: ['online'] });
+        const rules = [a, b, other, beauty];
+        expect(alchemyFolderTargetSelection([a, b])).toBe('mixed');
+        const ids = new Set(['a', 'b', 'card', 'c']);
+        const both = setAlchemyFolderTargets(rules, '八股补丁', ids, ['online', 'offline']);
+        expect(alchemyFolderTargetSelection(both.filter(x => x.kind === 'filter' && x.importGroup === '八股补丁'))).toBe('both');
+        expect(alchemyRulesFor(both, 'online').map(x => x.id)).toEqual(['a', 'c', 'card']);
+        expect(alchemyRulesFor(both, 'offline', 'tavern-A').map(x => x.id)).toEqual(['a']);
+        expect(both[1].enabled).toBe(false);
+        expect(both[0].presetId).toBe('tavern-A');
+        expect(both[0].source?.protectWords).toEqual(['草莓']);
+        expect(both[2]).toBe(other);
+        expect(both[3]).toBe(beauty);
+        const online = setAlchemyFolderTargets(both, '八股补丁', ids, ['online']);
+        expect(alchemyFolderTargetSelection(online.slice(0, 2))).toBe('online');
+        expect(alchemyRulesFor(online, 'offline', 'tavern-A')).toEqual([]);
+        const offline = setAlchemyFolderTargets(online, '八股补丁', ids, ['offline']);
+        expect(alchemyFolderTargetSelection(offline.slice(0, 2))).toBe('offline');
+        expect(alchemyRulesFor(offline, 'online').map(x => x.id)).toEqual(['c', 'card']);
+        expect(rules[0].targets).toBeUndefined();
+        expect(() => setAlchemyFolderTargets(rules, '八股补丁', ids, [])).toThrow('至少选择一个');
     });
 
     it('does not duplicate rules when reimported after selecting both online and offline', () => {
