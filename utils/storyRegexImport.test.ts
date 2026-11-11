@@ -371,4 +371,66 @@ describe('糯叽机炼金术导入', () => {
         expect(rules.map(rule => rule.instruction)).toEqual(['', '']);
     });
 
+    it('旧版已保存且缺少来源标记的任意导入规则，无需重导入即可本地过滤', () => {
+        const parsed = parseStoryRegexImport(JSON.stringify({
+            name: '原版自定义规则', category: '旧作者自定义',
+            pattern: '(像玻璃一样|玻璃|两把雨伞)', flags: 'g',
+            replacement: '', applyOnDisplay: true, applyOnPrompt: true,
+            aiPrompt: '',
+        })).rules[0];
+        const legacy = {
+            ...parsed,
+            importGroup: '旧版文件A.json',
+            source: { category: undefined, originalRule: undefined, smartFilter: undefined },
+        };
+        const restored = readStoryRegexRules(JSON.stringify([legacy]))[0];
+        expect(restored.id).toBe(legacy.id);
+        expect(restored.enabled).toBe(true);
+        expect(restored.source?.smartFilter).toBeUndefined();
+        for (const stage of ['display', 'history'] as const) {
+            const result = applyStoryRegex('拿起玻璃，带上两把雨伞。他的心像玻璃一样。', [restored], stage);
+            expect(result.text).toBe('拿起玻璃，带上两把雨伞。他的心。');
+            expect(result.matches).toBe(1);
+        }
+        const intentionallyStrict = { ...restored, source: { ...restored.source, smartFilter: false } };
+        expect(applyStoryRegex('拿起玻璃', [intentionallyStrict], 'display').text).toBe('拿起');
+    });
+
+    it('旧数据库缺少中性可选字段可读取，丢失原版格式指令时不会凭空生成', () => {
+        const parsed = parseStoryRegexImport(JSON.stringify({
+            name: '旧版导入的词语规则', pattern: '珊瑚|像珊瑚一样',
+            applyOnDisplay: true, applyOnPrompt: true, aiPrompt: '',
+        })).rules[0];
+        const { presetId: _preset, instruction: _instruction, flags: _flags, ...old } = parsed;
+        const [restored] = readStoryRegexRules(JSON.stringify([old]));
+        expect(restored).toMatchObject({ id: parsed.id, presetId: '', instruction: '', flags: 'g' });
+        expect(restored.source?.originalRule).toBeDefined();
+        expect(applyStoryRegex('像珊瑚一样', [restored], 'display').text).toBe('');
+        expect(applyStoryRegex('带来了珊瑚', [restored], 'display').text).toBe('带来了珊瑚');
+    });
+
+    it('重新导入旧版缺省 source 字段不会重复，同时保留旧规则开关和旧 ID', () => {
+        const original = parseStoryRegexImport(JSON.stringify({
+            name: '旧版词语保护', pattern: '(像钥匙一样|钥匙)', flags: 'g',
+            applyOnDisplay: true, applyOnPrompt: false, replacement: '',
+        })).rules[0];
+        const old: typeof original = {
+            ...original,
+            enabled: false,
+            importGroup: '旧版文件.json',
+            source: { category: undefined, originalRule: undefined },
+        };
+        const newer = {
+            ...original, id: 'reimport-must-not-insert',
+            importGroup: '旧版文件.json',
+        };
+        const first = mergeStoryRegexImport([old], [newer], '');
+        expect(first.added).toBe(0);
+        expect(first.rules).toHaveLength(1);
+        expect(first.rules[0].id).toBe(old.id);
+        expect(first.rules[0].enabled).toBe(false);
+        expect(first.rules[0].source?.originalRule).toBeDefined();
+        expect(mergeStoryRegexImport(first.rules, [newer], '').added).toBe(0);
+    });
+
 });
