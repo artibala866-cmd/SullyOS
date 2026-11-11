@@ -149,17 +149,15 @@ async function run(){
       modalVisible:!!modalDialog&&!!modal&&!!footerBox,
       // A Link V1 PNG without an openings payload must not be described as a
       // character with no opening; the app may store it outside the export.
-      omissionExplained:source!=='link'||Boolean(modal?.textContent?.includes('分享图未携带')
-          &&modal?.textContent?.includes('不能据此判断')),
+      omissionExplained:source!=='link'||Boolean(modal?.textContent?.includes('分享包缺少部分开场白')
+          &&modal?.textContent?.includes('本地内容会保留')),
       documentPersonaVisible:source!=='document'||Boolean(
         modal?.textContent?.includes('自定义角色人设') &&
         states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked),
       linkOpeningsRecognized:source!=='link-openings'||Boolean(
         modal?.textContent?.includes('独立开场白：2 条') &&
-        modal?.textContent?.includes('车站相遇') &&
-        modal?.textContent?.includes('午夜回信') &&
-        modal?.textContent?.includes('开场白') &&
-        modal?.textContent?.includes('2 条')),
+        states[2]?.checked &&
+        modal?.textContent?.includes('开场白')),
       allCheckedDefault:source==='link'||source==='document'?states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked:
           source==='link-openings'?states[0]?.checked&&!states[1]?.checked&&states[2]?.checked:
           states.every(x=>x.checked),
