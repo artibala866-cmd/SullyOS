@@ -1345,8 +1345,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const selectedAffinityDraft = selectedAffinityActor ? (affinityDrafts[selectedAffinityActor.id] || EMPTY_AFFINITY_DRAFT) : EMPTY_AFFINITY_DRAFT;
     // Scrolling changes the header's visibleFloor state many times per second.
     // Keep the expensive story body and its iframe props referentially stable.
+    // Normalizing the actors array on a global clock update must not allocate
+    // new affinity props for every old floor. Only ID/name affect this display.
+    const actorIdentityKey = actors.map(actor => actor.id + ':' + actor.name).join('|');
     const affinityInputsByMessageId = useMemo(() => new Map(messages.filter(message => message.role === 'assistant')
-        .map(message => [message.id, storyAffinityInputsFromMessage(message, actors)] as const)), [messages, actors]);
+        .map(message => [message.id, storyAffinityInputsFromMessage(message, actors)] as const)), [messages, actorIdentityKey]);
 
     return <div className='relative h-full w-full flex flex-col bg-stone-100 text-slate-800'>
         <header className='story-safe-header shrink-0 bg-stone-100/95 backdrop-blur border-b border-slate-200 z-10'>
