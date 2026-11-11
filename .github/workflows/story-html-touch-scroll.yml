@@ -1,0 +1,62 @@
+name: Story HTML touch-scroll regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/story-html-touch-scroll.yml'
+      - 'components/date/story/StoryTheaterSession.tsx'
+      - 'utils/storyTheaterHtml.ts'
+      - 'utils/storyTheaterHtml.test.ts'
+      - 'utils/storyTheaterHtmlUI.test.tsx'
+      - 'utils/storyReadingScroll.wiring.test.ts'
+      - 'utils/storyTheaterRealDialectAudit.test.ts'
+      - 'tests/story-reading-scroll-visual.tsx'
+      - 'scripts/story-iframe-touch-audit.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: story-html-touch-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: HTML sandbox and reading scroll unit tests
+        run: pnpm exec vitest run utils/storyTheaterHtml.test.ts utils/storyTheaterHtmlUI.test.tsx utils/storyReadingScroll.wiring.test.ts utils/storyTheaterRealDialectAudit.test.ts
+      - name: Real touch gestures across long sandbox HTML floors
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/story-iframe-touch-audit.mjs
+          pnpm exec vite --host 127.0.0.1 --port 5196 --strictPort > /tmp/story-touch-vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5196/story-reading-scroll-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/story-touch-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          CHROME_BIN="$browser" node scripts/story-iframe-touch-audit.mjs \
+            'http://127.0.0.1:5196/story-reading-scroll-visual.html?mode=novel&count=72&rich=1'
+          test -s output/story-iframe-touch/72-floor-end.png
+      - name: Upload final-floor swipe screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-html-touch-scroll-mobile
+          path: output/story-iframe-touch/
+          if-no-files-found: ignore
