@@ -214,7 +214,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                         </button>
                     </div>
                 </> : !draft ? <>
-                    <p className='text-[11px] leading-5 text-slate-500'>可导入糯叽机炼金术导出的 JSON。规则按列表顺序生效，先过滤文字，再套用 HTML 模板。</p>
+                    
                     {feedback && <p role='status' className='rounded-xl border border-slate-200 px-3 py-2 text-xs text-violet-700'>{feedback}</p>}
                     {!rules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
                         <div className='text-sm font-semibold'>还没有剧情正则</div>
@@ -285,7 +285,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                                 onChange={event => patch({ flags: event.target.value })} />
                         </label>
                     </div>
-                    <p className='text-xs leading-5 text-slate-500'>支持直接粘贴 <code>/表达式/gi</code>。末尾修饰符会覆盖右侧填写的值。</p>
+                    
                     <label className='block space-y-1 text-xs font-semibold'>{isTemplate ? 'HTML 模板' : '替换为'}
                         <textarea className={`${fieldClass} font-mono`} rows={isTemplate ? 7 : 3} value={draft.replacement}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
@@ -315,9 +315,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                                 }} />
                             </label>
                         </div>
-                        <p className='text-[11px] leading-5 text-slate-500'>{draft.parseMode && draft.parseMode !== 'text'
-                            ? <>用 <code>{'{{1.字段名}}'}</code> 读取第一组捕获到的字段。</>
-                            : <>用 <code>{'{{$1}}'}</code> 填入第一个捕获组。支持内嵌 CSS 和截图。</>}</p>
+                        
                         {draft.source && <label className='flex items-center gap-2 text-xs'>
                             <input type='checkbox' checked={draft.display} onChange={event => patch({ display: event.target.checked })} />阅读时显示模板
                         </label>}
