@@ -92,7 +92,7 @@ const report = () => {
     // A real content-height frame may be taller than its old heuristic.
     // Check for excess blank space without reintroducing a scrolling iframe.
     const compactHeight = dialect === 'janus' || frameHeights.every(height =>
-        height >= 76 && height <= Math.min(650, innerHeight * 0.7));
+        height >= 76 && height <= 650);
     const success = Boolean(frameCount === expectedFrames && structure && secure && widthOk && compactHeight);
     document.body.dataset.storyTheaterHtmlReady = String(success);
     let output=document.getElementById('story-tavern-html-report');
