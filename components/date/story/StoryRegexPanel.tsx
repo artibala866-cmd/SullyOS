@@ -6,12 +6,11 @@ import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppea
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
-import { alchemyRuleTargets, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
+import { alchemyRuleTargets, alchemyOfflineScenes, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import AlchemyHtmlFrame from '../../alchemy/AlchemyHtmlFrame';
 import { renderAlchemyTemplatePreview } from '../../../utils/alchemyTemplatePreview';
 import { useOS } from '../../../context/OSContext';
-import { SafeStoryHtml } from './StoryTheaterSession';
 
 interface Props {
     domain?: AlchemyDomain;
@@ -205,11 +204,14 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const scopeName = (presetId: string, rule?: StoryRegexRule) => {
         if (rule?.kind === 'template') return '私聊 / 群聊';
         const scopes = alchemyRuleTargets(rule || createRule('rules', domain));
+        const offline = rule ? alchemyOfflineScenes(rule) : ['story', 'meeting'];
+        const storyName = presetId
+            ? (presets.find(preset => preset.id === presetId)?.name || (presets.length ? '预设已移除' : '指定预设'))
+            : '全部预设';
         return [
             scopes.includes('online') ? '私聊 / 群聊' : '',
-            scopes.includes('offline') ? (presetId
-                ? presets.find(preset => preset.id === presetId)?.name || '预设已移除'
-                : '剧情 / 见面') : '',
+            scopes.includes('offline') && offline.includes('story') ? '剧情 · ' + storyName : '',
+            scopes.includes('offline') && offline.includes('meeting') ? '见面' : '',
         ].filter(Boolean).join(' + ');
     };
     const scopeOptions = (presetId: string) => <>
@@ -329,11 +331,25 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             })}
                         </div>}
                     </div>
+                    {!isTemplate && alchemyRuleTargets(draft).includes('offline') &&
+                        <div role='group' aria-label='线下规则生效位置' className='flex items-center gap-1.5 text-xs'>
+                            {(['story', 'meeting'] as const).map(scene => {
+                                const selected = alchemyOfflineScenes(draft);
+                                const checked = selected.includes(scene);
+                                return <label key={scene} className={'flex cursor-pointer items-center rounded-md border px-2 py-1.5 ' +
+                                    (checked ? 'border-neutral-800 bg-neutral-800 text-white' : 'border-neutral-200 bg-white text-neutral-500')}>
+                                    <input type='checkbox' className='sr-only' aria-label={scene === 'story' ? '剧情生效' : '见面生效'}
+                                        checked={checked} disabled={checked && selected.length === 1}
+                                        onChange={event => patch({ offlineScenes: event.target.checked
+                                            ? [...selected, scene] : selected.filter(value => value !== scene) })}/>
+                                    {scene === 'story' ? '剧情' : '见面'}
+                                </label>;
+                            })}
+                        </div>}
                     {isTemplate && <section aria-label='HTML 实时效果' data-alchemy-live-preview
-                        className='min-w-0 overflow-hidden rounded-xl border border-neutral-200 bg-white p-2'>
-                        {liveHtml ? <div className='max-h-[260px] overflow-y-auto'>
-                            <AlchemyHtmlFrame html={liveHtml} fallback='' title={draft.name || 'HTML 效果'}/>
-                        </div> : <div className='grid h-24 place-items-center text-xs text-neutral-400'>HTML 效果</div>}
+                        className='min-w-0 rounded-xl border border-neutral-200 bg-white p-2'>
+                        {liveHtml ? <AlchemyHtmlFrame html={liveHtml} fallback='' title={draft.name || 'HTML 效果'}/>
+                            : <div className='grid h-24 place-items-center text-xs text-neutral-400'>HTML 效果</div>}
                     </section>}
                     {!isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                         <label className='min-w-0 text-xs font-medium text-neutral-600'>匹配正则
@@ -470,7 +486,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 <span className='text-neutral-400'>匹配 {result.matches} 处</span>
                                 {previewParts.map((part, index) => typeof part === 'string' ?
                                     part && <p key={index} className='whitespace-pre-wrap break-words'>{part}</p> :
-                                    <SafeStoryHtml key={index} template source={part.html} fallback={part.fallback} title={part.title}/>)}
+                                    <div key={part.token} className='w-full max-w-[360px]'>
+                                        <AlchemyHtmlFrame html={part.html} fallback={part.fallback} title={part.title}/>
+                                    </div>)}
                                 {!result.text && <p className='text-neutral-400'>无输出</p>}
                             </div>}
                         </div>
