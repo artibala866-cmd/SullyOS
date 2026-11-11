@@ -207,13 +207,12 @@ describe('collaboration sidecar wiring', () => {
     expect(richOutput).toContain('stripUnsupportedCollaborationActions');
   });
 
-  it('explains the collaboration boundary before mode selection', () => {
+  it('keeps both collaboration modes accessible without a long onboarding essay', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
-    expect(windowSource).toContain('这是什么？');
-    expect(windowSource).toContain('两个模式差在哪？');
-    expect(windowSource).toContain('会进入角色记忆吗？');
-    expect(windowSource).toContain('普通聊天不会变成工作模式');
-    expect(windowSource).toContain('真正干活仍要进入这里');
+    expect(windowSource).toContain("(['immersive', 'focused'] as CollaborationMode[])");
+    expect(windowSource).toContain('onClick={() => onChoose(mode)}');
+    expect(windowSource).toContain('MODE_DESCRIPTIONS[mode]');
+    expect(windowSource).not.toContain('collab-mode-explanation mt-8');
   });
 
   it('opens on a new-or-history chooser when records exist instead of resuming the latest one', () => {
