@@ -223,26 +223,104 @@ export const adaptTavernWritingInterlude = (raw: string): string | undefined => 
 export const hasStoryHtmlLayout = (source: string): boolean =>
     /<(?:div|section|article|table|thead|tbody|tr|td|th|style|img|figure|figcaption|p|h[1-6]|ul|ol|li|blockquote|pre|details|summary)\b/i.test(source);
 
-// First-party runtime: only sanitized HTML templates receive it, in an
-// opaque-origin sandbox with a strict nonce CSP. Imported JS never runs.
-const TRUSTED_TEMPLATE_RUNTIME = String.raw`
+// First-party runtime shared by all sanitized story HTML frames. Author JS
+// is stripped; only this nonce-authorized bridge runs in an opaque sandbox.
+// It measures natural content (not the iframe viewport) and forwards vertical
+// touch gestures to the one outer story scroller.
+const TRUSTED_STORY_FRAME_RUNTIME = String.raw`
 (() => {
+    let lastHeight = 0;
+    let sizeFrame = 0;
     const postSize = () => {
+        sizeFrame = 0;
         const root = document.querySelector('.story-theater-html-content');
-        const height = Math.ceil(Math.max(document.body.scrollHeight,
-            root ? root.getBoundingClientRect().bottom : 0) + 2);
+        if (!root) return;
+        // body.scrollHeight is at least the iframe viewport when imported CSS
+        // uses full-height layouts. Measuring it creates an ever-growing
+        // ResizeObserver → iframe-height feedback loop in long stories.
+        const rect = root.getBoundingClientRect();
+        const bodyTop = document.body.getBoundingClientRect().top;
+        const height = Math.ceil(Math.max(root.scrollHeight, rect.height)
+            + Math.max(0, rect.top - bodyTop) + 3);
+        if (height === lastHeight) return;
+        lastHeight = height;
         window.parent.postMessage({ type: 'sully-story-template-height', height }, '*');
     };
-    const schedule = () => window.requestAnimationFrame(postSize);
+    const schedule = () => {
+        if (!sizeFrame) sizeFrame = window.requestAnimationFrame(postSize);
+    };
     document.addEventListener('click', schedule);
     document.addEventListener('change', schedule);
     window.addEventListener('load', schedule);
     if (typeof ResizeObserver !== 'undefined') {
         const observer = new ResizeObserver(schedule);
-        observer.observe(document.body);
         const root = document.querySelector('.story-theater-html-content');
         if (root) observer.observe(root);
     }
+    // Pointer events inside a sandboxed iframe never bubble to the parent
+    // scrollport on Android WebView. Without a bridge, scrolling a large card
+    // traps the finger inside the frame, leaving the story stuck between floors.
+    let touch = null;
+    let inertiaFrame = 0;
+    const stopInertia = () => {
+        if (inertiaFrame) window.cancelAnimationFrame(inertiaFrame);
+        inertiaFrame = 0;
+    };
+    const forward = (deltaY) => {
+        if (Number.isFinite(deltaY) && Math.abs(deltaY) > .05) {
+            window.parent.postMessage({ type: 'sully-story-template-scroll', deltaY }, '*');
+        }
+    };
+    document.addEventListener('touchstart', event => {
+        stopInertia();
+        if (event.touches.length !== 1 ||
+            event.target.closest('canvas[data-story-scratch="1"], input, textarea, select')) {
+            touch = null;
+            return;
+        }
+        const point = event.touches[0];
+        touch = { x: point.clientX, y: point.clientY, time: performance.now(), velocity: 0, axis: '' };
+    }, { passive: true });
+    document.addEventListener('touchmove', event => {
+        if (!touch || event.touches.length !== 1) return;
+        const point = event.touches[0];
+        const dx = Math.abs(point.clientX - touch.x);
+        const dy = Math.abs(point.clientY - touch.y);
+        if (!touch.axis && Math.max(dx,dy) >= 4) touch.axis = dy > dx ? 'y' : 'x';
+        if (touch.axis !== 'y') return;
+        event.preventDefault();
+        const deltaY = touch.y - point.clientY;
+        const time = performance.now();
+        const elapsed = Math.max(8, time - touch.time);
+        touch.velocity = touch.velocity * .35 + (deltaY / elapsed) * .65;
+        touch.y = point.clientY;
+        touch.time = time;
+        forward(deltaY);
+    }, { passive: false });
+    const finishTouch = () => {
+        if (!touch) return;
+        const speed = touch.axis === 'y' && performance.now() - touch.time < 90 ? touch.velocity : 0;
+        touch = null;
+        if (Math.abs(speed) < .12) return;
+        let previous = performance.now();
+        let velocity = Math.max(-3, Math.min(3, speed));
+        const tick = now => {
+            const dt = Math.min(32, now - previous);
+            previous = now;
+            forward(velocity * dt);
+            velocity *= Math.exp(-dt / 195);
+            inertiaFrame = Math.abs(velocity) > .08 ? requestAnimationFrame(tick) : 0;
+        };
+        inertiaFrame = requestAnimationFrame(tick);
+    };
+    document.addEventListener('touchend', finishTouch, { passive: true });
+    document.addEventListener('touchcancel', () => { touch = null; stopInertia(); }, { passive: true });
+    document.addEventListener('wheel', event => {
+        if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+        stopInertia();
+        event.preventDefault();
+        forward(event.deltaY);
+    }, { passive: false });
     for (const canvas of document.querySelectorAll('canvas[data-story-scratch="1"]')) {
         const ctx = canvas.getContext('2d');
         if (!ctx) continue;
@@ -369,7 +447,7 @@ export const sanitizeStoryTheaterHtml = (source: string, template = false): Safe
     const estimatedHeight = Math.max(template ? 104 : 76, Math.min(520,
         (template ? 60 : 22) + lines * 22 + blockLines * 17 + visibleDetails * 32 + images * (template ? 220 : 145)));
     const baseCss = [
-        'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere}',
+        'html,body{margin:0;padding:0;background:transparent;color:#334155;font:13px/1.7 system-ui,sans-serif;overflow-wrap:anywhere;overflow-y:hidden;overscroll-behavior-y:contain;touch-action:pan-x pinch-zoom}',
         '.story-theater-html-content{box-sizing:border-box;max-width:100%;overflow-x:auto;padding:8px 2px}',
         '.story-theater-html-content *{box-sizing:border-box;max-width:100%}',
         '.story-theater-html-content img{display:inline-block;max-width:100%;height:auto}',
@@ -380,15 +458,14 @@ export const sanitizeStoryTheaterHtml = (source: string, template = false): Safe
         '.story-theater-html-content pre{white-space:pre-wrap;overflow-wrap:anywhere}',
         css,
     ].join('\n');
-    const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src "
-        + (template ? "'nonce-sully-story-template-runtime'" : "'none'")
+    const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-sully-story-template-runtime'"
         + "; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
     const srcDoc = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         + '<meta name="viewport" content="width=device-width,initial-scale=1">'
         + '<meta http-equiv="Content-Security-Policy" content="' + escapeHtml(csp) + '">'
         + '<style>' + baseCss + '</style></head><body><main class="story-theater-html-content">'
         + html + '</main>'
-        + (template ? '<script nonce="sully-story-template-runtime">' + TRUSTED_TEMPLATE_RUNTIME + '</script>' : '')
+        + '<script nonce="sully-story-template-runtime">' + TRUSTED_STORY_FRAME_RUNTIME + '</script>'
         + '</body></html>';
     return { srcDoc, text, hasVisibleContent, estimatedHeight };
 };
