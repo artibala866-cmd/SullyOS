@@ -6,11 +6,11 @@ import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nat
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
 export const SHARED_CHARACTER_FIELDS = [
-    'id', 'cardImportOrigin', 'tavernGreetings', 'name', 'avatar', 'description', 'systemPrompt', 'worldview', 'groupId', 'mountedWorldbooks',
+    'id', 'cardImportOrigin', 'tavernGreetings', 'linkGreetings', 'name', 'avatar', 'description', 'systemPrompt', 'worldview', 'groupId', 'mountedWorldbooks',
     'dialogueApi', 'videoAvatar', 'videoAvatarWardrobe', 'companionAvatar', 'videoCallBackground', 'companionBackground', 'companionThemeColor',
     'videoCallPerformanceQuality', 'chatShowRemark', 'bubbleStyle', 'chatFineTune', 'chatAppearance', 'chatDecorationCssIsolated', 'chatBackground',
     'contextLimit', 'contextRangeMode', 'contextRangePolicyVersion', 'hideSystemLogs', 'dateBackground', 'dateSceneBackgrounds', 'sprites', 'spriteConfig',
-    'customDateSprites', 'dateLightReading', 'dateAppearance', 'dateReadingShowAvatars', 'dateSkinSets', 'activeSkinSetId', 'dateStyleConfig',
+    'customDateSprites', 'spriteConfigLandscape', 'dateLightReading', 'dateAppearance', 'dateReadingShowAvatars', 'dateSkinSets', 'activeSkinSetId', 'dateStyleConfig',
     'dateExtraPresets', 'dateObserve', 'chibiStudio', 'roomConfig', 'voiceProfile', 'timeAwarenessEnabled', 'customTimezoneEnabled', 'customTimezone',
     'dateTimeAwarenessEnabled', 'chatVoiceEnabled', 'chatVoiceAutoPlay', 'chatVoiceLang', 'dateVoiceEnabled', 'dateVoiceLang', 'callVoiceLang',
     'memoryPalaceEnabled', 'autoArchiveEnabled', 'memoryPalaceWaterline', 'embeddingConfig', 'personalityStyle', 'ruminationTendency', 'interactionAccommodation',
@@ -203,11 +203,16 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         const previousAssets = await all(target, 'assets');
         await new Promise<void>((resolve, reject) => {
             const tx = target!.transaction(['characters', 'assets', 'blob_assets', 'user_profile', ...storeNames], 'readwrite');
-            const chars = tx.objectStore('characters'); chars.clear();
+            // Keep target-only character records. A restored or late-edited identity may
+            // have a different roster; erasing it here also erases its memories,
+            // relationship state and per-character data without user consent.
+            const chars = tx.objectStore('characters');
             const byId = new Map(previous.map(char => [char.id, char]));
             for (const char of bases) chars.put(mergeCharacterBase(char, byId.get(char.id)));
             for (let i = 0; i < storeNames.length; i++) {
-                const store = tx.objectStore(storeNames[i]); store.clear();
+                // Merge shared libraries by primary key. Clearing first silently discards
+                // target-only worldbooks, presets and other source resources.
+                const store = tx.objectStore(storeNames[i]);
                 for (const row of resources[i]) store.put(row);
             }
             const assetStore = tx.objectStore('assets');

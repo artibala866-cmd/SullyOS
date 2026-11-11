@@ -126,6 +126,52 @@ describe('user 身份存档隔离', () => {
         expect((await rows(source, 'messages'))[0].content).toBe('旧私聊');
         target.close(); source.close();
     });
+    it('keeps target-only roles, worlds and private histories after a mismatched A/B/A/B roster', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        const sourceChar = { id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',memories:[{summary:'A身份的私密记忆'}],
+            linkGreetings:[{id:'opening-a',title:'原生开场',content:'原始开场内容'}],
+            spriteConfigLandscape:{scale:1.4,offsetX:4,offsetY:-10} };
+        await write(original,{characters:[sourceChar],worldbooks:[{id:'world-a',name:'原世界书'}]});
+        await (await import('./userSaves')).activateUserSave(SECOND,{name:'B身份'});
+        const fresh = await open('AetherOS_Data__user_'+SECOND);
+        const [created] = await rows(fresh,'characters');
+        expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
+        expect(created.spriteConfigLandscape).toEqual(sourceChar.spriteConfigLandscape);
+        expect(created.memories).toEqual([]);
+        fresh.close();original.close();
+
+        // B -> A completes; a delayed B-tab write or recovered older data then
+        // makes B's roster diverge from A. B's private state must survive A -> B.
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        const target = await open('AetherOS_Data__user_'+SECOND);
+        await write(target,{
+            characters:[{id:'b',name:'B独有角色',avatar:'',description:'B的卡片',systemPrompt:'角色B人设',
+                memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}}],
+            messages:[{id:99,charId:'b',content:'B独有私聊'}],
+            memory_nodes:[{id:'memory-b',charId:'b',content:'B独有宫殿记忆'}],
+            worldbooks:[{id:'world-b',name:'B独有世界书'}],
+        });
+        target.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        const restored = await open('AetherOS_Data__user_'+SECOND);
+        const roles = await rows(restored,'characters');
+        expect(roles.map(role=>role.id).sort()).toEqual(['a','b']);
+        expect(roles.find(role=>role.id==='b')).toMatchObject({
+            memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}
+        });
+        expect((await rows(restored,'messages')).find(row=>row.charId==='b')?.content).toBe('B独有私聊');
+        expect((await rows(restored,'memory_nodes')).find(row=>row.charId==='b')?.content).toBe('B独有宫殿记忆');
+        expect((await rows(restored,'worldbooks')).map(row=>row.id).sort()).toEqual(['world-a','world-b']);
+        restored.close();
+        const a = await open('AetherOS_Data');
+        expect((await rows(a,'characters')).map(row=>row.id)).toEqual(['a']);
+        expect((await rows(a,'messages')).find(row=>row.charId==='b')).toBeUndefined();
+        a.close();
+    });
     it('merging common edits preserves target-specific memories and relationship/runtime data', async () => {
         const { baseCharacter, mergeCharacterBase } = await import('./userSaves');
         const previous: any = { id:'c', name:'旧名字', systemPrompt:'旧人设', description:'', avatar:'', memories:[{summary:'B的记忆'}],
