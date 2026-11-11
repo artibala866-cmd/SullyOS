@@ -183,6 +183,24 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
     })}</div>
 </div>;
 
+// A single parent listener handles all sandboxed story cards. Previously
+// every floor registered its own global listener, so each resize/gesture
+// message was inspected by hundreds of unrelated frames in long sessions.
+const storyFrameMessageHandlers = new Map<MessageEventSource, (event: MessageEvent) => void>();
+const dispatchStoryFrameMessage = (event: MessageEvent) => {
+    if (event.source) storyFrameMessageHandlers.get(event.source)?.(event);
+};
+const subscribeStoryFrameMessages = (frame: HTMLIFrameElement, listener: (event: MessageEvent) => void): (() => void) => {
+    const source = frame.contentWindow;
+    if (!source) return () => {};
+    if (storyFrameMessageHandlers.size === 0) window.addEventListener('message', dispatchStoryFrameMessage);
+    storyFrameMessageHandlers.set(source, listener);
+    return () => {
+        if (storyFrameMessageHandlers.get(source) === listener) storyFrameMessageHandlers.delete(source);
+        if (storyFrameMessageHandlers.size === 0) window.removeEventListener('message', dispatchStoryFrameMessage);
+    };
+};
+
 export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = React.memo(({ source, fallback, title, template = false }) => {
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
     const frameRef = useRef<HTMLIFrameElement>(null);
@@ -220,8 +238,8 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
                 if (scrollport) scrollport.scrollTop += Math.max(-240, Math.min(240, delta));
             }
         };
-        window.addEventListener('message', receiveFrameMessage);
-        return () => window.removeEventListener('message', receiveFrameMessage);
+        const frame = frameRef.current;
+        return frame ? subscribeStoryFrameMessages(frame, receiveFrameMessage) : undefined;
     }, []);
     if (!safe.hasVisibleContent) {
         return <div className='whitespace-pre-wrap break-words text-xs leading-6 text-slate-500'>
