@@ -35,23 +35,32 @@ export function useAlchemyRules(domain: AlchemyDomain) {
 
 /** Display-only transformation. The original message, DB record, history,
  * quote snapshots and outgoing model context stay byte-for-byte intact. */
+const EMPTY_ALCHEMY_RESULTS = new Map<number, StoryRegexResult>();
+
 export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexRule[], domain: AlchemyDomain) {
-    const [results, setResults] = useState<Map<number, StoryRegexResult>>(() => new Map());
     const active = useMemo(() => alchemyRulesFor(rules, domain), [rules, domain]);
+    const [cache, setCache] = useState<{
+        messages: Message[]; active: StoryRegexRule[]; results: Map<number, StoryRegexResult>;
+    } | null>(null);
     useEffect(() => {
         const controller = new AbortController();
         const eligible = active.length ? messages.filter(message =>
             message.role === 'assistant' && message.type === 'text' && !!message.content) : [];
-        if (!eligible.length) { setResults(new Map()); return; }
+        if (!eligible.length) { setCache({ messages, active, results: EMPTY_ALCHEMY_RESULTS }); return; }
         void runStoryRegex(eligible.map(message => ({
             text: message.content, role: 'assistant' as const,
         })), active, 'display', controller.signal).then(converted => {
-            if (!controller.signal.aborted) setResults(new Map(eligible.map((message, index) => [message.id, converted[index]])));
+            if (!controller.signal.aborted) setCache({ messages, active,
+                results: new Map(eligible.map((message, index) => [message.id, converted[index]])) });
         }).catch(error => {
             // Malformed imported regex must not crash the chat or erase text.
             if (!controller.signal.aborted) console.warn('[Alchemy] display rules skipped', error);
         });
         return () => controller.abort();
     }, [messages, active]);
-    return results;
+    // Never show a stale transformed bubble while switching characters,
+    // editing messages or changing rule folders. The original text renders
+    // until the current worker run completes.
+    return cache?.messages === messages && cache.active === active
+        ? cache.results : EMPTY_ALCHEMY_RESULTS;
 }
