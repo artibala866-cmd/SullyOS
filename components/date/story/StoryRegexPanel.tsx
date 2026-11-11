@@ -218,10 +218,6 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
                     {feedback && <p role='status' className='rounded-xl border border-slate-200 px-3 py-2 text-xs text-violet-700'>{feedback}</p>}
                     {!rules.length && <div className='rounded-3xl border border-dashed border-slate-300 py-9 text-center'>
                         <div className='text-sm font-semibold'>还没有剧情正则</div>
-                        <div className='mt-3 flex justify-center gap-2'>
-                            <button type='button' disabled={busy} onClick={() => upload.current?.click()} className={actionClass}>导入文件</button>
-                            <button type='button' disabled={busy} onClick={() => open(createRule())} className={actionClass}>新建规则</button>
-                        </div>
                     </div>}
                     <div className='divide-y divide-slate-200'>
                     {rules.map(rule => <div key={rule.id} className='flex items-center gap-3 py-2'>
