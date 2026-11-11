@@ -412,11 +412,15 @@ async function readBodyWithStreaming(
     let pending = '';       // SSE 模式下未消费完的半行缓冲
     let mode: 'undecided' | 'sse' | 'raw' = 'undecided';
     let sawFirstDelta = false;
-    let sawTerminalEvent = false;
+    let sawDoneMarker = false;
+    let finishedAt = 0;
     const contentType = response.headers.get('content-type');
 
-    const emit = (delta: SseFeedDelta) => {
-        if (delta.done) sawTerminalEvent = true;
+    const emit = (delta: SseFeedDelta, sourceLine: string) => {
+        if (delta.done) {
+            if (/^data:\s*\[DONE\]/.test(sourceLine.trimStart())) sawDoneMarker = true;
+            else if (!finishedAt) finishedAt = Date.now();
+        }
         if (delta.content) {
             if (!sawFirstDelta) {
                 sawFirstDelta = true;
@@ -430,17 +434,81 @@ async function readBodyWithStreaming(
         }
     };
 
+    // SSE allows one JSON payload to span several "data:" lines. Buffer only
+    // malformed/incomplete single lines, keeping ordinary one-line deltas live.
+    // The same source assembler handles tool calls, reasoning and regular prose.
+    let multipart: string[] = [];
+    const discardMalformedMultipart = () => {
+        for (const part of multipart) {
+            const line = 'data: ' + part;
+            emit(asm.feedLine(line), line);
+        }
+        multipart = [];
+    };
+    const feedSseLine = (line: string) => {
+        const trimmed = line.trimStart();
+        if (!trimmed.startsWith('data:')) {
+            if (multipart.length) discardMalformedMultipart();
+            emit(asm.feedLine(line), line);
+            return;
+        }
+        const part = trimmed.slice(5).trim();
+        if (part === '[DONE]') {
+            if (multipart.length) discardMalformedMultipart();
+            emit(asm.feedLine(line), line);
+            return;
+        }
+        if (!multipart.length) {
+            try { JSON.parse(part); emit(asm.feedLine(line), line); return; }
+            catch { multipart.push(part); return; }
+        }
+        const joined = [...multipart, part].join('\n');
+        try {
+            JSON.parse(joined);
+            multipart = [];
+            const merged = 'data: ' + joined;
+            emit(asm.feedLine(merged), merged);
+            return;
+        } catch { /* Continue reading a multi-line JSON event. */ }
+        // A following standalone valid frame indicates the previous one was
+        // actually corrupt, not a multi-line event. Do not lose that next frame.
+        try {
+            JSON.parse(part);
+            discardMalformedMultipart();
+            emit(asm.feedLine(line), line);
+        } catch { multipart.push(part); }
+    };
     const consumeLines = () => {
         const lastNl = pending.lastIndexOf('\n');
         if (lastNl < 0) return;
         const complete = pending.slice(0, lastNl);
         pending = pending.slice(lastNl + 1);
-        for (const line of complete.split(/\r?\n/)) emit(asm.feedLine(line));
+        for (const line of complete.split(/\r?\n/)) feedSseLine(line);
     };
 
     while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        // A finish_reason can precede the final usage chunk. Keep draining
+        // briefly after it; [DONE] closes immediately, even on a stuck socket.
+        // No deadline applies during active model generation.
+        let next: ReadableStreamReadResult<Uint8Array> | null;
+        if (finishedAt && !sawDoneMarker) {
+            const read = reader.read();
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            next = await Promise.race([
+                read,
+                new Promise<null>(resolve => {
+                    timer = setTimeout(() => resolve(null), Math.max(0, finishedAt + 3000 - Date.now()));
+                }),
+            ]).finally(() => clearTimeout(timer));
+            if (!next) {
+                try { await reader.cancel(); } catch { /* terminal response already collected */ }
+                break;
+            }
+        } else {
+            next = await reader.read();
+        }
+        if (next.done) break;
+        const { value } = next;
         const textChunk = decoder.decode(value, { stream: true });
         raw += textChunk;
         if (mode === 'undecided') {
@@ -460,10 +528,8 @@ async function readBodyWithStreaming(
             pending += textChunk;
         }
         if (mode === 'sse') consumeLines();
-        if (sawTerminalEvent) {
-            // A few OpenAI-compatible Claude proxies send [DONE]/finish_reason but
-            // keep the HTTP socket alive. The completion is already whole; waiting
-            // for reader.done would leave the Qixi loader spinning forever.
+        if (sawDoneMarker) {
+            // Some relays leave the HTTP socket alive after an explicit DONE.
             try { await reader.cancel(); } catch { /* completion is already assembled */ }
             break;
         }
@@ -475,7 +541,8 @@ async function readBodyWithStreaming(
     }
     if (mode === 'sse') {
         consumeLines();
-        if (pending.trim()) emit(asm.feedLine(pending.trim()));
+        if (pending.trim()) feedSseLine(pending.trim());
+        if (multipart.length) discardMalformedMultipart();
         const assembled = asm.finish();
         if (assembled) return assembled;
         // 一个 chunk 都没解析出来 → 按原始文本兜底（保留原 preview 报错行为）
