@@ -3,12 +3,15 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('Live2D update notification references', () => {
-  it('adds the collaboration popup before older update notices and names the ChatApp plus-menu route', () => {
+  it('does not queue feature-release essays in the self-use interface', () => {
     const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
-    expect(source).toContain('CollaborationUpdatePopup');
-    expect(source).toContain("UPDATE_NOTIFICATION_KEY_2026_08_30 = 'sullyos_update_2026_08_30_collaboration_seen'");
-    expect(source).toContain('点输入框左侧的 <b>＋</b>');
-    expect(source.indexOf('UPDATE_NOTIFICATION_KEY_2026_08_30, render')).toBeLessThan(source.indexOf('NETWORK_TRANSIT_NOTICE_KEY_2026_08, render'));
+    const queue = source.slice(source.indexOf('const UPDATE_QUEUE:'), source.indexOf('export const shouldShowUpdateNotification'));
+    expect(queue).toContain('NETWORK_TRANSIT_NOTICE_KEY_2026_08');
+    for (const announcement of ['NavigationBallAnnouncement', 'HomeUpdateAnnouncement', 'SmallUpdatesPopup', 'DecorationUpdatePopup', 'Live2DUpdatePopup']) {
+      expect(queue).not.toContain(announcement);
+    }
+    expect(source).toContain('联网请求');
+    expect(source).not.toContain('例行维护 · 说明补充');
   });
 
   it('links the handbook collaboration entry to its detailed release note', () => {
