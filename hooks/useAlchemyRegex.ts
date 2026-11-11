@@ -45,10 +45,10 @@ export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexR
     useEffect(() => {
         const controller = new AbortController();
         const eligible = active.length ? messages.filter(message =>
-            message.role === 'assistant' && message.type === 'text' && !!message.content) : [];
+            (message.role === 'assistant' || message.role === 'user') && message.type === 'text' && !!message.content) : [];
         if (!eligible.length) { setCache({ messages, active, results: EMPTY_ALCHEMY_RESULTS }); return; }
         void runStoryRegex(eligible.map(message => ({
-            text: message.content, role: 'assistant' as const,
+            text: message.content, role: message.role as 'assistant' | 'user',
         })), active, 'display', controller.signal).then(converted => {
             if (!controller.signal.aborted) setCache({ messages, active,
                 results: new Map(eligible.map((message, index) => [message.id, converted[index]])) });
