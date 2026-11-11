@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyWorkspace, type Commission, type WorkspaceData } from './sullyWorkspace';
 import {
   createCommissionPlanRequest, isPlanPreviewStale, parseCommissionPlanReply,
@@ -21,6 +21,10 @@ const workspace=():WorkspaceData=>{
 const today='2026-11-10';
 const request=(w=workspace())=>createCommissionPlanRequest(w,'charA',today,1);
 describe('Char 排单建议必须经过用户逐项确认',()=>{
+  // Fixed historical fixture: do not let the host's current date expire this test.
+  // The explicit next-day expiration assertion below still checks the real guard.
+  beforeEach(()=>{ vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-10T12:00:00')); });
+  afterEach(()=>vi.useRealTimers());
   it('请求只在点击时构建且不带客户、费用、备注和订单隐私',()=>{
     const req=request();
     expect(req.prompt).toContain('第一张稿');
