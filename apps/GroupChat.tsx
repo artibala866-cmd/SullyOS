@@ -62,6 +62,7 @@ import { useAlchemyRules, useAlchemyMessageResults } from '../hooks/useAlchemyRe
 import type { StoryRegexResult } from '../utils/storyRegex';
 import { WhiteboxSound, parseWhiteboxSound, upsertWhiteboxSound, stripWhiteboxSoundDirective, resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
 import { buildHtmlPrompt } from '../utils/htmlPrompt';
+import { loadAlchemyInstructions } from '../utils/alchemyRegex';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import {
     buildGroupTopicContext,
@@ -1560,7 +1561,17 @@ ${memberTimeline || '(暂无互动记录)'}
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
             const photo = photoInstruction('group', activeGroup.id, currentMsgs.slice(-8).some(m => m.role === 'assistant' && m.type === 'image'));
-            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photo.text}\n`;
+            const recentUser = [...currentMsgs].reverse().find(message => message.role === 'user');
+            let onlineAlchemyGuide = '';
+            try {
+                const guidance = await loadAlchemyInstructions('online',
+                    typeof recentUser?.content === 'string' ? recentUser.content.slice(-500) : '',
+                    { user: userProfile.name, char: groupMembers.map(member => member.name).join('、') });
+                if (guidance.length) onlineAlchemyGuide =
+                    '\n【群聊格式】仅在角色的 content 字段内输出以下标签，不得破坏外层 JSON 结构。\n'
+                    + guidance.join('\n');
+            } catch (error) { console.warn('[Alchemy] group guidance unavailable', error); }
+            const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photo.text}${onlineAlchemyGuide}\n`;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1680,7 +1691,15 @@ ${memberTimeline || '(暂无互动记录)'}
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
                     const photoRule = photoUsed ? '\n本轮群聊已有配图，不要再发图。' : photo.text;
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photoRule}\n`;
+                    const lastUser = [...roundMsgs].reverse().find(message => message.role === 'user');
+                    let alchemyGuide = '';
+                    try {
+                        const guidance = await loadAlchemyInstructions('online',
+                            typeof lastUser?.content === 'string' ? lastUser.content.slice(-500) : '',
+                            { user: userProfile.name, char: member.name });
+                        if (guidance.length) alchemyGuide = '\n' + guidance.join('\n');
+                    } catch (error) { console.warn('[Alchemy] group member guidance unavailable', error); }
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photoRule}${alchemyGuide}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${dialogueApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
