@@ -1151,7 +1151,7 @@ ${previousGuestbook}
                         <div className="w-12 h-12 bg-gradient-to-br from-[#d4d4d4] to-[#b6b6b6] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coin size={24} weight="fill" className="text-white" /></div>
                         <div>
                             <div className="font-bold text-base mb-1">省钱 = 能量 (AP)</div>
-                            <p className="text-xs text-[#747474] leading-relaxed">设定每日预算。如果这天花得比预算少，结余的钱就会变成第二天的行动点数 (AP)。</p>
+                            
                         </div>
                     </div>
                     <div className="flex gap-4 p-4 bg-gradient-to-r from-[#ececec] to-[#cecece] rounded-2xl">
