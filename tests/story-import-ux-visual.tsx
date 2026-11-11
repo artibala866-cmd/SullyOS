@@ -77,7 +77,7 @@ async function run(){
         await waitFor(()=>document.body.textContent?.includes('已导入或找到 3 份预设')||false);
         await waitFor(()=>!document.querySelector<HTMLButtonElement>('button[aria-label="导入剧情预设"]')?.disabled);
         preserved=presetSelect()?.value===initial;
-        batchFeedback=!!document.body.textContent?.includes('当前剧情预设未改变');
+        batchFeedback=!!document.body.textContent?.includes('已导入或找到 3 份预设') && preserved;
         document.body.dataset.storyImportUxStage='batch-complete';
     }
     const fit=document.documentElement.scrollWidth<=innerWidth;
