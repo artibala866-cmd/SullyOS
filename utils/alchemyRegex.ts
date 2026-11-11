@@ -134,11 +134,16 @@ const FORMAT_CUES: Array<[RegExp, RegExp]> = [
 ];
 
 const shouldSendTemplateInstruction = (rule: StoryRegexRule, recentText: string): boolean => {
-    if (!recentText.trim()) return false;
     const needles = rule.source?.triggerKeywords || [];
-    if (needles.length) return needles.some(word => recentText.toLocaleLowerCase().includes(word.toLocaleLowerCase()));
-    // Empty trigger keywords from source exports do NOT mean "always emit six
-    // long template prompts" in private/group chat; show cards on matching output.
+    // Native imported templates must stay functional WITHOUT a manual preview.
+    // triggerEnabled=0 means the author's aiPrompt is always present in the
+    // EXISTING chat request so the AI may decide when to emit the matching tag.
+    // triggerEnabled=1 with empty keywords is also unrestricted in the source.
+    if (rule.source?.triggerEnabled === false ||
+        (rule.source?.triggerEnabled === true && !needles.length)) return true;
+    if (needles.length) return needles.some(word =>
+        recentText.toLocaleLowerCase().includes(word.toLocaleLowerCase()));
+    if (!recentText.trim()) return false;
     const cue = FORMAT_CUES.find(([name]) => name.test(rule.name));
     return !!cue && cue[1].test(recentText);
 };
