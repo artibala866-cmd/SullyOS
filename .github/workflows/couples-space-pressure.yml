@@ -1,0 +1,84 @@
+name: Couples Space high-pressure QA
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/couples-space-pressure.yml'
+      - 'utils/couplesSpaceStress.test.tsx'
+      - 'utils/couplesSpaceApp.test.tsx'
+      - 'utils/couplesSpace.ts'
+      - 'utils/couplesChat.ts'
+      - 'apps/CouplesSpaceApp.tsx'
+      - 'apps/couplesSpace/**'
+      - 'tests/couples-space-pressure-visual.*'
+      - 'scripts/couples-space-pressure-browser.mjs'
+      - 'vitest.config.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: couples-space-pressure
+  cancel-in-progress: false
+jobs:
+  data-and-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Full couples app regression plus 4800-record/400-operation stress
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: pnpm exec vitest run utils/couplesSpace.test.ts utils/couplesSpaceApp.test.tsx utils/couplesSpaceStress.test.tsx --reporter=verbose
+      - name: Targeted TypeScript typecheck
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false >/tmp/couples-stress-tsc.txt 2>&1 || true
+          if grep -E '^(utils/couplesSpaceStress\.test\.tsx|tests/couples-space-pressure-visual\.tsx|apps/couplesSpace/[^/]+\.tsx|apps/CouplesSpaceApp\.tsx|utils/couplesSpace\.ts|utils/couplesChat\.ts)[(]' /tmp/couples-stress-tsc.txt; then
+            exit 1
+          fi
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Actual 320px and 390px Chromium pages with 3200 records
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/couples-space-pressure-browser.mjs
+          pnpm exec vite --host 127.0.0.1 --port 5197 --strictPort >/tmp/couples-pressure-vite.log 2>&1 &
+          server_pid="$!"
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5197/tests/couples-space-pressure-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/couples-pressure-vite.log; exit 1; fi
+          chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for width in 390 320; do
+            CHROME_BIN="$chrome" node scripts/couples-space-pressure-browser.mjs \
+              'http://127.0.0.1:5197/tests/couples-space-pressure-visual.html?count=3200' "$width"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: couples-space-pressure-320-390
+          path: output/couples-pressure/
+          if-no-files-found: ignore
