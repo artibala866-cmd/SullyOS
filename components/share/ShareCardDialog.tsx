@@ -177,7 +177,7 @@ function ShareCardDialog({ options, card, onDone }: Props) {
                 <label htmlFor="sully-share-restrictions">使用限制</label><textarea id="sully-share-restrictions" value={restrictions} maxLength={120} rows={3} placeholder="例如：仅限自用 · 禁止商用 · 转载请署名" onChange={e => setRestrictions(e.target.value)} />
                 <div className="sully-share-presets">{['仅限自用', '禁止商用', '转载请署名'].map(term => <button type="button" key={term} onClick={() => setRestrictions(old => old.includes(term) ? old : `${old}${old ? ' · ' : ''}${term}`.slice(0, 120))}>{term} +</button>)}</div>
                 </div>
-                <p className="sully-share-note">图片包含完整的{SHARE_KINDS[card.kind]}内容，可在对应功能的导入入口还原。请发送 PNG 原文件，截图或压缩后可能无法导入。使用限制为作者说明。</p>
+                <p className="sully-share-note">导入请保留 PNG 原文件。</p>
             </fieldset>
             </section>
         </div>
