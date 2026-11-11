@@ -74,9 +74,9 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     const literal = /^\/([\s\S]+)\/([a-z]*)$/i.exec(row.pattern.trim());
     const pattern = literal?.[1] ?? row.pattern.trim();
     const rawFlags = (literal?.[2] || asText(row.flags)).trim();
-    // JS regex `g` is meaningful: absent g means only the first match.
-    // Preserve the author's flags instead of silently making every rule global.
-    const flags = rawFlags;
+    // Native Text Alchemist appends g at execution time. Keep that behavior
+    // even for author-provided flags without g; do not change source semantics.
+    const flags = [...new Set((rawFlags + (rawFlags.includes('g') ? '' : 'g')).split(''))].sort().join('');
     const template = switchOn(row.isHtmlTemplate, Boolean(asText(row.htmlTemplate).trim()));
     const rawReplacement = row.replacement;
     const [replacement = '', ...replacementChoices] = Array.isArray(rawReplacement)
@@ -215,21 +215,6 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
                 rules[oldIndex] = { ...rules[oldIndex], order: next.order };
                 updated++;
             } else duplicates++;
-            continue;
-        }
-        // Older versions always appended g, even if the original author did
-        // not request global replacement. Correct the stored flags on explicit
-        // reimport without duplicating an otherwise identical rule.
-        const forcedGlobal = [...new Set((next.flags + 'g').split(''))].sort().join('');
-        const legacyGlobal = next.flags.includes('g') ? -1 : rules.findIndex(current =>
-            !!current.source && current.flags === forcedGlobal
-            && key({ ...current, flags: next.flags }) === signature);
-        if (legacyGlobal !== -1) {
-            const old = rules[legacyGlobal];
-            keys.delete(key(old));
-            rules[legacyGlobal] = { ...old, flags: next.flags, order: next.order ?? old.order };
-            keys.add(key(rules[legacyGlobal]));
-            updated++;
             continue;
         }
         // The prior importer discarded aiPrompt on prompt-stage text filters.
