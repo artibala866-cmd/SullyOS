@@ -118,13 +118,13 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack }) =>
     const confirmImport = () => {
         if (!imported?.rules.length) return;
         void perform(async () => {
-            let merge = { added: 0, duplicates: 0 };
+            let merge = { added: 0, updated: 0, duplicates: 0 };
             await onSave(current => {
                 const result = mergeStoryRegexImport(current, imported.rules, importScope);
                 merge = result;
                 return result.rules;
             });
-            const counts = [`已导入 ${merge.added} 条`, merge.duplicates ? `跳过重复 ${merge.duplicates} 条` : '',
+            const counts = [`已导入 ${merge.added} 条`, merge.updated ? `补全旧规则 ${merge.updated} 条` : '', merge.duplicates ? `跳过重复 ${merge.duplicates} 条` : '',
                 imported.rejected ? `未转换 ${imported.rejected} 条` : ''].filter(Boolean);
             setFeedback(counts.join(' · '));
             setImported(null);
