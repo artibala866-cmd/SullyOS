@@ -36,6 +36,11 @@ const rows = Array.from({ length: floorCount }, (_, i) => ({
 const originalGetMessages = DB.getMessagesByCharId;
 DB.getMessagesByCharId = async (charId: string, ..._args: any[]) =>
     charId === 'story-theater:visual-story' ? rows : originalGetMessages(charId, true);
+const originalGetRecent = DB.getRecentMessagesWithCount;
+DB.getRecentMessagesWithCount = async (charId: string, limit: number, accept?: (message: Message) => boolean) =>
+    charId === 'story-theater:visual-story'
+        ? { messages: rows.filter(message => !accept || accept(message)).slice(-limit), totalCount: rows.length }
+        : originalGetRecent(charId, limit, accept);
 const actor = { id: 'visual-actor', name: '林星', avatar: '', systemPrompt: '', worldview: '', memories: [], mountedWorldbooks: [] };
 const entry = {
     ...createStoryTheaterDraft(1), id: 'visual-story', title: '雨天以后',
