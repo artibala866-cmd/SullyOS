@@ -19,6 +19,10 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(ai).toContain("loadAlchemyInstructions('online'");
         expect(read('components/chat/MessageItem.tsx')).toContain('AlchemyMessageBody');
         expect(read('hooks/useAlchemyRegex.ts')).toContain('runStoryRegex(');
+        expect(read('hooks/useAlchemyRegex.ts')).toContain("message.role === 'user'");
+        expect(read('hooks/useAlchemyRegex.ts')).toContain("role: message.role as 'assistant' | 'user'");
+        expect(group).toContain('{alchemyResult ? <AlchemyMessageBody result={alchemyResult} /> : msg.content}');
+        expect(read('components/chat/MessageItem.tsx')).toContain("if (m.type === 'text' && alchemyResult");
     });
 
     it('keeps offline rules in story and meeting; sprite/novel display is local and original speech remains', () => {
