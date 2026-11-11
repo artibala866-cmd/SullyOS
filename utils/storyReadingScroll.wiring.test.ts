@@ -48,6 +48,23 @@ describe('见面剧情连续楼层阅读', () => {
         expect(sessionSource).toContain("followLatestRef.current = true;");
     });
 
+    it('长剧情首次恢复不绘制临时空楼层，也不在滚动报数时重新生成每楼 HTML', () => {
+        expect(sessionSource).toContain('const [historyLoaded, setHistoryLoaded] = useState(false)');
+        expect(sessionSource).toContain('const readingContentReady = initialReadingDisplayed || (historyLoaded && initialReadingReady)');
+        expect(sessionSource).toContain('if (initialReadingPendingRef.current) return;');
+        expect(sessionSource).toContain("!readingContentReady ? <div role='status'");
+        expect(sessionSource).toContain('if (!readingContentReady || !initialReadingPendingRef.current) return;');
+        expect(sessionSource).toContain('setInitialReadingDisplayed(true)');
+        expect(sessionSource).toContain('SafeStoryHtml: React.FC');
+        expect(sessionSource).toContain('StoryOutput: React.FC');
+        expect(sessionSource).toContain('= React.memo(');
+        expect(sessionSource).toContain('affinityInputsByMessageId.get(message.id)');
+        expect(sessionSource).toContain('onChoose={setInput}');
+        // No duplicate, staggered rendering of only the newest floors: every
+        // saved floor remains in DOM when the initial display is finally ready.
+        expect(sessionSource).toContain('messages.map((message, floorIndex)');
+    });
+
     it('楼层提示只显示于顶部信息栏，阅读正文里没有悬浮遮挡', () => {
         expect(sessionSource).not.toContain('sticky top-2');
         expect(sessionSource).not.toContain('story-quick-preset pointer-events-none absolute');
