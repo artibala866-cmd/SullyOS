@@ -48,7 +48,7 @@ export const alchemyRuleSection = (rule: StoryRegexRule): 'beauty' | 'rules' =>
     rule.kind === 'template' ? 'beauty' : 'rules';
 
 export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, presetId = ''): StoryRegexRule[] =>
-    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, domain
+    rules.filter(rule => rule.enabled && alchemyRuleAppliesTo(rule, domain)
         && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
