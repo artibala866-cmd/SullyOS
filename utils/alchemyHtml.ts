@@ -14,7 +14,96 @@ const MAX_TEMPLATE_HTML = 150000;
 const escapeAttr = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-const BRIDGE = "(() => {\n const postSize = () => {\n  const height = Math.ceil(Math.max(document.documentElement.scrollHeight,\n   document.body.scrollHeight,document.body.getBoundingClientRect().bottom)+2);\n  parent.postMessage({type:'sully-alchemy-template-height',height},'*');\n };\n const update=()=>requestAnimationFrame(postSize);\n document.addEventListener('click',update);\n document.addEventListener('change',update);\n addEventListener('load',update);\n if('ResizeObserver' in window){\n  const resize=new ResizeObserver(update);resize.observe(document.body);\n }\n for(const canvas of document.querySelectorAll('canvas[data-alchemy-scratch]')){\n  const ctx=canvas.getContext('2d');\n  if(!ctx||canvas.width<40||canvas.height<40)continue;\n  const w=canvas.width,h=canvas.height;\n  ctx.fillStyle='#bdc3c7';ctx.fillRect(0,0,w,h);\n  ctx.fillStyle='#7f8c8d';ctx.font='bold 18px sans-serif';\n  ctx.textAlign='center';ctx.textBaseline='middle';\n  ctx.fillText('刮开涂层',w/2,h/2);\n  canvas.style.touchAction='none';\n  let drawing=false;\n  const scratch=(event)=>{\n   if(!drawing)return;\n   const box=canvas.getBoundingClientRect();\n   if(!box.width||!box.height)return;\n   const x=(event.clientX-box.left)*w/box.width;\n   const y=(event.clientY-box.top)*h/box.height;\n   ctx.globalCompositeOperation='destination-out';\n   ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.fill();\n  };\n  canvas.addEventListener('pointerdown',(event)=>{\n   drawing=true;\n   try{canvas.setPointerCapture(event.pointerId);}catch{}\n   scratch(event);\n  });\n  canvas.addEventListener('pointermove',scratch);\n  const finish=()=>{\n   if(!drawing)return;drawing=false;\n   const data=ctx.getImageData(0,0,w,h).data;\n   let empty=0,total=0;\n   for(let index=3;index<data.length;index+=16){\n    total++;if(data[index]===0)empty++;\n   }\n   if(empty/Math.max(total,1)>0.43){\n    canvas.style.opacity='0';canvas.style.pointerEvents='none';\n   }\n   update();\n  };\n  canvas.addEventListener('pointerup',finish);\n  canvas.addEventListener('pointercancel',finish);\n }\n update();\n})();";
+const BRIDGE = `(() => {
+  let queued = false;
+  const postSize = () => {
+    let bottom = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+      document.body.getBoundingClientRect().bottom + window.scrollY,
+    );
+    // Positioned / animated panels may extend below scrollHeight. Ignore
+    // viewport-fixed overlays to avoid a frame-height feedback loop.
+    let checked = 0;
+    for (const element of document.body.querySelectorAll('*')) {
+      if (++checked > 800) break;
+      if (getComputedStyle(element).position === 'fixed') continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width && rect.height) bottom = Math.max(bottom, rect.bottom + window.scrollY);
+    }
+    parent.postMessage({ type: 'sully-alchemy-template-height', height: Math.ceil(bottom + 4) }, '*');
+  };
+  const update = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; postSize(); });
+  };
+  const afterInteraction = () => {
+    update();
+    setTimeout(update, 120);
+    setTimeout(update, 400);
+  };
+  for (const eventName of ['click', 'change', 'input', 'pointerup', 'transitionend', 'animationend']) {
+    document.addEventListener(eventName, afterInteraction, true);
+  }
+  document.addEventListener('toggle', afterInteraction, true);
+  window.addEventListener('resize', afterInteraction);
+  window.addEventListener('load', afterInteraction);
+  if ('ResizeObserver' in window) {
+    const observer = new ResizeObserver(update);
+    observer.observe(document.documentElement);
+    observer.observe(document.body);
+  }
+  if ('MutationObserver' in window) {
+    new MutationObserver(update).observe(document.body, {
+      childList: true, subtree: true, characterData: true,
+      attributes: true, attributeFilter: ['style', 'class', 'hidden', 'open'],
+    });
+  }
+  for (const image of document.images) image.addEventListener('load', afterInteraction);
+  for (const canvas of document.querySelectorAll('canvas[data-alchemy-scratch]')) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx || canvas.width < 40 || canvas.height < 40) continue;
+    const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#bdc3c7'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#7f8c8d'; ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('刮开涂层', w / 2, h / 2);
+    canvas.style.touchAction = 'none';
+    let drawing = false;
+    const scratch = event => {
+      if (!drawing) return;
+      const box = canvas.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      const x = (event.clientX - box.left) * w / box.width;
+      const y = (event.clientY - box.top) * h / box.height;
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
+    };
+    canvas.addEventListener('pointerdown', event => {
+      drawing = true;
+      try { canvas.setPointerCapture(event.pointerId); } catch {}
+      scratch(event);
+    });
+    canvas.addEventListener('pointermove', scratch);
+    const finish = () => {
+      if (!drawing) return;
+      drawing = false;
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let empty = 0, total = 0;
+      for (let index = 3; index < data.length; index += 16) {
+        total++; if (data[index] === 0) empty++;
+      }
+      if (empty / Math.max(total, 1) > 0.43) {
+        canvas.style.opacity = '0'; canvas.style.pointerEvents = 'none';
+      }
+      afterInteraction();
+    };
+    canvas.addEventListener('pointerup', finish);
+    canvas.addEventListener('pointercancel', finish);
+  }
+  afterInteraction();
+})();`;
 
 
 export function buildAlchemySandboxDocument(source: string): AlchemySandboxDocument {
