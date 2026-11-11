@@ -183,7 +183,7 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
     })}</div>
 </div>;
 
-export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = ({ source, fallback, title, template = false }) => {
+export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: string; template?: boolean }> = React.memo(({ source, fallback, title, template = false }) => {
     const safe = useMemo(() => sanitizeStoryTheaterHtml(source, template), [source, template]);
     const frameRef = useRef<HTMLIFrameElement>(null);
     const [frameHeight, setFrameHeight] = useState(safe.estimatedHeight);
@@ -238,12 +238,12 @@ export const SafeStoryHtml: React.FC<{ source: string; fallback: string; title: 
         className='block w-full rounded-lg border border-violet-100 bg-white'
         style={{ height: frameHeight, minHeight: 76, maxHeight: 'none', maxWidth: '100%', overflow: 'hidden' }}
     />;
-};
+});
 
 export const StoryOutput: React.FC<{
     content: string; onChoose?: (text: string) => void; affinityInputs: StoryAffinityInput[];
     fromTavern?: boolean; regexResult?: StoryRegexResult;
-}> = ({ content, onChoose, affinityInputs, fromTavern = false, regexResult }) => {
+}> = React.memo(({ content, onChoose, affinityInputs, fromTavern = false, regexResult }) => {
     const {theme} = useOS();
     const reading = meetingAppearance(theme.storyAppearance).id !== 'none';
     const blocks = useMemo(() => parseStoryRegexDisplay(regexResult || { text: content, cards: [], matches: 0 }, fromTavern),
@@ -361,15 +361,16 @@ export const StoryOutput: React.FC<{
             <summary className='cursor-pointer text-xs py-2'>场景与补充</summary>{rendered}
         </details>}
     </div>;
-};
+});
 
-const StoryUserOutput: React.FC<{ content: string; regexResult?: StoryRegexResult; className: string }> = ({ content, regexResult, className }) => {
+const StoryUserOutput: React.FC<{ content: string; regexResult?: StoryRegexResult; className: string }> = React.memo(({ content, regexResult, className }) => {
     if (!regexResult?.cards.length) return <p className={className}>{regexResult?.text ?? content}</p>;
     return <div className={className}>{splitStoryRegexOutput(regexResult).map((part, index) => typeof part === 'string'
         ? <p key={index}>{part}</p> : <SafeStoryHtml key={index} template source={part.html} fallback={part.fallback} title={part.title} />)}</div>;
-};
+});
 
 const EMPTY_REGEX_RULES: StoryRegexRule[] = [];
+const EMPTY_AFFINITY_INPUTS: StoryAffinityInput[] = [];
 const storyReadingSource = (message: Message): string => {
     const greeting = message.metadata?.theaterOpeningGreeting;
     return greeting ? storyOpeningReadingText(message.content, greeting.greetingId, greeting.source) : message.content;
@@ -404,6 +405,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [worldbooks, characters, entry.selectedWorldbookIds]);
     const canStart = hasStoryTheaterParticipant(entry, characters);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [historyLoaded, setHistoryLoaded] = useState(false);
+    const [initialReadingDisplayed, setInitialReadingDisplayed] = useState(false);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [backgroundTask, setBackgroundTask] = useState(() => getStoryGenerationSnapshot(entry.id));
@@ -445,10 +448,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const loadMessages = useCallback(async () => {
         const rows = await DB.getMessagesByCharId(threadId, true);
         setMessages(rows.filter(message => message.metadata?.source === 'story_theater').sort((a, b) => a.id - b.id));
+        setHistoryLoaded(true);
     }, [threadId]);
 
     useEffect(() => {
         void loadMessages().catch(error => {
+            setHistoryLoaded(true);
             console.error('[StoryTheater] initial history load failed', error);
             addToast(error instanceof Error ? `剧情历史读取失败：${error.message}` : '剧情历史读取失败，请重试', 'error');
         });
@@ -469,6 +474,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setAffinityDrafts({});
         setSelectedAffinityActorId('');
         setExpandedArchivedIds(new Set());
+        setHistoryLoaded(false);
+        setInitialReadingDisplayed(false);
         followLatestRef.current = true;
         lastReadMessageIdRef.current = null;
         initialReadingPendingRef.current = true;
@@ -647,6 +654,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         };
     }, [scheduleVisibleFloor]);
     useLayoutEffect(() => {
+        // Do not jump on the raw, not-yet-rendered timeline. The one initial
+        // positioning pass runs only after history and display regex settle.
+        if (initialReadingPendingRef.current) return;
         const latestId = messages[messages.length - 1]?.id ?? null;
         const previousId = lastReadMessageIdRef.current;
         lastReadMessageIdRef.current = latestId;
@@ -1274,13 +1284,18 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             return displayed?.input.text === input.text && (!depthSensitive || displayed.input.depth === input.depth);
         });
     }, [activeRegexRules, regexContext, regexDisplay, regexSources]);
+    // Mount the reading floors only once the complete initial history and
+    // display-regex results exist. Otherwise hundreds of empty/temporary
+    // floors and sandbox frames are painted, resized and replaced in waves.
+    // Once mounted, never hide them again during edits or later regex updates.
+    const readingContentReady = initialReadingDisplayed || (historyLoaded && initialReadingReady);
     useLayoutEffect(() => {
-        if (!messages.length || !initialReadingPendingRef.current || !initialReadingReady) return;
+        if (!readingContentReady || !initialReadingPendingRef.current) return;
         initialReadingPendingRef.current = false;
-        // Align only once after imported display rules have filled the timeline.
-        // Never override a reader's touch or wheel gesture during initial loading.
-        if (!initialReadingGestureRef.current) scrollReadingToLatest();
-    }, [initialReadingReady, messages.length, scrollReadingToLatest]);
+        // Only one initial jump, after the real floor heights have mounted.
+        if (messages.length && !initialReadingGestureRef.current) scrollReadingToLatest();
+        setInitialReadingDisplayed(true);
+    }, [readingContentReady, messages.length, scrollReadingToLatest]);
 
     const generationBlocked = generationBusy || !!unsavedReply;
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
@@ -1292,6 +1307,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }).map(actor => actor.id);
     const selectedAffinityActor = actors.find(actor => actor.id === selectedAffinityActorId) || actors[0];
     const selectedAffinityDraft = selectedAffinityActor ? (affinityDrafts[selectedAffinityActor.id] || EMPTY_AFFINITY_DRAFT) : EMPTY_AFFINITY_DRAFT;
+    // Scrolling changes the header's visibleFloor state many times per second.
+    // Keep the expensive story body and its iframe props referentially stable.
+    const affinityInputsByMessageId = useMemo(() => new Map(messages.filter(message => message.role === 'assistant')
+        .map(message => [message.id, storyAffinityInputsFromMessage(message, actors)] as const)), [messages, actors]);
 
     return <div className='relative h-full w-full flex flex-col bg-stone-100 text-slate-800'>
         <header className='story-safe-header shrink-0 bg-stone-100/95 backdrop-blur border-b border-slate-200 z-10'>
@@ -1333,6 +1352,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
 
         <main ref={readingScrollRef} onScroll={handleReadingScroll} onWheel={pauseFollowingForReading} onTouchStart={pauseFollowingForReading} className='meeting-reading-page story-page-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-7' style={{ scrollBehavior: 'auto', scrollSnapType: 'none', touchAction: 'pan-y', overflowAnchor: 'auto' }}>
             <div ref={readingContentRef} className='max-w-2xl mx-auto'>
+                {!readingContentReady ? <div role='status' className='py-10 text-center text-xs text-slate-400'>正在恢复剧情…</div> : <>
                 {messages.length === 0 ? <section className='py-10 border-y border-slate-200'>
                     <div className='text-[9px] tracking-[.25em] uppercase font-bold text-violet-500'>Opening note</div>
                     <h2 className='mt-3 text-3xl font-serif font-semibold leading-tight'>{entry.title}</h2>
@@ -1372,7 +1392,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                                 {isExpanded && <div className='pb-5 pl-7'>
                                     {message.role === 'user'
                                         ? <StoryUserOutput className='text-sm leading-7 text-slate-600 whitespace-pre-wrap' content={message.content} regexResult={regexResultFor(String(message.id))} />
-                                        : <StoryOutput content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />}
+                                        : <StoryOutput content={storyReadingSource(message)} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />}
                                 </div>}
                             </details>;
                         }
@@ -1381,7 +1401,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                         const interruptedRewrite = message.metadata?.theaterInterruptedRewrite;
                         return <article {...pressHandlersFor(message)}>
                             {message.metadata?.theaterInterruption && <p className='mb-3 text-xs leading-5 text-amber-700'>已保留收到的正文。{message.metadata.theaterInterruption}。可点击「继续」接着写。</p>}
-                            <StoryOutput content={message.content} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={choice => setInput(choice)} affinityInputs={storyAffinityInputsFromMessage(message, actors)} />
+                            <StoryOutput content={message.content} regexResult={regexResultFor(String(message.id))} fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))} onChoose={setInput} affinityInputs={affinityInputsByMessageId.get(message.id) || EMPTY_AFFINITY_INPUTS} />
                             {interruptedRewrite && <details className='mt-3 text-xs leading-5 text-amber-700'>
                                 <summary>查看未写完的改写稿 · 原楼层已保留</summary>
                                 <p className='my-2'>{interruptedRewrite.interruption}</p>
@@ -1407,6 +1427,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </section>}
                 {archivedCount > 0 && <div className='mt-10 flex items-center justify-center gap-2 text-[9px] text-slate-400'><Archive size={13} />{archivedCount} 条旧内容已归档，可展开查看</div>}
                 <div className='h-6' />
+                </>}
             </div>
         </main>
 
