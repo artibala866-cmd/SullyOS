@@ -99,6 +99,8 @@ describe('isolated large-history load (never uses player saves)', () => {
             expect(charId).toBe(threadId);
             return { messages: rows.slice(-limit), totalCount: rows.length };
         });
+        const archivedReadSpy = vi.spyOn(DB, 'getMessageById').mockImplementation(async id =>
+            rows.find(row => row.id === id) || null);
         const fetchSpy = vi.fn(() => { throw new Error('Stress test must not call any model API'); });
         vi.stubGlobal('fetch', fetchSpy);
         const originalScrollTo = HTMLElement.prototype.scrollTo;
