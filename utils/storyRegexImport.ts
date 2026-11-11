@@ -123,6 +123,7 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
         ...(template && { parseMode: row.parseMode === 'kv' || row.parseMode === 'json' ? row.parseMode : 'text' }),
         ...(replacementChoices.length > 0 && !template && { replacementChoices }),
         source: {
+            originalRule: { ...row },
             trim: switchOn(row.trim) || undefined,
             scenes: scenes.length ? scenes : undefined,
             renderMode: row.renderMode === 'inline' || row.renderMode === 'iframe' ? row.renderMode : undefined,
@@ -206,6 +207,7 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
             originalScope: undefined,
             originalCharacterIds: undefined,
             triggerEnabled: undefined,
+            originalRule: undefined,
         } : {};
         const cleanSource = Object.fromEntries(
             Object.entries(stableSource).filter(([, value]) => value !== undefined),
