@@ -52,6 +52,36 @@ export const alchemyRulesFor = (rules: StoryRegexRule[], domain: AlchemyDomain, 
         && (domain === 'online' || !rule.presetId || (presetId !== '' && rule.presetId === presetId)))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+/** Apply one compact folder switch to ONLY the selected rules in that folder.
+ * Keep each rule's ID, enabled state, match/replace data and preset binding.
+ * Beauty templates never move to the offline execution pipeline. */
+export const setAlchemyFolderTargets = (
+    rules: StoryRegexRule[], folder: string, ids: ReadonlySet<string>,
+    targets: AlchemyDomain[],
+): StoryRegexRule[] => {
+    const selected = (['online', 'offline'] as const).filter(domain => targets.includes(domain));
+    if (!selected.length) throw new Error('至少选择一个生效场景');
+    return rules.map(rule => {
+        if (rule.kind !== 'filter' || !ids.has(rule.id) ||
+            (rule.importGroup || '旧版规则') !== folder) return rule;
+        return {
+            ...rule,
+            targets: [...selected],
+            domain: selected.length === 1 ? selected[0] : (rule.domain || 'offline'),
+        };
+    });
+};
+
+/** Display a mixed state when individual rules in one folder use different scenes. */
+export const alchemyFolderTargetSelection = (
+    rules: StoryRegexRule[],
+): 'online' | 'offline' | 'both' | 'mixed' => {
+    const keys = rules.filter(rule => rule.kind === 'filter').map(rule =>
+        alchemyRuleTargets(rule).slice().sort().join('+'));
+    if (!keys.length || keys.some(key => key !== keys[0])) return 'mixed';
+    return keys[0] === 'online' ? 'online' : keys[0] === 'offline' ? 'offline' : 'both';
+};
+
 /** Remove exactly the selected ID, never similarly named rules in other folders. */
 export const removeAlchemyRule = (rules: StoryRegexRule[], id: string): StoryRegexRule[] =>
     rules.filter(rule => rule.id !== id);
