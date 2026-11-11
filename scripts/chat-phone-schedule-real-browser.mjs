@@ -335,11 +335,11 @@ try{
     if(!schedules.some(row=>row.charId===charId&&row.slots?.[0]?.activity==='在家准备学习计划'))
       throw Error('Toggling schedule OFF erased historical plan');
     progress.push('old schedule retained but disabled as live context');
-    const scheduleDialog=[...document.querySelectorAll('[role="dialog"]')].find(x=>x.textContent.includes('角色日程'));
-    const closeSchedule=[...(scheduleDialog?.querySelectorAll('button')||[])].find(x=>
-      ['关闭','返回'].includes(x.getAttribute('aria-label')||'')||x.textContent?.trim()==='×');
-    if(closeSchedule)closeSchedule.click();
-    else document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    // Use the actual visible close control, not an assumed dialog wrapper.
+    // The Chat modal can render through a portal without a matching role.
+    const closeSchedule=buttons().find(b=>(b.getAttribute('aria-label')||b.textContent||'').trim()==='关闭');
+    if(!closeSchedule)throw Error('Schedule modal has no visible Close control');
+    closeSchedule.click();
     await wait(()=>!document.querySelector('button[aria-label="切换角色日程开关"]'),'schedule modal close');
 
     // The player explicitly turns real-person on for the next chat turn, then
