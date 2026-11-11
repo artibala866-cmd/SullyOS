@@ -1,6 +1,7 @@
 import React from 'react';
 import { CaretRight } from '@phosphor-icons/react';
 import type { StoryRegexRule } from '../../utils/storyRegex';
+import { alchemySubcategory } from '../../utils/alchemyRegex';
 
 export default function AlchemyRuleFolders({
     rules, busy = false, onOpen, onToggle, scopeName,
@@ -14,8 +15,7 @@ export default function AlchemyRuleFolders({
     const folders = new Map<string, Map<string, StoryRegexRule[]>>();
     for (const rule of rules) {
         const folder = rule.importGroup || '旧版规则';
-        const category = rule.subcategory || rule.source?.category
-            || (rule.kind === 'template' ? '互动卡片' : '文字规则');
+        const category = alchemySubcategory(rule);
         if (!folders.has(folder)) folders.set(folder, new Map());
         const groups = folders.get(folder)!;
         if (!groups.has(category)) groups.set(category, []);
