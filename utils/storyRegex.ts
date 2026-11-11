@@ -58,6 +58,8 @@ export interface StoryRegexRule {
         minDepth?: number;
         maxDepth?: number;
         triggerKeywords?: string[];
+        /** Lossless imported source for auditing/round-tripping author metadata. */
+        originalRule?: Record<string, unknown>;
     };
 }
 
