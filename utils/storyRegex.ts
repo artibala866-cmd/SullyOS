@@ -232,18 +232,13 @@ export function applyStoryRegex(
                             return token;
                         }, Math.max(500000, text.length) - outputLength + (captures[0]?.length || 0),
                     );
-                    outputLength += replacement.length - (captures[0]?.length || 0);
-                    return replacement;
+                    const cleaned = (rule.source?.trimStrings || []).reduce(
+                        (result, strip) => strip ? result.split(strip).join('') : result, replacement);
+                    outputLength += cleaned.length - (captures[0]?.length || 0);
+                    return cleaned;
                 });
             });
             fragments = updated;
-            // Source alchemy applies trimStrings to the resulting text, not
-            // just to an individual replacement. Keep rendered cards opaque.
-            if (rule.source?.trimStrings?.length) {
-                fragments = fragments.map((fragment, index) => index % 2 ? fragment
-                    : rule.source!.trimStrings!.reduce((result, strip) =>
-                        strip ? result.split(strip).join('') : result, fragment));
-            }
             if (rule.source?.trim) {
                 fragments[0] = fragments[0].trimStart();
                 fragments[fragments.length - 1] = fragments[fragments.length - 1].trimEnd();
