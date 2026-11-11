@@ -56,7 +56,9 @@ try {
     throw Error('Timeout waiting for '+label);
   };
   await waitFor("document.querySelectorAll('[data-story-floor]').length === 72 && document.querySelectorAll('.story-page-scroll iframe').length >= 30",'72 real floors and HTML cards');
-  await js("document.querySelector('[data-story-floor=\"68\"]').scrollIntoView({block:'start',behavior:'instant'})");
+  // This automated jump stands in for the user's first reading gesture. Real
+  // touchstart disables follow-latest before a swipe leaves the newest floor.
+  await js("document.querySelector('.story-page-scroll').dispatchEvent(new Event('touchstart', { bubbles:true })); document.querySelector('[data-story-floor=\"68\"]').scrollIntoView({block:'start',behavior:'instant'})");
   const state='(() => {const s=document.querySelector(".story-page-scroll"),f=document.querySelector("[data-story-floor=\\"68\\"] iframe");if(!s||!f)return null;const r=f.getBoundingClientRect(),v=s.getBoundingClientRect();return {top:s.scrollTop,max:s.scrollHeight-s.clientHeight,height:r.height,frameTop:r.top,frameBottom:r.bottom,viewportTop:v.top,viewportBottom:v.bottom};})()';
   await waitFor('('+state+')?.height > 650','expanded iframe at floor 68');
   const before=await js(state);
