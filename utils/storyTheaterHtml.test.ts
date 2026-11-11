@@ -162,4 +162,51 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(native[0].kind).toBe('theater');
         expect(native[0].theater?.messages[0].text).toBe('原生消息');
     });
+    it('导入 HTML 的 radio 切页、红包 checkbox、矢量图标和弹幕关键帧安全保留', () => {
+        const source = '<style>'
+            + '.tab{display:none}.page{display:none}'
+            + '#r1:checked~.body .p1{display:block}'
+            + '#r2:checked~.body .p2{display:block}'
+            + '.ticket{animation:dmRoll linear infinite;animation-duration:8s}'
+            + '@keyframes dmRoll{from{left:100%;transform:translateX(0)}to{left:0;transform:translateX(-100%)}}'
+            + '</style><input type="radio" class="tab" name="tabs" id="r1" checked>'
+            + '<input type="radio" class="tab" name="tabs" id="r2">'
+            + '<label for="r2">切页</label><div class="body"><p class="page p1">第一页</p>'
+            + '<p class="page p2">第二页</p></div>'
+            + '<input type="checkbox" class="toggle"><label>打开微信红包</label>'
+            + '<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>';
+        const template = sanitizeStoryTheaterHtml(source, true);
+        expect(template.srcDoc).toContain('type="radio"');
+        expect(template.srcDoc).toContain(' checked');
+        expect(template.srcDoc).toContain('display:none');
+        expect(template.srcDoc).toContain('#r1:checked~.body .p1{display:block}');
+        expect(template.srcDoc).toContain('@keyframes dmRoll{');
+        expect(template.srcDoc).toContain('animation-duration:8s');
+        expect(template.srcDoc).toContain('viewBox="0 0 24 24"');
+        expect(template.srcDoc).toContain('<path d="M12 2L2 7l10 5 10-5-10-5z">');
+        expect(template.srcDoc).toContain('for="sully-template-toggle-1"');
+        expect(template.srcDoc).toContain('nonce-sully-story-template-runtime');
+        expect(template.srcDoc).not.toContain('allow-same-origin');
+
+        const ordinary = sanitizeStoryTheaterHtml(source);
+        expect(ordinary.srcDoc).not.toContain('type="radio"');
+        expect(ordinary.srcDoc).not.toContain('@keyframes dmRoll');
+        expect(ordinary.srcDoc).not.toContain('<svg');
+        expect(ordinary.srcDoc).toContain("script-src &#39;none&#39;");
+    });
+
+    it('刮刮乐只使用自带画布运行时，不执行作者的 onerror 或脚本', () => {
+        const source = '<div style="position:relative;height:100px">中奖内容'
+            + '<canvas width="240" height="100" style="position:absolute;top:0;left:0"></canvas>'
+            + '<img src="x" onerror="window.attack()"></div>'
+            + '<script>window.attackAgain()</script>';
+        const safe = sanitizeStoryTheaterHtml(source, true);
+        expect(safe.srcDoc).toContain('<canvas data-story-scratch="1" width="240" height="100"');
+        expect(safe.srcDoc).toContain("ctx.globalCompositeOperation = 'destination-out'");
+        expect(safe.srcDoc).not.toContain('window.attack()');
+        expect(safe.srcDoc).not.toContain('window.attackAgain()');
+        expect(safe.srcDoc).not.toContain('onerror=');
+        expect(sanitizeStoryTheaterHtml(source).srcDoc).not.toContain('<canvas');
+    });
+
 });
