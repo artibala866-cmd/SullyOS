@@ -215,6 +215,61 @@ describe('剧情小剧场：酒馆嵌套结构、HTML/CSS 和安全退化', () =
         expect(rich.srcDoc).toContain("event.preventDefault()");
     });
 
+    it('100vh 卡片不会把自己的 iframe 高度反复反馈成新的正文高度', () => {
+        const safe = sanitizeStoryTheaterHtml('<div style="min-height:100vh">剧情内容</div>', true);
+        const trustedScript = safe.srcDoc.match(/<script nonce="sully-story-template-runtime">([\\s\\S]*?)<\\/script>/)?.[1];
+        expect(trustedScript).toBeTruthy();
+        let viewportHeight = 520;
+        let addedContentHeight = 0;
+        let onResize: (() => void) | undefined;
+        const scheduled: Array<(timestamp: number) => void> = [];
+        const reported: number[] = [];
+        const fakeWindow = {
+            get innerHeight() { return viewportHeight; },
+            parent: { postMessage: (data: { type: string; height: number }) => {
+                if (data.type !== 'sully-story-template-height') return;
+                reported.push(data.height);
+                viewportHeight = data.height;
+                onResize?.();
+            } },
+            requestAnimationFrame: (callback: (timestamp: number) => void) => {
+                scheduled.push(callback);
+                return scheduled.length;
+            },
+            cancelAnimationFrame: () => {},
+            addEventListener: () => {},
+        };
+        const root = {
+            get scrollHeight() { return viewportHeight + 16 + addedContentHeight; },
+            getBoundingClientRect: () => ({ top: 0, height: viewportHeight + 16 + addedContentHeight }),
+        };
+        const fakeDocument = {
+            body: { getBoundingClientRect: () => ({ top: 0 }) },
+            querySelector: () => root,
+            querySelectorAll: () => [],
+            addEventListener: () => {},
+        };
+        class FakeResizeObserver {
+            constructor(callback: () => void) { onResize = callback; }
+            observe() {}
+        }
+        // Execute only our generated sandbox runtime against an isolated,
+        // deterministic iframe viewport model; never execute author HTML.
+        new Function('window', 'document', 'ResizeObserver', trustedScript!)(
+            fakeWindow, fakeDocument, FakeResizeObserver);
+        const flush = () => {
+            for (let frame = 0; frame < 60 && scheduled.length; frame++) {
+                scheduled.shift()?.(frame * 16);
+            }
+        };
+        flush();
+        expect(reported).toEqual([539]);
+        addedContentHeight = 220;
+        onResize?.();
+        flush();
+        expect(reported).toEqual([539, 759]);
+    });
+
     it('刮刮乐只使用自带画布运行时，不执行作者的 onerror 或脚本', () => {
         const source = '<div style="position:relative;height:100px">中奖内容'
             + '<canvas width="240" height="100" style="position:absolute;top:0;left:0"></canvas>'
