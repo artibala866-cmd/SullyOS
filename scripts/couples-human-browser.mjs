@@ -289,11 +289,14 @@ try{
 
     // A separation and reunion must preserve both sentimental and earned records.
     hit('.couple-header button[aria-label="空间设置"]','open relationship settings');
+    await wait(()=>buttons().some(x=>x.textContent.trim()==='解除绑定'),'settings open');
     click('解除绑定');
     await wait(()=>!!document.querySelector('[aria-label="确认解除绑定"]'),'unbinding confirmation');
     click('保留空间');
+    await wait(()=>!document.querySelector('[aria-label="确认解除绑定"]'),'decline unbind');
     if((await current()).status!=='open')throw Error('Declining unbind still closed the space');
     click('解除绑定');
+    await wait(()=>!!document.querySelector('[aria-label="确认解除绑定"]'),'reopen unbinding confirmation');
     click('确认解除');
     await wait(async()=>(await current()).status==='closed','unbind');
     if((await current()).entries.length!==3)throw Error('Breakup deleted the letters and wishes');
