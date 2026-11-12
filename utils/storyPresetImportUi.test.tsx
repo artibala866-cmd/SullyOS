@@ -100,7 +100,7 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(host!.textContent).toContain('原作者的选项');
   expect(host!.textContent).toContain('抢话权限');
   expect(host!.textContent).toContain('人称选1个');
-  expect(host!.textContent).toContain('拖拖📚文风');
+  expect(host!.textContent).toContain('拖拖文风');
   expect(host!.textContent).toContain('不抢');
   expect(host!.textContent).not.toContain('汽水日常');
   expect(host!.textContent).not.toContain('低烧 I');
@@ -266,5 +266,53 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
    .toEqual(['st-opening','st-body','st-ending']);
  });
 
+
+ it('手机专业版：长装饰标题显示真实名称，进入后默认隐藏空条目，切区不会再次冒出',async()=>{
+  host=document.createElement('div');document.body.append(host);root=createRoot(host);
+  const items=[
+   {identifier:'first-head',name:'━━━━━━✨【世界书设置】✨━━━━━━',role:'system',content:''},
+   {identifier:'empty',name:'空白预留栏目',role:'system',content:''},
+   {identifier:'real',name:'重要世界规则',role:'system',content:'真实的作者规则'},
+   {identifier:'separator',name:'分隔占位',role:'system',content:'━━━━━━'},
+   {identifier:'second-head',name:'✧━━━━━━━━【剧情节奏】━━━━━━━━✧',role:'system',content:''},
+   {identifier:'actual',name:'节奏规则',role:'system',content:'有效的剧情节奏'},
+   {identifier:'only-head',name:'╔━━━━【纯标题区】━━━━╗',role:'system',content:''},
+  ];
+  const preset=parseStoryTheaterPreset(JSON.stringify({prompts:items,prompt_order:[
+   {character_id:100001,order:items.map(item=>({identifier:item.identifier,enabled:true}))},
+  ]}),'真实长装饰标题.json');
+  const before=JSON.stringify(preset.document);
+  const saved=vi.fn(async()=>{});
+  await act(async()=>root!.render(React.createElement(StoryPresetMaker,{
+   preset,onBack:()=>{},onSave:saved,onOpenCopy:async()=>{},
+  })));
+  const button=(label:string)=>[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()===label);
+  await act(async()=>button('专业版')!.click());
+  const categories=()=>[...host!.querySelectorAll('button')].filter(b=>b.textContent?.includes('条有效'));
+  expect(categories().map(b=>b.textContent)).toEqual(expect.arrayContaining([
+   expect.stringContaining('世界书设置'),expect.stringContaining('剧情节奏'),
+  ]));
+  expect(categories().some(b=>b.textContent?.includes('纯标题区'))).toBe(false);
+  const first=categories().find(b=>b.textContent?.includes('世界书设置'))!;
+  await act(async()=>first.click());
+  expect(host!.textContent).toContain('重要世界规则');
+  expect(host!.textContent).not.toContain('空白预留栏目');
+  expect(host!.textContent).not.toContain('分隔占位');
+  const show=button('显示空条目');
+  expect(show).toBeDefined();
+  await act(async()=>show!.click());
+  expect(host!.textContent).toContain('空白预留栏目');
+  expect(host!.textContent).toContain('分隔占位');
+  await act(async()=>[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('返回大分类'))!.click());
+  const second=categories().find(b=>b.textContent?.includes('剧情节奏'))!;
+  await act(async()=>second.click());
+  expect(host!.textContent).toContain('节奏规则');
+  expect(button('显示空条目')).toBeDefined();
+  expect(host!.textContent).not.toContain('空白预留栏目');
+  await act(async()=>[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('返回大分类'))!.click());
+  await act(async()=>[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='保存')!.click());
+  expect(saved).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify((saved.mock.calls[0] as any)[0].document)).toBe(before);
+ });
 
 });
