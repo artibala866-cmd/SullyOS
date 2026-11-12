@@ -106,6 +106,24 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(host!.textContent).not.toContain('低烧 I');
   for(const field of ['温度','候选范围','重复惩罚','话题惩罚','最大输出'])
    expect(host!.textContent).toContain(field);
+  // Inspect all source options in place, without switching to professional
+  // mode or losing the original author-choice scroll position.
+  const simpleScroll=host!.querySelector<HTMLElement>('main.story-page-scroll')!;
+  simpleScroll.scrollTop=480;
+  const preview=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='查看原文');
+  expect(preview).toBeDefined();
+  await act(async()=>preview!.click());
+  const inspector=host!.querySelector<HTMLElement>('[role="dialog"][aria-label="查看原作者原文"]');
+  expect(inspector).not.toBeNull();
+  expect(inspector!.textContent).toContain('作者自己的完全接管');
+  const other=[...inspector!.querySelectorAll('button')].find(b=>b.textContent?.includes('不抢'));
+  expect(other).toBeDefined();
+  await act(async()=>other!.click());
+  expect(host!.querySelector('[role="dialog"] pre')?.textContent).toContain('作者自己的不抢话');
+  expect(host!.textContent).toContain('原作选择');
+  await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="返回原作选择"]')!.click());
+  expect(host!.querySelector('[role="dialog"]')).toBeNull();
+  expect(simpleScroll.scrollTop).toBe(480);
   const choice=host!.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（未启用）"]');
   expect(choice).toBeDefined();
   await act(async()=>choice!.click());
@@ -127,6 +145,24 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   const pro=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='专业版');
   await act(async()=>pro!.click());
   expect(host!.textContent).toContain('先选大区，再看细节');
+  const professionalScroll=host!.querySelector<HTMLElement>('main.story-page-scroll')!;
+  professionalScroll.scrollTop=360;
+  const category=[...host!.querySelectorAll('button')].find(b=>
+    b.textContent?.includes('抢话') && b.textContent?.includes('条有效'));
+  expect(category).toBeDefined();
+  await act(async()=>category!.click());
+  expect(host!.textContent).toContain('返回大分类');
+  expect(professionalScroll.scrollTop).toBe(0);
+  const back=[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('返回大分类'));
+  await act(async()=>back!.click());
+  expect(professionalScroll.scrollTop).toBe(360);
+  const simple=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='默认版');
+  await act(async()=>simple!.click());
+  expect(host!.textContent).toContain('原作选择');
+  expect(simpleScroll.scrollTop).toBe(480);
+  await act(async()=>pro!.click());
+  expect(host!.textContent).toContain('先选大区，再看细节');
+  expect(professionalScroll.scrollTop).toBe(360);
  });
 
 

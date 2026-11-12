@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     BUILTIN_NIGHT_SCREENING_PRESET, compileStoryPreset, getStoryTavernAuthorSections,
-    parseStoryTheaterPreset, resolveStoryPresetImport, selectStoryTavernAuthorOption,
+    parseStoryTheaterPreset, resolveStoryPresetImport, selectStoryTavernAuthorOption, storyPresetPromptKind,
 } from './storyTheater';
 
 type Entry = { id: string; name: string; content: string; enabled: boolean; role?: 'system' | 'assistant' | 'user' };
@@ -16,6 +16,25 @@ const compiled = (preset: ReturnType<typeof make>) =>
     userName: '用户', characterNames: ['角色'] }).messages.map(msg => msg.content).join('\n');
 
 describe('各作者原生分组的真实行为：不把宝宝我是char套给其他作者', () => {
+    it('智能区分空白、Lite无效占位、结构包裹与真实规则，不删除原文或重排', () => {
+        const entries: Entry[] = [
+            { id: 'blank', name: '留空', content: '   ', enabled: true },
+            { id: 'comment', name: '注释', content: '<!--作者备注-->', enabled: false },
+            { id: 'lite', name: '扩展未包含', content: '[Lite未包含此扩展.]', enabled: true },
+            { id: 'xml', name: 'XML 开头', content: '<branch>', enabled: true },
+            { id: 'macro', name: '变量选择', content: '{{setvar::tone::暖光}}', enabled: true },
+            { id: 'rule', name: '原作者正文', content: '这里是作者真正的写作要求', enabled: false },
+        ];
+        const preset = make('原作空条目与有用预设.json', entries, [
+            { id: 'choices', name: '自选模块', memberIdentifiers: entries.map(entry => entry.id) },
+        ]);
+        expect(preset.document.prompts.map(storyPresetPromptKind))
+            .toEqual(['empty', 'empty', 'placeholder', 'structure', 'content', 'content']);
+        const section = getStoryTavernAuthorSections(preset.document).find(item => item.label === '自选模块');
+        expect(section?.options.map(option => option.id)).toEqual(['st-macro', 'st-rule']);
+        expect(preset.document.prompts.map(prompt => prompt.content)).toEqual(entries.map(entry => entry.content));
+        expect(preset.document.prompts.map(prompt => prompt.enabled)).toEqual(entries.map(entry => entry.enabled));
+    });
     it('完全陌生的分组名与选项名：读取结构化作者元数据，真实互斥，不套内置预设按钮', () => {
         const p = make('从未见过的作者-梦境.json', [
             { id: 'a', name: '晨星', content: 'ONLY-CARD-DAWN', enabled: true },

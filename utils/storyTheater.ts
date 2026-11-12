@@ -902,6 +902,26 @@ export const recognizeTavernPromptHeading = (
     return undefined;
 };
 
+/** Browse-only classification. Never delete or rewrite original author entries.
+ * XML envelopes and runtime slots must not be mistaken for empty prompts. */
+export const storyPresetPromptKind = (
+    prompt: StoryTheaterPresetPrompt,
+): 'content' | 'connector' | 'structure' | 'empty' | 'placeholder' => {
+    if (prompt.marker) return 'connector';
+    if (isStoryPresetSectionMarker(prompt) || recognizeTavernPromptHeading(prompt)) return 'structure';
+    const visible = prompt.content
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '').trim();
+    if (!visible) return 'empty';
+    // An explicit notice that this particular edition contains no extension
+    // is not a functioning selectable rule. Match narrowly; arbitrary text,
+    // setvar/getvar and XML instruction bodies remain real source content.
+    if (/^[\[【(（]?\s*(?:Lite|精简版|轻量版)\s*(?:未包含|不包含|没有)\s*(?:此|该)?(?:扩展|模块|功能)\s*[.!。！]?\s*[\]】)）]?$/iu.test(visible))
+        return 'placeholder';
+    if (/^<\/?[\w:-]+(?:\s+[^<>]*)?\s*\/?>$/u.test(visible)) return 'structure';
+    return 'content';
+};
+
 const tavernVisualGroups = (
     prompts: StoryTheaterPresetPrompt[], start: number, end: number,
 ): StoryPresetPromptGroup[] => {
@@ -1177,9 +1197,7 @@ export const getStoryTavernAuthorSections = (
     const seen = new Set<string>();
     const out: StoryTavernAuthorSection[] = [];
     const eligible = (p: StoryTheaterPresetPrompt): boolean =>
-        !p.marker && !p.section && Boolean(p.content.trim())
-        && !recognizeTavernPromptHeading(p)
-        && !/^<\/?[\w:-]+(?:\s*[^>]*)?>\s*$/i.test(p.content.trim())
+        storyPresetPromptKind(p) === 'content'
         && !tavernMandatoryName(p.name)
         && !/^(?:说明|使用教程|免责|注意事项)/.test(tavernAuthorChoiceName(p.name));
     const makeOptions = (items: StoryTheaterPresetPrompt[]): StoryTavernAuthorOption[] => items

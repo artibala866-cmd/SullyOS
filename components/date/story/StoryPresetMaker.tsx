@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, CaretDown, Copy, DownloadSimple, FloppyDisk, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
 import { STORY_MIN_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS } from '../../../utils/storyOutputLimits';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
@@ -13,6 +13,7 @@ import {
     getStoryPresetPromptGroups,
     getStoryTavernAuthorSections,
     selectStoryTavernAuthorOption,
+    storyPresetPromptKind,
     isProtectedStoryPrompt,
     isStoryPresetSectionMarker,
     makeStoryTheaterId,
@@ -106,9 +107,13 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [newGroupName, setNewGroupName] = useState('');
     const [promptQuery, setPromptQuery] = useState('');
     const [expandedAuthorSections, setExpandedAuthorSections] = useState<Record<string, boolean>>({});
+    const [inspectedAuthor, setInspectedAuthor] = useState<{ sectionKey: string; promptId: string } | null>(null);
+    const [showEmptyEntries, setShowEmptyEntries] = useState(false);
     const mainScrollRef = useRef<HTMLElement>(null);
     const previousListScroll = useRef(0);
     const previousOverviewScroll = useRef(0);
+    const pendingScrollRef = useRef<number | null>(null);
+    const tabScrollRef = useRef({ simple: 0, pro: 0 });
     const readOnly = preset.builtIn === true;
     const groups = useMemo(() => getStoryPresetPromptGroups(draft.document), [draft.document]);
     const activeGroup = groups.find(group => group.key === activeGroupKey)
@@ -134,30 +139,60 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 || prompt.content.toLocaleLowerCase().includes(query));
         }),
     ), [allPromptsById, groups, query, tavernBrowse]);
-    const matchingPrompts = useMemo(() => !tavernBrowse || !query
-        || activeGroup?.label.toLocaleLowerCase().includes(query) ? activePrompts
-        : activePrompts.filter(prompt => prompt.name.toLocaleLowerCase().includes(query)
-            || prompt.content.toLocaleLowerCase().includes(query)),
-    [activeGroup, activePrompts, query, tavernBrowse]);
+    const visiblePrompts = useMemo(() => !tavernBrowse || showEmptyEntries ? matchingPrompts
+        : matchingPrompts.filter(prompt => !['empty', 'placeholder'].includes(storyPresetPromptKind(prompt))),
+    [matchingPrompts, showEmptyEntries, tavernBrowse]);
+    const promptIndexes = useMemo(() => new Map(activePrompts.map((prompt, index) => [prompt.id, index])), [activePrompts]);
+    const groupCounts = useMemo(() => new Map(groups.map(group => {
+        const entries = group.promptIds.map(id => allPromptsById.get(id))
+            .filter((item): item is StoryTheaterPresetPrompt => Boolean(item) && !isStoryPresetSectionMarker(item!));
+        return [group.key, {
+            total: entries.length,
+            usable: entries.filter(item => !['empty', 'placeholder'].includes(storyPresetPromptKind(item))).length,
+            enabled: entries.filter(item => item.enabled).length,
+        }] as const;
+    })), [groups, allPromptsById]);
+    const inspectedSection = authorSections.find(section => section.key === inspectedAuthor?.sectionKey);
+    const inspectedPrompt = draft.document.prompts.find(prompt => prompt.id === inspectedAuthor?.promptId);
+    // Restore after React has committed the destination view, not before the
+    // list/detail subtree has changed. This also works with concurrent renders.
+    useLayoutEffect(() => {
+        if (mainScrollRef.current && pendingScrollRef.current !== null) {
+            mainScrollRef.current.scrollTop = pendingScrollRef.current;
+            pendingScrollRef.current = null;
+        }
+    }, [mode, activeGroupKey, selectedId]);
+    const switchMode = (next: 'simple' | 'pro') => {
+        if (next === mode) return;
+        tabScrollRef.current[mode] = mainScrollRef.current?.scrollTop || 0;
+        pendingScrollRef.current = tabScrollRef.current[next];
+        setMode(next);
+    };
     const openPrompt = (id: string) => {
         previousListScroll.current = mainScrollRef.current?.scrollTop || 0;
+        pendingScrollRef.current = 0;
         setSelectedId(id);
-        requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0; });
     };
     const closePrompt = () => {
+        pendingScrollRef.current = previousListScroll.current;
         setSelectedId('');
-        requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = previousListScroll.current; });
     };
     const enterGroup = (key: string) => {
         previousOverviewScroll.current = mainScrollRef.current?.scrollTop || 0;
+        pendingScrollRef.current = 0;
         setActiveGroupKey(key);
         setSelectedId('');
-        if (tavernBrowse) requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0; });
     };
     const leaveGroup = () => {
+        pendingScrollRef.current = previousOverviewScroll.current;
         setActiveGroupKey(null);
         setSelectedId('');
-        if (tavernBrowse) requestAnimationFrame(() => { if (mainScrollRef.current) mainScrollRef.current.scrollTop = previousOverviewScroll.current; });
+    };
+    const handleBack = () => {
+        if (inspectedAuthor) { setInspectedAuthor(null); return; }
+        if (mode === 'pro' && quickEdit) { closePrompt(); return; }
+        if (mode === 'pro' && activeGroupKey) { leaveGroup(); return; }
+        onBack();
     };
 
     const replaceDocument = (document: StoryTheaterPresetDocument) => setDraft(current => ({ ...current, name: document.name, document, updatedAt: Date.now() }));
@@ -173,16 +208,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         if (readOnly) return;
         replaceDocument(selectStoryTavernAuthorOption(draft.document, sectionKey, optionId));
     };
-    const jumpToAuthorPrompt = (id: string) => {
-        const group = groups.find(item => item.promptIds.includes(id));
-        if (!group) return;
-        setMode('pro');
-        setActiveGroupKey(group.key);
-        setSelectedId(id);
-        setPromptQuery('');
-        requestAnimationFrame(() => {
-            if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
-        });
+    const inspectAuthorSection = (sectionKey: string, id: string) => {
+        setInspectedAuthor({ sectionKey, promptId: id });
     };
     const moveGroup = (key: string, direction: -1 | 1) => {
         if (readOnly || query) return;
@@ -219,6 +246,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         const document = addStoryPresetGroup(draft.document, newGroupName);
         replaceDocument(document);
         const added = getStoryPresetPromptGroups(document).at(-1);
+        pendingScrollRef.current = 0;
         setActiveGroupKey(added?.key || null);
         setSelectedId('');
         setNewGroupName('');
@@ -259,7 +287,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     </>;
 
     const renderGeneration = () => <section>
-        <button onClick={() => setActiveGroupKey(null)} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
+        <button onClick={leaveGroup} className='mb-5 text-[10px] font-bold text-violet-600'>← 返回大分类</button>
         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>续写参数</h2>
         
         {renderGenerationFields()}
@@ -274,19 +302,24 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             
             {activeGroup.customSectionId && !readOnly && <div className='mt-5 space-y-3'>
                 <label className='block text-xs text-slate-500'>分组名称<input aria-label='分组名称' value={activeGroup.label} onChange={event => replaceDocument(renameStoryPresetGroup(draft.document, activeGroup.customSectionId!, event.target.value))} onBlur={event => replaceDocument(renameStoryPresetGroup(draft.document, activeGroup.customSectionId!, event.target.value.trim() || '自定义分组'))} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200 text-slate-800' /></label>
-                <button onClick={() => { replaceDocument(ungroupStoryPresetGroup(draft.document, activeGroup.customSectionId!)); setActiveGroupKey(null); setSelectedId(''); }} className='text-xs text-slate-500 underline'>取消分组，保留所有条目</button>
+                <button onClick={() => { replaceDocument(ungroupStoryPresetGroup(draft.document, activeGroup.customSectionId!)); leaveGroup(); }} className='text-xs text-slate-500 underline'>取消分组，保留所有条目</button>
             </div>}
             {tavernBrowse && !quickEdit && <div className='mt-5'>
                 <input aria-label='搜索组内提示词' value={promptQuery} onChange={event => setPromptQuery(event.target.value)}
                     placeholder='搜索本组提示词名称或内容' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs outline-none focus:border-violet-300' />
-                <p className='mt-2 text-[10px] text-slate-500'>显示 {matchingPrompts.length}/{activePrompts.length} 条 · 仅筛选查看，不改变发送顺序</p>
+                <p className='mt-2 text-[10px] text-slate-500'>显示 {visiblePrompts.length}/{activePrompts.length} 条 · 原文、开关和顺序不变</p>
             </div>}
-            {!quickEdit && <div className='mt-5 border-y border-slate-200 divide-y divide-slate-200'>
-                {matchingPrompts.map(prompt => { const index = activePrompts.findIndex(item => item.id === prompt.id); const locked = activeGroup.protected || isProtectedStoryPrompt(prompt); return <div key={prompt.id} className={`flex items-center gap-2 py-3 ${selectedId === prompt.id ? 'text-violet-700' : ''}`}>
+            {!quickEdit && tavernBrowse && <div className='mt-3 flex items-center justify-between'>
+                <span className='text-[10px] text-slate-400'>空白／无效占位默认收起</span>
+                <button type='button' aria-pressed={showEmptyEntries} onClick={() => setShowEmptyEntries(value => !value)} className='text-[10px] font-semibold text-violet-600'>{showEmptyEntries ? '隐藏空条目' : '显示空条目'}</button>
+            </div>}
+            {!quickEdit && <div className='mt-4 border-y border-slate-200 divide-y divide-slate-200'>
+                {visiblePrompts.map(prompt => { const index = promptIndexes.get(prompt.id) ?? 0; const locked = activeGroup.protected || isProtectedStoryPrompt(prompt); const kind = storyPresetPromptKind(prompt); return <div key={prompt.id} className={`flex items-center gap-2 py-3 ${selectedId === prompt.id ? 'text-violet-700' : ''}`}>
                     <button disabled={readOnly || (locked && !(draft.document.sourceFormat === 'sillytavern' && prompt.id.startsWith('st-') && prompt.marker))} onClick={() => patchPrompt(prompt.id, { enabled: !prompt.enabled })} className={`w-9 shrink-0 text-[9px] font-bold disabled:opacity-50 ${prompt.enabled ? 'text-emerald-600' : 'text-slate-300'}`}>{prompt.enabled ? 'ON' : 'OFF'}</button>
-                    <button onClick={() => tavernBrowse ? openPrompt(prompt.id) : setSelectedId(prompt.id)} className='min-w-0 flex-1 text-left'><span className='block text-xs font-semibold truncate'>{index + 1}. {prompt.name}</span><span className='block mt-1 text-[9px] text-slate-400'>{locked ? '系统连接位 · 内容锁定' : STORY_ROLE_LABELS[prompt.role]}</span></button>
+                    <button onClick={() => tavernBrowse ? openPrompt(prompt.id) : setSelectedId(prompt.id)} className='min-w-0 flex-1 text-left'><span className='block text-xs font-semibold truncate'>{index + 1}. {prompt.name}</span><span className='block mt-1 text-[9px] text-slate-400'>{kind === 'empty' ? '空白条目' : kind === 'placeholder' ? '无效占位' : kind === 'structure' ? '结构边界' : locked ? '系统连接位 · 内容锁定' : STORY_ROLE_LABELS[prompt.role]}</span></button>
                     {!readOnly && <span className='flex shrink-0'><button disabled={Boolean(tavernBrowse && query) || index === 0} onClick={() => movePrompt(prompt.id, -1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowUp size={14} /></button><button disabled={Boolean(tavernBrowse && query) || index === activePrompts.length - 1} onClick={() => movePrompt(prompt.id, 1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowDown size={14} /></button>{!locked && <button onClick={() => removePrompt(prompt.id)} className='p-1.5 text-rose-400'><Trash size={14} /></button>}</span>}
                 </div>; })}
+                {visiblePrompts.length === 0 && <p className='py-7 text-center text-xs text-slate-400'>此分组没有有效正文。{!showEmptyEntries && '可点「显示空条目」检查原始占位。'}</p>}
             </div>}
             {!quickEdit && !activeGroup.protected && !readOnly && <button onClick={addPrompt} className='mt-4 h-10 px-4 rounded-xl bg-white border border-slate-200 text-xs font-bold flex items-center gap-1'><Plus size={14} />在本区新增提示词</button>}
             {selected && <div className={quickEdit ? 'mt-5 pt-5 border-t border-slate-200' : 'mt-7 pt-6 border-t border-slate-200'}>
@@ -301,18 +334,18 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         </section>;
     };
 
-    return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
+    return <div className='relative h-full w-full flex flex-col bg-stone-100 text-slate-800'>
         <header className='story-safe-header shrink-0 border-b border-slate-200'>
             <div className='h-16 px-4 flex items-center gap-3'>
-                <button onClick={onBack} className='w-9 h-9 rounded-full grid place-items-center'><ArrowLeft size={20} /></button>
+                <button onClick={handleBack} className='w-9 h-9 rounded-full grid place-items-center' aria-label='返回上一级'><ArrowLeft size={20} /></button>
                 <div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.24em] font-bold text-violet-500'>Preset maker</div><div className='font-semibold truncate'>预设制作器</div></div>
                 {readOnly && <span className='hidden sm:inline-flex text-[9px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-bold'>内置只读</span>}
                 <button onClick={() => { void downloadStoryPreset(draft); }} className='w-9 h-9 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center' title='导出宝宝狗原生预设'><DownloadSimple size={16} /></button>
                 <button onClick={save} className='h-9 px-3 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5'>{readOnly ? <Copy size={14} /> : <FloppyDisk size={14} />}{readOnly ? '复制调整' : saving ? '保存中' : '保存'}</button>
             </div>
             <div className='mx-5 mb-4 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
-                <button onClick={() => { setMode('simple'); setActiveGroupKey(null); }} className={`py-2 rounded-lg text-xs font-bold ${mode === 'simple' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>默认版</button>
-                <button onClick={() => setMode('pro')} className={`py-2 rounded-lg text-xs font-bold ${mode === 'pro' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>专业版</button>
+                <button onClick={() => switchMode('simple')} className={`py-2 rounded-lg text-xs font-bold ${mode === 'simple' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>默认版</button>
+                <button onClick={() => switchMode('pro')} className={`py-2 rounded-lg text-xs font-bold ${mode === 'pro' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>专业版</button>
             </div>
         </header>
 
@@ -366,7 +399,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                         </button>,
                                     )}</div>
                                     <div className='mt-3 flex justify-end border-t border-slate-100 pt-2.5'>
-                                        <button type='button' onClick={() => jumpToAuthorPrompt((on[0] || section.options[0]).id)}
+                                        <button type='button' onClick={() => inspectAuthorSection(section.key, (on[0] || section.options[0]).id)}
                                             className='shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4'>
                                             查看原文
                                         </button>
@@ -388,6 +421,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                     {!readOnly && <section className='pt-5 border-t border-slate-200'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-2 w-full px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                 </> : activeGroupKey === '__generation__' ? renderGeneration() : activeGroup ? renderGroupDetails() : <>
                     <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h1 className='mt-1 text-3xl font-serif font-semibold'>先选大区，再看细节</h1></section>
+                    {tavernBrowse && <div className='mt-4 flex items-center justify-between'><span className='text-[10px] text-slate-400'>空白占位不参与有效条目计数</span><button type='button' aria-pressed={showEmptyEntries} onClick={() => setShowEmptyEntries(value => !value)} className='text-[10px] font-semibold text-violet-600'>{showEmptyEntries ? '隐藏空条目' : '显示空条目'}</button></div>}
                     {!readOnly && <div className='flex gap-2 py-4'><input aria-label='新分组名称' value={newGroupName} onChange={event => setNewGroupName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') addGroup(); }} placeholder='新分组名称' className='min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs' /><button disabled={!newGroupName.trim()} onClick={addGroup} className='shrink-0 flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40'><Plus size={14} />新增分组</button></div>}
                     {tavernBrowse && <div className='mb-3'>
                         <input aria-label='搜索酒馆预设提示词' value={promptQuery} onChange={event => setPromptQuery(event.target.value)}
@@ -396,10 +430,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                     </div>}
                     <div className='divide-y divide-slate-200'>{matchingGroups.map(group => {
                         const index = groups.findIndex(item => item.key === group.key);
-                        const groupPrompts = draft.document.prompts.filter(prompt => group.promptIds.includes(prompt.id) && !isStoryPresetSectionMarker(prompt));
-                        const enabled = groupPrompts.filter(prompt => prompt.enabled).length;
-                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[9px] text-violet-500'>{enabled}/{groupPrompts.length} 条启用</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
-                    })}<button onClick={() => setActiveGroupKey('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong></button></div>
+                        const counts = groupCounts.get(group.key) || { total: 0, usable: 0, enabled: 0 };
+                        return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[9px] text-violet-500'>{tavernBrowse ? `${counts.usable} 条有效 · ${counts.total - counts.usable} 条占位／空白` : `${counts.enabled}/${counts.total} 条启用`}</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
+                    })}<button onClick={() => enterGroup('__generation__')} className='w-full py-5 text-left'><strong className='text-sm'>续写参数</strong></button></div>
                     {!readOnly && <section className='pt-6 border-t border-slate-200 grid gap-3 sm:grid-cols-2'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label><label><span className='text-[10px] font-bold text-slate-500'>说明</span><input value={draft.document.description || ''} onChange={event => patchDocument({ description: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                     {!readOnly && onDelete && <section className='mt-8 border-t border-slate-200 pt-4'>
                         {!confirmDelete ? <button type='button' onClick={() => { setConfirmDelete(true); setDeleteError(''); }}
@@ -419,6 +452,29 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 </>}
             </div>
         </main>
+        {inspectedAuthor && inspectedSection && <section role='dialog' aria-modal='true' aria-label='查看原作者原文'
+            className='absolute inset-0 z-50 flex flex-col bg-stone-100 text-slate-800'>
+            <header className='story-safe-header shrink-0 border-b border-slate-200 bg-stone-100'>
+                <div className='h-16 px-4 flex items-center gap-3'>
+                    <button type='button' onClick={() => setInspectedAuthor(null)} className='w-9 h-9 rounded-full grid place-items-center' aria-label='返回原作选择'><ArrowLeft size={20} /></button>
+                    <div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.2em] text-violet-500'>Original text</div><div className='truncate text-sm font-semibold'>{inspectedSection.label}</div></div>
+                    <span className='text-[10px] text-slate-400'>{inspectedSection.options.length} 条</span>
+                </div>
+            </header>
+            <div className='flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 pb-24'>
+                <div className='mx-auto max-w-2xl'>
+                    <div className='flex flex-wrap gap-2 pb-4 border-b border-slate-200'>
+                        {inspectedSection.options.map(option => <button key={option.id} type='button'
+                            aria-pressed={inspectedAuthor.promptId === option.id}
+                            onClick={() => setInspectedAuthor({ sectionKey: inspectedSection.key, promptId: option.id })}
+                            className={`rounded-xl border px-3 py-2 text-[11px] font-semibold break-words ${inspectedAuthor.promptId === option.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{option.label}</button>)}
+                    </div>
+                    <h2 className='mt-5 text-sm font-semibold break-words'>{inspectedPrompt?.name || ''}</h2>
+                    <div className='mt-1 text-[10px] text-slate-400'>{inspectedPrompt?.enabled ? '已启用' : '未启用'} · 仅查看，不修改原文</div>
+                    <pre className='mt-4 min-h-52 whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl border border-slate-200 bg-white p-4 font-mono text-[11px] leading-6 text-slate-700'>{inspectedPrompt?.content || '（空条目）'}</pre>
+                </div>
+            </div>
+        </section>}
     </div>;
 };
 
