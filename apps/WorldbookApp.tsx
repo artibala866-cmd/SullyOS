@@ -956,9 +956,9 @@ const WorldbookApp: React.FC = () => {
                                                 onPointerDown={event => event.stopPropagation()}
                                                 onPointerMove={event => event.stopPropagation()}
                                                 onClick={event => { event.stopPropagation(); void toggleBookEnabled(book); }}
-                                                className={`relative inline-flex w-10 h-6 shrink-0 items-center rounded-full p-1 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50 disabled:opacity-60 ${book.disable ? 'bg-neutral-200/75' : 'bg-neutral-400/75'}`}
+                                                className={`relative inline-flex w-8 h-[18px] shrink-0 items-center rounded-full p-[3px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50 disabled:opacity-60 ${book.disable ? 'bg-neutral-200' : 'bg-neutral-600'}`}
                                             >
-                                                <span className={`block w-4 h-4 rounded-full bg-neutral-50 shadow-sm shadow-neutral-300/50 ring-1 ring-white/50 transition-transform duration-200 ${book.disable ? 'translate-x-0' : 'translate-x-4'}`} />
+                                                <span className={`block w-3 h-3 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${book.disable ? 'translate-x-0' : 'translate-x-3.5'}`} />
                                             </button>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                             <button 
