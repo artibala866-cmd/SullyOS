@@ -12,6 +12,40 @@ const fields = '[Header|片刻留白|MIDNIGHT][Tags|静夜|书信|雨声]'
     + '[Dialogue|有人敲门|她应了一声|风吹动纸页|门外静下来]'
     + '[Quote|我们仍有故事|The story continues.]';
 
+describe('三份酒馆预设思维链标签兼容', () => {
+    it('小冰块大写 Think 正常闭合时只折叠思考，保留正文', () => {
+        const found = blocks('<Think>思考文本</Think><content>真实正文。</content>');
+        expect(found.map(block => block.kind)).toEqual(['thinking', 'story']);
+        expect(found[0].text).toBe('思考文本');
+        expect(found[1].text).toBe('真实正文。');
+    });
+    it('小冰块 Think 忘记结束标签时，在正文开始处自动补齐', () => {
+        const found = blocks('<Think>思考文本<content>真实正文。</content>');
+        expect(found.map(block => block.kind)).toEqual(['thinking', 'story']);
+        expect(found[0].text).toBe('思考文本');
+        expect(found[1].text).toBe('真实正文。');
+    });
+    it('灰烬之桥重复开启 thinking 后仍保持正文独立', () => {
+        const found = blocks('<thinking>第一段思考<thinking>第二段思考</thinking><content>群像剧情。</content>');
+        expect(found.map(block => block.kind)).toEqual(['thinking', 'thinking', 'story']);
+        expect(found[0].text).toBe('第一段思考');
+        expect(found[1].text).toBe('第二段思考');
+        expect(found[2].text).toBe('群像剧情。');
+    });
+    it('不同思考闭合名混用、无正文标签时保留已有正文', () => {
+        const mixed = blocks('<Think>思考内容</thinking><content>正常剧情。</content>');
+        expect(mixed.map(block => block.kind)).toEqual(['thinking', 'story']);
+        expect(mixed[1].text).toBe('正常剧情。');
+        expect(blocks('2.8 非显式思维链：只输出故事。').map(block => block.kind)).toEqual(['story']);
+    });
+    it('现有 ECoT 与原生剧情显示不被新增容错改写', () => {
+        expect(blocks('<ECoT>先规划。</ECoT><content>小说。</content>').map(block => block.kind))
+            .toEqual(['thinking', 'story']);
+        expect(parseStoryDisplayBlocks('<story_text>原生故事。</story_text>', false).map(block => block.kind))
+            .toEqual(['story']);
+    });
+});
+
 describe('万事成真 ECoT 与 MoM 附录兼容', () => {
     it('ECoT 单独折叠，正文、摘要、选项各成块', () => {
         const raw = '<ECoT>先检查人物关系和世界背景。</ECoT>'
