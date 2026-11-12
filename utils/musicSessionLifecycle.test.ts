@@ -171,6 +171,7 @@ describe('真实乱序操作：跨标签、多人及反复改主意', () => {
     const oldTab = await DB.transitionMusicListeningSession(ids[0], 'end', firstIds[0]);
     expect(oldTab).toMatchObject({ active: true, changed: false, sessionId: restarted!.sessionId });
     const finalRows = await DB.listActiveMusicListeningSessions();
-    expect(ids.every(id => finalRows.some(row => row.charId === id))).toBe(true);
+    expect(ids.filter((_, i) => i !== 1 && i !== 2).every(id => finalRows.some(row => row.charId === id))).toBe(true);
+    expect(ids.slice(1, 3).every(id => !finalRows.some(row => row.charId === id))).toBe(true);
   });
 });
