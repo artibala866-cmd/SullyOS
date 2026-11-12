@@ -104,13 +104,28 @@ export function inspectStoryCompletion(response: Response, data: any, fromTavern
     return { content, interruption };
 }
 
+/** Only display user-visible prose while SSE is still arriving. Never surface
+ * provider reasoning or an unfinished inline thinking block as story text. */
+export function storyStreamingPreviewText(fullText: string): string {
+    const visible = extractContent({ choices: [{ message: { content: fullText } }] }, false)
+        .replace(/<(ecot|blend)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+        .replace(/<(?:ecot|blend)\b[^>]*>[\s\S]*$/gi, '')
+        .replace(/<[^>\n]*$/g, '')
+        .replace(/<\/?(?:content|story_text)\s*>/gi, '');
+    return visible.trimEnd();
+}
+
 export async function readStoryCompletion(
     response: Response,
     fromTavern: boolean,
     maxTokens?: number,
     onPromptTokens?: (tokens: number) => void,
+    onPreview?: (visibleText: string) => void,
 ): Promise<StoryCompletion> {
-    const data = await safeResponseJson(response, { keepInterruptedBody: true });
+    const data = await safeResponseJson(response, {
+        keepInterruptedBody: true,
+        onDelta: onPreview ? (_delta, fullText) => onPreview(storyStreamingPreviewText(fullText)) : undefined,
+    });
     const promptTokens = Number(data?.usage?.prompt_tokens ?? data?.usage?.input_tokens ?? data?.usageMetadata?.promptTokenCount);
     if (Number.isFinite(promptTokens) && promptTokens > 0) onPromptTokens?.(promptTokens);
     return inspectStoryCompletion(response, data, fromTavern, maxTokens);
