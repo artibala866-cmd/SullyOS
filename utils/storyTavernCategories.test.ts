@@ -4,7 +4,7 @@ import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../ty
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
 import { restoreStoryTavernLegacyGroups } from './storyTavernLegacyGroups';
 import { DB, openDB } from './db';
-import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup, storyTavernHeadingTitle, storyPresetPromptKind, isStoryPresetBrowseVisible } from './storyTheater';
+import { findStoryPresetImportConflict, resolveStoryPresetImport, getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup, storyTavernHeadingTitle, storyPresetPromptKind, isStoryPresetBrowseVisible } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
     id: 'st-' + name, name, role: 'system', enabled, content, ...(marker ? { marker } : {}),
@@ -435,4 +435,118 @@ describe('新旧 MoM 静态分组索引', () => {
         }
     });
 
+});
+
+describe('同源预设导入：用户确认、兼容审计、互斥范围', () => {
+    const makeImported = (filename: string, change = '') => ({
+        id: 'new-import',
+        name: '新版本',
+        sourceFileName: filename,
+        format: 'sullyos-story-preset' as const,
+        createdAt: 100,
+        updatedAt: 200,
+        document: document(Array.from({length:18}, (_, i) => ({
+            id:'st-stable-'+i, name:'原作者条目'+i,
+            content:'规则-'+i+change, role:'system' as const, enabled:i%2===0,
+        }))),
+    });
+    it('同源改名也提示，保留/覆盖/副本不会静默修改旧数据', () => {
+        const original={...makeImported('原作者v1.json'),id:'saved-original',name:'自己修改过的版本',
+            createdAt:12,updatedAt:22};
+        const updated=makeImported('原作者v2.json','新内容');
+        expect(findStoryPresetImportConflict(updated,[original])?.existing.id).toBe(original.id);
+        expect(findStoryPresetImportConflict(updated,[original])?.exact).toBe(false);
+        const keep=resolveStoryPresetImport(updated,[original],'keep',original.id);
+        expect(keep.preset.id).toBe(original.id);
+        expect(keep.skipped).toBe(true);
+        const replace=resolveStoryPresetImport(updated,[original],'replace',original.id);
+        expect(replace.overwritten).toBe(true);
+        expect(replace.preset.id).toBe(original.id);
+        expect(replace.preset.createdAt).toBe(12);
+        expect(replace.preset.name).toBe(original.name);
+        expect(replace.preset.document.prompts[0].content).toContain('新内容');
+        expect(original.document.prompts[0].content).toBe('规则-0');
+        const copy=resolveStoryPresetImport(updated,[original],'copy',original.id);
+        expect(copy.duplicate).toBe(false);
+        expect(copy.preset.id).toBe('new-import');
+        expect(() => resolveStoryPresetImport(updated,[original],'replace','other')).toThrow();
+    });
+    it('同内容再导入只恢复兼容元数据，不复制或重写正文', () => {
+        const original=makeImported('同名预设.json');
+        const next={...makeImported('同名预设.json'),
+            document:{...original.document,
+                tavernEntryGroups:[{id:'new-category',name:'作者分类',memberIdentifiers:['stable-3']}],
+                tavernImportAudit:{sourceEntries:18,importedEntries:18,enabledEntries:9,
+                    unlistedEntries:0,orderTableCount:1,skippedRegexCount:0,skippedScriptCount:0},
+            }};
+        expect(findStoryPresetImportConflict(next,[original])?.exact).toBe(true);
+        const result=resolveStoryPresetImport(next,[original]);
+        expect(result.duplicate).toBe(true);
+        expect(result.upgraded).toBe(true);
+        expect(result.preset.id).toBe(original.id);
+        expect(result.preset.document.prompts).toEqual(original.document.prompts);
+        expect(result.preset.document.tavernImportAudit?.sourceEntries).toBe(18);
+    });
+    it('数据库覆盖保持旧 ID，另存副本不破坏旧记录，保留不产生写入', async () => {
+        const name='source-identity-regression-unique.json';
+        const first={...makeImported(name),id:'first-source-id'};
+        const next=makeImported(name,'updated');
+        await DB.saveStoryTheaterPreset(first);
+        try {
+            const kept=await DB.importStoryTheaterPreset(next,'keep',first.id);
+            expect(kept.skipped).toBe(true);
+            const earlier=(await DB.getStoryTheaterPresets()).find(p=>p.id===first.id);
+            expect(earlier?.document.prompts[0].content).toBe('规则-0');
+            const copied=await DB.importStoryTheaterPreset(next,'copy',first.id);
+            expect(copied.preset.id).not.toBe(first.id);
+            const replaced=await DB.importStoryTheaterPreset(next,'replace',first.id);
+            expect(replaced.preset.id).toBe(first.id);
+            const after=(await DB.getStoryTheaterPresets()).find(p=>p.id===first.id);
+            expect(after?.document.prompts[0].content).toBe('规则-0updated');
+            expect(after?.createdAt).toBe(first.createdAt);
+            await DB.deleteStoryTheaterPreset(copied.preset.id);
+        } finally {
+            await DB.deleteStoryTheaterPreset(first.id);
+        }
+    });
+    it('作者一个大组包含“选一”与“可叠加”，只关闭同组单选', () => {
+        const doc=document([prompt('a','规则 A'),prompt('b','规则 B',false),
+            prompt('overlay','规则 C'),prompt('c','规则 D')]);
+        doc.prompts[2].name='可叠加：氛围';
+        doc.tavernEntryGroups=[{id:'author-group',name:'文风选一',memberIdentifiers:['a','b','overlay','c']}];
+        const sections=getStoryTavernAuthorSections(doc);
+        const single=sections.find(s=>s.key==='entry:author-group:single');
+        const extras=sections.find(s=>s.key==='entry:author-group:independent');
+        expect(single?.options.map(o=>o.id)).toEqual(['st-a','st-b','st-c']);
+        expect(extras?.options.map(o=>o.id)).toEqual(['st-overlay']);
+        const edited=selectStoryTavernAuthorOption(doc,single!.key,'st-b');
+        expect(edited.prompts.map(p=>p.enabled)).toEqual([false,true,true,false]);
+        expect(doc.prompts.map(p=>p.enabled)).toEqual([true,false,true,true]);
+    });
+    it('作者未说互斥时，即使当前只启用一个，也不能推断为单选', () => {
+        const doc=document([
+            prompt('one','<rule name="语言·对话">甲</rule>',true),
+            prompt('two','<rule name="语言·对话">乙</rule>',false),
+        ]);
+        doc.tavernEntryGroups=[{id:'generic',name:'语言模块',memberIdentifiers:['one','two']}];
+        const section=getStoryTavernAuthorSections(doc).find(s=>s.key==='entry:generic');
+        expect(section?.single).toBe(false);
+        const toggled=selectStoryTavernAuthorOption(doc,section!.key,'st-two');
+        expect(toggled.prompts.map(p=>p.enabled)).toEqual([true,true]);
+    });
+    it('来源审计准确统计未参与排序表的条目与被跳过的正则', () => {
+        const doc=convertSillyTavernChatPreset({
+            prompts:[{identifier:'a',name:'A',role:'system',content:'文案 A'},
+                {identifier:'b',name:'B',role:'system',content:'文案 B'}],
+            prompt_order:[{character_id:100001,order:[{identifier:'a',enabled:true}]}],
+            extensions:{regex_scripts:[{disabled:false}]},
+        },'审计示例');
+        expect(doc.tavernImportAudit).toEqual({
+            sourceEntries:2,importedEntries:2,enabledEntries:1,
+            unlistedEntries:1,orderTableCount:1,skippedRegexCount:1,skippedScriptCount:0,
+        });
+        expect(doc.prompts.map(p=>[p.content,p.enabled])).toEqual([
+            ['文案 A',true],['文案 B',false],
+        ]);
+    });
 });
