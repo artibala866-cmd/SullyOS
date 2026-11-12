@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CaretDown, Code, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, CaretDown, Code, DownloadSimple, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
 import type { StoryTheaterPreset } from '../../../types';
 import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppearance';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
-import { MAX_STORY_REGEX_FILE_BYTES, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
+import { MAX_STORY_REGEX_FILE_BYTES, exportStoryAlchemyRules, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { alchemyRuleTargets, alchemyOfflineScenes, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
 import AlchemyHtmlFrame from '../../alchemy/AlchemyHtmlFrame';
 import { renderAlchemyTemplatePreview } from '../../../utils/alchemyTemplatePreview';
 import { useOS } from '../../../context/OSContext';
+import { shareOrDownloadFile } from '../../../utils/shareExport';
 
 interface Props {
     domain?: AlchemyDomain;
@@ -51,6 +52,8 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const [importScenes, setImportScenes] = useState<Array<'story' | 'meeting'>>(['story', 'meeting']);
     const [previewStage, setPreviewStage] = useState<'display' | 'history'>('display');
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [exportSelected, setExportSelected] = useState<string[]>([]);
     const test = useRef<AbortController | null>(null);
     const upload = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLElement>(null);
@@ -81,6 +84,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     };
     const goBack = () => {
         if (actionLock.current) return;
+        if (exportOpen) { setExportOpen(false); return; }
         if (imported) { setImported(null); setError(''); }
         else if (draft) open(null);
         else onBack();
@@ -113,6 +117,26 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             await onSave(update);
             if (closeEditor) open(null);
         });
+    const exportSelectedRules = () => {
+        const selected = rules.filter(rule => exportSelected.includes(rule.id));
+        if (!selected.length) { setError('请先选择要导出的规则'); return; }
+        if (busy || actionLock.current) return;
+        actionLock.current = true;
+        setBusy(true);
+        void shareOrDownloadFile({
+            content: exportStoryAlchemyRules(selected),
+            fileName: '炼金术-' + selected.length + '条.json',
+            mimeType: 'application/json',
+            preferDownloadOnWeb: true,
+        }).then(() => {
+            setFeedback('已导出 ' + selected.length + ' 条');
+            setError('');
+            setExportOpen(false);
+        }).catch(reason => {
+            setError(reason instanceof Error ? reason.message : '正则导出失败');
+        }).finally(() => { actionLock.current = false; setBusy(false); });
+    };
+
     const saveDraft = () => {
         if (!draft) return;
         try {
@@ -243,6 +267,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     {imported ? '导入正则' : draft ? '编辑正则' : '正则'}
                 </h1>
                 {screen === 'list' ? <>
+                    <button type='button' aria-label='导出炼金术规则' title='导出炼金术规则'
+                        disabled={busy || rules.length === 0} onClick={() => {
+                            setExportSelected(rules.map(rule => rule.id));
+                            setExportOpen(true);
+                        }} className={iconClass}><DownloadSimple size={18}/></button>
                     <button type='button' aria-label='导入正则或 HTML' title='导入正则或 HTML'
                         disabled={busy} onClick={() => upload.current?.click()} className={iconClass}>
                         {busy ? <SpinnerGap size={18} className='animate-spin'/> : <UploadSimple size={18}/>}
@@ -272,6 +301,32 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-20'>
             <div className='mx-auto max-w-xl space-y-4'>
                 {error && <p role='alert' className='text-xs text-rose-700'>{error}</p>}
+                {exportOpen && screen === 'list' && <section aria-label='选择导出炼金术规则'
+                    className='space-y-3 rounded-2xl border border-neutral-200 bg-white p-3.5'>
+                    <div className='flex items-center justify-between gap-2'>
+                        <span className='text-sm font-medium'>导出规则 · {exportSelected.length}/{rules.length}</span>
+                        <button type='button' aria-label='关闭导出' onClick={() => setExportOpen(false)}
+                            className={actionClass}>关闭</button>
+                    </div>
+                    <div className='flex gap-2'>
+                        <button type='button' className={actionClass} onClick={() => setExportSelected(rules.map(rule => rule.id))}>全选</button>
+                        <button type='button' className={actionClass} onClick={() => setExportSelected([])}>清空</button>
+                    </div>
+                    <div className='max-h-56 space-y-1 overflow-y-auto'>
+                        {rules.map(rule => <label key={rule.id} className='flex min-h-9 items-center gap-2 rounded-lg px-2 text-[13px]'>
+                            <input type='checkbox' checked={exportSelected.includes(rule.id)}
+                                onChange={event => setExportSelected(current => event.target.checked
+                                    ? [...current, rule.id] : current.filter(id => id !== rule.id))}/>
+                            <span className='min-w-0 flex-1 truncate'>{rule.name}</span>
+                            {rule.kind === 'template' && <Code size={13} className='text-neutral-400'/>}
+                        </label>)}
+                    </div>
+                    <button type='button' className={primaryClass} onClick={exportSelectedRules}
+                        disabled={busy || !exportSelected.length}>
+                        <DownloadSimple size={15}/>导出所选
+                    </button>
+                </section>}
+
                 {imported ? <>
                     <div className='flex items-center gap-2'>
                         <span className='min-w-0 flex-1 truncate text-sm font-semibold'>{imported.filename}</span>
