@@ -10,7 +10,7 @@ export interface AlchemyRequestMessage {
 /** Apply prompt/history-stage regex on a temporary request array, not to
  * DB messages, saved histories or reusable source objects. No LLM calls. */
 export async function applyAlchemyRequestHistoryRules<T extends AlchemyRequestMessage>(
-    messages: T[], rules: StoryRegexRule[],
+    messages: T[], rules: StoryRegexRule[], context: StoryRegexContext = {},
 ): Promise<void> {
     if (!rules.length) return;
     const floors = messages.flatMap((message, index) => {
@@ -18,6 +18,7 @@ export async function applyAlchemyRequestHistoryRules<T extends AlchemyRequestMe
         if (typeof message.content !== 'string') return [];
         const input: StoryRegexInput = {
             text: message.content, role: message.role, depth: messages.length - 1 - index,
+            characterId: context.characterId, scene: context.scene,
         };
         return rules.some(rule => storyRegexApplies(rule, 'history', input))
             ? [{ index, input }] : [];
@@ -34,9 +35,11 @@ export async function applyAlchemyRequestHistoryRules<T extends AlchemyRequestMe
 }
 
 export async function applyAlchemyRequestHistory<T extends AlchemyRequestMessage>(
-    domain: AlchemyDomain, messages: T[],
+    domain: AlchemyDomain, messages: T[], context: StoryRegexContext = {},
 ): Promise<void> {
-    await applyAlchemyRequestHistoryRules(messages, await loadAlchemyRules(domain));
+    await applyAlchemyRequestHistoryRules(messages, await loadAlchemyRules(domain), {
+        ...context, scene: context.scene || (domain === 'online' ? 'chat' : 'story'),
+    });
 }
 
 /** Offline rules run within the existing meeting completion. */
@@ -45,7 +48,7 @@ export async function applyMeetingAlchemyRequest<T extends AlchemyRequestMessage
 ): Promise<void> {
     const rules = await loadMeetingAlchemyRules();
     if (!rules.length) return;
-    await applyAlchemyRequestHistoryRules(messages, rules);
+    await applyAlchemyRequestHistoryRules(messages, rules, { ...context, scene: 'meeting' });
     const guides = rules.map(rule => storyRegexInstruction(rule, context, recentText))
         .filter(Boolean).slice(0, 20);
     if (guides.length) messages.unshift({ role: 'system', content: guides.join('\n\n') } as T);
