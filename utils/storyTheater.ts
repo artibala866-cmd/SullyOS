@@ -2551,6 +2551,37 @@ const formatTaggedStoryFragment = (fragment: string): string => {
  * nested information. Use the browser's HTML tree for imported output only;
  * original SullyOS preset parsing remains untouched.
  */
+/** Imported Tavern ECoT is an output delimiter, not visible story prose.
+ * Recover a missing closing delimiter only at an explicit story start; keep
+ * original generated text unchanged in the saved floor and prompt history.
+ */
+const normalizeTavernThinkingBlocks = (raw: string): string => {
+    const source = raw.replace(/<\s*(\/?)\s*ecot\b[^>]*>/gi,
+        (_whole, closing: string) => closing ? '</thinking>' : '<thinking>');
+    const delimiters = /<\s*\/?\s*thinking\b[^>]*>|<\s*(?:content|story_text)\b[^>]*>/gi;
+    let result = '';
+    let cursor = 0;
+    let thinkingOpen = false;
+    for (const match of source.matchAll(delimiters)) {
+        result += source.slice(cursor, match.index);
+        const tag = match[0];
+        if (/^<\s*\/\s*thinking\b/i.test(tag)) {
+            thinkingOpen = false;
+        } else if (/^<\s*thinking\b/i.test(tag)) {
+            if (thinkingOpen) result += '</thinking>';
+            thinkingOpen = true;
+        } else if (thinkingOpen) {
+            // The preset sometimes omits </ECoT> before starting <content>.
+            result += '</thinking>';
+            thinkingOpen = false;
+        }
+        result += tag;
+        cursor = match.index! + tag.length;
+    }
+    result += source.slice(cursor);
+    return thinkingOpen ? result + '</thinking>' : result;
+};
+
 const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
     const document = new DOMParser().parseFromString(source, 'text/html');
     const blocks: StoryDisplayBlock[] = [];
@@ -2566,6 +2597,20 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
         microlist: '酒馆临时待办',
         ink: '酒馆补充信息',
         count: '酒馆字数记录',
+        meow_fm: '剧情摘要',
+        branches: '剧情选项',
+        seeds: '剧情伏笔',
+        bbs: '论坛附录',
+        snow: '故事附录',
+        secrets: '秘密记录',
+        status_1: '状态记录',
+        status_2: '状态记录',
+        update_variable: '变量更新',
+        tableedit: '表格更新',
+        ws_prologue: '世界记录',
+        ws_galstatus: '世界状态',
+        ws_activeworld: '世界记录',
+        prologue: '开场附录',
     };
     const nativeNames = new Set(Object.keys(DISPLAY_BLOCK_META));
     const meaningfulTags = [...nativeNames, ...Object.keys(foreignNames), 'thinking', 'think', 'thought', 'content', 'details'];
@@ -2684,17 +2729,17 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
  * reply whenever the active preset is switched to another source.
  */
 export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
-    /<\s*(?:thinking|think|thought|content|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    /<\s*(?:ecot|thinking|think|thought|content|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
     || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
     || /<details\b[^>]*>\s*<summary\b/i.test(value);
 
 /** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
 export const parseStoryDisplayBlocks = (content: string, fromTavern = false): StoryDisplayBlock[] => {
-    const source = String(content || '');
+    const source = fromTavern ? normalizeTavernThinkingBlocks(String(content || '')) : String(content || '');
     if (fromTavern && typeof DOMParser !== 'undefined') return parseTavernStoryDisplayBlocks(source);
     const blocks: StoryDisplayBlock[] = [];
     const topLevel = fromTavern
-        ? /<(thinking|think|thought|content|details|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        ? /<(thinking|think|thought|content|details|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
         : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let cursor = 0;
     let match: RegExpExecArray | null;
@@ -2703,6 +2748,12 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
         randomtheater: '酒馆随机小剧场',
         writing_interlude: '酒馆写作间隙',
         partner_sidestory: '酒馆伙伴剧场',
+        meow_fm: '剧情摘要',
+        branches: '剧情选项',
+        seeds: '剧情伏笔',
+        bbs: '论坛附录',
+        snow: '故事附录',
+        secrets: '秘密记录',
     };
     const push = (kind: StoryDisplayBlockKind, text: string, title?: string) => {
         // A Tavern <content> block may itself wrap foreign theater modules.
