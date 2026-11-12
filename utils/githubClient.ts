@@ -241,7 +241,7 @@ const decodeBinary = (data: any): ArrayBuffer => {
  *      forward ArrayBuffer/Blob body across the JS↔native bridge.
  *   3. web + useProxy OFF → fetch() direct.
  */
-export const ghRequest = async (
+const ghRequest = async (
     config: CloudBackupConfig,
     fullUrl: string,
     method: GhMethod,
@@ -534,7 +534,7 @@ const uploadOneAsset = async (
     });
 };
 
-export const listReleaseAssets = async (
+const listReleaseAssets = async (
     config: CloudBackupConfig,
     releaseId: number,
 ): Promise<GithubAsset[]> => {
@@ -593,7 +593,7 @@ const reconcileAsset = async (
     return null;
 };
 
-export const uploadAssetWithRetry = async (
+const uploadAssetWithRetry = async (
     config: CloudBackupConfig,
     releaseId: number,
     blob: Blob,
@@ -626,7 +626,7 @@ export const uploadAssetWithRetry = async (
     return lastResult;
 };
 
-export const deleteReleaseAndTag = async (
+const deleteReleaseAndTag = async (
     config: CloudBackupConfig,
     releaseId: number,
     tagName?: string | null,
@@ -936,7 +936,7 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
  * each part sequentially and concatenate into a single Blob — bytes line up
  * directly because uploadBackup used Blob.slice() with no envelope/header.
  */
-export const downloadAssetPart = async (
+const downloadAssetPart = async (
     config: CloudBackupConfig,
     assetId: number,
     expectedSize: number | undefined,
