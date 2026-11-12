@@ -487,6 +487,21 @@ describe('同源预设导入：用户确认、兼容审计、互斥范围', () =
         expect(result.preset.document.prompts).toEqual(original.document.prompts);
         expect(result.preset.document.tavernImportAudit?.sourceEntries).toBe(18);
     });
+    it('旧版已有完整分类但没有审计的预设，重复导入后原 ID 原文不变并补上审计', () => {
+        const old=makeImported('重复来源审计.json');
+        const newVersion={...makeImported('重复来源审计.json'),document:{
+            ...old.document,tavernImportAudit:{sourceEntries:18,importedEntries:18,enabledEntries:9,
+                unlistedEntries:0,orderTableCount:1,skippedRegexCount:2,skippedScriptCount:1},
+            importWarnings:['酒馆扩展中的 2 条启用正则和 1 个启用脚本不会执行；仅导入预设文字'],
+        }};
+        expect(findStoryPresetImportConflict(newVersion,[old])?.exact).toBe(true);
+        const repaired=resolveStoryPresetImport(newVersion,[old]);
+        expect(repaired).toMatchObject({duplicate:true,upgraded:true});
+        expect(repaired.preset.id).toBe(old.id);
+        expect(repaired.preset.document.prompts).toEqual(old.document.prompts);
+        expect(repaired.preset.document.tavernImportAudit?.skippedRegexCount).toBe(2);
+        expect(repaired.preset.document.importWarnings?.[0]).toContain('不会执行');
+    });
     it('数据库覆盖保持旧 ID，另存副本不破坏旧记录，保留不产生写入', async () => {
         const name='source-identity-regression-unique.json';
         const first={...makeImported(name),id:'first-source-id'};

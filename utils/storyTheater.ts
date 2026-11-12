@@ -798,12 +798,18 @@ export const resolveStoryPresetImport = (
     if (conflict?.exact) {
         const existing = conflict.existing;
         const sourceGroups = imported.document.tavernEntryGroups || [];
-        if (sourceGroups.length && JSON.stringify(existing.document.tavernEntryGroups || []) !== JSON.stringify(sourceGroups)) {
+        const groupUpgrade = sourceGroups.length > 0
+            && JSON.stringify(existing.document.tavernEntryGroups || []) !== JSON.stringify(sourceGroups);
+        const auditUpgrade = !existing.document.tavernImportAudit && Boolean(imported.document.tavernImportAudit);
+        if (groupUpgrade || auditUpgrade) {
             return {
                 preset: { ...existing, document: {
-                    ...existing.document, tavernEntryGroups: sourceGroups,
-                    ...(imported.document.tavernImportAudit
-                        ? { tavernImportAudit: imported.document.tavernImportAudit } : {}),
+                    ...existing.document,
+                    ...(groupUpgrade ? { tavernEntryGroups: sourceGroups } : {}),
+                    ...(auditUpgrade ? {
+                        tavernImportAudit: imported.document.tavernImportAudit,
+                        importWarnings: imported.document.importWarnings || [],
+                    } : {}),
                 } }, duplicate: true, upgraded: true,
             };
         }
