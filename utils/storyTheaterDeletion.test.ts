@@ -64,6 +64,25 @@ describe('删除整个剧情', () => {
         ]);
     });
 
+    it('旧楼层指向普通私聊或另一剧情的镜像 ID，删除时不能误伤', async () => {
+        const entryA = entry(ENTRY_A);
+        const entryB = entry(ENTRY_B);
+        await DB.saveStoryTheater(entryA);
+        await DB.saveStoryTheater(entryB);
+        const ordinary = await DB.saveMessage({ charId: ACTOR_ID, role: 'user', type: 'text', content: '现实私聊：还记得钥匙吗？' });
+        const otherStory = await DB.saveMessage({ charId: ACTOR_ID, role: 'assistant', type: 'text', content: '另一条剧情的回忆', metadata: { source: 'story_theater_memory', theaterId: entryB.id } });
+        const owned = await DB.saveMessage({ charId: ACTOR_ID, role: 'assistant', type: 'text', content: '当前剧情的回忆', metadata: { source: 'story_theater_memory', theaterId: entryA.id } });
+        const central = await DB.saveMessage({ charId: storyTheaterThreadId(entryA.id), role: 'assistant', type: 'text', content: '陈旧的剧情镜像引用', metadata: { source: 'story_theater', theaterId: entryA.id, theaterMirrorIds: { stolen: ordinary, wrongStory: otherStory, owned } } });
+        messageIds.push(ordinary, otherStory, owned, central);
+
+        const result = await deleteStoryTheaterData(entryA);
+        expect(result.deletedMessageCount).toBe(2);
+        const remaining = await DB.getMessagesByCharId(ACTOR_ID, true);
+        expect(remaining.map(row => row.id)).toContain(ordinary);
+        expect(remaining.map(row => row.id)).toContain(otherStory);
+        expect(remaining.map(row => row.id)).not.toContain(owned);
+    });
+
     it('只清理选中剧情的条目、楼层、角色镜像与向量分区', async () => {
         const entryA = entry(ENTRY_A);
         const entryB = entry(ENTRY_B);
