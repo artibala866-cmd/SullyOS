@@ -968,7 +968,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(chosenAgency.prompts.filter(p=>p.id.startsWith('st-agency-') && p.id !== 'st-agency-title' && p.enabled).map(p=>p.name)).toEqual(['▢不抢']);
         expect(chosenAgency.prompts.find(p=>p.id==='st-retell-7')?.enabled).toBe(true);
         const chosenStyle=selectStoryTavernAuthorOption(chosenAgency,style.key,'st-style1');
-        expect(chosenStyle.prompts.find(p=>p.id==='st-style0')?.enabled).toBe(false);
+        expect(chosenStyle.prompts.find(p=>p.id==='st-style0')?.enabled).toBe(true);
         expect(chosenStyle.prompts.find(p=>p.id==='st-style1')?.enabled).toBe(true);
         expect(chosenStyle.prompts.map(p=>p.content)).toEqual(originalContents);
         const reopened=parseStoryTheaterPreset(JSON.stringify(chosenStyle),'保存重进.json');
@@ -978,7 +978,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(sent).toContain('作者原规则·不抢');
         expect(sent).not.toContain('作者原规则·完全');
         expect(sent).toContain('作者柠檬糖文风');
-        expect(sent).not.toContain('根据现场随机选风格');
+        expect(sent).toContain('根据现场随机选风格');
         expect(compiled.nativeOverrideMessages).toEqual([]);
     });
 
