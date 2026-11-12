@@ -524,6 +524,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const loadSequenceRef = useRef(0);
     const loadingOlderRef = useRef(false);
     const archiveWantedRef = useRef(new Set<number>());
+    // Each open/close invalidates older asynchronous archive reads.
+    const archiveReadVersionRef = useRef(new Map<number, number>());
     const olderAnchorRef = useRef<{ key: string; top: number } | null>(null);
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -576,6 +578,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         setArchiveBodies(new Map());
         setArchiveReadErrors(new Set());
         archiveWantedRef.current.clear();
+        archiveReadVersionRef.current.clear();
         olderAnchorRef.current = null;
         loadingOlderRef.current = false;
         setLoadingOlder(false);
@@ -843,10 +846,19 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [messages, scrollReadingToLatest, updateVisibleFloor]);
     const setArchiveExpanded = useCallback((messageIds: number[], open: boolean) => {
         followLatestRef.current = false;
+        // A second toggle event for the same already-open/closed group is not
+        // another user decision and must never restart all IndexedDB reads.
+        if (messageIds.every(id => archiveWantedRef.current.has(id) === open)) return;
+        const versions = new Map<number, number>();
         messageIds.forEach(id => {
+            const version = (archiveReadVersionRef.current.get(id) || 0) + 1;
+            archiveReadVersionRef.current.set(id, version);
+            versions.set(id, version);
             if (open) archiveWantedRef.current.add(id);
             else archiveWantedRef.current.delete(id);
         });
+        const isCurrent = (id: number) => archiveWantedRef.current.has(id)
+            && archiveReadVersionRef.current.get(id) === versions.get(id);
         setExpandedArchivedIds(current => {
             if (messageIds.every(id => current.has(id) === open)) return current;
             const next = new Set(current);
@@ -869,22 +881,24 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             return;
         }
         void Promise.all(messageIds.map(id => DB.getMessageById(id))).then(rows => {
-            const missing = messageIds.filter((id, index) => !rows[index]
-                || rows[index]?.charId !== threadId
-                || rows[index]?.metadata?.source !== 'story_theater');
+            const missing = messageIds.filter((id, index) => isCurrent(id)
+                && (!rows[index] || rows[index]?.charId !== threadId
+                    || rows[index]?.metadata?.source !== 'story_theater'));
             setArchiveBodies(current => {
+                const fresh = rows.filter(row => row && isCurrent(row.id)
+                    && row.charId === threadId && row.metadata?.source === 'story_theater');
+                if (!fresh.length) return current;
                 const next = new Map(current);
-                rows.forEach(row => {
-                    if (row && archiveWantedRef.current.has(row.id)
-                        && row.charId === threadId && row.metadata?.source === 'story_theater') {
-                        next.set(row.id, row);
-                    }
-                });
+                fresh.forEach(row => { if (row) next.set(row.id, row); });
                 return next;
             });
             if (missing.length) setArchiveReadErrors(current => new Set([...current, ...missing]));
         }).catch(error => {
-            setArchiveReadErrors(current => new Set([...current, ...messageIds]));
+            const stillWanted = messageIds.filter(id => isCurrent(id));
+            // The player may have closed the archive while its disk read was
+            // pending: no obsolete loading error, toast or body can resurface.
+            if (!stillWanted.length) return;
+            setArchiveReadErrors(current => new Set([...current, ...stillWanted]));
             addToast(`归档原文读取失败：${error instanceof Error ? error.message : String(error)}`, 'error');
         });
     }, [addToast, threadId]);
