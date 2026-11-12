@@ -2,7 +2,7 @@
 // A seven-day, deterministic, offline long-play journey.  This exercises real
 // persistence and feature functions, not a real paid LLM or its prose quality.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Message } from '../types';
+import type { StoryTheaterEntry } from '../types';
 import type { MemoryNode } from './memoryPalace/types';
 import { DB } from './db';
 import {
@@ -51,9 +51,9 @@ describe('七天跨功能真实使用顺序（离线模拟 AI 输出）', () => 
   it('7 天约 500 楼：剧情/私聊/微信/朋友圈/一起听/事件盒/独立向量相互切换，状态不串', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(base);
-    let rain = { ...createStoryTheaterDraft(base), id: storyAId, title: '七天雨夜',
+    let rain: StoryTheaterEntry = { ...createStoryTheaterDraft(base), id: storyAId, title: '七天雨夜',
       characterIds: [charA], archiveStrategy: 'summary' as const };
-    let train = { ...createStoryTheaterDraft(base), id: storyBId, title: '月台的秘密',
+    let train: StoryTheaterEntry = { ...createStoryTheaterDraft(base), id: storyBId, title: '月台的秘密',
       characterIds: [charB], archiveStrategy: 'vector' as const };
     await DB.saveStoryTheater(rain);
     await DB.saveStoryTheater(train);
