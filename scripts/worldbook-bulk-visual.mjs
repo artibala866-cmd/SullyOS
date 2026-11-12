@@ -81,7 +81,7 @@ async function openChrome(mode) {
         assert(html.includes('data-horizontal-overflow="false"'), 'Horizontal overflow in mobile viewport');
         if (['search', 'selected'].includes(mode)) {
             assert(html.includes('data-match-count="6"'), 'Expected all six exact-title matches: ' + html);
-            assert(html.includes('data-other-count="0"'), 'Search shows nonmatching titles: ' + html);
+            assert(html.includes('data-other-count="1"'), 'Substring search must also show 海岸线: ' + html);
         }
         if (mode === 'diary') {
             assert(html.includes('data-match-count="3"'), 'Missing three exact 日记 entries: ' + html);
@@ -99,7 +99,7 @@ async function openChrome(mode) {
         }
         if (mode === 'selected') {
             assert(html.includes('data-long-press-selected="true"'), 'Long press failed to select first entry: ' + html);
-            assert(html.includes('data-selected-count="6"'), 'Select-all failed: ' + html);
+            assert(html.includes('data-selected-count="7"'), 'Select-all must include partial-title match: ' + html);
         }
         console.log('PASS Worldbook ' + mode + ': ' + html);
         ws.close();
