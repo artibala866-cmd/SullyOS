@@ -15,6 +15,7 @@ async function run({ label, width, height, enabled }) {
   const child = spawn(browser, [
     '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
     '--disable-extensions', '--no-first-run', '--remote-allow-origins=*',
+    '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
     '--remote-debugging-port=0', '--user-data-dir=' + dir,
     '--window-size=' + width + ',' + height, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -43,16 +44,17 @@ async function run({ label, width, height, enabled }) {
     ws.addEventListener('message', event => {
       const payload = JSON.parse(event.data);
       if (!payload.id || !pending.has(payload.id)) return;
-      const { resolve, reject } = pending.get(payload.id);
+      const { resolve, reject, method } = pending.get(payload.id);
       pending.delete(payload.id);
-      payload.error ? reject(Error(JSON.stringify(payload.error))) : resolve(payload.result);
+      payload.error ? reject(Error(method + ': ' + JSON.stringify(payload.error))) : resolve(payload.result);
     });
     const send = (method, params = {}) => new Promise((resolve, reject) => {
       const id = ++next;
-      pending.set(id, { resolve, reject });
+      pending.set(id, { resolve, reject, method });
       ws.send(JSON.stringify({ id, method, params }));
     });
     const screenshot = async name => {
+      await send('Target.activateTarget', { targetId: target.id });
       const capture = await send('Page.captureScreenshot', { format: 'png', fromSurface: true });
       writeFileSync(join(out, label + '-' + name + '.png'), Buffer.from(capture.data, 'base64'));
     };
@@ -63,6 +65,7 @@ async function run({ label, width, height, enabled }) {
       });
       return result.result?.value || {};
     };
+    console.log('BOOT VISUAL CDP attached:', label, target.id);
     await send('Page.enable');
     await send('Runtime.enable');
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
@@ -85,6 +88,7 @@ async function run({ label, width, height, enabled }) {
         document.addEventListener('DOMContentLoaded', monitor);
       }.toString() + ')()',
     });
+    console.log('BOOT VISUAL navigate:', label);
     await send('Page.navigate', { url: origin + '/?boot-enabled=' + (enabled ? '1' : '0') + '&scene=' + label });
     await sleep(300);
     if (!enabled) await screenshot('first-paint');
