@@ -28,9 +28,13 @@ const textAlchemy = (name: string, pattern: string, replacement: string, extras:
 describe('剧情真实游玩式交叉压力：不触碰用户存档', () => {
   it('两条剧情轮换预设，连续重导入、作者更新、同名冲突后不串档', async () => {
     const file = '现实游玩-跨剧情.json';
-    const first = parseStoryTheaterPreset(makePreset('雨夜预设', '只能看到故事A'), file, 10);
-    const identical = parseStoryTheaterPreset(makePreset('雨夜预设', '只能看到故事A'), file, 20);
-    const changed = parseStoryTheaterPreset(makePreset('雨夜预设', '只能看到故事B'), file, 30);
+    const sourceRaw = makePreset('雨夜预设', '只能看到故事A');
+    const sourceDocument = JSON.parse(sourceRaw);
+    const changedRaw = JSON.stringify({ ...sourceDocument, prompts: sourceDocument.prompts.map((prompt: any, i: number) =>
+      i === 0 ? { ...prompt, content: '只能看到故事B' } : prompt) });
+    const first = parseStoryTheaterPreset(sourceRaw, file, 10);
+    const identical = parseStoryTheaterPreset(sourceRaw, file, 20);
+    const changed = parseStoryTheaterPreset(changedRaw, file, 30);
     const savedIds: string[] = [];
     try {
       const [a, b, c] = await Promise.all([
@@ -54,7 +58,7 @@ describe('剧情真实游玩式交叉压力：不触碰用户存档', () => {
       expect(rows.find(row => row.id === storyB.id)?.presetId).toBe(c.preset.id);
       expect((await DB.getStoryTheaterPresets()).find(p => p.id === a.preset.id)?.document.prompts[0].content)
         .toBe('只能看到故事A');
-      const sameNameNew = parseStoryTheaterPreset(makePreset('雨夜预设', '只能看到故事B'), file, 31);
+      const sameNameNew = parseStoryTheaterPreset(changedRaw, file, 31);
       expect(resolveStoryPresetImport(sameNameNew, await DB.getStoryTheaterPresets()).preset.id).toBe(c.preset.id);
       const compiled = compileStoryPreset({ preset: c.preset,
         slots: { actors: '角色A', persona: '玩家', scenario: '雨夜', worldBefore: '', worldAfter: '', history: '' },
@@ -186,9 +190,9 @@ describe('剧情真实游玩式交叉压力：不触碰用户存档', () => {
     const exported = exportStoryAlchemyRules(rules);
     const reread = parseStoryRegexImport(exported).rules;
     expect(reread).toHaveLength(2);
-    expect(reread[0].enabled).toBe(false);
-    expect(reread[0].replacementChoices).toEqual(['备用术语']);
-    expect(reread[1].kind).toBe('template');
+    expect(reread.find(rule => rule.name === '文字清理')?.enabled).toBe(false);
+    expect(reread.find(rule => rule.name === '文字清理')?.replacementChoices).toEqual(['备用术语']);
+    expect(reread.find(rule => rule.name === '小剧场模板')?.kind).toBe('template');
     const one = mergeStoryRegexImport([], reread, '');
     const two = mergeStoryRegexImport(one.rules, parseStoryRegexImport(exported).rules, '');
     const three = mergeStoryRegexImport(two.rules, parseStoryRegexImport(exported).rules, '');
@@ -196,7 +200,7 @@ describe('剧情真实游玩式交叉压力：不触碰用户存档', () => {
     expect(two.added).toBe(0);
     expect(three.added).toBe(0);
     expect(three.rules).toHaveLength(2);
-    expect(readStoryRegexRules(JSON.stringify(three.rules))[0].enabled).toBe(false);
+    expect(readStoryRegexRules(JSON.stringify(three.rules)).find(rule => rule.name === '文字清理')?.enabled).toBe(false);
   });
 
   it('换身份、老存档异常值、旧预设覆盖，保存后不改变角色及另一份剧情', async () => {
