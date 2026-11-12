@@ -11,6 +11,8 @@ on:
       - 'utils/pdfText.test.ts'
       - 'utils/sillyTavernCard.ts'
       - 'utils/cardImportMerge.ts'
+      - 'utils/characterCardBatch.ts'
+      - 'utils/characterCardBatch.test.ts'
       - 'utils/cardImportMerge.test.ts'
       - 'utils/cardImportRemark.ts'
       - 'utils/cardImportRemark.test.ts'
@@ -70,12 +72,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Regression tests for card imports and context worldbooks
-        run: pnpm exec vitest run utils/importTextDocument.test.ts utils/pdfText.test.ts utils/linkImportDocuments.test.ts utils/linkWorldbookImport.test.ts utils/worldbookImportPlan.test.ts utils/db.worldbookImportAtomic.test.ts utils/cardImportSections.test.ts utils/cardImportMerge.test.ts utils/cardImportRemark.test.ts utils/babyLinkCard.test.ts utils/linkImportIntegration.test.ts utils/sillyTavernCard.test.ts utils/tavernOpeningGreeting.test.ts utils/storyTheaterOpeningInline.test.tsx utils/storyTheaterPersistence.test.ts utils/storyTheater.test.ts utils/characterCard.test.ts utils/worldbook.test.ts utils/worldbookPersistence.test.ts utils/contextWorldbook.test.ts utils/imageGeneration.test.ts
+        run: pnpm exec vitest run utils/characterCardBatch.test.ts utils/importTextDocument.test.ts utils/pdfText.test.ts utils/linkImportDocuments.test.ts utils/linkWorldbookImport.test.ts utils/worldbookImportPlan.test.ts utils/db.worldbookImportAtomic.test.ts utils/cardImportSections.test.ts utils/cardImportMerge.test.ts utils/cardImportRemark.test.ts utils/babyLinkCard.test.ts utils/linkImportIntegration.test.ts utils/sillyTavernCard.test.ts utils/tavernOpeningGreeting.test.ts utils/storyTheaterOpeningInline.test.tsx utils/storyTheaterPersistence.test.ts utils/storyTheater.test.ts utils/characterCard.test.ts utils/worldbook.test.ts utils/worldbookPersistence.test.ts utils/contextWorldbook.test.ts utils/imageGeneration.test.ts
       - name: TypeScript diagnostics on imported-card surfaces
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/tavern-tsc.log 2>&1 || true
-          grep -E '^(apps/Character.tsx|apps/UserApp.tsx|apps/WorldbookApp.tsx|context/OSContext.tsx|components/character/CharacterImagePanel.tsx|components/date/story/StoryTheater(Editor|Session)?.tsx|utils/(importTextDocument(\\.test)?|pdfText(\\.test)?|linkImportDocuments(\.test)?|linkWorldbookImport(\.test)?|worldbookImportPlan(\.test)?|db\.worldbookImportAtomic\.test|cardImportSections(\.test)?|cardImportMerge(\.test)?|cardImportRemark(\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|tavernOpeningGreeting(\.test)?|storyTheater(OpeningInline|Persistence)?(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
+          grep -E '^(apps/Character.tsx|apps/UserApp.tsx|apps/WorldbookApp.tsx|context/OSContext.tsx|components/character/CharacterImagePanel.tsx|components/date/story/StoryTheater(Editor|Session)?.tsx|utils/(characterCardBatch(\.test)?|importTextDocument(\\.test)?|pdfText(\\.test)?|linkImportDocuments(\.test)?|linkWorldbookImport(\.test)?|worldbookImportPlan(\.test)?|db\.worldbookImportAtomic\.test|cardImportSections(\.test)?|cardImportMerge(\.test)?|cardImportRemark(\.test)?|babyLinkCard(\.test)?|sillyTavernCard(\.test)?|tavernOpeningGreeting(\.test)?|storyTheater(OpeningInline|Persistence)?(\.test)?|imageGeneration(\.test)?|characterImageProfile|db|worldbook|pngShare).ts)[(]' /tmp/tavern-tsc.log > /tmp/tavern-errors.log || true
           if [ -s /tmp/tavern-errors.log ]; then
             cat /tmp/tavern-errors.log
             exit 1
