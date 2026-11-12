@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CaretDown, Code, DownloadSimple, FloppyDisk, Plus, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
+import { ArrowLeft, CaretDown, Code, DownloadSimple, FloppyDisk, Plus, Sparkle, SpinnerGap, Trash, UploadSimple } from '@phosphor-icons/react';
 import type { StoryTheaterPreset } from '../../../types';
 import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppearance';
@@ -12,6 +12,7 @@ import AlchemyHtmlFrame from '../../alchemy/AlchemyHtmlFrame';
 import { renderAlchemyTemplatePreview } from '../../../utils/alchemyTemplatePreview';
 import { useOS } from '../../../context/OSContext';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
+import { ALCHEMY_REFERENCE_HTML_PRESETS, ALCHEMY_REFERENCE_REGEX_PRESETS } from '../../../utils/alchemyReferencePresets';
 
 interface Props {
     domain?: AlchemyDomain;
@@ -53,6 +54,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const [previewStage, setPreviewStage] = useState<'display' | 'history'>('display');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
+    const [presetsOpen, setPresetsOpen] = useState(false);
     const [exportSelected, setExportSelected] = useState<string[]>([]);
     const test = useRef<AbortController | null>(null);
     const upload = useRef<HTMLInputElement>(null);
@@ -85,6 +87,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const goBack = () => {
         if (actionLock.current) return;
         if (exportOpen) { setExportOpen(false); return; }
+        if (presetsOpen) { setPresetsOpen(false); return; }
         if (imported) { setImported(null); setError(''); }
         else if (draft) open(null);
         else onBack();
@@ -117,6 +120,25 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             await onSave(update);
             if (closeEditor) open(null);
         });
+    const addReferencePreset = (preset: unknown) => {
+        try {
+            const parsed = parseStoryRegexImport(JSON.stringify(preset));
+            const selected = parsed.rules.map(rule => ({
+                ...rule, importGroup: '糯叽机原版预设', domain: 'online' as const,
+                targets: ['online'] as Array<'online'>,
+            }));
+            if (!selected.length) throw new Error('预设格式无法识别');
+            void save(current => {
+                const merged = mergeStoryRegexImport(current, selected, '');
+                if (merged.added === 0 && !merged.updated) throw new Error('这个预设已经添加');
+                return merged.rules;
+            });
+            setPresetsOpen(false);
+        } catch (reason) {
+            setError(reason instanceof Error ? reason.message : '无法添加预设');
+        }
+    };
+
     const exportSelectedRules = () => {
         const selected = rules.filter(rule => exportSelected.includes(rule.id));
         if (!selected.length) { setError('请先选择要导出的规则'); return; }
@@ -267,6 +289,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     {imported ? '导入正则' : draft ? '编辑正则' : '正则'}
                 </h1>
                 {screen === 'list' ? <>
+                    <button type='button' aria-label='糯叽机原版炼金术预设' title='原版炼金术预设'
+                        disabled={busy} onClick={() => { setPresetsOpen(true); setExportOpen(false); }}
+                        className={iconClass}><Sparkle size={18}/></button>
                     <button type='button' aria-label='导出炼金术规则' title='导出炼金术规则'
                         disabled={busy || rules.length === 0} onClick={() => {
                             setExportSelected(rules.map(rule => rule.id));
@@ -301,6 +326,29 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-20'>
             <div className='mx-auto max-w-xl space-y-4'>
                 {error && <p role='alert' className='text-xs text-rose-700'>{error}</p>}
+                {presetsOpen && screen === 'list' && <section aria-label='糯叽机原版炼金术预设'
+                    className='space-y-3 rounded-2xl border border-neutral-200 bg-white p-3.5'>
+                    <div className='flex items-center justify-between gap-2'>
+                        <span className='text-sm font-medium'>原版预设</span>
+                        <button type='button' className={actionClass} onClick={() => setPresetsOpen(false)}>关闭</button>
+                    </div>
+                    {([
+                        ['文字规则', ALCHEMY_REFERENCE_REGEX_PRESETS],
+                        ['HTML 美化', ALCHEMY_REFERENCE_HTML_PRESETS],
+                    ] as const).map(([label, examples]) => <div key={label} className='space-y-1'>
+                        <div className='px-1 py-1 text-[12px] text-neutral-500'>{label}</div>
+                        {examples.map(preset => {
+                            const already = rules.some(rule => rule.name === preset.name && rule.pattern === preset.pattern);
+                            return <div key={preset.name} className='flex min-h-9 items-center justify-between gap-2 rounded-lg px-2'>
+                                <span className='min-w-0 flex-1 truncate text-[13px]'>{preset.name}</span>
+                                <button type='button' className={actionClass} disabled={busy || already}
+                                    onClick={() => addReferencePreset(preset)}>
+                                    {already ? '已添加' : '添加'}
+                                </button>
+                            </div>;
+                        })}
+                    </div>)}
+                </section>}
                 {exportOpen && screen === 'list' && <section aria-label='选择导出炼金术规则'
                     className='space-y-3 rounded-2xl border border-neutral-200 bg-white p-3.5'>
                     <div className='flex items-center justify-between gap-2'>
