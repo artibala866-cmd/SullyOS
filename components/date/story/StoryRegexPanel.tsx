@@ -40,7 +40,7 @@ function createRule(section: 'beauty' | 'rules', domain: AlchemyDomain): StoryRe
 }
 
 const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, domain = 'offline', section = 'rules' }) => {
-    const { registerBackHandler } = useOS();
+    const { registerBackHandler, characters } = useOS();
     const [draft, setDraft] = useState<StoryRegexRule | null>(null);
     const [activeSection, setActiveSection] = useState<'beauty' | 'rules'>(section);
     const [sample, setSample] = useState('');
@@ -548,6 +548,27 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 </div>}
                             </section>}
 
+                            {(draft.source?.originalScope === 'character' ||
+                                draft.source?.originalScope === 'chat' && !!draft.source.originalCharacterIds?.length) &&
+                                <section aria-label='炼金术角色绑定' className='space-y-2'>
+                                    <div className='text-[12px] font-medium text-neutral-700'>适用角色 · 当前糯米机</div>
+                                    <div className='max-h-36 overflow-y-auto rounded-xl border border-neutral-200 bg-white p-2'>
+                                        {characters.map(character => {
+                                            const bound = draft.source?.localCharacterIds || [];
+                                            return <label key={character.id} className='flex min-h-9 cursor-pointer items-center gap-2 px-1 text-[12px]'>
+                                                <input type='checkbox' checked={bound.includes(character.id)}
+                                                    onChange={event => patch({ source: {
+                                                        ...draft.source,
+                                                        localCharacterIds: event.target.checked
+                                                            ? [...bound, character.id] : bound.filter(id => id !== character.id),
+                                                    } })}/>
+                                                <span className='truncate'>{character.name}</span>
+                                            </label>;
+                                        })}
+                                    </div>
+                                    {!draft.source?.localCharacterIds?.length &&
+                                        <span className='text-[11px] text-neutral-500'>未绑定时不生效</span>}
+                                </section>}
                             {isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>匹配正则
                                     <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
