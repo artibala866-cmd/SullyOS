@@ -47,6 +47,9 @@ try{
  await cmd('Page.enable');await cmd('Runtime.enable');
  const cases=[
   {name:'tavern-390',source:'tavern',w:390,h:844},
+  {name:'batch-390',source:'batch',w:390,h:844},
+  {name:'batch-320',source:'batch',w:320,h:690},
+  {name:'batch-landscape',source:'batch',w:844,h:390},
   {name:'link-390',source:'link',w:390,h:844},
   {name:'document-390',source:'document',w:390,h:844},
   {name:'remark-tavern-390',source:'remark-tavern',w:390,h:844},
@@ -100,6 +103,25 @@ try{
   console.log('SCREENSHOT_END '+c.name);
   console.log('CARD_VISUAL_REPORT '+c.name+' '+JSON.stringify({ready,report}));
   if(ready!=='true')failures.push(c.name+': '+JSON.stringify(report).slice(0,1700));
+  if(c.name==='batch-390'&&ready==='true'){
+   const selection=await evaluate(`(async()=>{
+      const button=()=>[...document.querySelectorAll('button')]
+         .find(x=>x.textContent?.trim()==='取消全选'||x.textContent?.trim()==='全选');
+      const confirm=()=>[...document.querySelectorAll('button')]
+         .find(x=>x.textContent?.includes('确认导入'));
+      const selected=()=>[...document.querySelectorAll('input[type=checkbox]')]
+         .filter(x=>!x.getAttribute('aria-label')?.startsWith('导入')).filter(x=>x.checked).length;
+      const initial=selected();
+      button()?.click();await new Promise(r=>setTimeout(r,120));
+      const none=selected()===0&&confirm()?.disabled===true;
+      button()?.click();await new Promise(r=>setTimeout(r,120));
+      const restored=selected()===3&&confirm()?.disabled===false;
+      return {initial,none,restored};
+   })()`);
+   console.log('BATCH_CARD_SELECTION '+JSON.stringify(selection));
+   if(selection?.initial!==3||!selection?.none||!selection?.restored)
+      failures.push('batch select-all regression: '+JSON.stringify(selection));
+  }
   if(c.name==='link-openings-390'&&ready==='true'){
    const choice=await evaluate(`(async()=>{
       const persona=document.querySelector('input[aria-label="导入人设"]');
