@@ -115,7 +115,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const pendingScrollRef = useRef<number | null>(null);
     const tabScrollRef = useRef({ simple: 0, pro: 0 });
     const readOnly = preset.builtIn === true;
-    const groups = useMemo(() => getStoryPresetPromptGroups(draft.document), [draft.document]);
+    const groups = useMemo(() => mode === 'pro' ? getStoryPresetPromptGroups(draft.document) : [], [mode, draft.document]);
     const activeGroup = groups.find(group => group.key === activeGroupKey)
         || (selectedId ? groups.find(group => group.promptIds.includes(selectedId)) : undefined) || null;
     const activePrompts = useMemo(() => {
@@ -126,8 +126,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
 
     const selected = activePrompts.find(prompt => prompt.id === selectedId) || null;
     const tavernBrowse = draft.document.sourceFormat === 'sillytavern';
-    const authorSections = useMemo(() => tavernBrowse ? getStoryTavernAuthorSections(draft.document) : [],
-        [tavernBrowse, draft.document]);
+    const authorSections = useMemo(() => tavernBrowse && mode === 'simple' ? getStoryTavernAuthorSections(draft.document) : [],
+        [tavernBrowse, mode, draft.document]);
     const quickEdit = tavernBrowse && Boolean(selected);
     const query = promptQuery.trim().toLocaleLowerCase();
     const allPromptsById = useMemo(() => new Map(draft.document.prompts.map(prompt => [prompt.id, prompt])), [draft.document.prompts]);
