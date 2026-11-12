@@ -41,7 +41,7 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
    });
   };
   await act(async()=>root!.render(React.createElement(Wrapper)));
-  const picker=host!.querySelector<HTMLInputElement>('input[type=file]');
+  const picker=host!.querySelector<HTMLInputElement>('input[type=file][accept*=".json"]');
   expect(picker?.multiple).toBe(true);
   expect(picker?.accept).toContain('.json');
   const files=[new File([valid('第一份')],'第一份.json',{type:'application/json'}),
