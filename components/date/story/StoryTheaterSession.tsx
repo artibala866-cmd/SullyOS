@@ -880,26 +880,39 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             });
             return;
         }
-        void Promise.all(messageIds.map(id => DB.getMessageById(id))).then(rows => {
-            const missing = messageIds.filter((id, index) => isCurrent(id)
-                && (!rows[index] || rows[index]?.charId !== threadId
-                    || rows[index]?.metadata?.source !== 'story_theater'));
-            setArchiveBodies(current => {
-                const fresh = rows.filter(row => row && isCurrent(row.id)
-                    && row.charId === threadId && row.metadata?.source === 'story_theater');
-                if (!fresh.length) return current;
+        // A single corrupt/missing archived row must not reject the entire
+        // group of otherwise readable old floors. Keep per-message results.
+        void Promise.allSettled(messageIds.map(id => DB.getMessageById(id))).then(results => {
+            const fresh: Message[] = [];
+            const missing: number[] = [];
+            let readError: unknown;
+            results.forEach((result, index) => {
+                const id = messageIds[index];
+                if (!isCurrent(id)) return;
+                if (result.status === 'rejected') {
+                    missing.push(id);
+                    readError ??= result.reason;
+                    return;
+                }
+                const row = result.value;
+                if (!row || row.id !== id || row.charId !== threadId
+                    || row.metadata?.source !== 'story_theater') {
+                    missing.push(id);
+                    return;
+                }
+                fresh.push(row);
+            });
+            if (fresh.length) setArchiveBodies(current => {
                 const next = new Map(current);
-                fresh.forEach(row => { if (row) next.set(row.id, row); });
+                fresh.forEach(row => next.set(row.id, row));
                 return next;
             });
             if (missing.length) setArchiveReadErrors(current => new Set([...current, ...missing]));
-        }).catch(error => {
-            const stillWanted = messageIds.filter(id => isCurrent(id));
-            // The player may have closed the archive while its disk read was
-            // pending: no obsolete loading error, toast or body can resurface.
-            if (!stillWanted.length) return;
-            setArchiveReadErrors(current => new Set([...current, ...stillWanted]));
-            addToast(`归档原文读取失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+            // A closed or re-opened group invalidates the old read tokens, so
+            // those responses cannot replace newer originals or emit toasts.
+            if (readError && missing.length) {
+                addToast(`部分归档原文读取失败：${readError instanceof Error ? readError.message : String(readError)}`, 'error');
+            }
         });
     }, [addToast, threadId]);
     const storedTokenInfo = useMemo(() => {

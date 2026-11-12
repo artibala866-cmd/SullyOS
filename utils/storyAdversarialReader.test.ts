@@ -193,6 +193,26 @@ describe('真实玩家不按常理过剧情：分批、归档、生成隔离', (
         expect(page.querySelector('.story-archive-content')).not.toBeNull();
     }, 30000);
 
+    it('百层旧剧情里一条记录损坏：仍能阅读同一归档段的其他原文', async () => {
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async (id, limit) =>
+            ({ messages: data.filter(x => x.charId === id).slice(-limit), totalCount: 95 }));
+        const reads = vi.spyOn(DB, 'getMessageById').mockImplementation(async id => {
+            if (id === 56) throw new Error('旧数据损坏');
+            return data.find(row => row.id === id) || null;
+        });
+        fakeOs.addToast.mockClear();
+        const page = await mount();
+        await clickOlder();
+        const details = page.querySelector<HTMLDetailsElement>('.story-archive-range > details')!;
+        await toggle(details, true);
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)); });
+        expect(reads).toHaveBeenCalled();
+        expect(page.textContent).toContain('原文暂不可读取');
+        expect(page.textContent).toContain('原文楼层标识=057');
+        expect(page.textContent).not.toContain('原文楼层标识=056');
+        expect(fakeOs.addToast).toHaveBeenCalledTimes(1);
+    }, 30000);
+
     it('旧20层在慢速读取时直接切换另一部剧情：旧查询回调不能污染新剧本', async () => {
         const b = { ...entry, id: 'chaos-arc-b', title: '另一篇剧情',
             archives: [], readingBatchSize: 10 };
