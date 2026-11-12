@@ -295,3 +295,49 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
     }
     return { rules, added, updated, duplicates };
 }
+/**
+ * Export in the original Text Alchemist JSON vocabulary, including custom
+ * source fields the importer does not understand. No prompt synthesis and no
+ * hidden local smart filtering. Works in the reference app as a normal array.
+ */
+export function exportStoryAlchemyRules(rules: StoryRegexRule[]): string {
+    const rows = rules.map(rule => {
+        const original = rule.source?.originalRule || {};
+        const template = rule.kind === 'template';
+        const scope = rule.source?.originalScope || 'global';
+        return {
+            ...original,
+            name: rule.name,
+            enabled: rule.enabled,
+            isHtmlTemplate: template,
+            pattern: rule.pattern,
+            flags: rule.flags,
+            replacement: template ? '' : rule.replacementChoices?.length
+                ? [rule.replacement, ...rule.replacementChoices] : rule.replacement,
+            ...(template && {
+                htmlTemplate: rule.replacement,
+                cssScope: '',
+                parseMode: rule.parseMode || 'text',
+                renderMode: rule.source?.renderMode || 'iframe',
+            }),
+            category: rule.source?.category || rule.subcategory || '',
+            scope,
+            characterIds: rule.source?.originalCharacterIds || [],
+            scenes: rule.source?.scenes || [],
+            role: rule.role === 'user' || rule.role === 'both' ? rule.role : 'ai',
+            applyOnDisplay: rule.display,
+            applyOnPrompt: rule.history,
+            aiPrompt: rule.instruction,
+            order: rule.order ?? 0,
+            triggerEnabled: !!rule.source?.triggerEnabled,
+            triggerKeywords: rule.source?.triggerKeywords || [],
+            trim: !!rule.source?.trim,
+            trimStrings: rule.source?.trimStrings || [],
+            substituteRegex: rule.source?.substituteRegex ?? 1,
+            minDepth: rule.source?.minDepth ?? null,
+            maxDepth: rule.source?.maxDepth ?? null,
+        };
+    });
+    return JSON.stringify(rows, null, 2);
+}
+
