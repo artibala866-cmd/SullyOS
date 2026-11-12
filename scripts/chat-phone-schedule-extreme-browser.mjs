@@ -304,6 +304,7 @@ try{
     press('微信',phone());
     await wait(()=>!!phone().querySelector('[aria-label="搜索聊天"]'),'wechat search icon');
     press('搜索聊天',phone());
+    await wait(()=>!!phone().querySelector('input[aria-label="搜索微信聊天"]'), 'WeChat search input appears');
     textInput('input[aria-label="搜索微信聊天"]','完全不相关的暗号');
     await wait(()=>phone().textContent.includes('没有匹配的微信消息'),'empty search state');
     if(buttons(phone()).some(b=>b.textContent?.includes('真实私聊')||b.textContent?.includes('林同学')))
