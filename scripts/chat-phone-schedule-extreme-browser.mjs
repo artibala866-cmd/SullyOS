@@ -636,6 +636,61 @@ try{
       throw Error('Turning real-person OFF allowed an in-flight automatic reply to be delivered');
     if(qa.unsafe.length)throw Error('Attempted network to non-test model provider: '+JSON.stringify(qa.unsafe));
 
+    // 6. The user frantically flicks a saved schedule on and off 20 times
+    // while real-person is OFF. The previous day's authored plan must remain
+    // stored; no automatic request may be launched by any of the toggles.
+    const requestsBeforeSchedule=qa.calls.length;
+    await action('日程');
+    await wait(()=>!!document.querySelector('button[aria-label="切换角色日程开关"]'),'schedule entry for B');
+    const scheduleButton=()=>document.querySelector('button[aria-label="切换角色日程开关"]');
+    const scheduleState=()=>scheduleButton()?.closest('div.mb-4')?.textContent||'';
+    if(!scheduleState().includes('已关闭'))throw Error('B schedule unexpectedly ON before toggle marathon');
+    for(let i=0;i<20;i++){
+      const expected=i%2===0?'已开启':'已关闭';
+      scheduleButton().click();
+      await wait(()=>scheduleState().includes(expected),'schedule switch cycle '+i);
+      if(currentId()!==second)throw Error('Schedule toggle switched active character');
+      await pause(45);
+    }
+    if(!scheduleState().includes('已关闭'))throw Error('20 schedule toggles did not end OFF');
+    if(qa.calls.length!==requestsBeforeSchedule)
+      throw Error('Schedule toggles launched model calls with real-person disabled');
+    const storedSchedule=await new Promise((resolve,reject)=>{
+      const q=db.transaction('daily_schedule','readonly').objectStore('daily_schedule').getAll();
+      q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
+    });
+    if(!storedSchedule.some(x=>x.charId===second&&x.slots?.[0]?.activity==='乙在外摄影'))
+      throw Error('Stress toggle deleted the existing role-B schedule');
+    samples.push({step:'20 rapid schedule toggles',final:'off',saved:true,
+      modelCalls:qa.calls.length-requestsBeforeSchedule});
+    press('关闭');
+    await wait(()=>!scheduleButton(),'leave schedule after rapid toggles');
+    await action('查手机');
+    await wait(()=>!!document.querySelector('[role="dialog"][aria-label$="的手机"]'),
+      'phone after schedule hammer');
+    const phoneB=()=>document.querySelector('[role="dialog"][aria-label$="的手机"]');
+    phoneB().querySelector('[aria-label="向右滑动解锁"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+    await wait(()=>!!phoneB().querySelector('button.cp-home-shortcut'),'unlock B phone');
+    const wx=[...phoneB().querySelectorAll('button')].find(x=>x.textContent?.trim()==='微信');
+    if(!wx)throw Error('B phone WeChat shortcut absent');wx.click();
+    await wait(()=>[...phoneB().querySelectorAll('button')].some(x=>x.textContent?.trim()==='通讯录'),
+      'phone WeChat after schedule toggles');
+    press('通讯录');
+    await pause(260);
+    if(phoneB().textContent.includes('当前生活状态 · 乙在外摄影'))
+      throw Error('B phone displayed disabled stale schedule as currently active');
+    press('返回');await wait(()=>!!phoneB().querySelector('button.cp-home-shortcut'),'B phone home');
+    press('退出查手机');
+    await wait(()=>!phoneB(),'close B phone');
+    samples.push({step:'phone after schedule stress',showsDisabledActivity:false});
+    const apiAfterAll=qa.calls.length;
+    await send('把日程开关反复按完了，现在只聊我主动发送的这条。');
+    await pause(3600);
+    if(qa.calls.length!==apiAfterAll)
+      throw Error('Real-person OFF after schedule/phone marathon still triggered a model reply');
+    samples.push({step:'all systems OFF, user sends after chaos',modelCalls:qa.calls.length-apiAfterAll});
+
     db.close();
     return {samples,calls:qa.calls.length,unsafe:qa.unsafe,errors:faults,
       finalRole:currentId(),revokeKeys:Object.keys(localStorage).filter(k=>k.startsWith('sully_chat_auto_reply_intent_v1:'))};
@@ -650,6 +705,12 @@ try{
   console.log('EXTREME_REAL_USER_PRESSURE='+JSON.stringify(extreme));
   if(extreme.failure)throw Error(extreme.failure);
   await capture('integrated-chaos-private-chat-390',390,844);
+  await capture('integrated-chaos-private-chat-320',320,700);
+  const narrow=await evaluate(`({width:innerWidth,html:document.documentElement.scrollWidth,
+    body:document.body.scrollWidth,chat:!!document.querySelector('.sully-chat-composer')})`);
+  console.log('EXTREME_NARROW_MOBILE='+JSON.stringify(narrow));
+  if(narrow.width!==320||!narrow.chat||Math.max(narrow.html,narrow.body)>322)
+    throw Error('320px device chat layout exceeds viewport after pressure test');
 
 
 }finally{socket.close();}
