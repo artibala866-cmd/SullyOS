@@ -826,15 +826,19 @@ const DateApp: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <div className='mx-auto mt-4 mb-3 grid w-[min(18rem,calc(100%-2.5rem))] grid-cols-2 rounded-xl bg-white/45 p-1 shadow-sm'>
-                        <button className='rounded-lg bg-white py-2 text-xs font-bold text-[#555555] shadow-sm'>陪伴</button>
-                        <button onClick={() => setMeetSurface('story')} className='rounded-lg py-2 text-xs font-bold text-[#777777]'>剧情</button>
+                    <div className='mx-auto mt-4 mb-3 grid w-[min(17.5rem,calc(100%-2.5rem))] grid-cols-2 rounded-2xl border border-white/60 bg-white/40 p-1 shadow-[0_3px_14px_rgba(120,120,120,0.08)]'>
+                        <button className='rounded-xl bg-white/95 py-2 text-xs font-bold text-[#494949] shadow-[0_2px_8px_rgba(100,100,100,0.09)]'>陪伴</button>
+                        <button onClick={() => setMeetSurface('story')} className='rounded-xl py-2 text-xs font-bold text-[#686868]'>剧情</button>
                     </div>
-                    {/* 分组筛选（没建分组时不渲染）。切组后回到第一页 */}
-                    <CharacterGroupFilterBar characters={characters} groups={characterGroups} dark
-                        value={selectGroupId}
-                        onChange={(id) => { setSelectGroupId(id); setSelectPage(0); pagerRef.current?.scrollTo({ left: 0 }); }}
-                        className="px-4 mb-3" />
+                    {/* 仅见面浅色页采用雾面分组条，其他入口原样保留 */}
+                    {characterGroups.length > 0 && (
+                        <div className="mx-5 mb-3 rounded-2xl border border-white/60 bg-white/25 px-2 py-1.5 shadow-[0_2px_12px_rgba(120,120,120,0.06)]">
+                            <CharacterGroupFilterBar characters={characters} groups={characterGroups} appearance="mist"
+                                value={selectGroupId}
+                                onChange={(id) => { setSelectGroupId(id); setSelectPage(0); pagerRef.current?.scrollTo({ left: 0 }); }}
+                                className="gap-2" />
+                        </div>
+                    )}
                 </div>
 
                 {/* 分页卡片区 */}
@@ -848,7 +852,7 @@ const DateApp: React.FC = () => {
                          className="relative z-10 flex-1 min-h-0 flex overflow-x-auto snap-x snap-mandatory no-scrollbar"
                          style={{ scrollSnapType: 'x mandatory' }}>
                         {pages.map((page, pi) => (
-                            <div key={pi} className="w-full shrink-0 snap-start h-full overflow-y-auto no-scrollbar px-5 pt-4">
+                            <div key={pi} className="w-full shrink-0 snap-start h-full overflow-y-auto no-scrollbar px-5 pt-3">
                                 <div className="grid grid-cols-2 gap-4 pb-6">
                                     {page.map((c, idx) => {
                                         const tint = CARD_TINTS[(pi * SELECT_PAGE_SIZE + idx) % CARD_TINTS.length];
