@@ -1364,8 +1364,24 @@ export const selectStoryTavernAuthorOption = (
     const numberedPeers = selectedCount
         ? section.options.filter(option => option.id !== optionId && explicitCount(option.name) === selectedCount)
         : [];
-    const siblings = section.single ? section.options.filter(option => option.id !== optionId) : numberedPeers;
-    const exclusive = section.single || numberedPeers.length > 0;
+    const byId = new Map(document.prompts.map(prompt => [prompt.id, prompt]));
+    const tierPattern = /<rule\b[^>]*\bname=["'][^"']+[·｜|]\s*[一二三四五六七八九十\\d]+\s*档["']/i;
+    const tier = tierPattern.test(byId.get(optionId)?.content || '');
+    // These XML attributes declare a shared choice slot. Only switch peers
+    // in the same slot; unrelated prompts are always left alone.
+    const scoped = selected.cluster === 'rule:语言·对话'
+        || selected.cluster === 'author:writing_style' || selected.cluster === 'author:style';
+    const structuralPeers = tier || scoped
+        ? section.options.filter(option => option.id !== optionId
+            && option.cluster === selected.cluster
+            && (tier ? tierPattern.test(byId.get(option.id)?.content || '') : true))
+        : [];
+    const structuralExclusive = structuralPeers.length > 0
+        && [selected, ...structuralPeers].filter(option => option.enabled).length <= 1;
+    const siblings = section.single
+        ? section.options.filter(option => option.id !== optionId)
+        : numberedPeers.length ? numberedPeers : structuralExclusive ? structuralPeers : [];
+    const exclusive = section.single || numberedPeers.length > 0 || structuralExclusive;
     if (selected.enabled && exclusive) return document;
     const newEnabled = !selected.enabled;
     const off = newEnabled ? new Set(siblings.map(option => option.id)) : new Set<string>();
