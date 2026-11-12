@@ -47,7 +47,6 @@ import { isPushVapidReady } from '../utils/pushVapid';
 import ApiCallLogModal from '../components/settings/ApiCallLogModal';
 import { canDeleteWebdavBackup } from '../utils/webdavClient';
 import StorageUsagePanel from '../components/settings/StorageUsagePanel';
-import GithubVaultModal from '../components/settings/GithubVaultModal';
 import WebCacheControl from '../components/settings/WebCacheControl';
 import McpConnectionConsole from '../components/settings/McpConnectionConsole';
 import RealtimeMcpPresets from '../components/settings/RealtimeMcpPresets';
@@ -610,7 +609,6 @@ const Settings: React.FC = () => {
   const [cbPath, setCbPath] = useState(cloudBackupConfig.remotePath || '/SullyBackup/');
 
   // GitHub local state
-  const [showGithubVault, setShowGithubVault] = useState(false);
   const [ghToken, setGhToken] = useState(cloudBackupConfig.githubToken || '');
   const [ghRepo, setGhRepo] = useState(cloudBackupConfig.githubRepo || 'sully-backup');
   // 安全默认：旧版曾把代理默认打开。现在旧配置一律视为未重新确认，只有在
@@ -2320,10 +2318,6 @@ const Settings: React.FC = () => {
                 </div>
             )}
 
-            <button type="button" onClick={() => setShowGithubVault(true)}
-                className="w-full rounded-xl border border-slate-200 bg-white py-3 text-xs font-semibold text-slate-600">
-                我的仓库
-            </button>
             <p className="text-[10px] text-slate-400 px-1 mt-3 leading-relaxed">备份存储在自己的 WebDAV 或 GitHub 账户。</p>
         </SettingsSection>
 
@@ -3340,14 +3334,6 @@ const Settings: React.FC = () => {
               </div>
           </div>
       </Modal>
-
-      <GithubVaultModal
-          isOpen={showGithubVault}
-          onClose={() => setShowGithubVault(false)}
-          onConnect={() => setShowGithubModal(true)}
-          config={cloudBackupConfig}
-          addToast={addToast}
-      />
 
       {/* Cloud Restore Modal */}
       <Modal isOpen={showCloudRestoreModal} title="管理云备份" onClose={() => { if (!deletingCloudBackup) setShowCloudRestoreModal(false); }}>
