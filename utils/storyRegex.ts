@@ -77,6 +77,7 @@ export interface StoryRegexCard {
     title: string;
     html: string;
     fallback: string;
+    renderMode?: 'inline' | 'iframe';
 }
 
 export interface StoryRegexResult {
@@ -351,7 +352,8 @@ export function applyStoryRegex(
                 htmlLength += html.length;
                 matchedRule = true;
                 const token = prefix + cards.length + 'END';
-                cards.push({ token, title: rule.name, html, fallback: matched });
+                cards.push({ token, title: rule.name, html, fallback: matched,
+                    renderMode: rule.source?.renderMode || 'iframe' });
                 next.push(fragment.slice(cursor, offset), token);
                 cursor = offset + matched.length;
                 matches++;
