@@ -332,6 +332,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         append(identifier, promptEnabled(flag, defaultOn, identifier));
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
+    const unlistedEntries = sourceById.size - used.size;
     for (const identifier of sourceById.keys()) if (!used.has(identifier)) append(identifier, false);
     // A fully disabled preset is still a valid editable import: do not silently turn
     // anything on, and do not reject its user's archived prompt text.
@@ -461,6 +462,15 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         // the source's configuration. Never copy extensions or execute scripts.
         tavernOptions: normalizeTavernPresetOptions(value),
         importWarnings: warnings,
+        tavernImportAudit: {
+            sourceEntries: sourceById.size,
+            importedEntries: sourceById.size,
+            enabledEntries: prompts.filter(prompt => prompt.enabled && sourceById.has(prompt.id.slice(3))).length,
+            unlistedEntries,
+            orderTableCount: populated.length,
+            skippedRegexCount: regexCount,
+            skippedScriptCount: helperCount,
+        },
         generation: {
             temperature: numeric(value.temperature, 0.9, 0, 2),
             topP: numeric(value.top_p, 1, 0, 1),

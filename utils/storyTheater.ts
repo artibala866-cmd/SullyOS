@@ -481,7 +481,14 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
                 })) } : {}),
         ...(value.sourceFormat === 'sillytavern' && value.tavernOptions && typeof value.tavernOptions === 'object'
             && !Array.isArray(value.tavernOptions) ? { tavernOptions: normalizeTavernPresetOptions(value.tavernOptions) } : {}),
-        ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 12) } : {}),
+        ...(Array.isArray(value.importWarnings) ? { importWarnings: value.importWarnings.filter((warning: unknown): warning is string => typeof warning === 'string').slice(0, 32) } : {}),
+        ...(value.sourceFormat === 'sillytavern' && value.tavernImportAudit
+            && typeof value.tavernImportAudit === 'object'
+            ? { tavernImportAudit: Object.fromEntries(
+                ['sourceEntries', 'importedEntries', 'enabledEntries', 'unlistedEntries',
+                    'orderTableCount', 'skippedRegexCount', 'skippedScriptCount']
+                    .map(key => [key, Math.max(0, Math.floor(clampNumber(value.tavernImportAudit[key], 0, 1000000, 0)))]),
+            ) as NonNullable<StoryTheaterPresetDocument['tavernImportAudit']> } : {}),
     };
 };
 
@@ -1305,16 +1312,30 @@ export const getStoryTavernAuthorSections = (
             !/^(?:┌|└|╔|╚|┏|┗|—{2,}|[-—]{3,}|✧─|═|——|\/)/u.test(option.label)
             && !/^(?:不要关|必开|别动|开始|结束|说明|获取变量|set-)/i.test(option.label));
         if (!metadataShown(meta.name, options)) continue;
-        // Source genre/baseline/writing-style menus are mutually exclusive
-        // only if the source actually has at most one enabled choice.
-        const boundaryHints = members.filter(prompt => recognizeTavernPromptHeading(prompt))
-            .map(prompt => prompt.name);
-        // Only the author's explicit one-of label can make a group exclusive.
-        const single = tavernOneOf(meta.name) || boundaryHints.some(tavernOneOf);
-        out.push({
-            key: 'entry:' + meta.id, label: storyTavernHeadingTitle(meta.name) || meta.name.trim(),
-            description: '', options, single,
-        });
+        // Group labels can say "one of" even when additional author choices
+        // are stackable. Never close explicit overlays as collateral damage.
+        const isOverlay = (value: string): boolean => /可叠加|叠加使用|overlay|stackable/iu.test(value);
+        const groupSingle = tavernOneOf(meta.name);
+        const personallyLabeled = options.filter(option => tavernOneOf(option.name) && !isOverlay(option.name));
+        const exclusiveOptions = groupSingle
+            ? options.filter(option => !isOverlay(option.name))
+            : personallyLabeled.length >= 2 ? personallyLabeled : [];
+        const independentOptions = groupSingle
+            ? options.filter(option => isOverlay(option.name))
+            : options.filter(option => !exclusiveOptions.some(one => one.id === option.id));
+        const label = storyTavernHeadingTitle(meta.name) || meta.name.trim();
+        if (exclusiveOptions.length && independentOptions.length) {
+            out.push({ key: 'entry:' + meta.id + ':single', label: label + ' · 单选',
+                description: '仅对原作者明确标注的互斥条目生效',
+                options: exclusiveOptions, single: true });
+            out.push({ key: 'entry:' + meta.id + ':independent', label: label + ' · 独立开关',
+                description: '可叠加条目不会被单选操作关闭',
+                options: independentOptions, single: false });
+        } else {
+            out.push({ key: 'entry:' + meta.id, label,
+                description: exclusiveOptions.length ? '原作者明确标注单选' : '未明确互斥关系，保留独立开关',
+                options, single: exclusiveOptions.length > 0 });
+        }
         options.forEach(option => seen.add(option.id));
     }
     for (const group of groups) {
@@ -1449,12 +1470,11 @@ export const selectStoryTavernAuthorOption = (
             && option.cluster === selected.cluster
             && (tier ? tierPattern.test(byId.get(option.id)?.content || '') : true))
         : [];
-    const structuralExclusive = structuralPeers.length > 0
-        && [selected, ...structuralPeers].filter(option => option.enabled).length <= 1;
+    const explicitTiers = tier && structuralPeers.length > 0;
     const siblings = section.single
         ? section.options.filter(option => option.id !== optionId)
-        : numberedPeers.length ? numberedPeers : structuralExclusive ? structuralPeers : [];
-    const exclusive = section.single || numberedPeers.length > 0 || structuralExclusive;
+        : numberedPeers.length ? numberedPeers : explicitTiers ? structuralPeers : [];
+    const exclusive = section.single || numberedPeers.length > 0 || explicitTiers;
     if (selected.enabled && exclusive) return document;
     const newEnabled = !selected.enabled;
     const off = newEnabled ? new Set(siblings.map(option => option.id)) : new Set<string>();
@@ -1467,7 +1487,8 @@ export const selectStoryTavernAuthorOption = (
         // entryGrouping metadata, or via decorated boundary prompts.
         const index = document.prompts.findIndex(prompt => prompt.id === optionId);
         const entryGroup = sectionKey.startsWith('entry:')
-            ? document.tavernEntryGroups?.find(group => 'entry:' + group.id === sectionKey)
+            ? document.tavernEntryGroups?.find(group => 'entry:' + group.id === sectionKey
+                || sectionKey.startsWith('entry:' + group.id + ':'))
             : undefined;
         const enclosing = (start: number, end: number): void => {
             if (start < 0 || end <= index || start >= index) return;

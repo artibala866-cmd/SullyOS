@@ -2366,6 +2366,16 @@ export interface StoryTheaterPresetDocument {
         endIdentifier?: string;
     }>;
     importWarnings?: string[];
+    /** Read-only import provenance, absent from presets imported before this audit. */
+    tavernImportAudit?: {
+        sourceEntries: number;
+        importedEntries: number;
+        enabledEntries: number;
+        unlistedEntries: number;
+        orderTableCount: number;
+        skippedRegexCount: number;
+        skippedScriptCount: number;
+    };
 }
 
 /** 糯米机剧情预设，支持原生格式和安全转换后的酒馆 Chat Completion 预设。 */
