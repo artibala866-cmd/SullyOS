@@ -77,9 +77,23 @@ async function openChrome(mode) {
         assert(ready, 'Worldbook fixture failed: ' + (failure || 'timed out') + ' [mode=' + mode + ']');
         assert(html.includes('data-intro-present="false"'), 'Intro still present');
         assert(html.includes('data-horizontal-overflow="false"'), 'Horizontal overflow in mobile viewport');
-        if (mode !== 'normal') {
+        if (['search', 'selected'].includes(mode)) {
             assert(html.includes('data-match-count="6"'), 'Expected all six exact-title matches: ' + html);
             assert(html.includes('data-other-count="0"'), 'Search shows nonmatching titles: ' + html);
+        }
+        if (mode === 'diary') {
+            assert(html.includes('data-match-count="3"'), 'Missing three exact 日记 entries: ' + html);
+            assert(html.includes('data-other-count="2"'), '日记本 entries must be visible before deleting 日记: ' + html);
+        }
+        if (mode === 'diary-overflow') {
+            assert(html.includes('data-match-count="16"'), 'Search must not cut off results after 12: ' + html);
+            assert(html.includes('data-other-count="2"'), 'Partial title entries must remain visible: ' + html);
+            assert(html.includes('data-diary-selected-count="18"'), 'Select-all should include all 18 matches: ' + html);
+        }
+        if (mode === 'diary-delete') {
+            assert(html.includes('data-diary-deleted="true"'), 'One bulk deletion must remove all exact/partial matches: ' + html);
+            assert(html.includes('data-match-count="0"'), 'Old diary items remain visible after deletion: ' + html);
+            assert(html.includes('data-other-count="0"'), 'Diary book items resurfaced after deletion: ' + html);
         }
         if (mode === 'selected') {
             assert(html.includes('data-long-press-selected="true"'), 'Long press failed to select first entry: ' + html);
@@ -93,5 +107,5 @@ async function openChrome(mode) {
         rmSync(dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
     }
 }
-for (const mode of ['normal', 'search', 'selected']) await openChrome(mode);
-console.log('PASS: three mobile screenshots captured without an accelerated IndexedDB clock.');
+for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete']) await openChrome(mode);
+console.log('PASS: six mobile states include diary-prefix results, full multi-select and one-pass deletion.');
