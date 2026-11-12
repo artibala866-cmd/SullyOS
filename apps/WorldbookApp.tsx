@@ -3,7 +3,7 @@ import { useOS } from '../context/OSContext';
 import { Worldbook, WorldbookDepthRole, WorldbookPosition, WorldbookSelectiveLogic, AppID as ShortcutAppID } from '../types';
 import { useAppShortcut } from '../utils/appShortcutLaunch';
 import Modal from '../components/os/Modal';
-import { Check, DiamondsFour, BookOpen, DownloadSimple, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react';
+import { Check, DiamondsFour, BookOpen, DownloadSimple, MagnifyingGlass, Trash, UploadSimple, WarningCircle, X } from '@phosphor-icons/react';
 import {
     parseStandardWorldbook,
     serializeStandardWorldbook,
@@ -37,6 +37,9 @@ const WorldbookApp: React.FC = () => {
     const [categoryPages, setCategoryPages] = useState<Record<string, number>>({});
     const [isSelecting, setIsSelecting] = useState(false);
     const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
+    const longPressRef = useRef<{ id: string; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+    const suppressClickRef = useRef<string | null>(null);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
     const [groupEditor, setGroupEditor] = useState<{ category: string; name: string; mode: 'keep' | 'constant' | 'keyword' } | null>(null);
@@ -89,6 +92,25 @@ const WorldbookApp: React.FC = () => {
     }, [worldbooks]);
 
     const categoryNames = useMemo(() => Object.keys(groupedBooks), [groupedBooks]);
+
+    // 完整标题优先精确匹配同名条目；否则支持输入部分标题查找。
+    const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+    const matchingBooks = useMemo(() => {
+        if (!normalizedSearch) return worldbooks;
+        const exact = worldbooks.filter(book => book.title.trim().toLocaleLowerCase() === normalizedSearch);
+        return exact.length ? exact : worldbooks.filter(book => book.title.toLocaleLowerCase().includes(normalizedSearch));
+    }, [worldbooks, normalizedSearch]);
+    const matchingIds = useMemo(() => matchingBooks.map(book => book.id), [matchingBooks]);
+    const allMatchingSelected = matchingIds.length > 0 && matchingIds.every(id => selectedBookIds.has(id));
+    const visibleGroupedBooks = useMemo(() => {
+        if (!normalizedSearch) return groupedBooks;
+        const ids = new Set(matchingIds);
+        return Object.fromEntries(
+            Object.entries(groupedBooks)
+                .map(([category, books]) => [category, books.filter(book => ids.has(book.id))] as const)
+                .filter(([, books]) => books.length > 0)
+        ) as Record<string, Worldbook[]>;
+    }, [groupedBooks, matchingIds, normalizedSearch]);
 
     // 编辑页「已有分组」建议列表：随输入实时过滤。
     // 不能用原生 datalist —— 分组一多，移动端 WebView 会把候选渲染成撑爆屏幕、无法滚动的巨型下拉。
@@ -313,6 +335,37 @@ const WorldbookApp: React.FC = () => {
         setSelectedBookIds(new Set());
     };
 
+    const cancelLongPress = () => {
+        if (!longPressRef.current) return;
+        clearTimeout(longPressRef.current.timer);
+        longPressRef.current = null;
+    };
+
+    const startLongPress = (event: React.PointerEvent, id: string) => {
+        cancelLongPress();
+        // 新一轮正常点击不能被上一轮未派发的 click 吞掉。
+        suppressClickRef.current = null;
+        if (isSelecting || event.button !== 0) return;
+        const x = event.clientX;
+        const y = event.clientY;
+        const timer = setTimeout(() => {
+            longPressRef.current = null;
+            suppressClickRef.current = id;
+            setIsSelecting(true);
+            setSelectedBookIds(current => new Set(current).add(id));
+            setPreviewBookId(null);
+            trackEvent('长按选择世界书条目');
+        }, 520);
+        longPressRef.current = { id, x, y, timer };
+    };
+
+    const moveLongPress = (event: React.PointerEvent) => {
+        const press = longPressRef.current;
+        if (press && (Math.abs(event.clientX - press.x) > 10 || Math.abs(event.clientY - press.y) > 10)) {
+            cancelLongPress();
+        }
+    };
+
     const toggleBookSelection = (id: string) => {
         setSelectedBookIds(current => {
             const next = new Set(current);
@@ -323,9 +376,32 @@ const WorldbookApp: React.FC = () => {
     };
 
     const toggleSelectAll = () => {
-        setSelectedBookIds(current => current.size === worldbooks.length
-            ? new Set()
-            : new Set(worldbooks.map(book => book.id)));
+        setSelectedBookIds(current => {
+            const next = new Set(current);
+            if (matchingIds.length && matchingIds.every(id => next.has(id))) {
+                matchingIds.forEach(id => next.delete(id));
+            } else {
+                matchingIds.forEach(id => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    const handleExportSelected = async () => {
+        const books = worldbooks.filter(book => selectedBookIds.has(book.id));
+        if (!books.length) return;
+        const json = serializeStandardWorldbook(books);
+        if (!(await confirmExportSafety(JSON.parse(json)))) return;
+        const result = await shareOrDownloadFile({
+            card: { kind: 'worldbook', title: '选中条目' },
+            content: json,
+            fileName: 'worldbook-selected.json',
+            mimeType: 'application/json;charset=utf-8',
+            shareTitle: `导出选中的 ${books.length} 条世界书`,
+        });
+        if (result === 'cancelled') return;
+        addToast(`${result === 'shared' ? '已调起分享' : '已导出'} ${books.length} 条`, 'success');
+        trackEvent('批量导出世界书条目');
     };
 
     const closeBulkDelete = () => {
@@ -710,47 +786,54 @@ const WorldbookApp: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                <div className="px-3 min-[390px]:px-6 pb-3">
+                    <div className="h-9 flex items-center gap-2.5 rounded-full bg-neutral-100/80 border border-white/90 px-3 text-neutral-500">
+                        <MagnifyingGlass size={16} weight="bold" className="shrink-0" />
+                        <input
+                            aria-label="搜索世界书条目"
+                            value={searchQuery}
+                            onChange={event => setSearchQuery(event.target.value)}
+                            placeholder="搜索条目名称"
+                            className="min-w-0 flex-1 h-full bg-transparent border-0 outline-none text-xs text-neutral-700 placeholder:text-neutral-400"
+                        />
+                        {searchQuery && <button type="button" title="清空搜索" aria-label="清空搜索" onClick={() => setSearchQuery('')} className="p-1 rounded-full active:scale-90"><X size={15} weight="bold" /></button>}
+                    </div>
+                </div>
             </div>
 
             {isSelecting && (
-                <div className="relative z-10 shrink-0 bg-white/90 backdrop-blur-xl border-b border-neutral-100 px-5 py-2.5 flex items-center gap-3 shadow-sm">
+                <div className="relative z-10 shrink-0 bg-white/90 backdrop-blur-xl border-b border-neutral-100 px-4 min-[390px]:px-6 py-2.5 flex items-center gap-3 shadow-sm">
                     <button
                         onClick={toggleSelectAll}
-                        className="flex items-center gap-2 text-xs font-bold text-neutral-600 active:scale-95 transition-transform"
+                        disabled={matchingIds.length === 0}
+                        className="flex items-center gap-2 text-xs font-bold text-neutral-600 active:scale-95 transition-transform disabled:opacity-40"
                     >
-                        <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${selectedBookIds.size === worldbooks.length ? 'bg-neutral-800 border-neutral-500 text-white' : 'bg-white border-neutral-300 text-transparent'}`}>
+                        <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${allMatchingSelected ? 'bg-neutral-800 border-neutral-500 text-white' : 'bg-white border-neutral-300 text-transparent'}`}>
                             <Check size={13} weight="bold" />
                         </span>
-                        {selectedBookIds.size === worldbooks.length ? '取消全选' : '全选'}
+                        {allMatchingSelected ? '取消全选' : normalizedSearch ? '全选结果' : '全选'}
                     </button>
-                    <span className="text-[11px] text-neutral-500">已选 {selectedBookIds.size} / {worldbooks.length}</span>
-                    <button
-                        onClick={() => setShowBulkDeleteConfirm(true)}
-                        disabled={selectedBookIds.size === 0}
-                        className="ml-auto px-3 py-1.5 rounded-full bg-neutral-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-neutral-200 active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none"
-                    >
-                        <Trash size={14} weight="bold" /> 删除
-                    </button>
+                    <span className="text-[11px] text-neutral-500 whitespace-nowrap">已选 {selectedBookIds.size}</span>
+                    <div className="ml-auto flex items-center gap-1.5">
+                        <button type="button" onClick={handleExportSelected} disabled={selectedBookIds.size === 0}
+                            title="导出选中条目" aria-label="导出选中条目"
+                            className="w-9 h-9 bg-white/80 border border-neutral-100 rounded-full text-neutral-600 flex items-center justify-center active:scale-95 disabled:opacity-40">
+                            <DownloadSimple size={17} weight="bold" />
+                        </button>
+                        <button
+                            onClick={() => setShowBulkDeleteConfirm(true)}
+                            disabled={selectedBookIds.size === 0}
+                            title="删除选中条目" aria-label="删除选中条目"
+                            className="w-9 h-9 rounded-full bg-neutral-800 text-white flex items-center justify-center shadow-sm shadow-neutral-200 active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none"
+                        >
+                            <Trash size={16} weight="bold" />
+                        </button>
+                    </div>
                 </div>
             )}
 
             {/* Content List */}
             <div className="flex-1 overflow-y-auto p-5 pb-24 space-y-4 no-scrollbar relative z-0">
-                <div className="rounded-2xl border border-neutral-100/80 bg-white/75 backdrop-blur-md p-4 shadow-sm text-neutral-600">
-                    <div className="flex items-center gap-2 text-xs font-bold text-neutral-600">
-                        <BookOpen size={16} weight="bold" /> 世界书是做什么的？
-                    </div>
-                    <p className="mt-2 text-[11px] leading-relaxed">
-                        世界书是一组按条件提供给 AI 的补充设定，可用于世界观、人物关系、地点和规则等内容。它不会自己发消息，也不等同于角色记忆。
-                    </p>
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-500">
-                        创建或导入后，还要在角色编辑页的“扩展设定”中挂载；聊天生成回复时，已启用并满足常驻或关键词条件（以及可选的概率判定）的条目才会注入提示词。
-                    </p>
-                    <p className="mt-2 rounded-xl bg-neutral-50 px-3 py-2 text-[10px] leading-relaxed text-neutral-700">
-                        注意：“启用随机概率”未点亮 = 不使用随机抽取，条件满足时按 100% 通过；并不是“未激活”。
-                    </p>
-                </div>
-
                 {Object.keys(groupedBooks).length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-neutral-500 gap-4 opacity-60">
                         <BookOpen size={48} className="text-neutral-500" />
@@ -758,7 +841,15 @@ const WorldbookApp: React.FC = () => {
                     </div>
                 )}
 
-                {Object.entries(groupedBooks).map(([category, books]) => {
+                {normalizedSearch && matchingBooks.length === 0 && (
+                    <div className="h-40 flex flex-col items-center justify-center gap-3 text-neutral-400">
+                        <MagnifyingGlass size={32} />
+                        <span className="text-xs">没有找到同名条目</span>
+                    </div>
+                )}
+
+                {Object.entries(visibleGroupedBooks).map(([category, books]) => {
+                    const isExpanded = !!normalizedSearch || expandedCategory === category;
                     const totalPages = Math.max(1, Math.ceil(books.length / PAGE_SIZE));
                     const currentPage = Math.min(categoryPages[category] || 1, totalPages);
                     const pagedBooks = books.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -766,36 +857,49 @@ const WorldbookApp: React.FC = () => {
                     <div key={category} className="animate-slide-up">
                         {/* Category Header */}
                         <div
-                            onClick={() => toggleCategory(category)}
-                            className="flex items-center gap-2 py-2 px-1 cursor-pointer select-none group"
+                            onClick={() => { if (!normalizedSearch) toggleCategory(category); }}
+                            className={`flex items-center gap-2 py-2 px-1 select-none group ${normalizedSearch ? '' : 'cursor-pointer'}`}
                         >
-                            <div className={`transition-transform duration-300 ${expandedCategory === category ? 'rotate-90' : ''}`}>
+                            <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-neutral-500 group-hover:text-neutral-500"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" /></svg>
                             </div>
                             <h3 className="min-w-0 flex-1 break-words text-xs font-bold text-neutral-500 uppercase tracking-wider group-hover:text-neutral-600 transition-colors">{category}</h3>
                             <span className="text-[9px] bg-white/50 px-1.5 rounded text-neutral-500 border border-white/50">{books.length}</span>
-                            <button
+                            {!isSelecting && !normalizedSearch && <button
                                 onClick={(event) => handleExportGroup(event, category, books)}
                                 className="ml-auto p-2 -my-2 rounded-full text-neutral-500 hover:text-neutral-600 hover:bg-white/70 active:scale-90 transition-all"
                                 title="导出该组为标准世界书"
                             >
                                 <DownloadSimple size={16} weight="bold" />
-                            </button>
+                            </button>}
                         </div>
 
-                        {!isSelecting && <div className="flex justify-end gap-3 px-2 pb-1">
+                        {!isSelecting && !normalizedSearch && <div className="flex justify-end gap-3 px-2 pb-1">
                             <button type="button" className="text-[11px] text-neutral-500 py-1" onClick={() => setGroupEditor({ category, name: category, mode: 'keep' })}>编辑整组</button>
                             <button type="button" className="text-[11px] text-neutral-500 py-1" onClick={() => { setSelectedBookIds(new Set(books.map(book => book.id))); setShowBulkDeleteConfirm(true); }}>删除整组</button>
                         </div>}
 
                         {/* Group Items */}
-                        <div className={`space-y-3 pl-2 transition-all duration-300 ${expandedCategory === category ? 'opacity-100 mt-2' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                        <div className={`space-y-3 pl-2 transition-all duration-300 ${isExpanded ? 'opacity-100 mt-2' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                             {pagedBooks.map(book => (
                                 <div key={book.id} className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
                                     {/* Item Header */}
                                     <div 
-                                        onClick={() => isSelecting ? toggleBookSelection(book.id) : togglePreview(book.id)}
-                                        className="p-4 cursor-pointer flex justify-between items-start"
+                                        onPointerDown={event => startLongPress(event, book.id)}
+                                        onPointerMove={moveLongPress}
+                                        onPointerUp={cancelLongPress}
+                                        onPointerCancel={cancelLongPress}
+                                        onPointerLeave={cancelLongPress}
+                                        onContextMenu={event => event.preventDefault()}
+                                        onClick={() => {
+                                            if (suppressClickRef.current === book.id) {
+                                                suppressClickRef.current = null;
+                                                return;
+                                            }
+                                            if (isSelecting) toggleBookSelection(book.id);
+                                            else togglePreview(book.id);
+                                        }}
+                                        className="p-4 cursor-pointer flex justify-between items-start touch-pan-y"
                                     >
                                         {isSelecting && (
                                             <span className={`w-5 h-5 mt-0.5 mr-3 shrink-0 rounded-md border flex items-center justify-center transition-colors ${selectedBookIds.has(book.id) ? 'bg-neutral-800 border-neutral-500 text-white' : 'bg-white border-neutral-300 text-transparent'}`}>
