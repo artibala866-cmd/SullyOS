@@ -155,7 +155,7 @@ html body .sully-journal-root.sully-journal-root .sully-journal-editor-header{
   padding-top:max(var(--chrome-top,0px),env(safe-area-inset-top,0px))!important;
 }
 html body .sully-journal-root.sully-journal-root .sully-journal-calendar-hero{
-  padding-top:max(3rem,var(--safe-top,0px),env(safe-area-inset-top,0px))!important;
+  padding-top:max(var(--chrome-top,0px),env(safe-area-inset-top,0px))!important;
 }
 html body .sully-journal-root.sully-journal-root .sully-journal-back,
 html body .sully-journal-root.sully-journal-root .sully-journal-appearance-button{
@@ -172,13 +172,15 @@ const MONO_SCRAPBOOK_CSS = `
 .sully-journal-root{background:#f8f8f8!important;color:#252525}
 .sully-journal-select{background:radial-gradient(circle,#d8d8d8 1.3px,transparent 1.6px) 0 0/27px 27px,#fafafa!important}
 .sully-journal-header{background:rgba(255,255,255,.94)!important;border-color:#d8d8d8!important;color:#252525!important}
-.sully-journal-calendar-hero{background:#292929!important;color:#fff!important;border-radius:0!important;box-shadow:none!important}
-.sully-journal-calendar-hero *{color:#fff}
+.sully-journal-calendar{background:radial-gradient(circle,#d8d8d8 1.3px,transparent 1.6px) 0 0/27px 27px,#fafafa!important}
+.sully-journal-calendar-hero{background:rgba(255,255,255,.95)!important;color:#292929!important;border-radius:0!important;box-shadow:none!important;border-bottom:1px solid #dedede!important}
+.sully-journal-calendar-hero *{color:inherit}
+.sully-journal-calendar-sheet{background:#fff!important;border:1px solid #d1d1d1!important}
 .sully-journal-notebook{background:#fff!important;border:1px solid #292929!important;box-shadow:5px 5px 0 #dedede!important}
 .sully-journal-notebook-label{background:#eee!important;color:#333!important}
-.sully-journal-entry{background:#fff!important;border:1px solid #dedede!important;box-shadow:none!important}
-.sully-journal-entry-accent{background:#292929!important}
-.sully-journal-new-entry{border-color:#666!important;color:#292929!important;background:#fafafa!important}
+.sully-journal-entry{background:transparent!important;border:0!important;border-bottom:1px solid #e5e5e5!important;box-shadow:none!important;border-radius:0!important}
+.sully-journal-entry-accent{display:none}
+.sully-journal-new-entry{border:1px solid #dedede!important;color:#292929!important;background:#f8f8f8!important}
 .sully-journal-write{background:#202020!important}
 .sully-journal-spread-page{box-shadow:0 10px 28px rgba(0,0,0,.16)!important}
 .sully-journal-paper{border:1px solid #c9c9c9!important}
