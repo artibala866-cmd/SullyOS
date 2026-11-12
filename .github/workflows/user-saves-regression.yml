@@ -22,6 +22,7 @@ on:
       - 'utils/homeFigureSource.test.ts'
       - 'utils/userProfilePersistence.test.ts'
       - 'utils/userSave*.ts'
+      - 'utils/collaborationWiring.test.ts'
       - 'utils/db.ts'
       - 'utils/memoryPalace/supabaseVector.ts'
       - 'scripts/test-user-saves.mjs'

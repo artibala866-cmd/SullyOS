@@ -12,16 +12,23 @@ const browser = spawn(process.env.CHROME_BIN || 'chromium', [
   '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
   '--no-first-run', '--remote-debugging-port=0', '--no-proxy-server',
   '--proxy-bypass-list=*', '--user-data-dir=' + profile, 'about:blank',
-], { stdio: 'ignore' });
+], { stdio: ['ignore', 'ignore', 'pipe'] });
+let startupStderr = '';
+browser.stderr?.on('data', chunk => {
+  startupStderr = (startupStderr + String(chunk)).slice(-2500);
+});
 let ws;
 try {
   let port;
-  for (let i=0;i<120;i++) {
+  for (let i=0;i<300;i++) {
     try {port=Number((await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break;}
     catch { /* Chromium is starting */ }
+    if (browser.exitCode !== null || browser.signalCode) break;
     await delay(100);
   }
-  if (!port) throw Error('Chromium remote debugging did not start');
+  if (!port) throw Error('Chromium remote debugging did not start: ' +
+    (browser.exitCode !== null ? 'exit ' + browser.exitCode : browser.signalCode || 'timeout') +
+    (startupStderr ? '\n' + startupStderr : ''));
   const targets=await (await fetch('http://127.0.0.1:'+port+'/json')).json();
   const page=targets.find(t=>t.type==='page');
   if (!page) throw Error('Missing Chromium page');
