@@ -2583,28 +2583,45 @@ const normalizeTavernThinkingBlocks = (raw: string): string => {
     );
     source = source.replace(/<\s*(\/?)\s*ecot\b[^>]*>/gi,
         (_whole, closing: string) => closing ? '</thinking>' : '<thinking>');
-    const delimiters = /<\s*\/?\s*thinking\b[^>]*>|<\s*(?:content|story_text)\b[^>]*>/gi;
+    // Tavern authors use <Think>, <thinking>, <thought>, and <ECoT>.
+    // HTML tag names are case-insensitive, but the repaired closing tag must
+    // match its opener. Otherwise a lost </Think> can swallow all <content>.
+    const delimiters = /<\s*\/?\s*(?:thinking|think|thought)\b[^>]*>|<\s*(?:content|story_text)\b[^>]*>/gi;
     let result = '';
     let cursor = 0;
-    let thinkingOpen = false;
+    let thinkingOpen: string | null = null;
     for (const match of source.matchAll(delimiters)) {
         result += source.slice(cursor, match.index);
         const tag = match[0];
-        if (/^<\s*\/\s*thinking\b/i.test(tag)) {
-            thinkingOpen = false;
-        } else if (/^<\s*thinking\b/i.test(tag)) {
-            if (thinkingOpen) result += '</thinking>';
-            thinkingOpen = true;
-        } else if (thinkingOpen) {
-            // The preset sometimes omits </ECoT> before starting <content>.
-            result += '</thinking>';
-            thinkingOpen = false;
+        const close = /^<\s*\/\s*(thinking|think|thought)\b/i.exec(tag);
+        const open = /^<\s*(thinking|think|thought)\b/i.exec(tag);
+        if (close) {
+            if (thinkingOpen) {
+                if (thinkingOpen !== close[1].toLowerCase()) {
+                    result += '</' + thinkingOpen + '>';
+                    thinkingOpen = null;
+                } else {
+                    thinkingOpen = null;
+                    result += tag;
+                }
+            }
+            // Stray or mismatched closing tags must not render as story prose.
+        } else if (open) {
+            if (thinkingOpen) result += '</' + thinkingOpen + '>';
+            thinkingOpen = open[1].toLowerCase();
+            result += tag;
+        } else {
+            if (thinkingOpen) {
+                // Recover a missing close only at an explicit story boundary.
+                result += '</' + thinkingOpen + '>';
+                thinkingOpen = null;
+            }
+            result += tag;
         }
-        result += tag;
         cursor = match.index! + tag.length;
     }
     result += source.slice(cursor);
-    return thinkingOpen ? result + '</thinking>' : result;
+    return thinkingOpen ? result + '</' + thinkingOpen + '>' : result;
 };
 
 const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
