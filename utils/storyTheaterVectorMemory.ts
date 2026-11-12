@@ -1,6 +1,8 @@
 import type { StoryTheaterEntry } from '../types';
 import type { EmbeddingConfig, MemoryNode, RemoteVectorConfig } from './memoryPalace/types';
-import { MemoryLinkDB, MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
+import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
+import { openDB } from './db';
+import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { updateStoredMemoryNode } from './memoryPalace/vectorStore';
 import { deleteVector as deleteRemoteVector } from './memoryPalace/supabaseVector';
 import { bm25Index } from './memoryPalace/bm25Index';
@@ -127,13 +129,42 @@ export async function deleteStoryVectorMemory(
     nodeId: string,
     remoteVectorConfig?: RemoteVectorConfig,
 ): Promise<{ remoteDeleted: boolean | null }> {
-    assertStoryPartition(entryId, await MemoryNodeDB.getById(nodeId));
-    const links = await MemoryLinkDB.getByNodeId(nodeId);
-    await Promise.all([
-        ...links.map(link => MemoryLinkDB.delete(link.id)),
-        MemoryVectorDB.delete(nodeId),
-        MemoryNodeDB.delete(nodeId),
-    ]);
+    // Deleting text, embedding and links in separate transactions can leave a
+    // half-deleted memory when the browser quota or a tab fails mid-operation.
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(['memory_nodes', 'memory_vectors', 'memory_links'], 'readwrite');
+        const nodes = tx.objectStore('memory_nodes');
+        const vectors = tx.objectStore('memory_vectors');
+        const links = tx.objectStore('memory_links');
+        const read = nodes.get(nodeId);
+        let failure: unknown;
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(failure ?? tx.error ?? new Error('删除剧情记忆失败'));
+        tx.onabort = () => reject(failure ?? tx.error ?? new Error('删除剧情记忆已回滚'));
+        read.onsuccess = () => {
+            try {
+                assertStoryPartition(entryId, read.result as MemoryNode | undefined);
+                vectors.delete(nodeId);
+                nodes.delete(nodeId);
+                for (const indexName of ['sourceId', 'targetId']) {
+                    const cursorRequest = links.index(indexName).openCursor(IDBKeyRange.only(nodeId));
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (cursor) {
+                            cursor.delete();
+                            cursor.continue();
+                        }
+                    };
+                }
+            } catch (error) {
+                failure = error;
+                tx.abort();
+            }
+        };
+    });
+    bm25Index.onNodeDeleted(nodeId);
+    notifyMemoryNodesChanged(storyTheaterThreadId(entryId));
 
     if (!remoteVectorConfig?.enabled || !remoteVectorConfig.initialized) {
         return { remoteDeleted: null };
