@@ -2400,7 +2400,7 @@ ${isInitialGeneration ? `
                             
                             {pendingCard.source === 'local-batch' && <span className="text-[11px] text-neutral-400 break-all">{pendingCard.fileNames[index]}</span>}
                             <span className="text-xs text-neutral-600">世界书：{card.worldbooks.length} 条</span>
-                            <span className="text-xs text-neutral-600">开场白：{card.linkOpeningPayloadOmitted ? '未携带' :
+                            <span className="text-xs text-neutral-600">{card.source === 'babylink-character' ? '独立开场白：' : '开场白：'}{card.linkOpeningPayloadOmitted ? '未携带' :
                                 ((card.character.linkGreetings?.length || 0) + (card.character.tavernGreetings?.length || 0)) + ' 条'}</span>
                             
                             {card.imageProfile && <span className="text-xs text-neutral-600">生图已识别</span>}
