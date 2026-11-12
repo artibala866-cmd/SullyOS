@@ -237,6 +237,28 @@ const check = () => {
     const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
     const pro = buttons.find(b => b.textContent?.trim() === '专业版');
     if (!pro) { setTimeout(check, 100); return; }
+    if (!native && dialect === 'unseen' && (focus === 'inspect' || focus === 'returned')) {
+        if (stage === 0) {
+            const view = document.querySelector<HTMLElement>('main.story-page-scroll');
+            const preview = clickByText('查看原文');
+            if (!view || !preview) { setTimeout(check, 180); return; }
+            view.scrollTop = 200;
+            preview.click();
+            stage = 1; setTimeout(check, 180); return;
+        }
+        if (stage === 1) {
+            const inspector = document.querySelector('[role="dialog"][aria-label="查看原作者原文"]');
+            const choice = inspector && [...inspector.querySelectorAll<HTMLButtonElement>('button')]
+                .find(button => button.textContent?.includes('晦夜'));
+            if (!choice) { setTimeout(check, 180); return; }
+            choice.click(); stage = 2; setTimeout(check, 180); return;
+        }
+        if (stage === 2 && focus === 'returned') {
+            const back = document.querySelector<HTMLButtonElement>('button[aria-label="返回原作选择"]');
+            if (!back) { setTimeout(check, 180); return; }
+            back.click(); stage = 3; setTimeout(check, 180); return;
+        }
+    }
     if (!native && dialect === 'baby' && focus === 'author' && stage === 0) {
         const select = document.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（未启用）"]');
         if (select) { select.click(); stage = 1; setTimeout(check, 200); return; }
@@ -300,7 +322,17 @@ const check = () => {
     const selectedSourceChoice = dialect === 'baby' && stage === 1
         && document.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（已启用）"]')?.getAttribute('aria-pressed') === 'true'
         && !document.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：完全（已启用）"]');
-    const success = fit && nativeAuthorMapping && (native ? !proOn && eightControls && generationControls : groupingSafe && (
+    const inspector = document.querySelector('[role="dialog"][aria-label="查看原作者原文"]');
+    const inPlaceInspectOk = stage === 2 && Boolean(inspector)
+        && inspector?.querySelector('pre')?.textContent?.includes('ONLY-UNKNOWN-DUSK')
+        && !proOn;
+    const returnPositionOk = stage === 3 && !inspector
+        && !proOn && authorOnly
+        && (document.querySelector<HTMLElement>('main.story-page-scroll')?.scrollTop || 0) >= 140;
+    const success = fit && nativeAuthorMapping && (
+        focus === 'inspect' ? inPlaceInspectOk
+            : focus === 'returned' ? returnPositionOk
+            : native ? !proOn && eightControls && generationControls : groupingSafe && (
         focus === 'overview' ? !proOn && authorOnly && !eightControls && generationControls
             : focus === 'author' ? !proOn && authorOnly && selectedSourceChoice
             : focus === 'slot' ? proOn && markerToggled && quickEditor : proOn && detailSelected));
@@ -312,7 +344,7 @@ const check = () => {
     }
     output.textContent = JSON.stringify({ native, focus, proOn, fit, groupCount: groups.length,
         groupingSafe, eightControls, authorOnly, nativeAuthorMapping, selectedSourceChoice, generationControls, markerToggled,
-        quickEditor, detailSelected, stage, success });
+        quickEditor, detailSelected, stage, inPlaceInspectOk, returnPositionOk, success });
     if (!success && stage < 5) setTimeout(check, 200);
 };
 setTimeout(check, 950);
