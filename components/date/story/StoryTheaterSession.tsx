@@ -569,6 +569,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         }
     }), [entry.id, loadMessages]);
     useEffect(() => {
+        // A reused screen must not show the previous story's live draft.
+        setBackgroundTask(getStoryGenerationSnapshot(entry.id));
         setContextTokens(0);
         setContextTokensExact(false);
         setShowAffinityInput(false);
