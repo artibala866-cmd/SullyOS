@@ -12,6 +12,38 @@ const fields = '[Header|片刻留白|MIDNIGHT][Tags|静夜|书信|雨声]'
     + '[Dialogue|有人敲门|她应了一声|风吹动纸页|门外静下来]'
     + '[Quote|我们仍有故事|The story continues.]';
 
+describe('万事成真 ECoT 与 MoM 附录兼容', () => {
+    it('ECoT 单独折叠，正文、摘要、选项各成块', () => {
+        const raw = '<ECoT>先检查人物关系和世界背景。</ECoT>'
+            + '<content>真正的剧情正文。</content>'
+            + '<meow_FM>serial:001\\nplot:先前事件</meow_FM>'
+            + '<branches><details><summary>剧情选项</summary>A.继续交谈</details></branches>';
+        const result = blocks(raw);
+        expect(result.map(block => block.kind)).toEqual(['thinking', 'story', 'tavern-extra', 'tavern-extra']);
+        expect(result[0].text).toContain('人物关系');
+        expect(result[1].text).toBe('真正的剧情正文。');
+        expect(result[2].title).toBe('剧情摘要');
+        expect(result[2].text).toContain('先前事件');
+        expect(result[3].title).toBe('剧情选项');
+        expect(result[3].text).toContain('继续交谈');
+        expect(result[1].text).not.toContain('人物关系');
+    });
+    it('缺少 </ECoT> 时在 <content> 边界恢复，正文不会被吞', () => {
+        const result = blocks('<ECoT>思考段落未闭合<content>真实正文保留下来。</content>');
+        expect(result.map(block => block.kind)).toEqual(['thinking', 'story']);
+        expect(result[0].text).toBe('思考段落未闭合');
+        expect(result[1].text).toBe('真实正文保留下来。');
+    });
+    it('只有未闭合 ECoT 时保留折叠思考，不把思考误作正文', () => {
+        expect(blocks('<ECoT>尚未完成的草稿').map(block => block.kind)).toEqual(['thinking']);
+        expect(looksLikeLegacyTavernStoryOutput('<ECoT>以前的思考</ECoT>')).toBe(true);
+    });
+    it('标准思考格式与原生剧情显示互不影响', () => {
+        expect(blocks('<think>独立思考</think><content>正文</content>').map(block => block.kind)).toEqual(['thinking', 'story']);
+        expect(parseStoryDisplayBlocks('<story_text>原生正文</story_text>', false).map(block => block.kind)).toEqual(['story']);
+    });
+});
+
 describe('真实酒馆五份预设的输出格式交叉审计', () => {
     it('冥王星 RandomTheater 和 Episode 各自成折叠附录，正文不被吞掉', () => {
         const raw = '<content>正文开头。</content>'
