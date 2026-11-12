@@ -1,11 +1,40 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
+import { exportStoryAlchemyRules, mergeStoryRegexImport, parseStoryRegexImport } from './storyRegexImport';
 import { applyStoryRegex, readStoryRegexRules, storyRegexInstruction } from './storyRegex';
 import { parseStoryRegexDisplay } from './storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from './storyTheaterHtml';
 
 describe('糯叽机炼金术导入', () => {
+    it('按糯叽机原版字段导出所选规则，能重新导入且不丢 HTML、触发和原始扩展信息', () => {
+        const source = [
+            { name: '原版文字替换', pattern: '旧称', flags: 'g', replacement: ['新称', '别称'],
+                role: 'both', scope: 'global', scenes: ['chat'], category: '文本规则',
+                enabled: 1, applyOnDisplay: 1, applyOnPrompt: 1, trimStrings: ['\u200b'], order: 8,
+                extraAuthorField: 'keep-original' },
+            { name: '原版美化', isHtmlTemplate: 1, pattern: '<card>(.*?)</card>',
+                htmlTemplate: '<div onclick="this.textContent=\'展开\'">{{$1}}</div>',
+                cssScope: '.card{padding:9px}', parseMode: 'text', renderMode: 'iframe',
+                triggerEnabled: 1, triggerKeywords: ['卡片'], aiPrompt: '输出 <card> 标签',
+                enabled: 1, applyOnDisplay: 1, category: '卡片', order: 9 },
+        ];
+        const imported = parseStoryRegexImport(JSON.stringify(source)).rules;
+        const native = JSON.parse(exportStoryAlchemyRules(imported));
+        expect(native).toHaveLength(2);
+        expect(native[0]).toMatchObject({ extraAuthorField: 'keep-original',
+            name: '原版文字替换', role: 'both', replacement: ['新称', '别称'] });
+        expect(native[1]).toMatchObject({ isHtmlTemplate: true, renderMode: 'iframe',
+            triggerEnabled: true, triggerKeywords: ['卡片'], aiPrompt: '输出 <card> 标签' });
+        expect(native[1].htmlTemplate).toContain('onclick');
+        const again = parseStoryRegexImport(JSON.stringify(native)).rules;
+        expect(again).toHaveLength(2);
+        expect(again[0].replacementChoices).toEqual(['别称']);
+        expect(again[1].kind).toBe('template');
+        expect(again[1].replacement).toContain('padding:9px');
+        expect(again[1].instruction).toBe('输出 <card> 标签');
+    });
+
+
     it('按原文件顺序转换数字开关、作用对象、显示与请求规则，并保留现有库', () => {
         const { rules, warnings } = parseStoryRegexImport('\uFEFF' + JSON.stringify([
             { name: '格式整理', pattern: '(<note>)([^<]+)</note>', replacement: '$2', order: 8, enabled: 0, applyOnDisplay: 1 },
