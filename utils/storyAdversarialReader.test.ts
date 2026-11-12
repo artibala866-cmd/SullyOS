@@ -170,6 +170,29 @@ describe('真实玩家不按常理过剧情：分批、归档、生成隔离', (
         expect(body).toHaveBeenCalled();
     }, 30000);
 
+    it('点开归档时手机存储报错，但用户已经收起：不能过几秒突然弹旧错误', async () => {
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async (id, limit) =>
+            ({ messages: data.filter(x => x.charId === id).slice(-limit), totalCount: 95 }));
+        const rejectOld: Array<() => void> = [];
+        const body = vi.spyOn(DB, 'getMessageById').mockImplementation(() =>
+            new Promise<Message | null>((_resolve, reject) =>
+                rejectOld.push(() => reject(new Error('旧归档已收起，读盘错误不应打扰玩家')))));
+        fakeOs.addToast.mockClear();
+        const page = await mount();
+        await clickOlder();
+        const details = page.querySelector<HTMLDetailsElement>('.story-archive-range > details')!;
+        await toggle(details, true);
+        expect(body).toHaveBeenCalled();
+        await toggle(details, false);
+        await act(async () => { rejectOld.splice(0).forEach(reject => reject()); await Promise.resolve(); });
+        expect(page.textContent).not.toContain('原文暂不可读取');
+        expect(fakeOs.addToast).not.toHaveBeenCalled();
+        body.mockImplementation(async id => data.find(row => row.id === id) || null);
+        await toggle(details, true);
+        await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+        expect(page.querySelector('.story-archive-content')).not.toBeNull();
+    }, 30000);
+
     it('旧20层在慢速读取时直接切换另一部剧情：旧查询回调不能污染新剧本', async () => {
         const b = { ...entry, id: 'chaos-arc-b', title: '另一篇剧情',
             archives: [], readingBatchSize: 10 };
