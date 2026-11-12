@@ -199,10 +199,10 @@ try{
  // visible name, then alternate story scenes, edits and browser reloads.
  const oddName='同名的我', oddPrefix='奇怪换档测试/';
  await page.getByLabel('你的名字',{exact:true}).fill(oddName);
- await page.waitForFunction(id=>JSON.parse(localStorage.getItem('sully:user-saves:v1')).saves.find(s=>s.id===id)?.name==='同名的我',fresh.id);
+ await page.waitForFunction(async id=>(await import('/utils/userSaveScope.ts')).readUserSaves().saves.find(s=>s.id===id)?.name==='同名的我',fresh.id);
  await switchTo('original');
  await page.getByLabel('你的名字',{exact:true}).fill(oddName);
- await page.waitForFunction(()=>JSON.parse(localStorage.getItem('sully:user-saves:v1')).saves.find(s=>s.id==='original')?.name==='同名的我');
+ await page.waitForFunction(async ()=>(await import('/utils/userSaveScope.ts')).readUserSaves().saves.find(s=>s.id==='original')?.name==='同名的我');
  const sameNameOptions=await page.locator('#user-save-select option').allTextContents();
  assert.equal(sameNameOptions.length,2);assert.notEqual(sameNameOptions[0],sameNameOptions[1],'same labels must remain distinguishable');
  for(let hop=0;hop<12;hop++){
