@@ -438,7 +438,8 @@ describe('Deep audit: real-world card compatibility', () => {
     it('V1/V2/V3 原卡保留 Spotify/地图原文，剧情选择只显示可阅读正文',()=>{
         const raw = '[spotify: 初雪 | https://cdn.test/cover.gif | https://cdn.test/track.mp3]\n'
             + '[map: 公园 | https://cdn.test/maps/embed/route]\n'
-            + '<div style="color:blue"><p>{{char}}把旧日记交给{{user}}。</p></div>';
+            + '<div style="color:blue"><p>这是仅供展示的包裹内容。</p></div>\n'
+            + '{{char}}把旧日记交给{{user}}。';
         const cardTypes = [
             {name:'林澈',description:'摄影师',first_mes:raw},
             v2({first_mes:raw}),
@@ -452,6 +453,7 @@ describe('Deep audit: real-world card compatibility', () => {
             const choices=listCharacterStoryOpenings(cardActor);
             expect(choices).toHaveLength(1);
             expect(choices[0].content).toBe('{{char}}把旧日记交给{{user}}。');
+            expect(choices[0].content).not.toContain('仅供展示');
             expect(listCharacterStoryOpenings(cardActor)[0]).toEqual(choices[0]);
             expect(opening?.content).toContain('track.mp3');
         }

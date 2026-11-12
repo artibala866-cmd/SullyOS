@@ -90,7 +90,7 @@ describe('Link 开场白导入到剧情的实际闭环', () => {
         },[merged],'玩家')?.content).toBe(previous.content);
     });
 
-    it('Link HTML 注释属于原文，不作为酒馆标题注释清除', () => {
+    it('Link HTML 注释保留在导入原卡，剧情中只读取包裹外正文', () => {
         const body='<!-- title:属于正文的文字 -->\n<article>这是 Link HTML</article>\n{{char}}和{{user}}';
         const prepared=card([{id:'scene-1',title:'Link标题',opening:body}]);
         const actual=prepared.character.linkGreetings![0];
@@ -100,9 +100,9 @@ describe('Link 开场白导入到剧情的实际闭环', () => {
         const resolved=resolveStoryOpeningGreeting({
             characterIds:[actor.id],openingGreeting:{characterId:actor.id,greetingId:actual.id},
         },[actor],'玩家');
-        expect(resolved?.content).toContain('<!-- title:属于正文的文字 -->');
-        expect(resolved?.content).toContain('<article>这是 Link HTML</article>');
-        expect(resolved?.content).toContain('Link测试角色和玩家');
+        expect(resolved?.content).toBe('Link测试角色和玩家');
+        expect(resolved?.content).not.toContain('<!-- title:');
+        expect(resolved?.content).not.toContain('<article>');
     });
 
     it('可用的 content 不会因为同条开场里空 opening 字段而丢失', () => {

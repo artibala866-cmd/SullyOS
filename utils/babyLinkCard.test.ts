@@ -90,7 +90,7 @@ describe('BabyLink 1.1.10 share conversion', () => {
             expect(serialized).not.toContain(forbidden);
         }
     });
-    it('reads Link-native structured title/description and preserves original HTML and macros without using Tavern parsing', () => {
+    it('preserves Link-native HTML in the source card but only reads unwrapped Story prose', () => {
         const scene = '<!-- title: 属于 Link 正文的 HTML 注释 -->\n{{char}}推门看向{{user}}。\n<section>Link 的正文 HTML</section>';
         const parsed = normalizeBabyLinkShare(share([
             char('千雪', ['shared'], {
@@ -121,9 +121,9 @@ describe('BabyLink 1.1.10 share conversion', () => {
             characterIds: ['actor'],
             openingGreeting: { characterId: 'actor', greetingId: openings[0].id },
         }, [actor], '小瞿');
-        expect(selected?.content).toContain('千雪推门看向小瞿');
-        expect(selected?.content).toContain('<!-- title: 属于 Link 正文的 HTML 注释 -->');
-        expect(selected?.content).toContain('<section>Link 的正文 HTML</section>');
+        expect(selected?.content).toBe('千雪推门看向小瞿。');
+        expect(selected?.content).not.toContain('<!-- title:');
+        expect(selected?.content).not.toContain('<section>');
         expect(card.character.systemPrompt).toContain('稳定人设');
         expect(card.character.systemPrompt).not.toContain('雨夜相逢');
     });
