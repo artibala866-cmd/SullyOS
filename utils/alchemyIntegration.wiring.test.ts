@@ -48,7 +48,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(screen).toContain("domain='offline'");
         expect(screen).toContain('alchemyDisplay.get(msg.id)?.text');
         expect(screen).toContain('spriteAlchemy.get(-987654321)?.text');
-        expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting', activeCharacterId)");
+        expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting', char.id)");
         expect(read('utils/alchemyMeeting.ts')).toContain('loadMeetingAlchemyRules()');
         expect(read('utils/alchemyRegex.ts')).toContain('alchemyRulesForMeeting');
         expect(read('utils/alchemyRegex.ts')).toContain("alchemyOfflineScenes(rule).includes('meeting')");
