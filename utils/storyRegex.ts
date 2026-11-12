@@ -177,7 +177,9 @@ export function storyRegexScopeApplies(
     const source = rule.source;
     if (!source) return true;
     const authoredScenes = source.scenes || [];
-    if (authoredScenes.length && context.scene && !authoredScenes.includes(context.scene)) return false;
+    // Story and meeting are explicit SullyOS adaptations. Their own scene
+    // switches supersede the original app's chat/moments/forum scene list.
+    if (authoredScenes.length && context.scene === 'chat' && !authoredScenes.includes('chat')) return false;
     if (source.originalScope !== 'character' && source.originalScope !== 'chat') return true;
     const bound = source.localCharacterIds || [];
     if (bound.length) return !!context.characterId && bound.includes(context.characterId);
