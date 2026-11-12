@@ -285,6 +285,139 @@ try{
       throw Error('Phone added contact accidentally generated User chat turn');
     progress.push('phone contact saved independently of private chat');
 
+    // A plausible human sees an old NPC thread beside the real private chat,
+    // searches with contradictory terms, then reads a saved Moments post.
+    // Fixtures are isolated to this throwaway browser and never hit a paid API.
+    const phoneId=currentChar(),now=Date.now();
+    const inboxKey='sully_character_phone_wechat_v1:'+phoneId;
+    const existingInbox=JSON.parse(localStorage.getItem(inboxKey)||'[]');
+    localStorage.setItem(inboxKey,JSON.stringify([{
+      id:'ci-phone-inbox',contactId:'ci-phone-friend',kind:'npc',
+      name:'林同学',preview:'明天还要画速写吗？',time:now,
+      messages:[{speaker:{role:'contact',contactId:'ci-phone-friend'},
+        text:'明天还要画速写吗？',createdAt:now}],
+    },...existingInbox]));
+    window.dispatchEvent(new CustomEvent('sully:character-phone-chats-changed',
+      {detail:{characterId:phoneId}}));
+    press('返回',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='微信'),'phone bottom WeChat after contact edit');
+    press('微信',phone());
+    await wait(()=>!!phone().querySelector('[aria-label="搜索聊天"]'),'wechat search icon');
+    press('搜索聊天',phone());
+    textInput('input[aria-label="搜索微信聊天"]','完全不相关的暗号');
+    await wait(()=>phone().textContent.includes('没有匹配的微信消息'),'empty search state');
+    if(buttons(phone()).some(b=>b.textContent?.includes('真实私聊')||b.textContent?.includes('林同学')))
+      throw Error('WeChat search leaked unrelated conversations');
+    textInput('input[aria-label="搜索微信聊天"]','如果有空');
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.includes('真实私聊')),
+      'real private chat matches its message preview');
+    if(buttons(phone()).some(b=>b.textContent?.includes('林同学')))
+      throw Error('WeChat real-chat query matched the unrelated NPC');
+    textInput('input[aria-label="搜索微信聊天"]','林同学');
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.includes('林同学')),
+      'NPC row matches search');
+    if(buttons(phone()).some(b=>b.textContent?.includes('真实私聊')))
+      throw Error('WeChat NPC query still shows the private chat');
+    press('搜索聊天',phone());
+    progress.push('search private/NPC/no-results in one session without cross-row leakage');
+
+    const momentKey='sully_character_moments_v1:'+phoneId;
+    localStorage.setItem(momentKey,JSON.stringify([{
+      id:'ci-phone-moment',characterId:phoneId,authorId:phoneId,origin:'char',
+      text:'画完速写去买杯热饮。',imageUrls:[],createdAt:now,
+      visibility:'all',likes:[],comments:[],
+    }]));
+    window.dispatchEvent(new CustomEvent('sully:character-moments-changed',
+      {detail:{characterId:phoneId,changeKind:'published',actorId:phoneId}}));
+    press('发现',phone());
+    press('朋友圈',phone());
+    await wait(()=>!!phone().querySelector('[data-testid="moment-post-ci-phone-moment"]'),
+      'saved Moment visible');
+    const more=()=>phone().querySelector('[data-testid="moment-more-ci-phone-moment"]');
+    more().click();
+    await wait(()=>!!phone().querySelector('[data-testid="moment-like-action-ci-phone-moment"]'),
+      'Moment like popover');
+    phone().querySelector('[data-testid="moment-like-action-ci-phone-moment"]').click();
+    await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.likes?.length===1,
+      'Moment like saved');
+    more().click();
+    phone().querySelector('[data-testid="moment-like-action-ci-phone-moment"]').click();
+    await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.likes?.length===0,
+      'Moment unlike saved');
+    more().click();
+    phone().querySelector('[data-testid="moment-comment-action-ci-phone-moment"]').click();
+    textInput('input[aria-label="评论"]','我刚发现你也在画速写！');
+    press('发送',phone());
+    await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.comments?.length===1,
+      'Moment comment saved once');
+    const confirmBefore=window.confirm;window.confirm=()=>true;
+    try{press('删除这条朋友圈',phone());}finally{window.confirm=confirmBefore;}
+    await wait(()=>!phone().querySelector('[data-testid="moment-post-ci-phone-moment"]'),
+      'deleted Moment is no longer shown');
+    if(!JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.deletedAt)
+      throw Error('Moment did not retain its soft deletion');
+    press('返回',phone());
+    progress.push('real Moments like/unlike/comment/delete cycle keeps persistence');
+
+    // A user opens the fictional wallet straight after talking about buying
+    // a drink: previously saved receipt is applied only once on repeated refresh.
+    const walletKey='sully_character_phone_wallet_v1:'+phoneId;
+    const receiptKey='sully_character_phone_pay_receipts_v1:'+phoneId;
+    localStorage.setItem(walletKey,JSON.stringify({
+      version:1,characterId:phoneId,currency:'CNY',createdAt:now,updatedAt:now,
+      accounts:[{id:'cash',kind:'cash',title:'零钱',bankLabel:'微信支付',
+        maskedNumber:'4321',balanceCents:50000,note:'虚构角色余额'}],
+      transactions:[],appliedMemoIds:[],appliedPaymentIds:[],
+    }));
+    localStorage.setItem(receiptKey,JSON.stringify([{
+      id:'ci-payment-1',characterId:phoneId,title:'热饮',detail:'买热饮',
+      category:'日常',amountCents:-500,occurredAt:now,origin:'wechat-simulated',
+    }]));
+    press('我',phone());
+    press('钱包',phone());
+    await wait(()=>phone().textContent.includes('资产 · ASSETS'),'wallet assets displayed');
+    await wait(()=>phone().textContent.includes('495.00'),'receipt applied to wallet balance');
+    for(let i=0;i<5;i++){
+      press('刷新资产',phone());
+      await pause(150);
+    }
+    const afterWallet=JSON.parse(localStorage.getItem(walletKey)||'null');
+    if(afterWallet?.transactions?.length!==1||afterWallet.accounts?.[0]?.balanceCents!==49500)
+      throw Error('Repeated wallet refresh double-charged the single receipt');
+    press('清空资产档案',phone());
+    await wait(()=>!!phone().querySelector('[role="dialog"][aria-label="清空虚构资产"]'),
+      'wallet delete confirmation');
+    press('取消',phone());
+    if(!localStorage.getItem(walletKey))throw Error('Cancel deleted wallet assets');
+    press('返回',phone());
+    progress.push('real wallet repeated refresh and cancelled deletion are consistent');
+
+    // Character avatar library is shared with private chat. Select an existing
+    // recognized avatar through the actual modal rather than editing its storage.
+    const avatarImage='data:image/svg+xml;base64,'+
+      btoa('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="lightblue"/></svg>');
+    const avatarKey='sully_character_avatar_library_v1_'+phoneId;
+    localStorage.setItem(avatarKey,JSON.stringify({
+      entries:[{id:'ci-avatar',image:avatarImage,createdAt:now,
+        source:'upload',visionDescription:'浅蓝色方形头像'}],autonomousEnabled:false,
+    }));
+    const profileButton=buttons(phone()).find(b=>!!b.querySelector('strong.text-xl'));
+    if(!profileButton)throw Error('Phone self profile entry missing');
+    profileButton.click();
+    await wait(()=>!!phone().querySelector('[data-testid="character-phone-profile-panel"]'),
+      'phone owner profile');
+    press('打开角色头像库',phone());
+    await wait(()=>!!document.querySelector('[role="dialog"][aria-label="角色头像库"]'),
+      'character avatar library modal');
+    const avatarModal=document.querySelector('[role="dialog"][aria-label="角色头像库"]');
+    press('使用',avatarModal);
+    await wait(()=>JSON.parse(localStorage.getItem(avatarKey)||'null')?.activeId==='ci-avatar',
+      'character avatar selection is persisted');
+    press('关闭头像库',document);
+    press('返回',phone());
+    progress.push('avatar choice persisted from the actual shared library UI');
+
+
     // Turn off autonomous phone life in the existing settings (separate from
     // all real-person/chat/schedule switches).
     const phoneBack=()=>press('返回',phone());
