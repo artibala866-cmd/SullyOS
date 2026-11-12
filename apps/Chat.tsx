@@ -1485,7 +1485,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 避免和 OSContext 双写.
 
     const composerLastEditAtRef = useRef(0);
+    // A second tap before React clears the controlled composer is the same
+    // send, not a new user message. A real edit creates a fresh revision.
+    const composerRevisionRef = useRef(0);
+    const sentComposerRevisionRef = useRef<{ charId: string; revision: number } | null>(null);
     const handleInputChange = (val: string) => {
+        composerRevisionRef.current++;
         composerLastEditAtRef.current = Date.now();
         setInput(val);
         // A half-typed follow-up pauses the pending answer; it must not silently erase
@@ -1893,6 +1898,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     const handleSendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
+        if (!customContent && char && input.trim()) {
+            const sent = sentComposerRevisionRef.current;
+            if (sent?.charId === char.id && sent.revision === composerRevisionRef.current) return false;
+            sentComposerRevisionRef.current = { charId: char.id, revision: composerRevisionRef.current };
+        }
         const isPoke = customType === 'interaction' && String(customContent || '').trim() === '[戳一戳]';
         const finish = autoReply.beginSend(char?.id || null);
         try {
