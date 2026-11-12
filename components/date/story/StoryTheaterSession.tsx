@@ -949,7 +949,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         }
     }, [actors, addToast, entry, exporting, mask.name, messages.length, threadId]);
 
-    const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<StoryCompletion> => {
+    const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void, onPreview?: (text: string) => void): Promise<StoryCompletion> => {
         assertStoryApiConfigured(apiConfig);
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true, apiConfig.model);
         const maxTokens = normalizeStoryOutputTokens(entry.outputMaxTokens ?? generationSettings.max_tokens);
@@ -971,7 +971,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const streamHint = stream ? '' : '。如果中转支持流式，可在本剧情设置中开启「长回复流式传输」';
             throw new Error(`浏览器未收到可读取的 HTTP 响应（${detail}）。连接、网关超时或跨域限制均可能导致此问题，请先对照站点调用记录${streamHint}`);
         }
-        return readStoryCompletion(response, effectivePreset.document.sourceFormat === 'sillytavern', maxTokens, onPromptTokens);
+        return readStoryCompletion(response, effectivePreset.document.sourceFormat === 'sillytavern', maxTokens, onPromptTokens, stream ? onPreview : undefined);
     }, [apiConfig, effectivePreset.document.sourceFormat, entry.omitSamplingParams, entry.outputMaxTokens, entry.streamStoryOutput]);
 
     const saveCentralAndMirrors = useCallback(async (role: 'user' | 'assistant', content: string, centralMetadata: Record<string, unknown> = {}): Promise<number> => {
@@ -1122,7 +1122,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         sendLock.current = true;
         setSending(true);
         setRerollingId(rerollTarget?.id || null);
-        const started = startStoryBackgroundGeneration(entry.id, async reportStage => {
+        const started = startStoryBackgroundGeneration(entry.id, async (reportStage, reportPreview) => {
         try {
             reportStage('正在读取剧情并准备上下文…');
             const before = (await DB.getMessagesByCharId(threadId, true))
@@ -1347,7 +1347,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 promptTokenCountExact = true;
                 setContextTokens(reported);
                 setContextTokensExact(true);
-            });
+            }, reportPreview);
             const prefill = !promptEntry.forceUserLastMessage && compiled.assistantPrefill && payload.includes(compiled.assistantPrefill)
                 ? compiled.assistantPrefill.content : '';
             const rawContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
@@ -1426,6 +1426,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     }, [canStart, activeRegexRules, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, promptIdentityName, regexContext, saveCentralAndMirrors, selectedBooks, threadId]);
 
     const generationBusy = sending || backgroundTask?.phase === 'running';
+    // The live draft is a temporary reading-floor preview, never a DB message.
+    // Keep the existing saving/archiving pipeline as the only source of truth.
+    const liveStoryPreview = backgroundTask?.phase === 'running'
+        && backgroundTask.stage === '正在后台生成剧情正文…'
+        ? backgroundTask.previewContent : undefined;
     const unsavedReply = backgroundTask?.unsavedReply;
     const regexSources = useMemo(() => {
         const sources = new Map<string, StoryRegexInput>();
@@ -1670,6 +1675,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                             {floorBody}
                         </div>;
                     })}
+                    {liveStoryPreview && <section data-story-stream-preview='true'
+                        className='story-reading-floor border-t border-slate-200 scroll-mt-16 py-8'>
+                        <div className='mb-5 text-[10px] tracking-[.08em] text-slate-500'>剧场正文 · 生成中</div>
+                        <p className='font-serif text-[15px] leading-8 text-slate-800 whitespace-pre-wrap break-words'>{liveStoryPreview}</p>
+                    </section>}
                 </div>
                 {unsavedReply && <section className='mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4'>
                     <p role='status' className='mb-2 text-xs text-amber-800'>已收到的正文暂存在此页面，请先复制或重试本地保存。</p>
