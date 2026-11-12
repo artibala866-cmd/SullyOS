@@ -23,7 +23,7 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'lite', name: '扩展未包含', content: '[Lite未包含此扩展.]', enabled: true },
             { id: 'xml', name: 'XML 开头', content: '<branch>', enabled: true },
             { id: 'headline', name: '<==文风▣▣说明==>', content: '作者实际补充规则，不能隐藏', enabled: true },
-            { id: 'real-lite', name: '说明', content: 'Lite未包含此扩展，但作者另有独立要求', enabled: true },
+            { id: 'real-lite', name: '可选补充规则', content: 'Lite未包含此扩展，但作者另有独立要求', enabled: true },
             { id: 'macro', name: '变量选择', content: '{{setvar::tone::暖光}}', enabled: true },
             { id: 'rule', name: '原作者正文', content: '这里是作者真正的写作要求', enabled: false },
         ];
