@@ -483,6 +483,59 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     };
 };
 
+/** Read the matching end of a Tavern setvar without stopping at nested
+ * {{user}} / {{random}} macros inside a stored multiline instruction.
+ * Keep malformed expressions in the original editable prompt.
+ */
+const expandTavernAssignments = (
+    source: string,
+    variables: Map<string, string>,
+    referencedVariables?: ReadonlySet<string>,
+    globalVariables: Map<string, string> = new Map(),
+): string => {
+    const assignment = /\{\{\s*(setvar|setglobalvar)\s*::\s*([^{}:]+?)\s*::/gi;
+    let output = '';
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    while ((match = assignment.exec(source)) !== null) {
+        let depth = 1;
+        let index = assignment.lastIndex;
+        let end = -1;
+        while (index < source.length - 1) {
+            if (source.startsWith('{{', index)) {
+                depth++;
+                index += 2;
+            } else if (source.startsWith('}}', index)) {
+                depth--;
+                index += 2;
+                if (depth === 0) {
+                    end = index;
+                    break;
+                }
+            } else {
+                index++;
+            }
+        }
+        if (end < 0) break;
+        const name = match[2].trim();
+        const value = source.slice(assignment.lastIndex, end - 2);
+        output += source.slice(cursor, match.index);
+        if (match[1].toLowerCase() === 'setglobalvar') {
+            // Imported Tavern globals are scoped to the single request.
+            globalVariables.set(name, value);
+        } else {
+            variables.set(name, value);
+            // Extension-only standalone rules still apply if nobody reads them.
+            if (referencedVariables && !referencedVariables.has(name) && isStandaloneTavernRule(value)) {
+                output += value.trim();
+            }
+        }
+        cursor = end;
+        assignment.lastIndex = end;
+    }
+    return output + source.slice(cursor);
+};
+
 /** SillyTavern's basic text-variable macros, without evaluating arbitrary code. */
 /** A rich XML rule hidden inside a setvar is prompt text, not executable JS.
  * These are safe to place into the request if no active getvar consumes them.
@@ -501,24 +554,11 @@ export const expandSillyTavernPromptText = (
     referencedVariables?: ReadonlySet<string>,
     globalVariables: Map<string, string> = new Map(),
     randomValue: () => number = Math.random,
-): string => raw
-    .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '')
-    .replace(/(?:\r?\n)*\{\{\s*trim\s*\}\}(?:\r?\n)*/gi, '')
-    .replace(/\{\{\s*setvar\s*::\s*([^{}:]+?)\s*::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
-        const name = key.trim();
-        variables.set(name, value);
-        // SillyTavern extensions may read this variable later. They cannot run in
-        // SullyOS, so standalone rich rule bodies must not silently disappear.
-        // A real enabled getvar still owns its injection site and avoids duplicates.
-        return referencedVariables && !referencedVariables.has(name) && isStandaloneTavernRule(value)
-            ? value.trim()
-            : '';
-    })
-    .replace(/\{\{\s*setglobalvar\s*::\s*([^{}:]+?)\s*::([\s\S]*?)\}\}/gi, (_macro, key: string, value: string) => {
-        // Global values must never leak into other SullyOS stories/identities.
-        globalVariables.set(key.trim(), value);
-        return '';
-    })
+): string => expandTavernAssignments(
+    raw.replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '')
+        .replace(/(?:\r?\n)*\{\{\s*trim\s*\}\}(?:\r?\n)*/gi, ''),
+    variables, referencedVariables, globalVariables,
+)
     .replace(/\{\{\s*getvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) => variables.get(key.trim()) || '')
     .replace(/\{\{\s*getglobalvar(?:\s*::\s*|\s*:\s*|\s+)([^{}]+?)\s*\}\}/gi, (_macro, key: string) =>
         globalVariables.get(key.trim()) || '')
@@ -526,6 +566,19 @@ export const expandSillyTavernPromptText = (
         variables.has(key) ? variables.get(key) || '' : original)
     .replace(/\{\{\s*\$([\w\p{L}\p{N}-]+)\s*\}\}/gu, (original, key: string) =>
         globalVariables.has(key) ? globalVariables.get(key) || '' : original)
+    // Tavern dice macro is widely used by MoM presets for stochastic details.
+    // Bound dice counts and sides; unknown formulas stay literal, not eval'd.
+    .replace(/\{\{\s*roll\s*::\s*([^{}]+?)\s*\}\}/gi, (original, spec: string) => {
+        const dice = /^(\d{1,2})d(\d{1,5})([+-]\d{1,4})?$/i.exec(spec.trim());
+        if (!dice) return original;
+        const count = Number(dice[1]), sides = Number(dice[2]);
+        if (count < 1 || count > 20 || sides < 2 || sides > 10000) return original;
+        let total = Number(dice[3] || 0);
+        for (let index = 0; index < count; index++) {
+            total += 1 + Math.min(sides - 1, Math.max(0, Math.floor(randomValue() * sides)));
+        }
+        return String(total);
+    })
     // Random choices are safe text macros, rerolled for each generation.
     .replace(/\{\{\s*random\s*(?:::|\s+)([^{}]+?)\s*\}\}/gi, (original, options: string) => {
         const choices = options.includes('::') ? options.split('::') : options.split(',');
