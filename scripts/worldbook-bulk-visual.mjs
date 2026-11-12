@@ -94,6 +94,7 @@ async function openChrome(mode) {
         }
         if (mode === 'diary-delete') {
             assert(html.includes('data-diary-deleted="true"'), 'One bulk deletion must remove all exact/partial matches: ' + html);
+            assert(html.includes('data-duplicate-empty-state="false"'), 'Only one empty-state hint should remain: ' + html);
             assert(html.includes('data-match-count="0"'), 'Old diary items remain visible after deletion: ' + html);
             assert(html.includes('data-other-count="0"'), 'Diary book items resurfaced after deletion: ' + html);
         }
