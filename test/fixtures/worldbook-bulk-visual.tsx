@@ -118,6 +118,39 @@ const run = async () => {
             throw new Error('Repeated GPU-heavy backdrop blur is still applied to Worldbook cards');
         if (!cards.every(card => card.querySelector('h4') && card.querySelector('button[role="switch"]')))
             throw new Error('Worldbook cards on page 4 lost text or switches');
+        if (mode === 'many-return') {
+            const anchor = cards[8];
+            const entryId = anchor.dataset.worldbookEntryId;
+            if (!entryId) throw new Error('Worldbook entry has no stable anchor');
+            scroller.scrollTop += anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 150;
+            await sleep(120);
+            const expectedTop = scroller.scrollTop;
+            const expectedOffset = anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+            const getAnchor = () => [...document.querySelectorAll<HTMLElement>('[data-worldbook-entry-id]')].find(el => el.dataset.worldbookEntryId === entryId);
+            const openEdit = () => {
+                const edit = getAnchor()?.querySelector<HTMLButtonElement>('button[data-worldbook-action="edit"]');
+                if (!edit) throw new Error('Edit target disappeared');
+                edit.click();
+            };
+            const checkReturn = async (kind: string) => {
+                const back = await waitFor(() => document.querySelector<HTMLElement>('[data-worldbook-list-scroll]'));
+                await waitFor(() => getAnchor() || null);
+                await sleep(100);
+                const current = getAnchor()!;
+                const offset = current.getBoundingClientRect().top - back.getBoundingClientRect().top;
+                if (Math.abs(back.scrollTop - expectedTop) > 3 || Math.abs(offset - expectedOffset) > 3)
+                    throw new Error(kind + ' returned to top/wrong entry: expected ' + expectedTop + '/' + expectedOffset + ', got ' + back.scrollTop + '/' + offset);
+                (window as any)['worldbookReturn' + kind] = true;
+            };
+            openEdit();
+            const cancelEdit = await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '取消') || null);
+            cancelEdit.click();
+            await checkReturn('Cancel');
+            openEdit();
+            const saveEdit = await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '保存') || null);
+            saveEdit.click();
+            await checkReturn('Save');
+        }
     }
     if (mode !== 'normal' && !manyMode) {
         const input = await waitFor(() => document.querySelector<HTMLInputElement>('input[aria-label="搜索世界书条目"]'));
@@ -155,6 +188,56 @@ const run = async () => {
                 if (document.querySelector('button[title="退出批量管理"]') || document.querySelector('h4')?.closest('.cursor-pointer')?.textContent?.includes('详细设定内容'))
                     throw new Error('Switch must not trigger card preview or multiselect');
             }
+        }
+        if (mode.startsWith('touch')) {
+            const card = document.querySelector<HTMLElement>('[data-worldbook-entry-id]');
+            const toggle = card?.querySelector<HTMLButtonElement>('button[data-worldbook-action="toggle"]');
+            const edit = card?.querySelector<HTMLButtonElement>('button[data-worldbook-action="edit"]');
+            const del = card?.querySelector<HTMLButtonElement>('button[data-worldbook-action="delete"]');
+            if (!card || !toggle || !edit || !del) throw new Error('Missing separate action targets');
+            const sw = toggle.getBoundingClientRect();
+            const er = edit.getBoundingClientRect();
+            const dr = del.getBoundingClientRect();
+            const hit = (x: number, y: number) =>
+                document.elementFromPoint(x, y)?.closest<HTMLButtonElement>('button[data-worldbook-action]')?.dataset.worldbookAction;
+            if (sw.width !== 32 || Math.round(sw.height) !== 18) throw new Error('Visual switch size changed');
+            if (er.width < 36 || er.height < 36 || dr.width < 36 || dr.height < 36)
+                throw new Error('Edit/delete touch regions are too small');
+            if (sw.bottom + 6 >= er.top || Math.abs(er.right - dr.left) < 6)
+                throw new Error('Toggle and edit/delete hit regions overlap');
+            if (hit(sw.left + sw.width / 2, sw.bottom + 6) !== 'toggle'
+                || hit(er.left + er.width / 2, er.top + er.height / 2) !== 'edit'
+                || hit(dr.left + dr.width / 2, dr.top + dr.height / 2) !== 'delete')
+                throw new Error('Touch hit test selects the wrong worldbook action');
+            (window as any).worldbookActionHitZones = true;
+            const prior = await DB.getAllWorldbooks();
+            toggle.click();
+            await waitFor(() => toggle.getAttribute('aria-checked') === 'false' ? toggle : null);
+            const next = await DB.getAllWorldbooks();
+            if (next.filter(book => book.disable).length !== prior.filter(book => book.disable).length + 1)
+                throw new Error('Switch touch modified wrong entry or did not persist');
+            if (!document.querySelector('[data-worldbook-list-scroll]') || document.querySelector('button[title="删除 1 条"]'))
+                throw new Error('Switch touch opened unrelated interface');
+            edit.click();
+            await waitFor(() => [...document.querySelectorAll('div')].find(el => el.textContent?.trim() === '编辑条目') as HTMLElement | undefined || null);
+            const cancel = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '取消');
+            if (!cancel) throw new Error('Edit cancel missing');
+            cancel.click();
+            await waitFor(() => document.querySelector('[data-worldbook-list-scroll]'));
+            const freshDelete = document.querySelector<HTMLButtonElement>('[data-worldbook-entry-id] button[data-worldbook-action="delete"]');
+            freshDelete?.click();
+            await waitFor(() => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('删除') && button.textContent?.includes('该条目')) as HTMLElement | undefined || null).catch(async () => {
+                const label = document.body.textContent || '';
+                if (!label.includes('确定要删除')) throw new Error('Delete touch did not open confirmation');
+                return document.body;
+            });
+            const afterDeletePrompt = await DB.getAllWorldbooks();
+            if (afterDeletePrompt.length !== next.length)
+                throw new Error('Delete touch bypassed confirmation');
+            (window as any).worldbookActionIsolation = true;
+            const modalCancel = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '取消');
+            modalCancel?.click();
+            await sleep(100);
         }
         if (mode === 'selected') {
             // Use the actual 520ms press gesture, including the trailing mobile click.
@@ -208,6 +291,10 @@ const run = async () => {
     output.setAttribute('data-diary-deleted', String(mode === 'diary-delete' && titles.length === 0 && heading.includes('没有找到同名条目')));
     output.setAttribute('data-duplicate-empty-state', String(mode === 'diary-delete' && heading.includes('世界还是空白的')));
     output.setAttribute('data-long-press-selected', String((window as any).worldbookLongPressSelected === true));
+    output.setAttribute('data-return-after-cancel', String((window as any).worldbookReturnCancel === true));
+    output.setAttribute('data-return-after-save', String((window as any).worldbookReturnSave === true));
+    output.setAttribute('data-action-hit-zones', String((window as any).worldbookActionHitZones === true));
+    output.setAttribute('data-action-isolation', String((window as any).worldbookActionIsolation === true));
     output.setAttribute('data-intro-present', String(heading.includes('世界书是做什么的')));
     output.setAttribute('data-many-page4', String(manyMode && heading.includes('4 / 6')));
     output.setAttribute('data-many-card-count', String(manyMode ? document.querySelectorAll('h4').length : 0));
