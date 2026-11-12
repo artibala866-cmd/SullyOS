@@ -517,6 +517,10 @@ try{
         privateMessages.filter(x=>x.role==='user').length)
       throw Error('NPC generation impersonated User in real private chat');
     window.fetch=oldPhoneFetch;
+    // The disposable mock provider is for this WeChat check only. A later
+    // reload must never inherit its intentionally unreachable hostname.
+    localStorage.removeItem('sully_character_phone_dialogue_api_v1:'+phoneId);
+    window.dispatchEvent(new CustomEvent('sully:character-phone-dialogue-api-changed',{detail:{characterId:phoneId}}));
     press('我',phone());
     progress.push('two actual NPC manual AI chat generations: one saved, duplicate retry ignored');
 
