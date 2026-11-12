@@ -20,6 +20,8 @@ import { resolveStoryPresetImport, withBuiltInStoryPresets } from './storyTheate
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
 
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
+import { removeCharacterFromGroup, removeCharacterFromNovel, removeCharacterFromSocialPost, removeCharacterFromWorld, clearCharacterScopedStorage } from './characterDeletionCascade';
+
 
 
 
@@ -804,88 +806,271 @@ export const DB = {
     if (!migrated) await persistCharacterWithHomeMessages(db, charId, clearStaleMemoryMirror);
   },
 
+
+  /** Remove a character's owned imports, conversations, memories, phone/gameplay
+   * records and references in one IndexedDB transaction. Shared objects are
+   * scrubbed by stable ID; unrelated characters' data is never guessed by name. */
   deleteCharacter: async (id: string, onlyIfMissing = false): Promise<boolean> => {
-    const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
-    await preserveContentFavoritesBeforeMessageDeletion({ charId: id });
     const db = await openDB();
     const memoryStores = ROLE_MEMORY_STORES.filter(name => db.objectStoreNames.contains(name));
-    const stores = [STORE_CHARACTERS, STORE_MESSAGES, STORE_ASSETS, ...memoryStores];
-    if (db.objectStoreNames.contains('memory_links')) stores.push('memory_links');
+    const relevant = [
+      STORE_CHARACTERS, STORE_MESSAGES, STORE_ASSETS, STORE_SCHEDULED,
+      STORE_GALLERY, STORE_DIARIES, STORE_TASKS, STORE_ANNIVERSARIES,
+      STORE_ROOM_TODOS, STORE_ROOM_NOTES, STORE_DAILY_SCHEDULE,
+      STORE_XHS_ACTIVITIES, STORE_XHS_OWNED_POSTS,
+      STORE_GROUPS, STORE_SOCIAL_POSTS, STORE_WORLDS, STORE_WORLD_EPISODES,
+      STORE_STORY_THEATERS, STORE_GAMES, STORE_NOVELS, STORE_COURSES,
+      STORE_WORLDBOOKS, STORE_VR_LETTERS, STORE_VR_ANNOTATIONS,
+      'pixel_home_layouts', 'memory_links', ...memoryStores,
+    ].filter(name => db.objectStoreNames.contains(name));
+    const stores = [...new Set(relevant)];
     return new Promise((resolve, reject) => {
       const tx = db.transaction(stores, 'readwrite');
+      const charStore = tx.objectStore(STORE_CHARACTERS);
+      const messages = tx.objectStore(STORE_MESSAGES);
+      const assets = tx.objectStore(STORE_ASSETS);
       let removed = false;
-      const remove = () => {
-          removed = true;
-          tx.objectStore(STORE_CHARACTERS).delete(id);
-          const messages = tx.objectStore(STORE_MESSAGES);
-          const assets = tx.objectStore(STORE_ASSETS);
-          const request = messages.index('charId').openCursor(IDBKeyRange.only(id));
-          request.onsuccess = () => {
-              const cursor = request.result;
-              if (!cursor) return;
-              const message = cursor.value as Message;
-              if (isRoleOwnedMessage(message)) {
-                  deleteLinkedSecretNotes(messages, message);
-                  // A story mirror belongs to the role. The central story and its
-                  // other mirrors belong to the story and keep their own records.
-                  const centralId = message.metadata?.theaterCentralId;
-                  if (message.metadata?.source === 'story_theater_memory' && typeof centralId === 'number') {
-                      const central = messages.get(centralId);
-                      central.onsuccess = () => {
-                          const row = central.result as Message | undefined;
-                          const mirrors = row?.metadata?.theaterMirrorIds;
-                          if (row?.metadata?.source !== 'story_theater' || mirrors?.[id] !== message.id) return;
-                          const next = { ...mirrors };
-                          delete next[id];
-                          messages.put({ ...row, metadata: { ...row.metadata, theaterMirrorIds: next } });
-                      };
-                  }
-                  deleteUnfavoritedVoiceCache(assets, message.id);
-                  cursor.delete();
-              }
-              cursor.continue();
-          };
-          assets.delete(`mp_hwm_v1_${id}`);
-          assets.delete(`home_secrets_v1_${id}`);
-          for (const name of memoryStores) {
-              const store = tx.objectStore(name);
-              if (!store.indexNames.contains('charId')) continue;
-              const owned = store.index('charId').openKeyCursor(IDBKeyRange.only(id));
-              owned.onsuccess = () => {
-                  const cursor = owned.result;
-                  if (!cursor) return;
-                  if (name === 'memory_nodes') {
-                      if (memoryStores.includes('memory_vectors')) tx.objectStore('memory_vectors').delete(cursor.primaryKey);
-                      if (stores.includes('memory_links')) {
-                          const links = tx.objectStore('memory_links');
-                          for (const index of ['sourceId', 'targetId']) {
-                              const related = links.index(index).openKeyCursor(IDBKeyRange.only(cursor.primaryKey));
-                              related.onsuccess = () => {
-                                  const link = related.result;
-                                  if (!link) return;
-                                  links.delete(link.primaryKey);
-                                  link.continue();
-                              };
-                          }
-                      }
-                  }
-                  store.delete(cursor.primaryKey);
-                  cursor.continue();
+      let failure: unknown;
+
+      const eraseMessage = (row: Message, remove: () => void): void => {
+        deleteLinkedSecretNotes(messages, row);
+        assets.delete('voice_msg_' + row.id);
+        remove();
+      };
+      const eraseStoryMessages = (storyId: string): void => {
+        const request = messages.index('charId').openCursor(IDBKeyRange.only('story-theater:' + storyId));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const row = cursor.value as Message;
+          const mirrors = row.metadata?.theaterMirrorIds;
+          if (mirrors && typeof mirrors === 'object') {
+            for (const mirrorId of Object.values(mirrors) as unknown[]) {
+              if (typeof mirrorId !== 'number') continue;
+              const linked = messages.get(mirrorId);
+              linked.onsuccess = () => {
+                const mirror = linked.result as Message | undefined;
+                if (mirror?.metadata?.theaterCentralId === row.id) {
+                  eraseMessage(mirror, () => messages.delete(mirrorId));
+                }
               };
+            }
           }
+          eraseMessage(row, () => cursor.delete());
+          cursor.continue();
+        };
       };
-      if (onlyIfMissing) {
-          const role = tx.objectStore(STORE_CHARACTERS).getKey(id);
-          role.onsuccess = () => { if (role.result === undefined) remove(); };
-      } else remove();
+      const eraseIndexed = (name: string, indexName: string): void => {
+        if (!stores.includes(name)) return;
+        const store = tx.objectStore(name);
+        if (!store.indexNames.contains(indexName)) return;
+        const request = store.index(indexName).openCursor(IDBKeyRange.only(id));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          if (name === STORE_MESSAGES) {
+            const row = cursor.value as Message;
+            // Other actors' central stories live under story-theater:<id>,
+            // not under this participant's ID; they are handled separately.
+            if (row.metadata?.source === 'story_theater_memory') {
+              const centralId = row.metadata.theaterCentralId;
+              if (typeof centralId === 'number') {
+                const central = messages.get(centralId);
+                central.onsuccess = () => {
+                  const parent = central.result as Message | undefined;
+                  if (parent?.metadata?.theaterMirrorIds?.[id] !== row.id) return;
+                  const next = { ...parent.metadata.theaterMirrorIds };
+                  delete next[id];
+                  messages.put({ ...parent, metadata: { ...parent.metadata, theaterMirrorIds: next } });
+                };
+              }
+            }
+            eraseMessage(row, () => cursor.delete());
+          } else if (name === 'memory_nodes') {
+            if (stores.includes('memory_vectors')) tx.objectStore('memory_vectors').delete(cursor.primaryKey);
+            if (stores.includes('memory_links')) {
+              const links = tx.objectStore('memory_links');
+              for (const field of ['sourceId', 'targetId']) {
+                const linked = links.index(field).openCursor(IDBKeyRange.only(cursor.primaryKey));
+                linked.onsuccess = () => {
+                  const edge = linked.result;
+                  if (!edge) return;
+                  edge.delete();
+                  edge.continue();
+                };
+              }
+            }
+            cursor.delete();
+          } else cursor.delete();
+          cursor.continue();
+        };
+      };
+      const scan = (name: string, handle: (row: any) => any | null | undefined): void => {
+        if (!stores.includes(name)) return;
+        const store = tx.objectStore(name);
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (!cursor) return;
+          try {
+            const next = handle(cursor.value);
+            if (next === null) cursor.delete();
+            else if (next !== undefined && next !== cursor.value) cursor.update(next);
+            cursor.continue();
+          } catch (error) {
+            failure = error;
+            tx.abort();
+          }
+        };
+      };
+      const run = (character: CharacterProfile | undefined): void => {
+        removed = true;
+        charStore.delete(id);
+        eraseIndexed(STORE_MESSAGES, 'charId');
+        for (const name of memoryStores) eraseIndexed(name, 'charId');
+        for (const name of [STORE_SCHEDULED, STORE_GALLERY, STORE_DIARIES, STORE_ROOM_NOTES, 'pixel_home_layouts']) {
+          eraseIndexed(name, 'charId');
+        }
+        for (const name of [STORE_XHS_ACTIVITIES, STORE_XHS_OWNED_POSTS]) {
+          eraseIndexed(name, 'characterId');
+        }
+        if (stores.includes(STORE_VR_ANNOTATIONS) &&
+            tx.objectStore(STORE_VR_ANNOTATIONS).indexNames.contains('charId')) {
+          eraseIndexed(STORE_VR_ANNOTATIONS, 'charId');
+        }
+        scan(STORE_TASKS, row => row.supervisorId === id ? null : undefined);
+        scan(STORE_ANNIVERSARIES, row => row.charId === id ? null : undefined);
+        scan(STORE_ROOM_TODOS, row => row.charId === id || String(row.id).startsWith(id + '_') ? null : undefined);
+        scan(STORE_DAILY_SCHEDULE, row => row.charId === id || String(row.id).startsWith(id + '_') ? null : undefined);
+        scan(STORE_VR_LETTERS, row => row.charId === id ? null :
+          row.reply?.charId === id ? { ...row, reply: undefined, replyStatus: 'none' } : undefined);
+        scan(STORE_SOCIAL_POSTS, row => {
+          const next = removeCharacterFromSocialPost(row, id);
+          return next === null ? null : JSON.stringify(next) !== JSON.stringify(row) ? next : undefined;
+        });
+        scan(STORE_NOVELS, row => {
+          if (!row.collaboratorIds?.includes(id) && !row.segments?.some((segment: any) => segment.authorId === id)) return undefined;
+          const next = removeCharacterFromNovel(row, id);
+          return next.collaboratorIds.length === 0 && next.segments.length === 0 ? null : next;
+        });
+        scan(STORE_GAMES, row => row.playerCharIds?.includes(id) ? null : undefined);
+        scan(STORE_COURSES, row => row.tutorCharId === id ? { ...row, tutorCharId: undefined } : undefined);
+        scan(STORE_GROUPS, row => {
+          const next = removeCharacterFromGroup(row, id);
+          return next === null ? null : next === row ? undefined : next;
+        });
+        const deletedWorldIds = new Set<string>();
+        if (stores.includes(STORE_WORLDS)) {
+          const worldsReq = tx.objectStore(STORE_WORLDS).openCursor();
+          worldsReq.onsuccess = () => {
+            const cursor = worldsReq.result;
+            if (!cursor) {
+              scan(STORE_WORLD_EPISODES, row =>
+                deletedWorldIds.has(row.worldId) ||
+                row.beats?.some((beat: any) => beat.charId === id) ||
+                row.failedCharIds?.includes(id) ||
+                row.relationshipsBefore?.some((relation: any) => relation.fromId === id || relation.toId === id)
+                  ? null : undefined);
+              return;
+            }
+            const world = cursor.value as WorldProfile;
+            const next = removeCharacterFromWorld(world, id);
+            if (next !== world) {
+              if (!next.memberIds.length) {
+                deletedWorldIds.add(world.id);
+                cursor.delete();
+              } else cursor.update(next);
+            }
+            cursor.continue();
+          };
+        } else {
+          scan(STORE_WORLD_EPISODES, row =>
+            row.beats?.some((beat: any) => beat.charId === id) ? null : undefined);
+        }
+        scan(STORE_STORY_THEATERS, row => {
+          if (!row.characterIds?.includes(id) && row.openingGreeting?.characterId !== id) return undefined;
+          // A story's central transcript and archived narrative are shared but
+          // cannot be anonymized reliably. Retire the entire role-linked story.
+          eraseStoryMessages(row.id);
+          return null;
+        });
+        // Imported books are standalone library rows. Never erase a public book
+        // still mounted by another character (or a manually created shared book).
+        if (character?.mountedWorldbooks?.length && stores.includes(STORE_WORLDBOOKS)) {
+          const all = charStore.getAll();
+          all.onsuccess = () => {
+            const mountedElsewhere = new Set<string>();
+            for (const other of all.result as CharacterProfile[]) {
+              if (other.id === id) continue;
+              for (const book of other.mountedWorldbooks || []) mountedElsewhere.add(book.id);
+            }
+            const books = tx.objectStore(STORE_WORLDBOOKS);
+            for (const mounted of character.mountedWorldbooks || []) {
+              if (mountedElsewhere.has(mounted.id)) continue;
+              const existing = books.get(mounted.id);
+              existing.onsuccess = () => {
+                const book = existing.result as Worldbook | undefined;
+                if (book && (book.cardImportKey || book.sourceUid !== undefined)) books.delete(mounted.id);
+              };
+            }
+          };
+        }
+        // Content Favorites contain complete copies of chats and image data.
+        // A removed character must not survive as a 'saved' conversation.
+        const favorites = assets.get('content_favorites_index_v1');
+        favorites.onsuccess = () => {
+          const row = favorites.result;
+          const items = row?.data?.items;
+          if (!Array.isArray(items)) return;
+          const removedImageAssets = new Set<string>();
+          const next: any[] = [];
+          for (const item of items) {
+            if (item.kind !== 'image') {
+              if (item.charId !== id) next.push(item);
+              continue;
+            }
+            const before = Array.isArray(item.references) ? item.references : [];
+            const refs = before.filter((ref: any) => ref.charId !== id && 
+              !(item.charId === id && ref.source === 'favorite_asset'));
+            for (const ref of before) {
+              if (ref.source === 'favorite_asset' && !refs.includes(ref)) removedImageAssets.add(ref.assetId);
+            }
+            if (!refs.length) continue;
+            const survivor = refs.find((ref: any) => typeof ref.charId === 'string');
+            if (!survivor && item.charId === id) continue;
+            next.push(item.charId === id ? { ...item, charId: survivor.charId, charName: '角色收藏', references: refs } :
+              { ...item, references: refs });
+          }
+          const referenced = new Set(next.flatMap(item => item.kind === 'image'
+            ? item.references.filter((ref: any) => ref.source === 'favorite_asset').map((ref: any) => ref.assetId)
+            : []));
+          for (const assetId of removedImageAssets) if (!referenced.has(assetId)) assets.delete(assetId);
+          assets.put({ ...row, data: { ...row.data, items: next } });
+        };
+        // Other asset IDs include role-scoped phone/camera and memory mirrors.
+        const assetsCursor = assets.openCursor();
+        assetsCursor.onsuccess = () => {
+          const cursor = assetsCursor.result;
+          if (!cursor) return;
+          if (String(cursor.primaryKey).includes(id)) cursor.delete();
+          cursor.continue();
+        };
+      };
+      const target = charStore.get(id);
+      target.onsuccess = () => {
+        if (onlyIfMissing && target.result !== undefined) return;
+        run(target.result as CharacterProfile | undefined);
+      };
       tx.oncomplete = () => {
-          if (!removed) { resolve(false); return; }
-          try { localStorage.removeItem(`mp_lastMsgId_${id}`); } catch { /* browser storage unavailable */ }
-          announceSecretNotesChanged(id);
-          resolve(true);
+        if (!removed) { resolve(false); return; }
+        try { clearCharacterScopedStorage(id); } catch (error) {
+          console.warn('[deleteCharacter] 清理角色浏览器偏好失败', error);
+        }
+        announceSecretNotesChanged(id);
+        resolve(true);
       };
-      tx.onerror = () => reject(tx.error || new Error('删除角色失败'));
-      tx.onabort = () => reject(tx.error || new Error('删除角色事务已中止'));
+      tx.onabort = () => reject(failure || tx.error || new Error('删除角色事务已中止'));
+      tx.onerror = () => { /* onabort reports the transaction failure */ };
     });
   },
 
