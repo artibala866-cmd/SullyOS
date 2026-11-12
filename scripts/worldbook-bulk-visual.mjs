@@ -57,7 +57,7 @@ async function openChrome(mode) {
         await send('Page.enable');
         await send('Runtime.enable');
         await send('Emulation.setDeviceMetricsOverride', {
-            width: 390, height: 844, deviceScaleFactor: 1, mobile: true,
+            width: mode === 'toggle-small' ? 320 : 390, height: 844, deviceScaleFactor: 1, mobile: true,
         });
         await send('Page.navigate', { url: origin + '/test/fixtures/worldbook-bulk-visual.html?mode=' + mode });
         let html = '';
@@ -102,6 +102,12 @@ async function openChrome(mode) {
             assert(html.includes('data-long-press-selected="true"'), 'Long press failed to select first entry: ' + html);
             assert(html.includes('data-selected-count="7"'), 'Select-all must include partial-title match: ' + html);
         }
+        if (mode.startsWith('toggle')) {
+            assert(html.includes('data-switch-on-count="6"'), 'Expected six enabled entry switches: ' + html);
+            assert(html.includes('data-switch-off-count="1"'), 'Expected one disabled entry switch: ' + html);
+            assert(html.includes('data-switch-aria-labels="true"'), 'Each switch needs an accessible name: ' + html);
+            assert(html.includes('data-switch-has-visible-text="false"'), 'Card switch must be icon-only: ' + html);
+        }
         console.log('PASS Worldbook ' + mode + ': ' + html);
         ws.close();
     } finally {
@@ -110,5 +116,5 @@ async function openChrome(mode) {
         rmSync(dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
     }
 }
-for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete']) await openChrome(mode);
-console.log('PASS: six mobile states include diary-prefix results, full multi-select and one-pass deletion.');
+for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small']) await openChrome(mode);
+console.log('PASS: nine mobile states include direct on/off Worldbook toggles and 320px screenshots.');
