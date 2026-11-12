@@ -50,9 +50,16 @@ const run = async () => {
         await waitFor(() => document.querySelector('h4'));
         await sleep(200);
         if (mode === 'selected') {
-            const manage = await waitFor(() => document.querySelector<HTMLButtonElement>('button[title="批量管理世界书"]'));
-            manage.click();
-            const all = await waitFor(() => [...document.querySelectorAll('button')].find(el => el.textContent?.includes('全选结果')) as HTMLButtonElement | undefined || null);
+            // Use the actual 520ms press gesture, including the trailing mobile click.
+            const card = await waitFor(() => document.querySelector('h4')?.closest<HTMLElement>('.cursor-pointer') || null);
+            card.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch', button: 0, clientX: 180, clientY: 320 }));
+            await sleep(600);
+            card.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch', button: 0, clientX: 180, clientY: 320 }));
+            card.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await waitFor(() => [...document.querySelectorAll('button')].find(el => el.textContent?.includes('全选结果')) as HTMLButtonElement | undefined || null);
+            await sleep(100);
+            (window as any).worldbookLongPressSelected = (document.getElementById('root')?.textContent || '').includes('已选 1');
+            const all = [...document.querySelectorAll('button')].find(el => el.textContent?.includes('全选结果')) as HTMLButtonElement;
             all.click();
             await sleep(200);
         }
@@ -64,6 +71,7 @@ const run = async () => {
     output.setAttribute('data-match-count', String(titles.filter(t => t === '海岸').length));
     output.setAttribute('data-other-count', String(titles.filter(t => t !== '海岸').length));
     output.setAttribute('data-selected-count', mode === 'selected' && heading.includes('已选 6') ? '6' : '0');
+    output.setAttribute('data-long-press-selected', String((window as any).worldbookLongPressSelected === true));
     output.setAttribute('data-intro-present', String(heading.includes('世界书是做什么的')));
     output.setAttribute('data-horizontal-overflow', String(Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) > window.innerWidth + 1));
     output.style.display = 'none';
