@@ -21,7 +21,7 @@ import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
 
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
-const JOURNAL_BOOK_OPEN_CSS = \`
+const JOURNAL_BOOK_OPEN_CSS = `
 .sully-journal-select .sully-journal-notebook { perspective: 1200px; }
 .sully-journal-select .sully-journal-notebook-cover {
     position: absolute; inset: 0; z-index: 4;
@@ -73,7 +73,7 @@ const JOURNAL_BOOK_OPEN_CSS = \`
 @media (prefers-reduced-motion: reduce) {
     .sully-journal-calendar-enter { animation: none; }
 }
-\`;
+`;
 
 
 // --- Assets & Constants ---
