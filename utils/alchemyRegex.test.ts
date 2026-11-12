@@ -184,7 +184,7 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
             [{ ...base, display: false }], 'display').cards).toHaveLength(0);
     });
 
-    it('only explicitly requested online cards inject format instructions in the existing API call', () => {
+    it('only uses source-authored HTML prompts and keyword switches, with no guessed name cues', () => {
         const court = rule({ name: '小法庭', domain: 'online', kind: 'template',
             instruction: '输出 <court> JSON', source: { triggerKeywords: [] } });
         const packet = rule({ name: '微信红包', domain: 'online', kind: 'template',
@@ -192,9 +192,16 @@ describe('Alchemy online/offline separation and zero-API local recognition', () 
         const theater = rule({ name: '番茄小剧场', domain: 'online', kind: 'template',
             instruction: '输出 <minitheater> JSON', source: { triggerKeywords: [] } });
         const rules = [court, packet, theater];
-        expect(alchemyInstructions(rules, 'online', {}, '刚回家')).toEqual([]);
-        expect(alchemyInstructions(rules, 'online', {}, '给我发一个红包')).toEqual(['输出 <redpacket> JSON']);
-        expect(alchemyInstructions(rules, 'online', {}, '暂停剧情，写个小剧场')).toEqual(['输出 <minitheater> JSON']);
+        const original = ['输出 <court> JSON', '输出 <redpacket> JSON', '输出 <minitheater> JSON'];
+        // No author trigger means the original instruction stays available in
+        // the existing request; our code does not synthesize new instructions.
+        expect(alchemyInstructions(rules, 'online', {}, '刚回家')).toEqual(original);
+        expect(alchemyInstructions(rules, 'online', {}, '给我发一个红包')).toEqual(original);
+        const withTrigger = rules.map(rule => ({ ...rule, source: {
+            triggerEnabled: true, triggerKeywords: ['法庭'],
+        } }));
+        expect(alchemyInstructions(withTrigger, 'online', {}, '刚回家')).toEqual([]);
+        expect(alchemyInstructions(withTrigger, 'online', {}, '法庭')).toEqual(original);
         expect(alchemyInstructions(rules, 'offline', {}, '发红包')).toEqual([]);
     });
 
