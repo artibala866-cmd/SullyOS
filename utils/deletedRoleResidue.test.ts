@@ -151,6 +151,19 @@ it('erases role-specific imports, phone/play records and shared references witho
             { id: 'one-shot-capture', capture: { meta: { charId: owner }, body: 'private' } },
         ],
         vr_settings: [{ id: 'apilog', entries: [{ charId: owner }, { charId: other }] }],
+        life_records: [
+            { id: 'life-owner', recordedBy: owner }, { id: 'life-other', recordedBy: other },
+        ],
+        handbook: [{ id: '2026-11-12', pages: [
+            { id: 'handbook-owner', charId: owner }, { id: 'handbook-other', charId: other },
+        ], layouts: [{ pageNumber: 1, placements: [
+            { pageId: 'handbook-owner' }, { pageId: 'handbook-other' },
+        ] }] }],
+        bank_data: [{ id: 'main_state', shop: {
+            staff: [{ id: 'pet-owner', ownerCharId: owner }, { id: 'staff-other', ownerCharId: other }],
+            guestbook: [{ id: 'book-owner', charId: owner }, { id: 'book-other', charId: other }],
+            activeVisitor: { charId: owner },
+        }, firedStaff: [{ id: 'fired-owner', ownerCharId: owner }] }],
     };
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction([...Object.keys(rows), 'assets'], 'readwrite');
@@ -190,6 +203,7 @@ it('erases role-specific imports, phone/play records and shared references witho
         ['songs', 'song-owner'], ['guidebook', 'guide-owner'], ['life_sim', 'sim-owner'],
         ['vr_annotations', 'annotation-owner'], ['vr_annotations', 'annotation-reply'],
         ['vr_scripts', 'script-owner'], ['vr_plays', 'play-owner'], ['vr_letters', 'letter-owner'],
+        ['life_records', 'life-owner'],
     ]) {
         expect((await DB.getStoreRowsPage(name, null, 100)).rows.some((row: any) => row.id === deletedId),
             name + '/' + deletedId).toBe(false);
@@ -214,6 +228,17 @@ it('erases role-specific imports, phone/play records and shared references witho
     expect((await pick('api_call_log', 'log')).entries).toEqual([{ charId: other, id: 'call-other' }]);
     expect(await pick('api_call_log', 'one-shot-capture')).toBeUndefined();
     expect((await pick('vr_settings', 'apilog')).entries).toEqual([{ charId: other }]);
+    expect(await pick('life_records', 'life-other')).toBeTruthy();
+    expect((await pick('handbook', '2026-11-12')).pages.map((page: any) => page.id))
+        .toEqual(['handbook-other']);
+    expect((await pick('handbook', '2026-11-12')).layouts[0].placements)
+        .toEqual([{ pageId: 'handbook-other' }]);
+    expect((await pick('bank_data', 'main_state')).shop.staff.map((item: any) => item.id))
+        .toEqual(['staff-other']);
+    expect((await pick('bank_data', 'main_state')).shop.guestbook.map((item: any) => item.id))
+        .toEqual(['book-other']);
+    expect((await pick('bank_data', 'main_state')).shop.activeVisitor).toBeUndefined();
+    expect((await pick('bank_data', 'main_state')).firedStaff).toEqual([]);
     expect((await pick('social_posts', 'social-other')).comments).toEqual([]);
     expect((await DB.getAssetRaw('content_favorites_index_v1')).items.map((item: any) => item.id))
         .toEqual(['chat-other']);
