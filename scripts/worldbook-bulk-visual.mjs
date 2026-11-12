@@ -102,6 +102,9 @@ async function openChrome(mode) {
             assert(html.includes('data-return-after-cancel="true"'), 'Cancel did not return to the edited entry: ' + html);
             assert(html.includes('data-return-after-save="true"'), 'Save did not return to the edited entry: ' + html);
         }
+        if (mode === 'many-move') {
+            assert(html.includes('data-category-move-return="true"'), 'Moved entry not visible at destination group/page: ' + html);
+        }
         if (mode.startsWith('touch')) {
             assert(html.includes('data-action-hit-zones="true"'), 'Touch hit targets overlap: ' + html);
             assert(html.includes('data-action-isolation="true"'), 'Toggle/edit/delete actions interfered: ' + html);
@@ -143,5 +146,5 @@ async function openChrome(mode) {
         rmSync(dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
     }
 }
-for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small', 'touch', 'touch-small', 'many', 'many-small', 'many-return']) await openChrome(mode);
-console.log('PASS: 14 mobile states include separated touch hits, cancel/save scroll restoration and 92-item Worldbook stress.');
+for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small', 'touch', 'touch-small', 'many', 'many-small', 'many-return', 'many-move']) await openChrome(mode);
+console.log('PASS: 15 mobile states include separated touch hits, cancel/save scroll restoration, cross-group move and 92-item Worldbook stress.');
