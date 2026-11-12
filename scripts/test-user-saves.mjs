@@ -194,6 +194,46 @@ try{
  await switchTo('original');const original=await inspect();assert.equal(original.profile.name,'原来的名字');assert.equal(original.profile.bio,'原身份的独立设定');assert.equal(original.profile.avatar,originProfile.avatar);assert.deepEqual(original.profile.perCharAvatars,originProfile.perCharAvatars);assert.equal(original.profile.imageReference,originProfile.imageReference);assert.equal(original.bank[0].goals[0].name,'A档储蓄目标');assert.equal(original.lifeSettings[0].cycleLength,32);assert.equal(original.plans[0].name,'A档测试药盒');assert.equal(original.transactions.length,1);assert.equal(original.transactions[0].note,'A档独立账单');assert.equal(original.profile.chibiStudio.home3D.state.selected.eyes,'eyes_02');assert.equal(original.hwm,'321');assert(!original.messages.some(m=>m.content==='校园线独有的聊天'));const sharedCardWithoutHistory=original.chars.find(c=>c.id==='qa-b-only-role');assert(sharedCardWithoutHistory,'角色基础卡片允许共享');assert.deepEqual(sharedCardWithoutHistory.memories,[],'不得把校园线角色私密记忆带入原身份');assert(!original.messages.some(m=>m.charId==='qa-b-only-role'),'不得把校园线独有聊天带入原身份');
  for(const viewport of [{width:320,height:690},{width:844,height:390}]){await page.setViewportSize(viewport);await page.getByLabel('你的名字',{exact:true}).scrollIntoViewIfNeeded();await shot('name-picker-'+viewport.width);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
  await switchTo(fresh.id);const again=await inspect();assert.equal(again.profile.name,edited.profile.name);assert.equal(again.profile.bio,edited.profile.bio);assert.equal(again.profile.avatar,edited.profile.avatar);assert.equal(again.lifeSettings[0].cycleLength,35);assert.equal(again.transactions.length,1);assert.equal(again.transactions[0].note,'B档独立账单');assert.equal(again.profile.chibiStudio,undefined);assert.equal(again.hwm,'9');assert(again.messages.some(m=>m.content==='校园线独有的聊天'));assert.deepEqual(again.chars.find(c=>c.id==='qa-b-only-role')?.memories.map(m=>m.summary),['校园线角色专属记忆'],'切回校园线时不能丢失其独有角色记忆');assert(again.messages.some(m=>m.charId==='qa-b-only-role'&&m.content==='只有校园线发生过的对话'),'切回校园线时不能丢失独有角色聊天');
+
+ // Weird-but-human play: two separate identities intentionally share the same
+ // visible name, then alternate story scenes, edits and browser reloads.
+ const oddName='同名的我', oddPrefix='奇怪换档测试/';
+ await page.getByLabel('你的名字',{exact:true}).fill(oddName);
+ await page.waitForFunction(id=>JSON.parse(localStorage.getItem('sully:user-saves:v1')).saves.find(s=>s.id===id)?.name==='同名的我',fresh.id);
+ await switchTo('original');
+ await page.getByLabel('你的名字',{exact:true}).fill(oddName);
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('sully:user-saves:v1')).saves.find(s=>s.id==='original')?.name==='同名的我');
+ const sameNameOptions=await page.locator('#user-save-select option').allTextContents();
+ assert.equal(sameNameOptions.length,2);assert.notEqual(sameNameOptions[0],sameNameOptions[1],'same labels must remain distinguishable');
+ for(let hop=0;hop<12;hop++){
+  const id=hop%2===0?fresh.id:'original',tag=hop%2===0?'B':'A';
+  await switchTo(id);
+  const bio='我在'+tag+'身份扮演第'+hop+'段剧情；切档后不能串线。';
+  await page.getByLabel('关于我 / 设定',{exact:true}).fill(bio);
+  await page.waitForFunction(async expected=>{const {DB}=await import('/utils/db.ts');return (await DB.getUserProfile())?.bio===expected;},bio);
+  await page.evaluate(async ({tag,hop,oddPrefix})=>{
+   const {DB}=await import('/utils/db.ts');
+   await DB.saveMessage({charId:'qa-save-char',role:'user',type:'text',content:oddPrefix+tag+'/'+hop+'：刚从另一条故事线回来'});
+   localStorage.setItem('qa-odd-last-world',tag+'/'+hop);
+  },{tag,hop,oddPrefix});
+  const state=await inspect(),own=state.messages.filter(m=>typeof m.content==='string'&&m.content.startsWith(oddPrefix));
+  assert(own.length>0&&own.every(m=>m.content.startsWith(oddPrefix+tag+'/')),'conversation from the other identity leaked into '+tag);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('qa-odd-last-world')),tag+'/'+hop);
+  assert.equal(state.profile.bio,bio);
+ }
+ // Return both save labels/profiles to their prior values; stress messages stay
+ // in their own histories to exercise the existing backup/export checks too.
+ await page.getByLabel('你的名字',{exact:true}).fill(originProfile.name);
+ await page.getByLabel('关于我 / 设定',{exact:true}).fill(originProfile.bio);
+ await page.waitForFunction(async expected=>{const {DB}=await import('/utils/db.ts');const p=await DB.getUserProfile();return p?.name===expected.name&&p?.bio===expected.bio;},{name:originProfile.name,bio:originProfile.bio});
+ await switchTo(fresh.id);
+ const oddB=await inspect();
+ assert(oddB.messages.filter(m=>m.content?.startsWith(oddPrefix)).every(m=>m.content.startsWith(oddPrefix+'B/')));
+ await page.getByLabel('你的名字',{exact:true}).fill(edited.profile.name);
+ await page.getByLabel('关于我 / 设定',{exact:true}).fill(edited.profile.bio);
+ await page.waitForFunction(async expected=>{const {DB}=await import('/utils/db.ts');const p=await DB.getUserProfile();return p?.name===expected.name&&p?.bio===expected.bio;},{name:edited.profile.name,bio:edited.profile.bio});
+ await page.reload();await ready();
+ assert.equal((await inspect()).profile.name,edited.profile.name);
  const other=await context.newPage();other.on('pageerror',e=>errors.push(e.message));await other.goto(origin+'/test/fixtures/user-saves.html');await other.getByLabel('你的名字',{exact:true}).waitFor();
  await switchTo('original');await other.waitForFunction(()=>document.querySelector('#user-save-select')?.value==='original');await other.close();
  // Verify the index mirror while both live saves are present.
