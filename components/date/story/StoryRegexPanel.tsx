@@ -55,6 +55,10 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [exportOpen, setExportOpen] = useState(false);
     const [presetsOpen, setPresetsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const [bulk, setBulk] = useState(false);
+    const [bulkSelected, setBulkSelected] = useState<string[]>([]);
+    const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
     const [exportSelected, setExportSelected] = useState<string[]>([]);
     const test = useRef<AbortController | null>(null);
     const upload = useRef<HTMLInputElement>(null);
@@ -73,7 +77,9 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         [draft?.kind, draft?.replacement, draft?.parseMode]);
     const previewParts = result ? splitStoryRegexOutput(result) : [];
     const screen = imported ? 'import' : draft ? 'edit' : 'list';
-    const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === activeSection);
+    const visibleRules = rules.filter(rule => alchemyRuleSection(rule) === activeSection &&
+        (!search.trim() || [rule.name,rule.importGroup,rule.subcategory,rule.source?.category]
+            .some(value => (value || '').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))));
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [screen]);
 
     const open = (rule: StoryRegexRule | null) => {
@@ -87,6 +93,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const goBack = () => {
         if (actionLock.current) return;
         if (exportOpen) { setExportOpen(false); return; }
+        if (bulk) { setBulk(false); setConfirmBulkDelete(false); return; }
         if (presetsOpen) { setPresetsOpen(false); return; }
         if (imported) { setImported(null); setError(''); }
         else if (draft) open(null);
@@ -375,6 +382,50 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                     </button>
                 </section>}
 
+                {screen === 'list' && rules.length > 0 && <section aria-label='搜索和管理炼金术规则'
+                    className='space-y-2'>
+                    <div className='flex items-center gap-2'>
+                        <input type='search' value={search} onChange={event => setSearch(event.target.value)}
+                            placeholder='搜索规则' aria-label='搜索规则'
+                            className={fieldClass + ' !mt-0 min-w-0 flex-1'}/>
+                        <button type='button' disabled={busy} className={actionClass} onClick={() => {
+                            setBulk(value => !value); setBulkSelected([]); setConfirmBulkDelete(false);
+                        }}>{bulk ? '完成' : '管理'}</button>
+                    </div>
+                    {bulk && <div className='space-y-2 rounded-xl border border-neutral-200 bg-white p-2.5'>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <span className='mr-auto text-xs text-neutral-500'>已选 {bulkSelected.length}</span>
+                            <button type='button' className={actionClass}
+                                onClick={() => setBulkSelected(visibleRules.map(rule => rule.id))}>全选可见</button>
+                            <button type='button' className={actionClass}
+                                onClick={() => setBulkSelected([])}>清空</button>
+                        </div>
+                        <div className='max-h-44 space-y-1 overflow-y-auto'>
+                            {visibleRules.map(rule => <label key={rule.id} className='flex min-h-8 items-center gap-2 px-1 text-xs'>
+                                <input type='checkbox' checked={bulkSelected.includes(rule.id)}
+                                    onChange={event => setBulkSelected(current => event.target.checked
+                                        ? [...current,rule.id] : current.filter(id => id !== rule.id))}/>
+                                <span className='min-w-0 flex-1 truncate'>{rule.name}</span>
+                            </label>)}
+                        </div>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <button type='button' disabled={busy || !bulkSelected.length} className={actionClass}
+                                onClick={() => void save(current => current.map(rule => bulkSelected.includes(rule.id)
+                                    ? { ...rule, enabled: true } : rule))}>启用</button>
+                            <button type='button' disabled={busy || !bulkSelected.length} className={actionClass}
+                                onClick={() => void save(current => current.map(rule => bulkSelected.includes(rule.id)
+                                    ? { ...rule, enabled: false } : rule))}>停用</button>
+                            <button type='button' disabled={busy || !bulkSelected.length} className={actionClass}
+                                onClick={() => {
+                                    if (!confirmBulkDelete) { setConfirmBulkDelete(true); return; }
+                                    const ids = new Set(bulkSelected);
+                                    void save(current => current.filter(rule => !ids.has(rule.id)));
+                                    setBulkSelected([]);
+                                    setConfirmBulkDelete(false);
+                                }}>{confirmBulkDelete ? '确认删除所选' : '删除所选'}</button>
+                        </div>
+                    </div>}
+                </section>}
                 {imported ? <>
                     <div className='flex items-center gap-2'>
                         <span className='min-w-0 flex-1 truncate text-sm font-semibold'>{imported.filename}</span>
