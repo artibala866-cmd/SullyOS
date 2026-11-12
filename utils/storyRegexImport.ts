@@ -95,7 +95,7 @@ function convertRule(row: SourceRecord, index: number, warn: (message: string) =
     let enabled = switchOn(row.enabled, true);
     // Neither a private-chat scope nor a character-ID scope can be faithfully
     // mapped to a story preset. Never silently widen these rules to all stories.
-    const scoped = row.scope === 'character' || row.scope === 'chat';
+    const scoped = row.scope === 'character' || (row.scope === 'chat' && strings(row.characterIds).length > 0);
     const scenes = strings(row.scenes);
     const otherScenes = scenes.length > 0 && !scenes.some(scene => scene === 'chat' || scene === 'isekai' || scene === 'story');
     if (scoped || otherScenes) {
