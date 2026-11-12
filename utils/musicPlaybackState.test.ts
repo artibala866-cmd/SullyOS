@@ -32,6 +32,34 @@ describe('快速切歌和队列原子性', () => {
     const playlist = [song(11), song(22), song(33)];
     expect(selectMusicQueueTrack([], song(22), {replaceQueue: playlist,startIdx:0}).idx).toBe(1);
   });
+  it('歌单正在编辑时歌曲被删，旧行点击仍应有真实队列索引，不能出现幽灵播放', () => {
+    const wanted = song(42, 'tencent');
+    const changedPlaylist = [song(42, 'netease'), song(7)];
+    const selected = selectMusicQueueTrack([], wanted, { replaceQueue: changedPlaylist, startIdx: 0 });
+    expect(selected.idx).toBe(2);
+    expect(selected.queue[selected.idx]).toEqual(wanted);
+    expect(selected.queue).toHaveLength(3);
+    const emptied = selectMusicQueueTrack(selected.queue, wanted, { replaceQueue: [] });
+    expect(emptied).toEqual({ queue: [wanted], idx: 0 });
+    expect(changedPlaylist).toHaveLength(2);
+  });
+  it('两平台同 ID 连续点歌与歌单替换 400 次，当前歌曲始终位于队列内', () => {
+    let queue: Song[] = [];
+    for (let i = 0; i < 400; i++) {
+      const wanted = song(i % 23, i % 2 ? 'tencent' : 'netease');
+      const previous = queue;
+      const opts = i % 3 === 0
+        ? { replaceQueue: [song((i + 1) % 23), song((i + 2) % 23, 'tencent')] }
+        : {};
+      const next = selectMusicQueueTrack(queue, wanted, opts);
+      expect(next.idx).toBeGreaterThanOrEqual(0);
+      expect(next.idx).toBeLessThan(next.queue.length);
+      expect(next.queue[next.idx].source).toBe(wanted.source);
+      expect(next.queue[next.idx].id).toBe(wanted.id);
+      if (i % 3 === 0) expect(previous).not.toBe(next.queue);
+      queue = next.queue;
+    }
+  });
 });
 
 describe('音频错误与锁屏恢复', () => {
