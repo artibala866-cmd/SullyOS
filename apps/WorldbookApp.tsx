@@ -875,7 +875,7 @@ const WorldbookApp: React.FC = () => {
                     const currentPage = Math.min(categoryPages[category] || 1, totalPages);
                     const pagedBooks = normalizedSearch ? books : books.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
                     return (
-                    <div key={category} className="animate-slide-up">
+                    <div key={category}>
                         {/* Category Header */}
                         <div
                             onClick={() => { if (!normalizedSearch) toggleCategory(category); }}
@@ -901,9 +901,9 @@ const WorldbookApp: React.FC = () => {
                         </div>}
 
                         {/* Group Items */}
-                        <div className={`space-y-3 pl-2 transition-all duration-300 ${isExpanded ? 'opacity-100 mt-2' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                        {isExpanded && <div className="space-y-3 pl-2 mt-2">
                             {pagedBooks.map(book => (
-                                <div key={book.id} className="bg-white/60 backdrop-blur-md rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                                <div key={book.id} className="bg-white/75 rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
                                     {/* Item Header */}
                                     <div 
                                         onPointerDown={event => startLongPress(event, book.id)}
@@ -1011,7 +1011,7 @@ const WorldbookApp: React.FC = () => {
                                     </button>
                                 </div>
                             )}
-                        </div>
+                        </div>}
                     </div>
                     );
                 })}
