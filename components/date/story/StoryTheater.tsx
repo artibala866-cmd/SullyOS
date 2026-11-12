@@ -14,6 +14,8 @@ import {
     resolveStoryOpeningGreeting,
     storyTheaterMemoryRecipientIds,
     parseStoryTheaterPreset,
+    findStoryPresetImportConflict,
+    type StoryPresetImportDecision,
     MAX_STORY_PRESET_BYTES,
     resolveStoryTheaterMask,
     storyTheaterThreadId,
@@ -24,6 +26,7 @@ import { ALCHEMY_CHANGED, alchemyRuleAppliesTo } from '../../../utils/alchemyReg
 import StoryRegexPanel from './StoryRegexPanel';
 import StoryMaskBox from './StoryMaskBox';
 import StoryPresetMaker from './StoryPresetMaker';
+import StoryTavernImportReport from './StoryTavernImportReport';
 import StoryTheaterEditor from './StoryTheaterEditor';
 import StoryTheaterSession from './StoryTheaterSession';
 import { isStoryGenerationRunning, observeStoryGenerations } from '../../../utils/storyTheaterBackground';
@@ -62,7 +65,31 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const presetBatchLock = useRef(false);
     const [presetBatchBusy, setPresetBatchBusy] = useState(false);
     const [presetBatchFeedback, setPresetBatchFeedback] = useState('');
+    const [recentImportedPresets, setRecentImportedPresets] = useState<StoryTheaterPreset[]>([]);
+    const [pendingImportConflict, setPendingImportConflict] = useState<{
+        existing: StoryTheaterPreset; imported: StoryTheaterPreset;
+    } | null>(null);
+    const importDecisionResolver = useRef<((decision: StoryPresetImportDecision | 'cancel') => void) | null>(null);
     const presets = useMemo(() => withBuiltInStoryPresets(customPresets), [customPresets]);
+    const chooseImportDecision = useCallback((existing: StoryTheaterPreset, imported: StoryTheaterPreset) =>
+        new Promise<StoryPresetImportDecision | 'cancel'>(resolve => {
+            if (importDecisionResolver.current) {
+                resolve('cancel');
+                return;
+            }
+            importDecisionResolver.current = resolve;
+            setPendingImportConflict({ existing, imported });
+        }), []);
+    const finishImportDecision = (decision: StoryPresetImportDecision | 'cancel') => {
+        const resolve = importDecisionResolver.current;
+        importDecisionResolver.current = null;
+        setPendingImportConflict(null);
+        resolve?.(decision);
+    };
+    useEffect(() => () => {
+        importDecisionResolver.current?.('cancel');
+        importDecisionResolver.current = null;
+    }, []);
 
     const reload = useCallback(async () => {
         const [storedEntries, storedPresets, storedMasks] = await Promise.all([DB.getStoryTheaters(), DB.getStoryTheaterPresets(), DB.getStoryTheaterMasks()]);
@@ -146,9 +173,23 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 throw new Error('预设不是有效的 UTF-8 JSON，请重新导出原文件');
             }
             const imported = parseStoryTheaterPreset(text, source.name);
-            const result = await DB.importStoryTheaterPreset(imported);
+            // Preflight is read-only. A changed source requires an explicit
+            // choice; the final IndexedDB transaction rechecks target identity.
+            const conflict = findStoryPresetImportConflict(imported, await DB.getStoryTheaterPresets());
+            let decision: StoryPresetImportDecision = 'copy';
+            if (conflict && !conflict.exact) {
+                const selected = await chooseImportDecision(conflict.existing, imported);
+                if (selected === 'cancel') return null;
+                decision = selected;
+            }
+            const result = await DB.importStoryTheaterPreset(imported, decision, conflict?.existing.id);
             setCustomPresets(current => [result.preset, ...current.filter(item => item.id !== result.preset.id)]);
-            addToast(result.duplicate ? `预设已存在：「${result.preset.name}」` : `已导入：「${result.preset.name}」`, 'success');
+            setRecentImportedPresets(current =>
+                [result.preset, ...current.filter(item => item.id !== result.preset.id)].slice(0, 8));
+            addToast(result.overwritten ? `已覆盖旧预设：「${result.preset.name}」`
+                : result.skipped ? `保留原版：「${result.preset.name}」`
+                : result.duplicate ? `预设已存在：「${result.preset.name}」`
+                : `已导入：「${result.preset.name}」`, 'success');
             if (result.preset.document.sourceFormat === 'sillytavern' &&
                 (result.preset.document.importWarnings || []).some(warning => /启用正则|启用脚本/.test(warning))) {
                 addToast('外部脚本未执行', 'info');
@@ -158,7 +199,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
             addToast(`「${file.name}」导入失败：${error?.message || '无法读取剧情预设'}`, 'error');
             return null;
         }
-    }, [addToast]);
+    }, [addToast, chooseImportDecision]);
 
     const saveEntry = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
@@ -396,6 +437,36 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         }
     }, [addToast]);
 
+
+    const importConflictDialog = pendingImportConflict && <div
+        className='fixed inset-0 z-[110] flex items-end justify-center overflow-y-auto overscroll-contain bg-slate-950/50'
+        role='presentation'>
+        <div role='alertdialog' aria-modal='true' aria-labelledby='story-import-conflict-title'
+            className='story-safe-sheet w-full max-w-md rounded-t-[26px] bg-stone-100 px-5 pt-5 pb-6 shadow-2xl'>
+            <h2 id='story-import-conflict-title' className='text-lg font-semibold'>检测到同源预设的新版本</h2>
+            <p className='mt-2 break-words text-xs leading-6 text-slate-600'>
+                已有「{pendingImportConflict.existing.name}」。
+                新文件「{pendingImportConflict.imported.sourceFileName}」的内容与旧版不同，请选择处理方式。
+            </p>
+            <p className='mt-2 text-[11px] leading-5 text-amber-800'>
+                覆盖会保留旧预设 ID，但替换正文及开关。
+                {entries.filter(item => item.presetId === pendingImportConflict.existing.id).length > 0
+                    ? `目前有 ${entries.filter(item => item.presetId === pendingImportConflict.existing.id).length} 条剧情使用旧版，覆盖会影响其后续续写。`
+                    : '当前没有剧情直接引用这份预设。'}
+            </p>
+            <div className='mt-4 grid grid-cols-2 gap-2'>
+                <button type='button' onClick={() => finishImportDecision('keep')}
+                    className='min-h-11 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold'>保留旧版</button>
+                <button type='button' onClick={() => finishImportDecision('copy')}
+                    className='min-h-11 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold'>另存为副本</button>
+                <button type='button' onClick={() => finishImportDecision('replace')}
+                    className='min-h-11 rounded-xl bg-rose-600 px-2 text-xs font-semibold text-white'>覆盖旧版</button>
+                <button type='button' onClick={() => finishImportDecision('cancel')}
+                    className='min-h-11 rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold'>取消本份导入</button>
+            </div>
+        </div>
+    </div>;
+
     if (view === 'regex') return <StoryRegexPanel domain='offline' section='rules' rules={regexRules} presets={presets} onSave={saveRegexRules} onBack={() => setView('list')} />;
 
     if (view === 'preset' && editingPreset) return <StoryPresetMaker key={editingPreset.id}
@@ -419,7 +490,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         locked={maskLocked}
     />;
 
-    if (view === 'editor' && activeEntry) return <StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
+    if (view === 'editor' && activeEntry) return <><StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
         initial={activeEntry}
         characters={characters}
         worldbooks={worldbooks}
@@ -435,9 +506,10 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onCreateGreeting={createGreeting}
         onImportGreetings={importGreetingDocuments}
         onImportPreset={importPreset}
+        recentImportReports={recentImportedPresets}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
-    />;
+    />{importConflictDialog}</>;
 
     if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
     if (view === 'archives' && activeEntry) return <StoryArchivePanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
@@ -518,6 +590,11 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                         }
                     }} />
                     {presetBatchFeedback && <p role='status' className='mt-2 break-words text-[10px] leading-5 text-slate-500'>{presetBatchFeedback}</p>}
+                    {recentImportedPresets.length > 0 && <div className='mt-3 space-y-2'>
+                        <p className='text-[10px] font-semibold text-slate-600'>最近导入 · 每份预设均可核对兼容性</p>
+                        {recentImportedPresets.map(item => <StoryTavernImportReport key={item.id}
+                            document={item.document} label={item.name} />)}
+                    </div>}
                     <div className='mt-4 divide-y divide-slate-200'>{presets.map(preset => <div key={preset.id} className='flex items-center gap-2'><button onClick={() => { setEditingPreset(preset); setView('preset'); }} className='min-w-0 flex-1 py-3 flex items-center gap-3 text-left'><span className={`w-2 h-2 rounded-full ${preset.builtIn ? 'bg-amber-400' : 'bg-violet-500'}`} /><span className='min-w-0 flex-1 text-xs font-semibold truncate'>{preset.name}</span><span className='text-[9px] text-slate-400'>{preset.builtIn ? '内置只读' : `${preset.document.prompts.length} 条`}</span></button><button onClick={() => { void downloadStoryPreset(preset); }} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' title={`导出 ${preset.name}`}><DownloadSimple size={15} /></button></div>)}</div>
                 </section>
                 <section className='border-t border-slate-200 pt-5'>
@@ -529,6 +606,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 </section>
             </div>
         </main>
+        {importConflictDialog}
         {deletingEntry && <div className='fixed inset-0 z-[95] flex items-end justify-center overflow-y-auto overscroll-contain bg-slate-950/35' onClick={() => !deletingStory && setDeletingEntry(null)} role='presentation'>
             <div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()} role='dialog' aria-modal='true' aria-labelledby='delete-story-title'>
                 <div className='flex items-start gap-4'><div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.2em] font-bold text-rose-500'>删除确认</div><h2 id='delete-story-title' className='mt-1 text-lg font-semibold'>删除整个剧情？</h2></div><button disabled={deletingStory} onClick={() => setDeletingEntry(null)} className='w-9 h-9 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center text-slate-400 disabled:opacity-30' aria-label='关闭删除确认'><X size={16} /></button></div>
