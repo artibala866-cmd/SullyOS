@@ -42,6 +42,24 @@ export function matchesPhoneWechatSearch(query: string, ...fields: Array<string 
   return fields.some(value => (value || '').toLocaleLowerCase().includes(needle));
 }
 
+/** Ignore an identical regenerated conversation immediately repeated by the model.
+ * Do not suppress short natural phrases or conversations repeated hours later. */
+export function isRepeatedPhoneGeneratedBatch(
+  existing: readonly PhoneMessage[], incoming: readonly PhoneMessage[],
+  now: number, previousAt: number,
+): boolean {
+  if (!incoming.length || existing.length < incoming.length ||
+      now < previousAt || now - previousAt > 10 * 60_000) return false;
+  const offset = existing.length - incoming.length;
+  return incoming.every((message, index) => {
+    const prior = existing[offset + index];
+    return prior?.speaker?.role === message?.speaker?.role &&
+      prior?.text?.trim() === message?.text?.trim() &&
+      (prior.speaker.role !== 'contact' ||
+        (message.speaker.role === 'contact' && prior.speaker.contactId === message.speaker.contactId));
+  });
+}
+
 export function notifyCharacterPhoneChatsChanged(characterId: string): void {
   if (typeof window !== 'undefined')
     window.dispatchEvent(new CustomEvent(CHARACTER_PHONE_CHATS_CHANGED, { detail: { characterId } }));
