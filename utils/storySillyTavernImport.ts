@@ -401,6 +401,40 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
                 .map(prompt => prompt.id.slice(3)).slice(0, 600),
         })).filter((group: any) => group.memberIdentifiers.length > 0);
 
+    const toolkitMemberIds = new Set<string>(toolkitGroups.flatMap((group: any) => group.memberIdentifiers));
+    // entryGrouping is an independent older index. Prefer the explicit
+    // baibaiToolkit owner map where both describe the same author prompts.
+    // In some exports old endIdentifier points to an unlisted prompt appended
+    // by the importer, and would otherwise swallow several unrelated groups.
+    const legacyEntryGroups = (Array.isArray(value.extensions?.entryGrouping)
+        ? value.extensions.entryGrouping : [])
+        .filter((group: any) => group && typeof group.name === 'string'
+            && group.name.trim() && typeof group.id === 'string')
+        .slice(0, 120)
+        .map((group: any) => ({
+            id: group.id.slice(0, 120),
+            name: group.name.trim().slice(0, 100),
+            ...(Array.isArray(group.memberIdentifiers)
+                ? { memberIdentifiers: group.memberIdentifiers
+                    .filter((id: unknown): id is string => typeof id === 'string'
+                        && sourceById.has(id)).slice(0, 600) } : {}),
+            ...(typeof group.startIdentifier === 'string' && sourceById.has(group.startIdentifier)
+                ? { startIdentifier: group.startIdentifier } : {}),
+            ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
+                ? { endIdentifier: group.endIdentifier } : {}),
+        }))
+        .filter(group => {
+            if (!toolkitMemberIds.size) return true;
+            const members = group.memberIdentifiers?.length ? group.memberIdentifiers : (() => {
+                const start = prompts.findIndex(p => p.id === 'st-' + group.startIdentifier);
+                const end = prompts.findIndex(p => p.id === 'st-' + group.endIdentifier);
+                return start >= 0 && end >= start
+                    ? prompts.slice(start, end + 1).map(p => p.id.slice(3))
+                    : [group.startIdentifier, group.endIdentifier].filter((id): id is string => typeof id === 'string');
+            })();
+            return !members.some(identifier => toolkitMemberIds.has(identifier));
+        });
+
     return {
         schema: 'sullyos.story-preset',
         version: 1,
@@ -410,23 +444,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         tavernControls: detectTavernNativeControls(prompts),
         // Static metadata supplied by some MoM Tavern exports. Import ONLY
         // names and prompt references: never execute extension JS or regex.
-        tavernEntryGroups: [...toolkitGroups, ...(Array.isArray(value.extensions?.entryGrouping)
-            ? value.extensions.entryGrouping : [])
-            .filter((group: any) => group && typeof group.name === 'string'
-                && group.name.trim() && typeof group.id === 'string')
-            .slice(0, 120)
-            .map((group: any) => ({
-                id: group.id.slice(0, 120),
-                name: group.name.trim().slice(0, 100),
-                ...(Array.isArray(group.memberIdentifiers)
-                    ? { memberIdentifiers: group.memberIdentifiers
-                        .filter((id: unknown): id is string => typeof id === 'string'
-                            && sourceById.has(id)).slice(0, 600) } : {}),
-                ...(typeof group.startIdentifier === 'string' && sourceById.has(group.startIdentifier)
-                    ? { startIdentifier: group.startIdentifier } : {}),
-                ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
-                    ? { endIdentifier: group.endIdentifier } : {}),
-            }))],
+        tavernEntryGroups: [...toolkitGroups, ...legacyEntryGroups],
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         // Other Chat Completion presets can use format strings without any
         // double-brace name macros. Keep these templates intact until runtime.

@@ -72,16 +72,36 @@ export const restoreStoryTavernLegacyGroups = (document: StoryTheaterPresetDocum
             // fifteen. Merge missing author categories instead of treating any
             // pre-existing category as proof the preset is fully migrated.
             const existing = document.tavernEntryGroups || [];
-            const existingNames = new Set(existing.map(group => group.name.trim()));
             const existingIds = new Set(existing.map(group => group.id));
-            const missing = tavernEntryGroups.filter(group =>
-                !existingIds.has(group.id) && !existingNames.has(group.name.trim()));
-            if (!missing.length) return document;
-            // Author-supplied legacy metadata remains available; the exact
-            // known original grouping index takes precedence on overlap.
+            const missing = tavernEntryGroups.filter(group => !existingIds.has(group.id));
+            // The earlier entryGrouping format can have an endIdentifier that
+            // was NOT in prompt_order; the old importer appended that prompt at
+            // the end, making its group swallow unrelated author sections.
+            // A known original category is authoritative for those IDs.
+            const originalMemberIds = new Set<string>();
+            for (const group of tavernEntryGroups) {
+                const first = indexes.get('st-' + group.startIdentifier);
+                const last = indexes.get('st-' + group.endIdentifier);
+                if (first === undefined || last === undefined || last < first) continue;
+                for (let i = first; i <= last; i += 1) {
+                    originalMemberIds.add(document.prompts[i].id.slice(3));
+                }
+            }
+            const retained = existing.filter(group => {
+                if (group.id.startsWith('legacy-' + layoutIndex + '-')) return true;
+                const members = [
+                    ...(group.memberIdentifiers || []),
+                    group.startIdentifier,
+                    group.endIdentifier,
+                ].filter((id): id is string => typeof id === 'string');
+                return !members.some(identifier => originalMemberIds.has(identifier));
+            });
+            if (!missing.length && retained.length === existing.length) return document;
+            // Discard only superseded or structurally invalid category hints.
+            // This never removes or edits any prompt, its switch, or its order.
             return {
                 ...document, sourceFormat: 'sillytavern',
-                tavernEntryGroups: [...missing, ...existing],
+                tavernEntryGroups: [...missing, ...retained],
             };
         }
     }

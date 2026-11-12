@@ -346,7 +346,7 @@ describe('新旧 MoM 静态分组索引', () => {
             },
         };
         const doc = convertSillyTavernChatPreset(data, 'overlap');
-        expect(doc.tavernEntryGroups?.map(group => group.name)).toEqual(['作者新分类','旧分组']);
+        expect(doc.tavernEntryGroups?.map(group => group.name)).toEqual(['作者新分类']);
         expect(getStoryPresetPromptGroups(doc).find(group => group.label === '作者新分类')?.promptIds)
             .toEqual(['st-a','st-b']);
         expect(getStoryTavernAuthorSections(doc).find(section => section.label === '作者新分类')
@@ -354,6 +354,34 @@ describe('新旧 MoM 静态分组索引', () => {
         expect(doc.prompts.map(item => [item.id,item.content,item.enabled])).toEqual([
             ['st-start','原文甲',true],['st-a','原文乙',false],['st-b','原文丙',true],
         ]);
+    });
+
+    it('旧 entryGrouping 结束边界被追加到最后时，不得吞掉其它预设分类', () => {
+        const data = {
+            prompts: [
+                {identifier:'head',name:'头部',role:'system',content:'头规则'},
+                {identifier:'scene',name:'剧场',role:'system',content:'剧场规则'},
+                {identifier:'tail',name:'底部',role:'system',content:'尾规则'},
+                {identifier:'extra',name:'未引用旧锚点',role:'system',content:''},
+            ],
+            prompt_order:[{character_id:100001,order:[
+                {identifier:'head',enabled:true},{identifier:'scene',enabled:true},{identifier:'tail',enabled:false},
+            ]}],
+            extensions: {
+                entryGrouping:[{id:'old',name:'旧剧场范围',startIdentifier:'scene',endIdentifier:'extra'}],
+                baibaiToolkit:{presetPromptGroups:{
+                    groups:[{id:'scene-group',name:'小剧场'},{id:'tail-group',name:'预设底部'}],
+                    prompts:{scene:{groupId:'scene-group'},tail:{groupId:'tail-group'}},
+                }},
+            },
+        };
+        const doc = convertSillyTavernChatPreset(data,'source');
+        expect(doc.tavernEntryGroups?.map(g=>g.name)).toEqual(['小剧场','预设底部']);
+        expect(getStoryPresetPromptGroups(doc).find(group=>group.label==='小剧场')?.promptIds)
+            .toEqual(['st-scene']);
+        expect(getStoryPresetPromptGroups(doc).find(group=>group.label==='预设底部')?.promptIds)
+            .toEqual(['st-tail']);
+        expect(doc.prompts.map(p=>p.enabled)).toEqual([true,true,false,false]);
     });
 
     it('已经有两组旧索引的已导入万象合鸣也补全剩余作者分类，并持久化不重导入', async () => {
@@ -380,7 +408,7 @@ describe('新旧 MoM 静态分组索引', () => {
         expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('抢话/复述');
         expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('文风设定');
         expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('底部');
-        expect(repaired.tavernEntryGroups?.some(g => g.id === 'old-metadata')).toBe(true);
+        expect(repaired.tavernEntryGroups?.some(g => g.id === 'old-metadata')).toBe(false);
         expect(JSON.stringify(repaired.prompts)).toBe(originalPrompts);
         expect(restoreStoryTavernLegacyGroups(repaired)).toBe(repaired);
 
