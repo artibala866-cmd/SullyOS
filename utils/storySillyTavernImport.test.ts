@@ -13,6 +13,24 @@ import {
 } from './storyTheater';
 import { convertSillyTavernChatPreset, detectTavernNativeControls, expandSillyTavernContextMacros, expandSillyTavernPromptText, extractSillyTavernStoryContent, squashAdjacentSystemMessages } from './storySillyTavernImport';
 
+describe('万事成真宏兼容', () => {
+    it('骰子宏按真实范围抽取，不输出未识别 {{roll}}', () => {
+        const a = new Map<string, string>();
+        expect(expandSillyTavernPromptText('骰点 {{roll::1d100}}', a, undefined, new Map(), () => 0)).toBe('骰点 1');
+        expect(expandSillyTavernPromptText('{{roll::1d100}}', a, undefined, new Map(), () => 0.999)).toBe('100');
+        expect(expandSillyTavernPromptText('{{roll::99d99999}}', a)).toBe('{{roll::99d99999}}');
+    });
+    it('多行 setvar 中的 {{user}} 和随机宏不能截断赋值', () => {
+        const variables = new Map<string, string>();
+        const source = '{{setvar::content::\\n<content>你好 {{user}}，{{random::甲::乙}}</content>\\n}}'
+            + '\\n{{getvar::content}}';
+        const result = expandSillyTavernPromptText(source, variables, new Set(['content']), new Map(), () => 0);
+        expect(variables.get('content')).toContain('{{user}}');
+        expect(result).toContain('<content>你好 {{user}}，甲</content>');
+        expect(result).not.toContain('setvar::');
+    });
+});
+
 const tavern = {
     temperature: 1.05,
     top_p: 0.96,
