@@ -1076,6 +1076,18 @@ export const DB = {
         scan(STORE_COURSES, row => row.tutorCharId === id ? { ...row, tutorCharId: undefined } : undefined);
         scan(STORE_GROUPS, row => {
           const next = removeCharacterFromGroup(row, id);
+          if (next === null) {
+            // Removing the final group member also retires the conversation.
+            // User-authored group messages would otherwise become orphans.
+            const req = messages.index('groupId').openCursor(IDBKeyRange.only(row.id));
+            req.onsuccess = () => {
+              const cursor = req.result;
+              if (!cursor) return;
+              const message = cursor.value as Message;
+              eraseMessage(message, () => cursor.delete());
+              cursor.continue();
+            };
+          }
           return next === null ? null : next === row ? undefined : next;
         });
         const deletedWorldIds = new Set<string>();
