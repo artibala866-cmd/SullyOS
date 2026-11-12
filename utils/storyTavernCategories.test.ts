@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
-import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup } from './storyTheater';
+import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup, storyTavernHeadingTitle, storyPresetPromptKind, isStoryPresetBrowseVisible } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
     id: 'st-' + name, name, role: 'system', enabled, content, ...(marker ? { marker } : {}),
@@ -177,6 +177,83 @@ describe('酒馆预设浏览分类：明确标题，而不是所有空内容', (
         const changed = selectStoryTavernAuthorOption(doc, section!.key, 'st-🔸（选一）复述模式-承接');
         expect(changed.prompts.map(p => p.enabled)).toEqual([false,true,true]);
         expect(changed.prompts.map(p => p.content)).toEqual(doc.prompts.map(p => p.content));
+    });
+
+    it('超长装饰标题提取可读名称，空装饰不生成伪分类', () => {
+        const names = [
+            ['━━━━━━✨【世界书设置】✨━━━━━━', '世界书设置', 'divider'],
+            ['╔━━━✦【叙事规则】✦━━━╗', '叙事规则', 'start'],
+            ['╚━━━✦【叙事规则】✦━━━╝', '叙事规则', 'end'],
+            ['✧━━━━━━━━━━━【写作 / 文风】━━━━━━━━━━━✧', '写作 / 文风', 'divider'],
+            ['#====📚【语言设置】📚====#', '语言设置', 'divider'],
+            ['--------文风----', '文风', 'divider'],
+            ['<==抢话▣▣权限==>', '抢话权限', 'start'],
+            ['┏╔拖拖📚文风╗┓', '拖拖文风', 'start'],
+            ['▾▿▾▼选一▼▾▿▾', '选一', 'start'],
+        ] as const;
+        for (const [name, title, edge] of names) {
+            expect(recognizeTavernPromptHeading(prompt(name))?.label, name).toBe(title);
+            expect(recognizeTavernPromptHeading(prompt(name))?.edge, name).toBe(edge);
+        }
+        const veryLong = '━━'.repeat(75) + '【真实大标题】' + '═'.repeat(80);
+        expect(recognizeTavernPromptHeading(prompt(veryLong))?.label).toBe('真实大标题');
+        for (const name of [
+            '━━━━━━✧✦✨━━━━━━', '----', '╭──────╮', '普通条目', '正文列表-作者A',
+        ]) expect(recognizeTavernPromptHeading(prompt(name))).toBeUndefined();
+        expect(storyTavernHeadingTitle('写作风格 [择一]')).toBe('写作风格 [择一]');
+    });
+
+    it('分组仅为界面视图：装饰标题成为分区名，空行被隐藏但没有删改任何条目', () => {
+        const entries = [
+            prompt('━━━━━━✨【世界书设置】✨━━━━━━', ''),
+            prompt('空设置预留', ' \n\n '),
+            prompt('世界观规则', '真实世界观规则', true),
+            prompt('空白分隔条', '━━━━━━', false),
+            prompt('备注', '<!-- 只有注释 -->', false),
+            prompt('✧━━━━━━━━【剧情节奏】━━━━━━━━✧', ''),
+            prompt('剧情节拍', '真正的节奏设定', true),
+            prompt('╔━━━━【标题空区】━━━━╗', ''),
+        ];
+        const doc = document(entries), snapshot = JSON.stringify(doc);
+        const groups = getStoryPresetPromptGroups(doc);
+        expect(groups.flatMap(g => g.promptIds)).toEqual(entries.map(p => p.id));
+        expect(groups.map(g => g.label)).toContain('世界书设置');
+        expect(groups.map(g => g.label)).toContain('剧情节奏');
+        const section = groups.find(g => g.label === '世界书设置')!;
+        const members = entries.filter(p => section.promptIds.includes(p.id));
+        expect(members.filter(isStoryPresetBrowseVisible).map(p => p.name)).toEqual(['世界观规则']);
+        expect(storyPresetPromptKind(entries[3])).toBe('structure');
+        expect(storyPresetPromptKind(entries[4])).toBe('empty');
+        expect(entries.filter(isStoryPresetBrowseVisible).map(p => p.name)).toEqual(['世界观规则','剧情节拍']);
+        expect(JSON.stringify(doc)).toBe(snapshot);
+    });
+
+    it('装饰标题带有真正规则正文时不把它当作空行吞掉；纯 XML 外壳不展示', () => {
+        const withText = prompt('═══【写作须知】═══','必须遵守人物背景，不改变作者规则');
+        const withXml = prompt('════【开始包裹】════','<writer>');
+        const withEmptyXml = prompt('════【结束包裹】════','</writer>');
+        const blank = prompt('════【另一区】════','');
+        expect(recognizeTavernPromptHeading(withText)?.label).toBe('写作须知');
+        expect(storyPresetPromptKind(withText)).toBe('structure');
+        expect(isStoryPresetBrowseVisible(withText)).toBe(true);
+        expect(isStoryPresetBrowseVisible(withXml)).toBe(false);
+        expect(isStoryPresetBrowseVisible(withEmptyXml)).toBe(false);
+        expect(isStoryPresetBrowseVisible(blank)).toBe(false);
+    });
+
+    it('作者元数据长标题仅用于显示时清洗，不改变成员关系、顺序或原始名字', () => {
+        const items = [prompt('甲','规则A'),prompt('乙','规则B')];
+        const doc = {
+            ...document(items),
+            tavernEntryGroups: [{id:'original-id',name:'━━━━━━【作者风格】━━━━━━',memberIdentifiers:['甲','乙']}],
+        };
+        const snapshot = JSON.stringify(doc);
+        const group = getStoryPresetPromptGroups(doc);
+        expect(group).toHaveLength(1);
+        expect(group[0].label).toBe('作者风格');
+        const choices = getStoryTavernAuthorSections(doc);
+        expect(choices.find(s => s.key === 'entry:original-id')?.label).toBe('作者风格');
+        expect(JSON.stringify(doc)).toBe(snapshot);
     });
 
 });
