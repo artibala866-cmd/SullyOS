@@ -129,35 +129,14 @@ export async function updateAlchemyRules(change: (rules: StoryRegexRule[]) => St
     return rules;
 }
 
-/** Never make a classification API call: format prompts activate only for
- * explicit conversational cues (or user-specified trigger keywords).
- * A model's reply may still contain a supported tag, which is rendered
- * locally whether or not a format prompt was sent. */
-const FORMAT_CUES: Array<[RegExp, RegExp]> = [
-    [/法庭|认罪|审判|罪状/, /法庭|认罪|审判|裁决|指控|罪状|处罚/],
-    [/豆包|咨询|问答/, /豆包|咨询|问答|问一下豆包/],
-    [/弹幕/, /弹幕|围观|刷屏/],
-    [/刮|彩票|抽奖/, /刮刮|彩票|抽奖|中奖|刮奖/],
-    [/红包/, /红包|发红包|收红包|恭喜发财/],
-    [/小剧场|番茄|小说/, /小剧场|番茄|番外|写个剧场|写一段小说/],
-];
-
+/** Original alchemy semantics: author-provided prompt is present when
+ * the rule is active, unless its keyword trigger is explicitly enabled.
+ * Do not guess by the rule name or add assistant-authored prompt content. */
 const shouldSendTemplateInstruction = (rule: StoryRegexRule, recentText: string): boolean => {
-    // A manually created / standalone HTML template explicitly supplies its
-    // format instruction, so it must function without a hardcoded name cue.
-    if (!rule.source && rule.instruction.trim()) return true;
-    const needles = rule.source?.triggerKeywords || [];
-    // Native imported templates must stay functional WITHOUT a manual preview.
-    // triggerEnabled=0 means the author's aiPrompt is always present in the
-    // EXISTING chat request so the AI may decide when to emit the matching tag.
-    // triggerEnabled=1 with empty keywords is also unrestricted in the source.
-    if (rule.source?.triggerEnabled === false ||
-        (rule.source?.triggerEnabled === true && !needles.length)) return true;
-    if (needles.length) return needles.some(word =>
-        recentText.toLocaleLowerCase().includes(word.toLocaleLowerCase()));
-    if (!recentText.trim()) return false;
-    const cue = FORMAT_CUES.find(([name]) => name.test(rule.name));
-    return !!cue && cue[1].test(recentText);
+    if (!rule.source?.triggerEnabled) return true;
+    const words = rule.source.triggerKeywords || [];
+    return !words.length || words.some(word => recentText.toLocaleLowerCase()
+        .includes(word.toLocaleLowerCase()));
 };
 
 export const alchemyInstructions = (
