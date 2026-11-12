@@ -846,8 +846,15 @@ export const storyTavernHeadingTitle = (raw: string): string => {
     // everything around it is graphical decoration, not other meaningful text.
     const content = framed && !/[\p{L}\p{N}]/u.test(plain.replace(framed[0], ''))
         ? framed[1] : plain;
-    const title = content.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
-        .replace(/\s{2,}/gu, ' ').trim();
+    const leadingTrimmed = content.replace(/^[^\p{L}\p{N}]+/u, '');
+    const cutoff = leadingTrimmed.replace(/[^\p{L}\p{N}]+$/u, '');
+    // Keep author-written (选一) / [可叠加] suffixes when they are balanced.
+    // A closing bracket is not part of the decorative frame in that case.
+    const closers: Record<string, string> = { ')': '(', '）': '（', ']': '[', '］': '［',
+        '】': '【', '」': '「', '』': '『', '》': '《' };
+    const closing = /([)）\]］】」』》])[^\p{L}\p{N}]*$/u.exec(leadingTrimmed)?.[1];
+    const kept = closing && cutoff.includes(closers[closing]) ? cutoff + closing : cutoff;
+    const title = kept.replace(/\s{2,}/gu, ' ').trim();
     return /[\p{L}\p{N}]/u.test(title) ? title : '';
 };
 
