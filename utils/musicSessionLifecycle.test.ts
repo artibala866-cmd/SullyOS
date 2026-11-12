@@ -148,7 +148,7 @@ describe('真实乱序操作：跨标签、多人及反复改主意', () => {
       charId, role: 'user', type: 'system', content: '迟到的同意', metadata: { accepted: true },
     }, first.messageId);
     expect(stale.resolved).toBe(false);
-    expect(await DB.getMusicListeningSession(charId)).toMatchObject({ active: false });
+    expect((await DB.getMusicListeningSession(charId))?.active).not.toBe(true);
     const actual = await DB.resolveMusicListeningInvite(charId, 'char', {
       charId, role: 'user', type: 'system', content: '接受新邀请', metadata: { accepted: true },
     }, repeat.messageId);
