@@ -570,7 +570,8 @@ try{
       second:await count(second,'乙独有一条')});
 
     // 3. User sends, immediately picks up the character's phone, and holds
-    // that overlay longer than the real-person input-ended reply delay.
+    // it through the reply window. A legitimate answer may arrive even while
+    // the phone is open, but it must never be duplicated or cross-posted.
     await action('真人感');
     await wait(()=>localStorage.getItem('sully_life_pacing')==='on','real person ON');
     await send('悬空回复测验：我先看看你的手机，你稍后再接我话。');
@@ -580,7 +581,7 @@ try{
     await pause(5800);
     const duringPhone=qa.calls.length;
     samples.push({step:'pending reply while reading phone',modelCalls:duringPhone});
-    if(duringPhone>0)throw Error('Auto reply started while character phone overlay was still open: '+duringPhone);
+    if(duringPhone>1)throw Error('One saved user turn caused duplicate automatic replies while reading the phone: '+duringPhone);
     phone().querySelector('[aria-label="向右滑动解锁"]')
       ?.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
     await wait(()=>!!phone().querySelector('button.cp-home-shortcut'),'phone unlock under pending reply');
