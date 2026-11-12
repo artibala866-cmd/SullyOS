@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookmarkSimple, Check, DownloadSimple, LockSimple, SpinnerGap, UploadSimple, UserCircle, X } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
+import StoryTavernImportReport from './StoryTavernImportReport';
 import type { APIConfig, ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
 import { normalizeApiPresets } from '../../../utils/apiConfigNormalize';
@@ -27,6 +28,7 @@ interface Props {
     onCancel: () => void;
     onSave: (entry: StoryTheaterEntry) => Promise<void> | void;
     onImportPreset: (file: File) => Promise<StoryTheaterPreset | null>;
+    recentImportReports?: StoryTheaterPreset[];
     onEditPreset: (preset: StoryTheaterPreset, draft: StoryTheaterEntry) => void;
     onOpenMaskBox: (draft: StoryTheaterEntry) => void;
     onChangeGreeting?: (characterId: string, greetingId: string, content: string | null) => Promise<void>;
@@ -36,7 +38,7 @@ interface Props {
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, apiPresets = [], mainApi, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks = [], user, masks, maskLocked, presets, apiPresets = [], mainApi, onCancel, onSave, onImportPreset, recentImportReports = [], onEditPreset, onOpenMaskBox, onChangeGreeting, onCreateGreeting, onImportGreetings }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -745,6 +747,10 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     }
                 }} />
                 {presetImportFeedback && <p role='status' className='mt-2 text-[10px] leading-5 text-slate-500'>{presetImportFeedback}</p>}
+                {recentImportReports.length > 0 && <div className='mt-3 space-y-2'>
+                    {recentImportReports.map(item => <StoryTavernImportReport key={item.id}
+                        document={item.document} label={item.name} />)}
+                </div>}
                 {preset && <div className='mt-3 flex items-center justify-between'><span className='text-[10px] text-slate-500'>启用 {presetStats.enabled}/{presetStats.total} 条</span><button onClick={() => onEditPreset(preset, draft)} className='text-[10px] font-bold text-violet-600'>打开制作器</button></div>}
                 
 
