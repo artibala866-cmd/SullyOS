@@ -4,8 +4,28 @@ import { exportStoryAlchemyRules, mergeStoryRegexImport, parseStoryRegexImport }
 import { applyStoryRegex, readStoryRegexRules, storyRegexInstruction } from './storyRegex';
 import { parseStoryRegexDisplay } from './storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from './storyTheaterHtml';
+import { ALCHEMY_REFERENCE_REGEX_PRESETS, ALCHEMY_REFERENCE_HTML_PRESETS } from './alchemyReferencePresets';
 
-describe('糯叽机炼金术导入', () => {
+describe('糯叽机炼金术导入', () => { 
+    it('保留糯叽机原版五个文字预设和四个 HTML 预设，均为用户主动选择', () => {
+        expect(ALCHEMY_REFERENCE_REGEX_PRESETS).toHaveLength(5);
+        expect(ALCHEMY_REFERENCE_HTML_PRESETS).toHaveLength(4);
+        const source = [...ALCHEMY_REFERENCE_REGEX_PRESETS, ...ALCHEMY_REFERENCE_HTML_PRESETS];
+        const { rules, rejected, warnings } = parseStoryRegexImport(JSON.stringify(source));
+        expect(rejected).toBe(0);
+        expect(warnings).toEqual([]);
+        expect(rules).toHaveLength(9);
+        expect(rules.filter(rule => rule.kind === 'template')).toHaveLength(4);
+        expect(rules.find(rule => rule.name === '心聲卡片')?.instruction).toContain('<心聲>');
+        expect(rules.find(rule => rule.name === '好感度進度條')?.replacement).toContain('{{1.值}}');
+        const html = rules.find(rule => rule.name === '心情狀態欄')!;
+        const rendered = applyStoryRegex('<status>心情:放松|時間:下午|地點:海边</status>', [html], 'display');
+        expect(rendered.cards).toHaveLength(1);
+        expect(rendered.cards[0].html).toContain('海边');
+        // Presets do not appear in saved rules unless specifically merged.
+        expect(mergeStoryRegexImport([], [], '').rules).toEqual([]);
+    });
+
     it('按糯叽机原版字段导出所选规则，能重新导入且不丢 HTML、触发和原始扩展信息', () => {
         const source = [
             { name: '原版文字替换', pattern: '旧称', flags: 'g', replacement: ['新称', '别称'],
