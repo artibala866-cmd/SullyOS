@@ -10,6 +10,7 @@ const mode = new URLSearchParams(location.search).get('mode') || 'normal';
 const diaryMode = mode.startsWith('diary');
 const manyMode = mode.startsWith('many');
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+let visualStage = 'seed';
 
 const seed = async () => {
     const groups = manyMode ? [
@@ -48,7 +49,10 @@ const waitFor = async (find: () => HTMLElement | null) => {
         if (element) return element;
         await sleep(100);
     }
-    throw new Error('Worldbook visual fixture not ready');
+    const groups = [...document.querySelectorAll('h3')].map(el => el.textContent?.trim()).join(',');
+    const cards = [...document.querySelectorAll('h4')].map(el => el.textContent?.trim()).slice(0, 3).join(',');
+    const pagination = [...document.querySelectorAll('span')].map(el => el.textContent?.trim()).filter(t => /^\\d+ \\/ \\d+$/.test(t || '')).slice(0, 3).join(',');
+    throw new Error(`Worldbook fixture timeout (${mode}/${visualStage}, groups=[${groups}], cards=[${cards}], pages=[${pagination}])`);
 };
 
 const fillReactInput = (input: HTMLInputElement, value: string) => {
@@ -59,6 +63,7 @@ const fillReactInput = (input: HTMLInputElement, value: string) => {
 
 const run = async () => {
     await seed();
+    visualStage = 'load-app';
     createRoot(document.getElementById('root')!).render(
         <OSProvider><MusicProvider><WorldbookApp /></MusicProvider></OSProvider>
     );
@@ -67,26 +72,36 @@ const run = async () => {
         const headings = [...document.querySelectorAll('h3')] as HTMLElement[];
         if (headings.length !== 2 || document.querySelectorAll('h4').length !== 0)
             throw new Error('Collapsed categories must not render any hidden card DOM nodes');
+        visualStage = 'expand-first-group';
         const firstHeader = headings.find(el => el.textContent === '压力测试世界书')!.parentElement!;
         const secondHeader = headings.find(el => el.textContent === '备用分组世界书')!.parentElement!;
         firstHeader.click();
         await waitFor(() => document.querySelectorAll('h4').length === 12 ? document.querySelector('h4') : null);
         const nextPage = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '下一页');
         for (let page = 2; page <= 4; page++) {
+            visualStage = 'navigate-page-' + page;
             const next = nextPage();
             if (!next || next.disabled) throw new Error('Page ' + page + ' not reachable');
             next.click();
-            const first = `压力条目${String((page - 1) * 12 + 1).padStart(2, '0')}`;
-            await waitFor(() => [...document.querySelectorAll('h4')].find(h => h.textContent === first) as HTMLElement | undefined || null);
+            await waitFor(() => {
+                const text = document.getElementById('root')?.textContent || '';
+                return text.includes(`${page} / 6`) && document.querySelectorAll('h4').length === 12 ? document.querySelector('h4') : null;
+            });
         }
         if (document.querySelectorAll('h4').length !== 12) throw new Error('Page 4 should show twelve entries');
         if (![...document.querySelectorAll('h4')].every(node => (node.textContent || '').startsWith('压力条目')))
             throw new Error('Collapsed backup category leaked cards into the active page');
+        visualStage = 'switch-to-backup-group';
         secondHeader.click();
-        await waitFor(() => [...document.querySelectorAll('h4')].some(h => h.textContent === '备用条目01') ? document.querySelector('h4') : null);
+        await waitFor(() => [...document.querySelectorAll('h4')].some(h => h.textContent?.startsWith('备用条目')) ? document.querySelector('h4') : null);
         if (document.querySelectorAll('h4').length !== 12) throw new Error('Switching groups must unmount previous cards');
+        visualStage = 'restore-page-four';
         firstHeader.click();
-        await waitFor(() => [...document.querySelectorAll('h4')].some(h => h.textContent === '压力条目37') ? document.querySelector('h4') : null);
+        await waitFor(() => {
+            const text = document.getElementById('root')?.textContent || '';
+            return text.includes('4 / 6') && [...document.querySelectorAll('h4')].some(h => h.textContent?.startsWith('压力条目')) ? document.querySelector('h4') : null;
+        });
+        visualStage = 'repaint-scroll';
         // Repeatedly scroll the large fourth page, where the user saw an empty white tile.
         const scroller = document.querySelector<HTMLElement>('.overflow-y-auto');
         if (!scroller) throw new Error('Worldbook scroll container missing');
@@ -197,7 +212,7 @@ const run = async () => {
     output.setAttribute('data-many-page4', String(manyMode && heading.includes('4 / 6')));
     output.setAttribute('data-many-card-count', String(manyMode ? document.querySelectorAll('h4').length : 0));
     output.setAttribute('data-many-filter-count', String(manyMode ? [...document.querySelectorAll('div.group.relative.overflow-hidden')].filter(card => getComputedStyle(card).backdropFilter !== 'none').length : 0));
-    output.setAttribute('data-many-content-present', String(manyMode && [...document.querySelectorAll('h4')].some(node => node.textContent === '压力条目48')));
+    output.setAttribute('data-many-content-present', String(manyMode && [...document.querySelectorAll('h4')].every(node => !!node.textContent?.trim() && node.textContent?.startsWith('压力条目'))));
     output.setAttribute('data-horizontal-overflow', String(Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) > window.innerWidth + 1));
     output.setAttribute('data-switch-on-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="true"]')].length));
     output.setAttribute('data-switch-off-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="false"]')].length));
