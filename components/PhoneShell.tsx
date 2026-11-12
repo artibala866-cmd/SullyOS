@@ -450,7 +450,7 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
 };
 
 const PhoneShell: React.FC = () => {
-  const { theme, isLocked, unlock, activeApp, closeApp, openApp, virtualTime, isDataLoaded, toasts, unreadMessages, characters, handleBack, suspendedCall, resumeCall, activeCharacterId, errorDialog, dismissError, sysOperation } = useOS();
+  const { theme, isLocked, unlock, activeApp, closeApp, openApp, virtualTime, isDataLoaded, themeSettingsLoaded, toasts, unreadMessages, characters, handleBack, suspendedCall, resumeCall, activeCharacterId, errorDialog, dismissError, sysOperation } = useOS();
   const useIOSStandaloneLayout = isIOSStandaloneWebApp();
 
   // 三档顶部状态栏：安全显示 / 紧凑显示 / 隐藏。旧存档仍由 hideStatusBar 兼容解析。
@@ -769,6 +769,12 @@ const PhoneShell: React.FC = () => {
       element.style.backgroundRepeat = 'no-repeat';
     });
   }, [theme.wallpaper]);
+
+  // 读取本地主题（含关闭开机动画的开关）前绝不挂载动画组件。
+  // 这段等待不能使用默认开启状态，否则即使用户已关闭仍会闪出开屏。
+  if (!themeSettingsLoaded) {
+    return <div className="w-full h-full" style={{ background: '#060606' }} aria-busy="true" />;
+  }
 
   // 冷启动：先放「世界入场」cinematic（数据没就绪时它持续呼吸等待，绝不出现 spinner）。
   // BootSequence 在「数据就绪 + 停留够时长」后推进退场，再交还控制权给下方的锁屏/桌面。
