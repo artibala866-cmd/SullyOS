@@ -29,9 +29,9 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'choices', name: '自选模块', memberIdentifiers: entries.map(entry => entry.id) },
         ]);
         expect(preset.document.prompts.map(storyPresetPromptKind))
-            .toEqual(['empty', 'empty', 'placeholder', 'structure', 'content', 'content']);
+            .toEqual(['empty', 'empty', 'content', 'structure', 'content', 'content']);
         const section = getStoryTavernAuthorSections(preset.document).find(item => item.label === '自选模块');
-        expect(section?.options.map(option => option.id)).toEqual(['st-macro', 'st-rule']);
+        expect(section?.options.map(option => option.id)).toEqual(['st-lite', 'st-macro', 'st-rule']);
         expect(preset.document.prompts.map(prompt => prompt.content)).toEqual(entries.map(entry => entry.content));
         expect(preset.document.prompts.map(prompt => prompt.enabled)).toEqual(entries.map(entry => entry.enabled));
     });
@@ -158,17 +158,17 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'must', name: 'set-不要关', content: '原作核心不动 E', enabled: true },
         ];
         const groups = [
-            { id: 'novel-genre', name: '小说类型', memberIdentifiers: ['genre1', 'genre2'] },
-            { id: 'novel-style', name: '小说文风', memberIdentifiers: ['style1', 'style2'] },
+            { id: 'novel-genre', name: '小说类型（选一）', memberIdentifiers: ['genre1', 'genre2'] },
+            { id: 'novel-style', name: '小说文风（选一）', memberIdentifiers: ['style1', 'style2'] },
             { id: 'author-header', name: '预设头部', memberIdentifiers: ['must'] },
         ];
         const preset = make('蛾摩拉2.3-GC.json', entries, groups);
         const sections = getStoryTavernAuthorSections(preset.document);
         const titles = sections.map(s => s.label);
-        expect(titles).toContain('小说类型');
-        expect(titles).toContain('小说文风');
+        expect(titles).toContain('小说类型（选一）');
+        expect(titles).toContain('小说文风（选一）');
         expect(titles).not.toContain('预设头部');
-        const style = sections.find(s => s.label === '小说文风')!;
+        const style = sections.find(s => s.label === '小说文风（选一）')!;
         expect(style.options.map(x => x.label)).toEqual(['文风-恋爱喜剧@电波系', '文风-诗童话']);
         const switched = selectStoryTavernAuthorOption(preset.document, style.key, 'st-style2');
         expect(switched.prompts.find(p => p.id === 'st-style1')?.enabled).toBe(false);
@@ -176,7 +176,7 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
         expect(switched.prompts.find(p => p.id === 'st-genre1')?.enabled).toBe(true);
         expect(switched.prompts.find(p => p.id === 'st-must')?.enabled).toBe(true);
         const reopened = parseStoryTheaterPreset(JSON.stringify(switched), '重进.json');
-        expect(getStoryTavernAuthorSections(reopened.document).find(s => s.label === '小说文风')?.options.length).toBe(2);
+        expect(getStoryTavernAuthorSections(reopened.document).find(s => s.label === '小说文风（选一）')?.options.length).toBe(2);
         const output = compiled({ ...preset, document: reopened.document });
         expect(output).toContain('作者原文诗童话 D');
         expect(output).not.toContain('作者原文恋爱喜剧 C');
@@ -191,8 +191,8 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'plain', name: '🎪简约文字小剧场', content: '作者简约小剧场 B', enabled: true },
             { id: 'end', name: '╚小剧场结束╝', content: '</theater>', enabled: true },
             { id: 'base', name: '核心规则不要关', content: '基础剧情设定 C', enabled: true },
-        ], [{ id: 'theater-source', name: '🎪小剧场', startIdentifier: 'start', endIdentifier: 'end' }]);
-        const section = getStoryTavernAuthorSections(p.document).find(s => s.label === '🎪小剧场')!;
+        ], [{ id: 'theater-source', name: '🎪小剧场（选一）', startIdentifier: 'start', endIdentifier: 'end' }]);
+        const section = getStoryTavernAuthorSections(p.document).find(s => s.label === '🎪小剧场（选一）')!;
         expect(section.options.map(o => o.label)).toEqual(['🎪极光交互小剧场', '🎪简约文字小剧场']);
         const changed = selectStoryTavernAuthorOption(p.document, section.key, 'st-aurora');
         expect(changed.prompts.find(o => o.id === 'st-aurora')?.enabled).toBe(true);
@@ -282,4 +282,60 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
         }
         expect(getStoryTavernAuthorSections(BUILTIN_NIGHT_SCREENING_PRESET.document)).toEqual([]);
     });
+    it('普通作者分组不能因刚好一项开启而擅自成为单选', () => {
+        const preset=make('普通作者配置.json',[
+            {id:'a',name:'晨色',content:'不是用来推断单选的作者正文',enabled:true},
+            {id:'b',name:'暮色',content:'即使正文出现排他字眼也不表示格式声明',enabled:false},
+            {id:'core',name:'核心规则',content:'其它设置',enabled:true},
+        ],[{id:'styles',name:'小说文风',memberIdentifiers:['a','b']}]);
+        const sections=getStoryTavernAuthorSections(preset.document);
+        const sec=sections.find(x=>x.label==='小说文风')!;
+        expect(sec.single).toBe(false);
+        expect(sec.options.map(x=>x.enabled)).toEqual([true,false]);
+        const next=selectStoryTavernAuthorOption(preset.document,sec.key,'st-b');
+        expect(next.prompts.map(p=>p.enabled)).toEqual([true,true,true]);
+        expect(preset.document.prompts.map(p=>p.enabled)).toEqual([true,false,true]);
+    });
+
+    it('酒馆装饰标题尾注每单仅一可精准识别，只动本组的原作者开关', () => {
+        const preset=make('作者全新装饰标题.json',[
+            {id:'head',name:'┌ 酒标 ┐每单仅一',content:'<tag>',enabled:true},
+            {id:'a',name:'第一种',content:'作者格式A',enabled:true},
+            {id:'b',name:'第二种',content:'作者格式B',enabled:false},
+            {id:'tail',name:'└ 酒标 ┘',content:'</tag>',enabled:true},
+            {id:'unrelated',name:'独立开关',content:'不属于本组',enabled:true},
+        ],[{id:'label',name:'酒标',startIdentifier:'head',endIdentifier:'tail'}]);
+        const section=getStoryTavernAuthorSections(preset.document).find(x=>x.label==='酒标')!;
+        expect(section.single).toBe(true);
+        expect(section.options.map(x=>x.id)).toEqual(['st-a','st-b']);
+        const changed=selectStoryTavernAuthorOption(preset.document,section.key,'st-b');
+        expect(changed.prompts.map(p=>p.enabled)).toEqual([true,false,true,true,true]);
+    });
+
+    it('没有明显单选标志：共同 XML/变量名也不误关，只有本人点击才改变开关', () => {
+        const preset=make('文字内容完全不同但格式相同.json',[
+            {id:'a',name:'方案：星',content:'<rule name="tone">第一种正文</rule>',enabled:true},
+            {id:'b',name:'方案：月',content:'<rule name="tone">第二种正文</rule>',enabled:false},
+            {id:'stable',name:'主线正文',content:'常驻',enabled:true},
+        ],[{id:'mode',name:'方案',memberIdentifiers:['a','b']}]);
+        const sec=getStoryTavernAuthorSections(preset.document).find(x=>x.label==='方案')!;
+        expect(sec.single).toBe(false);
+        const changed=selectStoryTavernAuthorOption(preset.document,sec.key,'st-b');
+        expect(changed.prompts.map(p=>p.enabled)).toEqual([true,true,true]);
+        expect(changed.prompts.map(p=>p.content)).toEqual(preset.document.prompts.map(p=>p.content));
+    });
+
+    it('原作者即使同时打开两个互斥选项，导入时仍按作者原样保留，不主动纠正', () => {
+        const preset=make('作者状态优先.json',[
+            {id:'a',name:'第一选项',content:'正文A',enabled:true},
+            {id:'b',name:'第二选项',content:'正文B',enabled:true},
+            {id:'c',name:'第三选项',content:'正文C',enabled:false},
+        ],[{id:'choose',name:'作者声明（选一）',memberIdentifiers:['a','b','c']}]);
+        const sec=getStoryTavernAuthorSections(preset.document)[0];
+        expect(sec.single).toBe(true);
+        expect(sec.options.map(x=>x.enabled)).toEqual([true,true,false]);
+        const changed=selectStoryTavernAuthorOption(preset.document,sec.key,'st-c');
+        expect(changed.prompts.map(p=>p.enabled)).toEqual([false,false,true]);
+    });
+
 });
