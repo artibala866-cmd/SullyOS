@@ -1,0 +1,77 @@
+name: Seven-day cross-feature long-play regression
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/seven-day-long-play.yml'
+      - 'utils/longPlayJourney.test.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: seven-day-long-play
+  cancel-in-progress: false
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Rehearse seven simulated days and high-risk feature regressions (no paid API)
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: >-
+          pnpm exec vitest run
+          utils/longPlayJourney.test.ts
+          utils/storyTheaterArchiveAtomic.test.ts
+          utils/storyTheaterVectorMemory.test.ts
+          utils/storyTheaterDeletion.test.ts
+          utils/storyHumanChaosPressure.test.ts
+          utils/chatAutoReply.test.ts
+          utils/phoneChatPiggyback.test.ts
+          utils/musicSessionLifecycle.test.ts
+          utils/characterPhoneAiRequest.test.ts
+          utils/dailyScheduleForegroundRecovery.test.ts
+      - name: Check long-play test TypeScript
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/seven-day-tsc.log 2>&1 || true
+          grep -E '^utils/longPlayJourney.test.ts\\(' /tmp/seven-day-tsc.log > /tmp/seven-day-errors.log || true
+          if [ -s /tmp/seven-day-errors.log ]; then cat /tmp/seven-day-errors.log; exit 1; fi
+      - name: Compile production UI
+        run: pnpm run build
+      - name: Use real mobile Chromium for private chat, phone, schedule and settings journey
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/chat-phone-schedule-real-browser.mjs
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort >/tmp/seven-day-vite.log 2>&1 &
+          server_pid=$!
+          chrome_pid=''
+          trap 'kill "$server_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \\
+            --remote-debugging-port=9222 --remote-allow-origins='*' \\
+            --user-data-dir=/tmp/seven-day-long-play-browser about:blank >/tmp/seven-day-chrome.log 2>&1 &
+          chrome_pid=$!
+          INTEGRATED_SCREENSHOT_DIR=/tmp/seven-day-shots node scripts/chat-phone-schedule-real-browser.mjs 2>&1 | tee /tmp/seven-day-browser.log
+          grep -q 'INTEGRATED_REAL_USER_JOURNEY=' /tmp/seven-day-browser.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seven-day-mobile-browser-evidence
+          path: /tmp/seven-day-shots/*.png
+          retention-days: 7
+          if-no-files-found: ignore
