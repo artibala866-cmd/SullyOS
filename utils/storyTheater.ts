@@ -847,6 +847,13 @@ export const recognizeTavernPromptHeading = (
     // ┏╔标题╗┓ ... ┗╚标题╝┛. These are browse boundaries, not choices.
     const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
     if (corner) return { label: corner[1].trim(), edge: /[┗╚╝┛]/.test(name) ? 'end' : 'start' };
+    // Structural banners only: never inspect prompt bodies to decide sections.
+    const pipe = /^[|｜]\\s*[—─━=-]+\\s*(.{2,72}?)\\s*[—─━=-]+\\s*[|｜]$/u.exec(name);
+    if (pipe) return { label: pipe[1].trim(), edge: 'divider' };
+    if (/^[▾▿▼▽⏷\\s]{2,}(?:选一|单选|择一)[▾▿▼▽⏷\\s]{2,}$/u.test(name))
+        return { label: '选一', edge: 'start' };
+    if (/^[▴▵▲△⏶\\s]{2,}(?:选一|单选|择一)[▴▵▲△⏶\\s]{2,}$/u.test(name))
+        return { label: '选一', edge: 'end' };
     // MoM and Phantasm author headings do not always use paired arrows.
     // They are visual boundaries, not selectable prompt entries.
     const tabHeading = /^▍\s*(.{2,72})$/u.exec(name);
@@ -934,6 +941,63 @@ const tavernVisualGroups = (
     return result;
 };
 
+/** Keep original prompt order while browsing static SillyTavern entryGrouping.
+ * Overlapping and noncontiguous metadata becomes contiguous display-only runs. */
+const tavernMetadataVisualGroups = (
+    document: StoryTheaterPresetDocument,
+    prompts: StoryTheaterPresetPrompt[],
+    start: number,
+    end: number,
+): StoryPresetPromptGroup[] => {
+    const byId = new Map(prompts.map((prompt, index) => [prompt.id, index]));
+    const owned = new Map<number, { id: string; name: string }>();
+    for (const meta of document.tavernEntryGroups || []) {
+        const indexes: number[] = [];
+        if (meta.memberIdentifiers?.length) {
+            for (const identifier of meta.memberIdentifiers) {
+                const index = byId.get('st-' + identifier);
+                if (index !== undefined) indexes.push(index);
+            }
+        } else if (meta.startIdentifier && meta.endIdentifier) {
+            const first = byId.get('st-' + meta.startIdentifier);
+            const last = byId.get('st-' + meta.endIdentifier);
+            if (first !== undefined && last !== undefined && first <= last) {
+                for (let index = first; index <= last; index++) indexes.push(index);
+            }
+        }
+        for (const index of indexes) {
+            if (index >= start && index <= end && !owned.has(index)) {
+                owned.set(index, { id: meta.id, name: meta.name });
+            }
+        }
+    }
+    if (!owned.size) return tavernVisualGroups(prompts, start, end);
+    const result: StoryPresetPromptGroup[] = [];
+    let cursor = start;
+    while (cursor <= end) {
+        const owner = owned.get(cursor);
+        let next = cursor + 1;
+        while (next <= end && owned.get(next) === owner) next += 1;
+        if (!owner) {
+            result.push(...tavernVisualGroups(prompts, cursor, next - 1));
+        } else {
+            const slice = prompts.slice(cursor, next);
+            result.push({
+                key: 'tavern-meta:' + owner.id + ':' + slice[0].id,
+                label: owner.name,
+                description: '原作者分组 · 保留原始顺序',
+                promptIds: slice.map(prompt => prompt.id),
+                startIndex: cursor,
+                endIndex: next - 1,
+                protected: false,
+                autoGrouped: true,
+            });
+        }
+        cursor = next;
+    }
+    return result;
+};
+
 export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument): StoryPresetPromptGroup[] => {
     const prompts = document.prompts;
     const claimed = new Set<number>();
@@ -970,7 +1034,7 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
         while (cursor + 1 < prompts.length && !claimed.has(cursor + 1)) cursor += 1;
         const endIndex = cursor;
         if (document.sourceFormat === 'sillytavern') {
-            groups.push(...tavernVisualGroups(prompts, startIndex, endIndex));
+            groups.push(...tavernMetadataVisualGroups(document, prompts, startIndex, endIndex));
         } else {
         groups.push({
                 key: `custom:${prompts[startIndex]?.id || startIndex}`,
@@ -1063,7 +1127,7 @@ const tavernChoiceCluster = (prompt: StoryTheaterPresetPrompt): string => {
  * invented section title or custom variable name. These never change
  * authored prompt content; they only organize real source prompt switches. */
 const tavernOneOf = (value: string): boolean =>
-    /(?:选\s*(?:一|1|①)|择一|单选|任选其一|(?:[2-9]|[二三四五六七八九])\s*选\s*(?:一|1)|one[\s-]*of|choose\s+one|mutually\s+exclusive)/iu.test(value);
+    /(?:选\s*(?:一|1|①)|择一|单选|任选其一|(?:[2-9]|[二三四五六七八九])\s*选\s*(?:一|1)|one[\s-]*of|choose\s+one|mutually\s+exclusive|每.{0,3}(?:仅|限|只)(?:选|留|开)?(?:一|1)|只留(?:一个|一条|一种))/iu.test(value);
 
 const tavernOptionalModule = (value: string): boolean =>
     /(?:可选|选修|任意开关|多选|可叠加|叠加|optional|toggle|enable|disable)/iu.test(value);
@@ -1082,6 +1146,9 @@ const tavernStructuralFamily = (prompt: StoryTheaterPresetPrompt): string => {
     const cluster = tavernChoiceCluster(prompt);
     if (/^(?:rule:|local:|global:)/.test(cluster)) return cluster;
     const name = tavernAuthorChoiceName(prompt.name).replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/gu, '');
+    // Some newer formats mark a one-of-N family in the entry name itself.
+    const authoredChoice = /[（(]\\s*(?:选一|单选|择一)\\s*[）)]\\s*(.{2,35}?)[-—:：]/u.exec(name);
+    if (authoredChoice) return 'author-choice:' + authoredChoice[1].trim().toLocaleLowerCase();
     const prefixed = /^(.{2,35}?)[：:·｜|／/]\s*(.{1,80})$/u.exec(name);
     if (prefixed && !/^(?:系统|说明|规则|注意|配置|章节|模块|代码)$/u.test(prefixed[1]))
         return 'author-prefix:' + prefixed[1].trim().toLocaleLowerCase();
@@ -1152,7 +1219,9 @@ export const getStoryTavernAuthorSections = (
         if (!metadataShown(meta.name, options)) continue;
         // Source genre/baseline/writing-style menus are mutually exclusive
         // only if the source actually has at most one enabled choice.
-        const single = tavernOneOf(meta.name)
+        const boundaryHints = members.filter(prompt => recognizeTavernPromptHeading(prompt))
+            .map(prompt => prompt.name);
+        const single = tavernOneOf(meta.name) || boundaryHints.some(tavernOneOf)
             || (/小说类型|小说基调|小说文风/.test(meta.name)
                 && options.length > 1 && options.filter(option => option.enabled).length <= 1);
         out.push({
@@ -1223,7 +1292,7 @@ export const getStoryTavernAuthorSections = (
         const indexes = items.map(item => byId.get(item.id) ?? 0);
         if (Math.max(...indexes) - Math.min(...indexes) > 50) continue;
         const options = makeOptions(items);
-        const groupLabel = family.replace(/^(?:author-prefix:|rule:|local:|global:)/, '');
+        const groupLabel = family.replace(/^(?:author-choice:|author-prefix:|rule:|local:|global:)/, '');
         out.push({
             key: 'structure:' + family, label: groupLabel,
             description: '', options,

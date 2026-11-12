@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
-import { getStoryPresetPromptGroups, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup } from './storyTheater';
+import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
     id: 'st-' + name, name, role: 'system', enabled, content, ...(marker ? { marker } : {}),
@@ -114,4 +114,69 @@ describe('酒馆预设浏览分类：明确标题，而不是所有空内容', (
         expect(JSON.stringify(doc)).toBe(before);
         expect(JSON.stringify(input)).toBe(original);
     });
+    it('新酒馆 memberIdentifiers 分组按原始顺序显示，跨组不混条目', () => {
+        const p = [prompt('甲','字 A'), prompt('乙','字 B'), prompt('丙','字 C'),
+            prompt('丁','字 D'), prompt('戊','字 E')];
+        const doc = {
+            ...document(p),
+            tavernEntryGroups: [
+                { id: 'group-a', name: '作者甲区', memberIdentifiers: ['甲', '丙', '戊'] },
+                { id: 'group-b', name: '作者乙区', memberIdentifiers: ['乙', '丁'] },
+            ],
+        };
+        const before = JSON.stringify(doc);
+        const groups = getStoryPresetPromptGroups(doc);
+        expect(groups.flatMap(group => group.promptIds)).toEqual(p.map(item => item.id));
+        expect(groups.map(group => group.label)).toEqual(['作者甲区','作者乙区','作者甲区','作者乙区','作者甲区']);
+        expect(groups.every(group => group.autoGrouped)).toBe(true);
+        expect(JSON.stringify(doc)).toBe(before);
+    });
+
+    it('新酒馆 start/end 边界有效才采用，失效边界安全回退', () => {
+        const p = [prompt('前','A'), prompt('起',''), prompt('中','B'), prompt('止',''), prompt('后','C')];
+        const doc = { ...document(p), tavernEntryGroups: [
+            { id: 'range', name: '小说章节', startIdentifier: '起', endIdentifier: '止' },
+            { id: 'invalid', name: '错误区间', startIdentifier: 'missing', endIdentifier: '止' },
+        ] };
+        const groups = getStoryPresetPromptGroups(doc);
+        expect(groups.flatMap(group => group.promptIds)).toEqual(p.map(item => item.id));
+        expect(groups.find(group => group.label === '小说章节')?.promptIds).toEqual(['st-起','st-中','st-止']);
+        expect(groups.some(group => group.label === '错误区间')).toBe(false);
+    });
+
+    it('竖线标题与上下选一菜单按结构分段，原作选择只切换本区', () => {
+        const p = [prompt('|—设置—|'), prompt('基础项','A'),
+            prompt('▾▿▾▼选一▼▾▿▾'), prompt('选项甲','规则 A',true),
+            prompt('选项乙','规则 B',false), prompt('▴▵▲选一▲▴▵▴'),
+            prompt('|—下一节—|'), prompt('独立规则','C',true)];
+        const doc = document(p), before = JSON.stringify(doc);
+        expect(recognizeTavernPromptHeading(p[0])?.edge).toBe('divider');
+        expect(recognizeTavernPromptHeading(p[2])?.edge).toBe('start');
+        expect(recognizeTavernPromptHeading(p[5])?.edge).toBe('end');
+        const groups = getStoryPresetPromptGroups(doc);
+        expect(groups.flatMap(g => g.promptIds)).toEqual(p.map(x => x.id));
+        const section = getStoryTavernAuthorSections(doc).find(s => s.label === '选一');
+        expect(section?.options.map(option => option.id)).toEqual(['st-选项甲','st-选项乙']);
+        expect(section?.single).toBe(true);
+        const changed = selectStoryTavernAuthorOption(doc, section!.key, 'st-选项乙');
+        expect(changed.prompts.map(x => x.content)).toEqual(p.map(x => x.content));
+        expect(changed.prompts.find(x => x.id === 'st-选项甲')?.enabled).toBe(false);
+        expect(changed.prompts.find(x => x.id === 'st-选项乙')?.enabled).toBe(true);
+        expect(changed.prompts.find(x => x.id === 'st-独立规则')?.enabled).toBe(true);
+        expect(JSON.stringify(doc)).toBe(before);
+    });
+
+    it('原作者选一名称形成独立选项组，正文原封不动', () => {
+        const doc = document([
+            prompt('🔸（选一）复述模式-扩写','<x>任意内容</x>',true),
+            prompt('🔸（选一）复述模式-承接','<y>其它正文</y>',false),
+            prompt('旁支必开','独立正文',true),
+        ]);
+        const section = getStoryTavernAuthorSections(doc).find(s => s.label === '复述模式');
+        expect(section?.single).toBe(true);
+        const changed = selectStoryTavernAuthorOption(doc, section!.key, 'st-🔸（选一）复述模式-承接');
+        expect(changed.prompts.map(p => p.enabled)).toEqual([false,true,true]);
+        expect(changed.prompts.map(p => p.content)).toEqual(doc.prompts.map(p => p.content));
+    });
+
 });
