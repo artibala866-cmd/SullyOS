@@ -95,10 +95,14 @@ async function checkDesktop(name,damage=false){
   await page.reload();
  }
  for(const alt of ['照片 1','照片 2','照片 3','照片 4','角色资料背景照片','拍立得照片']){
-  const img=page.getByRole('img',{name:alt,exact:true});await img.scrollIntoViewIfNeeded();
+  // The Polaroid lives on desktop page 2, not alongside the first-page filmstrip.
+  if(alt==='拍立得照片') await page.locator('.launcher-pages').evaluate(el=>el.scrollTo({left:el.clientWidth,behavior:'instant'}));
+  const img=page.locator(`.launcher-page img[alt="${alt}"]`);await img.scrollIntoViewIfNeeded();
   await page.waitForFunction(alt=>{const el=[...document.querySelectorAll('img')].find(img=>img.alt===alt);return el?.complete&&el.naturalWidth>0;},alt);
   if(alt==='照片 1'||alt==='拍立得照片')await page.screenshot({path:out+'/desktop-'+name+'-'+(alt==='照片 1'?'film':'photo')+'.png'});
  }
+ // Free-positioned decorations belong to desktop page 3.
+ await page.locator('.launcher-pages').evaluate(el=>el.scrollTo({left:el.clientWidth*2,behavior:'instant'}));
  const deco=page.locator('.launcher-page img[alt=""]').first();await deco.scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>{const el=document.querySelector('.launcher-page img[alt=""]');return el?.complete&&el.naturalWidth>0;});
  await page.screenshot({path:out+'/desktop-'+name+'-decoration.png'});
