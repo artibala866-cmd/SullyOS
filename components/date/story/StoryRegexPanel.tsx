@@ -4,7 +4,7 @@ import type { StoryTheaterPreset } from '../../../types';
 import { STORY_TEMPLATE_MAX_LENGTH, validateStoryRegexRule, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { compressPhoneAppearanceImage } from '../../../utils/characterPhoneAppearance';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
-import { MAX_STORY_REGEX_FILE_BYTES, exportStoryAlchemyRules, mergeStoryRegexImport, parseStoryRegexImport, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
+import { MAX_STORY_REGEX_FILE_BYTES, exportStoryAlchemyRules, mergeStoryRegexImport, parseStoryRegexImport, splitAlchemyTemplateCss, type StoryRegexImportResult } from '../../../utils/storyRegexImport';
 import { splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { alchemyRuleTargets, alchemyOfflineScenes, alchemyRuleSection, alchemySubcategory, removeAlchemyRule, removeAlchemyFolderSection, setAlchemyFolderTargets, type AlchemyDomain } from '../../../utils/alchemyRegex';
 import AlchemyRuleFolders from '../../alchemy/AlchemyRuleFolders';
@@ -73,6 +73,10 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
             ? ['线下', ...alchemyOfflineScenes(draft).map(scene => scene === 'story' ? '剧情' : '见面')].join(' · ')
             : '',
     ].filter(Boolean).join(' + ');
+    const templateParts = draft?.kind === 'template'
+        ? splitAlchemyTemplateCss(draft.replacement) : null;
+    const templateReplacement = (htmlTemplate: string, cssScope = templateParts?.cssScope || '') =>
+        cssScope ? '<style>' + cssScope + '</style>\n' + htmlTemplate : htmlTemplate;
     const liveHtml = useMemo(() => draft?.kind === 'template'
         ? renderAlchemyTemplatePreview(draft) : '',
         [draft?.kind, draft?.replacement, draft?.parseMode]);
@@ -551,11 +555,12 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <textarea id='alchemy-source'
                             className={'block w-full min-w-0 resize-y rounded-xl border border-[#e5e7e5] bg-white p-3 font-mono text-[13px] leading-6 text-neutral-800 outline-none transition-colors focus:border-[#a7aea8] focus:ring-2 focus:ring-[#dfe5df]/60 ' +
                                 (isTemplate ? 'min-h-[152px]' : 'min-h-[96px]')}
-                            rows={isTemplate ? 7 : 3} value={draft.replacement}
+                            rows={isTemplate ? 7 : 3} value={isTemplate ? templateParts?.htmlTemplate || '' : draft.replacement}
                             onFocus={() => setMacroField('replacement')}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
                             placeholder={isTemplate ? '<div>{{$1}}</div>' : ''}
-                            onChange={event => patch({ replacement: event.target.value })}/>
+                            onChange={event => patch({ replacement: isTemplate
+                                ? templateReplacement(event.target.value) : event.target.value })}/>
                     </div>
                     {!isTemplate && <div className='grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-[#eaeae7] bg-white px-3.5 py-3 text-[12px] text-neutral-700 sm:grid-cols-3'>
                         <label className='flex cursor-pointer items-center gap-2'><input type='checkbox' checked={draft.display} className='h-4 w-4 accent-[#626e63]'
@@ -628,6 +633,13 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                     {!draft.source?.localCharacterIds?.length &&
                                         <span className='text-[11px] text-neutral-500'>未绑定时不生效</span>}
                                 </section>}
+                            {isTemplate && <label className='block text-xs text-neutral-600'>HTML CSS 样式
+                                <textarea className={fieldClass + ' font-mono text-xs resize-y'} rows={3}
+                                    value={templateParts?.cssScope || ''}
+                                    onChange={event => patch({ replacement: templateReplacement(
+                                        templateParts?.htmlTemplate || '', event.target.value,
+                                    ) })}/>
+                            </label>}
                             {isTemplate && <div className='grid grid-cols-[minmax(0,1fr)_4rem] gap-2'>
                                 <label className='min-w-0 text-xs text-neutral-600'>匹配正则
                                     <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
