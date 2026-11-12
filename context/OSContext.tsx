@@ -5580,7 +5580,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     unlock,
     isDataLoaded,
     themeSettingsLoaded,
-    characters:
+    characters,
     activeCharacterId,
     addCharacter,
     updateCharacter,
