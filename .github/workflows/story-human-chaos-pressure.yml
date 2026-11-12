@@ -1,0 +1,64 @@
+name: Story human chaos pressure
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/story-human-chaos-pressure.yml'
+      - 'utils/storyHumanChaosPressure.test.ts'
+      - 'utils/storyRegex*.ts'
+      - 'utils/storyTheater*.ts'
+      - 'utils/db.ts'
+      - 'components/date/story/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Stress realistic preset, regex and long-save flows
+        run: pnpm exec vitest run utils/storyHumanChaosPressure.test.ts utils/storyRegex.test.ts utils/storyRegexImport.test.ts utils/storyPresetImportAudit.test.ts utils/storyTheaterEntryFlow.test.ts utils/storyTheaterAtomicTurn.test.ts utils/storyTheaterArchiveAtomic.test.ts utils/storyTheaterSaveNavigate.test.ts
+      - name: Check story test TypeScript
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/story-chaos-tsc.log 2>&1 || true
+          grep -E '^(utils/storyHumanChaosPressure.test.ts)\\(' /tmp/story-chaos-tsc.log > /tmp/story-chaos-errors.log || true
+          if [ -s /tmp/story-chaos-errors.log ]; then cat /tmp/story-chaos-errors.log; exit 1; fi
+      - name: Real Chromium long-story flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-chaos
+          pnpm exec vite --host 127.0.0.1 --port 5186 --strictPort >/tmp/story-chaos-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -fsSL http://127.0.0.1:5186/story-reading-scroll-visual.html >/dev/null && break
+            sleep 1
+          done
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for scenario in 'novel:middle:0' 'novel:middle:1' 'novel:latest:1' 'dark:middle:1'; do
+            IFS=: read -r mode focus rich <<< "$scenario"
+            url="http://127.0.0.1:5186/story-reading-scroll-visual.html?mode=$mode&focus=$focus&count=240&rich=$rich"
+            output="output/story-chaos/$mode-$focus-$rich"
+            "$browser" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=390,900 --virtual-time-budget=20000 --dump-dom "$url" > "$output.html"
+            if ! grep -q 'data-story-scroll-ready="true"' "$output.html"; then tail -80 /tmp/story-chaos-vite.log; exit 1; fi
+            "$browser" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=390,900 --virtual-time-budget=18000 --screenshot="$GITHUB_WORKSPACE/$output.png" "$url"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: story-human-chaos-browser
+          path: output/story-chaos/
+          retention-days: 7
+          if-no-files-found: ignore
