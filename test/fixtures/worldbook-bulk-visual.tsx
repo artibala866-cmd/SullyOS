@@ -151,6 +151,54 @@ const run = async () => {
             saveEdit.click();
             await checkReturn('Save');
         }
+        if (mode === 'many-move') {
+            visualStage = 'move-from-backup-page2-to-pressure-page6';
+            secondHeader.click();
+            await waitFor(() => [...document.querySelectorAll('h4')].some(node => node.textContent?.startsWith('备用条目')) ? document.querySelector('h4') : null);
+            const next = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '下一页');
+            if (!next) throw new Error('Backup category next-page button missing');
+            next.click();
+            await waitFor(() => (document.getElementById('root')?.textContent || '').includes('2 / 2')
+                && document.querySelectorAll('h4').length === 12 ? document.querySelector('h4') : null);
+            const movingCard = [...document.querySelectorAll<HTMLElement>('[data-worldbook-entry-id]')]
+                .find(el => el.querySelector('h4')?.textContent?.trim() === '备用条目24');
+            if (!movingCard?.dataset.worldbookEntryId) throw new Error('Backup page-two entry missing');
+            const movingId = movingCard.dataset.worldbookEntryId;
+            movingCard.scrollIntoView({ block: 'center' });
+            await sleep(100);
+            movingCard.querySelector<HTMLButtonElement>('button[data-worldbook-action="edit"]')?.click();
+            const categoryInput = await waitFor(() => document.querySelector<HTMLInputElement>('input[placeholder="例如: 世界观、人物、地理..."]'));
+            fillReactInput(categoryInput, '压力测试世界书');
+            await sleep(120);
+            const save = [...document.querySelectorAll<HTMLButtonElement>('button')]
+                .find(button => button.textContent?.trim() === '保存');
+            if (!save) throw new Error('Moved-entry save button missing');
+            save.click();
+            const destination = await waitFor(() => {
+                const entry = [...document.querySelectorAll<HTMLElement>('[data-worldbook-entry-id]')]
+                    .find(el => el.dataset.worldbookEntryId === movingId);
+                const page = document.getElementById('root')?.textContent || '';
+                return entry && page.includes('6 / 6') ? entry : null;
+            });
+            const recorded = (await DB.getAllWorldbooks()).find(book => book.id === movingId);
+            if (recorded?.category !== '压力测试世界书') throw new Error('Moved entry not persisted in destination group');
+            const destinationGroup = [...document.querySelectorAll('h3')].find(node => node.textContent === '压力测试世界书')?.parentElement?.parentElement;
+            if (!destinationGroup?.contains(destination)) throw new Error('Destination group not expanded around moved entry');
+            const destinationRect = destination.getBoundingClientRect();
+            const scrollRect = scroller.getBoundingClientRect();
+            if (destinationRect.bottom < scrollRect.top + 10 || destinationRect.top > scrollRect.bottom - 10)
+                throw new Error('Moved entry was rendered but remained off-screen');
+            (window as any).worldbookCategoryMove = true;
+            // Preserve original source group page 4 and its visual assertions after testing destination page 6.
+            for (const pageNumber of [5, 4]) {
+                const previous = [...document.querySelectorAll<HTMLButtonElement>('button')]
+                    .find(button => button.textContent?.trim() === '上一页');
+                if (!previous) throw new Error('Destination previous-page button missing');
+                previous.click();
+                await waitFor(() => (document.getElementById('root')?.textContent || '').includes(pageNumber + ' / 6')
+                    && document.querySelectorAll('h4').length === 12 ? document.querySelector('h4') : null);
+            }
+        }
     }
     if (mode !== 'normal' && !manyMode) {
         const input = await waitFor(() => document.querySelector<HTMLInputElement>('input[aria-label="搜索世界书条目"]'));
@@ -289,6 +337,7 @@ const run = async () => {
     output.setAttribute('data-long-press-selected', String((window as any).worldbookLongPressSelected === true));
     output.setAttribute('data-return-after-cancel', String((window as any).worldbookReturnCancel === true));
     output.setAttribute('data-return-after-save', String((window as any).worldbookReturnSave === true));
+    output.setAttribute('data-category-move-return', String((window as any).worldbookCategoryMove === true));
     output.setAttribute('data-action-hit-zones', String((window as any).worldbookActionHitZones === true));
     output.setAttribute('data-action-isolation', String((window as any).worldbookActionIsolation === true));
     output.setAttribute('data-intro-present', String(heading.includes('世界书是做什么的')));
