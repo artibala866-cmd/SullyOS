@@ -113,3 +113,64 @@ describe('一起听完整生命周期与重启恢复', () => {
     expect(provider).toContain('announceMusicListenSessionChanged(charId)');
   });
 });
+
+describe('真实乱序操作：跨标签、多人及反复改主意', () => {
+  it('同一个 Char 两端同时狂点邀请，随后接受/拒绝同时抢答只能结算一次', async () => {
+    const charId = prefix + 'chaos-invite-race';
+    const attempts = await Promise.all(Array.from({ length: 36 }, (_, i) =>
+      DB.createMusicListeningInvite(i % 2 === 0 ? incoming(charId) : {
+        charId, role: 'user' as const, type: 'system' as const, content: '一起听吗',
+        metadata: { musicListenInvite: true, inviter: 'user', status: 'pending', invitedAt: Date.now() },
+      })));
+    const winners = attempts.map((row, i) => ({ ...row, i })).filter(row => row.status === 'created');
+    expect(winners).toHaveLength(1);
+    const first = winners[0];
+    const inviter = first.i % 2 === 0 ? 'char' : 'user';
+    expect(attempts.filter(row => row.status === 'pending_other').length).toBeGreaterThan(0);
+    const decisions = await Promise.all(Array.from({ length: 24 }, (_, i) =>
+      DB.resolveMusicListeningInvite(charId, inviter, {
+        charId, role: inviter === 'char' ? 'user' as const : 'assistant' as const,
+        type: 'system' as const, content: i % 2 === 0 ? '接受' : '拒绝',
+        metadata: { accepted: i % 2 === 0 },
+      }, first.messageId)));
+    expect(decisions.filter(row => row.resolved)).toHaveLength(1);
+    const saved = await DB.getMessagesByCharId(charId, true);
+    const responses = saved.filter(m => m.metadata?.musicListenInviteResponseTo === first.messageId);
+    expect(responses).toHaveLength(1);
+    expect((await DB.getMusicListeningSession(charId))?.active === true)
+      .toBe(responses[0].metadata?.accepted === true);
+    const active = await DB.getMusicListeningSession(charId);
+    if (active?.active) await DB.transitionMusicListeningSession(charId, 'end', active.sessionId);
+    const repeat = await DB.createMusicListeningInvite(incoming(charId));
+    expect(repeat.status).toBe('created');
+    expect(repeat.messageId).not.toBe(first.messageId);
+    const stale = await DB.resolveMusicListeningInvite(charId, inviter, {
+      charId, role: 'user', type: 'system', content: '迟到的同意', metadata: { accepted: true },
+    }, first.messageId);
+    expect(stale.resolved).toBe(false);
+    expect(await DB.getMusicListeningSession(charId)).toMatchObject({ active: false });
+    const actual = await DB.resolveMusicListeningInvite(charId, 'char', {
+      charId, role: 'user', type: 'system', content: '接受新邀请', metadata: { accepted: true },
+    }, repeat.messageId);
+    expect(actual.resolved).toBe(true);
+    expect((await DB.getMusicListeningSession(charId))?.active).toBe(true);
+  });
+
+  it('八个 Char 同时一起听，退出其中三个不影响其他五个，旧页面不能误关新会话', async () => {
+    const ids = Array.from({ length: 8 }, (_, i) => prefix + 'chaos-multi-' + i);
+    const joined = await Promise.all(ids.map(id => DB.transitionMusicListeningSession(id, 'join')));
+    expect(joined.every(s => s?.active)).toBe(true);
+    const firstIds = joined.map(s => s!.sessionId);
+    await Promise.all(ids.slice(0, 3).map((id, i) =>
+      DB.transitionMusicListeningSession(id, 'end', firstIds[i])));
+    const still = await DB.listActiveMusicListeningSessions();
+    expect(ids.slice(3).every(id => still.some(row => row.charId === id))).toBe(true);
+    expect(ids.slice(0, 3).every(id => !still.some(row => row.charId === id))).toBe(true);
+    const restarted = await DB.transitionMusicListeningSession(ids[0], 'join');
+    expect(restarted?.active).toBe(true);
+    const oldTab = await DB.transitionMusicListeningSession(ids[0], 'end', firstIds[0]);
+    expect(oldTab).toMatchObject({ active: true, changed: false, sessionId: restarted!.sessionId });
+    const finalRows = await DB.listActiveMusicListeningSessions();
+    expect(ids.every(id => finalRows.some(row => row.charId === id))).toBe(true);
+  });
+});
