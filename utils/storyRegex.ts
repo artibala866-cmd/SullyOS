@@ -191,8 +191,10 @@ export function storyRegexScopeApplies(
 
 export function storyRegexApplies(rule: StoryRegexRule, stage: 'display' | 'history', input?: StoryRegexInput): boolean {
     if (!rule.enabled || (stage === 'display' ? !rule.display : (rule.kind !== 'filter' || !rule.history))) return false;
-    if (!storyRegexScopeApplies(rule, input || {})) return false;
+    // Worker prefilter has no per-message input yet. Only apply native
+    // character/scene restrictions when the actual message is available.
     if (!input) return true;
+    if (!storyRegexScopeApplies(rule, input)) return false;
     const role = rule.role ?? 'assistant';
     if (role !== 'both' && role !== (input.role ?? 'assistant')) return false;
     const depth = input.depth;
@@ -236,7 +238,8 @@ export function storyRegexInstruction(rule: StoryRegexRule, context: StoryRegexC
     const keywords = rule.source?.triggerKeywords;
     // A source may enable keyword triggering without providing any keywords.
     // An empty list means no keyword restriction, never an impossible trigger.
-    if (keywords?.length && !keywords.some(keyword => recentText.toLowerCase().includes(keyword.toLowerCase()))) return '';
+    if (rule.source?.triggerEnabled && keywords?.length &&
+        !keywords.some(keyword => recentText.toLowerCase().includes(keyword.toLowerCase()))) return '';
     return rule.source ? storyRegexMacros(rule.instruction, context) : rule.instruction;
 }
 
