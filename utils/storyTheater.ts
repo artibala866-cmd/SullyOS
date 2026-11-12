@@ -2614,6 +2614,7 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
         sidestory: '酒馆小剧场',
         randomtheater: '酒馆随机小剧场',
         writing_interlude: '酒馆写作间隙',
+        wine: '酒馆小剧场',
         partner_sidestory: '酒馆伙伴剧场',
         small_theater: '酒馆小剧场',
         side_theater: '酒馆小剧场',
@@ -2644,7 +2645,7 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
     // other appendix. Each sandbox should retain its own local CSS. Only
     // genuinely top-level author styles can be shared with all appendices.
     const sharedStyles = Array.from(document.querySelectorAll('style'))
-        .filter(style => !style.closest('sidestory,randomtheater,writing_interlude,partner_sidestory,small_theater,side_theater,episode,draft,microlist,details,mini_theater'))
+        .filter(style => !style.closest('sidestory,randomtheater,writing_interlude,wine,partner_sidestory,small_theater,side_theater,episode,draft,microlist,details,mini_theater'))
         .map(style => '<style>' + (style.textContent || '') + '</style>')
         .join('\n').slice(0, 26000);
     const push = (kind: StoryDisplayBlockKind, raw: string, title?: string, htmlSource?: string) => {
@@ -2754,7 +2755,7 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
  * reply whenever the active preset is switched to another source.
  */
 export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
-    /<\s*(?:ecot|blend|thinking|think|thought|content|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    /<\s*(?:ecot|blend|thinking|think|thought|content|wine|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
     || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
     || /<details\b[^>]*>\s*<summary\b/i.test(value);
 
@@ -2764,7 +2765,7 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
     if (fromTavern && typeof DOMParser !== 'undefined') return parseTavernStoryDisplayBlocks(source);
     const blocks: StoryDisplayBlock[] = [];
     const topLevel = fromTavern
-        ? /<(thinking|think|thought|content|details|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
+        ? /<(thinking|think|thought|content|details|wine|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|partner_sidestory|scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi
         : /<(scene_header|story_text|backstage|mind_weather|worldline|world_line|shot_debts|mini_theater|reply_choices|affinity_panel)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let cursor = 0;
     let match: RegExpExecArray | null;
@@ -2773,6 +2774,7 @@ export const parseStoryDisplayBlocks = (content: string, fromTavern = false): St
         randomtheater: '酒馆随机小剧场',
         writing_interlude: '酒馆写作间隙',
         partner_sidestory: '酒馆伙伴剧场',
+        wine: '酒馆小剧场',
         meow_fm: '剧情摘要',
         branches: '剧情选项',
         seeds: '剧情伏笔',
