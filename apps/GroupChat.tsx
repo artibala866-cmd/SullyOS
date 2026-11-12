@@ -1567,7 +1567,7 @@ ${memberTimeline || '(暂无互动记录)'}
             try {
                 const guidance = await loadAlchemyInstructions('online',
                     typeof recentUser?.content === 'string' ? recentUser.content.slice(-500) : '',
-                    { user: userProfile.name, char: groupMembers.map(member => member.name).join('、') });
+                    { user: userProfile.name, char: groupMembers.map(member => member.name).join('、'), scene: 'chat' });
                 if (guidance.length) onlineAlchemyGuide =
                     '\n【群聊格式】仅在角色的 content 字段内输出以下标签，不得破坏外层 JSON 结构。\n'
                     + guidance.join('\n');
@@ -1575,7 +1575,7 @@ ${memberTimeline || '(暂无互动记录)'}
             const prompt = `${context}\n\n${buildDirectorInstruction({ ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photo.text}${onlineAlchemyGuide}\n`;
 
             const alchemyDirectorMessages = buildGroupRequestMessages(groupMembers, prompt, history);
-            try { await applyAlchemyRequestHistory('online', alchemyDirectorMessages); }
+            try { await applyAlchemyRequestHistory('online', alchemyDirectorMessages, { scene: 'chat' }); }
             catch (error) { console.warn('[Alchemy] group director history rules skipped', error); }
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1700,13 +1700,13 @@ ${memberTimeline || '(暂无互动记录)'}
                     try {
                         const guidance = await loadAlchemyInstructions('online',
                             typeof lastUser?.content === 'string' ? lastUser.content.slice(-500) : '',
-                            { user: userProfile.name, char: member.name });
+                            { user: userProfile.name, char: member.name, characterId: member.id, scene: 'chat' });
                         if (guidance.length) alchemyGuide = '\n' + guidance.join('\n');
                     } catch (error) { console.warn('[Alchemy] group member guidance unavailable', error); }
                     const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, { ...history, text: '（见下方独立消息历史）' }, emojiContextStr, activeGroup.privateChatSyncEnabled !== false)}${htmlPromptExt}${photoRule}${alchemyGuide}\n`;
 
                     const alchemyMemberMessages = buildGroupRequestMessages([member], prompt, history);
-                    try { await applyAlchemyRequestHistory('online', alchemyMemberMessages); }
+                    try { await applyAlchemyRequestHistory('online', alchemyMemberMessages, { characterId: member.id, scene: 'chat' }); }
                     catch (error) { console.warn('[Alchemy] group round robin history rules skipped', error); }
                     const data = await completeGroupChatWithMcp({
                         url: `${dialogueApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
