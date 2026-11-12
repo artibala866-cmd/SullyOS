@@ -2556,7 +2556,32 @@ const formatTaggedStoryFragment = (fragment: string): string => {
  * original generated text unchanged in the saved floor and prompt history.
  */
 const normalizeTavernThinkingBlocks = (raw: string): string => {
-    const source = raw.replace(/<\s*(\/?)\s*ecot\b[^>]*>/gi,
+    let source = raw;
+    // Lachesis uses <blend> for its pre-story deduction instead of <thinking>.
+    // Only recognize it when it starts before the story body; never reinterpret
+    // an author's <blend> markup inside the actual <content> prose.
+    const firstBlend = source.search(/<\s*blend\b[^>]*>/i);
+    const firstStory = source.search(/<\s*(?:content|story_text)\b[^>]*>/i);
+    if (firstBlend >= 0 && (firstStory < 0 || firstBlend < firstStory)) {
+        // The fixed bartender greeting belongs to the deduction header, not
+        // the visible novel. This only affects the display copy, not history.
+        source = source.replace(
+            /^\s*拉刻西斯\s*[:：]\s*夜客[，,]\s*我在柜台后面听[。.!！]?\s*(?=(?:<!--\s*Mixing Now\s*-->\s*)?<\s*blend\b)/i,
+            '',
+        );
+        const storyBoundary = source.search(/<\s*(?:content|story_text)\b[^>]*>/i);
+        source = source.replace(/<\s*(\/?)\s*blend\b[^>]*>/gi,
+            (tag, closing: string, offset: number) => storyBoundary >= 0 && offset >= storyBoundary
+                ? tag : closing ? '</thinking>' : '<thinking>');
+    }
+    // Some Lite presets only print the ECoT comment markers. In that case,
+    // recover their bounded thinking section without touching tagged output.
+    source = source.replace(
+        /<!--\s*Start the ECoT\s*-->([\s\S]*?)<!--\s*End of (?:The )?ECoT\s*-->/gi,
+        (whole, body: string) => /<\s*\/?\s*(?:thinking|think|thought|ecot)\b/i.test(body)
+            ? whole : '<thinking>' + body + '</thinking>',
+    );
+    source = source.replace(/<\s*(\/?)\s*ecot\b[^>]*>/gi,
         (_whole, closing: string) => closing ? '</thinking>' : '<thinking>');
     const delimiters = /<\s*\/?\s*thinking\b[^>]*>|<\s*(?:content|story_text)\b[^>]*>/gi;
     let result = '';
@@ -2729,7 +2754,7 @@ const parseTavernStoryDisplayBlocks = (source: string): StoryDisplayBlock[] => {
  * reply whenever the active preset is switched to another source.
  */
 export const looksLikeLegacyTavernStoryOutput = (value: string): boolean =>
-    /<\s*(?:ecot|thinking|think|thought|content|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
+    /<\s*(?:ecot|blend|thinking|think|thought|content|meow_fm|branches|seeds|bbs|snow|secrets|sidestory|randomtheater|writing_interlude|episode|draft|microlist|ink|count)\b/i.test(value)
     || /<details\b[^>]*\bdata-(?:info|fate)\s*=/i.test(value)
     || /<details\b[^>]*>\s*<summary\b/i.test(value);
 
