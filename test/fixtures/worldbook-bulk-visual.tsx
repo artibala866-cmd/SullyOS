@@ -30,7 +30,11 @@ const seed = async () => {
             String(i), { uid: i, comment: name, content: name + '的详细设定内容。', key: [], constant: true },
         ]));
         const books = parseStandardWorldbook(JSON.stringify({ entries }), group.category);
-        for (const book of books) await DB.saveWorldbook(book);
+        for (const [index, book] of books.entries()) {
+            // Simulate imported books with mixed enabled states for the card switch.
+            if (mode.startsWith('toggle') && group.category === '海边设定' && index === 0) book.disable = true;
+            await DB.saveWorldbook(book);
+        }
     }
 };
 
@@ -60,6 +64,38 @@ const run = async () => {
         fillReactInput(input, diaryMode ? '日记' : '海岸');
         await waitFor(() => document.querySelector('h4'));
         await sleep(200);
+        if (mode.startsWith('toggle')) {
+            const switches = await waitFor(() => {
+                const items = [...document.querySelectorAll<HTMLButtonElement>('button[role="switch"]')];
+                return items.length === 7 ? items[0] : null;
+            });
+            const before = await DB.getAllWorldbooks();
+            const disabledOriginal = before.find(book => book.category === '海边设定' && book.disable);
+            if (!disabledOriginal || switches.getAttribute('aria-checked') !== 'false')
+                throw new Error('Fixture must start with one disabled book and a visible off switch');
+            const firstCard = switches.closest('.cursor-pointer');
+            if (!firstCard || (firstCard.querySelector('h4')?.textContent || '') !== '海岸')
+                throw new Error('Switch not placed on the correct worldbook card');
+            // Native pointer gestures on the switch must never initiate a long press or expand the card.
+            if (mode !== 'toggle-initial') {
+                switches.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'touch', clientX: 310, clientY: 200 }));
+                switches.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerType: 'touch', clientX: 310, clientY: 200 }));
+                switches.click();
+                await waitFor(() => switches.getAttribute('aria-checked') === 'true' ? switches : null);
+                const saved = await DB.getAllWorldbooks();
+                if (saved.find(book => book.id === disabledOriginal.id)?.disable !== false) throw new Error('Enabling a book did not persist to IndexedDB');
+                if (saved.some(book => book.disable)) throw new Error('Enabling one book modified unrelated records');
+                const next = [...document.querySelectorAll<HTMLButtonElement>('button[role="switch"]')].find(el => el !== switches);
+                if (!next || next.getAttribute('aria-checked') !== 'true') throw new Error('Other switches must remain enabled');
+                next.click();
+                await waitFor(() => next.getAttribute('aria-checked') === 'false' ? next : null);
+                const after = await DB.getAllWorldbooks();
+                if (after.filter(book => book.disable).length !== 1) throw new Error('Disabling one other book must persist exactly once');
+                if (after.find(book => book.id === disabledOriginal.id)?.disable) throw new Error('First enabled book reverted unexpectedly');
+                if (document.querySelector('button[title="退出批量管理"]') || document.querySelector('h4')?.closest('.cursor-pointer')?.textContent?.includes('详细设定内容'))
+                    throw new Error('Switch must not trigger card preview or multiselect');
+            }
+        }
         if (mode === 'selected') {
             // Use the actual 520ms press gesture, including the trailing mobile click.
             const card = await waitFor(() => document.querySelector('h4')?.closest<HTMLElement>('.cursor-pointer') || null);
@@ -112,6 +148,10 @@ const run = async () => {
     output.setAttribute('data-long-press-selected', String((window as any).worldbookLongPressSelected === true));
     output.setAttribute('data-intro-present', String(heading.includes('世界书是做什么的')));
     output.setAttribute('data-horizontal-overflow', String(Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) > window.innerWidth + 1));
+    output.setAttribute('data-switch-on-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="true"]')].length));
+    output.setAttribute('data-switch-off-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="false"]')].length));
+    output.setAttribute('data-switch-aria-labels', String([...document.querySelectorAll('button[role="switch"]')].every(button => !!button.getAttribute('aria-label'))));
+    output.setAttribute('data-switch-has-visible-text', String([...document.querySelectorAll('button[role="switch"]')].some(button => !!button.textContent?.trim())));
     output.style.display = 'none';
     document.body.appendChild(output);
 };
