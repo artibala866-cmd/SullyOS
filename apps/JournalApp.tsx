@@ -1186,70 +1186,72 @@ ${charPart}
                 </div>
 
 
-                <div className="sully-journal-calendar-list min-h-0 flex-1 overflow-y-auto px-[17px] pb-20 pt-[22px] no-scrollbar">
-                    <section className="sully-journal-calendar-sheet relative mx-auto w-full max-w-[460px] overflow-hidden rounded-lg border border-[#e6e2dc] bg-[#fffefa] shadow-[0_8px_28px_rgba(56,49,39,0.055)]">
-                        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-[#d7d2c9]" />
-                        <div className="relative px-[22px] pb-6 pl-[25px] pt-[26px] sm:px-7">
-                            <div className="sully-journal-calendar-heading flex min-w-0 items-center gap-[13px] border-b border-[#ebe7e0] pb-[23px]">
-                                <div className="h-[52px] w-[52px] shrink-0 rounded-full border border-[#e6e3dd] bg-white p-[3px]">
-                                    <TokenImg value={selectedChar.avatar} className="h-full w-full rounded-full object-cover" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <h2 className="sully-journal-calendar-title truncate text-[23px] font-semibold leading-tight tracking-wide text-[#292824]">{selectedChar.name}</h2>
-                                    <span className="mt-[7px] block text-[11px] tracking-wide text-[#a09b93]">{String(diaries.length).padStart(2, '0')} 篇日记</span>
-                                </div>
+
+                <main className="sully-journal-calendar-list min-h-0 flex-1 overflow-y-auto bg-white no-scrollbar">
+                    <section className="sully-journal-calendar-sheet mx-auto min-h-full w-full max-w-[580px] bg-white px-6 pb-24 pt-8 sm:px-8">
+                        <div className="sully-journal-calendar-heading flex min-w-0 items-center gap-4 border-b border-neutral-200 pb-6">
+                            <div className="h-14 w-14 shrink-0 rounded-full border border-neutral-200 bg-white p-[3px]">
+                                <TokenImg value={selectedChar.avatar} className="h-full w-full rounded-full object-cover" />
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={() => openEntry(getLocalDateStr())}
-                                className="sully-journal-new-entry mt-[18px] flex h-[58px] w-full items-center gap-[11px] rounded-[9px] border border-[#ece9e2] bg-[#f7f6f3] px-[13px] text-left text-[#302e2a] transition-colors active:bg-[#f0eee9]"
-                            >
-                                <span className="flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border border-[#c9c5bc] text-[19px] font-light leading-none" aria-hidden="true">+</span>
-                                <span className="min-w-0 flex-1 text-[14px] font-semibold">写今天的日记</span>
-                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4 shrink-0 text-[#b0aba3]"><path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" /></svg>
-                            </button>
-
-                            <div className="sully-journal-entries mt-[22px] border-t border-[#ebe7e0]">
-                                {diaries.length > 0 ? diaries.map(d => (
-                                    <div key={d.id} className="sully-journal-entry flex min-w-0 items-center border-b border-[#ece9e3] py-[15px]">
-                                        <button
-                                            type="button"
-                                            onClick={() => openEntry(d.date)}
-                                            aria-label={'打开' + d.date + '的日记'}
-                                            className="flex min-w-0 flex-1 items-center gap-[10px] text-left transition-opacity active:opacity-70"
-                                        >
-                                            <span className="sully-journal-entry-date flex w-[49px] shrink-0 flex-col items-start border-r border-[#e6e1db] pl-[2px]">
-                                                <span className="text-[23px] font-normal leading-tight text-[#34312d]" style={{ fontFamily: 'Georgia, Times New Roman, serif' }}>{d.date.slice(8, 10)}</span>
-                                                <span className="mt-[5px] text-[10px] leading-tight text-[#99958f]">{d.date.slice(5, 7)}月</span>
-                                                <span className="mt-1 text-[10px] leading-tight text-[#99958f]">{d.date.slice(0, 4)}</span>
-                                            </span>
-                                            <span className="min-w-0 flex-1">
-                                                <span className="sully-journal-entry-text block truncate text-[13px] font-medium leading-[1.5] text-[#3c3935]">{d.userPage.text || '空白日记'}</span>
-                                                <span className="sully-journal-entry-badges mt-[9px] flex items-center gap-[9px] text-[#aaa59d]">
-                                                    {d.charPage && <span title="已回复" aria-label="已回复"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-[14px] w-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8 8 0 0 1-3.2-.65L4 20l1.6-4.7A7.5 7.5 0 1 1 20 11.5Z" /><path strokeLinecap="round" d="m9.5 11.5 2 2 3.5-4" /></svg></span>}
-                                                    {d.chatCardMessageId && <span title="已同步聊天" aria-label="已同步聊天"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-[14px] w-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M8 6h11v11H8zM5 9H4v11h11v-1" /></svg></span>}
-                                                    {d.isArchived && <span title="已归档" aria-label="已归档"><Archive size={14} /></span>}
-                                                </span>
-                                            </span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setDeletingDiary(d)}
-                                            aria-label={'删除' + d.date + '的日记'}
-                                            title="删除日记"
-                                            className="ml-1 flex h-9 w-7 shrink-0 items-center justify-end rounded-full text-[#a9a49d] transition-colors hover:text-neutral-700"
-                                        >
-                                            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-[15px] w-[15px]"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7h15M10 10v8m4-8v8M6 7l.8 13h10.4L18 7M9 7V4h6v3" /></svg>
-                                        </button>
-                                    </div>
-                                )) : (
-                                    <div className="sully-journal-calendar-empty flex h-[96px] items-center justify-center border-b border-[#ece9e3] text-xs text-[#b4afa8]">还没有日记</div>
-                                )}
+                            <div className="min-w-0 flex-1">
+                                <h2 className="sully-journal-calendar-title truncate text-[23px] font-semibold leading-tight text-neutral-900">{selectedChar.name}</h2>
+                                <span className="mt-2 block text-xs text-neutral-400">{diaries.length} 篇日记</span>
                             </div>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => openEntry(getLocalDateStr())}
+                            className="sully-journal-new-entry flex w-full items-center gap-3 border-b border-neutral-200 bg-white py-[21px] text-left text-neutral-900 transition-colors active:bg-neutral-50"
+                        >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-300" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className="h-4 w-4"><path strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
+                            </span>
+                            <span className="min-w-0 flex-1 text-[14px] font-medium">写今天的日记</span>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4 shrink-0 text-neutral-400"><path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" /></svg>
+                        </button>
+
+                        <div className="sully-journal-entries">
+                            {diaries.length > 0 ? diaries.map(d => (
+                                <div key={d.id} className="sully-journal-entry flex min-w-0 items-center border-b border-neutral-200 py-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => openEntry(d.date)}
+                                        aria-label={'打开' + d.date + '的日记'}
+                                        className="flex min-w-0 flex-1 items-center gap-4 text-left transition-opacity active:opacity-70"
+                                    >
+                                        <span className="sully-journal-entry-date flex w-[47px] shrink-0 flex-col items-start">
+                                            <span className="text-[24px] font-medium leading-none text-neutral-900">{d.date.slice(8, 10)}</span>
+                                            <span className="mt-2 text-[11px] leading-none text-neutral-400">{d.date.slice(5, 7)}月</span>
+                                            <span className="mt-1.5 text-[10px] leading-none text-neutral-400">{d.date.slice(0, 4)}</span>
+                                        </span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="sully-journal-entry-text block truncate text-[14px] font-medium leading-relaxed text-neutral-800">{d.userPage.text || '空白日记'}</span>
+                                            <span className="sully-journal-entry-badges mt-2 flex items-center gap-2.5 text-neutral-400">
+                                                {d.charPage && <span title="已回复" aria-label="已回复"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-[14px] w-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8 8 0 0 1-3.2-.65L4 20l1.6-4.7A7.5 7.5 0 1 1 20 11.5Z" /><path strokeLinecap="round" d="m9.5 11.5 2 2 3.5-4" /></svg></span>}
+                                                {d.chatCardMessageId && <span title="已同步聊天" aria-label="已同步聊天"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-[14px] w-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M8 6h11v11H8zM5 9H4v11h11v-1" /></svg></span>}
+                                                {d.isArchived && <span title="已归档" aria-label="已归档"><Archive size={14} /></span>}
+                                            </span>
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeletingDiary(d)}
+                                        aria-label={'删除' + d.date + '的日记'}
+                                        title="删除日记"
+                                        className="ml-2 flex h-10 w-8 shrink-0 items-center justify-end rounded-full text-neutral-400 transition-colors hover:text-neutral-700"
+                                    >
+                                        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7h15M10 10v8m4-8v8M6 7l.8 13h10.4L18 7M9 7V4h6v3" /></svg>
+                                    </button>
+                                </div>
+                            )) : (
+                                <div className="sully-journal-calendar-empty flex items-center justify-center pt-16 text-xs text-neutral-400">
+                                    还没有日记
+                                </div>
+                            )}
+                        </div>
                     </section>
-                </div>
+                </main>
 
                 <Modal 
                     isOpen={!!deletingDiary}
