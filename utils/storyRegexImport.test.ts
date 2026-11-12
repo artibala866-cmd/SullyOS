@@ -6,7 +6,44 @@ import { parseStoryRegexDisplay } from './storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from './storyTheaterHtml';
 import { ALCHEMY_REFERENCE_REGEX_PRESETS, ALCHEMY_REFERENCE_HTML_PRESETS } from './alchemyReferencePresets';
 
-describe('糯叽机炼金术导入', () => { 
+describe('糯叽机炼金术导入', () => {
+    it('原版角色绑定必须手动适配，绝不泄露到其他糯米机角色或线上请求', () => {
+        const native = parseStoryRegexImport(JSON.stringify({
+            name: '原作者专属正则', pattern: '秘密词', replacement: '隐去',
+            scope: 'character', characterIds: ['foreign-app-id'],
+            scenes: ['chat'], applyOnDisplay: 1, applyOnPrompt: 1,
+            aiPrompt: '原作者限定的指令', enabled: 1,
+        })).rules[0];
+        expect(native.enabled).toBe(false);
+        expect(native.source?.originalCharacterIds).toEqual(['foreign-app-id']);
+        const mapped = { ...native, enabled: true, source: {
+            ...native.source, localCharacterIds: ['local-a'],
+        } };
+        const input = (id: string) => ({ text: '秘密词',
+            role: 'assistant' as const, characterId: id, scene: 'chat' });
+        expect(applyStoryRegex(input('local-a'), [mapped], 'display').text).toBe('隐去');
+        expect(applyStoryRegex(input('local-b'), [mapped], 'display').text).toBe('秘密词');
+        expect(applyStoryRegex('秘密词', [mapped], 'display').text).toBe('秘密词');
+        expect(storyRegexInstruction(mapped, { characterId: 'local-b', scene: 'chat' }, '秘密词')).toBe('');
+        expect(storyRegexInstruction(mapped, { characterId: 'local-a', scene: 'chat' }, '秘密词'))
+            .toBe('原作者限定的指令');
+        const unbound = { ...mapped, source: { ...mapped.source, localCharacterIds: [] } };
+        expect(applyStoryRegex(input('local-a'), [unbound], 'display').text).toBe('秘密词');
+    });
+
+    it('原版无角色 ID 的聊天范围可以应用于当前聊天，手选线下位置不受原版 chat 场景限制', () => {
+        const rule = parseStoryRegexImport(JSON.stringify({
+            name: '通用聊天规则', pattern: '旧字', replacement: '新字',
+            scope: 'chat', characterIds: [], scenes: ['chat'],
+            enabled: 1, applyOnDisplay: 1,
+        })).rules[0];
+        expect(rule.enabled).toBe(true);
+        expect(applyStoryRegex({ text: '旧字', characterId: 'local-a', scene: 'chat' }, [rule], 'display').text).toBe('新字');
+        expect(applyStoryRegex({ text: '旧字', scene: 'chat' }, [rule], 'display').text).toBe('旧字');
+        const offline = { ...rule, source: { ...rule.source, originalScope: 'global' }, offlineScenes: ['meeting' as const] };
+        expect(applyStoryRegex({ text: '旧字', scene: 'meeting' }, [offline], 'display').text).toBe('新字');
+    });
+ 
     it('保留糯叽机原版五个文字预设和四个 HTML 预设，均为用户主动选择', () => {
         expect(ALCHEMY_REFERENCE_REGEX_PRESETS).toHaveLength(5);
         expect(ALCHEMY_REFERENCE_HTML_PRESETS).toHaveLength(4);
