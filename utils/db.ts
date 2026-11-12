@@ -16,7 +16,7 @@ import { persistCharacterWithHomeMessages } from './homeMessageBridge';
 import {deleteLinkedSecretNotes, deleteSecretNotesForIds, announceSecretNotesChanged} from './secretNote';
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import { planStoryOpeningDocumentImport, type StoryOpeningImportDocument, type StoryOpeningImportPlan } from './storyOpeningDocumentImport';
-import { resolveStoryPresetImport, withBuiltInStoryPresets } from './storyTheater';
+import { resolveStoryPresetImport, withBuiltInStoryPresets, type StoryPresetImportDecision } from './storyTheater';
 import { restoreSavedStoryTavernPreset } from './storyTavernLegacyGroups';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
 
@@ -4055,7 +4055,10 @@ export const DB = {
       });
   },
 
-  importStoryTheaterPreset: async (imported: StoryTheaterPreset): Promise<ReturnType<typeof resolveStoryPresetImport>> => {
+  importStoryTheaterPreset: async (
+    imported: StoryTheaterPreset, decision: StoryPresetImportDecision = 'copy',
+    targetId?: string,
+  ): Promise<ReturnType<typeof resolveStoryPresetImport>> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
@@ -4068,9 +4071,9 @@ export const DB = {
       read.onsuccess = () => {
         try {
           const stored = (read.result as StoryTheaterPreset[]).sort((a, b) => b.updatedAt - a.updatedAt);
-          result = resolveStoryPresetImport(imported, withBuiltInStoryPresets(stored));
-          if (!result.duplicate) store.add(result.preset);
-          else if (result.upgraded) store.put(result.preset);
+          result = resolveStoryPresetImport(imported, withBuiltInStoryPresets(stored), decision, targetId);
+          if (result.overwritten || result.upgraded) store.put(result.preset);
+          else if (!result.duplicate) store.add(result.preset);
         } catch (error) {
           failure = error;
           tx.abort();
