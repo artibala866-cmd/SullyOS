@@ -226,11 +226,7 @@ const run = async () => {
             await waitFor(() => document.querySelector('[data-worldbook-list-scroll]'));
             const freshDelete = document.querySelector<HTMLButtonElement>('[data-worldbook-entry-id] button[data-worldbook-action="delete"]');
             freshDelete?.click();
-            await waitFor(() => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('删除') && button.textContent?.includes('该条目')) as HTMLElement | undefined || null).catch(async () => {
-                const label = document.body.textContent || '';
-                if (!label.includes('确定要删除')) throw new Error('Delete touch did not open confirmation');
-                return document.body;
-            });
+            await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '确认删除') || null);
             const afterDeletePrompt = await DB.getAllWorldbooks();
             if (afterDeletePrompt.length !== next.length)
                 throw new Error('Delete touch bypassed confirmation');
