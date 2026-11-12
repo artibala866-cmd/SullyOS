@@ -59,6 +59,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
     const [bulk, setBulk] = useState(false);
     const [bulkSelected, setBulkSelected] = useState<string[]>([]);
     const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+    const [macroField, setMacroField] = useState<'pattern' | 'replacement' | 'instruction'>('replacement');
     const [exportSelected, setExportSelected] = useState<string[]>([]);
     const test = useRef<AbortController | null>(null);
     const upload = useRef<HTMLInputElement>(null);
@@ -144,6 +145,11 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
         } catch (reason) {
             setError(reason instanceof Error ? reason.message : '无法添加预设');
         }
+    };
+
+    const insertMacro = (macro: string) => {
+        if (!draft) return;
+        patch({ [macroField]: (draft[macroField] || '') + macro } as Partial<StoryRegexRule>);
     };
 
     const exportSelectedRules = () => {
@@ -509,6 +515,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                         <label className='min-w-0 text-[13px] font-medium text-neutral-700'>匹配正则
                             <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
                                 value={draft.pattern} spellCheck={false}
+                                onFocus={() => setMacroField('pattern')}
                                 placeholder={isTemplate ? '<card>([\\s\\S]*?)</card>' : '<think>[\\s\\S]*?</think>'}
                                 onChange={event => patch({ pattern: event.target.value })}/>
                         </label>
@@ -545,6 +552,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             className={'block w-full min-w-0 resize-y rounded-xl border border-[#e5e7e5] bg-white p-3 font-mono text-[13px] leading-6 text-neutral-800 outline-none transition-colors focus:border-[#a7aea8] focus:ring-2 focus:ring-[#dfe5df]/60 ' +
                                 (isTemplate ? 'min-h-[152px]' : 'min-h-[96px]')}
                             rows={isTemplate ? 7 : 3} value={draft.replacement}
+                            onFocus={() => setMacroField('replacement')}
                             maxLength={STORY_TEMPLATE_MAX_LENGTH} spellCheck={false}
                             placeholder={isTemplate ? '<div>{{$1}}</div>' : ''}
                             onChange={event => patch({ replacement: event.target.value })}/>
@@ -624,6 +632,7 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 <label className='min-w-0 text-xs text-neutral-600'>匹配正则
                                     <textarea className={fieldClass + ' resize-y font-mono text-xs'} rows={2}
                                         value={draft.pattern} spellCheck={false}
+                                onFocus={() => setMacroField('pattern')}
                                         onChange={event => patch({ pattern: event.target.value })}/>
                                 </label>
                                 <label className='min-w-0 text-xs text-neutral-600'>修饰符
@@ -668,12 +677,26 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                             <label className='block text-xs text-neutral-600'>{isTemplate ? '格式指令' : '规则指令'}
                                 <textarea className={fieldClass + ' font-mono text-xs'} rows={3}
                                     value={draft.instruction} maxLength={4000}
+                                    onFocus={() => setMacroField('instruction')}
                                     onChange={event => patch({ instruction: event.target.value })}/>
                             </label>
                             {isTemplate && <label className='flex items-center gap-2 text-xs'>
                                 <input type='checkbox' checked={draft.display} onChange={event => patch({ display: event.target.checked })}/>
                                 显示 HTML
                             </label>}
+                            <details className='rounded-xl bg-[#f5f6f4] px-2.5 py-2'>
+                                <summary className='cursor-pointer text-xs text-neutral-600'>原版变量快捷插入</summary>
+                                <div className='mt-2 flex flex-wrap gap-1.5'>
+                                    {['{{user}}','{{char}}','{{user.gender}}','{{char.gender}}',
+                                        '{{user.avatar}}','{{char.avatar}}','{{time}}','{{date}}',
+                                        '{{random:a,b,c}}','{{match}}'].map(macro =>
+                                        <button key={macro} type='button'
+                                            aria-label={'插入变量 ' + macro}
+                                            onClick={() => insertMacro(macro)} className={actionClass}>
+                                            {macro}
+                                        </button>)}
+                                </div>
+                            </details>
                             <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
                                 <label className='flex items-center gap-2 text-[12px] text-neutral-700'>
                                     <input type='checkbox' checked={!!draft.source?.triggerEnabled}
