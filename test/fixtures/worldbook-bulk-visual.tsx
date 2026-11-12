@@ -8,10 +8,14 @@ import { parseStandardWorldbook } from '../../utils/worldbook';
 
 const mode = new URLSearchParams(location.search).get('mode') || 'normal';
 const diaryMode = mode.startsWith('diary');
+const manyMode = mode.startsWith('many');
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const seed = async () => {
-    const groups = mode === 'diary-overflow'
+    const groups = manyMode ? [
+        { category: '压力测试世界书', names: Array.from({length: 68}, (_, i) => `压力条目${String(i + 1).padStart(2, '0')}`) },
+        { category: '备用分组世界书', names: Array.from({length: 24}, (_, i) => `备用条目${String(i + 1).padStart(2, '0')}`) },
+    ] : mode === 'diary-overflow'
         ? [
             { category: '日记设定', names: [...Array(16).fill('日记'), '日记本', '日记本'] },
         ] : diaryMode
@@ -58,8 +62,49 @@ const run = async () => {
     createRoot(document.getElementById('root')!).render(
         <OSProvider><MusicProvider><WorldbookApp /></MusicProvider></OSProvider>
     );
-    await waitFor(() => [...document.querySelectorAll('h3')].find(el => el.textContent === (diaryMode ? mode === 'diary-overflow' ? '日记设定' : '余天酮的世界书' : '海边设定')) as HTMLElement | undefined || null);
-    if (mode !== 'normal') {
+    await waitFor(() => [...document.querySelectorAll('h3')].find(el => el.textContent === (manyMode ? '压力测试世界书' : diaryMode ? mode === 'diary-overflow' ? '日记设定' : '余天酮的世界书' : '海边设定')) as HTMLElement | undefined || null);
+    if (manyMode) {
+        const headings = [...document.querySelectorAll('h3')] as HTMLElement[];
+        if (headings.length !== 2 || document.querySelectorAll('h4').length !== 0)
+            throw new Error('Collapsed categories must not render any hidden card DOM nodes');
+        const firstHeader = headings.find(el => el.textContent === '压力测试世界书')!.parentElement!;
+        const secondHeader = headings.find(el => el.textContent === '备用分组世界书')!.parentElement!;
+        firstHeader.click();
+        await waitFor(() => document.querySelectorAll('h4').length === 12 ? document.querySelector('h4') : null);
+        const nextPage = () => [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === '下一页');
+        for (let page = 2; page <= 4; page++) {
+            const next = nextPage();
+            if (!next || next.disabled) throw new Error('Page ' + page + ' not reachable');
+            next.click();
+            const first = `压力条目${String((page - 1) * 12 + 1).padStart(2, '0')}`;
+            await waitFor(() => [...document.querySelectorAll('h4')].find(h => h.textContent === first) as HTMLElement | undefined || null);
+        }
+        if (document.querySelectorAll('h4').length !== 12) throw new Error('Page 4 should show twelve entries');
+        if (![...document.querySelectorAll('h4')].every(node => (node.textContent || '').startsWith('压力条目')))
+            throw new Error('Collapsed backup category leaked cards into the active page');
+        secondHeader.click();
+        await waitFor(() => [...document.querySelectorAll('h4')].some(h => h.textContent === '备用条目01') ? document.querySelector('h4') : null);
+        if (document.querySelectorAll('h4').length !== 12) throw new Error('Switching groups must unmount previous cards');
+        firstHeader.click();
+        await waitFor(() => [...document.querySelectorAll('h4')].some(h => h.textContent === '压力条目37') ? document.querySelector('h4') : null);
+        // Repeatedly scroll the large fourth page, where the user saw an empty white tile.
+        const scroller = document.querySelector<HTMLElement>('.overflow-y-auto');
+        if (!scroller) throw new Error('Worldbook scroll container missing');
+        for (let i = 0; i < 3; i++) {
+            scroller.scrollTop = 0;
+            await sleep(90);
+            scroller.scrollTop = scroller.scrollHeight;
+            await sleep(120);
+        }
+        await sleep(350);
+        const cards = [...document.querySelectorAll<HTMLElement>('div.group.relative.overflow-hidden')];
+        if (cards.length !== 12) throw new Error('Expected twelve real cards on page 4, got ' + cards.length);
+        if (cards.some(card => getComputedStyle(card).backdropFilter !== 'none'))
+            throw new Error('Repeated GPU-heavy backdrop blur is still applied to Worldbook cards');
+        if (!cards.every(card => card.querySelector('h4') && card.querySelector('button[role="switch"]')))
+            throw new Error('Worldbook cards on page 4 lost text or switches');
+    }
+    if (mode !== 'normal' && !manyMode) {
         const input = await waitFor(() => document.querySelector<HTMLInputElement>('input[aria-label="搜索世界书条目"]'));
         fillReactInput(input, diaryMode ? '日记' : '海岸');
         await waitFor(() => document.querySelector('h4'));
@@ -149,6 +194,10 @@ const run = async () => {
     output.setAttribute('data-duplicate-empty-state', String(mode === 'diary-delete' && heading.includes('世界还是空白的')));
     output.setAttribute('data-long-press-selected', String((window as any).worldbookLongPressSelected === true));
     output.setAttribute('data-intro-present', String(heading.includes('世界书是做什么的')));
+    output.setAttribute('data-many-page4', String(manyMode && heading.includes('4 / 6')));
+    output.setAttribute('data-many-card-count', String(manyMode ? document.querySelectorAll('h4').length : 0));
+    output.setAttribute('data-many-filter-count', String(manyMode ? [...document.querySelectorAll('div.group.relative.overflow-hidden')].filter(card => getComputedStyle(card).backdropFilter !== 'none').length : 0));
+    output.setAttribute('data-many-content-present', String(manyMode && [...document.querySelectorAll('h4')].some(node => node.textContent === '压力条目48')));
     output.setAttribute('data-horizontal-overflow', String(Math.max(document.body.scrollWidth, document.documentElement.scrollWidth) > window.innerWidth + 1));
     output.setAttribute('data-switch-on-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="true"]')].length));
     output.setAttribute('data-switch-off-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="false"]')].length));
