@@ -51,7 +51,7 @@ const waitFor = async (find: () => HTMLElement | null) => {
     }
     const groups = [...document.querySelectorAll('h3')].map(el => el.textContent?.trim()).join(',');
     const cards = [...document.querySelectorAll('h4')].map(el => el.textContent?.trim()).slice(0, 3).join(',');
-    const pagination = [...document.querySelectorAll('span')].map(el => el.textContent?.trim()).filter(t => /^\\d+ \\/ \\d+$/.test(t || '')).slice(0, 3).join(',');
+    const pagination = [...document.querySelectorAll('span')].map(el => el.textContent?.trim()).filter(t => (t || '').includes(' / ')).slice(0, 3).join(',');
     throw new Error(`Worldbook fixture timeout (${mode}/${visualStage}, groups=[${groups}], cards=[${cards}], pages=[${pagination}])`);
 };
 
