@@ -139,6 +139,11 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 || prompt.content.toLocaleLowerCase().includes(query));
         }),
     ), [allPromptsById, groups, query, tavernBrowse]);
+    const matchingPrompts = useMemo(() => !tavernBrowse || !query || activeGroup?.label.toLocaleLowerCase().includes(query)
+        ? activePrompts
+        : activePrompts.filter(prompt => prompt.name.toLocaleLowerCase().includes(query)
+            || prompt.content.toLocaleLowerCase().includes(query)),
+    [activeGroup?.label, activePrompts, query, tavernBrowse]);
     const visiblePrompts = useMemo(() => !tavernBrowse || showEmptyEntries ? matchingPrompts
         : matchingPrompts.filter(prompt => ['content', 'connector'].includes(storyPresetPromptKind(prompt))),
     [matchingPrompts, showEmptyEntries, tavernBrowse]);
