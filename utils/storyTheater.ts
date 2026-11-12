@@ -848,11 +848,11 @@ export const recognizeTavernPromptHeading = (
     const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
     if (corner) return { label: corner[1].trim(), edge: /[┗╚╝┛]/.test(name) ? 'end' : 'start' };
     // Structural banners only: never inspect prompt bodies to decide sections.
-    const pipe = /^[|｜]\\s*[—─━=-]+\\s*(.{2,72}?)\\s*[—─━=-]+\\s*[|｜]$/u.exec(name);
+    const pipe = /^[|｜]\s*[—─━=-]+\s*(.{2,72}?)\s*[—─━=-]+\s*[|｜]$/u.exec(name);
     if (pipe) return { label: pipe[1].trim(), edge: 'divider' };
-    if (/^[▾▿▼▽⏷\\s]{2,}(?:选一|单选|择一)[▾▿▼▽⏷\\s]{2,}$/u.test(name))
+    if (/^[▾▿▼▽⏷\s]{2,}(?:选一|单选|择一)[▾▿▼▽⏷\s]{2,}$/u.test(name))
         return { label: '选一', edge: 'start' };
-    if (/^[▴▵▲△⏶\\s]{2,}(?:选一|单选|择一)[▴▵▲△⏶\\s]{2,}$/u.test(name))
+    if (/^[▴▵▲△⏶\s]{2,}(?:选一|单选|择一)[▴▵▲△⏶\s]{2,}$/u.test(name))
         return { label: '选一', edge: 'end' };
     // MoM and Phantasm author headings do not always use paired arrows.
     // They are visual boundaries, not selectable prompt entries.
@@ -1148,7 +1148,7 @@ const tavernStructuralFamily = (prompt: StoryTheaterPresetPrompt): string => {
     if (/^(?:rule:|local:|global:)/.test(cluster)) return cluster;
     const name = tavernAuthorChoiceName(prompt.name).replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/gu, '');
     // Some newer formats mark a one-of-N family in the entry name itself.
-    const authoredChoice = /[（(]\\s*(?:选一|单选|择一)\\s*[）)]\\s*(.{2,35}?)[-—:：]/u.exec(name);
+    const authoredChoice = /[（(]\s*(?:选一|单选|择一)\s*[）)]\s*(.{2,35}?)[-—:：]/u.exec(name);
     if (authoredChoice) return 'author-choice:' + authoredChoice[1].trim().toLocaleLowerCase();
     const prefixed = /^(.{2,35}?)[：:·｜|／/]\s*(.{1,80})$/u.exec(name);
     if (prefixed && !/^(?:系统|说明|规则|注意|配置|章节|模块|代码)$/u.test(prefixed[1]))
