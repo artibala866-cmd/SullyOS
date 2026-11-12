@@ -3944,7 +3944,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const pending = new Set(streamingHandoverIds);
         return displayMessages.filter(message => !pending.has(message.id));
     }, [displayMessages, streamingBubbles, streamingThinking, streamingHandoverIds, selectionMode]);
-    const alchemyResults = useAlchemyMessageResults(renderedMessages, onlineAlchemyRules, 'online', 'default', activeCharacterId);
+    const alchemyResults = useAlchemyMessageResults(renderedMessages, onlineAlchemyRules, 'online', 'default', activeCharacterId, { user: userProfile.name, char: char.name, userAvatar: userProfile.perCharAvatars?.[char.id] || userProfile.avatar, charAvatar: char.avatar });
 
     useLayoutEffect(() => {
         publishReplyDisplay(activeCharacterId, renderedMessages.map(message => message.id), streamingBubbles);
