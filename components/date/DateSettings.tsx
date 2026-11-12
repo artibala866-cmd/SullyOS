@@ -9,6 +9,7 @@ import { CharacterProfile, SpriteConfig, SkinSet, DateStyleConfig } from '../../
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import { pickDateFallbackSprite } from '../../utils/dateSprites';
+import { patchDateSprite, removeDateCustomEmotion } from '../../utils/dateSpriteMutations';
 import { DATE_SCENES, type DateSceneKey } from '../../utils/dateScenes';
 import TokenImg from '../os/TokenImg';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
@@ -92,7 +93,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const [extraEditorOpen, setExtraEditorOpen] = useState(false);
     useEffect(() => { setExtraDraft(char.dateStyleConfig?.extra || ''); }, [char.id]);
     const patchStyleConfig = (patch: Partial<DateStyleConfig>) => {
-        updateCharacter(char.id, { dateStyleConfig: { ...(char.dateStyleConfig || {}), ...patch } });
+        updateCharacter(char.id, current => ({ dateStyleConfig: { ...(current.dateStyleConfig || {}), ...patch } }));
     };
     const saveExtraDraft = () => {
         const trimmed = extraDraft.trim();
@@ -215,17 +216,13 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 const key = targetEmotionKey.trim().toLowerCase();
                 const skinId = editingSkinId;
                 if (!key || !skinId) { addToast('参数丢失', 'error'); return; }
-                const updatedSets = (char.dateSkinSets || []).map(s =>
-                    s.id === skinId ? { ...s, sprites: { ...s.sprites, [key]: ref } } : s
-                );
-                updateCharacter(char.id, { dateSkinSets: updatedSets });
+                updateCharacter(char.id, current => patchDateSprite(current, key, ref, skinId));
                 addToast(`皮肤立绘 [${key}] 已保存`, 'success');
                 setTargetEmotionKey('');
             } else {
                 const key = targetEmotionKey.trim().toLowerCase();
                 if (!key) { addToast('情绪Key丢失', 'error'); return; }
-                const newSprites = { ...(char.sprites || {}), [key]: ref };
-                updateCharacter(char.id, { sprites: newSprites });
+                updateCharacter(char.id, current => patchDateSprite(current, key, ref));
                 addToast(`立绘 [${key}] 已保存`, 'success');
                 setTargetEmotionKey('');
             }
@@ -241,17 +238,19 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         const name = newSkinName.trim();
         if (!name) { addToast('请输入皮肤名称', 'error'); return; }
         if (skinSets.some(s => s.name === name)) { addToast('该名称已存在', 'error'); return; }
-        const newSkin: SkinSet = { id: `skin_${Date.now()}`, name, sprites: {} };
-        updateCharacter(char.id, { dateSkinSets: [...skinSets, newSkin] });
+        const newSkin: SkinSet = { id: `skin_${crypto.randomUUID()}`, name, sprites: {} };
+        updateCharacter(char.id, current => ({
+            dateSkinSets: [...(current.dateSkinSets || []), newSkin],
+        }));
         setNewSkinName('');
         addToast(`皮肤 [${name}] 已创建`, 'success');
     };
 
     const handleDeleteSkinSet = (skinId: string) => {
-        const updated = skinSets.filter(s => s.id !== skinId);
-        const patch: Partial<CharacterProfile> = { dateSkinSets: updated };
-        if (activeSkinId === skinId) patch.activeSkinSetId = undefined;
-        updateCharacter(char.id, patch);
+        updateCharacter(char.id, current => ({
+            dateSkinSets: (current.dateSkinSets || []).filter(s => s.id !== skinId),
+            ...(current.activeSkinSetId === skinId ? { activeSkinSetId: undefined } : {}),
+        }));
         if (editingSkinId === skinId) setEditingSkinId(null);
         addToast('已删除皮肤', 'success');
     };
@@ -277,17 +276,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
             addToast('请输入有效的 URL (http/https)', 'error'); return;
         }
 
-        if (urlTargetSkinId) {
-            // Save to skin set
-            const updatedSets = (char.dateSkinSets || []).map(s =>
-                s.id === urlTargetSkinId ? { ...s, sprites: { ...s.sprites, [key]: url } } : s
-            );
-            updateCharacter(char.id, { dateSkinSets: updatedSets });
-        } else {
-            // Save to default sprites
-            const newSprites = { ...(char.sprites || {}), [key]: url };
-            updateCharacter(char.id, { sprites: newSprites });
-        }
+        updateCharacter(char.id, current => patchDateSprite(current, key, url, urlTargetSkinId));
         addToast(`立绘 [${key}] URL 已保存`, 'success');
         setSkinUrlInput('');
         setSkinUrlEmotionKey('');
@@ -308,19 +297,15 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         if (REQUIRED_EMOTIONS.includes(key)) { addToast('该名称与默认情绪重复', 'error'); return; }
         if (customEmotions.includes(key)) { addToast('该自定义情绪已存在', 'error'); return; }
         if (key === 'chibi') { addToast('不能使用 chibi 作为情绪名', 'error'); return; }
-        const updated = [...customEmotions, key];
-        updateCharacter(char.id, { customDateSprites: updated });
+        updateCharacter(char.id, current => ({
+            customDateSprites: [...new Set([...(current.customDateSprites || []), key])],
+        }));
         setNewEmotionName('');
         addToast(`已添加自定义情绪 [${key}]`, 'success');
     };
 
     const handleDeleteCustomEmotion = (key: string) => {
-        const updated = customEmotions.filter(e => e !== key);
-        updateCharacter(char.id, { customDateSprites: updated });
-        // Also remove the sprite image for this emotion
-        const newSprites = { ...(char.sprites || {}) };
-        delete newSprites[key];
-        updateCharacter(char.id, { sprites: newSprites, customDateSprites: updated });
+        updateCharacter(char.id, current => removeDateCustomEmotion(current, key));
         addToast(`已删除自定义情绪 [${key}]`, 'success');
     };
 

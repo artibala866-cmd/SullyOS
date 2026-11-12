@@ -35,6 +35,8 @@ export const bindDateBgmCharacter = (
   if (!charId || !dateBgmLists(library).some(p => p.id === listId)) return null;
   if (enabled && dateBgmLists(library).find(p => p.id === listId)!.characterIds.includes(charId)) return library;
   return { ...library, dateBgmPlaylists: dateBgmLists(library).map(p => {
+    // Unchecking a stale/other playlist must never cancel the character's NEW binding.
+    if (!enabled && p.id !== listId) return p;
     const characterIds = p.characterIds.filter(id => id !== charId);
     if (enabled && p.id === listId) characterIds.push(charId);
     return characterIds.length === p.characterIds.length && characterIds.every((id, i) => p.characterIds[i] === id)

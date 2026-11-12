@@ -53,6 +53,34 @@ describe('dedicated Meet BGM binding and playback gate', () => {
     expect(dateBgmLists(lib)[1].characterIds).toEqual([]);
     expect(renameDateBgmList(lib, 'meet-2', '雨天')?.dateBgmPlaylists?.[1].name).toBe('雨天');
   });
+  it('stale unbind on playlist A cannot erase a newer binding on playlist B', () => {
+    let lib = createDateBgmList(create(), '雨夜', 'meet-2', 101)!;
+    lib = bindDateBgmCharacter(lib, 'meet-1', 'a', true)!;
+    lib = bindDateBgmCharacter(lib, 'meet-2', 'a', true)!;
+    // A checkbox was still closing while B was selected.
+    lib = bindDateBgmCharacter(lib, 'meet-1', 'a', false)!;
+    expect(dateBgmLists(lib)[0].characterIds).toEqual([]);
+    expect(dateBgmLists(lib)[1].characterIds).toEqual(['a']);
+    lib = addDateBgmSong(lib, 'meet-2', mkSong(222))!;
+    expect(findCharacterDateBgm(lib, 'a')?.songs.map(musicKey)).toEqual(['netease:222']);
+    lib = bindDateBgmCharacter(lib, 'meet-2', 'a', false)!;
+    expect(findCharacterDateBgm(lib, 'a')).toBeNull();
+  });
+  it('interleaved two-character BGM changes never move the other character', () => {
+    let lib = createDateBgmList(create(), '雨夜', 'meet-2', 101)!;
+    lib = addDateBgmSong(lib, 'meet-1', mkSong(1))!;
+    lib = addDateBgmSong(lib, 'meet-2', mkSong(2))!;
+    lib = bindDateBgmCharacter(lib, 'meet-1', 'alice', true)!;
+    lib = bindDateBgmCharacter(lib, 'meet-2', 'bob', true)!;
+    for (let i = 0; i < 160; i++) {
+      const desired = i % 2 ? 'meet-1' : 'meet-2';
+      const old = i % 2 ? 'meet-2' : 'meet-1';
+      lib = bindDateBgmCharacter(lib, desired, 'alice', true)!;
+      lib = bindDateBgmCharacter(lib, old, 'alice', false)!;
+      expect(findCharacterDateBgm(lib, 'alice')?.id).toBe(desired);
+      expect(findCharacterDateBgm(lib, 'bob')?.id).toBe('meet-2');
+    }
+  });
   it('source-aware dedup prevents same song duplicate, but keeps QQ and NetEase distinct', () => {
     let lib = create();
     lib = addDateBgmSong(lib, 'meet-1', mkSong(42))!;
