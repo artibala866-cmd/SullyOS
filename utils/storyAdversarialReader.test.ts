@@ -143,6 +143,33 @@ describe('真实玩家不按常理过剧情：分批、归档、生成隔离', (
         expect(read.mock.calls.some(([, limit]) => limit > 40)).toBe(false);
     }, 30000);
 
+    it('打开旧归档后马上关闭再重开：第一次慢响应不能覆盖第二次看到的新原文', async () => {
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async (id, limit) =>
+            ({ messages: data.filter(x => x.charId === id).slice(-limit), totalCount: 95 }));
+        let phase: 'first' | 'second' = 'first';
+        const oldReplies: Array<() => void> = [];
+        const body = vi.spyOn(DB, 'getMessageById').mockImplementation(id => {
+            const original = data.find(row => row.id === id) || null;
+            if (phase === 'first') return new Promise<Message | null>(resolve =>
+                oldReplies.push(() => resolve(original)));
+            return Promise.resolve(original && { ...original, content: '更新后的原文B-' + id });
+        });
+        const page = await mount();
+        await clickOlder();
+        const details = page.querySelector<HTMLDetailsElement>('.story-archive-range > details')!;
+        await toggle(details, true);
+        expect(oldReplies.length).toBeGreaterThan(0);
+        await toggle(details, false);
+        phase = 'second';
+        await toggle(details, true);
+        await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+        expect(page.textContent).toContain('更新后的原文B-56');
+        await act(async () => { oldReplies.splice(0).forEach(done => done()); await Promise.resolve(); });
+        expect(page.textContent).toContain('更新后的原文B-56');
+        expect(page.textContent).not.toContain('原文楼层标识=056');
+        expect(body).toHaveBeenCalled();
+    }, 30000);
+
     it('旧20层在慢速读取时直接切换另一部剧情：旧查询回调不能污染新剧本', async () => {
         const b = { ...entry, id: 'chaos-arc-b', title: '另一篇剧情',
             archives: [], readingBatchSize: 10 };
