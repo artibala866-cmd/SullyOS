@@ -443,8 +443,10 @@ try{
         message:{content:JSON.stringify({name:'林同学',messages:generated})},
       }]}),{status:200,headers:{'Content-Type':'application/json'}}));
     };
+    press('我',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim().startsWith('设置')), 'WeChat settings entry after avatar return');
     const configEntry=buttons(phone()).find(b=>b.textContent?.trim().startsWith('设置'));
-    if(!configEntry)throw Error('No phone settings entry from profile page');
+    if(!configEntry)throw Error('No phone settings entry after avatar return');
     configEntry.click();
     await wait(()=>phone().textContent.includes('查手机独立 API'),'independent phone API settings');
     const apiToggle=[...phone().querySelectorAll('label')]
