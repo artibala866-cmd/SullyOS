@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Message } from '../types';
 import { DB } from '../utils/db';
 import { ALCHEMY_CHANGED, alchemyRulesFor, alchemyRulesForMeeting, alchemyRuleAppliesTo, updateAlchemyRules, type AlchemyDomain } from '../utils/alchemyRegex';
-import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexResult, type StoryRegexRule } from '../utils/storyRegex';
+import { readStoryRegexRules, STORY_REGEX_ASSET, type StoryRegexContext, type StoryRegexResult, type StoryRegexRule } from '../utils/storyRegex';
 import { runStoryRegex } from '../utils/storyRegexRunner';
 
 export function useAlchemyRules(domain: AlchemyDomain) {
@@ -37,9 +37,16 @@ export function useAlchemyRules(domain: AlchemyDomain) {
  * quote snapshots and outgoing model context stay byte-for-byte intact. */
 const EMPTY_ALCHEMY_RESULTS = new Map<number, StoryRegexResult>();
 
-export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexRule[], domain: AlchemyDomain, scene: 'default' | 'meeting' = 'default', characterId?: string) {
+export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexRule[], domain: AlchemyDomain, scene: 'default' | 'meeting' = 'default', characterId?: string, identity: StoryRegexContext = {}) {
     const active = useMemo(() => scene === 'meeting' ? alchemyRulesForMeeting(rules)
         : alchemyRulesFor(rules, domain), [rules, domain, scene]);
+    const macroContext = useMemo<StoryRegexContext>(() => ({
+        user: identity.user, char: identity.char,
+        userAvatar: identity.userAvatar, charAvatar: identity.charAvatar,
+        userGender: identity.userGender, charGender: identity.charGender,
+        characterId, scene: scene === 'meeting' ? 'meeting' : 'chat',
+    }), [identity.user, identity.char, identity.userAvatar, identity.charAvatar,
+        identity.userGender, identity.charGender, characterId, scene]);
     const [cache, setCache] = useState<{
         messages: Message[]; active: StoryRegexRule[]; results: Map<number, StoryRegexResult>;
     } | null>(null);
@@ -48,11 +55,13 @@ export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexR
         const eligible = active.length ? messages.filter(message =>
             (message.role === 'assistant' || message.role === 'user') && message.type === 'text' && !!message.content) : [];
         if (!eligible.length) { setCache({ messages, active, results: EMPTY_ALCHEMY_RESULTS }); return; }
+        const depths = new Map(messages.map((message, index) => [message.id, messages.length - 1 - index]));
         void runStoryRegex(eligible.map(message => ({
             text: message.content, role: message.role as 'assistant' | 'user',
             characterId: characterId || message.charId,
             scene: scene === 'meeting' ? 'meeting' : 'chat',
-        })), active, 'display', controller.signal).then(converted => {
+            depth: depths.get(message.id),
+        })), active, 'display', controller.signal, macroContext).then(converted => {
             if (!controller.signal.aborted) setCache({ messages, active,
                 results: new Map(eligible.map((message, index) => [message.id, converted[index]])) });
         }).catch(error => {
@@ -60,7 +69,7 @@ export function useAlchemyMessageResults(messages: Message[], rules: StoryRegexR
             if (!controller.signal.aborted) console.warn('[Alchemy] display rules skipped', error);
         });
         return () => controller.abort();
-    }, [messages, active, characterId, scene]);
+    }, [messages, active, characterId, scene, macroContext]);
     // Never show a stale transformed bubble while switching characters,
     // editing messages or changing rule folders. The original text renders
     // until the current worker run completes.
