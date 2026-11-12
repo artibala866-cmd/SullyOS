@@ -457,7 +457,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                 <p className='px-4 pb-3 text-[11px] leading-4 text-slate-500 line-clamp-1' title={current}>{current}</p>
                                 {section.single && on.length > 1 && <p className='px-4 pb-2 text-[10px] text-amber-800'>
                                     原文件在这组同时开启了多项；保留原状态，不自动关闭，点击选项后才按作者单选规则切换。
-                                </p>
+                                </p>}
                                 {expanded && <div className='border-t border-slate-100 px-3 pt-3 pb-2.5'>
                                     <div className='flex flex-wrap gap-2'>{section.options.map(option =>
                                         <button key={option.id} type='button' disabled={readOnly}
