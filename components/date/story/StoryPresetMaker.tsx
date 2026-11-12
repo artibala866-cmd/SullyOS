@@ -14,6 +14,7 @@ import {
     getStoryTavernAuthorSections,
     selectStoryTavernAuthorOption,
     storyPresetPromptKind,
+    isStoryPresetBrowseVisible,
     isProtectedStoryPrompt,
     isStoryPresetSectionMarker,
     makeStoryTheaterId,
@@ -146,7 +147,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             || prompt.content.toLocaleLowerCase().includes(query)),
     [activeGroup?.label, activePrompts, query, tavernBrowse]);
     const visiblePrompts = useMemo(() => !tavernBrowse || showEmptyEntries ? matchingPrompts
-        : matchingPrompts.filter(prompt => ['content', 'connector'].includes(storyPresetPromptKind(prompt))),
+        : matchingPrompts.filter(isStoryPresetBrowseVisible),
     [matchingPrompts, showEmptyEntries, tavernBrowse]);
     const promptIndexes = useMemo(() => new Map(activePrompts.map((prompt, index) => [prompt.id, index])), [activePrompts]);
     const sourceIndexes = useMemo(() => new Map(draft.document.prompts.map((prompt, index) => [prompt.id, index])), [draft.document.prompts]);
@@ -166,10 +167,15 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             .filter((item): item is StoryTheaterPresetPrompt => Boolean(item) && !isStoryPresetSectionMarker(item!));
         return [group.key, {
             total: entries.length,
-            usable: entries.filter(item => ['content', 'connector'].includes(storyPresetPromptKind(item))).length,
+            usable: entries.filter(item => tavernBrowse ? isStoryPresetBrowseVisible(item) : ['content', 'connector'].includes(storyPresetPromptKind(item))).length,
             enabled: entries.filter(item => item.enabled).length,
         }] as const;
-    })), [groups, allPromptsById]);
+    })), [groups, allPromptsById, tavernBrowse]);
+    // Purely empty generated groups remain in source, but need not be opened.
+    const displayedGroups = useMemo(() => !tavernBrowse || showEmptyEntries || query
+        ? matchingGroups
+        : matchingGroups.filter(group => !group.autoGrouped || (groupCounts.get(group.key)?.usable || 0) > 0),
+    [matchingGroups, groupCounts, query, showEmptyEntries, tavernBrowse]);
     const inspectedSection = authorSections.find(section => section.key === inspectedAuthor?.sectionKey);
     const inspectedPrompt = draft.document.prompts.find(prompt => prompt.id === inspectedAuthor?.promptId);
     // Restore after React has committed the destination view, not before the
@@ -201,6 +207,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const enterGroup = (key: string) => {
         previousOverviewScroll.current = mainScrollRef.current?.scrollTop || 0;
         pendingScrollRef.current = 0;
+        setShowEmptyEntries(false);
         setActiveGroupKey(key);
         setSelectedId('');
     };
@@ -490,7 +497,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                             placeholder='搜索分类或全部提示词…' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs outline-none focus:border-violet-300' />
                         
                     </div>}
-                    <div className='divide-y divide-slate-200'>{matchingGroups.map(group => {
+                    <div className='divide-y divide-slate-200'>{displayedGroups.map(group => {
                         const index = groups.findIndex(item => item.key === group.key);
                         const counts = groupCounts.get(group.key) || { total: 0, usable: 0, enabled: 0 };
                         return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[9px] text-violet-500'>{tavernBrowse ? `${counts.usable} 条有效 · ${counts.total - counts.usable} 条占位／空白` : `${counts.enabled}/${counts.total} 条启用`}</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
