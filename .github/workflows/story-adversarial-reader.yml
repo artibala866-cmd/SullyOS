@@ -64,6 +64,14 @@ jobs:
               exit 1
             fi
           done
+          # The genuine story screen starts a billable mock completion, receives
+          # 13 impatient taps, leaves the route, returns, and checks exact-once
+          # persistence without contacting a real model provider.
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --window-size=390,844 --virtual-time-budget=18000 --dump-dom \
+            "http://127.0.0.1:5187/test/fixtures/story-background-visual.html?rapid=1" \
+            > output/story-adversarial/rapid-send-background.html
+          grep -q 'data-story-background-ready="true"' output/story-adversarial/rapid-send-background.html
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

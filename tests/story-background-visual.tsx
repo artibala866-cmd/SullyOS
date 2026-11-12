@@ -68,6 +68,11 @@ const Demo = () => {
             const continueButton = document.querySelector<HTMLButtonElement>('button[aria-label="继续当前剧情"]');
             if (!continueButton) return fail('continue button missing');
             continueButton.click();
+            // Realistic frantic player: a dozen taps before React disables the
+            // button must still own a single model request and single save.
+            if (new URLSearchParams(window.location.search).get('rapid') === '1') {
+                for (let i = 0; i < 12; i++) continueButton.click();
+            }
         }));
         timers.push(later(1700, () => {
             // Actual component removal, not just a CSS-hidden screen.
