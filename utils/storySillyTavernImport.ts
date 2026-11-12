@@ -319,8 +319,10 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         const orderEnabled = typeof item === 'string' ? undefined : item.enabled;
         const flag = orderEnabled === undefined ? source.enabled : orderEnabled;
         if (flag === undefined) unknownEnabledCount += 1;
-        // Unknown is NOT "enabled": avoid changing the author's intended settings.
-        append(identifier, promptEnabled(flag, false, identifier));
+        // Legacy Chat Completion exports omit enabled for on-by-default entries.
+        // Respect explicit false values; preserve old default-on imports rather
+        // than disabling every unannotated source rule.
+        append(identifier, promptEnabled(flag, true, identifier));
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
     for (const identifier of sourceById.keys()) if (!used.has(identifier)) append(identifier, false);
@@ -329,7 +331,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
 
     const warnings: string[] = [];
     if (missingOrderTable) warnings.push('原文件没有 prompt_order；按原数组顺序和明确开关导入');
-    if (unknownEnabledCount) warnings.push(`有 ${unknownEnabledCount} 条缺少原始开关，已保守关闭`);
+    if (unknownEnabledCount) warnings.push(`有 ${unknownEnabledCount} 条缺少原始开关，已沿用酒馆旧版默认开启；可在专业版逐条确认`);
     const regexCount = Array.isArray(value.extensions?.regex_scripts)
         ? value.extensions.regex_scripts.filter((script: any) => script?.disabled !== true).length : 0;
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
