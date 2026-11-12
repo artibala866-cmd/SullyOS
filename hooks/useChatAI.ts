@@ -1007,6 +1007,7 @@ export const useChatAI = ({
                 try {
                     const guidance = await loadAlchemyInstructions('online', recentText, {
                         user: userProfile.name, char: char.name,
+                        characterId: char.id, scene: 'chat',
                     });
                     if (guidance.length) fullMessages.unshift({
                         role: 'system', content: guidance.join('\n\n'),
@@ -1040,7 +1041,7 @@ export const useChatAI = ({
             // Match the same online rule's history stage within THIS request;
             // only the temporary model payload is changed, never the DB.
             if (!promptBuildSkipped) {
-                try { await applyAlchemyRequestHistory('online', fullMessages); }
+                try { await applyAlchemyRequestHistory('online', fullMessages, { characterId: char.id, scene: 'chat' }); }
                 catch (error) { console.warn('[Alchemy] online history rules skipped', error); }
             }
             // 发送前汇总计时
