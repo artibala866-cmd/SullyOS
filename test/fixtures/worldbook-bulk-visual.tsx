@@ -158,6 +158,10 @@ const run = async () => {
     output.setAttribute('data-switch-height', String(Math.round(switchRect?.height || 0)));
     output.setAttribute('data-switch-background', switchForSize ? getComputedStyle(switchForSize).backgroundColor : '');
     output.setAttribute('data-switch-thumb-width', String(Math.round(switchForSize?.firstElementChild?.getBoundingClientRect().width || 0)));
+    const liveOn = document.querySelector<HTMLButtonElement>('button[role="switch"][aria-checked="true"]');
+    const liveOff = document.querySelector<HTMLButtonElement>('button[role="switch"][aria-checked="false"]');
+    output.setAttribute('data-active-switch-color', liveOn ? getComputedStyle(liveOn).backgroundColor : '');
+    output.setAttribute('data-inactive-switch-color', liveOff ? getComputedStyle(liveOff).backgroundColor : '');
     output.style.display = 'none';
     document.body.appendChild(output);
 };
