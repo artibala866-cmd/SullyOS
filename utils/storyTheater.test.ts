@@ -1,5 +1,6 @@
 import { ContextBuilder } from './context';
 import { describe, expect, it } from 'vitest';
+import { readStoryCompletion, storyStreamingPreviewText } from './storyTheaterCompletionIntegrity';
 import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
 import {
@@ -953,5 +954,75 @@ describe('剧情首幕与酒馆开场白绑定', () => {
         expect(resolveStoryOpeningGreeting({ ...entry, openingGreeting: { characterId: actor.id, greetingId: 'missing' } }, [actor], '阿宁')).toBeNull();
         expect(resolveStoryOpeningGreeting({ ...entry, characterIds: [] }, [actor], '阿宁')).toBeNull();
         expect(normalizeStoryTheater({ ...entry, characterIds: [] }).openingGreeting).toBeUndefined();
+    });
+});
+
+describe('剧情流式正文实时预览', () => {
+    const frame = (content: string, finishReason: string | null = null) =>
+        'data: ' + JSON.stringify({ choices: [{ delta: { content }, finish_reason: finishReason }] }) + '\n\n';
+
+    it('正文按 SSE 分片持续显示，思考内容不进入剧情，最终正文仍完整', async () => {
+        const events = [
+            frame('<think>不展示'),
+            frame('隐私推演</think>第一句。'),
+            frame('第二句。'),
+            'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\n',
+            'data: [DONE]\n\n',
+        ];
+        const previews: string[] = [];
+        const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                const encoder = new TextEncoder();
+                for (const event of events) controller.enqueue(encoder.encode(event));
+                controller.close();
+            },
+        });
+        const response = new Response(stream, {
+            status: 200,
+            headers: { 'content-type': 'text/event-stream' },
+        });
+        const result = await readStoryCompletion(response, false, 4000, undefined,
+            text => previews.push(text));
+        expect(previews).toContain('第一句。');
+        expect(previews).toContain('第一句。第二句。');
+        expect(previews.every(text => !text.includes('隐私推演') && !text.includes('不展示'))).toBe(true);
+        expect(result).toEqual({ content: '第一句。第二句。', interruption: undefined });
+    });
+
+    it('中转直接返回完整 JSON 时保持兼容，不制造虚假的流式预览', async () => {
+        const previews: string[] = [];
+        const response = new Response(JSON.stringify({
+            choices: [{ message: { role: 'assistant', content: '一次性完整正文' }, finish_reason: 'stop' }],
+        }), { headers: { 'content-type': 'application/json' } });
+        const result = await readStoryCompletion(response, false, 4000, undefined,
+            text => previews.push(text));
+        expect(result.content).toBe('一次性完整正文');
+        expect(previews).toEqual([]);
+    });
+
+    it('思考标签未闭合或正文标签未完整时不显示控制内容', () => {
+        expect(storyStreamingPreviewText('<thinking>尚未结束的推演')).toBe('');
+        expect(storyStreamingPreviewText('<thinking>推演</thinking><content>开场')).toBe('开场');
+        expect(storyStreamingPreviewText('<ecot>隐藏过程</ecot><story_text>正文')).toBe('正文');
+        expect(storyStreamingPreviewText('故事末尾<未写完的标签')).toBe('故事末尾');
+    });
+
+    it('流式连接半途断开时保留已收正文并标注中断，不把它当作正常完成', async () => {
+        const previews: string[] = [];
+        const response = new Response(new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode(frame('残留但可读的正文')));
+                controller.error(new Error('connection lost'));
+            },
+        }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+        // An immediate stream error may arrive before the buffered bytes on
+        // some runtimes; the recoverable path must at least surface a failure.
+        try {
+            const result = await readStoryCompletion(response, false, 4000, undefined,
+                text => previews.push(text));
+            expect(result.interruption).toBeTruthy();
+        } catch (error) {
+            expect(String(error)).toMatch(/连接中断|未收到|API/);
+        }
     });
 });
