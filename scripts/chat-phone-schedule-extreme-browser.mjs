@@ -331,8 +331,8 @@ try{
     window.dispatchEvent(new CustomEvent('sully:character-moments-changed',
       {detail:{characterId:phoneId,changeKind:'published',actorId:phoneId}}));
     press('发现',phone());
-    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='朋友圈'), 'discover Moments entry');
-    press('朋友圈',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim().startsWith('朋友圈')), 'discover Moments entry');
+    buttons(phone()).find(b=>b.textContent?.trim().startsWith('朋友圈')).click();
     await wait(()=>!!phone().querySelector('[data-testid="moment-post-ci-phone-moment"]'),
       'saved Moment visible');
     const more=()=>phone().querySelector('[data-testid="moment-more-ci-phone-moment"]');
@@ -380,8 +380,8 @@ try{
       category:'日常',amountCents:-500,occurredAt:now,origin:'wechat-simulated',
     }]));
     press('我',phone());
-    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='钱包'), 'WeChat wallet entry');
-    press('钱包',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim().startsWith('钱包')), 'WeChat wallet entry');
+    buttons(phone()).find(b=>b.textContent?.trim().startsWith('钱包')).click();
     await wait(()=>phone().textContent.includes('资产 · ASSETS'),'wallet assets displayed');
     await wait(()=>phone().textContent.includes('495.00'),'receipt applied to wallet balance');
     for(let i=0;i<5;i++){
