@@ -41,6 +41,8 @@ const WorldbookApp: React.FC = () => {
     const longPressRef = useRef<{ id: string; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
     const suppressClickRef = useRef<string | null>(null);
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    const togglingBookIdsRef = useRef<Set<string>>(new Set());
+    const [togglingBookIds, setTogglingBookIds] = useState<Set<string>>(new Set());
 
     const [groupEditor, setGroupEditor] = useState<{ category: string; name: string; mode: 'keep' | 'constant' | 'keyword' } | null>(null);
     const [savingGroup, setSavingGroup] = useState(false);
@@ -462,6 +464,22 @@ const WorldbookApp: React.FC = () => {
         setPreviewBookId(previewBookId === id ? null : id);
     };
 
+    // 列表中直接持久化启用状态，复用角色挂载同步逻辑；防止连续点按造成竞态。
+    const toggleBookEnabled = async (book: Worldbook) => {
+        if (togglingBookIdsRef.current.has(book.id)) return;
+        togglingBookIdsRef.current.add(book.id);
+        setTogglingBookIds(new Set(togglingBookIdsRef.current));
+        try {
+            await updateWorldbook(book.id, { disable: !book.disable });
+            trackEvent('世界书列表切换启用状态', { enabled: book.disable });
+        } catch (error: any) {
+            addToast(error?.message || '切换世界书状态失败，请重试', 'error');
+        } finally {
+            togglingBookIdsRef.current.delete(book.id);
+            setTogglingBookIds(new Set(togglingBookIdsRef.current));
+        }
+    };
+
     // --- Render ---
 
     // EDIT MODAL (Full Screen Overlay Style)
@@ -540,7 +558,7 @@ const WorldbookApp: React.FC = () => {
                         </div>
 
                         <div className="bg-white rounded-[1.5rem] border border-neutral-200/70 p-5 shadow-sm shadow-neutral-200/40 space-y-5">
-                            <div className="flex items-center justify-between gap-4">
+                            {!editingBook && <div className="flex items-center justify-between gap-4">
                                 <div>
                                     <div className="text-xs font-bold text-neutral-700">启用条目</div>
                                     <p className="text-[10px] text-neutral-500 mt-1">关闭后保留内容，但不会注入提示词。</p>
@@ -553,9 +571,9 @@ const WorldbookApp: React.FC = () => {
                                 >
                                     <span className={`block w-5 h-5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${tempEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>
-                            </div>
+                            </div>}
 
-                            <div className="border-t border-neutral-100 pt-4">
+                            <div className={editingBook ? '' : 'border-t border-neutral-100 pt-4'}>
                                 <label className="text-[11px] font-bold text-neutral-500 uppercase mb-2 block tracking-[0.12em]">触发方式</label>
                                 <label className="flex items-center gap-3 py-2 cursor-pointer select-none">
                                     <input
@@ -918,8 +936,8 @@ const WorldbookApp: React.FC = () => {
                                                 Updated: {new Date(book.updatedAt).toLocaleDateString()}
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 mt-2 pl-3.5">
-                                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${book.disable ? 'bg-neutral-200 text-neutral-500' : 'bg-neutral-50 text-neutral-500'}`}>
-                                                    {book.disable ? '已停用' : (book.constant ?? !(book.key && book.key.length > 0)) ? '常驻' : '关键词'}
+                                                <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-neutral-50 text-neutral-500">
+                                                    {(book.constant ?? !(book.key && book.key.length > 0)) ? '常驻' : '关键词'}
                                                 </span>
                                                 <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/70 text-neutral-500">
                                                     {WORLDBOOK_POSITION_LABELS[book.position ?? 1]}
@@ -927,7 +945,22 @@ const WorldbookApp: React.FC = () => {
                                             </div>
                                         </div>
                                         
-                                        {!isSelecting && <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {!isSelecting && <div className="flex flex-col items-end gap-0.5 shrink-0 ml-2">
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={!book.disable}
+                                                aria-label={`${book.title}：${book.disable ? '启用' : '停用'}`}
+                                                title={book.disable ? '启用条目' : '停用条目'}
+                                                disabled={togglingBookIds.has(book.id)}
+                                                onPointerDown={event => event.stopPropagation()}
+                                                onPointerMove={event => event.stopPropagation()}
+                                                onClick={event => { event.stopPropagation(); void toggleBookEnabled(book); }}
+                                                className={`relative inline-flex w-12 h-7 shrink-0 items-center rounded-full p-1 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:opacity-60 ${book.disable ? 'bg-neutral-200' : 'bg-neutral-800'}`}
+                                            >
+                                                <span className={`block w-5 h-5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${book.disable ? 'translate-x-0' : 'translate-x-5'}`} />
+                                            </button>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleEdit(book); }} 
                                                 className="p-2 rounded-full hover:bg-white text-neutral-500 hover:text-neutral-600 transition-colors"
@@ -942,6 +975,7 @@ const WorldbookApp: React.FC = () => {
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                             </button>
+                                            </div>
                                         </div>}
                                     </div>
 
