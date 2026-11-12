@@ -22,11 +22,24 @@ export function readCharacterPhoneChats(characterId: string): CharacterPhoneChat
   if (!characterId || typeof localStorage === 'undefined') return [];
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(phoneChatStorageKey(characterId)) || '[]');
+    // Older imports can contain null/partial message rows. Keep the valid
+    // conversation rather than letting one malformed bubble crash the inbox.
     return Array.isArray(raw) ? raw.filter((r): r is CharacterPhoneChat =>
       !!r && typeof r.id === 'string' && typeof r.name === 'string' &&
       Array.isArray(r.messages) && Number.isFinite(r.time))
-      : [];
+      .map(row => ({
+        ...row,
+        messages: row.messages.filter((m: PhoneMessage | null) =>
+          !!m && typeof m.text === 'string' &&
+          !!m.speaker && ['owner', 'contact', 'user'].includes(m.speaker.role)),
+      })) : [];
   } catch { return []; }
+}
+
+/** Search all visible WeChat rows by the same rules, including real private chat. */
+export function matchesPhoneWechatSearch(query: string, ...fields: Array<string | undefined>): boolean {
+  const needle = query.trim().toLocaleLowerCase();
+  return fields.some(value => (value || '').toLocaleLowerCase().includes(needle));
 }
 
 export function notifyCharacterPhoneChatsChanged(characterId: string): void {
@@ -126,11 +139,15 @@ export function appendCharacterPhoneMessages(input: {
     // Repeated short human phrases are legitimate hours later. Reject only
     // immediate duplicated deliveries/retries, not every historical "嗯".
     const recent = new Set((previous?.messages || []).slice(-12)
-      .filter(m => at - (m.createdAt || previous?.time || 0) < 10 * 60_000)
+      .filter(m => {
+        const age = at - (m.createdAt || previous?.time || 0);
+        return age >= 0 && age < 10 * 60_000;
+      })
       .map(m => m.speaker.role + '|' + m.text.trim()));
     const knownCloudIds = new Set((previous?.messages || []).map(m => m.cloudSourceId).filter(Boolean));
     const added = input.messages.filter(m => {
-      if (!m.text?.trim() || m.speaker.role === 'user') return false;
+      if (!m || typeof m.text !== 'string' || !m.text.trim() ||
+          !m.speaker || !['owner', 'contact'].includes(m.speaker.role)) return false;
       if (m.cloudSourceId && knownCloudIds.has(m.cloudSourceId)) return false;
       if (m.cloudSourceId) knownCloudIds.add(m.cloudSourceId);
       const key = m.speaker.role + '|' + m.text.trim();
