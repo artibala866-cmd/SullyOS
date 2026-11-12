@@ -767,12 +767,22 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                     </select>
                                 </label>}
                             </div>
-                            {draft.replacementChoices?.map((value, index) => <label key={index} className='block text-xs'>
-                                随机替换 {index + 2}
-                                <textarea className={fieldClass + ' font-mono text-xs'} rows={2} value={value}
-                                    onChange={event => patch({ replacementChoices: draft.replacementChoices?.map(
-                                        (item, position) => position === index ? event.target.value : item) })}/>
-                            </label>)}
+                            {!isTemplate && draft.replacementChoices?.map((value, index) =>
+                                <div key={index} className='space-y-1'>
+                                    <div className='flex items-center justify-between gap-2'>
+                                        <span className='text-xs text-neutral-600'>随机替换 {index + 2}</span>
+                                        <button type='button' className='text-[11px] text-neutral-500'
+                                            onClick={() => patch({ replacementChoices: draft.replacementChoices?.filter(
+                                                (_, position) => position !== index) })}>移除</button>
+                                    </div>
+                                    <textarea className={fieldClass + ' font-mono text-xs'} rows={2} value={value}
+                                        onChange={event => patch({ replacementChoices: draft.replacementChoices?.map(
+                                            (item, position) => position === index ? event.target.value : item) })}/>
+                                </div>)}
+                            {!isTemplate && <button type='button' className={actionClass}
+                                onClick={() => patch({ replacementChoices: [...(draft.replacementChoices || []), ''] })}>
+                                <Plus size={13}/>添加随机替换
+                            </button>}
                         </div>
                     </details>
                     {!isTemplate && <details className='group/test overflow-hidden rounded-2xl border border-[#e8e9e7] bg-white'>
