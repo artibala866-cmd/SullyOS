@@ -98,6 +98,14 @@ async function openChrome(mode) {
             assert(html.includes('data-match-count="0"'), 'Old diary items remain visible after deletion: ' + html);
             assert(html.includes('data-other-count="0"'), 'Diary book items resurfaced after deletion: ' + html);
         }
+        if (mode === 'many-return') {
+            assert(html.includes('data-return-after-cancel="true"'), 'Cancel did not return to the edited entry: ' + html);
+            assert(html.includes('data-return-after-save="true"'), 'Save did not return to the edited entry: ' + html);
+        }
+        if (mode.startsWith('touch')) {
+            assert(html.includes('data-action-hit-zones="true"'), 'Touch hit targets overlap: ' + html);
+            assert(html.includes('data-action-isolation="true"'), 'Toggle/edit/delete actions interfered: ' + html);
+        }
         if (mode.startsWith('many')) {
             assert(html.includes('data-many-page4="true"'), 'Expected page four of six after repeated next clicks: ' + html);
             assert(html.includes('data-many-card-count="12"'), 'Page four must contain twelve rendered entries: ' + html);
@@ -135,5 +143,5 @@ async function openChrome(mode) {
         rmSync(dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
     }
 }
-for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small', 'many', 'many-small']) await openChrome(mode);
-console.log('PASS: 11 mobile states include 92-item Worldbook stress, page 4 of 6, collapsed-group unloading and scroll repaints.');
+for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small', 'touch', 'touch-small', 'many', 'many-small', 'many-return']) await openChrome(mode);
+console.log('PASS: 14 mobile states include separated touch hits, cancel/save scroll restoration and 92-item Worldbook stress.');
