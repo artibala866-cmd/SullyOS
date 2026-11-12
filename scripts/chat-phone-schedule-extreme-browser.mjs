@@ -424,6 +424,90 @@ try{
     press('返回',phone());
     progress.push('avatar choice persisted from the actual shared library UI');
 
+    // A mock model responds through the real manual 'AI生成聊天' button.
+    // First generation is committed; a near-identical retry must not append
+    // another eight fake duplicate bubbles or touch User's real chat.
+    const oldPhoneFetch=window.fetch;
+    let phoneModelCalls=0;
+    window.fetch=(...args)=>{
+      const url=typeof args[0]==='string'?args[0]:args[0]?.url||'';
+      if(url!=='https://ci-phone.invalid/v1/chat/completions')return oldPhoneFetch(...args);
+      phoneModelCalls++;
+      const generated=Array.from({length:8},(_,index)=>({
+        speaker:index%2===0?'contact':'owner',
+        text:(index%2===0?'你明天还来画画吗':'当然来')+'，第'+index+'条',
+      }));
+      return Promise.resolve(new Response(JSON.stringify({choices:[{
+        message:{content:JSON.stringify({name:'林同学',messages:generated})},
+      }]}),{status:200,headers:{'Content-Type':'application/json'}}));
+    };
+    const configEntry=buttons(phone()).find(b=>b.textContent?.trim().startsWith('设置'));
+    if(!configEntry)throw Error('No phone settings entry from profile page');
+    configEntry.click();
+    await wait(()=>phone().textContent.includes('查手机独立 API'),'independent phone API settings');
+    const apiToggle=[...phone().querySelectorAll('label')]
+      .find(label=>label.textContent?.trim()==='查手机独立 API')
+      ?.querySelector('input[type="checkbox"]');
+    if(!apiToggle)throw Error('Independent phone API switch missing');
+    if(!apiToggle.checked)apiToggle.click();
+    await wait(()=>!!phone().querySelector('input[placeholder="https://.../v1"]'),
+      'phone API input exposed');
+    textInput('input[placeholder="https://.../v1"]','https://ci-phone.invalid/v1');
+    await pause(130);
+    textInput('input[placeholder="仅保存在此设备"]','DISPOSABLE-CI-NO-BILL');
+    await pause(130);
+    textInput('input[placeholder="输入模型 ID"]','ci-phone-local-mock');
+    await pause(130);
+    const ownApi=JSON.parse(localStorage.getItem('sully_character_phone_dialogue_api_v1:'+phoneId)||'null');
+    if(!ownApi?.enabled||ownApi.baseUrl!=='https://ci-phone.invalid/v1'||
+       ownApi.model!=='ci-phone-local-mock')
+      throw Error('Independent phone API settings did not persist');
+    const autolife=[...phone().querySelectorAll('label')]
+      .find(label=>label.textContent?.trim()==='Char 手机自主生活')
+      ?.querySelector('input[type="checkbox"]');
+    if(autolife?.checked)autolife.click();
+    press('返回',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='通讯录'),
+      'return from phone API settings');
+    press('通讯录',phone());
+    const selectManualFriend=()=>{
+      const item=buttons(phone()).find(b=>b.textContent?.includes('林同学')&&
+        b.textContent?.includes('同学')&&!b.textContent?.includes('添加朋友'));
+      if(!item)throw Error('Existing manual NPC contact lost after phone settings');
+      item.click();
+    };
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.includes('林同学')),
+      'manual NPC contact after setting API');
+    selectManualFriend();
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='AI生成聊天'),
+      'manual WeChat generate action');
+    press('AI生成聊天',phone());
+    const generatedRows=()=>JSON.parse(localStorage.getItem(inboxKey)||'[]')
+      .filter(row=>row.name==='林同学'&&row.contactId!=='ci-phone-friend');
+    await wait(()=>generatedRows().some(row=>row.messages.length===8),
+      'eight real rendered NPC-generated bubbles saved');
+    const generatedThread=generatedRows().find(row=>row.messages.length===8);
+    if(!generatedThread||new Set(generatedRows().map(row=>row.id)).size!==1)
+      throw Error('Generated NPC chat was saved as duplicate threads');
+    press('通讯录',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.includes('林同学')),
+      'contact list for immediate regenerate');
+    selectManualFriend();
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='AI生成聊天'),
+      'regenerate the same NPC');
+    press('AI生成聊天',phone());
+    await wait(()=>phoneModelCalls===2&&phone().textContent.includes('完全相同'),
+      'duplicate generated batch rejected visibly');
+    if(generatedRows().length!==1||generatedRows()[0].messages.length!==8)
+      throw Error('Identical manual WeChat regeneration created duplicate bubbles');
+    if((await messages()).filter(x=>x.role==='user').length!==
+        privateMessages.filter(x=>x.role==='user').length)
+      throw Error('NPC generation impersonated User in real private chat');
+    window.fetch=oldPhoneFetch;
+    press('我',phone());
+    progress.push('two actual NPC manual AI chat generations: one saved, duplicate retry ignored');
+
+
 
     // Turn off autonomous phone life in the existing settings (separate from
     // all real-person/chat/schedule switches).
