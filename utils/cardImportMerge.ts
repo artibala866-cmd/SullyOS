@@ -258,6 +258,8 @@ export function mergeCardImports(
 ): CardImportChanges {
     if (!items.length) throw new Error('未选择任何角色');
     const seenNames = new Set<string>();
+    const seenSourceIds = new Set<string>();
+    const seenTargetIds = new Set<string>();
     for (const item of items) {
         const sourceKeys = item.worldbooks.map(book => book.cardImportKey).filter((key): key is string => !!key);
         if (new Set(sourceKeys).size !== sourceKeys.length) {
@@ -266,6 +268,20 @@ export function mergeCardImports(
         const nameKey = normalizeCardName(item.fields.name || item.character.name);
         if (!nameKey || seenNames.has(nameKey)) throw new Error('本次导入含有重复姓名的角色，请分别导入以免合并错误');
         seenNames.add(nameKey);
+        const externalId = item.origin.externalId?.trim();
+        if (externalId) {
+            const sourceKey = JSON.stringify([item.origin.source, externalId]);
+            if (seenSourceIds.has(sourceKey)) {
+                throw new Error('本次导入存在相同来源身份的角色卡，已停止以避免串卡');
+            }
+            seenSourceIds.add(sourceKey);
+        }
+        if (item.expectedTargetId) {
+            if (seenTargetIds.has(item.expectedTargetId)) {
+                throw new Error('多张角色卡指向同一个已有角色，已停止以避免信息互相覆盖');
+            }
+            seenTargetIds.add(item.expectedTargetId);
+        }
     }
     const characters = new Map(existingCharacters.map(char => [char.id, char]));
     const library = new Map(existingWorldbooks.map(book => [book.id, book]));
