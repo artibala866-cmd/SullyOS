@@ -385,6 +385,22 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     if (prompts.some(prompt => prompt.enabled && prompt.marker === 'examples')) warnings.push('对话示例占位已保留；当前剧情角色资料没有独立示例字段时，该槽位不发送内容');
     if (prompts.some(prompt => prompt.marker === 'characters')) warnings.push('酒馆角色资料按当前糯米机角色动态绑定；描述与性格两个占位均启用时分别插入');
 
+    // baibaiToolkit is the current MoM export index: category -> member ID.
+    // Read metadata only. Names, text, enabled states and prompt order are untouched.
+    const toolkit = value.extensions?.baibaiToolkit?.presetPromptGroups;
+    const toolkitOwners = toolkit?.prompts && typeof toolkit.prompts === 'object'
+        && !Array.isArray(toolkit.prompts) ? toolkit.prompts : {};
+    const toolkitGroups = (Array.isArray(toolkit?.groups) ? toolkit.groups : [])
+        .filter((group: any) => group && typeof group.id === 'string' && typeof group.name === 'string'
+            && group.id.trim() && group.name.trim())
+        .slice(0, 120).map((group: any) => ({
+            id: group.id.slice(0, 120),
+            name: group.name.trim().slice(0, 100),
+            memberIdentifiers: prompts.filter(prompt => prompt.id.startsWith('st-')
+                && toolkitOwners[prompt.id.slice(3)]?.groupId === group.id)
+                .map(prompt => prompt.id.slice(3)).slice(0, 600),
+        })).filter((group: any) => group.memberIdentifiers.length > 0);
+
     return {
         schema: 'sullyos.story-preset',
         version: 1,
@@ -394,7 +410,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         tavernControls: detectTavernNativeControls(prompts),
         // Static metadata supplied by some MoM Tavern exports. Import ONLY
         // names and prompt references: never execute extension JS or regex.
-        tavernEntryGroups: (Array.isArray(value.extensions?.entryGrouping)
+        tavernEntryGroups: [...(Array.isArray(value.extensions?.entryGrouping)
             ? value.extensions.entryGrouping : [])
             .filter((group: any) => group && typeof group.name === 'string'
                 && group.name.trim() && typeof group.id === 'string')
@@ -410,7 +426,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
                     ? { startIdentifier: group.startIdentifier } : {}),
                 ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
                     ? { endIdentifier: group.endIdentifier } : {}),
-            })),
+            })), ...toolkitGroups],
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         // Other Chat Completion presets can use format strings without any
         // double-brace name macros. Keep these templates intact until runtime.

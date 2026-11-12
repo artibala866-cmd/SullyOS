@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
+import { restoreStoryTavernLegacyGroups } from './storyTavernLegacyGroups';
 import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup, storyTavernHeadingTitle, storyPresetPromptKind, isStoryPresetBrowseVisible } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
@@ -256,4 +257,73 @@ describe('酒馆预设浏览分类：明确标题，而不是所有空内容', (
         expect(JSON.stringify(doc)).toBe(snapshot);
     });
 
+});
+
+
+describe('新旧 MoM 静态分组索引', () => {
+    it('新格式 baibaiToolkit 的分组和原作者开关按结构导入，不读取正文决定分类', () => {
+        const source = {
+            prompts: [
+                { identifier:'cover', name:'装饰头', role:'system', content:'' },
+                { identifier:'a', name:'作者选项 A', role:'system', content:'实际规则 A' },
+                { identifier:'b', name:'作者选项 B', role:'system', content:'实际规则 B' },
+                { identifier:'end', name:'结束', role:'system', content:'' },
+            ],
+            prompt_order:[{ character_id:100001, order:[
+                {identifier:'cover',enabled:true},{identifier:'a',enabled:false},
+                {identifier:'b',enabled:true},{identifier:'end',enabled:true},
+            ]}],
+            extensions:{ baibaiToolkit:{ presetPromptGroups:{
+                groups:[{id:'g',name:'原作者选项组',order:0}],
+                prompts:{a:{groupId:'g'},b:{groupId:'g'}},
+            } } },
+        };
+        const doc=convertSillyTavernChatPreset(source,'只读格式');
+        expect(doc.prompts.map(p=>[p.id,p.enabled])).toEqual([
+            ['st-cover',true],['st-a',false],['st-b',true],['st-end',true],
+        ]);
+        expect(doc.tavernEntryGroups).toEqual([{id:'g',name:'原作者选项组',memberIdentifiers:['a','b']}]);
+        expect(getStoryPresetPromptGroups(doc).some(group=>group.label==='原作者选项组')).toBe(true);
+        expect(getStoryTavernAuthorSections(doc).some(section=>section.label==='原作者选项组'
+            && section.options.length===2 && section.options[1].enabled)).toBe(true);
+    });
+
+    it('旧版已导入的作者预设打开即恢复分组，不重导入、不更改条目或开关', () => {
+        const ids = [
+            'main','c9dacfb9-b212-44f7-baab-4f3db5825094',
+            '9127d7ed-d487-46c8-b625-f1e9a4926c2e',
+            '953c9c21-04e2-4a25-a75d-93972dd2da2f',
+            'enhanceDefinitions','3fe6a008-6461-4c7d-a0f2-22485de32f10',
+            '2eb0c2a5-2268-487e-8334-5fc682a19618',
+            '8749e431-0ff1-4a6a-8cf6-22007893f3b8',
+            '2737906a-b24f-4490-be43-29a9ba74f099',
+            '6f73e0d4-393f-4559-a220-410441b00213',
+            '4a78eafe-e8be-4d37-a399-cb4143b4ccb3',
+            'd765cb08-9a66-4140-a50e-072ca02b79f6',
+            '3e9839d3-4d8c-411a-bed6-720f108d9b7e',
+            '71434afb-9b07-45ce-a8f7-752db48eebb9',
+            'c95caf99-d2a5-4f93-bf96-55b8b782d51d',
+            'c43b64e6-e3a0-4e67-a545-19aaab643700',
+        ];
+        // The two extra anchors are placed inside real sections, not after
+        // the final sentinel, to preserve the original author's order.
+        const anchors = new Set(ids.slice(-2));
+        const old = document(ids.slice(0,-2).flatMap(id => [
+            { id:'st-'+id,name:'原始项',content:'原始文本',enabled:id!=='main',role:'system' as const },
+            ...(id==='953c9c21-04e2-4a25-a75d-93972dd2da2f' ? [
+                {id:'st-c95caf99-d2a5-4f93-bf96-55b8b782d51d',name:'中间项',content:'正文',enabled:false,role:'system' as const}
+            ]:[]),
+            ...(id==='6f73e0d4-393f-4559-a220-410441b00213' ? [
+                {id:'st-c43b64e6-e3a0-4e67-a545-19aaab643700',name:'中间项',content:'正文',enabled:true,role:'system' as const}
+            ]:[]),
+        ]));
+        expect(anchors.size).toBe(2);
+        const baseline=old.prompts.map(p=>({ ...p }));
+        const upgraded=restoreStoryTavernLegacyGroups(old);
+        expect(upgraded.tavernEntryGroups?.some(group=>group.name==='文风')).toBe(true);
+        expect(upgraded.tavernEntryGroups?.some(group=>group.name==='选一：思维链（预制）')).toBe(true);
+        expect(upgraded.prompts).toEqual(baseline);
+        expect(restoreStoryTavernLegacyGroups(upgraded)).toBe(upgraded);
+        expect(restoreStoryTavernLegacyGroups(document([prompt('无关预设', '正文')]))).toEqual(document([prompt('无关预设', '正文')]));
+    });
 });

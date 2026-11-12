@@ -17,6 +17,7 @@ import {deleteLinkedSecretNotes, deleteSecretNotesForIds, announceSecretNotesCha
 import { listCharacterStoryOpenings } from './linkStoryOpenings';
 import { planStoryOpeningDocumentImport, type StoryOpeningImportDocument, type StoryOpeningImportPlan } from './storyOpeningDocumentImport';
 import { resolveStoryPresetImport, withBuiltInStoryPresets } from './storyTheater';
+import { restoreSavedStoryTavernPreset } from './storyTavernLegacyGroups';
 import { ensureStoryTimelineRepair, invalidateStoryTimelineRepair } from './storyTheaterTimeline';
 
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
@@ -4026,7 +4027,9 @@ export const DB = {
       if (!db.objectStoreNames.contains(STORE_STORY_THEATER_PRESETS)) return [];
       return new Promise((resolve, reject) => {
           const request = db.transaction(STORE_STORY_THEATER_PRESETS, 'readonly').objectStore(STORE_STORY_THEATER_PRESETS).getAll();
-          request.onsuccess = () => resolve((request.result || []).sort((a: StoryTheaterPreset, b: StoryTheaterPreset) => b.updatedAt - a.updatedAt));
+          request.onsuccess = () => resolve((request.result || [])
+              .map((preset: StoryTheaterPreset) => restoreSavedStoryTavernPreset(preset))
+              .sort((a: StoryTheaterPreset, b: StoryTheaterPreset) => b.updatedAt - a.updatedAt));
           request.onerror = () => reject(request.error);
       });
   },
