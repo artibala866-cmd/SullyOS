@@ -329,7 +329,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     // Meeting has no story preset: do not silently drop offline rules that
     // happen to be bound to a specific story preset as well.
     const meetingRules = offlineRules;
-    const alchemyDisplay = useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting', char.id);
+    const alchemyDisplay = useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting', char.id, { user: userProfile.name, char: char.name, userAvatar: userProfile.avatar, charAvatar: char.avatar });
     const spriteTextInput = React.useMemo<Message[]>(() => currentText ? [{
         id: -987654321, charId: char.id, role: 'assistant', type: 'text',
         content: currentText, timestamp: 0,
