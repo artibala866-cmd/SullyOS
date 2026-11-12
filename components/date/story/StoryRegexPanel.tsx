@@ -623,6 +623,64 @@ const StoryRegexPanel: React.FC<Props> = ({ rules, presets, onSave, onBack, doma
                                 <input type='checkbox' checked={draft.display} onChange={event => patch({ display: event.target.checked })}/>
                                 显示 HTML
                             </label>}
+                            <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
+                                <label className='flex items-center gap-2 text-[12px] text-neutral-700'>
+                                    <input type='checkbox' checked={!!draft.source?.triggerEnabled}
+                                        onChange={event => patch({ source: { ...draft.source, triggerEnabled: event.target.checked } })}/>
+                                    关键词触发
+                                </label>
+                                <label className='flex items-center gap-2 text-[12px] text-neutral-700'>
+                                    <input type='checkbox' checked={!!draft.source?.trim}
+                                        onChange={event => patch({ source: { ...draft.source, trim: event.target.checked } })}/>
+                                    修剪空白
+                                </label>
+                            </div>
+                            {!!draft.source?.triggerEnabled && <label className='block text-xs text-neutral-600'>触发关键词
+                                <input className={fieldClass} value={(draft.source?.triggerKeywords || []).join('，')}
+                                    onChange={event => patch({ source: { ...draft.source,
+                                        triggerKeywords: event.target.value.split(/[,，、;；\n]/).map(w => w.trim()).filter(Boolean),
+                                    } })}/>
+                            </label>}
+                            <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
+                                <label className='text-xs text-neutral-600'>最小历史深度
+                                    <input type='number' min={0} className={fieldClass}
+                                        value={draft.source?.minDepth ?? ''}
+                                        onChange={event => patch({ source: { ...draft.source,
+                                            minDepth: event.target.value === '' ? undefined : Math.max(0, Number(event.target.value)),
+                                        } })}/>
+                                </label>
+                                <label className='text-xs text-neutral-600'>最大历史深度
+                                    <input type='number' min={0} className={fieldClass}
+                                        value={draft.source?.maxDepth ?? ''}
+                                        onChange={event => patch({ source: { ...draft.source,
+                                            maxDepth: event.target.value === '' ? undefined : Math.max(0, Number(event.target.value)),
+                                        } })}/>
+                                </label>
+                            </div>
+                            <label className='block text-xs text-neutral-600'>替换前移除的字符串
+                                <input className={fieldClass} value={(draft.source?.trimStrings || []).join('，')}
+                                    onChange={event => patch({ source: { ...draft.source,
+                                        trimStrings: event.target.value.split(/[,，、;；\n]/).map(w => w.trim()).filter(Boolean),
+                                    } })}/>
+                            </label>
+                            <div className='grid grid-cols-1 gap-3 min-[420px]:grid-cols-2'>
+                                <label className='block text-xs text-neutral-600'>正则变量替换
+                                    <select className={fieldClass} value={draft.source?.substituteRegex ?? 1}
+                                        onChange={event => patch({ source: { ...draft.source,
+                                            substituteRegex: Number(event.target.value) as 0 | 1 | 2,
+                                        } })}>
+                                        <option value={0}>关闭</option><option value={1}>正常替换</option><option value={2}>转义后替换</option>
+                                    </select>
+                                </label>
+                                {isTemplate && <label className='block text-xs text-neutral-600'>HTML 显示方式
+                                    <select className={fieldClass} value={draft.source?.renderMode || 'iframe'}
+                                        onChange={event => patch({ source: { ...draft.source,
+                                            renderMode: event.target.value as 'inline' | 'iframe',
+                                        } })}>
+                                        <option value='iframe'>独立卡片</option><option value='inline'>行内布局</option>
+                                    </select>
+                                </label>}
+                            </div>
                             {draft.replacementChoices?.map((value, index) => <label key={index} className='block text-xs'>
                                 随机替换 {index + 2}
                                 <textarea className={fieldClass + ' font-mono text-xs'} rows={2} value={value}
