@@ -93,12 +93,12 @@ const WorldbookApp: React.FC = () => {
 
     const categoryNames = useMemo(() => Object.keys(groupedBooks), [groupedBooks]);
 
-    // 完整标题优先精确匹配同名条目；否则支持输入部分标题查找。
+    // 搜索结果始终按包含关系匹配；不能因存在完全同名条目就隐藏其他匹配项。
+    // 否则删掉「日记」后才突然出现「日记本」，会导致用户不得不重复删除。
     const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
     const matchingBooks = useMemo(() => {
         if (!normalizedSearch) return worldbooks;
-        const exact = worldbooks.filter(book => book.title.trim().toLocaleLowerCase() === normalizedSearch);
-        return exact.length ? exact : worldbooks.filter(book => book.title.toLocaleLowerCase().includes(normalizedSearch));
+        return worldbooks.filter(book => book.title.toLocaleLowerCase().includes(normalizedSearch));
     }, [worldbooks, normalizedSearch]);
     const matchingIds = useMemo(() => matchingBooks.map(book => book.id), [matchingBooks]);
     const allMatchingSelected = matchingIds.length > 0 && matchingIds.every(id => selectedBookIds.has(id));
@@ -796,6 +796,7 @@ const WorldbookApp: React.FC = () => {
                             placeholder="搜索条目名称"
                             className="min-w-0 flex-1 h-full bg-transparent border-0 outline-none text-xs text-neutral-700 placeholder:text-neutral-400"
                         />
+                        {normalizedSearch && <span aria-label={`找到 ${matchingBooks.length} 条`} className="text-[10px] tabular-nums text-neutral-400 shrink-0">{matchingBooks.length}</span>}
                         {searchQuery && <button type="button" title="清空搜索" aria-label="清空搜索" onClick={() => setSearchQuery('')} className="p-1 rounded-full active:scale-90"><X size={15} weight="bold" /></button>}
                     </div>
                 </div>
@@ -850,9 +851,11 @@ const WorldbookApp: React.FC = () => {
 
                 {Object.entries(visibleGroupedBooks).map(([category, books]) => {
                     const isExpanded = !!normalizedSearch || expandedCategory === category;
-                    const totalPages = Math.max(1, Math.ceil(books.length / PAGE_SIZE));
+                    // 搜索时显示当前分组的全部命中项，不沿用普通列表的 12 条分页。
+                    // 搜索结果全选和屏幕上可见的条目集合必须一致。
+                    const totalPages = normalizedSearch ? 1 : Math.max(1, Math.ceil(books.length / PAGE_SIZE));
                     const currentPage = Math.min(categoryPages[category] || 1, totalPages);
-                    const pagedBooks = books.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+                    const pagedBooks = normalizedSearch ? books : books.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
                     return (
                     <div key={category} className="animate-slide-up">
                         {/* Category Header */}
