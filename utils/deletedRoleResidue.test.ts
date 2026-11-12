@@ -121,6 +121,36 @@ it('erases role-specific imports, phone/play records and shared references witho
             { id: 'wb-common', title: '共享导入', content: 'shared', category: '', cardImportKey: 'import-b' },
         ],
         pixel_home_layouts: [{ charId: owner, roomId: 'room-1' }, { charId: other, roomId: 'room-1' }],
+        songs: [{ id: 'song-owner', collaboratorId: owner }],
+        guidebook: [{ id: 'guide-owner', charId: owner }],
+        life_sim: [{ id: 'sim-owner', participantCharIds: [owner, other], actionLog: [] }],
+        vr_annotations: [
+            { id: 'annotation-owner', novelId: 'novel', authorId: owner },
+            { id: 'annotation-reply', novelId: 'novel', authorId: other, targetAnnotationId: 'annotation-owner' },
+            { id: 'annotation-other', novelId: 'novel', authorId: other },
+        ],
+        vr_scripts: [{ id: 'script-owner', authorId: owner }],
+        vr_plays: [
+            { id: 'play-owner', scriptId: 'script-owner', cast: [] },
+            { id: 'play-other', scriptId: 'other-script', cast: [{ actorId: other }] },
+        ],
+        vr_music: [{ id: 'state', nowPlaying: { charId: owner }, queue: [
+            { charId: owner, song: { id: 'a' } }, { charId: other, song: { id: 'b' } },
+        ] }],
+        vr_guestbook: [{ id: 'board', messages: [
+            { id: 'guest-owner', authorId: owner },
+            { id: 'guest-reply', authorId: other, replyToId: 'guest-owner' },
+            { id: 'guest-other', authorId: other },
+        ] }],
+        vr_letters: [
+            { id: 'letter-owner', charId: owner },
+            { id: 'letter-other', charId: other, reply: { charId: owner, content: 'private' } },
+        ],
+        api_call_log: [
+            { id: 'log', entries: [{ charId: owner, id: 'call-owner' }, { charId: other, id: 'call-other' }] },
+            { id: 'one-shot-capture', capture: { meta: { charId: owner }, body: 'private' } },
+        ],
+        vr_settings: [{ id: 'apilog', entries: [{ charId: owner }, { charId: other }] }],
     };
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction([...Object.keys(rows), 'assets'], 'readwrite');
@@ -157,6 +187,9 @@ it('erases role-specific imports, phone/play records and shared references witho
         ['xhs_owned_posts', 'post-owner'], ['social_posts', 'social-owner'],
         ['world_episodes', 'episode-owner'], ['story_theaters', 'story-owner'],
         ['games', 'game-owner'], ['worldbooks', 'wb-owned'],
+        ['songs', 'song-owner'], ['guidebook', 'guide-owner'], ['life_sim', 'sim-owner'],
+        ['vr_annotations', 'annotation-owner'], ['vr_annotations', 'annotation-reply'],
+        ['vr_scripts', 'script-owner'], ['vr_plays', 'play-owner'], ['vr_letters', 'letter-owner'],
     ]) {
         expect((await DB.getStoreRowsPage(name, null, 100)).rows.some((row: any) => row.id === deletedId),
             name + '/' + deletedId).toBe(false);
@@ -172,6 +205,15 @@ it('erases role-specific imports, phone/play records and shared references witho
     expect((await pick('courses', 'course-one')).tutorCharId).toBeUndefined();
     expect(await pick('worldbooks', 'wb-common')).toBeTruthy();
     expect(await pick('world_episodes', 'episode-other')).toBeTruthy();
+    expect(await pick('vr_annotations', 'annotation-other')).toBeTruthy();
+    expect(await pick('vr_plays', 'play-other')).toBeTruthy();
+    expect((await pick('vr_music', 'state')).nowPlaying).toBeUndefined();
+    expect((await pick('vr_music', 'state')).queue).toHaveLength(1);
+    expect((await pick('vr_guestbook', 'board')).messages.map((item: any) => item.id)).toEqual(['guest-other']);
+    expect((await pick('vr_letters', 'letter-other')).reply).toBeUndefined();
+    expect((await pick('api_call_log', 'log')).entries).toEqual([{ charId: other, id: 'call-other' }]);
+    expect(await pick('api_call_log', 'one-shot-capture')).toBeUndefined();
+    expect((await pick('vr_settings', 'apilog')).entries).toEqual([{ charId: other }]);
     expect((await pick('social_posts', 'social-other')).comments).toEqual([]);
     expect((await DB.getAssetRaw('content_favorites_index_v1')).items.map((item: any) => item.id))
         .toEqual(['chat-other']);
