@@ -250,6 +250,19 @@ const WorldbookApp: React.FC = () => {
                 category: category,
                 ...entryConfig,
             });
+            // 分组改变后，旧分组里的原条目已不存在。打开新分组与它所在的页，
+            // 避免返回列表后定位失败、用户误以为保存的条目消失。
+            if ((editingBook.category || '未分类设定 (General)') !== category) {
+                const destinationBooks = worldbooks.filter(book =>
+                    (book.id === editingBook.id ? category : (book.category || '未分类设定 (General)')) === category
+                );
+                const index = destinationBooks.findIndex(book => book.id === editingBook.id);
+                setCategoryPages(previous => ({
+                    ...previous,
+                    [category]: Math.max(1, Math.floor(index / PAGE_SIZE) + 1),
+                }));
+                setExpandedCategory(category);
+            }
             addToast('已保存 (同步至相关角色)', 'success');
         } else {
             const newBook: Worldbook = {
