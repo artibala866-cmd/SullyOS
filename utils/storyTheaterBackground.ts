@@ -17,6 +17,8 @@ export interface StoryGenerationSnapshot {
     entryId: string;
     phase: StoryGenerationPhase;
     stage: string;
+    /** Temporary live text; never persisted as a saved floor. */
+    previewContent?: string;
     startedAt: number;
     updatedAt: number;
     error?: string;
@@ -119,7 +121,7 @@ export function observeStoryGenerations(listener: Listener): () => void {
  */
 export function startStoryBackgroundGeneration(
     entryId: string,
-    execute: (reportStage: (stage: string) => void) => Promise<void>,
+    execute: (reportStage: (stage: string) => void, reportPreview: (content: string) => void) => Promise<void>,
     onSettled?: () => void,
 ): boolean {
     if (!entryId || isStoryGenerationRunning(entryId)) return false;
@@ -132,10 +134,26 @@ export function startStoryBackgroundGeneration(
 
     // Defer execution by one microtask so the in-flight guard is installed
     // even when execute immediately performs a synchronous operation.
-    const run = () => execute(stage => {
-        if (inFlight.get(entryId) !== task) return;
-        announce({ ...initial, stage, updatedAt: Date.now() });
-    });
+    const run = () => {
+        let stage = initial.stage;
+        let previewContent = '';
+        let lastPublishedAt = 0;
+        return execute(nextStage => {
+            if (inFlight.get(entryId) !== task) return;
+            stage = nextStage;
+            announce({ ...initial, stage, previewContent: previewContent || undefined, updatedAt: Date.now() });
+        }, content => {
+            if (inFlight.get(entryId) !== task || content === previewContent) return;
+            const firstPreview = !previewContent;
+            previewContent = content;
+            const now = Date.now();
+            // Coalesce fast SSE tokens so long stories do not re-render the whole
+            // reading page hundreds of times per second.
+            if (!firstPreview && now - lastPublishedAt < 80) return;
+            lastPublishedAt = now;
+            announce({ ...initial, stage, previewContent, updatedAt: now });
+        });
+    };
     const task = Promise.resolve().then(() => withStoryTabLock(entryId, run));
     inFlight.set(entryId, task);
     changeWebUpdateActivity(1);
