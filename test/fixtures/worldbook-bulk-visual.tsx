@@ -184,8 +184,11 @@ const run = async () => {
             if (recorded?.category !== '压力测试世界书') throw new Error('Moved entry not persisted in destination group');
             const destinationGroup = [...document.querySelectorAll('h3')].find(node => node.textContent === '压力测试世界书')?.parentElement?.parentElement;
             if (!destinationGroup?.contains(destination)) throw new Error('Destination group not expanded around moved entry');
+            // 编辑页会卸载列表容器；必须读取重新挂载的滚动元素，而不是旧 DOM 引用。
+            const activeScroller = document.querySelector<HTMLElement>('[data-worldbook-list-scroll]');
+            if (!activeScroller) throw new Error('Destination scroll container missing');
             const destinationRect = destination.getBoundingClientRect();
-            const scrollRect = scroller.getBoundingClientRect();
+            const scrollRect = activeScroller.getBoundingClientRect();
             if (destinationRect.bottom < scrollRect.top + 10 || destinationRect.top > scrollRect.bottom - 10)
                 throw new Error('Moved entry was rendered but remained off-screen');
             (window as any).worldbookCategoryMove = true;
