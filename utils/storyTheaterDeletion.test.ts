@@ -83,6 +83,18 @@ describe('删除整个剧情', () => {
         expect(remaining.map(row => row.id)).not.toContain(owned);
     });
 
+    it('角色中途退场后仍能按旧引用清除属于本剧情的镜像', async () => {
+        const oldActor = 'story-removed-cast';
+        const current = entry(ENTRY_A);
+        await DB.saveStoryTheater(current);
+        const oldMirror = await DB.saveMessage({ charId: oldActor, role: 'assistant', type: 'text', content: '退场角色以前的剧情记忆', metadata: { source: 'story_theater_memory', theaterId: current.id } });
+        const normal = await DB.saveMessage({ charId: oldActor, role: 'user', type: 'text', content: '退场角色的普通私聊' });
+        const central = await DB.saveMessage({ charId: storyTheaterThreadId(current.id), role: 'assistant', type: 'text', content: '历史楼层', metadata: { source: 'story_theater', theaterId: current.id, theaterMirrorIds: { removedCast: oldMirror, normal } } });
+        messageIds.push(oldMirror, normal, central);
+        expect((await deleteStoryTheaterData(current)).deletedMessageCount).toBe(2);
+        expect((await DB.getMessagesByCharId(oldActor, true)).map(row => row.id)).toEqual([normal]);
+    });
+
     it('只清理选中剧情的条目、楼层、角色镜像与向量分区', async () => {
         const entryA = entry(ENTRY_A);
         const entryB = entry(ENTRY_B);
