@@ -55,6 +55,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         run: node scripts/check-user-saves-types.mjs
       - name: Install browser tooling outside the source package
+        if: ${{ !cancelled() }}
         run: |
           mkdir -p /tmp/user-save-browser
           pnpm --dir /tmp/user-save-browser add playwright@1.56.1
@@ -68,6 +69,7 @@ jobs:
           curl -fL --retry 2 --max-time 60 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o "$HOME/.local/share/fonts/NotoSansCJKsc-Regular.otf"
           fc-cache -f "$HOME/.local/share/fonts"
       - name: Real archive A/B/A/B and mobile screenshots
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           USER_SAVE_PLAYWRIGHT: /tmp/user-save-browser/node_modules/playwright/index.mjs
