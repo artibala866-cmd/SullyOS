@@ -364,6 +364,8 @@ interface OSContextType {
   isLocked: boolean;
   unlock: () => void;
   isDataLoaded: boolean;
+  /** Whether the saved theme (including the boot switch) has finished loading. */
+  themeSettingsLoaded: boolean;
   
   characters: CharacterProfile[];
   activeCharacterId: string;
@@ -900,6 +902,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // ... (State declarations same as before) ...
   const [activeApp, setActiveApp] = useState<AppID>(RETURN_TO_USER_PROFILE ? AppID.User : AppID.Launcher);
   const [theme, setTheme] = useState<OSTheme>(defaultTheme);
+  const [themeSettingsLoaded, setThemeSettingsLoaded] = useState(false);
   const [apiConfig, setApiConfig] = useState<APIConfig>(defaultApiConfig);
   const [isLocked, setIsLocked] = useState(!RETURN_TO_USER_PROFILE);
   
@@ -1695,6 +1698,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }
 
         setTheme(loadedTheme);
+        // Never mount the opening sequence before the saved off switch has been restored.
+        setThemeSettingsLoaded(true);
         // Apply font
         applyCustomFont(loadedTheme.customFont);
     };
@@ -2948,6 +2953,21 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [isDataLoaded]);
 
   const updateTheme = async (updates: Partial<OSTheme>) => {
+    // The startup toggle is a critical preference: persist it synchronously, before
+    // any unrelated IndexedDB asset work. Otherwise a quick reload/OS kill can
+    // discard the user's off choice while the UI has already switched off.
+    if (Object.keys(updates).length === 1 && typeof updates.bootAnimationEnabled === 'boolean') {
+      try {
+        const parsed = JSON.parse(localStorage.getItem('os_theme') || '{}');
+        const stored = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        localStorage.setItem('os_theme', JSON.stringify({ ...stored, bootAnimationEnabled: updates.bootAnimationEnabled }));
+        setTheme(current => ({ ...current, bootAnimationEnabled: updates.bootAnimationEnabled }));
+      } catch (error) {
+        console.warn('[updateTheme] 开机动画开关保存失败', error);
+        addToast('开机动画设置保存失败，请检查浏览器存储空间后重试', 'error');
+      }
+      return;
+    }
     stopBeautyForThemeChange(updates);
     const { wallpaper, lockWallpaper, launcherWidgetImage, launcherWidgets, desktopDecorations, customFont, ...styleUpdates } = updates;
     // Legacy slots are banned — never let them enter state, regardless of caller intent.
@@ -5560,7 +5580,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     isLocked,
     unlock,
     isDataLoaded,
-    characters,
+    themeSettingsLoaded,
+    characters:
     activeCharacterId,
     addCharacter,
     updateCharacter,
