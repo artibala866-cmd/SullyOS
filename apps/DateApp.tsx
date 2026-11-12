@@ -332,7 +332,7 @@ const DateApp: React.FC = () => {
             }));
             const inPersonBlock = buildInPersonCharBlockInstruction(c.chatBlock, userProfile?.name || '用户');
             if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: c.name }); }
+            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: c.name, characterId: c.id, scene: 'meeting' }); }
             catch (error) { console.warn('[Alchemy] meeting opening guidance unavailable', error); }
             const content = await callLLM(messages, resolveDialogueApi(apiConfig, c).temperature ?? 0.85, c);
             const action = extractCharacterBlockAction(content);
@@ -466,7 +466,7 @@ const DateApp: React.FC = () => {
         // 原版允许被拉黑的双方当面交谈，不能把拒收私聊当成已读内容。
         const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
         if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-        try { await applyMeetingAlchemyRequest(messages, modelText, { user: userProfile.name, char: char.name }); }
+        try { await applyMeetingAlchemyRequest(messages, modelText, { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
         catch (error) { console.warn('[Alchemy] meeting rules unavailable', error); }
         const rawContent = await callLLM(messages, resolveDialogueApi(apiConfig, char).temperature ?? 0.85);
         const blockAction = extractCharacterBlockAction(rawContent);
@@ -515,7 +515,7 @@ const DateApp: React.FC = () => {
             }));
             const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
             if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: char.name }); }
+            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
             catch (error) { console.warn('[Alchemy] meeting opening reroll rules unavailable', error); }
             const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
             const blockDecision = extractCharacterBlockAction(rawContent);
@@ -557,7 +557,7 @@ const DateApp: React.FC = () => {
         // Reroll 略调高温度求多样性，但绝不低于用户配置的基线。
         const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
         if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-        try { await applyMeetingAlchemyRequest(messages, lastUserMsg.content, { user: userProfile.name, char: char.name }); }
+        try { await applyMeetingAlchemyRequest(messages, lastUserMsg.content, { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
         catch (error) { console.warn('[Alchemy] meeting reroll rules unavailable', error); }
         const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
         const blockAction = extractCharacterBlockAction(rawContent);
