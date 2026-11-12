@@ -152,6 +152,12 @@ const run = async () => {
     output.setAttribute('data-switch-off-count', String([...document.querySelectorAll('button[role="switch"][aria-checked="false"]')].length));
     output.setAttribute('data-switch-aria-labels', String([...document.querySelectorAll('button[role="switch"]')].every(button => !!button.getAttribute('aria-label'))));
     output.setAttribute('data-switch-has-visible-text', String([...document.querySelectorAll('button[role="switch"]')].some(button => !!button.textContent?.trim())));
+    const switchForSize = document.querySelector<HTMLButtonElement>('button[role="switch"]');
+    const switchRect = switchForSize?.getBoundingClientRect();
+    output.setAttribute('data-switch-width', String(Math.round(switchRect?.width || 0)));
+    output.setAttribute('data-switch-height', String(Math.round(switchRect?.height || 0)));
+    output.setAttribute('data-switch-background', switchForSize ? getComputedStyle(switchForSize).backgroundColor : '');
+    output.setAttribute('data-switch-thumb-width', String(Math.round(switchForSize?.firstElementChild?.getBoundingClientRect().width || 0)));
     output.style.display = 'none';
     document.body.appendChild(output);
 };
