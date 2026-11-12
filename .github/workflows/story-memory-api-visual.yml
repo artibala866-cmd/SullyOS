@@ -14,6 +14,13 @@ on:
       - utils/storyTheater.ts
       - utils/storyTheaterArchive.ts
       - utils/storyTheaterArchive.test.ts
+      - utils/storyTheaterDeletion.ts
+      - utils/storyTheaterDeletion.test.ts
+      - utils/storyTheaterVectorMemory.ts
+      - utils/storyTheaterVectorMemory.test.ts
+      - utils/storyTheaterMemoryConversion.test.ts
+      - utils/memoryPalace/eventBoxCompression.ts
+      - utils/memoryPalace/eventBoxRegeneration.test.ts
       - components/date/story/StoryTheater.tsx
       - components/date/story/StoryTheaterEditor.tsx
       - components/date/story/StoryTheaterSession.tsx
@@ -43,6 +50,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Verify memory API isolation and real archive regeneration
         run: pnpm exec vitest run utils/storyMemoryApi.test.ts utils/storyMemoryApiWiring.test.ts utils/storyTheaterArchive.test.ts utils/db.storyTheater.test.ts
+      - name: Stress story event boxes, independent vectors, cross-story deletion and character conversion
+        run: pnpm exec vitest run utils/storyTheaterArchive.test.ts utils/storyTheaterVectorMemory.test.ts utils/storyTheaterDeletion.test.ts utils/storyTheaterMemoryConversion.test.ts utils/memoryPalace/eventBoxRegeneration.test.ts
       - name: Verify touched TS modules (do not obscure unrelated pre-existing diagnostics)
         shell: bash
         run: |
