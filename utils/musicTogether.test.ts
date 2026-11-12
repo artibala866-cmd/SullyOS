@@ -346,3 +346,45 @@ describe('网易云失联 Worker + GD 故障降级', () => {
     expect(result.result.songs).toMatchObject([{id:42,name:'有效歌'}]);
   });
 });
+
+describe('反常但真实的搜索方式：跨平台与特殊关键词并发', () => {
+  it('连续交叉搜索中文、英文、括号、emoji 与同名曲不串平台或关键词', async () => {
+    const words = ['晴天', '晴天 Live', 'A/B remix', '歌名 (伴奏)', '🌙 星空', '你 好', '同名歌曲', '同名歌曲'];
+    const worker = vi.spyOn(musicApi, 'call').mockImplementation(async (_cfg, path, body) => {
+      expect(path).toBe('/search');
+      await Promise.resolve();
+      return { code: 200, result: { songs: [{
+        id: 123, name: body.keyword, ar: [{ name: '搜索结果' }], dt: 150000,
+      }] } };
+    });
+    const sources: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (raw: string) => {
+      const url = new URL(String(raw));
+      sources.push(url.hostname);
+      expect(url.hostname).toBe('api.vkeys.cn');
+      const word = url.searchParams.get('word') || '';
+      return new Response(JSON.stringify({code: 200, data: {list: [{
+        mid: 'qq-' + encodeURIComponent(word), name: word,
+        singer: [{ name: 'QQ 歌手' }],
+      }]}}), { status: 200 });
+    }));
+    const responses = await Promise.all(words.flatMap(word => [
+      musicApi.search(guestCfg, word).then(value => ({word,source:'netease',value})),
+      musicApi.searchTencent(word).then(value => ({word,source:'tencent',value})),
+    ]));
+    expect(responses).toHaveLength(words.length * 2);
+    for (const row of responses) {
+      if (row.source === 'tencent') {
+        const result = row.value as Awaited<ReturnType<typeof musicApi.searchTencent>>;
+        expect(result[0].name).toBe(row.word);
+        expect(result[0].source).toBe('tencent');
+        expect(result[0].platformId).toBe('qq-' + encodeURIComponent(row.word));
+      } else {
+        const result = row.value as Awaited<ReturnType<typeof musicApi.search>>;
+        expect(result.result.songs[0].name).toBe(row.word);
+      }
+    }
+    expect(worker).toHaveBeenCalledTimes(words.length);
+    expect(sources).toHaveLength(words.length);
+  });
+});
