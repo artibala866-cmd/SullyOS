@@ -332,12 +332,13 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
                 { identifier: 'notes', role: 'assistant', content: '无需名称宏的纯文字' },
             ],
         }), '纯文本预设.json');
-        expect(imported.document.prompts.map(prompt => prompt.enabled)).toEqual([true, false, true]);
+        expect(imported.document.prompts.map(prompt => prompt.enabled)).toEqual([false, false, false]);
         expect(imported.document.importWarnings?.join('')).toContain('没有 prompt_order');
         const content = compileStoryPreset({ preset: imported, slots: { ...slots, worldBefore: '' },
             userName: '用户', characterNames: ['角色'] }).messages.map(m => m.content).join('\n');
-        expect(content).toContain('<instructions>只按当前背景续写</instructions>');
-        expect(content).toContain('无需名称宏的纯文字');
+        expect(imported.document.importWarnings?.join('')).toContain('保守关闭');
+        expect(content).not.toContain('<instructions>只按当前背景续写</instructions>');
+        expect(content).not.toContain('无需名称宏的纯文字');
         expect(content).not.toContain('明确关闭的旧规则');
     });
 
@@ -1086,5 +1087,73 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(buildTavernNativeOverrideMessages(reopened.document, 'user', ['char'])).toEqual([]);
     });
 
+
+    it('真实酒馆导出格式变体：改模式/名称/正文仍按同一排序表启用，不随机猜', () => {
+        const prompts = [
+            {identifier:'a',name:'A：随意新名称',role:'system',content:'完全无关键词的正文 A',enabled:true},
+            {identifier:'b',name:'B 改名',role:'assistant',content:'任意正文 B',enabled:false},
+            {identifier:'c',name:'C',role:'user',content:'任意正文 C',enabled:true},
+        ];
+        const order = [
+            {identifier:'c',enabled:true},{identifier:'a',enabled:false},{identifier:'b',enabled:true},
+        ];
+        const variants = [
+            { prompts, prompt_order:[{character_id:100001,order}], mode:'new-mode' },
+            { prompts, prompt_order:[{character_id:'100001',order}], mode:'other' },
+            { prompts, prompt_order:{character_id:100001,order}, model:'changed-model' },
+            { prompts, prompt_order:order, chat_completion_source:'different' },
+            { prompts, prompt_order:[{character_id:100000,order:order.map(x=>({...x,enabled:false}))},
+                {character_id:100001,order}] },
+        ];
+        for (const data of variants) {
+            const doc = parseStoryTheaterPreset(JSON.stringify(data),'同一结构不同模式.json').document;
+            expect(doc.prompts.map(p=>p.id)).toEqual(['st-c','st-a','st-b']);
+            expect(doc.prompts.map(p=>p.enabled)).toEqual([true,false,true]);
+            expect(doc.prompts.map(p=>p.content)).toEqual(['任意正文 C','完全无关键词的正文 A','任意正文 B']);
+            expect(doc.prompts.map(p=>p.role)).toEqual(['user','system','assistant']);
+        }
+    });
+
+    it('结构变体支持字符引用、0/1和大小写布尔；没有开关的不会擅自打开', () => {
+        const prompts = [
+            {identifier:'a',name:'A',role:'system',content:'一',enabled:'TRUE'},
+            {identifier:'b',name:'B',role:'system',content:'二',enabled:' 0 '},
+            {identifier:'c',name:'C',role:'system',content:'三'},
+        ];
+        const document = parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:['a','b','c']}),'字符串引用.json').document;
+        expect(document.prompts.map(p=>p.enabled)).toEqual([true,false,false]);
+        expect(document.importWarnings?.join('')).toContain('保守关闭');
+        const alternate = parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:
+            [{character_id:100001,order:[{identifier:'a',enabled:0},{identifier:'b',enabled:'True'},{identifier:'c',enabled:false}]}]}),'混合开关.json').document;
+        expect(alternate.prompts.map(p=>p.enabled)).toEqual([false,true,false]);
+    });
+
+    it('多张不同角色排序表且无默认：宁可拒绝也不随便选择一套', () => {
+        const payload={prompts:[{identifier:'a',role:'system',content:'A'},{identifier:'b',role:'system',content:'B'}],
+            prompt_order:[{character_id:501,order:[{identifier:'a',enabled:true}]},
+                {character_id:502,order:[{identifier:'b',enabled:true}]}]};
+        expect(()=>parseStoryTheaterPreset(JSON.stringify(payload),'有歧义.json')).toThrow('多个非默认');
+        const single={...payload,prompt_order:[payload.prompt_order[1]]};
+        const doc=parseStoryTheaterPreset(JSON.stringify(single),'单一非默认.json').document;
+        expect(doc.prompts.map(p=>p.id)).toEqual(['st-b','st-a']);
+        expect(doc.prompts.map(p=>p.enabled)).toEqual([true,false]);
+    });
+
+    it('同一结构中条目改名、变换正文、额外字段不改变导入数量和顺序', () => {
+        const base={prompts:[
+            {identifier:'first',role:'system',name:'旧标题',content:'规则正文',enabled:true},
+            {identifier:'second',role:'system',name:'旧标题二',content:'另一规则',enabled:false},
+        ],prompt_order:[{character_id:100001,order:[{identifier:'second',enabled:true},{identifier:'first',enabled:false}]}]};
+        for (const changed of [
+            {...base,mode:'script',prompts:base.prompts.map(x=>({...x,name:'全新名称'}))},
+            {...base,mode:'novel',prompts:base.prompts.map(x=>({...x,content:'完全不一样的内容'}))},
+            {...base,format_name:'self-made',extensions:{custom:{data:'X'}}},
+        ]) {
+            const doc=parseStoryTheaterPreset(JSON.stringify(changed),'编辑后.json').document;
+            expect(doc.prompts.map(p=>p.id)).toEqual(['st-second','st-first']);
+            expect(doc.prompts.map(p=>p.enabled)).toEqual([true,false]);
+            expect(doc.prompts).toHaveLength(2);
+        }
+    });
 
 });
