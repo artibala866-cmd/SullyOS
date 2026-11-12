@@ -334,7 +334,7 @@ const DateSession: React.FC<DateSessionProps> = ({
         id: -987654321, charId: char.id, role: 'assistant', type: 'text',
         content: currentText, timestamp: 0,
     } as Message] : [], [currentText, char.id]);
-    const spriteAlchemy = useAlchemyMessageResults(spriteTextInput, meetingRules, 'offline', 'meeting');
+    const spriteAlchemy = useAlchemyMessageResults(spriteTextInput, meetingRules, 'offline', 'meeting', char.id);
     // Do not replace original dialogue text: speech, state and turn replay must
     // continue to use currentText. Only the visible, fully typed text is filtered.
     const visibleSpriteText = isTextAnimating ? displayedText
