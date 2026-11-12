@@ -14,21 +14,23 @@ async function openChrome(mode) {
     const dir = mkdtempSync(join(tmpdir(), 'worldbook-chrome-'));
     const child = spawn(browser, [
         '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
-        '--no-first-run', '--no-default-browser-check',
+        '--disable-extensions', '--disable-background-networking', '--no-first-run', '--no-default-browser-check',
         '--remote-allow-origins=*', '--remote-debugging-port=0', '--user-data-dir=' + dir,
         '--window-size=390,844', 'about:blank',
-    ], { stdio: 'ignore' });
+    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let chromeErrors = '';
+    child.stderr?.on('data', chunk => { chromeErrors += String(chunk).slice(0, 4000); });
     try {
         let port;
-        for (let attempt = 0; attempt < 100; attempt++) {
-            if (child.exitCode !== null) throw new Error('Chrome exited early: ' + child.exitCode);
+        for (let attempt = 0; attempt < 400; attempt++) {
+            if (child.exitCode !== null) throw new Error('Chrome exited early: ' + child.exitCode + '\\n' + chromeErrors.slice(-4000));
             try {
                 port = Number(readFileSync(join(dir, 'DevToolsActivePort'), 'utf8').split('\n')[0]);
                 if (port) break;
             } catch {}
             await sleep(100);
         }
-        assert(port, 'Chrome DevTools did not start');
+        assert(port, 'Chrome DevTools did not start (' + browser + '): ' + chromeErrors.slice(-4000));
         const targets = await fetch('http://127.0.0.1:' + port + '/json/list').then(r => r.json());
         const target = targets.find(t => t.type === 'page');
         assert(target, 'No Chrome page');
