@@ -107,10 +107,12 @@ async function openChrome(mode) {
             assert(html.includes('data-switch-off-count="1"'), 'Expected one disabled entry switch: ' + html);
             assert(html.includes('data-switch-aria-labels="true"'), 'Each switch needs an accessible name: ' + html);
             assert(html.includes('data-switch-has-visible-text="false"'), 'Card switch must be icon-only: ' + html);
-            assert(html.includes('data-switch-width="40"'), 'Card switch should be compact (40px): ' + html);
-            assert(html.includes('data-switch-height="24"'), 'Card switch should be compact (24px): ' + html);
-            assert(html.includes('data-switch-thumb-width="16"'), 'Switch thumb should be 16px: ' + html);
+            assert(html.includes('data-switch-width="32"'), 'Card switch should be compact (32px): ' + html);
+            assert(html.includes('data-switch-height="18"'), 'Card switch should be compact (18px): ' + html);
+            assert(html.includes('data-switch-thumb-width="12"'), 'Switch thumb should be 12px: ' + html);
             assert(!html.includes('rgb(38, 38, 38)'), 'Card switch must not be stark black: ' + html);
+            assert(html.includes('data-active-switch-color="rgb(82, 82, 82)"'), 'Active switch must be visibly dark gray: ' + html);
+            assert(html.includes('data-inactive-switch-color="rgb(229, 229, 229)"'), 'Disabled switch must remain visibly light: ' + html);
         }
         console.log('PASS Worldbook ' + mode + ': ' + html);
         ws.close();
