@@ -424,6 +424,7 @@ try{
     press('关闭头像库',document);
     await wait(()=>!document.querySelector('[role="dialog"][aria-label="角色头像库"]'),'avatar modal dismissed');
     press('返回',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='我'),'return from profile to WeChat navigation');
     progress.push('avatar choice persisted from the actual shared library UI');
 
     // A mock model responds through the real manual 'AI生成聊天' button.
