@@ -234,7 +234,7 @@ describe('酒馆预设浏览分类：明确标题，而不是所有空内容', (
         const withEmptyXml = prompt('════【结束包裹】════','</writer>');
         const blank = prompt('════【另一区】════','');
         expect(recognizeTavernPromptHeading(withText)?.label).toBe('写作须知');
-        expect(storyPresetPromptKind(withText)).toBe('structure');
+        expect(storyPresetPromptKind(withText)).toBe('content');
         expect(isStoryPresetBrowseVisible(withText)).toBe(true);
         expect(isStoryPresetBrowseVisible(withXml)).toBe(false);
         expect(isStoryPresetBrowseVisible(withEmptyXml)).toBe(false);
