@@ -3333,7 +3333,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // Commit deletion before removing the in-memory identity. A failed commit
     // must not let the next import mistake this still-saved role for a new one.
     await DB.deleteCharacter(id);
-    setCharacters(prev => { const remaining = prev.filter(c => c.id !== id); if (remaining.length > 0 && activeCharacterId === id) { setActiveCharacterId(remaining[0].id); } return remaining; });
+    // The deletion transaction also scrubs shared groups and imported books.
+    // Refresh their React mirrors so the deleted role cannot reappear from
+    // stale in-memory references or be used in another App before reload.
+    const [survivingGroups, survivingWorldbooks] = await Promise.all([
+      DB.getGroups(), DB.getAllWorldbooks(),
+    ]);
+    setGroups(survivingGroups);
+    setWorldbooks(survivingWorldbooks);
+    setCharacters(prev => {
+      const remaining = prev.filter(c => c.id !== id);
+      if (activeCharacterId === id) setActiveCharacterId(remaining[0]?.id || '');
+      return remaining;
+    });
     // 表情分类不随角色级联删除会留下「幽灵专属包」：单聊面板被可见性过滤掉（删不掉），
     // 群聊面板/提示词却还能看到。删完角色顺手按剩余角色清一次残留（详见 DB.cleanupEmojiResidue）。
     try {
