@@ -200,7 +200,7 @@ describe('七天跨功能真实使用顺序（离线模拟 AI 输出）', () => 
     expect(allRain.find(m => m.id === rainIds[3])?.content).toContain('只有玩家知情');
     expect(allRain.find(m => m.id === rainIds[3])?.metadata?.theaterArchived).toBe(true);
     expect(formatStoryTheaterExport(rain, '玩家', ['林星'], allRain, Date.now())).toContain('银色钥匙');
-    expect(formatStoryTheaterExport(rain, '玩家', ['林星'], allRain, Date.now())).toContain('第404楼');
+    expect(formatStoryTheaterExport(rain, '玩家', ['林星'], allRain, Date.now())).toContain('钥匙是不是在桌上？');
 
     const recalled = await loadStoryVectorRecall(train, trainIds[trainIds.length - 1] + 1);
     const selected = await selectStoryVectorRecall(recalled, '红色围巾');
