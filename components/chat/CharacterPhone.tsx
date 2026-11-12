@@ -47,7 +47,7 @@ import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, 
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import {
   CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
-  updateCharacterPhoneChats, deleteCharacterPhoneChat, erasePhoneWechatRelationshipNotes, notifyCharacterPhoneChatsChanged, matchesPhoneWechatSearch,
+  updateCharacterPhoneChats, deleteCharacterPhoneChat, erasePhoneWechatRelationshipNotes, notifyCharacterPhoneChatsChanged, matchesPhoneWechatSearch, isRepeatedPhoneGeneratedBatch,
   type CharacterPhoneChat,
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
@@ -782,7 +782,12 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
       // message may have arrived while the user's manual generation ran.
       const stored = readCharacterPhoneChats(characterId);
       const existing = stored.find(r => r.contactId === profile.id);
-      const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: Date.now(), messages: [...(existing?.messages || []), ...messages.map((m,i)=>({...m,createdAt:Date.now()-(messages.length-1-i)*25000}))] };
+      const generatedAt = Date.now();
+      if (isRepeatedPhoneGeneratedBatch(existing?.messages || [], messages, generatedAt, existing?.time || 0)) {
+        setError('本次生成与最近一轮微信对话完全相同，旧记录已保留');
+        return;
+      }
+      const next: ChatRecord = { id: existing?.id || crypto.randomUUID(), contactId: profile.id, name: npc, preview: messages[messages.length - 1].text, time: generatedAt, messages: [...(existing?.messages || []), ...messages.map((m,i)=>({...m,createdAt:generatedAt-(messages.length-1-i)*25000}))] };
       try { updateCharacterPhoneChats(characterId, () => [next, ...stored.filter(r => r.id !== existing?.id)]); }
       catch { setError('聊天记录保存失败，本次不记录生活事件'); return; }
       setRecords(readCharacterPhoneChats(characterId));
