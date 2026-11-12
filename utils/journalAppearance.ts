@@ -50,7 +50,7 @@ export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
         selectors: [
             '.sully-journal-calendar-hero', '.sully-journal-calendar-heading',
             '.sully-journal-calendar-kicker', '.sully-journal-calendar-title',
-            '.sully-journal-calendar-list', '.sully-journal-new-entry',
+            '.sully-journal-calendar-list', '.sully-journal-calendar-sheet', '.sully-journal-entries', '.sully-journal-new-entry',
             '.sully-journal-entry', '.sully-journal-entry-accent',
             '.sully-journal-entry-date', '.sully-journal-entry-text',
             '.sully-journal-entry-year', '.sully-journal-entry-badges',
