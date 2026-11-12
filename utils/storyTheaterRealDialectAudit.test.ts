@@ -193,9 +193,11 @@ describe('三份新导入酒馆预设的思维与正文分离', () => {
             + '<blend>[听]回顾上一幕。\n[发展]确定本轮动作。</blend>\n'
             + '<!-- Ready To Pour -->\n<content>她停在门口。</content><wine>幕间一段</wine>';
         const result = blocks(raw);
-        expect(result.map(b => b.kind).slice(0, 2)).toEqual(['thinking', 'story']);
+        expect(result.map(b => b.kind)).toEqual(['thinking', 'story', 'tavern-extra']);
         expect(result[0].text).toContain('回顾上一幕');
         expect(result[1].text).toBe('她停在门口。');
+        expect(result[2].title).toBe('酒馆小剧场');
+        expect(result[2].text).toContain('幕间一段');
         expect(result.filter(b => b.kind === 'story').map(b => b.text).join('')).not.toContain('夜客');
         expect(looksLikeLegacyTavernStoryOutput('<blend>[听]旧剧情</blend>')).toBe(true);
         // Display normalization must never mutate the saved model output.
