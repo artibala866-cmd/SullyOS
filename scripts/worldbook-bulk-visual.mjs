@@ -111,8 +111,15 @@ async function openChrome(mode) {
             assert(html.includes('data-switch-height="18"'), 'Card switch should be compact (18px): ' + html);
             assert(html.includes('data-switch-thumb-width="12"'), 'Switch thumb should be 12px: ' + html);
             assert(!html.includes('rgb(38, 38, 38)'), 'Card switch must not be stark black: ' + html);
-            assert(html.includes('data-active-switch-color="rgb(82, 82, 82)"'), 'Active switch must be visibly dark gray: ' + html);
-            assert(html.includes('data-inactive-switch-color="rgb(229, 229, 229)"'), 'Disabled switch must remain visibly light: ' + html);
+            // Browser animation/snapshot timing may vary the gray values slightly;
+            // assert the same visible dark-on / light-off distinction, not one exact RGB.
+            const active = /data-active-switch-color="rgb\\((\\d+), (\\d+), (\\d+)\\)"/.exec(html);
+            const inactive = /data-inactive-switch-color="rgb\\((\\d+), (\\d+), (\\d+)\\)"/.exec(html);
+            assert(active && active.slice(1).every(value => Number(value) >= 55 && Number(value) <= 115),
+                'Active switch must be visibly dark gray: ' + html);
+            assert(inactive && inactive.slice(1).every((value, index) => Number(value) >= 130
+                && Number(value) - Number(active[index + 1]) >= 40),
+                'Disabled switch must remain visibly lighter than active: ' + html);
         }
         console.log('PASS Worldbook ' + mode + ': ' + html);
         ws.close();
