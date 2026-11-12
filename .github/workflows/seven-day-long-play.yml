@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/seven-day-tsc.log 2>&1 || true
-          grep -E '^utils/longPlayJourney.test.ts\\(' /tmp/seven-day-tsc.log > /tmp/seven-day-errors.log || true
+          grep -E '^utils/longPlayJourney.test.ts\(' /tmp/seven-day-tsc.log > /tmp/seven-day-errors.log || true
           if [ -s /tmp/seven-day-errors.log ]; then cat /tmp/seven-day-errors.log; exit 1; fi
       - name: Compile production UI
         run: pnpm run build
@@ -62,8 +62,8 @@ jobs:
             sleep 1
           done
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
-          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \\
-            --remote-debugging-port=9222 --remote-allow-origins='*' \\
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage \
+            --remote-debugging-port=9222 --remote-allow-origins='*' \
             --user-data-dir=/tmp/seven-day-long-play-browser about:blank >/tmp/seven-day-chrome.log 2>&1 &
           chrome_pid=$!
           INTEGRATED_SCREENSHOT_DIR=/tmp/seven-day-shots node scripts/chat-phone-schedule-real-browser.mjs 2>&1 | tee /tmp/seven-day-browser.log
