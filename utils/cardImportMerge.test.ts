@@ -566,6 +566,64 @@ describe('incremental character-card imports', () => {
         expect(()=>mergeCardImports([],[],[first,second])).toThrow('重复姓名');
     });
 
+    it('不同姓名但相同来源身份的两张卡会整体拒绝，避免被当成同一个人', () => {
+        const first = card('fresh-one', { source: 'tavern', originalName: '原名', externalId: 'same-id' },
+            { name: '新名字甲', systemPrompt: '甲的背景' });
+        const second = card('fresh-two', { source: 'tavern', originalName: '原名', externalId: 'same-id' },
+            { name: '新名字乙', systemPrompt: '乙的背景' });
+        expect(() => mergeCardImports([], [], [first, second])).toThrow('相同来源身份');
+    });
+
+    it('两张不同姓名的卡不能在批量导入时同时更新同一个角色', () => {
+        const old = char('existing', { cardImportOrigin: source });
+        const first = card('ignore-a', source, { name: '角色甲', systemPrompt: 'A' }, [], old.id);
+        const second = card('ignore-b', source, { name: '角色乙', systemPrompt: 'B' }, [], old.id);
+        expect(() => mergeCardImports([old], [], [first, second])).toThrow('同一个已有角色');
+        expect(old.systemPrompt).toBe('旧人设');
+    });
+
+    it('两张独立角色卡的批量事务同时保存人设、开场白及各自世界书', async () => {
+        const suffix = crypto.randomUUID();
+        const firstName = '批量甲' + suffix, secondName = '批量乙' + suffix;
+        const originA: CardImportOrigin = { source: 'tavern', originalName: firstName, externalId: 'a-' + suffix };
+        const originB: CardImportOrigin = { source: 'tavern', originalName: secondName, externalId: 'b-' + suffix };
+        const first = card('batch-one-' + suffix, originA, {
+            name: firstName, systemPrompt: '甲的人设',
+            tavernGreetings: [{ id: 'tavern-first', title: '甲的开场', content: '甲先发言' }],
+        }, [lore('book-a-' + suffix, '甲的独立世界', { cardImportKey: 'tavern:31' })]);
+        const second = card('batch-two-' + suffix, originB, {
+            name: secondName, systemPrompt: '乙的人设',
+            tavernGreetings: [{ id: 'tavern-first', title: '乙的开场', content: '乙先发言' }],
+        }, [lore('book-b-' + suffix, '乙的独立世界', { cardImportKey: 'tavern:31' })]);
+        try {
+            const result = await DB.importCharacterCardsSmartAtomic([first, second]);
+            expect(result.createdIds).toEqual([first.character.id, second.character.id]);
+            const a = await DB.getCharacter(first.character.id);
+            const b = await DB.getCharacter(second.character.id);
+            expect(a?.systemPrompt).toBe('甲的人设');
+            expect(b?.systemPrompt).toBe('乙的人设');
+            expect(a?.tavernGreetings?.[0].content).toBe('甲先发言');
+            expect(b?.tavernGreetings?.[0].content).toBe('乙先发言');
+            expect(a?.mountedWorldbooks?.map(book => book.content)).toEqual(['甲的独立世界']);
+            expect(b?.mountedWorldbooks?.map(book => book.content)).toEqual(['乙的独立世界']);
+            expect(a?.mountedWorldbooks?.[0].id).not.toBe(b?.mountedWorldbooks?.[0].id);
+        } finally {
+            await DB.deleteCharacter(first.character.id);
+            await DB.deleteCharacter(second.character.id);
+        }
+    });
+
+    it('含有来源身份冲突的批次不能只保存第一张卡', async () => {
+        const suffix = crypto.randomUUID();
+        const originA: CardImportOrigin = { source: 'tavern', originalName: '甲', externalId: 'dup-' + suffix };
+        const originB: CardImportOrigin = { source: 'tavern', originalName: '乙', externalId: 'dup-' + suffix };
+        const first = card('atomic-a-' + suffix, originA, { name: '甲' + suffix, systemPrompt: '甲' });
+        const second = card('atomic-b-' + suffix, originB, { name: '乙' + suffix, systemPrompt: '乙' });
+        await expect(DB.importCharacterCardsSmartAtomic([first, second])).rejects.toThrow('相同来源身份');
+        expect(await DB.getCharacter(first.character.id)).toBeUndefined();
+        expect(await DB.getCharacter(second.character.id)).toBeUndefined();
+    });
+
     it('坏的旧 Link 开场库与酒馆开场库不能在导入时被悄悄抹掉',()=>{
         const brokenLink=char('old',{cardImportOrigin:source,
             linkGreetings:{notAnArray:true} as any,
