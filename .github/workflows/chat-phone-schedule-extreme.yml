@@ -51,6 +51,7 @@ jobs:
           utils/characterPhoneAutonomy.test.ts
           utils/characterPhoneAiRequest.test.ts
           utils/characterPhoneLateResult.test.ts
+          utils/characterPhoneWeChatChaos.test.ts
           utils/amsg2CharToggle.wiring.test.ts
           utils/unsolicitedDeliveryGate.test.ts
           utils/dailyScheduleForegroundRecovery.test.ts
