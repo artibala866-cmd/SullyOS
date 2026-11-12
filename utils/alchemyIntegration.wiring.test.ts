@@ -15,9 +15,9 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(group).toContain("domain='online'");
         expect(group).toContain('alchemyResult={alchemyResults.get(m.id)}');
         expect(group).toContain("loadAlchemyInstructions('online'");
-        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyDirectorMessages)");
-        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyMemberMessages)");
-        expect(ai).toContain("applyAlchemyRequestHistory('online', fullMessages)");
+        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyDirectorMessages, { scene: 'chat' })");
+        expect(group).toContain("applyAlchemyRequestHistory('online', alchemyMemberMessages, { characterId: member.id, scene: 'chat' })");
+        expect(ai).toContain("applyAlchemyRequestHistory('online', fullMessages, { characterId: char.id, scene: 'chat' })");
         expect((group.match(/loadAlchemyInstructions\('online'/g) || []).length).toBe(2);
         expect(ai).toContain("loadAlchemyInstructions('online'");
         expect(read('components/chat/MessageItem.tsx')).toContain('AlchemyMessageBody');
@@ -48,7 +48,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(screen).toContain("domain='offline'");
         expect(screen).toContain('alchemyDisplay.get(msg.id)?.text');
         expect(screen).toContain('spriteAlchemy.get(-987654321)?.text');
-        expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting')");
+        expect(screen).toContain("useAlchemyMessageResults(messages, meetingRules, 'offline', 'meeting', activeCharacterId)");
         expect(read('utils/alchemyMeeting.ts')).toContain('loadMeetingAlchemyRules()');
         expect(read('utils/alchemyRegex.ts')).toContain('alchemyRulesForMeeting');
         expect(read('utils/alchemyRegex.ts')).toContain("alchemyOfflineScenes(rule).includes('meeting')");
