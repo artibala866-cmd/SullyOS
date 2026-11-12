@@ -57,7 +57,7 @@ async function openChrome(mode) {
         await send('Page.enable');
         await send('Runtime.enable');
         await send('Emulation.setDeviceMetricsOverride', {
-            width: mode === 'toggle-small' ? 320 : 390, height: 844, deviceScaleFactor: 1, mobile: true,
+            width: mode.endsWith('-small') ? 320 : 390, height: 844, deviceScaleFactor: 1, mobile: true,
         });
         await send('Page.navigate', { url: origin + '/test/fixtures/worldbook-bulk-visual.html?mode=' + mode });
         let html = '';
@@ -98,6 +98,12 @@ async function openChrome(mode) {
             assert(html.includes('data-match-count="0"'), 'Old diary items remain visible after deletion: ' + html);
             assert(html.includes('data-other-count="0"'), 'Diary book items resurfaced after deletion: ' + html);
         }
+        if (mode.startsWith('many')) {
+            assert(html.includes('data-many-page4="true"'), 'Expected page four of six after repeated next clicks: ' + html);
+            assert(html.includes('data-many-card-count="12"'), 'Page four must contain twelve rendered entries: ' + html);
+            assert(html.includes('data-many-filter-count="0"'), 'Cards must not create dozens of backdrop-filter layers: ' + html);
+            assert(html.includes('data-many-content-present="true"'), 'Last item on page four must remain rendered: ' + html);
+        }
         if (mode === 'selected') {
             assert(html.includes('data-long-press-selected="true"'), 'Long press failed to select first entry: ' + html);
             assert(html.includes('data-selected-count="7"'), 'Select-all must include partial-title match: ' + html);
@@ -129,5 +135,5 @@ async function openChrome(mode) {
         rmSync(dir, { recursive: true, force: true, maxRetries: 4, retryDelay: 250 });
     }
 }
-for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small']) await openChrome(mode);
-console.log('PASS: nine mobile states include direct on/off Worldbook toggles and 320px screenshots.');
+for (const mode of ['normal', 'search', 'selected', 'diary', 'diary-overflow', 'diary-delete', 'toggle-initial', 'toggle', 'toggle-small', 'many', 'many-small']) await openChrome(mode);
+console.log('PASS: 11 mobile states include 92-item Worldbook stress, page 4 of 6, collapsed-group unloading and scroll repaints.');
