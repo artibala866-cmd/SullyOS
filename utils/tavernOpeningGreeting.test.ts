@@ -160,7 +160,7 @@ describe('SillyTavern opening metadata compatibility', () => {
         const html='<div><p>包裹的 Link 内容。</p></div>\nLink 外面的正文。';
         const char={id:'actor',name:'季淮北',linkGreetings:[
             {id:'link-source-1',title:'Link 开场',content:html},
-        ],tavernGreetings:[]} as CharacterProfile;
+        ],tavernGreetings:[]} as unknown as CharacterProfile;
         expect(listCharacterStoryOpenings(char)[0].content).toBe('Link 外面的正文。');
         expect(storyOpeningReadingText(html,'link-source-1','link')).toBe('Link 外面的正文。');
         expect(storyOpeningReadingText(html,'story-custom-1','custom')).toBe(html);

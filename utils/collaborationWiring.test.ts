@@ -299,7 +299,8 @@ describe('collaboration sidecar wiring', () => {
     expect(prompts).toContain('if (char.chatCollaborationEnabled)');
     expect(prompts).toContain('不要在这里假装制作');
     expect(windowSourceForDailyMode()).toContain('日常聊天感知');
-    expect(windowSourceForDailyMode()).toContain('不会向普通聊天注入制作规则，也不能在那里干活');
+    expect(windowSourceForDailyMode()).toContain('普通聊天不会因此变成工作模式');
+    expect(windowSourceForDailyMode()).toContain('真正干活仍要进入「协同工作」');
   });
 
   it('uses the same iOS safe-top contract as ChatApp for every collaboration header', () => {

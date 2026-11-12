@@ -124,6 +124,12 @@ export const stripWrappedOpeningPayloads = (source: string): string => {
     // This is a structural rule, NOT a list of specific "wb_lore" authors.
     const tagToken = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<![^>\r\n]{0,4096}>|<\?[\s\S]{0,4096}?\?>|<\/?[a-z][\w:.-]*(?:\s+(?:"[^"]*"|'[^']*'|[^'"><])*)?\s*\/?>|<[a-z][\w-]*\s*[:：][^>\r\n]{0,4096}>/gi;
     const opened: Array<{ name: string; start: number; end: number }> = [];
+    const lastMatchingIndex = <T,>(items: T[], matches: (item: T) => boolean): number => {
+        for (let i = items.length - 1; i >= 0; i--) {
+            if (matches(items[i])) return i;
+        }
+        return -1;
+    };
     const voidTags = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
     for (const match of input.matchAll(tagToken)) {
         const token = match[0], start = match.index!, end = start + token.length;
@@ -133,7 +139,7 @@ export const stripWrappedOpeningPayloads = (source: string): string => {
         }
         const name = tag[1].toLowerCase();
         if (token.startsWith('</')) {
-            const index = opened.findLastIndex(item => item.name === name);
+            const index = lastMatchingIndex(opened, item => item.name === name);
             if (index >= 0) {
                 add(opened[index].start, end);
                 opened.splice(index);
@@ -156,7 +162,7 @@ export const stripWrappedOpeningPayloads = (source: string): string => {
         const char = input[offset];
         if (bracketPairs[char]) stack.push({ char, start: offset });
         else if (closing.has(char)) {
-            const index = stack.findLastIndex(item => bracketPairs[item.char] === char);
+            const index = lastMatchingIndex(stack, item => bracketPairs[item.char] === char);
             if (index < 0) continue;
             add(stack[index].start, offset + 1);
             stack.splice(index);
