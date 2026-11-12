@@ -102,6 +102,7 @@ import NavigationBall from './os/NavigationBall';
 import DreamSimIndicator from './os/DreamSimIndicator';
 import ErrorDialog from './os/ErrorDialog';
 import BootSequence from './os/BootSequence';
+import { shouldShowBootSequence } from '../utils/bootAnimationPolicy';
 import { setAppPayloadWarmer, shouldUseIdleAppPreload } from './os/appPreload';
 import { isBrowserBackGuardState, makeBrowserBackGuardState } from '../utils/browserBackGuard';
 
@@ -778,7 +779,7 @@ const PhoneShell: React.FC = () => {
 
   // 冷启动：先放「世界入场」cinematic（数据没就绪时它持续呼吸等待，绝不出现 spinner）。
   // BootSequence 在「数据就绪 + 停留够时长」后推进退场，再交还控制权给下方的锁屏/桌面。
-  if (!bootDone && bootAnimationEnabled) {
+  if (shouldShowBootSequence(themeSettingsLoaded, theme.bootAnimationEnabled, bootDone)) {
     return <BootSequence dataReady={isDataLoaded} wallpaper={theme.wallpaper} style={theme.bootAnimationStyle} onDone={() => setBootDone(true)} />;
   }
 
