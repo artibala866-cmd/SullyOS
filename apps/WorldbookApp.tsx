@@ -835,7 +835,7 @@ const WorldbookApp: React.FC = () => {
 
             {/* Content List */}
             <div className="flex-1 overflow-y-auto p-5 pb-24 space-y-4 no-scrollbar relative z-0">
-                {Object.keys(groupedBooks).length === 0 && (
+                {!normalizedSearch && Object.keys(groupedBooks).length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-neutral-500 gap-4 opacity-60">
                         <BookOpen size={48} className="text-neutral-500" />
                         <span className="text-xs font-medium">世界还是空白的...</span>
