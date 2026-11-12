@@ -332,13 +332,13 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
                 { identifier: 'notes', role: 'assistant', content: '无需名称宏的纯文字' },
             ],
         }), '纯文本预设.json');
-        expect(imported.document.prompts.map(prompt => prompt.enabled)).toEqual([true, false, true]);
+        expect(imported.document.prompts.map(prompt => prompt.enabled)).toEqual([false, false, false]);
         expect(imported.document.importWarnings?.join('')).toContain('没有 prompt_order');
         const content = compileStoryPreset({ preset: imported, slots: { ...slots, worldBefore: '' },
             userName: '用户', characterNames: ['角色'] }).messages.map(m => m.content).join('\n');
-        expect(imported.document.importWarnings?.join('')).toContain('默认开启');
-        expect(content).toContain('<instructions>只按当前背景续写</instructions>');
-        expect(content).toContain('无需名称宏的纯文字');
+        expect(imported.document.importWarnings?.join('')).toContain('保守关闭');
+        expect(content).not.toContain('<instructions>只按当前背景续写</instructions>');
+        expect(content).not.toContain('无需名称宏的纯文字');
         expect(content).not.toContain('明确关闭的旧规则');
     });
 
@@ -1114,15 +1114,15 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         }
     });
 
-    it('结构变体支持字符引用、0/1和大小写布尔；缺少开关会提示旧版默认', () => {
+    it('结构变体支持字符引用、0/1和大小写布尔；缺少开关会保守关闭', () => {
         const prompts = [
             {identifier:'a',name:'A',role:'system',content:'一',enabled:'TRUE'},
             {identifier:'b',name:'B',role:'system',content:'二',enabled:' 0 '},
             {identifier:'c',name:'C',role:'system',content:'三'},
         ];
         const document = parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:['a','b','c']}),'字符串引用.json').document;
-        expect(document.prompts.map(p=>p.enabled)).toEqual([true,false,true]);
-        expect(document.importWarnings?.join('')).toContain('默认开启');
+        expect(document.prompts.map(p=>p.enabled)).toEqual([true,false,false]);
+        expect(document.importWarnings?.join('')).toContain('保守关闭');
         const alternate = parseStoryTheaterPreset(JSON.stringify({prompts,prompt_order:
             [{character_id:100001,order:[{identifier:'a',enabled:0},{identifier:'b',enabled:'True'},{identifier:'c',enabled:false}]}]}),'混合开关.json').document;
         expect(alternate.prompts.map(p=>p.enabled)).toEqual([false,true,false]);
