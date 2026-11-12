@@ -40,8 +40,9 @@ import { COMMON_TIMEZONES } from '../utils/timezone';
 import { toMountedWorldbook } from '../utils/worldbook';
 import { stripSensitiveCardFields } from '../utils/characterCard';
 import { shareOrDownloadFile } from '../utils/shareExport';
-import { readCharacterCardFile, type PreparedCardImport, type PreparedCharacterCard } from '../utils/sillyTavernCard';
-import { cardContentFingerprint, findCardImportTarget } from '../utils/cardImportMerge';
+import { type PreparedCardImport, type PreparedCharacterCard } from '../utils/sillyTavernCard';
+import { readLocalCharacterCards, type PreparedLocalCardBatch } from '../utils/characterCardBatch';
+import { cardContentFingerprint, findCardImportTarget, normalizeCardName } from '../utils/cardImportMerge';
 import {
     availableCardImportSections, effectiveCardImportSections, hasCardImportSelection,
     selectCardImportSections, type CardImportSections,
@@ -196,13 +197,13 @@ const Character: React.FC = () => {
   }, [characters]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
-  const [pendingCard, setPendingCard] = useState<PreparedCardImport | null>(null);
+  const [pendingCard, setPendingCard] = useState<PreparedCardImport | PreparedLocalCardBatch | null>(null);
   const [selectedImportIndices, setSelectedImportIndices] = useState<number[]>([0]);
   const [selectedImportSections, setSelectedImportSections] = useState<CardImportSections>({
       persona: true, worldbooks: true, greetings: true,
   });
   const selectedCardPreviews = useMemo((): PreparedCharacterCard[] => !pendingCard ? [] :
-      pendingCard.source === 'babylink'
+      pendingCard.source === 'babylink' || pendingCard.source === 'local-batch'
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard], [pendingCard, selectedImportIndices]);
   const privateChatOpeningCount = useMemo(() => selectedCardPreviews.reduce(
@@ -215,7 +216,7 @@ const Character: React.FC = () => {
   const [savingCard, setSavingCard] = useState(false);
   const [cardPreviewUrl, setCardPreviewUrl] = useState('');
   useEffect(() => {
-      const preview = pendingCard?.source === 'babylink' ? null : pendingCard;
+      const preview = pendingCard?.source === 'babylink' || pendingCard?.source === 'local-batch' ? null : pendingCard;
       if (!preview?.avatarFile) { setCardPreviewUrl(''); return; }
       const url = URL.createObjectURL(preview.avatarFile);
       setCardPreviewUrl(url);
@@ -1196,11 +1197,13 @@ ${isInitialGeneration ? `
   };
 
   const handleImportCard = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
       try {
-          const prepared = await readCharacterCardFile(file);
-          setSelectedImportIndices(prepared.source === 'babylink'
+          // Every file is parsed into its own card(s) before opening the confirmation.
+          // A broken file aborts the entire selection; nothing has been written yet.
+          const prepared = await readLocalCharacterCards(files);
+          setSelectedImportIndices(prepared.source === 'babylink' || prepared.source === 'local-batch'
               ? prepared.cards.map((_, index) => index) : [0]);
           setSelectedImportSections({ persona: true, worldbooks: true, greetings: true });
           setPendingCard(prepared);
@@ -1222,7 +1225,7 @@ ${isInitialGeneration ? `
 
   const confirmCardImport = async () => {
       if (!pendingCard || savingCard) return;
-      const chosen: PreparedCharacterCard[] = pendingCard.source === 'babylink'
+      const chosen: PreparedCharacterCard[] = pendingCard.source === 'babylink' || pendingCard.source === 'local-batch'
           ? pendingCard.cards.filter((_, index) => selectedImportIndices.includes(index))
           : [pendingCard];
       if (!chosen.length) { addToast('请至少选择一个角色', 'error'); return; }
@@ -1239,6 +1242,30 @@ ${isInitialGeneration ? `
           // The live DB is the identity authority, never a permanent file-history
           // registry or an orphaned worldbook left by a deleted role.
           const existingCharacters = await DB.getAllCharacters();
+          const names = new Set<string>();
+          const identities = new Set<string>();
+          const destinations = new Set<string>();
+          for (const card of chosen) {
+              const key = normalizeCardName(card.character.name);
+              if (!key || names.has(key)) throw new Error('所选角色卡存在重复姓名，请取消重复项后导入，避免串卡');
+              names.add(key);
+              const origin = cardOrigin(card);
+              if (origin.externalId?.trim()) {
+                  const sourceKey = JSON.stringify([origin.source, origin.externalId.trim()]);
+                  if (identities.has(sourceKey)) throw new Error('所选角色卡存在重复来源身份，请取消重复项后导入');
+                  identities.add(sourceKey);
+              }
+              const target = findCardImportTarget(existingCharacters, origin, card.character.name);
+              if (target) {
+                  if (destinations.has(target.id)) throw new Error('多张卡指向同一个已有角色，请分开核对后导入');
+                  destinations.add(target.id);
+              }
+              // Do not create blank shell characters when the chosen import
+              // modules have no content for an individual file.
+              if (!hasCardImportSelection(effectiveCardImportSections([card], sections))) {
+                  throw new Error(`「${card.character.name}」没有所选模块的内容，请取消勾选或调整导入内容`);
+              }
+          }
           const imports = [];
           for (const prepared of chosen) {
               const origin = cardOrigin(prepared);
@@ -1373,7 +1400,7 @@ ${isInitialGeneration ? `
                         <ToolButton label="关闭" title="关闭" onClick={closeApp}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                         </ToolButton>
-                        <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,.txt,.text,.doc,.docx,application/json,image/png,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleImportCard} />
+                        <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,.txt,.text,.doc,.docx,application/json,image/png,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleImportCard} multiple />
                    </div>
                </div>
                <div className="flex-1 overflow-y-auto px-5 pt-5 pb-20 no-scrollbar flex flex-col gap-3">
@@ -2302,7 +2329,7 @@ ${isInitialGeneration ? `
             footer={<div className="flex w-full gap-2">
                 <button disabled={savingCard} onClick={() => setPendingCard(null)} className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-semibold disabled:opacity-50">取消</button>
                 <button disabled={savingCard || !hasCardImportSelection(enabledImportSections) ||
-                    (pendingCard?.source === 'babylink' && selectedImportIndices.length === 0)}
+                    ((pendingCard?.source === 'babylink' || pendingCard?.source === 'local-batch') && selectedImportIndices.length === 0)}
                     onClick={confirmCardImport} className="flex-1 py-3 bg-[#222222] text-white rounded-2xl font-semibold disabled:opacity-50">
                     {savingCard ? '保存中…' : '确认导入'}
                 </button>
@@ -2337,7 +2364,7 @@ ${isInitialGeneration ? `
                                     className="h-4 w-4 accent-neutral-800" />
                             </span>
                             <span className="text-[10px] text-neutral-500">{enabled ? amount :
-                                key === 'greetings' && pendingCard?.source === 'babylink' &&
+                                key === 'greetings' && (pendingCard?.source === 'babylink' || pendingCard?.source === 'local-batch') &&
                                 selectedCardPreviews.some(card => card.linkOpeningPayloadOmitted)
                                     ? '分享图未携带' : '无可导入内容'}</span>
                         </label>;
@@ -2346,8 +2373,16 @@ ${isInitialGeneration ? `
                 
                 
             </div>}
-            {pendingCard?.source === 'babylink' ? <div className="flex flex-col gap-3 py-2">
-                <p className="text-xs text-neutral-500">{pendingCard.cards.length} 个角色</p>
+            {(pendingCard?.source === 'babylink' || pendingCard?.source === 'local-batch') ? <div className="flex flex-col gap-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-neutral-500">{selectedImportIndices.length} / {pendingCard.cards.length} 个角色</p>
+                    <button type="button" disabled={savingCard}
+                        onClick={() => setSelectedImportIndices(current =>
+                            current.length === pendingCard.cards.length ? [] : pendingCard.cards.map((_, index) => index))}
+                        className="text-xs font-semibold text-neutral-700 px-3 py-1.5 rounded-lg bg-neutral-100 disabled:opacity-50">
+                        {selectedImportIndices.length === pendingCard.cards.length ? '取消全选' : '全选'}
+                    </button>
+                </div>
                 <div className="max-h-[48vh] overflow-y-auto space-y-2">
                     {pendingCard.cards.map((card, index) => <label key={index} className="flex items-start gap-3 p-3 border border-neutral-200 rounded-xl">
                         <input type="checkbox" checked={selectedImportIndices.includes(index)} disabled={savingCard}
@@ -2363,14 +2398,20 @@ ${isInitialGeneration ? `
                             {characters.some(char => char.name.trim() === card.character.name.trim()) &&
                                 <span className="text-xs text-neutral-500">同名角色 · 增量导入</span>}
                             
+                            {pendingCard.source === 'local-batch' && <span className="text-[11px] text-neutral-400 break-all">{pendingCard.fileNames[index]}</span>}
                             <span className="text-xs text-neutral-600">世界书：{card.worldbooks.length} 条</span>
-                            <span className="text-xs text-neutral-600">独立开场白：{card.linkOpeningPayloadOmitted ? '未携带' : (card.character.linkGreetings?.length || 0) + ' 条'}</span>
+                            <span className="text-xs text-neutral-600">开场白：{card.linkOpeningPayloadOmitted ? '未携带' :
+                                ((card.character.linkGreetings?.length || 0) + (card.character.tavernGreetings?.length || 0)) + ' 条'}</span>
                             
                             {card.imageProfile && <span className="text-xs text-neutral-600">生图已识别</span>}
                         </span>
                     </label>)}
                 </div>
                 {pendingCard.cards.some(card => card.linkOpeningPayloadOmitted) && <p className="text-[11px] text-amber-700">分享包缺少部分开场白；本地内容会保留。</p>}
+                {pendingCard.cards.some(card => card.warnings.length > 0) && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3 max-h-36 overflow-y-auto">
+                    {pendingCard.cards.flatMap((card, index) => card.warnings.map((warning, n) =>
+                        <p key={index + '-' + n}>{card.character.name}：{warning}</p>))}
+                </div>}
                 {pendingCard.warnings.length > 0 && <div className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">
                     {pendingCard.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
                 </div>}
