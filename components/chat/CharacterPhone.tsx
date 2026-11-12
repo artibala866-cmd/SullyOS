@@ -47,7 +47,7 @@ import { ArrowLeft, ChatCircleDots, GearSix, Wallet, UsersThree, Images, Phone, 
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import {
   CHARACTER_PHONE_CHATS_CHANGED, readCharacterPhoneChats,
-  updateCharacterPhoneChats, deleteCharacterPhoneChat, erasePhoneWechatRelationshipNotes, notifyCharacterPhoneChatsChanged,
+  updateCharacterPhoneChats, deleteCharacterPhoneChat, erasePhoneWechatRelationshipNotes, notifyCharacterPhoneChatsChanged, matchesPhoneWechatSearch,
   type CharacterPhoneChat,
 } from '../../utils/characterPhoneChats';
 import { findKnownNpc, registerDiscoveredNpc, noteNpcInteraction } from '../../utils/characterNpcNetwork';
@@ -851,6 +851,9 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
   // Read-only life side: recorded facts, never a chat reply or a planned schedule slot.
   const confirmedLifeGlimpses = selectConfirmedLifeGlimpses(lifeEvents, characterId);
   const privatePreview = privateThread?.messages[privateThread.messages.length-1];
+  const matchingChats = records.filter(r => matchesPhoneWechatSearch(wechatQuery, r.name, r.preview));
+  const privateChatMatches = !hiddenPrivate && !!privateThread &&
+    matchesPhoneWechatSearch(wechatQuery, userProfile.name, privatePreview?.text);
   const deleteChat = (id: string) => {
     if (id === 'private:' + characterId) { setHiddenPrivate(true); try {localStorage.setItem('sully_phone_hide_private:'+characterId,'1');} catch {} }
     else try {
@@ -906,10 +909,10 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               value={wechatQuery} onChange={e=>setWechatQuery(e.target.value)} autoFocus
               className="w-full rounded-xl bg-[#f1f1f1] px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[#aaa]"/>
           </div>}
-          {!hiddenPrivate && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
+          {privateChatMatches && privateThread && <div className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(privateThread.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(privateThread.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left"><PhoneAvatar src={userProfile.perCharAvatars?.[characterId] || userProfile.avatar} name={userProfile.name} className="h-12 w-12 rounded-lg text-base"/><span className="min-w-0 flex-1"><span className="block truncate text-base">{userProfile.name} <small className="text-[#888]">真实私聊</small></span><span className="block truncate text-xs text-[#999]">{privatePreview?.text || '暂无私聊消息'}</span></span></button>{swipedId===privateThread.id&&<button type="button" onClick={()=>deleteChat(privateThread.id)} className="bg-red-500 px-4 text-white">删除</button>}
           </div>}
-          {records.filter(r=>(r.name+' '+r.preview).toLocaleLowerCase().includes(wechatQuery.trim().toLocaleLowerCase())).map(r=><div key={r.id} className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(r.id);setTouchX(null);}}>
+          {matchingChats.map(r=><div key={r.id} className="flex bg-white" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>{if(touchX!==null && e.changedTouches[0].clientX-touchX>65)setSwipedId(r.id);setTouchX(null);}}>
             <button type="button" onClick={()=>{setThread(r.id);setScreen('thread');}} className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#eee] px-4 py-3 text-left">{r.kind==='service'||r.contactId?.startsWith('service:')?
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#ddd] bg-gradient-to-br from-[#eee] to-white text-[#555]">
                 {r.name.includes('支付')?<CreditCard size={28}/>:r.name.includes('公众号')?<BookOpen size={27}/>:<Megaphone size={27}/>}
@@ -918,7 +921,7 @@ ${fullSuite?`\n这次是「一次请求生成微信全套」，同时返回顶�
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#dedede] text-[#555]"><UsersThree size={26}/></span>:
               <PhoneAvatar src={profiles.find(p=>p.id===r.contactId)?.avatar} name={r.name} className="h-12 w-12 rounded-lg text-xl"/>}<span className="min-w-0 flex-1"><span className="block truncate text-[17px]">{r.name}</span><span className="block truncate pt-1 text-[13px] text-[#999]">{r.preview}</span></span><span className="text-xs text-[#aaa]">{timeLabel(r.time)}</span></button>{swipedId===r.id&&<button type="button" onClick={()=>deleteChat(r.id)} className="bg-red-500 px-4 text-white">删除</button>}
           </div>)}
-          {!records.length && (!privateThread || hiddenPrivate) && <p className="p-8 text-center text-sm text-[#999]">暂无微信消息</p>}
+          {!matchingChats.length && !privateChatMatches && <p className="p-8 text-center text-sm text-[#999]">{wechatQuery.trim() ? '没有匹配的微信消息' : '暂无微信消息'}</p>}
         </div>}
         {screen === 'wechat' && tab === 'contacts' && <div className="bg-white">
           <button type="button" onClick={()=>{setAddingContact(v=>!v);setDraft({name:'',identity:'',personality:'',relationship:'',background:''});setRealNameDraft('');}} className="flex w-full items-center gap-3 border-b border-[#eee] px-5 py-3 text-left"><span className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-400 text-white"><Plus size={24}/></span>添加朋友</button>
