@@ -350,6 +350,7 @@ try{
     more().click();
     await wait(()=>!!phone().querySelector('[data-testid="moment-comment-action-ci-phone-moment"]'), 'Moment comment menu');
     phone().querySelector('[data-testid="moment-comment-action-ci-phone-moment"]').click();
+    await wait(()=>!!phone().querySelector('input[aria-label="评论"]'), 'Moment comment composer appears');
     textInput('input[aria-label="评论"]','我刚发现你也在画速写！');
     press('发送',phone());
     await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.comments?.length===1,
