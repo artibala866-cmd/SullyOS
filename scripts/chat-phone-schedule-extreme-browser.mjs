@@ -270,17 +270,25 @@ try{
     press('添加朋友',phone());
     await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='保存联系人'),'contact editor');
     const nick=[...phone().querySelectorAll('label')].find(x=>x.textContent.includes('微信昵称'))?.querySelector('textarea');
+    const identity=[...phone().querySelectorAll('label')].find(x=>x.textContent.trim()==='身份')?.querySelector('textarea');
+    const personality=[...phone().querySelectorAll('label')].find(x=>x.textContent.trim()==='性格')?.querySelector('textarea');
     const who=[...phone().querySelectorAll('label')].find(x=>x.textContent.includes('与Char关系'))?.querySelector('textarea');
-    if(!nick||!who)throw Error('Phone contact has no nickname/relationship field');
+    if(!nick||!who||!identity||!personality)throw Error('Phone contact is missing a required profile field');
     const setPhoneField=(input,value)=>{
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,value);
       input.dispatchEvent(new Event('input',{bubbles:true}));
       input.dispatchEvent(new Event('change',{bubbles:true}));
     };
     setPhoneField(nick,'林同学');
+    await pause(110);setPhoneField(identity,'插画同学');
+    await pause(110);setPhoneField(personality,'有主见，聊天比较直接');
     await pause(110);setPhoneField(who,'同学');
     await pause(130);press('保存联系人',phone());
-    await wait(()=>phone().textContent.includes('林同学'),'manual contact persisted in phone');
+    await wait(()=>JSON.parse(localStorage.getItem('sully_character_phone_npcs_v1:'+currentChar())||'[]')
+      .some(p=>p.name==='林同学'&&p.identity==='插画同学'&&p.relationship==='同学'),
+      'manual contact actually persisted to NPC storage');
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='AI生成聊天'),
+      'saved NPC profile detail appears');
     if((await messages()).filter(x=>x.role==='user').length!==privateMessages.filter(x=>x.role==='user').length)
       throw Error('Phone added contact accidentally generated User chat turn');
     progress.push('phone contact saved independently of private chat');
