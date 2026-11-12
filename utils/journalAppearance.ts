@@ -181,7 +181,7 @@ const MONO_SCRAPBOOK_CSS = `
 .sully-journal-notebook-label{background:#eee!important;color:#333!important}
 .sully-journal-entry{background:#fff!important;border:0!important;border-bottom:1px solid #ededed!important;box-shadow:none!important;border-radius:0!important}
 .sully-journal-entry-accent{display:none}
-.sully-journal-new-entry{border:0!important;border-bottom:1px solid #ededed!important;border-radius:0!important;color:#252525!important;background:#fff!important}
+.sully-journal-new-entry{border:0!important;border-top:1px solid #e9e9e9!important;border-bottom:1px solid #e9e9e9!important;border-radius:0!important;color:#252525!important;background:#fff!important}
 .sully-journal-write{background:#202020!important}
 .sully-journal-spread-page{box-shadow:0 10px 28px rgba(0,0,0,.16)!important}
 .sully-journal-paper{border:1px solid #c9c9c9!important}
