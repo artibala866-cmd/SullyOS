@@ -33,7 +33,7 @@ import {
     LifeSimState, HandbookEntry, Tracker, TrackerEntry, HotNewsSnapshot,
     LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup,
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
-    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask
+    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask, VRNovelAnnotation
 } from '../types';
 import { exportLuckinLocal, importLuckinLocal } from './luckinMcpClient';
 import { exportMcdLocal, importMcdLocal } from './mcdMcpClient';
@@ -821,7 +821,8 @@ export const DB = {
       STORE_GROUPS, STORE_SOCIAL_POSTS, STORE_WORLDS, STORE_WORLD_EPISODES,
       STORE_STORY_THEATERS, STORE_GAMES, STORE_NOVELS, STORE_COURSES,
       STORE_WORLDBOOKS, STORE_VR_LETTERS, STORE_VR_ANNOTATIONS,
-      STORE_API_CALL_LOG, STORE_VR_SETTINGS,
+      STORE_API_CALL_LOG, STORE_VR_SETTINGS, STORE_SONGS, STORE_GUIDEBOOK, STORE_LIFE_SIM,
+      STORE_VR_GUESTBOOK, STORE_VR_MUSIC, STORE_VR_SCRIPTS, STORE_VR_PLAYS,
       'pixel_home_layouts', 'memory_links', ...memoryStores,
     ].filter(name => db.objectStoreNames.contains(name));
     const stores = [...new Set(relevant)];
@@ -945,10 +946,26 @@ export const DB = {
         scan(STORE_DAILY_SCHEDULE, row => row.charId === id || String(row.id).startsWith(id + '_') ? null : undefined);
         scan(STORE_VR_LETTERS, row => row.charId === id ? null :
           row.reply?.charId === id ? { ...row, reply: undefined, replyStatus: 'none' } : undefined);
-        if (stores.includes(STORE_VR_ANNOTATIONS) &&
-            !tx.objectStore(STORE_VR_ANNOTATIONS).indexNames.contains('charId')) {
-          scan(STORE_VR_ANNOTATIONS, row =>
-            row.charId === id || row.characterId === id ? null : undefined);
+        if (stores.includes(STORE_VR_ANNOTATIONS)) {
+          const annotations = tx.objectStore(STORE_VR_ANNOTATIONS);
+          const all = annotations.getAll();
+          all.onsuccess = () => {
+            const rows = all.result as VRNovelAnnotation[];
+            const deleted = new Set(rows.filter(row => row.authorId === id).map(row => row.id));
+            // Replies quoting a deleted annotation also retain its role context.
+            let changed = true;
+            while (changed) {
+              changed = false;
+              for (const row of rows) {
+                if (!deleted.has(row.id) && row.targetAnnotationId &&
+                    deleted.has(row.targetAnnotationId)) {
+                  deleted.add(row.id);
+                  changed = true;
+                }
+              }
+            }
+            for (const itemId of deleted) annotations.delete(itemId);
+          };
         }
         // UI API logs and one-shot request captures may contain the complete
         // role prompt and prior dialogue, even after all messages are gone.
@@ -987,6 +1004,47 @@ export const DB = {
           return next.collaboratorIds.length === 0 && next.segments.length === 0 ? null : next;
         });
         scan(STORE_GAMES, row => row.playerCharIds?.includes(id) ? null : undefined);
+        scan(STORE_SONGS, row => row.collaboratorId === id ? null : undefined);
+        scan(STORE_GUIDEBOOK, row => row.charId === id ? null : undefined);
+        scan(STORE_LIFE_SIM, row =>
+          row.participantCharIds?.includes(id) || row.currentActorId === id ||
+          row.charQueue?.includes(id) ||
+          row.actionLog?.some((action: any) => action.actorId === id) ||
+          row.replayPending?.some((action: any) => action.actorId === id)
+            ? null : undefined);
+        scan(STORE_VR_MUSIC, row => {
+          const queue = (row.queue || []).filter((item: any) => item.charId !== id);
+          const nowPlaying = row.nowPlaying?.charId === id ? undefined : row.nowPlaying;
+          return queue.length !== (row.queue || []).length || nowPlaying !== row.nowPlaying
+            ? { ...row, queue, nowPlaying } : undefined;
+        });
+        scan(STORE_VR_GUESTBOOK, row => {
+          const owned = new Set((row.messages || []).filter((item: any) =>
+            item.authorId === id).map((item: any) => item.id));
+          if (!owned.size) return undefined;
+          return { ...row, messages: (row.messages || []).filter((item: any) =>
+            !owned.has(item.id) && !owned.has(item.replyToId)) };
+        });
+        const deletedScriptIds = new Set<string>();
+        if (stores.includes(STORE_VR_SCRIPTS)) {
+          const scriptStore = tx.objectStore(STORE_VR_SCRIPTS);
+          const scripts = scriptStore.openCursor();
+          scripts.onsuccess = () => {
+            const cursor = scripts.result;
+            if (!cursor) {
+              scan(STORE_VR_PLAYS, row => deletedScriptIds.has(row.scriptId) ||
+                row.cast?.some((item: any) => item.actorId === id) ||
+                row.notes?.some((item: any) => item.actorId === id) ? null : undefined);
+              return;
+            }
+            if (cursor.value.authorId === id) {
+              deletedScriptIds.add(cursor.value.id);
+              cursor.delete();
+            }
+            cursor.continue();
+          };
+        } else scan(STORE_VR_PLAYS, row =>
+          row.cast?.some((item: any) => item.actorId === id) ? null : undefined);
         scan(STORE_COURSES, row => row.tutorCharId === id ? { ...row, tutorCharId: undefined } : undefined);
         scan(STORE_GROUPS, row => {
           const next = removeCharacterFromGroup(row, id);
