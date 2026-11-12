@@ -1,0 +1,55 @@
+name: Worldbook touch and return mobile screenshots
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - apps/WorldbookApp.tsx
+      - scripts/worldbook-bulk-visual.mjs
+      - test/fixtures/worldbook-bulk-visual.tsx
+      - test/fixtures/worldbook-bulk-visual.html
+      - .github/workflows/worldbook-touch-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check Worldbook real-component touch targets, scroll return, and screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5182 --strictPort > /tmp/worldbook-vite.log 2>&1 &
+          pid="$!"
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5182/test/fixtures/worldbook-bulk-visual.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5182/test/fixtures/worldbook-bulk-visual.html >/dev/null
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node scripts/worldbook-bulk-visual.mjs || {
+            tail -n 120 /tmp/worldbook-vite.log || true
+            exit 1
+          }
+      - name: Upload mobile screenshots for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldbook-touch-return-mobile
+          path: /tmp/worldbook-bulk-shots/*.png
+          if-no-files-found: warn
+          retention-days: 7
