@@ -16,6 +16,9 @@ export const selectMusicQueueTrack = (
     const idx = n !== undefined && Number.isInteger(n) &&
       n >= 0 && n < next.length && sameMusic(next[n], song)
       ? n : next.findIndex(s => sameMusic(s, song));
+    // A playlist can change between a row click and queue replacement.
+    // Never start audio with idx=-1 and an empty/unrelated "current" track.
+    if (idx < 0) return { queue: [...next, song], idx: next.length };
     return { queue: next, idx };
   }
   const index = queue.findIndex(s => sameMusic(s, song));
