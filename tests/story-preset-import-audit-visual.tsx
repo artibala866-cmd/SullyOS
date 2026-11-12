@@ -103,7 +103,7 @@ const dialectCases: Record<string, {
             { id: 'plain', name: '🎪简约文字小剧场', content: '作者简约小剧场。' },
             { id: 'theaterClose', name: '╚小剧场结束╝', content: '</theater>' },
         ],
-        labels: ['🎪小剧场', '简约文字小剧场'],
+        labels: ['小剧场', '简约文字小剧场'],
     },
     yuki: {
         temperature: 1, top_p: 1, frequency_penalty: 0, presence_penalty: 0,
@@ -354,7 +354,7 @@ const check = () => {
     const headingText = [...document.querySelectorAll('h2')].map(node => node.textContent || '');
     const eightControls = ['文风', '人称', '输入转述', '你的执笔权',
         '场景张力', '小剧场', '语言', '篇幅'].every(x => headingText.includes(x));
-    const nativeAuthorMapping = dialect === 'baby' ? ['抢话权限','复述权限','人称选1个','拖拖📚文风',
+    const nativeAuthorMapping = dialect === 'baby' ? ['抢话权限','复述权限','人称选1个','拖拖文风',
         '完全','不复述','上帝：user你','随机适配'].every(value =>
             focus === 'author' && value === '完全' ? true : document.body.textContent?.includes(value))
         : dialectCase && focus === 'overview'
