@@ -300,10 +300,18 @@ export function mergeStoryRegexImport(existing: StoryRegexRule[], imported: Stor
  * source fields the importer does not understand. No prompt synthesis and no
  * hidden local smart filtering. Works in the reference app as a normal array.
  */
+/** Read a native HTML template without losing the author's standalone CSS. */
+export function splitAlchemyTemplateCss(replacement: string): { cssScope: string; htmlTemplate: string } {
+    const matched = /^<style>([\s\S]*?)<\/style>\s*\n?/i.exec(replacement);
+    return matched ? { cssScope: matched[1], htmlTemplate: replacement.slice(matched[0].length) }
+        : { cssScope: '', htmlTemplate: replacement };
+}
+
 export function exportStoryAlchemyRules(rules: StoryRegexRule[]): string {
     const rows = rules.map(rule => {
         const original = rule.source?.originalRule || {};
         const template = rule.kind === 'template';
+        const htmlParts = template ? splitAlchemyTemplateCss(rule.replacement) : null;
         const scope = rule.source?.originalScope || 'global';
         return {
             ...original,
@@ -315,8 +323,8 @@ export function exportStoryAlchemyRules(rules: StoryRegexRule[]): string {
             replacement: template ? '' : rule.replacementChoices?.length
                 ? [rule.replacement, ...rule.replacementChoices] : rule.replacement,
             ...(template && {
-                htmlTemplate: rule.replacement,
-                cssScope: '',
+                htmlTemplate: htmlParts?.htmlTemplate || '',
+                cssScope: htmlParts?.cssScope || '',
                 parseMode: rule.parseMode || 'text',
                 renderMode: rule.source?.renderMode || 'iframe',
             }),
