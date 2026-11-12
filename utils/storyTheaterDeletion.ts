@@ -22,18 +22,21 @@ export async function deleteStoryTheaterData(
         listStoryVectorMemories(entry.id),
     ]);
 
-    const messageIds = new Set<number>();
+    // Old theaterMirrorIds can point at a message that was later reused, moved,
+    // or belongs to another story. Never trust an ID alone when deleting history.
+    const ownedMirrors = recipientMessages.flat().filter(message =>
+        message.metadata?.source === 'story_theater_memory' && message.metadata?.theaterId === entry.id
+    );
+    const ownedMirrorIds = new Set(ownedMirrors.map(message => message.id));
+    const messageIds = new Set<number>(ownedMirrorIds);
     for (const message of centralMessages) {
         messageIds.add(message.id);
         const mirrorIds = Object.values((message.metadata?.theaterMirrorIds || {}) as Record<string, number>);
         for (const id of mirrorIds) {
             const numericId = Number(id);
-            if (Number.isFinite(numericId) && numericId > 0) messageIds.add(numericId);
-        }
-    }
-    for (const message of recipientMessages.flat()) {
-        if (message.metadata?.source === 'story_theater_memory' && message.metadata?.theaterId === entry.id) {
-            messageIds.add(message.id);
+            if (Number.isSafeInteger(numericId) && numericId > 0 && ownedMirrorIds.has(numericId)) {
+                messageIds.add(numericId);
+            }
         }
     }
 
