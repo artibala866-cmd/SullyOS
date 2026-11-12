@@ -79,8 +79,8 @@ describe('剧情预设导入全链路与真实文件异常审计', () => {
 
     it('UTF-8 BOM、新老排序表、省略 enabled 和 developer 角色均不会吞正文', () => {
         const src = '\uFEFF' + JSON.stringify({
-            prompts: [{ identifier: 'rule', role: 'developer', content: '说明不能丢' },
-                { identifier: 'chatHistory', marker: true, content: '' }],
+            prompts: [{ identifier: 'rule', role: 'developer', content: '说明不能丢', enabled: true },
+                { identifier: 'chatHistory', marker: true, content: '', enabled: true }],
             prompt_order: [{ character_id: 100001,
                 order: [{ identifier: 'rule' }, { identifier: 'chatHistory' }] }],
         });
