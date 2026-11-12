@@ -1247,7 +1247,7 @@ ${charPart}
                                                 <span className="mt-[12px] text-[10px] font-medium tracking-[0.08em] text-[#a8a8a8]">{d.date.slice(5, 7)}月</span>
                                             </span>
                                             <span className="min-w-0 flex-1 pt-[1px]">
-                                                <span className="sully-journal-entry-text block min-w-0 overflow-hidden text-[15px] font-normal leading-[1.75] tracking-[0.012em] text-[#383838]" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
+                                                <span className="sully-journal-entry-text block min-w-0 overflow-hidden text-[13px] font-normal leading-[1.75] tracking-[0.012em] text-[#383838]" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, fontFamily: '"Noto Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", "SimSun", serif' }}>
                                                     {d.userPage.text || '空白日记'}
                                                 </span>
                                                 <span className="sully-journal-entry-badges mt-[15px] flex items-center gap-[12px] text-[#9f9f9f]">
