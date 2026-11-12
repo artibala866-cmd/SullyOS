@@ -177,3 +177,52 @@ describe('真实酒馆五份预设的输出格式交叉审计', () => {
         expect(safe.srcDoc).toContain('style="color:purple"');
     });
 });
+
+
+describe('三份新导入酒馆预设的思维与正文分离', () => {
+    it('哭包庇护所：显式 thinking 步骤收折，独立 content 仍显示', () => {
+        const result = blocks('<thinking><step title="观察">推演内容</step></thinking>'
+            + '<content>角色走进雨中。</content><details data-info="archive">之前的事</details>');
+        expect(result.map(b => b.kind)).toEqual(['thinking', 'story', 'tavern-extra']);
+        expect(result[0].text).toContain('推演内容');
+        expect(result[1].text).toBe('角色走进雨中。');
+        expect(result[1].text).not.toContain('推演内容');
+    });
+    it('拉刻西斯：开场白 + blend 思考单独收折，不显示在正文', () => {
+        const raw = '拉刻西斯:夜客，我在柜台后面听。\n<!-- Mixing Now -->\n'
+            + '<blend>[听]回顾上一幕。\n[发展]确定本轮动作。</blend>\n'
+            + '<!-- Ready To Pour -->\n<content>她停在门口。</content><wine>幕间一段</wine>';
+        const result = blocks(raw);
+        expect(result.map(b => b.kind).slice(0, 2)).toEqual(['thinking', 'story']);
+        expect(result[0].text).toContain('回顾上一幕');
+        expect(result[1].text).toBe('她停在门口。');
+        expect(result.filter(b => b.kind === 'story').map(b => b.text).join('')).not.toContain('夜客');
+        expect(looksLikeLegacyTavernStoryOutput('<blend>[听]旧剧情</blend>')).toBe(true);
+        // Display normalization must never mutate the saved model output.
+        expect(raw).toContain('拉刻西斯:');
+        expect(raw).toContain('<blend>');
+    });
+    it('拉刻西斯：思考忘记闭合时在正文开始处自动收口，不吞小说', () => {
+        const result = blocks('拉刻西斯：夜客，我在柜台后面听。\n<blend>[听]暂未结束'
+            + '\n<content>真实正文保留。</content>');
+        expect(result.map(b => b.kind)).toEqual(['thinking', 'story']);
+        expect(result[0].text).toContain('暂未结束');
+        expect(result[1].text).toBe('真实正文保留。');
+    });
+    it('耶和华 Lite：thinking 标签与 ECoT 注释共同存在时仅折叠一块', () => {
+        const result = blocks('<!-- Start the ECoT -->\n<thinking>人物关系检查</thinking>'
+            + '\n<!-- End of The ECoT -->\n<content>正文仍在。</content>');
+        expect(result.map(b => b.kind)).toEqual(['thinking', 'story']);
+        expect(result[0].text).toBe('人物关系检查');
+        expect(result[1].text).toBe('正文仍在。');
+    });
+    it('Lite 仅输出 ECoT 注释边界时也能隔离思考，普通内容不被误收', () => {
+        const result = blocks('<!-- Start the ECoT -->独立推演<!-- End of The ECoT -->'
+            + '<content>小说正文。</content>');
+        expect(result.map(b => b.kind)).toEqual(['thinking', 'story']);
+        expect(result[0].text).toBe('独立推演');
+        expect(result[1].text).toBe('小说正文。');
+        expect(blocks('<content>人物说：今天调配 blend 风格。</content>').map(b => b.kind)).toEqual(['story']);
+        expect(parseStoryDisplayBlocks('<story_text>原生剧情</story_text>', false)[0].text).toBe('原生剧情');
+    });
+});
