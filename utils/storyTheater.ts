@@ -1531,8 +1531,11 @@ export const selectStoryTavernAuthorOption = (
         ? section.options.filter(option => option.id !== optionId)
         : numberedPeers.length ? numberedPeers : explicitTiers ? structuralPeers : [];
     const exclusive = section.single || numberedPeers.length > 0 || explicitTiers;
-    if (selected.enabled && exclusive) return document;
-    const newEnabled = !selected.enabled;
+    // Imported authors can have several "one-of" entries already enabled.
+    // Do not rewrite those states on import; a click on ANY active entry is
+    // the user's deliberate request to keep that entry and close its peers.
+    if (selected.enabled && exclusive && !siblings.some(option => option.enabled)) return document;
+    const newEnabled = exclusive ? true : !selected.enabled;
     const off = newEnabled ? new Set(siblings.map(option => option.id)) : new Set<string>();
     const requiredWrappers = new Set<string>();
     // Authors sometimes disable an entire XML-wrapped block until one of its

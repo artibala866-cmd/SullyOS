@@ -526,6 +526,21 @@ describe('同源预设导入：用户确认、兼容审计、互斥范围', () =
         expect(edited.prompts.map(p=>p.enabled)).toEqual([false,true,true,false]);
         expect(doc.prompts.map(p=>p.enabled)).toEqual([true,false,true,true]);
     });
+    it('已导入的作者单选出现多个开启时，点当前已开启项也能主动收敛为一项', () => {
+        const doc=document([prompt('on1','作者第一版',true),
+            prompt('on2','作者第二版',true),prompt('off','作者第三版',false),
+            prompt('independent','不相关正文',true)]);
+        doc.tavernEntryGroups=[
+            {id:'author-choose',name:'作者声明（选一）',memberIdentifiers:['on1','on2','off']},
+        ];
+        const group=getStoryTavernAuthorSections(doc).find(s=>s.key==='entry:author-choose')!;
+        expect(group.single).toBe(true);
+        expect(doc.prompts.map(p=>p.enabled)).toEqual([true,true,false,true]);
+        const changed=selectStoryTavernAuthorOption(doc,group.key,'st-on1');
+        expect(changed.prompts.map(p=>p.enabled)).toEqual([true,false,false,true]);
+        expect(doc.prompts.map(p=>p.enabled)).toEqual([true,true,false,true]);
+        expect(selectStoryTavernAuthorOption(changed,group.key,'st-on1')).toBe(changed);
+    });
     it('作者未说互斥时，即使当前只启用一个，也不能推断为单选', () => {
         const doc=document([
             prompt('one','<rule name="tone">甲</rule>',true),
