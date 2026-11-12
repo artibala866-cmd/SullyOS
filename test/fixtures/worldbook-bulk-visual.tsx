@@ -104,7 +104,7 @@ const run = async () => {
     output.setAttribute('data-worldbook-visual-ready', 'true');
     output.setAttribute('data-match-count', String(titles.filter(t => t === (diaryMode ? '日记' : '海岸')).length));
     output.setAttribute('data-other-count', String(titles.filter(t => t !== (diaryMode ? '日记' : '海岸')).length));
-    output.setAttribute('data-selected-count', mode === 'selected' && heading.includes('已选 6') ? '6' : '0');
+    output.setAttribute('data-selected-count', mode === 'selected' && heading.includes('已选 7') ? '7' : '0');
     output.setAttribute('data-diary-initial-count', diaryMode ? String(mode === 'diary-overflow' ? 18 : 5) : '0');
     output.setAttribute('data-diary-selected-count', mode === 'diary-overflow' && heading.includes('已选 18') ? '18' : '0');
     output.setAttribute('data-diary-deleted', String(mode === 'diary-delete' && titles.length === 0 && heading.includes('没有找到同名条目')));
