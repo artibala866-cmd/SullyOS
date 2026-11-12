@@ -423,7 +423,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
             ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
                 ? { endIdentifier: group.endIdentifier } : {}),
         }))
-        .filter(group => {
+        .filter((group: { memberIdentifiers?: string[]; startIdentifier?: string; endIdentifier?: string }) => {
             if (!toolkitMemberIds.size) return true;
             const members = group.memberIdentifiers?.length ? group.memberIdentifiers : (() => {
                 const start = prompts.findIndex(p => p.id === 'st-' + group.startIdentifier);
