@@ -41,6 +41,8 @@ interface FilterBarProps {
     onChange: (groupId: string) => void;
     /** 深色底的 App（打电话 / 见面 / 查手机）传 true，胶囊换白字配色 */
     dark?: boolean;
+    /** 浅灰玻璃背景专用样式，其他入口保持原来的配色 */
+    appearance?: 'default' | 'mist';
     className?: string;
 }
 
@@ -48,7 +50,7 @@ interface FilterBarProps {
  * 分组筛选胶囊条：全部 / 各分组 / 未分组，横向可滚动。
  * groups 为空时返回 null——没用分组的用户看不到任何变化。
  */
-export const CharacterGroupFilterBar: React.FC<FilterBarProps> = ({ characters, groups, value, onChange, dark, className }) => {
+export const CharacterGroupFilterBar: React.FC<FilterBarProps> = ({ characters, groups, value, onChange, dark, appearance = 'default', className }) => {
     if (groups.length === 0) return null;
 
     const known = new Set(groups.map(g => g.id));
@@ -63,24 +65,33 @@ export const CharacterGroupFilterBar: React.FC<FilterBarProps> = ({ characters, 
     ];
     if (ungroupedCount > 0) chips.push({ id: GROUP_FILTER_UNGROUPED, label: '未分组', count: ungroupedCount });
 
-    const base = 'shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 flex items-center gap-1';
-    const idle = dark
-        ? 'bg-white/[0.06] text-white/60 border-white/15'
-        : 'bg-white/70 text-slate-500 border-slate-200';
-    const active = dark
-        ? 'bg-white/90 text-slate-900 border-white'
-        : 'bg-slate-700 text-white border-slate-700';
+    const mist = appearance === 'mist';
+    const base = mist
+        ? 'shrink-0 h-9 max-w-[11rem] px-3.5 rounded-full text-xs font-semibold border transition-all duration-200 active:scale-95 flex items-center gap-1.5 snap-start'
+        : 'shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 flex items-center gap-1';
+    const idle = mist
+        ? 'bg-white/40 text-neutral-600 border-white/60 hover:bg-white/70'
+        : dark
+            ? 'bg-white/[0.06] text-white/60 border-white/15'
+            : 'bg-white/70 text-slate-500 border-slate-200';
+    const active = mist
+        ? 'bg-white/95 text-neutral-800 border-white shadow-[0_2px_10px_rgba(100,100,100,0.13)]'
+        : dark
+            ? 'bg-white/90 text-slate-900 border-white'
+            : 'bg-slate-700 text-white border-slate-700';
 
     return (
-        <div className={`flex gap-1.5 overflow-x-auto no-scrollbar ${className || ''}`}>
+        <div className={`flex gap-1.5 overflow-x-auto no-scrollbar ${mist ? 'snap-x snap-proximity py-0.5' : ''} ${className || ''}`}>
             {chips.map(chip => (
                 <button
                     key={chip.id}
                     onClick={() => onChange(chip.id)}
+                    aria-pressed={value === chip.id}
+                    title={chip.label}
                     className={`${base} ${value === chip.id ? active : idle}`}
                 >
-                    <span>{chip.label}</span>
-                    <span className={value === chip.id ? 'opacity-70' : 'opacity-50'}>{chip.count}</span>
+                    <span className={mist ? 'truncate' : undefined}>{chip.label}</span>
+                    <span className={`${mist ? 'shrink-0 text-[10px]' : ''} ${value === chip.id ? 'opacity-75' : mist ? 'opacity-70' : 'opacity-50'}`}>{chip.count}</span>
                 </button>
             ))}
         </div>
