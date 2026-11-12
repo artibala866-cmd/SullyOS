@@ -74,6 +74,7 @@ it('erases role-specific imports, phone/play records and shared references witho
     const privateMessage = await message(owner);
     const groupMessage = await message(owner, { groupId: 'group-del' });
     const otherMessage = await message(other, { groupId: 'group-del' });
+    const orphanGroupMessage = await message('user', { groupId: 'group-solo' });
     const storyMessage = await message('story-theater:story-owner', {
         metadata: { source: 'story_theater' },
     });
@@ -95,7 +96,8 @@ it('erases role-specific imports, phone/play records and shared references witho
         daily_schedule: [{ id: owner + '_2026-11-12', charId: owner }],
         xhs_activities: [{ id: 'xhs-owner', characterId: owner }],
         xhs_owned_posts: [{ id: 'post-owner', characterId: owner }],
-        groups: [{ id: 'group-del', members: [owner, other], topicBoxes: [{ id: 'old', summary: 'secret' }] }],
+        groups: [{ id: 'group-del', members: [owner, other], topicBoxes: [{ id: 'old', summary: 'secret' }] },
+            { id: 'group-solo', members: [owner] }],
         social_posts: [
             { id: 'social-owner', authorCharId: owner, comments: [] },
             { id: 'social-other', authorCharId: other, comments: [{ id: 'comment-owner', authorCharId: owner }] },
@@ -192,6 +194,7 @@ it('erases role-specific imports, phone/play records and shared references witho
     expect(await DB.getMessageById(storyMessage)).toBeFalsy();
     expect(await DB.getMessageById(otherMirror)).toBeFalsy();
     expect(await DB.getMessageById(otherMessage)).toBeTruthy();
+    expect(await DB.getMessageById(orphanGroupMessage)).toBeFalsy();
     for (const [name, deletedId] of [
         ['scheduled_messages', 'remind-owner'], ['gallery', 'gallery-owner'],
         ['diaries', 'diary-owner'], ['tasks', 'task-owner'], ['anniversaries', 'ann-owner'],
@@ -211,6 +214,7 @@ it('erases role-specific imports, phone/play records and shared references witho
     const pick = async (store: string, id: string) =>
         (await DB.getStoreRowsPage(store, null, 100)).rows.find((row: any) => row.id === id) as any;
     expect((await pick('groups', 'group-del')).members).toEqual([other]);
+    expect(await pick('groups', 'group-solo')).toBeUndefined();
     expect((await pick('groups', 'group-del')).topicBoxes).toEqual([]);
     expect((await pick('worlds', 'world-shared')).memberIds).toEqual([other]);
     expect((await pick('worlds', 'world-shared')).threads[0].messages).toHaveLength(1);
