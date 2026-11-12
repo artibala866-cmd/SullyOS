@@ -314,8 +314,11 @@ describe('糯叽机炼金术导入', () => {
         }];
         const result = parseStoryRegexImport(JSON.stringify(rows));
         expect(result.rules[0].pattern).toBe(rows[0].pattern);
-        expect(result.rules[1].enabled).toBe(false);
-        expect(result.warnings.join('')).toContain('绑定了糯叽机角色');
+        // Chat-scoped without a foreign character ID is valid, but only in
+        // an actual chat, never as a global story/meeting filter.
+        expect(result.rules[1].enabled).toBe(true);
+        expect(applyStoryRegex({ text: '秘密', characterId: 'local-role', scene: 'chat' }, [result.rules[1]], 'display').text).toBe('');
+        expect(applyStoryRegex({ text: '秘密', scene: 'story' }, [result.rules[1]], 'display').text).toBe('秘密');
     });
 
     it('按原版运行时处理 flags 全局、替换值 trimStrings 和 JSON order', () => {
