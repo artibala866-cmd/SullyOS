@@ -848,7 +848,7 @@ export const recognizeTavernPromptHeading = (
     const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
     if (corner) return { label: corner[1].trim(), edge: /[┗╚╝┛]/.test(name) ? 'end' : 'start' };
     // Structural banners only: never inspect prompt bodies to decide sections.
-    const pipe = /^[|｜]\s*[—─━=-]+\s*(.{2,72}?)\s*[—─━=-]+\s*[|｜]$/u.exec(name);
+    const pipe = /^[|｜]\s*[—─━=-]+\s*(.{1,72}?)\s*[—─━=-]+\s*[|｜](?:\s+.*)?$/u.exec(name);
     if (pipe) return { label: pipe[1].trim(), edge: 'divider' };
     if (/^[▾▿▼▽⏷\s]{2,}(?:选一|单选|择一)[▾▿▼▽⏷\s]{2,}$/u.test(name))
         return { label: '选一', edge: 'start' };
@@ -858,7 +858,7 @@ export const recognizeTavernPromptHeading = (
     // They are visual boundaries, not selectable prompt entries.
     const tabHeading = /^▍\s*(.{2,72})$/u.exec(name);
     if (tabHeading) return { label: tabHeading[1].trim(), edge: 'start' };
-    const openBox = /^┌\s*(.{2,72}?)\s*┐$/u.exec(name);
+    const openBox = /^┌\s*(.{2,72}?)\s*┐(?:\s*.*)?$/u.exec(name);
     if (openBox) return { label: openBox[1].trim(), edge: 'start' };
     const closeBox = /^└\s*(.{2,72}?)\s*┘$/u.exec(name);
     if (closeBox) return { label: closeBox[1].trim(), edge: 'end' };
@@ -913,11 +913,6 @@ export const storyPresetPromptKind = (
         .replace(/<!--[\s\S]*?-->/g, '')
         .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '').trim();
     if (!visible) return 'empty';
-    // An explicit notice that this particular edition contains no extension
-    // is not a functioning selectable rule. Match narrowly; arbitrary text,
-    // setvar/getvar and XML instruction bodies remain real source content.
-    if (/^[\[【(（]?\s*(?:Lite|精简版|轻量版)\s*(?:未包含|不包含|没有)\s*(?:此|该)?(?:扩展|模块|功能)\s*[.!。！]?\s*[\]】)）]?$/iu.test(visible))
-        return 'placeholder';
     if (/^<\/?[\w:-]+(?:\s+[^<>]*)?\s*\/?>$/u.test(visible)) return 'structure';
     return 'content';
 };
@@ -1240,9 +1235,8 @@ export const getStoryTavernAuthorSections = (
         // only if the source actually has at most one enabled choice.
         const boundaryHints = members.filter(prompt => recognizeTavernPromptHeading(prompt))
             .map(prompt => prompt.name);
-        const single = tavernOneOf(meta.name) || boundaryHints.some(tavernOneOf)
-            || (/小说类型|小说基调|小说文风/.test(meta.name)
-                && options.length > 1 && options.filter(option => option.enabled).length <= 1);
+        // Only the author's explicit one-of label can make a group exclusive.
+        const single = tavernOneOf(meta.name) || boundaryHints.some(tavernOneOf);
         out.push({
             key: 'entry:' + meta.id, label: meta.name.trim(),
             description: '', options, single,
@@ -1315,7 +1309,7 @@ export const getStoryTavernAuthorSections = (
         out.push({
             key: 'structure:' + family, label: groupLabel,
             description: '', options,
-            single: items.some(item => tavernOneOf(item.name)),
+            single: family.startsWith('author-choice:') && items.every(item => tavernOneOf(item.name)),
         });
         options.forEach(option => seen.add(option.id));
     }
@@ -1337,7 +1331,7 @@ export const getStoryTavernAuthorSections = (
             key: 'author:' + topic, label: topic,
             description: '按原作者条目归类 · 名称与内容均不改写',
             options,
-            single: tavernOneOf(topic) || options.some(option => tavernOneOf(option.name)),
+            single: false,
         });
     }
     // Keep the author's effective prompt order, not arbitrary plugin JSON
@@ -1361,41 +1355,20 @@ export const selectStoryTavernAuthorOption = (
     const section = getStoryTavernAuthorSections(document).find(s => s.key === sectionKey);
     const selected = section?.options.find(o => o.id === optionId);
     if (!section || !selected) return document;
-    const mixedStyle = /文风|写作风格/.test(section.label)
-        && section.options.some(option => /可叠加|修辞手法|表现&修辞/.test(option.label));
-    const styleBoundary = mixedStyle
-        ? section.options.findIndex(option => /可叠加|修辞手法|表现&修辞/.test(option.label))
-        : -1;
-    // Phantasm keeps one primary style, while optional overlays and
-    // rhetorical-technique prompts may be enabled together.
-    const clusterOf = (option: StoryTavernAuthorOption): string =>
-        mixedStyle && styleBoundary > 0
-            && section.options.findIndex(item => item.id === option.id) < styleBoundary
-            ? 'primary:style' : option.cluster;
-    const targetCluster = clusterOf(selected);
-    const sameCluster = targetCluster
-        ? section.options.filter(option => clusterOf(option) === targetCluster) : [];
-    const clusterIsSingle = sameCluster.length > 1
-        && (targetCluster.startsWith('rule:') || targetCluster.startsWith('local:')
-            || targetCluster.startsWith('global:') || targetCluster === 'author:theater-choice'
-            || targetCluster === 'primary:style'
-            || targetCluster === 'author:writing_style' || targetCluster === 'author:style'
-            || targetCluster === 'author:theater-format'
-            || tavernOneOf(selected.name))
-        && sameCluster.filter(option => option.enabled).length <= 1;
-    // Some authors deliberately enable MULTIPLE related styles together.
-    // Only auto-disable siblings when the author specifies one-of-N or
-    // their existing enabled pattern shows a single-choice cluster.
-    const siblings = section.options.filter(o => o.id !== optionId
-        && (section.single || (clusterIsSingle && targetCluster && clusterOf(o) === targetCluster)));
-    const existingOn = selected.enabled;
-    const isExplicitOneOf = tavernOneOf(section.label) || tavernOneOf(selected.name);
-    const mustKeepOne = section.single || (isExplicitOneOf && clusterIsSingle);
-    const newEnabled = existingOn && !mustKeepOne ? false : true;
-    // If a source section is explicitly exclusive, do not turn it into
-    // a zero-choice state by clicking its already active button.
-    if (existingOn && mustKeepOne) return document;
-    const off = newEnabled ? new Set(siblings.map(o => o.id)) : new Set<string>();
+    // No inferred exclusivity from current enabled count or prompt content.
+    // A numbered N选1 label only affects peers with the same N选1 marker.
+    const explicitCount = (name: string): string | undefined =>
+        /(?:[2-9]|[二三四五六七八九])\s*选\s*(?:一|1)/u.exec(name)?.[0]
+            .replace(/\s+/g, '').replace(/一$/, '1');
+    const selectedCount = explicitCount(selected.name);
+    const numberedPeers = selectedCount
+        ? section.options.filter(option => option.id !== optionId && explicitCount(option.name) === selectedCount)
+        : [];
+    const siblings = section.single ? section.options.filter(option => option.id !== optionId) : numberedPeers;
+    const exclusive = section.single || numberedPeers.length > 0;
+    if (selected.enabled && exclusive) return document;
+    const newEnabled = !selected.enabled;
+    const off = newEnabled ? new Set(siblings.map(option => option.id)) : new Set<string>();
     const requiredWrappers = new Set<string>();
     // Authors sometimes disable an entire XML-wrapped block until one of its
     // child choices is selected (e.g. 宝宝我是char's <theater> ... </theater>).
