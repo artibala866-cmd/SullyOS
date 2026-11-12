@@ -79,7 +79,7 @@ describe('Chaotic but plausible WeChat journeys / saved-state invariants',()=>{
     const now=Date.now();
     expect(isRepeatedPhoneGeneratedBatch(messages,messages,now+10_000,now)).toBe(true);
     expect(isRepeatedPhoneGeneratedBatch(messages,messages,now+11*60_000,now)).toBe(false);
-    expect(isRepeatedPhoneGeneratedBatch(messages,messages.slice(1),now+1000,now)).toBe(false);
+    expect(isRepeatedPhoneGeneratedBatch(messages,messages.slice(0,7),now+1000,now)).toBe(false);
     expect(isRepeatedPhoneGeneratedBatch(messages,[...messages.slice(0,7),
       {speaker:contact('npc'),text:'新消息'}],now+1000,now)).toBe(false);
   });
