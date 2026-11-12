@@ -100,7 +100,8 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
             expect(source).not.toMatch(/\b(?:fetch|callLLM|callCompletion|completeGroupChatWithMcp|axios)\s*\(/);
         }
         expect(meeting).toContain("runStoryRegex(");
-        expect(helper).toContain("const FORMAT_CUES:");
+        expect(helper).toContain('const shouldSendTemplateInstruction = (');
+        expect(helper).not.toContain('FORMAT_CUES');
         expect(results).not.toMatch(/(?:DB\.updateMessage|DB\.saveMessage)/);
     });
 });
