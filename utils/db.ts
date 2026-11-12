@@ -821,6 +821,7 @@ export const DB = {
       STORE_GROUPS, STORE_SOCIAL_POSTS, STORE_WORLDS, STORE_WORLD_EPISODES,
       STORE_STORY_THEATERS, STORE_GAMES, STORE_NOVELS, STORE_COURSES,
       STORE_WORLDBOOKS, STORE_VR_LETTERS, STORE_VR_ANNOTATIONS,
+      STORE_API_CALL_LOG, STORE_VR_SETTINGS,
       'pixel_home_layouts', 'memory_links', ...memoryStores,
     ].filter(name => db.objectStoreNames.contains(name));
     const stores = [...new Set(relevant)];
@@ -944,6 +945,38 @@ export const DB = {
         scan(STORE_DAILY_SCHEDULE, row => row.charId === id || String(row.id).startsWith(id + '_') ? null : undefined);
         scan(STORE_VR_LETTERS, row => row.charId === id ? null :
           row.reply?.charId === id ? { ...row, reply: undefined, replyStatus: 'none' } : undefined);
+        if (stores.includes(STORE_VR_ANNOTATIONS) &&
+            !tx.objectStore(STORE_VR_ANNOTATIONS).indexNames.contains('charId')) {
+          scan(STORE_VR_ANNOTATIONS, row =>
+            row.charId === id || row.characterId === id ? null : undefined);
+        }
+        // UI API logs and one-shot request captures may contain the complete
+        // role prompt and prior dialogue, even after all messages are gone.
+        if (stores.includes(STORE_API_CALL_LOG)) {
+          const logs = tx.objectStore(STORE_API_CALL_LOG);
+          const log = logs.get('log');
+          log.onsuccess = () => {
+            if (Array.isArray(log.result?.entries)) {
+              logs.put({ ...log.result, entries: log.result.entries.filter((entry: any) =>
+                entry.charId !== id) });
+            }
+          };
+          const capture = logs.get('one-shot-capture');
+          capture.onsuccess = () => {
+            if (capture.result?.capture?.meta?.charId === id ||
+                capture.result?.capture?.charId === id) logs.delete('one-shot-capture');
+          };
+        }
+        if (stores.includes(STORE_VR_SETTINGS)) {
+          const vrLog = tx.objectStore(STORE_VR_SETTINGS);
+          const log = vrLog.get('apilog');
+          log.onsuccess = () => {
+            if (Array.isArray(log.result?.entries)) {
+              vrLog.put({ ...log.result, entries: log.result.entries.filter((entry: any) =>
+                entry.charId !== id) });
+            }
+          };
+        }
         scan(STORE_SOCIAL_POSTS, row => {
           const next = removeCharacterFromSocialPost(row, id);
           return next === null ? null : JSON.stringify(next) !== JSON.stringify(row) ? next : undefined;
