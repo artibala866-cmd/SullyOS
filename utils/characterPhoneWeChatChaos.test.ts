@@ -2,7 +2,7 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {
   appendCharacterPhoneMessages,deleteCharacterPhoneChat,readCharacterPhoneChats,
-  updateCharacterPhoneChats,phoneChatStorageKey,matchesPhoneWechatSearch,
+  updateCharacterPhoneChats,phoneChatStorageKey,matchesPhoneWechatSearch,isRepeatedPhoneGeneratedBatch,
 } from './characterPhoneChats';
 import {
   beginCharacterPhoneRefresh,finishCharacterPhoneRefresh,isCharacterPhoneRefreshing,
@@ -69,6 +69,19 @@ describe('Chaotic but plausible WeChat journeys / saved-state invariants',()=>{
     expect(matchesPhoneWechatSearch('山竹','妹妹','昨天去画画了')).toBe(false);
     expect(matchesPhoneWechatSearch('','妈妈','对话')).toBe(true);
     expect(matchesPhoneWechatSearch('银行','微信支付','扣款通知')).toBe(false);
+  });
+
+  it('blocks an identical 8-bubble manual generation replay but permits hours-later natural repetition',()=>{
+    const messages=Array.from({length:8},(_,i)=>({
+      speaker:i%2===0?contact('npc'):{role:'owner' as const},
+      text:i%2===0?'等一下'+i:'好'+i,
+    }));
+    const now=Date.now();
+    expect(isRepeatedPhoneGeneratedBatch(messages,messages,now+10_000,now)).toBe(true);
+    expect(isRepeatedPhoneGeneratedBatch(messages,messages,now+11*60_000,now)).toBe(false);
+    expect(isRepeatedPhoneGeneratedBatch(messages,messages.slice(1),now+1000,now)).toBe(false);
+    expect(isRepeatedPhoneGeneratedBatch(messages,[...messages.slice(0,7),
+      {speaker:contact('npc'),text:'新消息'}],now+1000,now)).toBe(false);
   });
 
   it('rejects duplicate cloud delivery and a late reply after the exact thread was deleted',()=>{
