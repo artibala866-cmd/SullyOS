@@ -965,9 +965,10 @@ const tavernMetadataVisualGroups = (
                 for (let index = first; index <= last; index++) indexes.push(index);
             }
         }
+        const owner = { id: meta.id, name: meta.name };
         for (const index of indexes) {
             if (index >= start && index <= end && !owned.has(index)) {
-                owned.set(index, { id: meta.id, name: meta.name });
+                owned.set(index, owner);
             }
         }
     }
