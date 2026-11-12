@@ -21,6 +21,61 @@ import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
 
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
+const JOURNAL_BOOK_OPEN_CSS = \`
+.sully-journal-select .sully-journal-notebook { perspective: 1200px; }
+.sully-journal-select .sully-journal-notebook-cover {
+    position: absolute; inset: 0; z-index: 4;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1.25rem; border-radius: inherit; background: inherit;
+    transform-origin: left center; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.sully-journal-select .sully-journal-notebook-paper {
+    position: absolute; inset: 8px 5px 8px 10px;
+    border: 1px solid #ededed; border-radius: 3px 17px 17px 3px;
+    background: repeating-linear-gradient(to bottom, #fff 0, #fff 25px, #ededed 26px, #fff 27px);
+    box-shadow: inset -10px 0 18px rgba(0,0,0,.035), 2px 2px 3px rgba(0,0,0,.06);
+    transform-origin: left center; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    pointer-events: none;
+}
+.sully-journal-select .sully-journal-notebook-paper-one { z-index: 3; }
+.sully-journal-select .sully-journal-notebook-paper-two { z-index: 2; }
+.sully-journal-select .sully-journal-notebook-opening {
+    z-index: 10; overflow: visible !important; pointer-events: none;
+}
+.sully-journal-select .sully-journal-notebook-opening .sully-journal-notebook-cover {
+    will-change: transform;
+    animation: sully-journal-cover-open 700ms cubic-bezier(.32,.05,.17,1) both;
+}
+.sully-journal-select .sully-journal-notebook-opening .sully-journal-notebook-paper-one {
+    will-change: transform;
+    animation: sully-journal-paper-turn 490ms cubic-bezier(.3,.08,.2,1) 220ms both;
+}
+.sully-journal-select .sully-journal-notebook-opening .sully-journal-notebook-paper-two {
+    will-change: transform;
+    animation: sully-journal-paper-turn 490ms cubic-bezier(.3,.08,.2,1) 390ms both;
+}
+@keyframes sully-journal-cover-open {
+    0% { transform: rotateY(0deg); }
+    37% { transform: rotateY(-45deg); }
+    73% { transform: rotateY(-118deg); }
+    100% { transform: rotateY(-165deg); }
+}
+@keyframes sully-journal-paper-turn {
+    0% { transform: rotateY(0deg); }
+    55% { transform: rotateY(-80deg); }
+    100% { transform: rotateY(-165deg); }
+}
+.sully-journal-calendar-enter { animation: sully-journal-calendar-reveal 260ms ease-out both; }
+@keyframes sully-journal-calendar-reveal {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sully-journal-calendar-enter { animation: none; }
+}
+\`;
+
+
 // --- Assets & Constants ---
 
 const PAPER_STYLES = [
@@ -103,6 +158,9 @@ const JournalApp: React.FC = () => {
     const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 选日记本页的分组筛选
     const [notebookIndex, setNotebookIndex] = useState(0);
     const notebookTrackRef = useRef<HTMLDivElement>(null);
+    const [openingNotebookId, setOpeningNotebookId] = useState<string | null>(null);
+    const openingNotebookRef = useRef<string | null>(null);
+    const [animateCalendarEntry, setAnimateCalendarEntry] = useState(false);
     const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(getLocalDateStr());
@@ -161,7 +219,31 @@ const JournalApp: React.FC = () => {
         setMode('calendar');
         loadDiaries(char.id);
     };
+
+    const beginNotebookOpen = (char: CharacterProfile) => {
+        if (openingNotebookRef.current) return;
+        if (typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setAnimateCalendarEntry(false);
+            handleCharSelect(char);
+            return;
+        }
+        openingNotebookRef.current = char.id;
+        setOpeningNotebookId(char.id);
+    };
+
+    const finishNotebookOpen = (char: CharacterProfile) => {
+        if (openingNotebookRef.current !== char.id) return;
+        openingNotebookRef.current = null;
+        setOpeningNotebookId(null);
+        setAnimateCalendarEntry(true);
+        handleCharSelect(char);
+    };
     useAppShortcut(ShortcutAppID.Journal, (intent, isCurrent) => {
+        openingNotebookRef.current = null;
+        setOpeningNotebookId(null);
+        setAnimateCalendarEntry(false);
         const target = characters.find(c => c.id === intent.characterId);
         setSelectedChar(target || null); setCurrentEntry(null); setDiaries([]);
         setMode(target ? 'calendar' : 'select');
@@ -956,6 +1038,7 @@ ${charPart}
     const visibleNotebooks = filterCharactersByGroup(characters, characterGroups, journalGroupId);
 
     const handleNotebookGroupChange = (groupId: string) => {
+        if (openingNotebookRef.current) return;
         setJournalGroupId(groupId);
         setNotebookIndex(0);
     };
@@ -994,6 +1077,7 @@ ${charPart}
         return (
             <div className={`sully-journal-root sully-journal-select h-full w-full bg-neutral-50 flex flex-col font-light${journalLayoutClass}`}>
                 <JournalAppearanceStyle appearance={effectiveJournalAppearance} />
+                <style>{JOURNAL_BOOK_OPEN_CSS}</style>
                 {introModal}
                 {archiveResultModal}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="select" />
@@ -1025,19 +1109,31 @@ ${charPart}
                                 <button
                                     type="button"
                                     key={c.id}
-                                    onClick={() => handleCharSelect(c)}
-                                    className="sully-journal-notebook relative flex shrink-0 snap-center flex-col items-center justify-center gap-5 overflow-hidden rounded-r-[24px] rounded-l-[7px] border border-neutral-300/80 border-l-[5px] border-l-neutral-800 bg-white p-5 text-center shadow-[5px_7px_0_#e6e6e6,7px_11px_22px_rgba(0,0,0,0.08)] transition-transform active:scale-[0.985]"
+                                    onClick={() => beginNotebookOpen(c)}
+                                    aria-busy={openingNotebookId === c.id}
+                                    aria-disabled={openingNotebookId !== null}
+                                    className={`sully-journal-notebook relative flex shrink-0 snap-center flex-col items-center justify-center gap-5 overflow-hidden rounded-r-[24px] rounded-l-[7px] border border-neutral-300/80 border-l-[5px] border-l-neutral-800 bg-white p-5 text-center shadow-[5px_7px_0_#e6e6e6,7px_11px_22px_rgba(0,0,0,0.08)] transition-transform active:scale-[0.985] ${openingNotebookId === c.id ? 'sully-journal-notebook-opening' : ''}`}
                                     style={{ width: 'min(76vw, 320px)', height: 'clamp(300px, 53vh, 440px)' }}
                                     aria-label={`打开${c.name}的日记本，第${i + 1}本`}
                                 >
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent" />
-                                    <div className="pointer-events-none absolute inset-x-5 top-5 h-px bg-neutral-100" />
-                                    <div className="sully-journal-notebook-avatar relative h-24 w-24 shrink-0 rounded-full border border-neutral-200 bg-neutral-50 p-[3px]">
-                                        <TokenImg value={c.avatar} className="h-full w-full rounded-full object-cover" />
+                                    <div className="sully-journal-notebook-paper" aria-hidden="true" />
+                                    <div className="sully-journal-notebook-paper sully-journal-notebook-paper-two" aria-hidden="true"
+                                        onAnimationEnd={event => {
+                                            if (event.target === event.currentTarget && event.animationName === 'sully-journal-paper-turn') {
+                                                finishNotebookOpen(c);
+                                            }
+                                        }} />
+                                    <div className="sully-journal-notebook-paper sully-journal-notebook-paper-one" aria-hidden="true" />
+                                    <div className="sully-journal-notebook-cover">
+                                        <div className="pointer-events-none absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent" />
+                                        <div className="pointer-events-none absolute inset-x-5 top-5 h-px bg-neutral-100" />
+                                        <div className="sully-journal-notebook-avatar relative h-24 w-24 shrink-0 rounded-full border border-neutral-200 bg-neutral-50 p-[3px]">
+                                            <TokenImg value={c.avatar} className="h-full w-full rounded-full object-cover" />
+                                        </div>
+                                        <span className="sully-journal-notebook-name w-full truncate px-2 text-lg font-semibold text-neutral-900">{c.name}</span>
+                                        <span className="sully-journal-notebook-label rounded-full bg-neutral-100 px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-neutral-600">Journal</span>
+                                        <div className="pointer-events-none absolute inset-x-5 bottom-5 h-px bg-neutral-100" />
                                     </div>
-                                    <span className="sully-journal-notebook-name w-full truncate px-2 text-lg font-semibold text-neutral-900">{c.name}</span>
-                                    <span className="sully-journal-notebook-label rounded-full bg-neutral-100 px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-neutral-600">Journal</span>
-                                    <div className="pointer-events-none absolute inset-x-5 bottom-5 h-px bg-neutral-100" />
                                 </button>
                             ))}
                         </div>
@@ -1066,14 +1162,15 @@ ${charPart}
 
     if (mode === 'calendar' && selectedChar) {
         return (
-            <div className={`sully-journal-root sully-journal-calendar h-full w-full bg-white flex flex-col font-light relative${journalLayoutClass}`}>
+            <div className={`sully-journal-root sully-journal-calendar h-full w-full bg-white flex flex-col font-light relative${animateCalendarEntry ? ' sully-journal-calendar-enter' : ''}${journalLayoutClass}`}>
                 <JournalAppearanceStyle appearance={effectiveJournalAppearance} />
+                <style>{JOURNAL_BOOK_OPEN_CSS}</style>
                 {introModal}
                 {archiveResultModal}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="calendar" />
                 <div className="sully-journal-calendar-hero pb-6 px-6 bg-neutral-500 shadow-lg shrink-0 rounded-b-[2rem] z-20" style={{ paddingTop: 'max(3rem, var(--safe-top))' }}>
                     <div className="flex justify-between items-start mb-4">
-                         <button onClick={() => setMode('select')} aria-label="返回日记本选择" className="sully-journal-back text-white/80 hover:text-white transition-colors">
+                         <button onClick={() => { setAnimateCalendarEntry(false); setMode('select'); }} aria-label="返回日记本选择" className="sully-journal-back text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                          </button>
                          <JournalAppearanceButton tone="dark" compact {...journalAppearanceButtonProps} />
