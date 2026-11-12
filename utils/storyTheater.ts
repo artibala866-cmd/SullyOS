@@ -832,17 +832,36 @@ export const isProtectedStoryPrompt = (prompt: StoryTheaterPresetPrompt): boolea
 );
 
 
+/** Normalize *display labels* for decorative Tavern headers only.
+ * Source names, contents and switches remain byte-for-byte unchanged. */
+export const storyTavernHeadingTitle = (raw: string): string => {
+    const original = raw.trim();
+    if (!original) return '';
+    const decorated = /[━─═┏┗╔╚┌└╭╰▣◈▾▿▴▵▼▲☆★✦✧⬇⬆]|^[#*~_+=|—-]{2,}|[#*~_+=|—-]{2,}$/u.test(original)
+        || /\p{Extended_Pictographic}/u.test(original);
+    if (!decorated) return original;
+    const plain = original.replace(/[\uFE0F\u200d]|\p{Extended_Pictographic}|[\u2500-\u259f\u25a0-\u25ff\u2b00-\u2bff]/gu, '');
+    const framed = /【([^【】]{1,90})】/u.exec(plain);
+    // 【...】 is commonly the actual author title; only unwrap it when
+    // everything around it is graphical decoration, not other meaningful text.
+    const content = framed && !/[\p{L}\p{N}]/u.test(plain.replace(framed[0], ''))
+        ? framed[1] : plain;
+    const title = content.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+        .replace(/\s{2,}/gu, ' ').trim();
+    return /[\p{L}\p{N}]/u.test(title) ? title : '';
+};
+
 /**
  * Only explicit editorial separators count as headings; blank content alone
  * never does. Some actual Tavern headings carry nonempty prompt content.
  * Grouping is view-only and cannot change source order, roles or enabled flags.
  */
-export const recognizeTavernPromptHeading = (
+const recognizeTavernPromptHeadingRaw = (
     prompt: StoryTheaterPresetPrompt,
 ): { label: string; edge: 'start' | 'end' | 'divider' } | undefined => {
     if (prompt.marker || prompt.section) return undefined;
     const name = prompt.name.trim();
-    if (!name || name.length > 105) return undefined;
+    if (!name || name.length > 450) return undefined;
     // Some real author presets delimit a whole adjustable section with
     // ┏╔标题╗┓ ... ┗╚标题╝┛. These are browse boundaries, not choices.
     const corner = /^[┏┗]?[╔╚](.{2,75})[╗╝][┓┛]?$/.exec(name);
@@ -902,6 +921,44 @@ export const recognizeTavernPromptHeading = (
     return undefined;
 };
 
+/** Structural display recognition. Decoration counts as a boundary only when
+ * there is a readable central title and framing on both sides. */
+export const recognizeTavernPromptHeading = (
+    prompt: StoryTheaterPresetPrompt,
+): { label: string; edge: 'start' | 'end' | 'divider' } | undefined => {
+    const source = recognizeTavernPromptHeadingRaw(prompt);
+    if (source) {
+        const label = storyTavernHeadingTitle(source.label);
+        return label ? { ...source, label } : undefined;
+    }
+    if (prompt.marker || prompt.section) return undefined;
+    const name = prompt.name.trim();
+    if (!name || name.length > 450) return undefined;
+    const prefix = name.match(/^[^\p{L}\p{N}]*/u)?.[0].replace(/\s/g, '') || '';
+    const suffix = name.match(/[^\p{L}\p{N}]*$/u)?.[0].replace(/\s/g, '') || '';
+    if (prefix.length < 3 || suffix.length < 3
+        || !/[═━─—\-☆★✦✧#*~_=┏┗╔╚┌└╭╰]/u.test(prefix + suffix)) return undefined;
+    const label = storyTavernHeadingTitle(name);
+    if (!label || label.length > 80) return undefined;
+    const end = /^[┗╚└╰]|[┛╝┘╯]$/u.test(name) || /[⬆↑]/u.test(prefix + suffix);
+    const start = /^[┏╔┌╭]/u.test(name) || /[⬇↓]/u.test(prefix + suffix);
+    return { label, edge: end ? 'end' : start ? 'start' : 'divider' };
+};
+
+/** Browse-only show/hide decision. Author headers with meaningful bodies are
+ * inspectable, while empty markers, comments and XML-only shells stay hidden. */
+export const isStoryPresetBrowseVisible = (prompt: StoryTheaterPresetPrompt): boolean => {
+    const kind = storyPresetPromptKind(prompt);
+    if (kind === 'content' || kind === 'connector') return true;
+    if (kind !== 'structure' || !recognizeTavernPromptHeading(prompt)) return false;
+    const body = prompt.content.replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\{\{\s*\/\/[\s\S]*?\}\}/g, '').trim();
+    if (!body || !/[\p{L}\p{N}]/u.test(body)) return false;
+    if (/^<\/?[\w:-]+(?:\s+[^<>]*)?\s*\/?>$/u.test(body)) return false;
+    if (/^<([\w:-]+)(?:\s+[^<>]*)?>\s*<\/\1>$/u.test(body)) return false;
+    return true;
+};
+
 /** Browse-only classification. Never delete or rewrite original author entries.
  * XML envelopes and runtime slots must not be mistaken for empty prompts. */
 export const storyPresetPromptKind = (
@@ -921,6 +978,7 @@ export const storyPresetPromptKind = (
     const isBoundaryTag = /^<\/?[\w:-]+(?:\s+[^<>]*)?\s*\/?>$/u.test(visible);
     if (recognizeTavernPromptHeading(prompt) && (!visible || isBoundaryTag)) return 'structure';
     if (!visible) return 'empty';
+    if (!/[\p{L}\p{N}]/u.test(visible)) return 'structure';
     if (isBoundaryTag) return 'structure';
     return 'content';
 };
@@ -988,7 +1046,7 @@ const tavernMetadataVisualGroups = (
                 for (let index = first; index <= last; index++) indexes.push(index);
             }
         }
-        const owner = { id: meta.id, name: meta.name };
+        const owner = { id: meta.id, name: storyTavernHeadingTitle(meta.name) || meta.name };
         for (const index of indexes) {
             if (index >= start && index <= end && !owned.has(index)) {
                 owned.set(index, owner);
@@ -1247,7 +1305,7 @@ export const getStoryTavernAuthorSections = (
         // Only the author's explicit one-of label can make a group exclusive.
         const single = tavernOneOf(meta.name) || boundaryHints.some(tavernOneOf);
         out.push({
-            key: 'entry:' + meta.id, label: meta.name.trim(),
+            key: 'entry:' + meta.id, label: storyTavernHeadingTitle(meta.name) || meta.name.trim(),
             description: '', options, single,
         });
         options.forEach(option => seen.add(option.id));
