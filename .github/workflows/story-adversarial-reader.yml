@@ -1,0 +1,73 @@
+name: Story adversarial reader paths
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/story-adversarial-reader.yml'
+      - 'utils/storyAdversarialReader.test.ts'
+      - 'components/date/story/StoryTheaterSession.tsx'
+      - 'components/date/story/StoryTheaterTheme.tsx'
+      - 'utils/storyTheater.ts'
+      - 'utils/db.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adversarial-reader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Real React story reader, rapid paging, archive cancellation, swap during load
+        env:
+          SULLY_TEST_OFFLINE: '1'
+        run: pnpm exec vitest run utils/storyAdversarialReader.test.ts utils/largeHistoryStress.test.tsx --reporter=verbose
+      - name: Check new reader scenario typing
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false >/tmp/story-adversarial-typecheck.log 2>&1 || true
+          if grep -E '^utils/storyAdversarialReader\.test\.ts\(' /tmp/story-adversarial-typecheck.log; then
+            exit 1
+          fi
+      - name: Real Chromium mobile read after 240 mixed-size rich floors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-adversarial
+          pnpm exec vite --host 127.0.0.1 --port 5187 --strictPort >/tmp/story-adversarial-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5187/story-reading-scroll-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then tail -80 /tmp/story-adversarial-vite.log; exit 1; fi
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for scenario in 'novel:middle:1' 'novel:latest:1' 'dark:middle:1'; do
+            IFS=: read -r mode focus rich <<< "$scenario"
+            url="http://127.0.0.1:5187/story-reading-scroll-visual.html?mode=$mode&focus=$focus&count=240&rich=$rich"
+            out="output/story-adversarial/$mode-$focus-$rich"
+            "$browser" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+              --window-size=390,844 --virtual-time-budget=26000 --dump-dom "$url" > "$out.html"
+            if ! grep -q 'data-story-scroll-ready="true"' "$out.html"; then
+              grep -o '<output[^>]*>[^<]*</output>' "$out.html" || true
+              tail -60 /tmp/story-adversarial-vite.log
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: story-adversarial-failure-dom
+          path: output/story-adversarial/
+          retention-days: 4
+          if-no-files-found: ignore
