@@ -823,6 +823,7 @@ export const DB = {
       STORE_WORLDBOOKS, STORE_VR_LETTERS, STORE_VR_ANNOTATIONS,
       STORE_API_CALL_LOG, STORE_VR_SETTINGS, STORE_SONGS, STORE_GUIDEBOOK, STORE_LIFE_SIM,
       STORE_VR_GUESTBOOK, STORE_VR_MUSIC, STORE_VR_SCRIPTS, STORE_VR_PLAYS,
+      STORE_HANDBOOK, STORE_LIFE_RECORDS, STORE_BANK_DATA,
       'pixel_home_layouts', 'memory_links', ...memoryStores,
     ].filter(name => db.objectStoreNames.contains(name));
     const stores = [...new Set(relevant)];
@@ -1006,6 +1007,33 @@ export const DB = {
         scan(STORE_GAMES, row => row.playerCharIds?.includes(id) ? null : undefined);
         scan(STORE_SONGS, row => row.collaboratorId === id ? null : undefined);
         scan(STORE_GUIDEBOOK, row => row.charId === id ? null : undefined);
+        scan(STORE_LIFE_RECORDS, row => row.recordedBy === id ? null : undefined);
+        scan(STORE_HANDBOOK, row => {
+          const removedPages = new Set((row.pages || []).filter((page: any) =>
+            page.charId === id).map((page: any) => page.id));
+          if (!removedPages.size) return undefined;
+          const pages = (row.pages || []).filter((page: any) => !removedPages.has(page.id));
+          if (!pages.length) return null;
+          const layouts = row.layouts?.map((layout: any) => ({
+            ...layout, placements: (layout.placements || []).filter((placement: any) =>
+              !removedPages.has(placement.pageId)),
+          })).filter((layout: any) => layout.placements.length);
+          return { ...row, pages, layouts };
+        });
+        scan(STORE_BANK_DATA, row => {
+          if (!row.shop) return undefined;
+          const shop = row.shop;
+          const staff = (shop.staff || []).filter((item: any) => item.ownerCharId !== id);
+          const firedStaff = (row.firedStaff || []).filter((item: any) => item.ownerCharId !== id);
+          const guestbook = (shop.guestbook || []).filter((item: any) => item.charId !== id);
+          const activeVisitor = shop.activeVisitor?.charId === id ? undefined : shop.activeVisitor;
+          if (staff.length === (shop.staff || []).length &&
+              firedStaff.length === (row.firedStaff || []).length &&
+              guestbook.length === (shop.guestbook || []).length &&
+              activeVisitor === shop.activeVisitor) return undefined;
+          return { ...row, firedStaff,
+            shop: { ...shop, staff, guestbook, activeVisitor } };
+        });
         scan(STORE_LIFE_SIM, row =>
           row.participantCharIds?.includes(id) || row.currentActorId === id ||
           row.charQueue?.includes(id) ||
