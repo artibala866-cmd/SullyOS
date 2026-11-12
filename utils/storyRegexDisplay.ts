@@ -3,6 +3,58 @@ import type { StoryRegexResult } from './storyRegex';
 
 export type StoryRegexDisplayBlock = StoryDisplayBlock & { regexTemplate?: true };
 
+/**
+ * Display-only: hide standalone Tavern status panels, not the authored
+ * opening, saved floors, editor content, or model history. Nested {{user}}
+ * macros are balanced rather than mistaken for the end of the panel.
+ */
+export function hideStoryStatusForDisplay(source: string): string {
+    const value = String(source || '');
+    if (!value.includes('{')) return value;
+    const statusKeys = new Set(['时间', '地点', '纠缠', '状态', '衣着', '心声', '渴望', '备忘', '记账', '广阅']);
+    let output = '';
+    let cursor = 0;
+    for (let index = 0; index < value.length; index++) {
+        if (value[index] !== '{' || value[index + 1] === '{') continue;
+        // A status panel is a standalone line/block, never part of dialogue.
+        const lineStart = value.lastIndexOf('\n', index - 1) + 1;
+        if (value.slice(lineStart, index).trim()) continue;
+        if (!/^\s*(?:时间|地点|纠缠|状态|衣着|心声|渴望|备忘|记账|广阅)\s*[:：]/u.test(value.slice(index + 1, index + 40))) continue;
+        let depth = 1;
+        let close = -1;
+        // Bounded scan: an unmatched brace cannot stall a long story.
+        for (let at = index + 1; at < Math.min(value.length, index + 40000); at++) {
+            if (value[at] === '{') depth++;
+            else if (value[at] === '}' && --depth === 0) {
+                close = at;
+                break;
+            }
+        }
+        if (close < 0) continue;
+        const body = value.slice(index + 1, close);
+        const fields: string[] = [];
+        let partStart = 0;
+        let nested = 0;
+        for (let at = 0; at < body.length; at++) {
+            if (body[at] === '{') nested++;
+            else if (body[at] === '}') nested = Math.max(0, nested - 1);
+            else if (nested === 0 && (body[at] === '|' || body[at] === '｜')) {
+                fields.push(body.slice(partStart, at));
+                partStart = at + 1;
+            }
+        }
+        fields.push(body.slice(partStart));
+        const labels = fields.map(field => /^\s*([\u4e00-\u9fff]{1,8})\s*[:：]/u.exec(field)?.[1])
+            .filter((key): key is string => !!key && statusKeys.has(key));
+        if (!labels.includes('时间') || !labels.includes('地点')) continue;
+        output += value.slice(cursor, index);
+        cursor = close + 1;
+        index = close;
+    }
+    return cursor ? output + value.slice(cursor) : value;
+}
+
+
 export function splitStoryRegexOutput(result: StoryRegexResult) {
     if (!result.cards.length) return [result.text];
     const cards = new Map(result.cards.map(card => [card.token, card]));
@@ -11,7 +63,7 @@ export function splitStoryRegexOutput(result: StoryRegexResult) {
 }
 
 export function parseStoryRegexDisplay(result: StoryRegexResult, fromTavern: boolean): StoryRegexDisplayBlock[] {
-    const blocks = parseStoryDisplayBlocks(result.text, fromTavern);
+    const blocks = parseStoryDisplayBlocks(hideStoryStatusForDisplay(result.text), fromTavern);
     if (!result.cards.length) return blocks;
     const cards = new Map(result.cards.map(card => [card.token, card]));
     const tokens = new RegExp('(' + result.cards.map(card => card.token).join('|') + ')', 'g');

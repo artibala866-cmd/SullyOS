@@ -3,7 +3,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { applyStoryRegex, type StoryRegexRule } from './storyRegex';
-import { parseStoryRegexDisplay } from './storyRegexDisplay';
+import { hideStoryStatusForDisplay, parseStoryRegexDisplay } from './storyRegexDisplay';
 import { StoryOutput } from '../components/date/story/StoryTheaterSession';
 
 vi.mock('../context/OSContext', () => ({
@@ -66,5 +66,62 @@ describe('剧情正则', () => {
         const source = 'x'.repeat(6000);
         const huge = rule({ pattern: '(x+)', replacement: '$1'.repeat(1000) });
         expect(() => applyStoryRegex(source, [huge], 'display')).toThrow('正则替换结果过长');
+    });
+});
+
+
+describe('酒馆状态栏：只在剧情正文隐藏，编辑和 AI 原文保留', () => {
+    const status = '{时间:夜晚20:38|地点:出租屋·客厅|纠缠：44.5|状态:看着{{user}}脸上的烛光|衣着:针织衫|心声:*快结束吧*|渴望:回到宿舍|备忘:1.明早有课|记账:   | 广阅:先活到夏天吧}';
+
+    it('自动隐藏已导入的多字段状态栏，保留后续正文和原始输入', () => {
+        const raw = status + '\n\n{{char}}轻声说：“生日快乐。”';
+        const displayed = parseStoryRegexDisplay({ text: raw, cards: [], matches: 0 }, false);
+        expect(displayed.map(block => block.text).join('\n')).toContain('生日快乐');
+        expect(displayed.map(block => block.text).join('\n')).not.toContain('纠缠');
+        expect(displayed.map(block => block.text).join('\n')).not.toContain('心声');
+        expect(raw).toContain(status);
+    });
+
+    it('支持首尾及多处独立状态块，普通正文和双花括号不丢失', () => {
+        const raw = '第一段。\n' + status + '\n第二段 {{user}}。\n{时间:次日|地点:学校}\n第三段。';
+        const visible = hideStoryStatusForDisplay(raw);
+        expect(visible).toContain('第一段。');
+        expect(visible).toContain('第二段 {{user}}。');
+        expect(visible).toContain('第三段。');
+        expect(visible).not.toContain('纠缠');
+        expect(visible).not.toContain('{时间:次日');
+    });
+
+    it('绝不移除非独立状态栏、未闭合块或其他花括号文本', () => {
+        const raw = '她说：“{时间:上午|地点:寝室}”，然后笑了。\n'
+            + '{{user}} {物品:茶杯|颜色:白色}\n'
+            + '{时间:晚上|地点:客厅\n仍在写正文。';
+        expect(hideStoryStatusForDisplay(raw)).toBe(raw);
+    });
+
+    it('隐藏只影响展示，既有开场白依旧完整传入模型历史', async () => {
+        const { buildStoryHistory } = await import('./storyTheater');
+        const original = status + '\n蜡烛亮着。';
+        const floor = {
+            id: 1, timestamp: 1, role: 'assistant', charId: 'story-theater:test', type: 'text',
+            content: original, metadata: {
+                source: 'story_theater',
+                theaterOpeningGreeting: { characterId: 'actor', greetingId: 'tavern-alt-1' },
+            },
+        } as any;
+        const history = buildStoryHistory([floor]);
+        expect(history[0].content).toContain(status);
+        expect(floor.content).toBe(original);
+        expect(hideStoryStatusForDisplay(original)).not.toContain('纠缠');
+    });
+
+    it('实渲染时读者看不到状态栏', () => {
+        const raw = status + '\n夜色渐深。';
+        const html = renderToStaticMarkup(React.createElement(StoryOutput, {
+            content: raw, affinityInputs: [], fromTavern: false,
+        }));
+        expect(html).toContain('夜色渐深');
+        expect(html).not.toContain('纠缠');
+        expect(html).not.toContain('时间:夜晚');
     });
 });
