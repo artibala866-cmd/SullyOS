@@ -815,7 +815,7 @@ const PhoneShell: React.FC = () => {
             unlock();
         }}
         className="relative w-full h-full bg-cover bg-center cursor-pointer overflow-hidden group font-light select-none overscroll-none"
-        style={{ backgroundImage: lockBgImageValue, color: contentColor, animation: 'lockReveal 600ms ease-out both' }}
+        style={{ backgroundImage: lockBgImageValue, color: contentColor, animation: bootAnimationEnabled ? 'lockReveal 600ms ease-out both' : 'none' }}
       >
         {/* 锁屏柔和淡入：与开机「世界入场」退场衔接；body 背景本就是壁纸，故是无缝融入而非硬切。 */}
         <style>{`@keyframes lockReveal{from{opacity:0}to{opacity:1}}`}</style>
