@@ -14,7 +14,6 @@ import {
     getStoryTavernAuthorSections,
     selectStoryTavernAuthorOption,
     storyPresetPromptKind,
-    isStoryPresetBrowseVisible,
     isProtectedStoryPrompt,
     isStoryPresetSectionMarker,
     makeStoryTheaterId,
@@ -111,6 +110,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [inspectedAuthor, setInspectedAuthor] = useState<{ sectionKey: string; promptId: string } | null>(null);
     const [showEmptyEntries, setShowEmptyEntries] = useState(false);
     const mainScrollRef = useRef<HTMLElement>(null);
+    const inspectorScrollRef = useRef<HTMLDivElement>(null);
     const previousListScroll = useRef(0);
     const previousOverviewScroll = useRef(0);
     const pendingScrollRef = useRef<number | null>(null);
@@ -146,24 +146,30 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             || prompt.content.toLocaleLowerCase().includes(query)),
     [activeGroup?.label, activePrompts, query, tavernBrowse]);
     const visiblePrompts = useMemo(() => !tavernBrowse || showEmptyEntries ? matchingPrompts
-        : matchingPrompts.filter(isStoryPresetBrowseVisible),
+        : matchingPrompts.filter(prompt => ['content', 'connector'].includes(storyPresetPromptKind(prompt))),
     [matchingPrompts, showEmptyEntries, tavernBrowse]);
     const promptIndexes = useMemo(() => new Map(activePrompts.map((prompt, index) => [prompt.id, index])), [activePrompts]);
+    const sourceIndexes = useMemo(() => new Map(draft.document.prompts.map((prompt, index) => [prompt.id, index])), [draft.document.prompts]);
+    const visiblePromptIds = useMemo(() => new Set(visiblePrompts.map(prompt => prompt.id)), [visiblePrompts]);
+    // Never silently swap an entry across a hidden wrapper or empty placeholder.
+    // In that case users must first reveal the structure they are moving through.
+    const canMovePrompt = (id: string, direction: -1 | 1): boolean => {
+        const index = promptIndexes.get(id);
+        const adjacent = index === undefined ? undefined : activePrompts[index + direction];
+        if (!adjacent || !visiblePromptIds.has(adjacent.id)) return false;
+        const from = sourceIndexes.get(id);
+        const to = sourceIndexes.get(adjacent.id);
+        return from !== undefined && to !== undefined && to === from + direction;
+    };
     const groupCounts = useMemo(() => new Map(groups.map(group => {
         const entries = group.promptIds.map(id => allPromptsById.get(id))
             .filter((item): item is StoryTheaterPresetPrompt => Boolean(item) && !isStoryPresetSectionMarker(item!));
         return [group.key, {
             total: entries.length,
-            usable: entries.filter(item => tavernBrowse ? isStoryPresetBrowseVisible(item) : ['content', 'connector'].includes(storyPresetPromptKind(item))).length,
+            usable: entries.filter(item => ['content', 'connector'].includes(storyPresetPromptKind(item))).length,
             enabled: entries.filter(item => item.enabled).length,
         }] as const;
-    })), [groups, allPromptsById, tavernBrowse]);
-    // Blank-only auto-generated sections are just navigation separators,
-    // not extra detail screens. They remain reachable with "显示空条目".
-    const displayedGroups = useMemo(() => !tavernBrowse || showEmptyEntries || query
-        ? matchingGroups
-        : matchingGroups.filter(group => !group.autoGrouped || (groupCounts.get(group.key)?.usable || 0) > 0),
-    [matchingGroups, groupCounts, query, showEmptyEntries, tavernBrowse]);
+    })), [groups, allPromptsById]);
     const inspectedSection = authorSections.find(section => section.key === inspectedAuthor?.sectionKey);
     const inspectedPrompt = draft.document.prompts.find(prompt => prompt.id === inspectedAuthor?.promptId);
     // Restore after React has committed the destination view, not before the
@@ -174,6 +180,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             pendingScrollRef.current = null;
         }
     }, [mode, activeGroupKey, selectedId]);
+    useLayoutEffect(() => {
+        if (inspectedAuthor && inspectorScrollRef.current) inspectorScrollRef.current.scrollTop = 0;
+    }, [inspectedAuthor?.promptId]);
     const switchMode = (next: 'simple' | 'pro') => {
         if (next === mode) return;
         tabScrollRef.current[mode] = mainScrollRef.current?.scrollTop || 0;
@@ -192,8 +201,6 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const enterGroup = (key: string) => {
         previousOverviewScroll.current = mainScrollRef.current?.scrollTop || 0;
         pendingScrollRef.current = 0;
-        // Every newly opened section starts in the useful-entries-only view.
-        setShowEmptyEntries(false);
         setActiveGroupKey(key);
         setSelectedId('');
     };
@@ -236,9 +243,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         patchDocument({ prompts: ordered.flatMap(group => group.promptIds.map(id => byId.get(id)).filter((prompt): prompt is StoryTheaterPresetPrompt => Boolean(prompt))) });
     };
     const movePrompt = (id: string, direction: -1 | 1) => {
-        const index = activePrompts.findIndex(prompt => prompt.id === id);
+        if (readOnly || (tavernBrowse && query) || !canMovePrompt(id, direction)) return;
+        const index = promptIndexes.get(id)!;
         const target = index + direction;
-        if (readOnly || index < 0 || target < 0 || target >= activePrompts.length) return;
         const prompts = [...draft.document.prompts];
         const fromIndex = prompts.findIndex(prompt => prompt.id === id);
         const toIndex = prompts.findIndex(prompt => prompt.id === activePrompts[target].id);
@@ -247,13 +254,54 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     };
     const addPrompt = () => {
         if (!activeGroup || activeGroup.protected || readOnly) return;
-        const next: StoryTheaterPresetPrompt = { id: makeStoryTheaterId(), name: '新提示词', enabled: true, role: 'system', content: '' };
+        const meta = tavernBrowse ? draft.document.tavernEntryGroups?.find(item =>
+            activeGroup.key === `tavern-meta:${item.id}:${draft.document.prompts[activeGroup.startIndex]?.id}`) : undefined;
+        const generatedId = makeStoryTheaterId();
+        // Tavern metadata stores identifiers without the st- prefix.
+        const next: StoryTheaterPresetPrompt = {
+            id: meta ? 'st-' + generatedId : generatedId,
+            name: '新提示词', enabled: true, role: 'system', content: '',
+        };
         const prompts = [...draft.document.prompts];
         const last = prompts[activeGroup.endIndex];
-        const insertAt = last && isStoryPresetSectionMarker(last) ? activeGroup.endIndex : activeGroup.endIndex + 1;
+        const isEndBoundary = last && storyPresetPromptKind(last) === 'structure'
+            && (/^\s*<\//.test(last.content) || /[⬆↑╰╚└┗]/u.test(last.name));
+        const insertAt = last && (isStoryPresetSectionMarker(last) || isEndBoundary)
+            ? activeGroup.endIndex : activeGroup.endIndex + 1;
         prompts.splice(insertAt, 0, next);
-        patchDocument({ prompts });
-        tavernBrowse ? openPrompt(next.id) : setSelectedId(next.id);
+        let document: StoryTheaterPresetDocument = { ...draft.document, prompts };
+        if (meta) {
+            // Keep the newly added user entry in the visible source group
+            // instead of silently moving it to an unrelated "other" group.
+            // The original prompt text, order and enabled flags stay untouched.
+            const first = draft.document.prompts.findIndex(p => p.id === 'st-' + meta.startIdentifier);
+            const end = draft.document.prompts.findIndex(p => p.id === 'st-' + meta.endIdentifier);
+            const members = meta.memberIdentifiers?.length ? [...meta.memberIdentifiers]
+                : first >= 0 && end >= first
+                    ? draft.document.prompts.slice(first, end + 1).map(p =>
+                        p.id.startsWith('st-') ? p.id.slice(3) : p.id)
+                    : activeGroup.promptIds.map(id => id.startsWith('st-') ? id.slice(3) : id);
+            if (!members.includes(generatedId)) members.push(generatedId);
+            document = {
+                ...document,
+                tavernEntryGroups: document.tavernEntryGroups?.map(item =>
+                    item === meta ? { ...item, memberIdentifiers: members } : item),
+            };
+        }
+        replaceDocument(document);
+        if (tavernBrowse) {
+            setShowEmptyEntries(true);
+            const newGroup = getStoryPresetPromptGroups(document).find(group =>
+                group.promptIds.includes(next.id));
+            if (newGroup && newGroup.key !== activeGroup.key) {
+                // The destination is a separate visual group, so an old
+                // scroll offset from the previous list must not carry over.
+                previousListScroll.current = 0;
+                pendingScrollRef.current = 0;
+                setActiveGroupKey(newGroup.key);
+                setSelectedId(next.id);
+            } else openPrompt(next.id);
+        } else setSelectedId(next.id);
     };
     const addGroup = () => {
         if (readOnly || !newGroupName.trim()) return;
@@ -331,9 +379,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 {visiblePrompts.map(prompt => { const index = promptIndexes.get(prompt.id) ?? 0; const locked = activeGroup.protected || isProtectedStoryPrompt(prompt); const kind = storyPresetPromptKind(prompt); return <div key={prompt.id} className={`flex items-center gap-2 py-3 ${selectedId === prompt.id ? 'text-violet-700' : ''}`}>
                     <button disabled={readOnly || (locked && !(draft.document.sourceFormat === 'sillytavern' && prompt.id.startsWith('st-') && prompt.marker))} onClick={() => patchPrompt(prompt.id, { enabled: !prompt.enabled })} className={`w-9 shrink-0 text-[9px] font-bold disabled:opacity-50 ${prompt.enabled ? 'text-emerald-600' : 'text-slate-300'}`}>{prompt.enabled ? 'ON' : 'OFF'}</button>
                     <button onClick={() => tavernBrowse ? openPrompt(prompt.id) : setSelectedId(prompt.id)} className='min-w-0 flex-1 text-left'><span className='block text-xs font-semibold truncate'>{index + 1}. {prompt.name}</span><span className='block mt-1 text-[9px] text-slate-400'>{kind === 'empty' ? '空白条目' : kind === 'placeholder' ? '无效占位' : kind === 'structure' ? '结构边界' : locked ? '系统连接位 · 内容锁定' : STORY_ROLE_LABELS[prompt.role]}</span></button>
-                    {!readOnly && <span className='flex shrink-0'><button disabled={Boolean(tavernBrowse && query) || index === 0} onClick={() => movePrompt(prompt.id, -1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowUp size={14} /></button><button disabled={Boolean(tavernBrowse && query) || index === activePrompts.length - 1} onClick={() => movePrompt(prompt.id, 1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowDown size={14} /></button>{!locked && <button onClick={() => removePrompt(prompt.id)} className='p-1.5 text-rose-400'><Trash size={14} /></button>}</span>}
+                    {!readOnly && <span className='flex shrink-0'><button type='button' aria-label={`${prompt.name}：上移`} disabled={Boolean(tavernBrowse && query) || !canMovePrompt(prompt.id, -1)} onClick={() => movePrompt(prompt.id, -1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowUp size={14} /></button><button type='button' aria-label={`${prompt.name}：下移`} disabled={Boolean(tavernBrowse && query) || !canMovePrompt(prompt.id, 1)} onClick={() => movePrompt(prompt.id, 1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowDown size={14} /></button>{!locked && <button type='button' aria-label={`${prompt.name}：删除`} onClick={() => removePrompt(prompt.id)} className='p-1.5 text-rose-400'><Trash size={14} /></button>}</span>}
                 </div>; })}
-                {visiblePrompts.length === 0 && <p className='py-7 text-center text-xs text-slate-400'>此分组没有可浏览的正文。{!showEmptyEntries && '可点「显示空条目」检查原始内容。'}</p>}
+                {visiblePrompts.length === 0 && <p className='py-7 text-center text-xs text-slate-400'>此分组没有有效正文。{!showEmptyEntries && '可点「显示空条目」检查原始内容。'}</p>}
             </div>}
             {!quickEdit && !activeGroup.protected && !readOnly && <button onClick={addPrompt} className='mt-4 h-10 px-4 rounded-xl bg-white border border-slate-200 text-xs font-bold flex items-center gap-1'><Plus size={14} />在本区新增提示词</button>}
             {selected && <div className={quickEdit ? 'mt-5 pt-5 border-t border-slate-200' : 'mt-7 pt-6 border-t border-slate-200'}>
@@ -342,7 +390,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 {activeGroup.protected || isProtectedStoryPrompt(selected) ? <div className='py-8 text-center'><LockSimple size={28} className='mx-auto text-amber-400' /><div className='mt-2 text-xs font-bold'>系统连接内容已锁定</div><p className='mt-1 text-[10px] text-slate-400'>你仍可以在上方调整它与其他连接位的顺序。</p></div> : <>
                     <div className='grid grid-cols-2 gap-3'><label><span className='text-[10px] text-slate-500'>名称</span><input disabled={readOnly} value={selected.name} onChange={event => patchPrompt(selected.id, { name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs' /></label><label><span className='text-[10px] text-slate-500'>消息位置</span><select disabled={readOnly} value={selected.role} onChange={event => patchPrompt(selected.id, { role: event.target.value as StoryTheaterPresetPrompt['role'] })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs'><option value='system'>规则</option><option value='user'>你</option><option value='assistant'>正文</option></select></label></div>
                     <textarea disabled={readOnly} value={selected.content} onChange={event => patchPrompt(selected.id, { content: event.target.value })} className='mt-3 w-full min-h-64 p-4 rounded-2xl bg-white border border-slate-200 font-mono text-[11px] leading-6 resize-y' placeholder='支持 {{user}} / {{char}} / {{group}}' />
-                    {!readOnly && groups.some(group => !group.protected && !group.autoGrouped && group.key !== activeGroup.key) && <label className='mt-3 block text-xs text-slate-500'>移动到分组<select aria-label='移动到分组' value='' onChange={event => { const target = event.target.value; if (!target) return; replaceDocument(moveStoryPresetPromptToGroup(draft.document, selected.id, target)); setActiveGroupKey(target); }} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200'><option value=''>选择目标分组</option>{groups.filter(group => !group.protected && !group.autoGrouped && group.key !== activeGroup.key).map(group => <option key={group.key} value={group.key}>{group.label}</option>)}</select></label>}
+                    {!readOnly && groups.some(group => !group.protected && !group.autoGrouped && group.key !== activeGroup.key) && <label className='mt-3 block text-xs text-slate-500'>移动到分组<select aria-label='移动到分组' value='' onChange={event => { const target = event.target.value; if (!target) return; pendingScrollRef.current = 0; replaceDocument(moveStoryPresetPromptToGroup(draft.document, selected.id, target)); setActiveGroupKey(target); }} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200'><option value=''>选择目标分组</option>{groups.filter(group => !group.protected && !group.autoGrouped && group.key !== activeGroup.key).map(group => <option key={group.key} value={group.key}>{group.label}</option>)}</select></label>}
                 </>}
             </div>}
         </section>;
@@ -442,7 +490,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                             placeholder='搜索分类或全部提示词…' className='w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs outline-none focus:border-violet-300' />
                         
                     </div>}
-                    <div className='divide-y divide-slate-200'>{displayedGroups.map(group => {
+                    <div className='divide-y divide-slate-200'>{matchingGroups.map(group => {
                         const index = groups.findIndex(item => item.key === group.key);
                         const counts = groupCounts.get(group.key) || { total: 0, usable: 0, enabled: 0 };
                         return <div key={group.key} className='py-4 flex items-center gap-3'><button onClick={() => enterGroup(group.key)} className='min-w-0 flex-1 text-left'><span className='flex items-center gap-2'><strong className='text-sm'>{group.label}</strong>{group.protected && <LockSimple size={13} className='text-amber-500' />}</span><span className='block mt-1 text-[9px] text-violet-500'>{tavernBrowse ? `${counts.usable} 条有效 · ${counts.total - counts.usable} 条占位／空白` : `${counts.enabled}/${counts.total} 条启用`}</span></button>{!readOnly && !group.autoGrouped && <span className='flex shrink-0'><button disabled={Boolean(query) || group.autoGrouped || index === 0 || groups[index - 1]?.autoGrouped} onClick={() => moveGroup(group.key, -1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowUp size={15} /></button><button disabled={Boolean(query) || group.autoGrouped || index === groups.length - 1 || groups[index + 1]?.autoGrouped} onClick={() => moveGroup(group.key, 1)} className='p-2 text-slate-400 disabled:opacity-20'><ArrowDown size={15} /></button></span>}</div>;
@@ -475,7 +523,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                     <span className='text-[10px] text-slate-400'>{inspectedSection.options.length} 条</span>
                 </div>
             </header>
-            <div className='flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 pb-24'>
+            <div ref={inspectorScrollRef} className='flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 pb-24'>
                 <div className='mx-auto max-w-2xl'>
                     <div className='flex flex-wrap gap-2 pb-4 border-b border-slate-200'>
                         {inspectedSection.options.map(option => <button key={option.id} type='button'

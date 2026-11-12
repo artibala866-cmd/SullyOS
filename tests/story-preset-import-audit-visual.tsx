@@ -62,6 +62,21 @@ const dialectCases: Record<string, {
         ],
         labels: ['月潮调色盘', '晨星', '晦夜', '星屿造景', '琥珀光'],
     },
+    edge: {
+        temperature: 1, top_p: .95, frequency_penalty: 0, presence_penalty: 0,
+        openai_max_tokens: 10000,
+        sourceGroups: [{id:'edge-source',name:'作者自定义结构区',
+            memberIdentifiers:['edgeOpen','edgeOne','edgeGap','edgeTwo','edgeLite','edgeClose']}],
+        items: [
+            {id:'edgeOpen',name:'结构开头',content:'<scene>'},
+            {id:'edgeOne',name:'前段正文',content:'用于结构审查的第一条有效规则'},
+            {id:'edgeGap',name:'空白插槽',content:'  '},
+            {id:'edgeTwo',name:'后段正文',content:'用于结构审查的第二条有效规则'},
+            {id:'edgeLite',name:'Lite占位',content:'[Lite未包含此扩展.]'},
+            {id:'edgeClose',name:'结构结尾',content:'</scene>'},
+        ],
+        labels: ['作者自定义结构区','前段正文','后段正文'],
+    },
     gomora: {
         temperature: 1.05, top_p: .98, frequency_penalty: 0, presence_penalty: 0,
         openai_max_tokens: 32000,
@@ -225,6 +240,7 @@ createRoot(document.getElementById('visual')!).render(
 let stage = 0;
 let markerToggled = false;
 let detailSelected = false;
+let edgeHiddenProtected = false;
 const clickByText = (fragment: string) =>
     [...document.querySelectorAll<HTMLButtonElement>('button')]
         .find(button => button.textContent?.includes(fragment));
@@ -237,6 +253,37 @@ const check = () => {
     const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
     const pro = buttons.find(b => b.textContent?.trim() === '专业版');
     if (!pro) { setTimeout(check, 100); return; }
+    if (!native && dialect === 'edge' && ['structure-hidden', 'structure', 'added'].includes(focus)) {
+        if (stage === 0) {
+            pro.click(); stage = 1; setTimeout(check, 180); return;
+        }
+        if (stage === 1) {
+            const group = buttons.find(b => b.textContent?.includes('作者自定义结构区')
+                && b.textContent?.includes('条有效'));
+            if (!group) { setTimeout(check, 180); return; }
+            group.click(); stage = 2; setTimeout(check, 180); return;
+        }
+        if (stage === 2 && focus !== 'structure-hidden') {
+            const down = document.querySelector<HTMLButtonElement>('button[aria-label="前段正文：下移"]');
+            edgeHiddenProtected = down?.disabled === true
+                && !document.querySelector('button[aria-label="空白插槽：下移"]')
+                && !document.querySelector('button[aria-label="Lite占位：下移"]');
+            if (!edgeHiddenProtected) { setTimeout(check, 180); return; }
+            const show = clickByText('显示空条目');
+            if (!show) { setTimeout(check, 180); return; }
+            show.click(); stage = 3; setTimeout(check, 180); return;
+        }
+        if (stage === 3 && focus === 'added') {
+            const add = clickByText('在本区新增提示词');
+            if (!add) { setTimeout(check, 180); return; }
+            add.click(); stage = 4; setTimeout(check, 180); return;
+        }
+        if (stage === 4 && focus === 'added') {
+            const back = clickByText('返回提示词列表');
+            if (!back) { setTimeout(check, 180); return; }
+            back.click(); stage = 5; setTimeout(check, 180); return;
+        }
+    }
     if (!native && dialect === 'unseen' && (focus === 'inspect' || focus === 'returned')) {
         if (stage === 0) {
             const view = document.querySelector<HTMLElement>('main.story-page-scroll');
@@ -329,7 +376,21 @@ const check = () => {
     const returnPositionOk = stage === 3 && !inspector
         && !proOn && authorOnly
         && (document.querySelector<HTMLElement>('main.story-page-scroll')?.scrollTop || 0) >= 140;
+    const edgeHiddenOk = stage === 2
+        && document.querySelector<HTMLButtonElement>('button[aria-label="前段正文：下移"]')?.disabled === true
+        && !document.querySelector('button[aria-label="空白插槽：下移"]');
+    const edgeStructureOk = stage === 3 && edgeHiddenProtected
+        && document.querySelector<HTMLButtonElement>('button[aria-label="前段正文：下移"]')?.disabled === false
+        && Boolean(document.querySelector('button[aria-label="空白插槽：下移"]'))
+        && Boolean(document.querySelector('button[aria-label="Lite占位：下移"]'));
+    const edgeAddedOk = stage === 5 && edgeHiddenProtected
+        && Boolean(document.querySelector('button[aria-label="新提示词：下移"]'))
+        && !clickByText('返回提示词列表')
+        && Boolean(document.body.textContent?.includes('作者自定义结构区'));
     const success = fit && nativeAuthorMapping && (
+        focus === 'structure-hidden' ? edgeHiddenOk
+        : focus === 'structure' ? edgeStructureOk
+        : focus === 'added' ? edgeAddedOk :
         focus === 'inspect' ? inPlaceInspectOk
             : focus === 'returned' ? returnPositionOk
             : native ? !proOn && eightControls && generationControls : groupingSafe && (
@@ -344,7 +405,8 @@ const check = () => {
     }
     output.textContent = JSON.stringify({ native, focus, proOn, fit, groupCount: groups.length,
         groupingSafe, eightControls, authorOnly, nativeAuthorMapping, selectedSourceChoice, generationControls, markerToggled,
-        quickEditor, detailSelected, stage, inPlaceInspectOk, returnPositionOk, success });
+        quickEditor, detailSelected, stage, inPlaceInspectOk, returnPositionOk,
+        edgeHiddenProtected, edgeHiddenOk, edgeStructureOk, edgeAddedOk, success });
     if (!success && stage < 5) setTimeout(check, 200);
 };
 setTimeout(check, 950);

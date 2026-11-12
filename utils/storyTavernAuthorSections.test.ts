@@ -22,6 +22,8 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'comment', name: '注释', content: '<!--作者备注-->', enabled: false },
             { id: 'lite', name: '扩展未包含', content: '[Lite未包含此扩展.]', enabled: true },
             { id: 'xml', name: 'XML 开头', content: '<branch>', enabled: true },
+            { id: 'headline', name: '<==文风▣▣说明==>', content: '作者实际补充规则，不能隐藏', enabled: true },
+            { id: 'real-lite', name: '说明', content: 'Lite未包含此扩展，但作者另有独立要求', enabled: true },
             { id: 'macro', name: '变量选择', content: '{{setvar::tone::暖光}}', enabled: true },
             { id: 'rule', name: '原作者正文', content: '这里是作者真正的写作要求', enabled: false },
         ];
@@ -29,9 +31,9 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'choices', name: '自选模块', memberIdentifiers: entries.map(entry => entry.id) },
         ]);
         expect(preset.document.prompts.map(storyPresetPromptKind))
-            .toEqual(['empty', 'empty', 'content', 'structure', 'content', 'content']);
+            .toEqual(['empty', 'empty', 'placeholder', 'structure', 'content', 'content', 'content', 'content']);
         const section = getStoryTavernAuthorSections(preset.document).find(item => item.label === '自选模块');
-        expect(section?.options.map(option => option.id)).toEqual(['st-lite', 'st-macro', 'st-rule']);
+        expect(section?.options.map(option => option.id)).toEqual(['st-real-lite', 'st-macro', 'st-rule']);
         expect(preset.document.prompts.map(prompt => prompt.content)).toEqual(entries.map(entry => entry.content));
         expect(preset.document.prompts.map(prompt => prompt.enabled)).toEqual(entries.map(entry => entry.enabled));
     });

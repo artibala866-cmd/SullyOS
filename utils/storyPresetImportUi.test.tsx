@@ -118,7 +118,10 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(inspector!.textContent).toContain('作者自己的完全接管');
   const other=[...inspector!.querySelectorAll('button')].find(b=>b.textContent?.includes('不抢'));
   expect(other).toBeDefined();
+  const inspectedScroll=inspector!.querySelector<HTMLElement>('.overscroll-contain')!;
+  inspectedScroll.scrollTop=420;
   await act(async()=>other!.click());
+  expect(inspectedScroll.scrollTop).toBe(0);
   expect(host!.querySelector('[role="dialog"] pre')?.textContent).toContain('作者自己的不抢话');
   expect(host!.textContent).toContain('原作选择');
   await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="返回原作选择"]')!.click());
@@ -163,6 +166,104 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   await act(async()=>pro!.click());
   expect(host!.textContent).toContain('先选大区，再看细节');
   expect(professionalScroll.scrollTop).toBe(360);
+ });
+
+
+ it('隐藏空白与结构时不允许跨不可见条目排序；新增的空条目返回后仍可找到',async()=>{
+  host=document.createElement('div');document.body.append(host);root=createRoot(host);
+  const items=[
+   {identifier:'head',name:'<==剧情▣▣排版==>',role:'system',content:''},
+   {identifier:'open',name:'XML开',role:'system',content:'<chapter>'},
+   {identifier:'first',name:'首个正文',role:'system',content:'前半部分'},
+   {identifier:'gap',name:'空白插槽',role:'system',content:''},
+   {identifier:'second',name:'第二正文',role:'system',content:'后半部分'},
+   {identifier:'close',name:'XML闭合',role:'system',content:'</chapter>'},
+   {identifier:'lite',name:'无效Lite占位',role:'system',content:'[Lite未包含此扩展.]'},
+  ];
+  const preset=parseStoryTheaterPreset(JSON.stringify({
+   prompts:items,
+   prompt_order:[{character_id:100001,order:items.map(item=>({identifier:item.identifier,enabled:true}))}],
+  }),'原生结构保护.json');
+  const originalIds=preset.document.prompts.map(x=>x.id);
+  const saved=vi.fn(async()=>{});
+  await act(async()=>root!.render(React.createElement(StoryPresetMaker,{
+   preset,onBack:()=>{},onSave:saved,onOpenCopy:async()=>{},
+  })));
+  const pro=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='专业版')!;
+  await act(async()=>pro.click());
+  const category=[...host!.querySelectorAll('button')].find(b=>
+   b.textContent?.includes('剧情') && b.textContent?.includes('条有效'))!;
+  expect(category).toBeDefined();
+  await act(async()=>category.click());
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="首个正文：下移"]')).not.toBeNull();
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="首个正文：下移"]')!.disabled).toBe(true);
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="空白插槽：下移"]')).toBeNull();
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="无效Lite占位：下移"]')).toBeNull();
+  await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="首个正文：下移"]')!.click());
+  const show=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='显示空条目')!;
+  await act(async()=>show.click());
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="首个正文：下移"]')!.disabled).toBe(false);
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="空白插槽：下移"]')).not.toBeNull();
+  const main=host!.querySelector<HTMLElement>('main.story-page-scroll')!;
+  main.scrollTop=250;
+  const add=[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('在本区新增提示词'))!;
+  await act(async()=>add.click());
+  expect(host!.textContent).toContain('返回提示词列表');
+  const back=[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('返回提示词列表'))!;
+  await act(async()=>back.click());
+  expect(main.scrollTop).toBe(250);
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="新提示词：下移"]')).not.toBeNull();
+  const save=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='保存')!;
+  await act(async()=>save.click());
+  expect(saved).toHaveBeenCalledTimes(1);
+  const after=(saved.mock.calls[0] as any)[0].document.prompts as Array<{id:string;content:string;enabled:boolean}>;
+  expect(after.filter(item=>originalIds.includes(item.id)).map(item=>item.id)).toEqual(originalIds);
+  expect(after.find(item=>item.id==='st-lite')?.content).toBe('[Lite未包含此扩展.]');
+  expect(after.find(item=>item.id==='st-gap')?.enabled).toBe(true);
+ });
+
+
+ it('从作者元数据分组新增空提示词：仍在本组显示、可编辑和保存',async()=>{
+  host=document.createElement('div');document.body.append(host);root=createRoot(host);
+  const items=[
+   {identifier:'opening',name:'包裹开头',role:'system',content:'<scene>'},
+   {identifier:'body',name:'作者规则',role:'system',content:'重要正文'},
+   {identifier:'ending',name:'包裹结尾',role:'system',content:'</scene>'},
+  ];
+  const preset=parseStoryTheaterPreset(JSON.stringify({
+   prompts:items,
+   prompt_order:[{character_id:100001,order:items.map(item=>({identifier:item.identifier,enabled:true}))}],
+   extensions:{entryGrouping:[{id:'author-scene',name:'作者场景模块',memberIdentifiers:items.map(item=>item.identifier)}]},
+  }),'有元数据的作者预设.json');
+  const saved=vi.fn(async()=>{});
+  await act(async()=>root!.render(React.createElement(StoryPresetMaker,{
+   preset,onBack:()=>{},onSave:saved,onOpenCopy:async()=>{},
+  })));
+  const pro=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='专业版')!;
+  await act(async()=>pro.click());
+  const group=[...host!.querySelectorAll('button')].find(b=>
+   b.textContent?.includes('作者场景模块') && b.textContent?.includes('条有效'))!;
+  expect(group).toBeDefined();
+  await act(async()=>group.click());
+  const main=host!.querySelector<HTMLElement>('main.story-page-scroll')!;
+  main.scrollTop=220;
+  const add=[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('在本区新增提示词'))!;
+  await act(async()=>add.click());
+  expect(host!.textContent).toContain('返回提示词列表');
+  expect(host!.querySelector<HTMLTextAreaElement>('textarea')).not.toBeNull();
+  const close=[...host!.querySelectorAll('button')].find(b=>b.textContent?.includes('返回提示词列表'))!;
+  await act(async()=>close.click());
+  expect(host!.textContent).toContain('作者场景模块');
+  expect(host!.querySelector<HTMLButtonElement>('button[aria-label="新提示词：下移"]')).not.toBeNull();
+  const save=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='保存')!;
+  await act(async()=>save.click());
+  const doc=(saved.mock.calls[0] as any)[0].document;
+  const added=doc.prompts.find((item:any)=>item.name==='新提示词');
+  expect(added).toBeDefined();
+  expect(doc.tavernEntryGroups[0].memberIdentifiers).toContain(added.id.slice(3));
+  expect(doc.prompts.filter((item:any)=>item.id!=='st-opening'&&item.id!=='st-body'&&item.id!=='st-ending')).toHaveLength(1);
+  expect(doc.prompts.filter((item:any)=>item.id.startsWith('st-')&&item.id!==added.id).map((item:any)=>item.id))
+   .toEqual(['st-opening','st-body','st-ending']);
  });
 
 
