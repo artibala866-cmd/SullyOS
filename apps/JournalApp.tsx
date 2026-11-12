@@ -101,6 +101,8 @@ const JournalApp: React.FC = () => {
     const [mode, setMode] = useState<'select' | 'calendar' | 'write'>('select');
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
     const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 选日记本页的分组筛选
+    const [notebookIndex, setNotebookIndex] = useState(0);
+    const notebookTrackRef = useRef<HTMLDivElement>(null);
     const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(getLocalDateStr());
@@ -951,6 +953,43 @@ ${charPart}
         );
     })() : null;
 
+    const visibleNotebooks = filterCharactersByGroup(characters, characterGroups, journalGroupId);
+
+    const handleNotebookGroupChange = (groupId: string) => {
+        setJournalGroupId(groupId);
+        setNotebookIndex(0);
+    };
+
+    const handleNotebookScroll = () => {
+        const track = notebookTrackRef.current;
+        if (!track) return;
+        const center = track.scrollLeft + track.clientWidth / 2;
+        let nearest = 0;
+        let nearestDistance = Infinity;
+        Array.from(track.children).forEach((child, index) => {
+            const card = child as HTMLElement;
+            const distance = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+            if (distance < nearestDistance) {
+                nearest = index;
+                nearestDistance = distance;
+            }
+        });
+        setNotebookIndex(current => current === nearest ? current : nearest);
+    };
+
+    const moveNotebook = (direction: -1 | 1) => {
+        const track = notebookTrackRef.current;
+        if (!track) return;
+        const next = Math.max(0, Math.min(visibleNotebooks.length - 1, notebookIndex + direction));
+        const card = track.children.item(next) as HTMLElement | null;
+        if (!card) return;
+        track.scrollTo({
+            left: card.offsetLeft + card.offsetWidth / 2 - track.clientWidth / 2,
+            behavior: 'smooth',
+        });
+        setNotebookIndex(next);
+    };
+
     if (mode === 'select') {
         return (
             <div className={`sully-journal-root sully-journal-select h-full w-full bg-neutral-50 flex flex-col font-light${journalLayoutClass}`}>
@@ -968,21 +1007,59 @@ ${charPart}
                     </div>
                 </div>
                 
-                {/* 分组筛选（没建分组时不渲染），浅色米黄底 */}
+                {/* 每次只展示一本日记，左右滑动切换，避免角色多时压缩网格行高。 */}
                 <CharacterGroupFilterBar characters={characters} groups={characterGroups}
-                    value={journalGroupId} onChange={setJournalGroupId} className="sully-journal-group-filter px-6 pt-4 shrink-0" />
-                <div className="sully-journal-notebook-grid p-6 grid grid-cols-2 gap-5 overflow-y-auto pb-20 no-scrollbar">
-                    {filterCharactersByGroup(characters, characterGroups, journalGroupId).map(c => (
-                        <div key={c.id} onClick={() => handleCharSelect(c)} className="sully-journal-notebook aspect-[3/4] bg-white rounded-r-2xl rounded-l-md border-l-4 border-l-amber-800 shadow-[2px_4px_12px_rgba(0, 0, 0,0.08)] p-4 flex flex-col items-center justify-center gap-3 cursor-pointer active:scale-95 transition-all relative overflow-hidden group">
-                            <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent"></div>
-                            <div className="sully-journal-notebook-avatar w-16 h-16 rounded-full p-[2px] border border-neutral-100 bg-neutral-50">
-                                <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
-                            </div>
-                            <span className="sully-journal-notebook-name font-bold text-neutral-900 text-sm">{c.name}</span>
-                            <span className="sully-journal-notebook-label text-[9px] text-neutral-600 bg-neutral-50 px-2 py-1 rounded-full font-mono uppercase tracking-wide">Journal</span>
+                    value={journalGroupId} onChange={handleNotebookGroupChange} className="sully-journal-group-filter px-6 pt-4 shrink-0" />
+                {visibleNotebooks.length > 0 ? (
+                    <div className="sully-journal-notebook-stage flex-1 min-h-0 w-full flex flex-col justify-center overflow-hidden py-5">
+                        <div
+                            key={journalGroupId}
+                            ref={notebookTrackRef}
+                            onScroll={handleNotebookScroll}
+                            aria-label="日记本，左右滑动切换"
+                            tabIndex={0}
+                            className="sully-journal-notebook-track relative flex w-full shrink-0 items-center gap-4 overflow-x-auto overflow-y-hidden snap-x snap-mandatory overscroll-x-contain no-scrollbar"
+                            style={{ paddingInline: 'max(16px, calc((100% - min(76vw, 320px)) / 2))', scrollPaddingInline: 'max(16px, calc((100% - min(76vw, 320px)) / 2))' }}
+                        >
+                            {visibleNotebooks.map((c, i) => (
+                                <button
+                                    type="button"
+                                    key={c.id}
+                                    onClick={() => handleCharSelect(c)}
+                                    className="sully-journal-notebook relative flex shrink-0 snap-center flex-col items-center justify-center gap-5 overflow-hidden rounded-r-[24px] rounded-l-[7px] border border-neutral-300/80 border-l-[5px] border-l-neutral-800 bg-white p-5 text-center shadow-[5px_7px_0_#e6e6e6,7px_11px_22px_rgba(0,0,0,0.08)] transition-transform active:scale-[0.985]"
+                                    style={{ width: 'min(76vw, 320px)', height: 'clamp(300px, 53vh, 440px)' }}
+                                    aria-label={`打开${c.name}的日记本，第${i + 1}本`}
+                                >
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/10 to-transparent" />
+                                    <div className="pointer-events-none absolute inset-x-5 top-5 h-px bg-neutral-100" />
+                                    <div className="sully-journal-notebook-avatar relative h-24 w-24 shrink-0 rounded-full border border-neutral-200 bg-neutral-50 p-[3px]">
+                                        <TokenImg value={c.avatar} className="h-full w-full rounded-full object-cover" />
+                                    </div>
+                                    <span className="sully-journal-notebook-name w-full truncate px-2 text-lg font-semibold text-neutral-900">{c.name}</span>
+                                    <span className="sully-journal-notebook-label rounded-full bg-neutral-100 px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-neutral-600">Journal</span>
+                                    <div className="pointer-events-none absolute inset-x-5 bottom-5 h-px bg-neutral-100" />
+                                </button>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                        {visibleNotebooks.length > 1 && (
+                            <div className="sully-journal-notebook-pager mt-7 flex shrink-0 items-center justify-center gap-8 text-neutral-700">
+                                <button type="button" onClick={() => moveNotebook(-1)} disabled={notebookIndex === 0}
+                                    aria-label="上一本日记本" className="rounded-full border border-neutral-200 bg-white/85 p-2.5 transition-colors active:bg-neutral-100 disabled:opacity-25">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </button>
+                                <span className="min-w-14 text-center text-xs font-medium tabular-nums tracking-widest">
+                                    {notebookIndex + 1} / {visibleNotebooks.length}
+                                </span>
+                                <button type="button" onClick={() => moveNotebook(1)} disabled={notebookIndex === visibleNotebooks.length - 1}
+                                    aria-label="下一本日记本" className="rounded-full border border-neutral-200 bg-white/85 p-2.5 transition-colors active:bg-neutral-100 disabled:opacity-25">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-sm text-neutral-400">暂无日记本</div>
+                )}
             </div>
         );
     }
