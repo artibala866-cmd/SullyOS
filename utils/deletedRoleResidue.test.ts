@@ -8,7 +8,7 @@ const message = (charId: string, extra: Partial<Message> = {}) => DB.saveMessage
     charId, role: 'user', type: 'text', content: 'sample', timestamp: 1, ...extra,
 });
 
-it('cleans role-owned data atomically while preserving group, central story and favorite audio', async () => {
+it('cleans all owned dialogue including group, story and favorite audio', async () => {
     await DB.saveCharacter({ id: roleId, name: '测试角色' } as CharacterProfile);
     const privateId = await message(roleId);
     const favoriteId = await message(roleId);
@@ -32,11 +32,11 @@ it('cleans role-owned data atomically while preserving group, central story and 
     expect(await DB.getCharacter(roleId)).toBeFalsy();
     expect(await DB.getMessageById(privateId)).toBeFalsy();
     expect(await DB.getMessageById(mirrorId)).toBeFalsy();
-    expect(await DB.getMessageById(groupId)).toBeTruthy();
+    expect(await DB.getMessageById(groupId)).toBeFalsy();
     expect(await findDeletedRoleResidue()).not.toContain(roleId);
-    expect((await DB.getMessageById(centralId))?.metadata?.theaterMirrorIds).toEqual({ other: 900 });
+    expect(await DB.getMessageById(centralId)).toBeFalsy();
     expect(await DB.getAssetRaw(`voice_msg_${privateId}`)).toBeNull();
-    expect(await DB.getAssetRaw(`voice_msg_${favoriteId}`)).toEqual({ favorite: true });
+    expect(await DB.getAssetRaw(`voice_msg_${favoriteId}`)).toBeNull();
     expect((await DB.getStoreRowsPage('memory_nodes', null, 10)).rows).toEqual([{ id: 'other', charId: 'other' }]);
     expect((await DB.getStoreRowsPage('memory_vectors', null, 10)).rows).toEqual([]);
     expect((await DB.getStoreRowsPage('memory_links', null, 10)).rows).toEqual([]);
@@ -56,4 +56,130 @@ it('rechecks a restored role and discards late voice writes for deleted messages
     await DB.saveAssetRaw(`voice_msg_${staleId}`, { favorite: false });
     expect(await DB.cleanupOrphanVoiceCaches()).toBe(1);
     expect(await DB.getAssetRaw(`voice_msg_${staleId}`)).toBeNull();
+});
+
+it('erases role-specific imports, phone/play records and shared references without erasing another role', async () => {
+    const owner = 'char-1790000000800', other = 'char-1790000000801';
+    await DB.saveCharacter({
+        id: owner, name: '删除目标', mountedWorldbooks: [
+            { id: 'wb-owned', title: '专属导入', content: 'secret', cardImportKey: 'import-a' },
+            { id: 'wb-common', title: '共享导入', content: 'shared', cardImportKey: 'import-b' },
+        ],
+    } as CharacterProfile);
+    await DB.saveCharacter({
+        id: other, name: '其他角色', mountedWorldbooks: [
+            { id: 'wb-common', title: '共享导入', content: 'shared', cardImportKey: 'import-b' },
+        ],
+    } as CharacterProfile);
+    const privateMessage = await message(owner);
+    const groupMessage = await message(owner, { groupId: 'group-del' });
+    const otherMessage = await message(other, { groupId: 'group-del' });
+    const storyMessage = await message('story-theater:story-owner', {
+        metadata: { source: 'story_theater' },
+    });
+    const otherMirror = await message(other, {
+        metadata: { source: 'story_theater_memory', theaterCentralId: storyMessage },
+    });
+    await DB.updateMessageMetadata(storyMessage, metadata => ({
+        ...metadata, theaterMirrorIds: { [other]: otherMirror },
+    }));
+    const db = await openDB();
+    const rows: Record<string, any[]> = {
+        scheduled_messages: [{ id: 'remind-owner', charId: owner, content: 'owned' }],
+        gallery: [{ id: 'gallery-owner', charId: owner, url: 'image' }],
+        diaries: [{ id: 'diary-owner', charId: owner, date: '2026-11-12' }],
+        tasks: [{ id: 'task-owner', supervisorId: owner, title: 'my task' }],
+        anniversaries: [{ id: 'ann-owner', charId: owner }],
+        room_todos: [{ id: owner + '_2026-11-12', charId: owner }],
+        room_notes: [{ id: 'note-owner', charId: owner }],
+        daily_schedule: [{ id: owner + '_2026-11-12', charId: owner }],
+        xhs_activities: [{ id: 'xhs-owner', characterId: owner }],
+        xhs_owned_posts: [{ id: 'post-owner', characterId: owner }],
+        groups: [{ id: 'group-del', members: [owner, other], topicBoxes: [{ id: 'old', summary: 'secret' }] }],
+        social_posts: [
+            { id: 'social-owner', authorCharId: owner, comments: [] },
+            { id: 'social-other', authorCharId: other, comments: [{ id: 'comment-owner', authorCharId: owner }] },
+        ],
+        worlds: [{
+            id: 'world-shared', memberIds: [owner, other], houses: [{ id: 'house', residentIds: [owner, other] }],
+            relationships: [{ fromId: owner, toId: other, value: 50 }],
+            threads: [{ id: 'group_main', kind: 'group', memberIds: [owner, other],
+                messages: [{ id: 'my-msg', fromId: owner }, { id: 'other-msg', fromId: other }] }],
+            seeds: [{ id: 'seed-owner', charId: owner }], directives: [{ id: 'directive-owner', charId: owner }],
+        }],
+        world_episodes: [
+            { id: 'episode-owner', worldId: 'world-shared', beats: [{ charId: owner }] },
+            { id: 'episode-other', worldId: 'world-shared', beats: [{ charId: other }] },
+        ],
+        story_theaters: [{ id: 'story-owner', characterIds: [owner, other] }],
+        games: [{ id: 'game-owner', playerCharIds: [owner, other] }],
+        novels: [{ id: 'novel-shared', collaboratorIds: [owner, other],
+            segments: [{ id: 'segment-owner', authorId: owner }, { id: 'segment-other', authorId: other }] }],
+        courses: [{ id: 'course-one', tutorCharId: owner }],
+        worldbooks: [
+            { id: 'wb-owned', title: '专属导入', content: 'secret', category: '', cardImportKey: 'import-a' },
+            { id: 'wb-common', title: '共享导入', content: 'shared', category: '', cardImportKey: 'import-b' },
+        ],
+        pixel_home_layouts: [{ charId: owner, roomId: 'room-1' }, { charId: other, roomId: 'room-1' }],
+    };
+    await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction([...Object.keys(rows), 'assets'], 'readwrite');
+        for (const [store, items] of Object.entries(rows)) {
+            for (const item of items) tx.objectStore(store).put(item);
+        }
+        tx.objectStore('assets').put({ id: 'content_favorites_index_v1',
+            data: { version: 1, items: [
+                { id: 'chat-owner', kind: 'chat', charId: owner, snapshot: { content: 'secret' } },
+                { id: 'chat-other', kind: 'chat', charId: other, snapshot: { content: 'keep' } },
+                { id: 'image-owner', kind: 'image', charId: owner,
+                    references: [{ source: 'favorite_asset', assetId: 'content_favorite_image_owner' }] },
+            ] } });
+        tx.objectStore('assets').put({ id: 'content_favorite_image_owner', data: { imageUrl: 'secret' } });
+        tx.oncomplete = () => resolve();
+        tx.onabort = () => reject(tx.error);
+    });
+    localStorage.setItem('sully_character_phone_wechat_v1:' + owner, 'private thread');
+    localStorage.setItem('sully_character_life_events_v1:' + owner, 'life events');
+    localStorage.setItem('sully_character_phone_wechat_v1:' + other, 'other thread');
+    expect(await DB.deleteCharacter(owner)).toBe(true);
+    expect(await DB.getCharacter(owner)).toBeFalsy();
+    expect(await DB.getCharacter(other)).toBeTruthy();
+    expect(await DB.getMessageById(privateMessage)).toBeFalsy();
+    expect(await DB.getMessageById(groupMessage)).toBeFalsy();
+    expect(await DB.getMessageById(storyMessage)).toBeFalsy();
+    expect(await DB.getMessageById(otherMirror)).toBeFalsy();
+    expect(await DB.getMessageById(otherMessage)).toBeTruthy();
+    for (const [name, deletedId] of [
+        ['scheduled_messages', 'remind-owner'], ['gallery', 'gallery-owner'],
+        ['diaries', 'diary-owner'], ['tasks', 'task-owner'], ['anniversaries', 'ann-owner'],
+        ['room_todos', owner + '_2026-11-12'], ['room_notes', 'note-owner'],
+        ['daily_schedule', owner + '_2026-11-12'], ['xhs_activities', 'xhs-owner'],
+        ['xhs_owned_posts', 'post-owner'], ['social_posts', 'social-owner'],
+        ['world_episodes', 'episode-owner'], ['story_theaters', 'story-owner'],
+        ['games', 'game-owner'], ['worldbooks', 'wb-owned'],
+    ]) {
+        expect((await DB.getStoreRowsPage(name, null, 100)).rows.some((row: any) => row.id === deletedId),
+            name + '/' + deletedId).toBe(false);
+    }
+    const pick = async (store: string, id: string) =>
+        (await DB.getStoreRowsPage(store, null, 100)).rows.find((row: any) => row.id === id) as any;
+    expect((await pick('groups', 'group-del')).members).toEqual([other]);
+    expect((await pick('groups', 'group-del')).topicBoxes).toEqual([]);
+    expect((await pick('worlds', 'world-shared')).memberIds).toEqual([other]);
+    expect((await pick('worlds', 'world-shared')).threads[0].messages).toHaveLength(1);
+    expect((await pick('novels', 'novel-shared')).collaboratorIds).toEqual([other]);
+    expect((await pick('novels', 'novel-shared')).segments).toHaveLength(1);
+    expect((await pick('courses', 'course-one')).tutorCharId).toBeUndefined();
+    expect(await pick('worldbooks', 'wb-common')).toBeTruthy();
+    expect(await pick('world_episodes', 'episode-other')).toBeTruthy();
+    expect((await pick('social_posts', 'social-other')).comments).toEqual([]);
+    expect((await DB.getAssetRaw('content_favorites_index_v1')).items.map((item: any) => item.id))
+        .toEqual(['chat-other']);
+    expect(await DB.getAssetRaw('content_favorite_image_owner')).toBeNull();
+    expect(localStorage.getItem('sully_character_phone_wechat_v1:' + owner)).toBeNull();
+    expect(localStorage.getItem('sully_character_life_events_v1:' + owner)).toBeNull();
+    expect(localStorage.getItem('sully_character_phone_wechat_v1:' + other)).toBe('other thread');
+    expect((await DB.getStoreRowsPage('pixel_home_layouts', null, 100)).rows).toEqual([
+        { charId: other, roomId: 'room-1' },
+    ]);
 });
