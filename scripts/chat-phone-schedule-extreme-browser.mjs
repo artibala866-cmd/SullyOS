@@ -330,6 +330,7 @@ try{
     window.dispatchEvent(new CustomEvent('sully:character-moments-changed',
       {detail:{characterId:phoneId,changeKind:'published',actorId:phoneId}}));
     press('发现',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='朋友圈'), 'discover Moments entry');
     press('朋友圈',phone());
     await wait(()=>!!phone().querySelector('[data-testid="moment-post-ci-phone-moment"]'),
       'saved Moment visible');
@@ -341,10 +342,12 @@ try{
     await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.likes?.length===1,
       'Moment like saved');
     more().click();
+    await wait(()=>!!phone().querySelector('[data-testid="moment-like-action-ci-phone-moment"]'), 'Moment unlike menu');
     phone().querySelector('[data-testid="moment-like-action-ci-phone-moment"]').click();
     await wait(()=>JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.likes?.length===0,
       'Moment unlike saved');
     more().click();
+    await wait(()=>!!phone().querySelector('[data-testid="moment-comment-action-ci-phone-moment"]'), 'Moment comment menu');
     phone().querySelector('[data-testid="moment-comment-action-ci-phone-moment"]').click();
     textInput('input[aria-label="评论"]','我刚发现你也在画速写！');
     press('发送',phone());
@@ -357,6 +360,7 @@ try{
     if(!JSON.parse(localStorage.getItem(momentKey)||'[]')[0]?.deletedAt)
       throw Error('Moment did not retain its soft deletion');
     press('返回',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='我'), 'WeChat me after Moments');
     progress.push('real Moments like/unlike/comment/delete cycle keeps persistence');
 
     // A user opens the fictional wallet straight after talking about buying
@@ -374,6 +378,7 @@ try{
       category:'日常',amountCents:-500,occurredAt:now,origin:'wechat-simulated',
     }]));
     press('我',phone());
+    await wait(()=>buttons(phone()).some(b=>b.textContent?.trim()==='钱包'), 'WeChat wallet entry');
     press('钱包',phone());
     await wait(()=>phone().textContent.includes('资产 · ASSETS'),'wallet assets displayed');
     await wait(()=>phone().textContent.includes('495.00'),'receipt applied to wallet balance');
@@ -390,6 +395,7 @@ try{
     press('取消',phone());
     if(!localStorage.getItem(walletKey))throw Error('Cancel deleted wallet assets');
     press('返回',phone());
+    await wait(()=>buttons(phone()).some(b=>!!b.querySelector('strong.text-xl')), 'WeChat profile entry after wallet');
     progress.push('real wallet repeated refresh and cancelled deletion are consistent');
 
     // Character avatar library is shared with private chat. Select an existing
@@ -414,6 +420,7 @@ try{
     await wait(()=>JSON.parse(localStorage.getItem(avatarKey)||'null')?.activeId==='ci-avatar',
       'character avatar selection is persisted');
     press('关闭头像库',document);
+    await wait(()=>!document.querySelector('[role="dialog"][aria-label="角色头像库"]'),'avatar modal dismissed');
     press('返回',phone());
     progress.push('avatar choice persisted from the actual shared library UI');
 
