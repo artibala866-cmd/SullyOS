@@ -134,6 +134,8 @@ const run = async () => {
             }
         }
     }
+    // Wait until 200ms CSS switch color/knob transitions finish before screenshot and color assertions.
+    if (mode.startsWith('toggle')) await sleep(350);
     const titles = [...document.querySelectorAll('h4')].map(el => el.textContent?.trim());
     const heading = document.querySelector('main')?.textContent || document.getElementById('root')?.textContent || '';
     const output = document.createElement('output');
