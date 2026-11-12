@@ -124,7 +124,20 @@ async function run(){
   const file=source.startsWith('link')?await makeLinkPng():
     source==='document'?new File(['完整人物人设。\n独立角色背景保持不拆分。'],'自定义角色人设.txt',{type:'text/plain'}):
     new File([JSON.stringify(v3)],'tavern-qa.json',{type:'application/json'});
-  const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;
+  const transfer=new DataTransfer();transfer.items.add(file);
+  if(source==='batch'){
+    for(const [name,roleName,background] of [
+      ['tavern-second.json','星晚','星晚的私人人设'],
+      ['tavern-third.json','舟舟','舟舟的私人人设'],
+    ]){
+      const card={...v3,data:{...v3.data,name:roleName,description:background,
+        first_mes:roleName+'的开场',alternate_greetings:[],
+        character_book:{entries:[{id:1,comment:roleName+'的世界',content:background,
+          keys:[],constant:true,position:'after_char',extensions:{position:1}}]}}};
+      transfer.items.add(new File([JSON.stringify(card)],name,{type:'application/json'}));
+    }
+  }
+  input.files=transfer.files;
   input.dispatchEvent(new Event('change',{bubbles:true}));
   let steps=0;
   const poll=()=>{
@@ -154,6 +167,14 @@ async function run(){
       documentPersonaVisible:source!=='document'||Boolean(
         modal?.textContent?.includes('自定义角色人设') &&
         states[0]?.checked&&!states[1]?.checked&&!states[2]?.checked),
+      batchSelectionVisible:source!=='batch'||Boolean(
+        input.multiple && modal?.textContent?.includes('3 / 3 个角色') &&
+        modal?.textContent?.includes('tavern-qa.json') &&
+        modal?.textContent?.includes('tavern-second.json') &&
+        modal?.textContent?.includes('tavern-third.json') &&
+        modal?.textContent?.includes('星晚') && modal?.textContent?.includes('舟舟') &&
+        modal?.textContent?.includes('全选') &&
+        modal?.querySelectorAll('input[type=checkbox]').length===6),
       linkOpeningsRecognized:source!=='link-openings'||Boolean(
         modal?.textContent?.includes('独立开场白：2 条') &&
         states[2]?.checked &&
@@ -165,7 +186,7 @@ async function run(){
       errors:observed.filter(v=>!v.startsWith('toast:')),
     };
     (document.body.dataset as any).cardImportVisualReady=String(
-      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.linkOpeningsRecognized&&layout.documentPersonaVisible&&layout.footerVisible&&
+      layout.modalVisible&&layout.allCheckedDefault&&layout.omissionExplained&&layout.linkOpeningsRecognized&&layout.batchSelectionVisible&&layout.documentPersonaVisible&&layout.footerVisible&&
       layout.overflowX<=2&&states.every(x=>x.present)&&
       (source==='link'||source==='document'?states[1].disabled&&states[2].disabled:
         source==='link-openings'?states[1].disabled&&!states[2].disabled:states.every(x=>!x.disabled))&&
