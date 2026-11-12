@@ -497,13 +497,16 @@ describe('同源预设导入：用户确认、兼容审计、互斥范围', () =
             expect(kept.skipped).toBe(true);
             const earlier=(await DB.getStoryTheaterPresets()).find(p=>p.id===first.id);
             expect(earlier?.document.prompts[0].content).toBe('规则-0');
-            const copied=await DB.importStoryTheaterPreset(next,'copy',first.id);
-            expect(copied.preset.id).not.toBe(first.id);
             const replaced=await DB.importStoryTheaterPreset(next,'replace',first.id);
             expect(replaced.preset.id).toBe(first.id);
             const after=(await DB.getStoryTheaterPresets()).find(p=>p.id===first.id);
             expect(after?.document.prompts[0].content).toBe('规则-0updated');
             expect(after?.createdAt).toBe(first.createdAt);
+            const newer=makeImported(name,'copy');
+            const copied=await DB.importStoryTheaterPreset(newer,'copy',first.id);
+            expect(copied.preset.id).not.toBe(first.id);
+            expect((await DB.getStoryTheaterPresets()).find(p=>p.id===first.id)?.document.prompts[0].content)
+                .toBe('规则-0updated');
             await DB.deleteStoryTheaterPreset(copied.preset.id);
         } finally {
             await DB.deleteStoryTheaterPreset(first.id);
@@ -525,8 +528,8 @@ describe('同源预设导入：用户确认、兼容审计、互斥范围', () =
     });
     it('作者未说互斥时，即使当前只启用一个，也不能推断为单选', () => {
         const doc=document([
-            prompt('one','<rule name="语言·对话">甲</rule>',true),
-            prompt('two','<rule name="语言·对话">乙</rule>',false),
+            prompt('one','<rule name="tone">甲</rule>',true),
+            prompt('two','<rule name="tone">乙</rule>',false),
         ]);
         doc.tavernEntryGroups=[{id:'generic',name:'语言模块',memberIdentifiers:['one','two']}];
         const section=getStoryTavernAuthorSections(doc).find(s=>s.key==='entry:generic');

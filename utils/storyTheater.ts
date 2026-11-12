@@ -1366,7 +1366,10 @@ export const getStoryTavernAuthorSections = (
         // Group labels can say "one of" even when additional author choices
         // are stackable. Never close explicit overlays as collateral damage.
         const isOverlay = (value: string): boolean => /可叠加|叠加使用|overlay|stackable/iu.test(value);
-        const groupSingle = tavernOneOf(meta.name);
+        // Author one-of notices may be written on a decorative opening
+        // delimiter rather than the extension's category display name.
+        const groupSingle = tavernOneOf(meta.name) || members.some(prompt =>
+            Boolean(recognizeTavernPromptHeading(prompt)) && tavernOneOf(prompt.name));
         const personallyLabeled = options.filter(option => tavernOneOf(option.name) && !isOverlay(option.name));
         const exclusiveOptions = groupSingle
             ? options.filter(option => !isOverlay(option.name))
@@ -1521,7 +1524,9 @@ export const selectStoryTavernAuthorOption = (
             && option.cluster === selected.cluster
             && (tier ? tierPattern.test(byId.get(option.id)?.content || '') : true))
         : [];
-    const explicitTiers = tier && structuralPeers.length > 0;
+    // Explicit dialogue-language rule slots are alternate author languages.
+    // They do not affect the separate always-on narration language.
+    const explicitTiers = (tier || scoped) && structuralPeers.length > 0;
     const siblings = section.single
         ? section.options.filter(option => option.id !== optionId)
         : numberedPeers.length ? numberedPeers : explicitTiers ? structuralPeers : [];
