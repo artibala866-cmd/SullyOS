@@ -8,6 +8,7 @@ on:
       - 'utils/storySillyTavernImport.ts'
       - 'utils/storySillyTavernImport.test.ts'
       - 'utils/storyTavernCategories.test.ts'
+      - 'utils/storyTavernAuthorSections.test.ts'
       - 'utils/storyPresetImportUi.test.tsx'
       - 'components/date/story/StoryPresetMaker.tsx'
       - 'tests/story-preset-import-audit-visual.tsx'
@@ -29,7 +30,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Original source selector and compiler unit regression
-        run: pnpm exec vitest run utils/storySillyTavernImport.test.ts utils/storyTavernCategories.test.ts
+        run: pnpm exec vitest run utils/storySillyTavernImport.test.ts utils/storyTavernCategories.test.ts utils/storyTavernAuthorSections.test.ts
       - name: Real React + IndexedDB browser-component regression
         shell: bash
         run: |
