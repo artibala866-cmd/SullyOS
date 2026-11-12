@@ -93,6 +93,7 @@ import { recoverForegroundDailySchedule } from '../utils/dailyScheduleForeground
 import { reconcileGlobalAutonomyWakes, autonomyReconciliationKey } from '../utils/amsgAutonomyBootstrap';
 import { reconcileDisabledAmsgTasks } from '../utils/amsgDisabledRepair';
 import { REAL_PERSON_MODE_CHANGED_EVENT } from '../utils/realPersonMode';
+import { persistBootAnimationPreference } from '../utils/bootAnimationPolicy';
 import { retireLegacyAiMessages } from '../utils/legacyAiScheduledCleanup';
 import { evaluateEmotionBackground } from '../hooks/useChatAI';
 import {HOME_SECRETS_UPDATED} from '../utils/homeSecrets';
@@ -2958,9 +2959,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // discard the user's off choice while the UI has already switched off.
     if (Object.keys(updates).length === 1 && typeof updates.bootAnimationEnabled === 'boolean') {
       try {
-        const parsed = JSON.parse(localStorage.getItem('os_theme') || '{}');
-        const stored = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-        localStorage.setItem('os_theme', JSON.stringify({ ...stored, bootAnimationEnabled: updates.bootAnimationEnabled }));
+        persistBootAnimationPreference(localStorage, updates.bootAnimationEnabled);
         setTheme(current => ({ ...current, bootAnimationEnabled: updates.bootAnimationEnabled }));
       } catch (error) {
         console.warn('[updateTheme] 开机动画开关保存失败', error);
