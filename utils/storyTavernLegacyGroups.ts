@@ -38,7 +38,7 @@ const layouts: ReadonlyArray<{ anchors: readonly string[]; runs: string }> = [
 ];
 
 export const restoreStoryTavernLegacyGroups = (document: StoryTheaterPresetDocument): StoryTheaterPresetDocument => {
-    if (!document || !Array.isArray(document.prompts) || document.tavernEntryGroups?.length) return document;
+    if (!document || !Array.isArray(document.prompts)) return document;
     const indexes = new Map(document.prompts.map((prompt, index) => [prompt.id, index]));
     const likelyTavern = document.sourceFormat === 'sillytavern'
         || (document.prompts.length > 15 && document.prompts.filter(prompt => prompt.id.startsWith('st-')).length > document.prompts.length * 0.8);
@@ -66,7 +66,24 @@ export const restoreStoryTavernLegacyGroups = (document: StoryTheaterPresetDocum
                 endIdentifier: document.prompts[last].id.slice(3),
             });
         }
-        if (tavernEntryGroups.length) return { ...document, sourceFormat: 'sillytavern', tavernEntryGroups };
+        if (tavernEntryGroups.length) {
+            // Older importers stored only extensions.entryGrouping. That index
+            // can cover two subsections while baibaiToolkit defines the other
+            // fifteen. Merge missing author categories instead of treating any
+            // pre-existing category as proof the preset is fully migrated.
+            const existing = document.tavernEntryGroups || [];
+            const existingNames = new Set(existing.map(group => group.name.trim()));
+            const existingIds = new Set(existing.map(group => group.id));
+            const missing = tavernEntryGroups.filter(group =>
+                !existingIds.has(group.id) && !existingNames.has(group.name.trim()));
+            if (!missing.length) return document;
+            // Author-supplied legacy metadata remains available; the exact
+            // known original grouping index takes precedence on overlap.
+            return {
+                ...document, sourceFormat: 'sillytavern',
+                tavernEntryGroups: [...missing, ...existing],
+            };
+        }
     }
     return document;
 };

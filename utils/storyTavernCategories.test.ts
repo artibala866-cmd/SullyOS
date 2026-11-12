@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../types';
 import { convertSillyTavernChatPreset } from './storySillyTavernImport';
 import { restoreStoryTavernLegacyGroups } from './storyTavernLegacyGroups';
+import { DB, openDB } from './db';
 import { getStoryPresetPromptGroups, getStoryTavernAuthorSections, selectStoryTavernAuthorOption, recognizeTavernPromptHeading, moveStoryPresetPromptToGroup, addStoryPresetGroup, storyTavernHeadingTitle, storyPresetPromptKind, isStoryPresetBrowseVisible } from './storyTheater';
 
 const prompt = (name: string, content = '', enabled = true, marker?: StoryTheaterPresetPrompt['marker']): StoryTheaterPresetPrompt => ({
@@ -326,4 +327,84 @@ describe('新旧 MoM 静态分组索引', () => {
         expect(restoreStoryTavernLegacyGroups(upgraded)).toBe(upgraded);
         expect(restoreStoryTavernLegacyGroups(document([prompt('无关预设', '正文')]))).toEqual(document([prompt('无关预设', '正文')]));
     });
+    it('新旧两套扩展分组重叠时，以 baibaiToolkit 正式分组优先且不改作者开关', () => {
+        const data = {
+            prompts: [
+                {identifier:'start',name:'旧式入口',role:'system',content:'原文甲'},
+                {identifier:'a',name:'自定义甲',role:'system',content:'原文乙'},
+                {identifier:'b',name:'自定义乙',role:'system',content:'原文丙'},
+            ],
+            prompt_order:[{character_id:100001,order:[
+                {identifier:'start',enabled:true},{identifier:'a',enabled:false},{identifier:'b',enabled:true},
+            ]}],
+            extensions: {
+                entryGrouping: [{id:'old',name:'旧分组',memberIdentifiers:['a','b']}],
+                baibaiToolkit:{presetPromptGroups:{
+                    groups:[{id:'new',name:'作者新分类'}],
+                    prompts:{a:{groupId:'new'},b:{groupId:'new'}},
+                }},
+            },
+        };
+        const doc = convertSillyTavernChatPreset(data, 'overlap');
+        expect(doc.tavernEntryGroups?.map(group => group.name)).toEqual(['作者新分类','旧分组']);
+        expect(getStoryPresetPromptGroups(doc).find(group => group.label === '作者新分类')?.promptIds)
+            .toEqual(['st-a','st-b']);
+        expect(getStoryTavernAuthorSections(doc).find(section => section.label === '作者新分类')
+            ?.options.map(item => [item.id,item.enabled])).toEqual([['st-a',false],['st-b',true]]);
+        expect(doc.prompts.map(item => [item.id,item.content,item.enabled])).toEqual([
+            ['st-start','原文甲',true],['st-a','原文乙',false],['st-b','原文丙',true],
+        ]);
+    });
+
+    it('已经有两组旧索引的已导入万象合鸣也补全剩余作者分类，并持久化不重导入', async () => {
+        const first = ['3bbf9f12-88d4-4d7b-a7e8-5cefa6fad09c', '670054f8-a499-4d83-9708-15a43ccf21fc',
+            'c9ebf674-6cf6-4017-af28-c58a711cabae',
+            'e257cb2f-f51d-4f87-9e3e-268db145e3f5', 'fca26432-aa18-4c79-be85-5d9504afe1c1',
+            '6cba3463-16e8-4501-b5a9-d0e47493fabd', 'dfc9b990-7ae2-4097-bc12-25131f71b472',
+            '5d8d6b62-54b3-422b-b284-372ef824e80c', 'ec72d1f4-89e9-4cc3-bd4f-b553ff41562f',
+            '32c4e99d-4b20-41f7-b7e7-ac8a2a104e27', '2311158a-b67e-4975-9779-5baeb32c3b88',
+            '71d22d22-c49a-4165-9e8b-c4e2ef4279ba',
+            'db53957e-8b6e-4817-8e28-e01fb8c689af', '15f9e0df-f6d9-4b2c-829a-fbd118a016ca',
+            'cba02a9b-1368-4aa6-b63f-cf794640058d', 'dc8824ff-0a51-4524-84f6-e21845ebb233',
+            '9d6ad354-42a3-461e-98a3-943453272da7', 'b234d92a-91d0-45d5-98bb-8b95db80456a',
+        ];
+        const before = document(first.map((identifier, i) => ({
+            id:'st-'+identifier, name:'旧条目'+i, role:'system', enabled:i%2===0, content:'用户自改规则'+i,
+        })));
+        before.tavernEntryGroups = [{
+            id:'old-metadata',name:'角色表现',
+            startIdentifier:first[7],endIdentifier:first[9],
+        }];
+        const originalPrompts = JSON.stringify(before.prompts);
+        const repaired = restoreStoryTavernLegacyGroups(before);
+        expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('抢话/复述');
+        expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('文风设定');
+        expect(repaired.tavernEntryGroups?.map(g=>g.name)).toContain('底部');
+        expect(repaired.tavernEntryGroups?.some(g => g.id === 'old-metadata')).toBe(true);
+        expect(JSON.stringify(repaired.prompts)).toBe(originalPrompts);
+        expect(restoreStoryTavernLegacyGroups(repaired)).toBe(repaired);
+
+        const preset = {id:'legacy-mom-migration-case',name:'老预设',format:'sullyos-story-preset' as const,
+            document: before, createdAt:21, updatedAt:22};
+        await DB.saveStoryTheaterPreset(preset);
+        try {
+            const loaded = (await DB.getStoryTheaterPresets()).find(p=>p.id===preset.id);
+            expect(loaded?.document.tavernEntryGroups?.length).toBeGreaterThan(2);
+            expect(loaded?.updatedAt).toBe(22);
+            const database = await openDB();
+            const stored = await new Promise<any>((resolve,reject) => {
+                const tx = database.transaction('story_theater_presets','readonly');
+                const request = tx.objectStore('story_theater_presets').get(preset.id);
+                request.onsuccess=()=>resolve(request.result);
+                request.onerror=()=>reject(request.error);
+            });
+            expect(stored.document.tavernEntryGroups).toEqual(loaded?.document.tavernEntryGroups);
+            expect(stored.document.prompts).toEqual(before.prompts);
+            const loadedAgain = (await DB.getStoryTheaterPresets()).find(p=>p.id===preset.id);
+            expect(loadedAgain?.document.tavernEntryGroups).toEqual(loaded?.document.tavernEntryGroups);
+        } finally {
+            await DB.deleteStoryTheaterPreset(preset.id);
+        }
+    });
+
 });

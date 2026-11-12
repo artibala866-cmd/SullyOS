@@ -410,7 +410,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
         tavernControls: detectTavernNativeControls(prompts),
         // Static metadata supplied by some MoM Tavern exports. Import ONLY
         // names and prompt references: never execute extension JS or regex.
-        tavernEntryGroups: [...(Array.isArray(value.extensions?.entryGrouping)
+        tavernEntryGroups: [...toolkitGroups, ...(Array.isArray(value.extensions?.entryGrouping)
             ? value.extensions.entryGrouping : [])
             .filter((group: any) => group && typeof group.name === 'string'
                 && group.name.trim() && typeof group.id === 'string')
@@ -426,7 +426,7 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
                     ? { startIdentifier: group.startIdentifier } : {}),
                 ...(typeof group.endIdentifier === 'string' && sourceById.has(group.endIdentifier)
                     ? { endIdentifier: group.endIdentifier } : {}),
-            })), ...toolkitGroups],
+            }))],
         ...(value.squash_system_messages === true ? { squashSystemMessages: true } : {}),
         // Other Chat Completion presets can use format strings without any
         // double-brace name macros. Keep these templates intact until runtime.

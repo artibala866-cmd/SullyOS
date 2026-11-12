@@ -4026,11 +4026,32 @@ export const DB = {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_STORY_THEATER_PRESETS)) return [];
       return new Promise((resolve, reject) => {
-          const request = db.transaction(STORE_STORY_THEATER_PRESETS, 'readonly').objectStore(STORE_STORY_THEATER_PRESETS).getAll();
-          request.onsuccess = () => resolve((request.result || [])
-              .map((preset: StoryTheaterPreset) => restoreSavedStoryTavernPreset(preset))
-              .sort((a: StoryTheaterPreset, b: StoryTheaterPreset) => b.updatedAt - a.updatedAt));
+          // Same-store transaction: the historical author's grouping index is
+          // repaired once and saved under the original preset ID. Do not touch
+          // prompt text, switches, timestamps, or referencing story IDs.
+          const tx = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
+          const store = tx.objectStore(STORE_STORY_THEATER_PRESETS);
+          const request = store.getAll();
+          let presets: StoryTheaterPreset[] = [];
+          let migrationFailure: unknown;
+          request.onsuccess = () => {
+              try {
+                  presets = (request.result || [])
+                      .map((preset: StoryTheaterPreset) => {
+                          const repaired = restoreSavedStoryTavernPreset(preset);
+                          if (repaired !== preset) store.put(repaired);
+                          return repaired;
+                      })
+                      .sort((a: StoryTheaterPreset, b: StoryTheaterPreset) => b.updatedAt - a.updatedAt);
+              } catch (error) {
+                  migrationFailure = error;
+                  tx.abort();
+              }
+          };
           request.onerror = () => reject(request.error);
+          tx.oncomplete = () => resolve(presets);
+          tx.onerror = () => reject(migrationFailure || tx.error);
+          tx.onabort = () => reject(migrationFailure || tx.error || new Error('旧剧情预设自动适配失败'));
       });
   },
 
