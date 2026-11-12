@@ -24,9 +24,9 @@ export function isChatCompletionUrl(url: string): boolean {
 }
 
 /** Parse a fetch Response as JSON safely (text-first, then JSON.parse) */
-export async function safeResponseJson(response: Response, options?: { keepInterruptedBody?: boolean }): Promise<any> {
+export async function safeResponseJson(response: Response, options?: { keepInterruptedBody?: boolean; onDelta?: (delta: string, fullText: string) => void }): Promise<any> {
     const { text, readError } = options?.keepInterruptedBody && response.body
-        ? await readRecoverableBody(response.body)
+        ? await readRecoverableBody(response.body, options?.onDelta)
         : { text: await response.text(), readError: undefined };
     const contentType = response.headers.get('content-type');
     let parsed: any;
@@ -61,13 +61,26 @@ export async function safeResponseJson(response: Response, options?: { keepInter
 }
 
 /** Retain received bytes, including when a gateway leaves the stream open. */
-export async function readRecoverableBody(body: ReadableStream<Uint8Array>): Promise<{ text: string; readError?: string }> {
+export async function readRecoverableBody(body: ReadableStream<Uint8Array>, onDelta?: (delta: string, fullText: string) => void): Promise<{ text: string; readError?: string }> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let text = '';
     let pending = '';
     let finishedAt = 0;
     const eventData: string[] = [];
+    // Preview uses the same SSE assembler as the final completion; reasoning
+    // deltas never reach the page. The raw body still owns error recovery.
+    const previewAssembler = onDelta ? new SseAssembler() : null;
+    let previewMultipart: string[] = [];
+    const emitPreviewFrame = (payload: string): boolean => {
+        if (!previewAssembler) return false;
+        try { JSON.parse(payload); } catch { return false; }
+        const delta = previewAssembler.feedLine('data: ' + payload);
+        if (delta.content) {
+            try { onDelta?.(delta.content, previewAssembler.content); } catch { /* UI is optional */ }
+        }
+        return true;
+    };
     const checkFinish = (payload: string) => {
         if (finishedAt || !/"finish_?reason"/i.test(payload)) return;
         try {
@@ -108,6 +121,10 @@ export async function readRecoverableBody(body: ReadableStream<Uint8Array>): Pro
                 if (!event) {
                     // A standard SSE event can split one JSON object across data lines.
                     if (!finishedAt && eventData.length > 1) checkFinish(eventData.join('\n'));
+                    if (previewMultipart.length) {
+                        emitPreviewFrame(previewMultipart.join('\n'));
+                        previewMultipart = [];
+                    }
                     eventData.length = 0;
                     continue;
                 }
@@ -116,6 +133,15 @@ export async function readRecoverableBody(body: ReadableStream<Uint8Array>): Pro
                 if (payload === '[DONE]') {
                     void reader.cancel().catch(() => {});
                     return { text };
+                }
+                if (previewAssembler) {
+                    if (previewMultipart.length) {
+                        if (emitPreviewFrame([...previewMultipart, payload].join('\n'))) previewMultipart = [];
+                        else if (emitPreviewFrame(payload)) previewMultipart = [];
+                        else previewMultipart.push(payload);
+                    } else if (!emitPreviewFrame(payload)) {
+                        previewMultipart = [payload];
+                    }
                 }
                 if (!finishedAt) {
                     // Also accept the gateways that omit the blank separator.
