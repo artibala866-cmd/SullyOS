@@ -140,7 +140,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         }),
     ), [allPromptsById, groups, query, tavernBrowse]);
     const visiblePrompts = useMemo(() => !tavernBrowse || showEmptyEntries ? matchingPrompts
-        : matchingPrompts.filter(prompt => !['empty', 'placeholder'].includes(storyPresetPromptKind(prompt))),
+        : matchingPrompts.filter(prompt => ['content', 'connector'].includes(storyPresetPromptKind(prompt))),
     [matchingPrompts, showEmptyEntries, tavernBrowse]);
     const promptIndexes = useMemo(() => new Map(activePrompts.map((prompt, index) => [prompt.id, index])), [activePrompts]);
     const groupCounts = useMemo(() => new Map(groups.map(group => {
@@ -148,7 +148,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             .filter((item): item is StoryTheaterPresetPrompt => Boolean(item) && !isStoryPresetSectionMarker(item!));
         return [group.key, {
             total: entries.length,
-            usable: entries.filter(item => !['empty', 'placeholder'].includes(storyPresetPromptKind(item))).length,
+            usable: entries.filter(item => ['content', 'connector'].includes(storyPresetPromptKind(item))).length,
             enabled: entries.filter(item => item.enabled).length,
         }] as const;
     })), [groups, allPromptsById]);
@@ -310,7 +310,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 <p className='mt-2 text-[10px] text-slate-500'>显示 {visiblePrompts.length}/{activePrompts.length} 条 · 原文、开关和顺序不变</p>
             </div>}
             {!quickEdit && tavernBrowse && <div className='mt-3 flex items-center justify-between'>
-                <span className='text-[10px] text-slate-400'>空白／无效占位默认收起</span>
+                <span className='text-[10px] text-slate-400'>空白／结构占位默认收起</span>
                 <button type='button' aria-pressed={showEmptyEntries} onClick={() => setShowEmptyEntries(value => !value)} className='text-[10px] font-semibold text-violet-600'>{showEmptyEntries ? '隐藏空条目' : '显示空条目'}</button>
             </div>}
             {!quickEdit && <div className='mt-4 border-y border-slate-200 divide-y divide-slate-200'>
@@ -319,7 +319,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                     <button onClick={() => tavernBrowse ? openPrompt(prompt.id) : setSelectedId(prompt.id)} className='min-w-0 flex-1 text-left'><span className='block text-xs font-semibold truncate'>{index + 1}. {prompt.name}</span><span className='block mt-1 text-[9px] text-slate-400'>{kind === 'empty' ? '空白条目' : kind === 'placeholder' ? '无效占位' : kind === 'structure' ? '结构边界' : locked ? '系统连接位 · 内容锁定' : STORY_ROLE_LABELS[prompt.role]}</span></button>
                     {!readOnly && <span className='flex shrink-0'><button disabled={Boolean(tavernBrowse && query) || index === 0} onClick={() => movePrompt(prompt.id, -1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowUp size={14} /></button><button disabled={Boolean(tavernBrowse && query) || index === activePrompts.length - 1} onClick={() => movePrompt(prompt.id, 1)} className='p-1.5 text-slate-400 disabled:opacity-20'><ArrowDown size={14} /></button>{!locked && <button onClick={() => removePrompt(prompt.id)} className='p-1.5 text-rose-400'><Trash size={14} /></button>}</span>}
                 </div>; })}
-                {visiblePrompts.length === 0 && <p className='py-7 text-center text-xs text-slate-400'>此分组没有有效正文。{!showEmptyEntries && '可点「显示空条目」检查原始占位。'}</p>}
+                {visiblePrompts.length === 0 && <p className='py-7 text-center text-xs text-slate-400'>此分组没有有效正文。{!showEmptyEntries && '可点「显示空条目」检查原始内容。'}</p>}
             </div>}
             {!quickEdit && !activeGroup.protected && !readOnly && <button onClick={addPrompt} className='mt-4 h-10 px-4 rounded-xl bg-white border border-slate-200 text-xs font-bold flex items-center gap-1'><Plus size={14} />在本区新增提示词</button>}
             {selected && <div className={quickEdit ? 'mt-5 pt-5 border-t border-slate-200' : 'mt-7 pt-6 border-t border-slate-200'}>
@@ -421,7 +421,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                     {!readOnly && <section className='pt-5 border-t border-slate-200'><label><span className='text-[10px] font-bold text-slate-500'>预设名称</span><input value={draft.document.name} onChange={event => patchDocument({ name: event.target.value })} className='mt-2 w-full px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm' /></label></section>}
                 </> : activeGroupKey === '__generation__' ? renderGeneration() : activeGroup ? renderGroupDetails() : <>
                     <section className='pb-5 border-b border-slate-200'><div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h1 className='mt-1 text-3xl font-serif font-semibold'>先选大区，再看细节</h1></section>
-                    {tavernBrowse && <div className='mt-4 flex items-center justify-between'><span className='text-[10px] text-slate-400'>空白占位不参与有效条目计数</span><button type='button' aria-pressed={showEmptyEntries} onClick={() => setShowEmptyEntries(value => !value)} className='text-[10px] font-semibold text-violet-600'>{showEmptyEntries ? '隐藏空条目' : '显示空条目'}</button></div>}
+                    {tavernBrowse && <div className='mt-4 flex items-center justify-between'><span className='text-[10px] text-slate-400'>有效正文和动态槽位单独计数</span><button type='button' aria-pressed={showEmptyEntries} onClick={() => setShowEmptyEntries(value => !value)} className='text-[10px] font-semibold text-violet-600'>{showEmptyEntries ? '隐藏空条目' : '显示空条目'}</button></div>}
                     {!readOnly && <div className='flex gap-2 py-4'><input aria-label='新分组名称' value={newGroupName} onChange={event => setNewGroupName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') addGroup(); }} placeholder='新分组名称' className='min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs' /><button disabled={!newGroupName.trim()} onClick={addGroup} className='shrink-0 flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40'><Plus size={14} />新增分组</button></div>}
                     {tavernBrowse && <div className='mb-3'>
                         <input aria-label='搜索酒馆预设提示词' value={promptQuery} onChange={event => setPromptQuery(event.target.value)}
