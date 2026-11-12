@@ -4,6 +4,8 @@ export interface StoryRegexInput {
     text: string;
     role?: 'assistant' | 'user';
     depth?: number;
+    characterId?: string;
+    scene?: string;
 }
 
 export interface StoryRegexContext {
@@ -13,6 +15,8 @@ export interface StoryRegexContext {
     charGender?: string;
     userAvatar?: string;
     charAvatar?: string;
+    characterId?: string;
+    scene?: string;
 }
 
 export interface StoryRegexRule {
@@ -52,6 +56,8 @@ export interface StoryRegexRule {
         category?: string;
         originalScope?: string;
         originalCharacterIds?: string[];
+        /** Explicit bindings to current SullyOS roles. Foreign app IDs never match automatically. */
+        localCharacterIds?: string[];
         triggerEnabled?: boolean;
         /** Legacy saved flag. Ignored since local smart identification was withdrawn. */
         smartFilter?: boolean;
@@ -163,8 +169,27 @@ export function readStoryRegexRules(raw: string | null): StoryRegexRule[] {
     });
 }
 
+/** Honor the reference app's scene/character scopes without letting a
+ * foreign character ID become a globally active rule in this app. */
+export function storyRegexScopeApplies(
+    rule: StoryRegexRule, context: { characterId?: string; scene?: string } = {},
+): boolean {
+    const source = rule.source;
+    if (!source) return true;
+    const authoredScenes = source.scenes || [];
+    if (authoredScenes.length && context.scene && !authoredScenes.includes(context.scene)) return false;
+    if (source.originalScope !== 'character' && source.originalScope !== 'chat') return true;
+    const bound = source.localCharacterIds || [];
+    if (bound.length) return !!context.characterId && bound.includes(context.characterId);
+    // A chat-wide source rule with no per-character restriction is valid only
+    // in a real chat. Character-specific rules require explicit local binding.
+    return source.originalScope === 'chat' && !source.originalCharacterIds?.length
+        && !!context.characterId && context.scene === 'chat';
+}
+
 export function storyRegexApplies(rule: StoryRegexRule, stage: 'display' | 'history', input?: StoryRegexInput): boolean {
     if (!rule.enabled || (stage === 'display' ? !rule.display : (rule.kind !== 'filter' || !rule.history))) return false;
+    if (!storyRegexScopeApplies(rule, input || {})) return false;
     if (!input) return true;
     const role = rule.role ?? 'assistant';
     if (role !== 'both' && role !== (input.role ?? 'assistant')) return false;
@@ -205,6 +230,7 @@ export function storyRegexInstruction(rule: StoryRegexRule, context: StoryRegexC
     // Their instructions belong in the request, not in the displayed or historical text.
     if (!rule.enabled || !rule.instruction.trim()) return '';
     if (rule.kind === 'template' ? !rule.display : !rule.history) return '';
+    if (!storyRegexScopeApplies(rule, context)) return '';
     const keywords = rule.source?.triggerKeywords;
     // A source may enable keyword triggering without providing any keywords.
     // An empty list means no keyword restriction, never an impossible trigger.
