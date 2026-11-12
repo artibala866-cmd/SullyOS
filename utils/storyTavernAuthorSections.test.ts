@@ -194,7 +194,7 @@ describe('各作者原生分组的真实行为：不把宝宝我是char套给其
             { id: 'end', name: '╚小剧场结束╝', content: '</theater>', enabled: true },
             { id: 'base', name: '核心规则不要关', content: '基础剧情设定 C', enabled: true },
         ], [{ id: 'theater-source', name: '🎪小剧场（选一）', startIdentifier: 'start', endIdentifier: 'end' }]);
-        const section = getStoryTavernAuthorSections(p.document).find(s => s.label === '🎪小剧场（选一）')!;
+        const section = getStoryTavernAuthorSections(p.document).find(s => s.key === 'entry:theater-source')!;
         expect(section.options.map(o => o.label)).toEqual(['🎪极光交互小剧场', '🎪简约文字小剧场']);
         const changed = selectStoryTavernAuthorOption(p.document, section.key, 'st-aurora');
         expect(changed.prompts.find(o => o.id === 'st-aurora')?.enabled).toBe(true);
