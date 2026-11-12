@@ -31,8 +31,8 @@ export function normalizeTavernPresetOptions(value: Record<string, unknown>): No
 
 const promptEnabled = (value: unknown, fallback: boolean, identifier: string): boolean => {
     if (value === undefined) return fallback;
-    if (value === true || value === 1 || value === 'true') return true;
-    if (value === false || value === 0 || value === 'false') return false;
+    if (value === true || value === 1 || (typeof value === 'string' && /^(true|1)$/i.test(value.trim()))) return true;
+    if (value === false || value === 0 || (typeof value === 'string' && /^(false|0)$/i.test(value.trim()))) return false;
     throw new Error(`酒馆提示词「${identifier}」的 enabled 开关无效，请检查原文件`);
 };
 
@@ -51,15 +51,26 @@ const role = (value: unknown): StoryTheaterPresetPrompt['role'] => {
     throw new Error(`酒馆预设使用了无法映射的消息角色「${String(value)}」，请检查原文件`);
 };
 
+/** Read supported order table shapes without inspecting any author's prose. */
+const readTavernOrderGroups = (input: unknown): Array<{ character_id?: number | string; order: any[] }> | null => {
+    if (Array.isArray(input)) {
+        if (!input.length) return null;
+        if (input.every(item => item && typeof item === 'object' && Array.isArray(item.order))) return input;
+        if (input.every(item => typeof item === 'string'
+            || (item && typeof item === 'object' && typeof item.identifier === 'string')))
+            return [{ character_id: 100001, order: input }];
+        return null;
+    }
+    if (input && typeof input === 'object' && Array.isArray((input as any).order))
+        return [input as { character_id?: number | string; order: any[] }];
+    return null;
+};
+
 export const isSillyTavernChatPreset = (value: any): boolean =>
     !!value && Array.isArray(value.prompts) && value.prompts.length > 0
     && value.prompts.some((prompt: any) => prompt && typeof prompt.identifier === 'string'
         && (typeof prompt.content === 'string' || typeof prompt.role === 'string' || prompt.marker === true))
-    // A few older/hand-edited Chat Completion exports only have prompts[].
-    // Only support a genuinely missing order table; an explicitly malformed
-    // order table must not turn disabled prompts on by accident.
-    && (value.prompt_order === undefined || (Array.isArray(value.prompt_order)
-        && value.prompt_order.some((group: any) => Array.isArray(group?.order))));
+    && (value.prompt_order === undefined || readTavernOrderGroups(value.prompt_order) !== null);
 
 
 /** Conservative mapping to the EXISTING native eight-option preset maker.
@@ -222,19 +233,19 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     if (!isSillyTavernChatPreset(value)) throw new Error('无法识别为酒馆 Chat Completion 预设');
 
     const missingOrderTable = value.prompt_order === undefined;
-    const orderGroups = missingOrderTable ? [] : value.prompt_order.filter((group: any) => Array.isArray(group?.order));
-    const populated = orderGroups.filter((group: any) => group.order.length > 0);
-    // 100001 / 100000 are the SillyTavern default character-order configurations.
-    const eligibleOrderGroups = populated.length ? populated : orderGroups;
+    const groups = missingOrderTable ? [] : readTavernOrderGroups(value.prompt_order);
+    if (!missingOrderTable && !groups) throw new Error('酒馆排序表结构无效，未导入');
+    const populated = (groups || []).filter(group => group.order.length > 0);
+    // Prefer the author's real default order. Never guess between non-default tables.
     const orderGroup = missingOrderTable
         ? { order: value.prompts.filter((prompt: any) => typeof prompt?.identifier === 'string')
             .map((prompt: any) => ({ identifier: prompt.identifier, enabled: prompt.enabled })) }
-        : eligibleOrderGroups.find((group: any) => group.character_id === 100001)
-            || eligibleOrderGroups.find((group: any) => group.character_id === 100000)
-            || eligibleOrderGroups[0];
-    if (!orderGroup || (orderGroup.order.length === 0 && !missingOrderTable)) {
-        throw new Error('酒馆排序表为空，无法确认提示词开关；请重新导出完整 Chat Completion 预设');
-    }
+        : populated.find(group => String(group.character_id) === '100001')
+            || populated.find(group => String(group.character_id) === '100000')
+            || (populated.length === 1 ? populated[0] : undefined);
+    if (!orderGroup) throw new Error(populated.length > 1
+        ? '存在多个非默认排序表，无法确认原作者开启状态；未导入'
+        : '酒馆排序表为空，无法确认开关；请重新导出完整预设');
     const sourceById = new Map<string, any>();
     for (const item of value.prompts) {
         if (!item || typeof item.identifier !== 'string' || !item.identifier.trim()) {
@@ -291,24 +302,25 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     };
 
     const seenOrderIds = new Set<string>();
+    let unknownEnabledCount = 0;
     for (const item of orderGroup.order) {
-        if (typeof item?.identifier !== 'string') {
+        const identifier = typeof item === 'string' ? item : item?.identifier;
+        if (typeof identifier !== 'string' || !identifier.trim())
             throw new Error('酒馆排序表包含没有 identifier 的条目，无法安全导入');
-        }
-        if (seenOrderIds.has(item.identifier)) {
-            throw new Error(`酒馆排序表重复引用「${item.identifier}」，无法判断最终发送位置`);
-        }
-        seenOrderIds.add(item.identifier);
-        const source = sourceById.get(item.identifier);
-        // A missing flag inherits the prompt's own setting when it exists.
-        const active = item.enabled === undefined
-            ? !!source && promptEnabled(source.enabled, true, item.identifier)
-            : promptEnabled(item.enabled, false, item.identifier);
+        if (seenOrderIds.has(identifier))
+            throw new Error(`酒馆排序表重复引用「${identifier}」，无法判断最终发送位置`);
+        seenOrderIds.add(identifier);
+        const source = sourceById.get(identifier);
         if (!source) {
-            if (active) throw new Error(`启用的提示词「${item.identifier}」缺少正文定义，为避免遗漏已取消导入`);
+            if (typeof item !== 'string' && promptEnabled(item.enabled, false, identifier))
+                throw new Error(`启用的提示词「${identifier}」缺少正文定义，为避免遗漏已取消导入`);
             continue;
         }
-        append(item.identifier, active);
+        const orderEnabled = typeof item === 'string' ? undefined : item.enabled;
+        const flag = orderEnabled === undefined ? source.enabled : orderEnabled;
+        if (flag === undefined) unknownEnabledCount += 1;
+        // Unknown is NOT "enabled": avoid changing the author's intended settings.
+        append(identifier, promptEnabled(flag, false, identifier));
     }
     // Preserve unlisted content for the editor without making it active unexpectedly.
     for (const identifier of sourceById.keys()) if (!used.has(identifier)) append(identifier, false);
@@ -316,7 +328,8 @@ export const convertSillyTavernChatPreset = (value: any, fallbackName: string): 
     // anything on, and do not reject its user's archived prompt text.
 
     const warnings: string[] = [];
-    if (missingOrderTable) warnings.push('原文件没有 prompt_order；已按 prompts 数组顺序和各条 enabled 开关导入（原文件无法提供更精确的排序）');
+    if (missingOrderTable) warnings.push('原文件没有 prompt_order；按原数组顺序和明确开关导入');
+    if (unknownEnabledCount) warnings.push(`有 ${unknownEnabledCount} 条缺少原始开关，已保守关闭`);
     const regexCount = Array.isArray(value.extensions?.regex_scripts)
         ? value.extensions.regex_scripts.filter((script: any) => script?.disabled !== true).length : 0;
     const helperCount = Array.isArray(value.extensions?.tavern_helper?.scripts)
