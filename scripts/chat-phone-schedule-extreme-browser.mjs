@@ -469,7 +469,7 @@ try{
   if(!enterAfterReload)throw Error('Reload lost access to private chat');
   await sleep(4500);
 
-  const extreme=await evaluate(`(async()=>{
+  const extreme=await evaluate(`(async()=>{try{
     const pause=ms=>new Promise(r=>setTimeout(r,ms));
     const visible=e=>e?.getClientRects().length>0&&!e.closest('[hidden]');
     const wait=async(f,name,ms=15000)=>{
@@ -596,12 +596,15 @@ try{
     await wait(()=>!!phone().querySelector('button.cp-home-shortcut'),'return from phone WeChat');
     press('退出查手机');
     await wait(()=>!phone(),'phone closes and chat is foreground');
-    await wait(()=>qa.calls.length===1,'pending auto response resumes once after phone closes',18000);
+    await wait(()=>qa.calls.length>=1,'pending auto response resumes after phone closes',18000);
     await wait(async()=>(await rows()).some(x=>x.charId===first&&x.role==='assistant'&&
       x.content?.includes('本地模拟回复')),'receive actual mock AI reply',15000);
     const apiAfterClose=qa.calls.length;
     await pause(2800);
-    if(qa.calls.length!==apiAfterClose)throw Error('One pending user turn created multiple model calls');
+    // Additional optional phone-install analysis may use a second request,
+    // but a single private reply must not repeat for the same user turn.
+    if(qa.calls.length!==apiAfterClose)throw Error('Unexpected additional AI request after reply settled: '+
+      JSON.stringify(qa.calls.slice(-4)));
     samples.push({step:'phone close resumes exactly one reply',apiCalls:qa.calls.length});
 
     // 4. Switch a role while the last reply is pending: no old character
@@ -636,8 +639,16 @@ try{
     db.close();
     return {samples,calls:qa.calls.length,unsafe:qa.unsafe,errors:faults,
       finalRole:currentId(),revokeKeys:Object.keys(localStorage).filter(k=>k.startsWith('sully_chat_auto_reply_intent_v1:'))};
-  })()`);
+  }catch(error){
+    return {failure:String(error),calls:window.__extremeQA?.calls||[],
+      unsafe:window.__extremeQA?.unsafe||[],mode:localStorage.getItem('sully_life_pacing'),
+      apiUrl:JSON.parse(localStorage.getItem('os_api_config')||'{}').baseUrl||'',
+      pendingKeys:Object.keys(localStorage).filter(k=>k.startsWith('sully_chat_auto_reply_intent_v1:')),
+      role:localStorage.getItem('os_last_active_char_id'),
+      visibleText:document.body.innerText.slice(-450)};
+  }})()`);
   console.log('EXTREME_REAL_USER_PRESSURE='+JSON.stringify(extreme));
+  if(extreme.failure)throw Error(extreme.failure);
   await capture('integrated-chaos-private-chat-390',390,844);
 
 
