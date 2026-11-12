@@ -5,12 +5,27 @@ on:
     paths:
       - '.github/workflows/seven-day-long-play.yml'
       - 'utils/longPlayJourney.test.ts'
+      - 'utils/db.ts'
+      - 'utils/storyTheater*.ts'
+      - 'utils/storyHumanChaosPressure.test.ts'
+      - 'utils/phoneChatPiggyback.ts'
+      - 'utils/characterPhone*.ts'
+      - 'utils/chatInputPreferences.ts'
+      - 'utils/dailySchedule*.ts'
+      - 'utils/musicPlaybackState.ts'
+      - 'utils/musicSessionLifecycle.test.ts'
+      - 'context/MusicContext.tsx'
+      - 'apps/Chat.tsx'
+      - 'apps/music/**'
+      - 'components/chat/CharacterPhone*.tsx'
+      - 'hooks/useChatAutoReply.ts'
+      - 'scripts/chat-phone-schedule-real-browser.mjs'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: seven-day-long-play
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   play:
     runs-on: ubuntu-latest
