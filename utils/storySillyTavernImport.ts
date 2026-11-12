@@ -706,7 +706,7 @@ export const extractSillyTavernStoryContent = (data: any): string => {
         : completionContentToText(input);
     const content = asText(message?.content);
     const separateThinking = asText(message?.reasoning_content ?? message?.reasoning ?? message?.thinking);
-    if (!separateThinking || /<(?:thinking|think|thought)\b/i.test(content)) return content.trim();
+    if (!separateThinking || /<(?:ecot|thinking|think|thought)\b/i.test(content)) return content.trim();
     const formattedThinking = /^<(?:thinking|think|thought)\b/i.test(separateThinking.trim())
         ? separateThinking : `<thinking>${separateThinking}</thinking>`;
     return `${formattedThinking}\n${content}`.trim();
