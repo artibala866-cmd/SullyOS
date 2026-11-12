@@ -113,8 +113,8 @@ async function openChrome(mode) {
             assert(!html.includes('rgb(38, 38, 38)'), 'Card switch must not be stark black: ' + html);
             // Browser animation/snapshot timing may vary the gray values slightly;
             // assert the same visible dark-on / light-off distinction, not one exact RGB.
-            const active = /data-active-switch-color="rgb\\((\\d+), (\\d+), (\\d+)\\)"/.exec(html);
-            const inactive = /data-inactive-switch-color="rgb\\((\\d+), (\\d+), (\\d+)\\)"/.exec(html);
+            const active = /data-active-switch-color="rgb[(]([0-9]+), ([0-9]+), ([0-9]+)[)]"/.exec(html);
+            const inactive = /data-inactive-switch-color="rgb[(]([0-9]+), ([0-9]+), ([0-9]+)[)]"/.exec(html);
             assert(active && active.slice(1).every(value => Number(value) >= 55 && Number(value) <= 115),
                 'Active switch must be visibly dark gray: ' + html);
             assert(inactive && inactive.slice(1).every((value, index) => Number(value) >= 130
