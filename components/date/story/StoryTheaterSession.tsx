@@ -1265,7 +1265,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 : assistantOpening ? '开场生成指令 · 尚无用户行动' : `第 ${turnFloor} 楼 · 本轮用户推进`);
             const continuity = [
                 '按楼号区分已发生的历史与本轮指令。角色记忆、事件盒、向量回忆、示例和附录用于补充背景。历史好感增减已经发生，不得重复计入本轮；标注未告知角色的数值和原因仍是幕后记录。',
-                ...(summaries ? ['事件盒记录该楼段结束时的状态。关系、设定和场景若已在后续楼层变化，以较新的正文为准。旧约定和伏笔仅在仍未解决时继续承接。'] : []),
+                ...(summaries ? ['事件盒只记录已经发生的关键事件、关系变化、重要设定及未解决事项，不代表当前场景或下一幕起点。若后续楼层已经发生变化，以较新的正文为准；旧约定和伏笔仅在仍未解决时继续承接。'] : []),
                 ...(sendsHistory && latestAssistant ? [`第 ${latestAssistant.floor} 楼是生成位置之前最新的剧场正文，从其结尾承接当前场景与因果。`] : []),
                 ...(sendsHistory && precedingFloor?.message.role === 'user' && !precedingFloor.row.metadata?.theaterContinue
                     ? [`第 ${precedingFloor.floor} 楼是本轮之前已有的用户推进，按楼号顺序一并承接。`] : []),
