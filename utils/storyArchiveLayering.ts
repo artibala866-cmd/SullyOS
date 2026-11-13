@@ -44,7 +44,7 @@ export function readStoryArchiveSections(summary: string): string[] | null {
 export function longTermStoryArchiveView(summary: string): string {
     const sections = readStoryArchiveSections(summary);
     if (!sections) return summary; // Old and imported boxes remain fully readable.
-    return sections.map((body, index) => ALWAYS_READ.has(index) && body && body !== UNSPECIFIED
+    return sections.map((body, index) => (ALWAYS_READ.has(index) || (index === 3 && body.includes('界面好感记录'))) && body && body !== UNSPECIFIED
         ? '【' + HEADINGS[index] + '】\n' + body : '',
     ).filter(Boolean).join('\n\n') || summary;
 }
@@ -122,8 +122,10 @@ export function selectLayeredStoryArchiveContext(
         taken.add(box.id);
     };
     for (const box of recent) add(box, 'recent-full');
+    // Keep the immediately preceding long-running facts even if older search hits are large.
+    for (const box of eligible.slice(2, 4)) add(box, 'long-term');
     for (const box of matching) add(box, 'related-full');
-    for (const box of eligible.slice(2, 10)) add(box, 'long-term');
+    for (const box of eligible.slice(4, 10)) add(box, 'long-term');
     return picked.sort((a, b) => a.toMessageId - b.toMessageId);
 }
 
