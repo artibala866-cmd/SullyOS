@@ -96,6 +96,21 @@ describe('story summary final channel', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
+    it('accepts terse causal shorthand and keeps distinct knowledge and scene state', async () => {
+        fetchMock.mockResolvedValueOnce(response(structured('阿泽交备用钥匙→小雨接管店；小雨感到身旁冷气，猜测阿泽在场。', {
+            时间地点与场景: '当日正午｜水果店；末尾平措抵达。',
+            人物关系与转折: '阿泽=小雨兄长；小雨未证实鬼魂身份。',
+            好感与心理变化: '阿泽：担忧小雨受冻→主动退开。',
+            新增设定与细节: '鬼魂不能碰实物；狗能察觉鬼魂。',
+            未解决事项与续写落点: '老王发货未到；店门口平措刚到。',
+        })));
+        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
+        expect(summary).toContain('阿泽交备用钥匙→小雨接管店');
+        expect(summary).toContain('小雨未证实鬼魂身份');
+        expect(summary).toContain('老王发货未到');
+        expect(summary.match(/【[^】]+】/g)).toHaveLength(6);
+    });
+
     it('rejects a missing or empty section without changing the box or retrying', async () => {
         fetchMock.mockResolvedValueOnce(response(completion('【关键事件与因果】\n两人一起回家。')));
         await expect(regenerate()).rejects.toThrow('时间地点与场景');
@@ -221,7 +236,11 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('以上六项合计不超过 800 字');
+        expect(body.messages[0].content).toContain('普通十轮剧情以 400—650 字为目标');
+        expect(body.messages[0].content).toContain('复杂情节最多 800 字');
+        expect(body.messages[0].content).toContain('每个事实只写一次');
+        expect(body.messages[0].content).toContain('不逐楼流水账');
+        expect(body.messages[0].content).toContain('不能把感应、猜测写成确定事实');
         expect(body.messages[0].content).toContain('人物关系与转折');
         expect(body.messages[0].content).toContain('新增设定与细节');
         expect(body.messages[0].content).toContain('未解决事项与续写落点');
