@@ -88,15 +88,45 @@ const SHARED_PREFERENCES = new Set([
         'sully-home3d-room-scope', 'sully-home3d-wall-view', 'sully-home3d-view-mode',
         'sully-home3d-light-finish', 'sully-home3d-light-mode', 'sully-home3d-quality',
         'sully-home3d-furniture-outline', 'sully-home3d-furniture-style',
-        'sullyos_disclaimer_accepted', 'os_first_use_memory_guide_v1',
+        'sullyos_disclaimer_accepted', 'os_first_use_memory_guide_v1', 'os_first_use_skip_vector_v1',
+        // Phone-wide settings must survive a change of roleplay identity.
+        'os_realtime_config', 'os_cloud_backup_config', 'os_remote_vector_config',
+        'os_vision_available_models', 'os_analytics', 'push_vapid_v1',
+        'sully_image_api_v1', 'sully_image_presets_v1', 'sully_proxy_worker_url_v1',
+        'aetheros.mcp.servers', 'aetheros.mcp.useNativeTools',
+        'aetheros.mcd.mcpToken', 'aetheros.mcd.mcpEnabled',
+        'aetheros.luckin.mcpToken', 'aetheros.luckin.mcpEnabled',
+        'sullyos_backup_reminder', 'sully-chat-input-preferences-v1',
+        'handbook_lifestream_depth', 'groupchat_context_limit', 'bm25_mode',
+        'chat_translate_source_lang', 'chat_translate_lang',
+        'sullyos_chat_wardrobe_update_v2_seen', 'sullyos_chat_wardrobe_guide_v2_done',
     ]);
 export function isSharedPreference(key: string): boolean {
-    return SHARED_PREFERENCES.has(key) || /^(sully[-_]beauty[-_]|sully[-_]decoration[-_]|sully[-_]appearance[-_]|sully_character_phone_appearance_v1:)/.test(key);
+    return SHARED_PREFERENCES.has(key) ||
+        /^(sully[-_]beauty[-_]|sully[-_]decoration[-_]|sully[-_]appearance[-_]|sully_character_phone_appearance_v1:)/.test(key) ||
+        /^chat_translate_(?:enabled_|expanded_|source_lang_|lang_)[^:]+$/.test(key);
 }
 const STORAGE_PREFIX = 'sully:save-data:';
 /** Static iframe editors must use the same physical keys as the host facade. */
 export function userSaveStoragePrefix(id = USER_SAVE_ID): string {
     return id === DEFAULT_USER_SAVE ? '' : `${STORAGE_PREFIX}${id}:`;
+}
+/** Older releases wrote settings inside identity-specific storage. Promote only
+ * audited settings, and never overwrite a setting already present globally. */
+export function promoteSharedPreferences(raw: Storage, id = USER_SAVE_ID): void {
+    const prefix = userSaveStoragePrefix(id);
+    if (!prefix) return;
+    for (let i = 0; i < raw.length; i++) {
+        const physicalKey = raw.key(i);
+        if (!physicalKey?.startsWith(prefix)) continue;
+        const key = physicalKey.slice(prefix.length);
+        if (!isSharedPreference(key) || raw.getItem(key) !== null) continue;
+        const value = raw.getItem(physicalKey);
+        if (value !== null) {
+            try { raw.setItem(key, value); }
+            catch { /* The old value stays intact and remains readable. */ }
+        }
+    }
 }
 export function createSaveStorage(raw: Storage, id: string, shared = true): Storage {
     const prefix = `${STORAGE_PREFIX}${id}:`;
@@ -115,7 +145,14 @@ export function createSaveStorage(raw: Storage, id: string, shared = true): Stor
     const api: Storage = {
         get length() { return keys().length; },
         key: index => keys()[index] ?? null,
-        getItem: key => isUserSaveIndexKey(String(key)) ? null : raw.getItem(map(String(key))),
+        getItem: key => {
+            const logical = String(key);
+            if (isUserSaveIndexKey(logical)) return null;
+            const value = raw.getItem(map(logical));
+            // A full store cannot migrate immediately; do not hide its old setting.
+            return value ?? (shared && id !== DEFAULT_USER_SAVE && isSharedPreference(logical)
+                ? raw.getItem(prefix + logical) : null);
+        },
         setItem: (key, value) => { if (!isUserSaveIndexKey(String(key))) raw.setItem(map(String(key)), String(value)); },
         removeItem: key => { if (!isUserSaveIndexKey(String(key))) raw.removeItem(map(String(key))); },
         clear: () => { for (const key of keys()) raw.removeItem(map(key)); },
@@ -132,7 +169,10 @@ export function createSaveStorage(raw: Storage, id: string, shared = true): Stor
 }
 export function installUserSaveStorage(): void {
     if (typeof window === 'undefined') return;
-    if (nativeLocalStorage) Object.defineProperty(window, 'localStorage', { configurable: true, value: createSaveStorage(nativeLocalStorage, USER_SAVE_ID) });
+    if (nativeLocalStorage) {
+        promoteSharedPreferences(nativeLocalStorage, USER_SAVE_ID);
+        Object.defineProperty(window, 'localStorage', { configurable: true, value: createSaveStorage(nativeLocalStorage, USER_SAVE_ID) });
+    }
     const rawSession = window.sessionStorage;
     Object.defineProperty(window, 'sessionStorage', { configurable: true, value: createSaveStorage(rawSession, USER_SAVE_ID, false) });
     const checkIdentity = () => { if (readUserSaves().activeId !== USER_SAVE_ID) window.location.reload(); };
