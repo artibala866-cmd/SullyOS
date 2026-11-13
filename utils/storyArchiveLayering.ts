@@ -123,7 +123,7 @@ export function selectLayeredStoryArchiveContext(
     };
     for (const box of recent) add(box, 'recent-full');
     // Keep the immediately preceding long-running facts even if older search hits are large.
-    for (const box of eligible.slice(2, 4)) add(box, 'long-term');
+    for (const box of eligible.slice(2, 4)) add(box, matching.some(match => match.id === box.id) ? 'related-full' : 'long-term');
     for (const box of matching) add(box, 'related-full');
     for (const box of eligible.slice(4, 10)) add(box, 'long-term');
     return picked.sort((a, b) => a.toMessageId - b.toMessageId);
