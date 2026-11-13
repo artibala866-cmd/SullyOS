@@ -9,9 +9,11 @@ import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveS
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
 const sections = ['关键事件与因果', '时间地点与场景', '人物关系与转折', '好感与心理变化', '新增设定与细节', '未解决事项与续写落点'];
-const savedSummary = (text: string) => '【关键事件与因果】\n' + text;
+// Test completions contain enough independent story facts to meet the real 100-character saved-box minimum.
+const fixtureFacts = '；补充已确认的剧情背景：小雨与阿泽在雨夜车站一起等待雨停，双方互相认识；阿泽明确答应陪小雨走回家，但还没有确认出发时间。站台外仍有积水，二人尚未离开车站，也没有发生其他已明确完成的行动。';
+const savedSummary = (text: string) => '【关键事件与因果】\n' + text + fixtureFacts;
 const structured = (text: string, details: Record<string, string> = {}) => completion(sections.map((section, index) =>
-    '【' + section + '】\n' + (details[section] ?? (index === 0 ? text : '原文未交代')),
+    '【' + section + '】\n' + (index === 0 ? (details[section] ?? text) + fixtureFacts : (details[section] ?? '原文未交代')),
 ).join('\n\n'));
 const response = (data: unknown) => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 let entry: StoryTheaterEntry, messages: Message[], serial = 0;
@@ -68,13 +70,47 @@ describe('story summary final channel', () => {
     });
 
     it('rejects overlong cheap-model summaries instead of hiding original floors and poisoning every later main prompt', async () => {
-        fetchMock.mockResolvedValueOnce(response(completion('长'.repeat(2001))));
-        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('返回了 2001 字符，超过 2000 字符的保存上限');
-        expect(parseStoryArchiveSummary(completion('长'.repeat(2000)))).toHaveLength(2000);
+        fetchMock.mockResolvedValueOnce(response(completion('长'.repeat(1501))));
+        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('返回了 1501 字符，超过 1500 字符的上限');
+        expect(parseStoryArchiveSummary(completion('长'.repeat(1500)))).toHaveLength(1500);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
+    it('rejects a too-short final event box rather than archiving the original floors', async () => {
+        const tooShort = sections.map((heading, index) => '【' + heading + '】\n' + (index === 0 ? '两人见面。' : '原文未交代')).join('\n\n');
+        fetchMock.mockResolvedValueOnce(response(completion(tooShort)));
+        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('必须在 100～1500 字符之间');
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+        expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
+    });
+
+    it('checks the complete saved box including appended UI affinity, not only the model output', async () => {
+        const source = [{ ...messages[0], metadata: { ...messages[0].metadata,
+            theaterAffinityInputs: [{ characterName: '阿泽', delta: 3, reason: '补充'.repeat(80), awareness: 'noticed' }],
+        } }, messages[1]];
+        fetchMock.mockResolvedValueOnce(response(completion(sections.map((heading, index) =>
+            '【' + heading + '】\n' + (index === 0 ? '长'.repeat(1320) : '原文未交代'),
+        ).join('\n\n'))));
+        await expect(generateStoryArchiveSummary(entry.title, source, api)).rejects.toThrow('必须在 100～1500 字符之间（含好感记录）');
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+    });
+
+    it('keeps author corrections in the existing sixth section rather than inventing another section', async () => {
+        fetchMock.mockResolvedValueOnce(response(structured('小雨与阿泽仍在车站等雨停。', {
+            未解决事项与续写落点: '仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。',
+        })));
+        const text = await generateStoryArchiveSummary(entry.title, [
+            { ...messages[0], content: '（纠正：你不要擅自替小雨决定离开）' }, messages[1],
+        ], api);
+        expect(text).toContain('【未解决事项与续写落点】\n仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。');
+        expect(text.match(/【[^】]+】/g)).toHaveLength(2);
+        expect(Array.from(text).length).toBeGreaterThanOrEqual(100);
+        expect(Array.from(text).length).toBeLessThanOrEqual(1500);
+        const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
+        expect(system).toContain('不得将角色台词、故事内的请求、普通剧情推进误当成用户对AI的协助指令');
+    });
+
     it('keeps scene transitions, supporting relationships, custom settings and exact UI affinity in one request', async () => {
         const content = '周五 21:10，车站站台：小雨、阿泽和阿祁在场。次日清晨转到旅馆。阿祁是阿泽的姐姐。小雨左眼怕强光。';
         const source = [{ ...messages[0], content, metadata: { theaterAffinityInputs: [
@@ -255,9 +291,13 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('篇幅按本次输入的真实信息量决定');
-        expect(body.messages[0].content).toContain('不按轮数、楼层数或固定字数套模板');
-        expect(body.messages[0].content).toContain('独立事件多、人物关系复杂、转折或设定密集就写足必要信息');
+        expect(body.messages[0].content).toContain('最终输出必须为100～1500字符');
+        expect(body.messages[0].content).toContain('此范围适用于任何楼层数量');
+        expect(body.messages[0].content).toContain('不按轮数套用固定字数');
+        expect(body.messages[0].content).toContain('用户协助指令：具体要求');
+        expect(body.messages[0].content).toContain('禁止记录本批末尾场景');
+        expect(body.messages[0].content).toContain('不记录末尾场景、最后动作或下一幕开场位置');
+        expect(body.messages[0].content).not.toContain('末尾单列最后场景与正在发生的动作');
         expect(body.messages[0].content).not.toMatch(/普通十轮|350—600|最多约 800/);
         expect(body.messages[0].content).toContain('信息相同只记一次');
         expect(body.messages[0].content).toContain('不能为了省字把不同人物混成');
@@ -269,6 +309,7 @@ describe('manual event box floor selection', () => {
         expect(body.messages[0].content).toContain('人物关系与转折');
         expect(body.messages[0].content).toContain('新增设定与细节');
         expect(body.messages[0].content).toContain('未解决事项与续写落点');
+        expect(body.messages[0].content).toContain('按固定顺序写六个标题');
         expect(body.messages[1].content).toContain('第 3 楼');
         expect(body.messages[1].content).toContain('备用钥匙');
         expect(body.messages[1].content).not.toContain('范围之外');
