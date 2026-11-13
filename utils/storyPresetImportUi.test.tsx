@@ -110,10 +110,10 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   // mode or losing the original author-choice scroll position.
   const simpleScroll=host!.querySelector<HTMLElement>('main.story-page-scroll')!;
   simpleScroll.scrollTop=480;
-  const preview=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='查看原文');
+  const preview=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='编辑条目');
   expect(preview).toBeDefined();
   await act(async()=>preview!.click());
-  const inspector=host!.querySelector<HTMLElement>('[role="dialog"][aria-label="查看原作者原文"]');
+  const inspector=host!.querySelector<HTMLElement>('[role="dialog"][aria-label="编辑原作者条目"]');
   expect(inspector).not.toBeNull();
   expect(inspector!.textContent).toContain('作者自己的完全接管');
   const other=[...inspector!.querySelectorAll('button')].find(b=>b.textContent?.includes('不抢'));
@@ -122,7 +122,19 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   inspectedScroll.scrollTop=420;
   await act(async()=>other!.click());
   expect(inspectedScroll.scrollTop).toBe(0);
-  expect(host!.querySelector('[role="dialog"] pre')?.textContent).toContain('作者自己的不抢话');
+  const content=inspector!.querySelector<HTMLTextAreaElement>('textarea[aria-label="编辑原作者条目内容"]')!;
+  expect(content.value).toContain('作者自己的不抢话');
+  const changeContent=(value:string)=>{
+   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(content,value);
+   content.dispatchEvent(new Event('input',{bubbles:true}));
+  };
+  // Empty content should not close the detail or lose its source tabs.
+  await act(async()=>changeContent(''));
+  expect(host!.querySelector('[role="dialog"]')).not.toBeNull();
+  const revisedContent='<rule name="演绎权限·1档">作者自己修改的不抢话。</rule>';
+  await act(async()=>changeContent(revisedContent));
+  expect(content.value).toBe(revisedContent);
+  expect(inspectedScroll.scrollTop).toBe(0);
   expect(host!.textContent).toContain('原作选择');
   await act(async()=>host!.querySelector<HTMLButtonElement>('button[aria-label="返回原作选择"]')!.click());
   expect(host!.querySelector('[role="dialog"]')).toBeNull();
@@ -135,7 +147,8 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   await act(async()=>saveButton!.click());
   expect(saved).toHaveBeenCalledTimes(1);
   const data=(saved.mock.calls[0] as any)[0] as typeof preset;
-  expect(data.document.prompts.map(p=>p.content)).toEqual(originalTexts);
+  expect(data.document.prompts.map(p=>p.content)).toEqual(originalTexts.map((text,index)=>
+   data.document.prompts[index].id==='st-agency-none' ? revisedContent : text));
   expect(data.document.prompts.find(p=>p.id==='st-agency-full')?.enabled).toBe(false);
   expect(data.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
   expect(data.document.prompts.find(p=>p.id==='st-pov-you')?.enabled).toBe(true);
@@ -143,6 +156,7 @@ describe('真实剧情编辑器：多文件导入和错误恢复',()=>{
   expect(data.document.tavernControls?.overrides).toEqual({});
   const persisted=(await DB.getStoryTheaterPresets()).find(p=>p.id===data.id)!;
   expect(persisted.document.prompts.find(p=>p.id==='st-agency-none')?.enabled).toBe(true);
+  expect(persisted.document.prompts.find(p=>p.id==='st-agency-none')?.content).toBe(revisedContent);
   expect(persisted.document.prompts.find(p=>p.id==='st-agency-full')?.enabled).toBe(false);
   await DB.deleteStoryTheaterPreset(data.id);
   const pro=[...host!.querySelectorAll('button')].find(b=>b.textContent?.trim()==='专业版');
