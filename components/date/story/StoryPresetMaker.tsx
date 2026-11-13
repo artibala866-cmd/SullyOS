@@ -110,6 +110,8 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
     const [promptQuery, setPromptQuery] = useState('');
     const [expandedAuthorSections, setExpandedAuthorSections] = useState<Record<string, boolean>>({});
     const [inspectedAuthor, setInspectedAuthor] = useState<{ sectionKey: string; promptId: string } | null>(null);
+    // Keep selected source tabs stable while editing even if an entry is emptied.
+    const [inspectedAuthorSection, setInspectedAuthorSection] = useState<ReturnType<typeof getStoryTavernAuthorSections>[number] | null>(null);
     const [showEmptyEntries, setShowEmptyEntries] = useState(false);
     const mainScrollRef = useRef<HTMLElement>(null);
     const inspectorScrollRef = useRef<HTMLDivElement>(null);
@@ -177,7 +179,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         ? matchingGroups
         : matchingGroups.filter(group => !group.autoGrouped || (groupCounts.get(group.key)?.usable || 0) > 0),
     [matchingGroups, groupCounts, query, showEmptyEntries, tavernBrowse]);
-    const inspectedSection = authorSections.find(section => section.key === inspectedAuthor?.sectionKey);
+    const inspectedSection = inspectedAuthor ? inspectedAuthorSection : null;
     const inspectedPrompt = draft.document.prompts.find(prompt => prompt.id === inspectedAuthor?.promptId);
     // Restore after React has committed the destination view, not before the
     // list/detail subtree has changed. This also works with concurrent renders.
@@ -238,6 +240,9 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         replaceDocument(selectStoryTavernAuthorOption(draft.document, sectionKey, optionId));
     };
     const inspectAuthorSection = (sectionKey: string, id: string) => {
+        const section = authorSections.find(item => item.key === sectionKey);
+        if (!section) return;
+        setInspectedAuthorSection(section);
         setInspectedAuthor({ sectionKey, promptId: id });
     };
     const moveGroup = (key: string, direction: -1 | 1) => {
@@ -475,7 +480,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                                     <div className='mt-3 flex justify-end border-t border-slate-100 pt-2.5'>
                                         <button type='button' onClick={() => inspectAuthorSection(section.key, (on[0] || section.options[0]).id)}
                                             className='shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-600 underline decoration-slate-300 underline-offset-4'>
-                                            查看原文
+                                            {readOnly ? '查看原文' : '编辑条目'}
                                         </button>
                                     </div>
                                 </div>}
@@ -526,13 +531,17 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 </>}
             </div>
         </main>
-        {inspectedAuthor && inspectedSection && <section role='dialog' aria-modal='true' aria-label='查看原作者原文'
+        {inspectedAuthor && inspectedSection && <section role='dialog' aria-modal='true' aria-label={readOnly ? '查看原作者原文' : '编辑原作者条目'}
             className='absolute inset-0 z-50 flex flex-col bg-stone-100 text-slate-800'>
             <header className='story-safe-header shrink-0 border-b border-slate-200 bg-stone-100'>
                 <div className='h-16 px-4 flex items-center gap-3'>
                     <button type='button' onClick={() => setInspectedAuthor(null)} className='w-9 h-9 rounded-full grid place-items-center' aria-label='返回原作选择'><ArrowLeft size={20} /></button>
                     <div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.2em] text-violet-500'>Original text</div><div className='truncate text-sm font-semibold'>{inspectedSection.label}</div></div>
                     <span className='text-[10px] text-slate-400'>{inspectedSection.options.length} 条</span>
+                    {!readOnly && <button type='button' disabled={saving} onClick={() => void save()}
+                        className='h-9 shrink-0 rounded-full bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50'>
+                        {saving ? '保存中' : '保存'}
+                    </button>}
                 </div>
             </header>
             <div ref={inspectorScrollRef} className='flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 pb-24'>
@@ -544,8 +553,12 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                             className={`rounded-xl border px-3 py-2 text-[11px] font-semibold break-words ${inspectedAuthor.promptId === option.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>{option.label}</button>)}
                     </div>
                     <h2 className='mt-5 text-sm font-semibold break-words'>{inspectedPrompt?.name || ''}</h2>
-                    <div className='mt-1 text-[10px] text-slate-400'>{inspectedPrompt?.enabled ? '已启用' : '未启用'} · 仅查看，不修改原文</div>
-                    <pre className='mt-4 min-h-52 whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl border border-slate-200 bg-white p-4 font-mono text-[11px] leading-6 text-slate-700'>{inspectedPrompt?.content || '（空条目）'}</pre>
+                    <div className='mt-1 text-[10px] text-slate-400'>{inspectedPrompt?.enabled ? '已启用' : '未启用'}</div>
+                    {readOnly
+                        ? <pre className='mt-4 min-h-52 whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl border border-slate-200 bg-white p-4 font-mono text-[11px] leading-6 text-slate-700'>{inspectedPrompt?.content || '（空条目）'}</pre>
+                        : <textarea aria-label='编辑原作者条目内容' value={inspectedPrompt?.content || ''} onChange={event => {
+                            if (inspectedPrompt) patchPrompt(inspectedPrompt.id, { content: event.target.value });
+                        }} className='mt-4 block w-full min-h-72 resize-y whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl border border-slate-200 bg-white p-4 font-mono text-[11px] leading-6 text-slate-700 outline-none focus:border-violet-300' />}
                 </div>
             </div>
         </section>}
