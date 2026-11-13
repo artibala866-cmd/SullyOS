@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { evaluateSparkTraffic, sparkTrafficKey, reserveSparkTrafficRun, getSparkTrafficLocalDay, type SparkTraffic } from '../utils/sparkTraffic';
 import { chooseSparkStock } from '../utils/sparkStock';
 import { planSparkCharacterBatches, selectSparkBatchCharacterResults, parseSparkPostPublishBatch, needsSparkInitialCommentCall } from '../utils/sparkApiBatch';
@@ -162,6 +163,7 @@ const Icons = {
 
 const SocialApp: React.FC = () => {
     const { closeApp, openApp, characters, worldbooks, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const [feed, setFeed] = useState<SocialPost[]>([]);
     const [communityState, setCommunityState] = useState<SparkCommunityState>(() => {
         try { return normalizeSparkCommunityState(JSON.parse(localStorage.getItem('spark_community_state') || 'null')); }
@@ -2930,7 +2932,7 @@ ${buildSparkCommentHistory(post)}
                     <div className="space-y-2">
                         <p className="font-bold">选择发帖角色（可多选）</p>
                         <div className="grid grid-cols-4 gap-3 max-h-52 overflow-y-auto py-2">
-                            {characters.map(c => {
+                            {visibleCharacters.map(c => {
                                 const checked = postingCharIds.includes(c.id);
                                 return <button type="button" key={c.id} aria-pressed={checked} onClick={() => setPostingCharIds(prev => checked ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1 min-w-0">
                                     <span className={`relative block w-12 h-12 rounded-full ${checked ? 'ring-2 ring-[#555555] ring-offset-2' : ''}`}>
@@ -3000,7 +3002,7 @@ ${buildSparkCommentHistory(post)}
                     </div>
                     
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
-                        {characters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
+                        {visibleCharacters.map(c => <button type="button" key={c.id} onClick={() => setPostingCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="flex flex-col items-center gap-1">
                             <span className={`w-12 h-12 rounded-full ${postingCharIds.includes(c.id) ? 'ring-2 ring-neutral-500 ring-offset-2' : ''}`}><TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" /></span>
                             <span className="text-[11px] truncate max-w-full">{c.name}</span>
                         </button>)}
@@ -3035,9 +3037,9 @@ ${buildSparkCommentHistory(post)}
 
             <Modal isOpen={showShareModal} title="分享帖子" onClose={() => setShowShareModal(false)}>
                 {/* 分组筛选（没建分组时不渲染） */}
-                <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={shareGroupId} onChange={setShareGroupId} className="mb-1 px-2" />
+                <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups} value={shareGroupId} onChange={setShareGroupId} className="mb-1 px-2" />
                 <div className="grid grid-cols-4 gap-4 p-2">
-                    {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
+                    {filterCharactersByGroup(visibleCharacters, characterGroups, shareGroupId).map(c => (
                         <button key={c.id} onClick={() => handleShare(c.id, false)} className="flex flex-col items-center gap-2 group">
                             <TokenImg value={c.avatar} className="w-12 h-12 rounded-full object-cover border border-slate-100 group-active:scale-90 transition-transform" />
                             <span className="text-[10px] text-slate-600 truncate w-full text-center">{c.name}</span>
