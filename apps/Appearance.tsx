@@ -6,6 +6,7 @@ import { INSTALLED_APPS, Icons } from '../constants';
 import { processImage, processImageToBlob } from '../utils/file';
 import { deleteBlobRef, putImageBlob, useBlobRefUrl } from '../utils/blobRef';
 import TokenImg from '../components/os/TokenImg';
+import type { LauncherWidgetSlot } from '../utils/launcherWidgetSlots';
 import {
     companionAvatarSource,
     companionSkinSetPatchValue,
@@ -369,7 +370,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
 };
 
 const Appearance: React.FC = () => {
-  const { theme, updateTheme, closeApp, openApp, setCustomIcon, customIcons, addToast, appearancePresets, saveAppearancePreset, applyAppearancePreset, deleteAppearancePreset, renameAppearancePreset, exportAppearancePreset, importAppearancePreset, characters, activeCharacterId, updateCharacter } = useOS();
+  const { theme, updateTheme, updateLauncherWidget, closeApp, openApp, setCustomIcon, customIcons, addToast, appearancePresets, saveAppearancePreset, applyAppearancePreset, deleteAppearancePreset, renameAppearancePreset, exportAppearancePreset, importAppearancePreset, characters, activeCharacterId, updateCharacter } = useOS();
   const [activeTab, setActiveTab] = useState<'theme' | 'icons' | 'presets' | 'sharing'>(() => (hasBeautyReceiveRequest()||hasBeautyLibraryRequest()) ? 'sharing' : 'theme');
   useAppShortcut(ShortcutAppID.Appearance, intent => setActiveTab((intent.entryId || 'theme') as typeof activeTab));
   const [shareBusy, setShareBusy] = useState(false);
@@ -378,7 +379,8 @@ const Appearance: React.FC = () => {
   const lockWallpaperInputRef = useRef<HTMLInputElement>(null);
   const [lockWallpaperUrl, setLockWallpaperUrl] = useState('');
   const widgetInputRef = useRef<HTMLInputElement>(null);
-  const [activeWidgetSlot, setActiveWidgetSlot] = useState<string | null>(null);
+  const selectedWidgetSlotRef = useRef<LauncherWidgetSlot | null>(null);
+  const widgetUploadRevisionRef = useRef<Partial<Record<LauncherWidgetSlot, number>>>({});
   const iconInputRef = useRef<HTMLInputElement>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
   const companionPortraitInputRef = useRef<HTMLInputElement>(null);
@@ -552,24 +554,35 @@ const Appearance: React.FC = () => {
       addToast('锁屏壁纸已应用', 'success');
   };
 
-  const handleWidgetUpload = async (file: File) => {
-      if (!activeWidgetSlot) return;
+  const selectWidgetImage = (slot: LauncherWidgetSlot) => {
+      selectedWidgetSlotRef.current = slot;
+      widgetInputRef.current?.click();
+  };
+
+  const handleWidgetUpload = async (file: File, slot: LauncherWidgetSlot) => {
+      const revision = (widgetUploadRevisionRef.current[slot] || 0) + 1;
+      widgetUploadRevisionRef.current[slot] = revision;
       try {
-          const maxW = activeWidgetSlot === 'wide' ? 800 : activeWidgetSlot === 'dsq' ? 600 : 500;
+          const maxW = slot === 'wide' ? 800 : slot === 'dsq' ? 600 : 500;
           const blob = await processImageToBlob(file, { maxWidth: maxW, quality: 0.9 });
           const ref = await putImageBlob(blob);
-          const current = theme.launcherWidgets || {};
-          updateTheme({ launcherWidgets: { ...current, [activeWidgetSlot]: ref } });
-          addToast('小组件已更新', 'success');
+          // Older slow image processing must never undo the user's newer choice.
+          if (widgetUploadRevisionRef.current[slot] !== revision) return;
+          await updateLauncherWidget(slot, ref);
+          addToast('图片已更新', 'success');
       } catch (e: any) {
-          addToast(e.message, 'error');
+          addToast(e?.message || '图片保存失败', 'error');
       }
   };
 
-  const removeWidget = (slot: string) => {
-      const current = { ...(theme.launcherWidgets || {}) };
-      delete current[slot];
-      updateTheme({ launcherWidgets: Object.keys(current).length > 0 ? current : undefined });
+  const removeWidget = async (slot: LauncherWidgetSlot) => {
+      widgetUploadRevisionRef.current[slot] = (widgetUploadRevisionRef.current[slot] || 0) + 1;
+      try {
+          await updateLauncherWidget(slot);
+          addToast('图片已移除', 'success');
+      } catch (e: any) {
+          addToast(e?.message || '图片移除失败', 'error');
+      }
   };
 
   const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1178,11 +1191,11 @@ const Appearance: React.FC = () => {
                             return (
                                 <LongPressArea
                                     className={`w-40 aspect-square rounded-2xl overflow-hidden relative cursor-pointer transition-transform active:scale-95 ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
+                                    onClick={() => { selectWidgetImage(slot); }}
                                     onLongPress={() => {
                                         if (img) {
-                                            removeWidget(slot);
-                                            addToast('已移除方图', 'success');
+                                            void removeWidget(slot);
+                                            
                                         }
                                     }}
                                 >
@@ -1211,23 +1224,23 @@ const Appearance: React.FC = () => {
                     
                     <div className="grid grid-cols-2 gap-3">
                         {([
-                            ['film1', '主页 1 · 胶片 ①', 'tl'],
-                            ['film2', '主页 1 · 胶片 ②', 'tr'],
-                            ['film3', '主页 1 · 胶片 ③', 'wide'],
-                            ['film4', '主页 1 · 胶片 ④', 'dsq'],
-                        ] as const).map(([slot, label, fallback]) => {
+                            ['film1', '主页 1 · 胶片 ①'],
+                            ['film2', '主页 1 · 胶片 ②'],
+                            ['film3', '主页 1 · 胶片 ③'],
+                            ['film4', '主页 1 · 胶片 ④'],
+                        ] as const).map(([slot, label]) => {
                             const custom = theme.launcherWidgets?.[slot];
-                            const img = custom || theme.launcherWidgets?.[fallback];
+                            const img = custom;
                             return <div key={slot} className="min-w-0">
                                 <div className="text-[11px] text-neutral-600 mb-1.5">{label}</div>
                                 <LongPressArea
                                     className="h-24 rounded-2xl overflow-hidden relative bg-neutral-100 border border-neutral-200 cursor-pointer flex items-center justify-center"
-                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
-                                    onLongPress={() => { if (custom) { removeWidget(slot); addToast('已恢复原有照片', 'success'); } }}
+                                    onClick={() => { selectWidgetImage(slot); }}
+                                    onLongPress={() => { if (custom) void removeWidget(slot); }}
                                 >
                                     {img ? <TokenImg value={img} className="w-full h-full object-cover" alt={label} /> : <span className="text-neutral-400 text-xl">＋</span>}
                                 </LongPressArea>
-                                <div className="text-[10px] text-neutral-400 mt-1">{custom ? '已单独设置 · 长按恢复' : '点击添加 / 更换'}</div>
+                                <div className="text-[10px] text-neutral-400 mt-1">{custom ? '已单独设置 · 长按清除' : '未设置 · 点击添加'}</div>
                             </div>;
                         })}
                     </div>
@@ -1237,20 +1250,26 @@ const Appearance: React.FC = () => {
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">原有照片素材 · 基础图槽</h2>
                     
-                    <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
+                    <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                        const file = e.currentTarget.files?.[0];
+                        const slot = selectedWidgetSlotRef.current;
+                        selectedWidgetSlotRef.current = null;
+                        e.currentTarget.value = '';
+                        if (file && slot) void handleWidgetUpload(file, slot);
+                    }} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
-                            {['tl', 'tr'].map(slot => {
+                            {(['tl', 'tr'] as const).map(slot => {
                                 const img = (theme.launcherWidgets || {})[slot];
                                 return (
                                     <LongPressArea
                                         key={slot}
                                         className={`flex-1 aspect-square rounded-xl overflow-hidden relative cursor-pointer transition-transform active:scale-95 ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                        onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
+                                        onClick={() => { selectWidgetImage(slot); }}
                                         onLongPress={() => {
                                             if (img) {
-                                                removeWidget(slot);
-                                                addToast('已移除小组件', 'success');
+                                                void removeWidget(slot);
+                                                
                                             }
                                         }}
                                     >
@@ -1277,11 +1296,11 @@ const Appearance: React.FC = () => {
                             return (
                                 <LongPressArea
                                     className={`w-full h-20 rounded-xl overflow-hidden relative cursor-pointer transition-transform active:scale-[0.98] ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
+                                    onClick={() => { selectWidgetImage(slot); }}
                                     onLongPress={() => {
                                         if (img) {
-                                            removeWidget(slot);
-                                            addToast('已移除横幅', 'success');
+                                            void removeWidget(slot);
+                                            
                                         }
                                     }}
                                 >
