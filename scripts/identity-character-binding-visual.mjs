@@ -51,10 +51,17 @@ async function run(width,bound){
    const rect=initial.card;
    const x=Math.round(rect.x+rect.width/2),y=Math.round(rect.y+rect.height/2);
    assert(y>20 && y<844,'Role avatar outside viewport '+JSON.stringify(rect));
-   await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
-   await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
-   await sleep(680);
-   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+   if(width===320){
+     // Exercise the actual touch path, including Android's context-menu behavior.
+     await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+     await sleep(680);
+     await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+   } else {
+     await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});
+     await send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
+     await sleep(680);
+     await send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+   }
    await sleep(350);
    const after=await evaluate('({bound:document.querySelector("output[data-identity-visual-ready]").dataset.boundIds,visible:document.querySelector("output[data-identity-visual-ready]").dataset.visibleIds,pressed:document.querySelector("button[aria-label*=长按]")?.getAttribute("aria-pressed"),modal:document.body.innerText.includes("图床链接（推荐）"),overflow:document.documentElement.scrollWidth>innerWidth+1})');
    assert.equal(after.bound,'role-0','Long press did not save first role '+JSON.stringify(after));
