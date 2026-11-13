@@ -23,6 +23,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
+import { LAUNCHER_WIDGET_SLOTS, withLauncherWidgetChange, type LauncherWidgetSlot } from '../utils/launcherWidgetSlots';
 import { isRetiredDecorationAssetId, stripRetiredDesktopDecorations, stripRetiredDecorationPreset } from '../utils/retiredDesktopDecorations';
 import { createToastSequencer } from '../utils/toastSequencer';
 import {exportStudyRoomLocal,restoreStudyRoomLocal} from '../utils/studyRoomLocalBackup';
@@ -360,6 +361,7 @@ interface OSContextType {
   closeApp: () => void;
   theme: OSTheme;
   updateTheme: (updates: Partial<OSTheme>) => Promise<void>;
+  updateLauncherWidget: (slot: LauncherWidgetSlot, value?: string) => Promise<void>;
   virtualTime: VirtualTime;
   apiConfig: APIConfig;
   updateApiConfig: (updates: Partial<APIConfig>) => boolean;
@@ -595,12 +597,6 @@ const replaceWallpaperAssetPointer = async (assetId: 'wallpaper' | 'lock_wallpap
         void deleteBlobRefIfUnreferenced(previous);
     }
 };
-
-/**
- * 桌面小组件的槽位。每个槽位在 assets 表里是一行 `widget_<slot>`，值是 blobref 令牌。
- * 'bl' / 'br' 是已停用的老槽位，加载与写入时一律剥掉，不在这份清单里。
- */
-const LAUNCHER_WIDGET_SLOTS = ['tl', 'tr', 'wide', 'dsq'] as const;
 
 /**
  * 把「存储值」壁纸解析成可直接渲染的 url，并把指针（令牌）落进 assets 'wallpaper'。
@@ -904,6 +900,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // ... (State declarations same as before) ...
   const [activeApp, setActiveApp] = useState<AppID>(RETURN_TO_USER_PROFILE ? AppID.User : AppID.Launcher);
   const [theme, setTheme] = useState<OSTheme>(defaultTheme);
+  // Preserve the latest image map across overlapping async uploads.
+  const latestThemeRef = useRef(theme);
+  latestThemeRef.current = theme;
+  const widgetPersistTailRef = useRef<Promise<void>>(Promise.resolve());
   const [themeSettingsLoaded, setThemeSettingsLoaded] = useState(false);
   const [apiConfig, setApiConfig] = useState<APIConfig>(defaultApiConfig);
   const [isLocked, setIsLocked] = useState(!RETURN_TO_USER_PROFILE);
@@ -1653,6 +1653,34 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                 if (Object.keys(loadedWidgets).length > 0) {
                     loadedTheme.launcherWidgets = { ...(loadedTheme.launcherWidgets || {}), ...loadedWidgets };
                 }
+                // Earlier builds saved film1–film4 in os_theme but omitted their widget_ asset rows.
+                // Backfill exactly the same slot; never copy an image to another home position.
+                if (loadedTheme.launcherWidgets) {
+                    const widgets = { ...loadedTheme.launcherWidgets };
+                    let migrated = false;
+                    for (const slot of LAUNCHER_WIDGET_SLOTS) {
+                        const previous = widgets[slot];
+                        if (!previous || loadedWidgets[slot]) continue;
+                        try {
+                            const stored = previous.startsWith('data:') ? await migrateDataUrlToRef(previous) : previous;
+                            await DB.saveAsset(`widget_${slot}`, stored);
+                            widgets[slot] = stored;
+                            migrated = migrated || stored !== previous;
+                        } catch (error) {
+                            console.warn('[launcher-widgets] 原图槽持久化补存失败', slot, error);
+                        }
+                    }
+                    loadedTheme.launcherWidgets = widgets;
+                    if (migrated) {
+                        try {
+                            const saved = JSON.parse(localStorage.getItem('os_theme') || '{}');
+                            saved.launcherWidgets = { ...(saved.launcherWidgets || {}), ...widgets };
+                            localStorage.setItem('os_theme', JSON.stringify(saved));
+                        } catch (error) {
+                            console.warn('[launcher-widgets] 旧胶片图令牌写回失败', error);
+                        }
+                    }
+                }
 
                 // Load appearance presets from assets
                 const loadedPresets: AppearancePreset[] = [];
@@ -1694,6 +1722,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             }));
         }
 
+        latestThemeRef.current = loadedTheme;
         setTheme(loadedTheme);
         // Never mount the opening sequence before the saved off switch has been restored.
         setThemeSettingsLoaded(true);
@@ -2965,13 +2994,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
     stopBeautyForThemeChange(updates);
     const { wallpaper, lockWallpaper, launcherWidgetImage, launcherWidgets, customFont, ...styleUpdates } = updates;
-    // Legacy slots are banned — never let them enter state, regardless of caller intent.
-    const sanitizedWidgets = launcherWidgets !== undefined
-        ? Object.fromEntries(Object.entries(launcherWidgets).filter(([k]) => k !== 'bl' && k !== 'br'))
+    const widgetsChanged = Object.prototype.hasOwnProperty.call(updates, 'launcherWidgets');
+    // An explicit undefined is "remove the last photo", not "skip persistence".
+    const filteredWidgets = widgetsChanged
+        ? Object.fromEntries(Object.entries(launcherWidgets || {}).filter(([k]) => k !== 'bl' && k !== 'br'))
         : undefined;
+    const sanitizedWidgets = filteredWidgets && Object.keys(filteredWidgets).length > 0 ? filteredWidgets : undefined;
     const sanitizedUpdates: Partial<OSTheme> = stripRetiredDesktopDecorations({ ...updates, launcherWidgetImage: undefined });
-    if (sanitizedWidgets !== undefined) sanitizedUpdates.launcherWidgets = sanitizedWidgets;
-    const newTheme = stripRetiredDesktopDecorations({ ...theme, ...sanitizedUpdates, launcherWidgetImage: undefined });
+    if (widgetsChanged) sanitizedUpdates.launcherWidgets = sanitizedWidgets;
+    const newTheme = stripRetiredDesktopDecorations({ ...latestThemeRef.current, ...sanitizedUpdates, launcherWidgetImage: undefined });
     if (newTheme.launcherWidgets) {
         const w = { ...newTheme.launcherWidgets };
         delete w['bl'];
@@ -2995,6 +3026,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         Object.assign(newTheme, DEFAULT_PAPER_APPEARANCE, { skin: 'default' });
         newTheme.wallpaper = await resolveWallpaperStoredValue(DEFAULT_WALLPAPER);
     }
+    latestThemeRef.current = newTheme;
     setTheme(newTheme);
 
     // Legacy single-image asset is permanently banned — always delete, never save.
@@ -3004,18 +3036,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // 值是 blobref 令牌（写端见 apps/Appearance.tsx 的 handleWidgetUpload），一律原样落库。
     // 别按 data: 前缀挑着存——令牌不带这个前缀，挑的结果是这张图只剩 localStorage 一份，
     // 启动时 assets 那份是空的、界面上小组件直接没了。
-    if (launcherWidgets !== undefined) {
-        for (const slot of LAUNCHER_WIDGET_SLOTS) {
-            const val = sanitizedWidgets?.[slot];
-            if (val) {
-                await DB.saveAsset(`widget_${slot}`, val);
-            } else {
-                await DB.deleteAsset(`widget_${slot}`);
+    if (widgetsChanged) {
+        const widgetsForThisWrite = sanitizedWidgets;
+        const persistence = widgetPersistTailRef.current.catch(() => {}).then(async () => {
+            for (const slot of LAUNCHER_WIDGET_SLOTS) {
+                const val = widgetsForThisWrite?.[slot];
+                if (val) await DB.saveAsset(`widget_${slot}`, val);
+                else await DB.deleteAsset(`widget_${slot}`);
             }
-        }
-        // Always purge deprecated slot assets so old data can never resurface.
-        await DB.deleteAsset('widget_bl');
-        await DB.deleteAsset('widget_br');
+            await DB.deleteAsset('widget_bl');
+            await DB.deleteAsset('widget_br');
+        });
+        widgetPersistTailRef.current = persistence;
+        await persistence;
     }
 
     // Logic for Font: Differentiate between Data URI (Blob) and URL (Web Font)
@@ -3065,6 +3098,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         addToast('主题没能保存到本地（存储空间可能已满），重启后可能会还原', 'error');
     }
   };
+  // Update one image location from the latest theme; do not overwrite other photo slots.
+  const updateLauncherWidget = (slot: LauncherWidgetSlot, value?: string): Promise<void> =>
+      updateTheme({ launcherWidgets: withLauncherWidgetChange(latestThemeRef.current.launcherWidgets, slot, value) });
+
   const updateApiConfig = (updates: Partial<APIConfig>): boolean => {
       const newConfig = normalizeApiConfig({ ...apiConfig, ...updates });
       try {
@@ -3627,6 +3664,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           sanitizedPresetTheme.lockWallpaper = await resolveLockWallpaperStoredValue(sanitizedPresetTheme.lockWallpaper);
       }
       // Apply theme
+      latestThemeRef.current = sanitizedPresetTheme;
       setTheme(sanitizedPresetTheme);
       // 写 LS 前必须剥 data URI / blob: objectURL，否则 base64 壁纸撑爆 quota、blob: 重启即失效
       const lsTheme: any = { ...sanitizedPresetTheme };
@@ -3708,6 +3746,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       stopBeautyUsage('appearance'); stopBeautyUsage('chat:*');
       try {
           await resolveLockWallpaperStoredValue(undefined);
+          latestThemeRef.current = defaultTheme;
           setTheme(defaultTheme);
           applyCustomFont(undefined);
 
@@ -5528,6 +5567,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     closeApp,
     theme,
     updateTheme,
+    updateLauncherWidget,
     virtualTime,
     apiConfig,
     updateApiConfig,
