@@ -106,6 +106,18 @@ describe('story summary final channel', () => {
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
     });
 
+    it('rejects impossible affinity receipts before spending an API call', async () => {
+        const input = { ...messages[0], metadata: { ...messages[0].metadata,
+            theaterAffinityInputs: Array.from({ length: 10 }, (_, i) => ({
+                characterName: '演员' + i, delta: 1, reason: '无法容纳的备注'.repeat(25), awareness: 'noticed',
+            })),
+        } };
+        await expect(generateStoryArchiveSummary(entry.title, [input, messages[1]], api))
+            .rejects.toThrow('本批界面好感记录过长');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+    });
+
     it('keeps author corrections in the existing sixth section rather than inventing another section', async () => {
         fetchMock.mockResolvedValueOnce(response(structured('小雨与阿泽仍在车站等雨停。', {
             未解决事项与续写落点: '仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。',
@@ -139,6 +151,10 @@ describe('story summary final channel', () => {
         expect(summary).toContain('第 5 楼 · 阿泽 · 用户对角色 · +17 · 未告知角色 · 原因：守住秘密');
         expect(summary).toContain('第 5 楼 · 阿祁 · 用户对角色 · -3 · 允许察觉 · 原因：隐瞒约定');
         expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content).toContain('界面好感记录：');
+        const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content as string;
+        expect(prompt).toContain('本批界面好感记录将在保存时额外占用');
+        expect(prompt).toContain('不要重复抄写好感记录');
+        expect(Array.from(summary).length).toBeLessThanOrEqual(1500);
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
