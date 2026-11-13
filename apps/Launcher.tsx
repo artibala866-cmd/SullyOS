@@ -1094,31 +1094,8 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
                           </div>
                       </div>
                   ) : (
-                      // Page 3+: Free Decorations (idx===2 only) + Apps
+                      // Page 3+: Apps
                       <div className="pt-10 flex-1 flex flex-col relative">
-                          {/* Keep existing free-positioned decorations; page 3 no longer renders photo albums. */}
-                          {idx === 2 && theme.desktopDecorations && theme.desktopDecorations.length > 0 && (
-                            <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
-                              {theme.desktopDecorations.map(deco => (
-                                <TokenImg
-                                  key={deco.id}
-                                  value={deco.content}
-                                  alt=""
-                                  loading="lazy"
-                                  className="absolute w-16 h-16 object-contain select-none"
-                                  style={{
-                                    left: `${deco.x}%`,
-                                    top: `${deco.y}%`,
-                                    transform: `translate(-50%, -50%) scale(${deco.scale}) rotate(${deco.rotation}deg)${deco.flip ? ' scaleX(-1)' : ''}`,
-                                    opacity: deco.opacity,
-                                    zIndex: deco.zIndex,
-                                    filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0,0.15))',
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          )}
-
                           <AppGridPage
                                 apps={pageApps}
                                 openApp={openApp}

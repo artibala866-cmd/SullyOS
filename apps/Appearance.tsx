@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useOS, DEFAULT_WALLPAPER, DEFAULT_PAPER_APPEARANCE } from '../context/OSContext';
-import { AppID, OSTheme, DesktopDecoration, AppearancePreset, Toast } from '../types';
+import { AppID, OSTheme, AppearancePreset, Toast } from '../types';
 import { INSTALLED_APPS, Icons } from '../constants';
 import { processImage, processImageToBlob } from '../utils/file';
 import { deleteBlobRef, putImageBlob, useBlobRefUrl } from '../utils/blobRef';
@@ -112,21 +112,6 @@ const LongPressArea: React.FC<{
     );
 };
 
-const TwemojiImg: React.FC<{ code: string; alt?: string; className?: string }> = ({ code, alt, className = 'w-4 h-4 inline-block' }) => (
-  <img src={`https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/${code}.png`} alt={alt || ''} className={className} draggable={false} />
-);
-
-const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
-  'stars': { code: '2728', label: 'Stars' },
-  'hearts': { code: '1f496', label: 'Hearts' },
-  'flowers': { code: '1f338', label: 'Flowers' },
-  'ribbons': { code: '1f380', label: 'Ribbons' },
-  'animals': { code: '1f431', label: 'Animals' },
-  'shapes': { code: '1f52e', label: 'Shapes' },
-  'badges': { code: '1f3f7', label: 'Badges' },
-};
-
-
 // --- 桌面整机风格（皮肤）---
 const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #6c5a91 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #382e5b 0%, transparent 72%), linear-gradient(180deg, #211a36 0%, #100d1c 62%, #080711 100%)';
 
@@ -175,7 +160,7 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
  * 因为 hook 不能写在 map 回调里，这块预览单独抽成组件，一个预设一份解析和回收。
  */
 const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
-    const { hue, saturation, lightness, contentColor, desktopDecorations, wallpaper } = preset.theme;
+    const { lightness, contentColor, wallpaper } = preset.theme;
     const resolvedWallpaper = useBlobRefUrl(wallpaper);
 
     const themeGradient = `linear-gradient(135deg, hsl(0, 0%, ${lightness}%), hsl(0, 0%, ${Math.max(lightness - 15, 10)}%))`;
@@ -197,11 +182,6 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: `hsl(0, 0%, ${lightness}%)` }} />
                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: contentColor || '#ffffff' }} />
             </div>
-            {desktopDecorations && desktopDecorations.length > 0 && (
-                <div className="absolute bottom-1.5 right-3 text-[8px] text-white/80 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-                    {desktopDecorations.length} 装饰
-                </div>
-            )}
         </div>
     );
 };
@@ -274,7 +254,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
             {/* Save Current */}
             <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">保存当前外观</h2>
-                <p className="text-[10px] text-slate-400 mb-3">将当前的主题色、壁纸、字体、图标、装饰等完整外观保存为预设，方便随时切换。</p>
+                <p className="text-[10px] text-slate-400 mb-3">将当前的主题色、壁纸、字体、图标等外观保存为预设，方便随时切换。</p>
                 <div className="flex gap-2">
                     <input
                         value={newName}
@@ -408,13 +388,6 @@ const Appearance: React.FC = () => {
   const [fontMode, setFontMode] = useState<'local' | 'web'>('local');
   const [webFontUrl, setWebFontUrl] = useState('');
 
-  // Desktop Decoration DIY State
-  const decoInputRef = useRef<HTMLInputElement>(null);
-  const [editingDecoId, setEditingDecoId] = useState<string | null>(null);
-  const [showPresetPicker, setShowPresetPicker] = useState(false);
-
-  const decorations = theme.desktopDecorations || [];
-  const editingDeco = editingDecoId ? decorations.find(d => d.id === editingDecoId) : null;
   const appearanceCharacter = characters.find(character => character.id === activeCharacterId) || characters[0];
   const companionSource = companionAvatarSource(appearanceCharacter);
   const companionDateOutfits = listCompanionDateOutfits(appearanceCharacter);
@@ -520,74 +493,6 @@ const Appearance: React.FC = () => {
       }
       trackEvent('移除桌面静态形象');
       addToast('已移除导入图片', 'success');
-  };
-
-  // Preset decoration SVGs (cute decorative elements)
-  const PRESET_DECOS: { name: string; content: string; category: string }[] = [
-    // Stars & Sparkles
-    { name: '闪光', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L58 38 L95 50 L58 62 L50 95 L42 62 L5 50 L42 38Z" fill="#d0d0d0" opacity="0.9"/><path d="M50 20 L54 42 L78 50 L54 58 L50 80 L46 58 L22 50 L46 42Z" fill="#f7f7f7"/></svg>')}` },
-    { name: '星星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 63,35 95,40 72,62 78,95 50,78 22,95 28,62 5,40 37,35" fill="#8e8e8e"/><polygon points="50,20 58,38 78,42 64,55 67,78 50,68 33,78 36,55 22,42 42,38" fill="#c6c6c6" opacity="0.7"/></svg>')}` },
-    { name: '小星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,10 61,40 95,40 68,60 78,90 50,72 22,90 32,60 5,40 39,40" fill="#a5a5a5" opacity="0.85"/></svg>')}` },
-    // Hearts
-    { name: '爱心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 88 C25 65 5 50 5 30 C5 15 17 5 30 5 C38 5 46 10 50 18 C54 10 62 5 70 5 C83 5 95 15 95 30 C95 50 75 65 50 88Z" fill="#8e8e8e"/><path d="M50 78 C30 60 15 48 15 33 C15 22 23 15 33 15 C39 15 45 18 50 25 C55 18 61 15 67 15 C77 15 85 22 85 33 C85 48 70 60 50 78Z" fill="#a9a9a9" opacity="0.6"/></svg>')}` },
-    { name: '双心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M35 70 C18 52 3 42 3 27 C3 16 12 8 22 8 C28 8 33 11 35 16 C37 11 42 8 48 8 C58 8 67 16 67 27 C67 42 52 52 35 70Z" fill="#8e8e8e" opacity="0.8"/><path d="M65 80 C48 62 33 52 33 37 C33 26 42 18 52 18 C58 18 63 21 65 26 C67 21 72 18 78 18 C88 18 97 26 97 37 C97 52 82 62 65 80Z" fill="#4f4f4f" opacity="0.7"/></svg>')}` },
-    // Flowers & Nature
-    { name: '花朵', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="30" cy="50" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="70" cy="50" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="38" cy="70" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="62" cy="70" r="18" fill="#c8c8c8" opacity="0.8"/><circle cx="50" cy="50" r="12" fill="#e6e6e6"/></svg>')}` },
-    { name: '樱花', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><g fill="#c7c7c7" opacity="0.85"><ellipse rx="12" ry="22" transform="rotate(0) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(72) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(144) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(216) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(288) translate(0,-20)"/></g><circle r="8" fill="#8e8e8e"/></g></svg>')}` },
-    { name: '叶子', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 Q80 30 85 60 Q85 90 50 95 Q15 90 15 60 Q20 30 50 10Z" fill="#d3d3d3" opacity="0.8"/><path d="M50 20 L50 85" stroke="#6d6d6d" stroke-width="2" fill="none" opacity="0.5"/><path d="M50 40 Q65 35 70 45" stroke="#6d6d6d" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M50 55 Q35 50 30 60" stroke="#6d6d6d" stroke-width="1.5" fill="none" opacity="0.4"/></svg>')}` },
-    // Ribbons & Bows
-    { name: '蝴蝶结', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 45 Q20 20 10 35 Q5 50 25 55 Q35 57 50 50Z" fill="#8e8e8e"/><path d="M50 45 Q80 20 90 35 Q95 50 75 55 Q65 57 50 50Z" fill="#8e8e8e"/><circle cx="50" cy="48" r="6" fill="#4f4f4f"/><path d="M45 54 Q42 75 38 90" stroke="#8e8e8e" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 54 Q58 75 62 90" stroke="#8e8e8e" stroke-width="4" fill="none" stroke-linecap="round"/></svg>')}` },
-    { name: '丝带', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 30 Q30 20 50 30 Q70 40 90 30 L90 50 Q70 40 50 50 Q30 60 10 50Z" fill="#b1b1b1" opacity="0.85"/><path d="M10 50 Q30 40 50 50 Q70 60 90 50 L90 70 Q70 60 50 70 Q30 80 10 70Z" fill="#747474" opacity="0.7"/></svg>')}` },
-    // Cute Animals
-    { name: '猫耳', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15 65 L5 15 L40 45Z" fill="#333333" opacity="0.9"/><path d="M85 65 L95 15 L60 45Z" fill="#333333" opacity="0.9"/><path d="M18 60 L12 22 L38 46Z" fill="#c6c6c6" opacity="0.6"/><path d="M82 60 L88 22 L62 46Z" fill="#c6c6c6" opacity="0.6"/></svg>')}` },
-    { name: '猫爪', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="22" ry="20" fill="#c6c6c6" opacity="0.85"/><circle cx="35" cy="38" r="10" fill="#c6c6c6" opacity="0.85"/><circle cx="65" cy="38" r="10" fill="#c6c6c6" opacity="0.85"/><circle cx="22" cy="50" r="9" fill="#c6c6c6" opacity="0.85"/><circle cx="78" cy="50" r="9" fill="#c6c6c6" opacity="0.85"/></svg>')}` },
-    // Geometric / Shapes
-    { name: '月亮', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M60 10 A40 40 0 1 0 60 90 A30 30 0 1 1 60 10Z" fill="#d0d0d0" opacity="0.8"/></svg>')}` },
-    { name: '钻石', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 85,35 50,95 15,35" fill="#c1c1c1" opacity="0.8"/><polygon points="50,5 65,35 50,95" fill="#d0d0d0" opacity="0.5"/><polygon points="15,35 85,35 50,5" fill="#d6d6d6" opacity="0.6"/></svg>')}` },
-    { name: '泡泡', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="none" stroke="#c1c1c1" stroke-width="2" opacity="0.6"/><circle cx="50" cy="50" r="35" fill="#eeeeee" opacity="0.2"/><ellipse cx="38" cy="38" rx="12" ry="8" fill="white" opacity="0.5" transform="rotate(-30 38 38)"/></svg>')}` },
-    // Text Badges
-    { name: 'LOVE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#8e8e8e" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">LOVE</text></svg>')}` },
-    { name: 'CUTE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#b1b1b1" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">CUTE</text></svg>')}` },
-    { name: 'MY♡', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="10" fill="none" stroke="#8e8e8e" stroke-width="3" opacity="0.8"/><text x="60" y="34" text-anchor="middle" fill="#8e8e8e" font-size="20" font-weight="bold" font-family="sans-serif">MY♡</text></svg>')}` },
-  ];
-
-  const addDecoration = useCallback((content: string, type: 'image' | 'preset') => {
-    const newDeco: DesktopDecoration = {
-      id: `deco-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      type,
-      content,
-      x: 20 + Math.random() * 60,
-      y: 20 + Math.random() * 60,
-      scale: 1,
-      rotation: 0,
-      opacity: 1,
-      zIndex: decorations.length + 1,
-    };
-    const next = [...decorations, newDeco];
-    updateTheme({ desktopDecorations: next });
-    setEditingDecoId(newDeco.id);
-    setShowPresetPicker(false);
-  }, [decorations, updateTheme]);
-
-  const updateDecoration = useCallback((id: string, updates: Partial<DesktopDecoration>) => {
-    const next = decorations.map(d => d.id === id ? { ...d, ...updates } : d);
-    updateTheme({ desktopDecorations: next });
-  }, [decorations, updateTheme]);
-
-  const removeDecoration = useCallback((id: string) => {
-    const next = decorations.filter(d => d.id !== id);
-    updateTheme({ desktopDecorations: next });
-    if (editingDecoId === id) setEditingDecoId(null);
-  }, [decorations, updateTheme, editingDecoId]);
-
-  const handleDecoUpload = async (file: File) => {
-    try {
-      const dataUrl = await processImage(file, { maxWidth: 400, quality: 0.85 });
-      addDecoration(dataUrl, 'image');
-      addToast('装饰已添加', 'success');
-    } catch (e: any) {
-      addToast(e.message, 'error');
-    }
   };
 
   const THEME_PRESETS: { name: string, config: Partial<OSTheme>, color: string }[] = [
@@ -744,11 +649,9 @@ const Appearance: React.FC = () => {
           }
       }
 
-      // Delete generated legacy leaf stickers without touching user-made decorations.
-      const desktopDecorations = (theme.desktopDecorations || []).filter(d => !d.id.startsWith('acnh-leaf-'));
       // skin.config 里写死的 wallpaper 不用，改用上面算出的（备份/还原后的）值
       const { wallpaper: _ignored, ...restConfig } = skin.config;
-      await updateTheme({ ...restConfig, wallpaper, desktopDecorations });
+      await updateTheme({ ...restConfig, wallpaper });
       addToast(`已切换到「${skin.name}」`, 'success');
       trackEvent('切换桌面整机风格', { skin: skin.id });
   };
@@ -1401,214 +1304,6 @@ const Appearance: React.FC = () => {
                     </div>
                 </section>
 
-                {/* Desktop Decoration DIY Section */}
-                <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">桌面装饰 DIY</h2>
-                        <span className="text-[10px] bg-gradient-to-r from-neutral-100 to-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full font-bold">花里胡哨模式</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mb-4">自由添加装饰贴纸，调整位置/大小/旋转/透明度，打造你的专属痛机桌面！</p>
-                    <input type="file" ref={decoInputRef} className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) handleDecoUpload(e.target.files[0]); e.target.value = ''; }} />
-
-                    {/* Live Preview */}
-                    <div className="relative w-full aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200 shadow-inner"
-                         style={{ background: theme.wallpaper ? `url(${theme.wallpaper}) center/cover` : `linear-gradient(135deg, hsl(0, 0%, ${theme.lightness}%), hsl(0, 0%, ${Math.max(theme.lightness - 15, 10)}%))` }}>
-                        <div className="absolute inset-0 bg-black/10"></div>
-                        {/* Render widget previews */}
-                        <div className="absolute top-[12%] left-4 right-4 space-y-1.5 pointer-events-none">
-                            {(() => {
-                                const w = theme.launcherWidgets || {};
-                                return (
-                                    <>
-                                        {(w['tl'] || w['tr']) && (
-                                            <div className="flex gap-1.5">
-                                                {['tl', 'tr'].map(k => w[k] ? (
-                                                    <div key={k} className="flex-1 aspect-square rounded-lg overflow-hidden opacity-70"><TokenImg value={w[k]} className="w-full h-full object-cover" /></div>
-                                                ) : <div key={k} className="flex-1" />)}
-                                            </div>
-                                        )}
-                                        {w['wide'] && (
-                                            <div className="w-full h-8 rounded-lg overflow-hidden opacity-70"><TokenImg value={w['wide']} className="w-full h-full object-cover" /></div>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                        {/* Render decorations in preview */}
-                        {decorations.map(deco => (
-                            <div key={deco.id}
-                                className={`absolute cursor-pointer transition-all duration-100 ${editingDecoId === deco.id ? 'ring-2 ring-neutral-400 ring-offset-1' : ''}`}
-                                style={{
-                                    left: `${deco.x}%`, top: `${deco.y}%`,
-                                    transform: `translate(-50%, -50%) scale(${deco.scale * 0.4}) rotate(${deco.rotation}deg)${deco.flip ? ' scaleX(-1)' : ''}`,
-                                    opacity: deco.opacity, zIndex: deco.zIndex,
-                                }}
-                                onClick={() => setEditingDecoId(editingDecoId === deco.id ? null : deco.id)}>
-                                <TokenImg value={deco.content} className="w-16 h-16 object-contain pointer-events-none select-none" draggable={false} />
-                            </div>
-                        ))}
-                        {decorations.length === 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="text-center text-white/40">
-                                    <Sparkle size={48} weight="fill" className="text-white/60 mb-2" />
-                                    <div className="text-[10px] font-bold">添加装饰开始DIY</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Add Decoration Buttons */}
-                    <div className="flex gap-2 mb-4">
-                        <button onClick={() => { setShowPresetPicker(!showPresetPicker); if (!showPresetPicker) trackEvent('打开桌面装饰贴纸库'); }}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
-                            预设贴纸
-                        </button>
-                        <button onClick={() => decoInputRef.current?.click()}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-neutral-50 to-neutral-50 text-neutral-500 font-bold text-xs rounded-xl border border-neutral-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
-                            上传自定义
-                        </button>
-                    </div>
-
-                    {/* Preset Picker */}
-                    {showPresetPicker && (
-                        <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 mb-4 animate-fade-in">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-3">选择预设装饰</div>
-                            {['stars', 'hearts', 'flowers', 'ribbons', 'animals', 'shapes', 'badges'].map(cat => {
-                                const items = PRESET_DECOS.filter(p => p.category === cat);
-                                if (items.length === 0) return null;
-                                const catInfo = CATEGORY_LABELS[cat];
-                                return (
-                                    <div key={cat} className="mb-3">
-                                        <div className="text-[10px] text-slate-500 mb-1.5 flex items-center gap-1">{catInfo && <TwemojiImg code={catInfo.code} className="w-3.5 h-3.5 inline-block" />} {catInfo?.label || cat}</div>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {items.map(preset => (
-                                                <button key={preset.name} onClick={() => { addDecoration(preset.content, 'preset'); trackEvent('添加桌面装饰贴纸', { 贴纸: preset.name, 分类: preset.category }); }}
-                                                    className="w-14 h-14 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-0.5 hover:border-neutral-300 hover:shadow-sm active:scale-90 transition-all group">
-                                                    <TokenImg value={preset.content} className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
-                                                    <span className="text-[8px] text-slate-400">{preset.name}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Decoration List & Editor */}
-                    {decorations.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-2">已添加装饰 ({decorations.length})</div>
-                            {decorations.map((deco, idx) => (
-                                <div key={deco.id} className={`bg-slate-50 rounded-xl border transition-all ${editingDecoId === deco.id ? 'border-neutral-300 shadow-md' : 'border-slate-100'}`}>
-                                    {/* Decoration header row */}
-                                    <div className="flex items-center gap-2 p-2.5 cursor-pointer" onClick={() => setEditingDecoId(editingDecoId === deco.id ? null : deco.id)}>
-                                        <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                                            <TokenImg value={deco.content} className="w-8 h-8 object-contain" style={{ transform: deco.flip ? 'scaleX(-1)' : undefined }} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold text-slate-600">装饰 #{idx + 1}</div>
-                                            <div className="text-[9px] text-slate-400">位置 ({Math.round(deco.x)}, {Math.round(deco.y)}) · {deco.scale}x · {deco.rotation}°</div>
-                                        </div>
-                                        <button onClick={(e) => { e.stopPropagation(); removeDecoration(deco.id); }} className="p-1.5 text-neutral-300 hover:text-neutral-500 hover:bg-neutral-50 rounded-lg transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                                        </button>
-                                        <div className={`w-5 h-5 flex items-center justify-center transition-transform ${editingDecoId === deco.id ? 'rotate-180' : ''}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-slate-400"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded edit controls */}
-                                    {editingDecoId === deco.id && (
-                                        <div className="px-3 pb-3 space-y-4 animate-fade-in border-t border-slate-100 pt-3">
-                                            {/* Position X */}
-                                            <div>
-                                                <div className="flex justify-between mb-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">水平位置 X</label>
-                                                    <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.x)}%</span>
-                                                </div>
-                                                <input type="range" min="0" max="100" value={deco.x} onChange={(e) => updateDecoration(deco.id, { x: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
-                                            </div>
-                                            {/* Position Y */}
-                                            <div>
-                                                <div className="flex justify-between mb-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">垂直位置 Y</label>
-                                                    <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.y)}%</span>
-                                                </div>
-                                                <input type="range" min="0" max="100" value={deco.y} onChange={(e) => updateDecoration(deco.id, { y: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
-                                            </div>
-                                            {/* Scale & Rotation */}
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <div className="flex justify-between mb-1.5">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">缩放</label>
-                                                        <span className="text-[10px] text-slate-500 font-mono">{deco.scale}x</span>
-                                                    </div>
-                                                    <input type="range" min="0.2" max="3" step="0.1" value={deco.scale} onChange={(e) => updateDecoration(deco.id, { scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
-                                                </div>
-                                                <div>
-                                                    <div className="flex justify-between mb-1.5">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">旋转</label>
-                                                        <span className="text-[10px] text-slate-500 font-mono">{deco.rotation}°</span>
-                                                    </div>
-                                                    <input type="range" min="-180" max="180" value={deco.rotation} onChange={(e) => updateDecoration(deco.id, { rotation: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
-                                                </div>
-                                            </div>
-                                            {/* Opacity */}
-                                            <div>
-                                                <div className="flex justify-between mb-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">透明度</label>
-                                                    <span className="text-[10px] text-slate-500 font-mono">{Math.round(deco.opacity * 100)}%</span>
-                                                </div>
-                                                <input type="range" min="0.1" max="1" step="0.05" value={deco.opacity} onChange={(e) => updateDecoration(deco.id, { opacity: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-neutral-400" />
-                                            </div>
-                                            {/* Quick Actions */}
-                                            <div className="flex gap-2 flex-wrap">
-                                                <button onClick={() => updateDecoration(deco.id, { flip: !deco.flip })}
-                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all active:scale-95 ${deco.flip ? 'bg-neutral-50 text-neutral-500 border-neutral-200' : 'bg-white text-slate-400 border-slate-200'}`}>
-                                                    镜像翻转
-                                                </button>
-                                                <button onClick={() => updateDecoration(deco.id, { rotation: 0, scale: 1, opacity: 1, flip: false })}
-                                                    className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    重置参数
-                                                </button>
-                                                <button onClick={() => {
-                                                    const dup: DesktopDecoration = { ...deco, id: `deco-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, x: Math.min(deco.x + 8, 95), y: Math.min(deco.y + 8, 95) };
-                                                    const next = [...decorations, dup];
-                                                    updateTheme({ desktopDecorations: next });
-                                                    setEditingDecoId(dup.id);
-                                                }}
-                                                    className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    复制一个
-                                                </button>
-                                                {/* Layer controls */}
-                                                <button onClick={() => {
-                                                    const maxZ = Math.max(...decorations.map(d => d.zIndex), 0);
-                                                    updateDecoration(deco.id, { zIndex: maxZ + 1 });
-                                                }}
-                                                    className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    置顶
-                                                </button>
-                                                <button onClick={() => updateDecoration(deco.id, { zIndex: 0 })}
-                                                    className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    置底
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            {/* Clear all button */}
-                            <button onClick={() => { updateTheme({ desktopDecorations: [] }); setEditingDecoId(null); }}
-                                className="w-full py-2 text-xs font-bold text-neutral-400 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors mt-2">
-                                清空所有装饰
-                            </button>
-                        </div>
-                    )}
-                    
-                </section>
             </>
         ) : activeTab === 'icons' ? (
             <div className="space-y-5">

@@ -56,19 +56,6 @@ export interface AppConfig {
   color: string;
 }
 
-export interface DesktopDecoration {
-  id: string;
-  type: 'image' | 'preset';
-  content: string; // data URI for image, SVG data URI or emoji for preset
-  x: number;       // percentage 0-100
-  y: number;       // percentage 0-100
-  scale: number;   // multiplier (0.2 - 3)
-  rotation: number; // degrees (-180 to 180)
-  opacity: number;  // 0-1
-  zIndex: number;
-  flip?: boolean;
-}
-
 export type ScheduleCardPresetId =
   | 'original'
   | 'cream'
@@ -147,7 +134,6 @@ export interface OSTheme {
   scheduleCardAppearance?: ScheduleCardAppearance;
   /** 交换日记 App 全局皮肤与自定义 CSS。 */
   journalAppearance?: JournalAppearance;
-  desktopDecorations?: DesktopDecoration[];
   customFont?: string;
   /** 顶部时间栏布局：安全显示（安全区下方）/ 紧凑显示（嵌入安全区）/ 完全隐藏。 */
   statusBarMode?: 'standard' | 'compact' | 'hidden';

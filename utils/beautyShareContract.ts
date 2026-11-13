@@ -1,3 +1,4 @@
+import { stripRetiredDesktopDecorations } from './retiredDesktopDecorations';
 import {validateMeetingAppearance} from './meetingAppearance';
 /** Shared wire format; no browser, database or model dependencies. */
 export const BEAUTY_MAX_BYTES = 20 * 1024 * 1024;
@@ -95,7 +96,7 @@ export function validateBeautyPackage(value: unknown): { kind: BeautyKind; data:
     return { kind: 'chat-decoration', data: { format: value.format, version: 1, name: value.name, parts } };
   }
   if (value.type === 'sully_appearance_preset' && value.version === 1 && isRecord(value.theme)) {
-    const data: Record<string, any> = { type: value.type, version: 1, name: value.name, theme: value.theme };
+    const data: Record<string, any> = { type: value.type, version: 1, name: value.name, theme: stripRetiredDesktopDecorations(value.theme) };
     for (const key of ['customIcons', 'chatThemes', 'chatLayout']) if (value[key] !== undefined) data[key] = value[key];
     return { kind: 'appearance', data };
   }
