@@ -263,7 +263,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
 export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEntry => {
     const archiveAfter = Math.round(clampNumber(entry.archiveAfter, 2, 200, 40));
     const archiveKeepRecent = Math.round(clampNumber(entry.archiveKeepRecent, 1, Math.max(1, archiveAfter - 1), Math.min(5, archiveAfter - 1)));
-    return {
+    const normalized: StoryTheaterEntry = {
         ...entry,
         title: String(entry.title || '未命名剧情'),
         premise: String(entry.premise || ''),
@@ -300,11 +300,13 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         presetOverride: entry.presetOverride?.schema === 'sullyos.story-preset' && Array.isArray(entry.presetOverride.prompts) ? entry.presetOverride : undefined,
         forceUserLastMessage: entry.forceUserLastMessage === true,
         omitSamplingParams: entry.omitSamplingParams === true,
-        outputMaxTokens: Number.isFinite(entry.outputMaxTokens) ? normalizeStoryOutputTokens(entry.outputMaxTokens) : undefined,
         streamStoryOutput: entry.streamStoryOutput === true,
         createdAt: Number(entry.createdAt) || Date.now(),
         updatedAt: Number(entry.updatedAt) || Number(entry.createdAt) || Date.now(),
     };
+    // Older stories stored an overriding 30000-token limit. The active preset is now authoritative.
+    delete normalized.outputMaxTokens;
+    return normalized;
 };
 
 /** The range stored on the story owns the archive; orphaned floor flags are legacy metadata. */

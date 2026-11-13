@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, CaretDown, Copy, DownloadSimple, FloppyDisk, LockSimple, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
-import { STORY_MIN_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS } from '../../../utils/storyOutputLimits';
+import { STORY_MIN_OUTPUT_TOKENS } from '../../../utils/storyOutputLimits';
 import StoryTavernImportReport from './StoryTavernImportReport';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
@@ -91,7 +91,7 @@ const STORY_GENERATION_FIELDS = [
     ['topP', '候选范围', 'Top P', 0, 1, 0.01, '另一种随机度控制。通常保持预设值即可，不建议和温度一起大幅调整。'],
     ['frequencyPenalty', '重复惩罚', 'Frequency penalty', -2, 2, 0.05, '正值会减少重复措辞，负值会允许更多复现。部分 Claude 中转会忽略这项。'],
     ['presencePenalty', '话题惩罚', 'Presence penalty', -2, 2, 0.05, '正值更愿意引入新内容，负值更愿意围绕已有内容继续。部分 Claude 中转会忽略这项。'],
-    ['maxTokens', '最大输出', 'Max tokens', STORY_MIN_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS, 1, '接口输出额度以 tokens 计。正文篇幅由预设的“篇幅”选项决定。'],
+    ['maxTokens', '最大输出', 'Max tokens', STORY_MIN_OUTPUT_TOKENS, undefined, 1, '接口输出额度以 tokens 计。正文篇幅由预设的“篇幅”选项决定。'],
 ] as const;
 
 const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy, onDelete, usedByStoryCount = 0 }) => {

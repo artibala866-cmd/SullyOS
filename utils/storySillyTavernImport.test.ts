@@ -86,6 +86,12 @@ const slots = {
 };
 
 describe('酒馆 Chat Completion JSON 智能适配', () => {
+    it('大额度输出按原预设保留，不缩到旧软件最大值', () => {
+        const imported = parseStoryTheaterPreset(JSON.stringify({ ...tavern, openai_max_tokens: 250_000 }), '大输出.json');
+        expect(imported.document.generation.maxTokens).toBe(250_000);
+        expect(imported.document.importWarnings?.join('') || '').not.toContain('糯米机当前');
+    });
+
     it('以 prompt_order 为准，保留文字、关闭状态、角色和世界插入位', () => {
         const imported = parseStoryTheaterPreset(JSON.stringify(tavern), '宝宝我是char.json', 19);
         const doc = imported.document;

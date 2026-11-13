@@ -28,9 +28,11 @@ describe('见面剧情实际请求', () => {
         const entry = {
             ...createStoryTheaterDraft(1), title: '夜访', archiveAfter: 200,
             characterIds: ['actor'], selectedWorldbookIds: ['side-door'], forceUserLastMessage: true,
+            outputMaxTokens: 30_000, // 旧剧情遗留的本地覆盖不得压住当前预设
         };
         const preset = createBlankStoryPreset('旧预设无历史槽', 1);
         preset.document.prompts = [];
+        preset.document.generation.maxTokens = 250_000;
         const charId = storyTheaterThreadId(entry.id);
         const vectorText = '关系变化：林星答应把侧门钥匙交给小雨。';
         if (mode !== '事件盒') {
@@ -81,7 +83,9 @@ describe('见面剧情实际请求', () => {
             expect(retry).toBeTruthy();
             await act(async () => { retry!.click(); });
             expect(completion).toHaveBeenCalledOnce();
-            const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
+            const requestBody = JSON.parse(String(completion.mock.calls[0][1]?.body));
+            expect(requestBody.max_tokens).toBe(250_000);
+            const payload = requestBody.messages as StoryApiMessage[];
             expect(payload).toContainEqual({ role: 'assistant', content: '[第 12 楼 · 最近一段剧场正文]\n楼层内容 12' });
             const readsOriginal = mode === '已撤销向量' || mode === '向量超预算';
             expect(payload.some(message => message.content.includes('楼层内容 10'))).toBe(readsOriginal);

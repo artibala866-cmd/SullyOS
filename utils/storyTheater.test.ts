@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readStoryCompletion, storyStreamingPreviewText } from './storyTheaterCompletionIntegrity';
 import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
-import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS } from './storyOutputLimits';
+import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS } from './storyOutputLimits';
 import {
     appendStoryAffinityInput,
     appendStoryAffinityInputs,
@@ -56,15 +56,15 @@ import {
 } from './storyTheater';
 
 describe('剧情单次最大输出额度', () => {
-    it('上限允许 100000 tokens，已保存的 30000 和默认配置保持不变', () => {
-        expect(STORY_MAX_OUTPUT_TOKENS).toBe(100_000);
+    it('不再对预设额度施加固定上限，旧剧情专属覆盖清除，缺省仍使用默认预设值', () => {
         expect(STORY_DEFAULT_OUTPUT_TOKENS).toBe(30_000);
         expect(normalizeStoryOutputTokens(100_000)).toBe(100_000);
-        expect(normalizeStoryOutputTokens(200_000)).toBe(100_000);
+        expect(normalizeStoryOutputTokens(250_000)).toBe(250_000);
+        expect(normalizeStoryOutputTokens(10)).toBe(256);
         expect(normalizeStoryOutputTokens(undefined)).toBe(30_000);
         expect(createBlankStoryPreset('测试预设').document.generation.maxTokens).toBe(30_000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), outputMaxTokens: 100_000 }).outputMaxTokens).toBe(100_000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), outputMaxTokens: 30_000 }).outputMaxTokens).toBe(30_000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), outputMaxTokens: 30_000 }))
+            .not.toHaveProperty('outputMaxTokens');
     });
 });
 
