@@ -1236,7 +1236,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
             // Only the API-facing view is layered. Event-box summaries and floor originals
             // remain byte-for-byte intact and can be recalled in full when relevant.
-            const archiveQuery = [modelText, ...requestHistory.slice(-2).map(item => item.message.content)].join('\n');
+            const archiveQuery = [...requestHistory.slice(-2).map(item => item.message.content), modelText].join('\n');
             const summaries = renderLayeredStoryArchiveContext(
                 selectLayeredStoryArchiveContext(promptEntry.archives, turnBoundary, archiveQuery),
                 floorNumbers,
