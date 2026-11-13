@@ -94,9 +94,12 @@ function checkedStoryArchiveSections(summary: string, affinity: string[]): strin
         const text = summary.slice(section.index + section[0].length, headings[index + 1]?.index).trim();
         if (!text || /^[-—–/\s]+$/.test(text)) throw new Error('归档总结的「' + heading + '」为空，本次未保存，原文和旧归档已保留');
         if (index === 0 && text === UNSPECIFIED) throw new Error('归档总结没有关键事件，本次未保存，原文和旧归档已保留');
-        const lines = text === UNSPECIFIED ? [] : [text];
+        // Keep all six required sections in the saved box, including explicit unknowns.
+        // Stripping them after generation changes the format and can make a valid
+        // 100-character model answer fail the final saved-size check.
+        const lines = [text];
         if (heading === '好感与心理变化' && affinity.length) lines.push('界面好感记录（用户→角色）：', ...affinity);
-        return lines.length ? ['【' + heading + '】\n' + lines.join('\n')] : [];
+        return ['【' + heading + '】\n' + lines.join('\n')];
     });
     if (headings.length !== archiveHeadings.length || headings[0].index !== 0) {
         throw new Error('归档总结标题重复或包含额外内容，本次未保存，原文和旧归档已保留');
