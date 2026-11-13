@@ -41,6 +41,27 @@ it('rejects a damaged shard without publishing half-restored identities or chang
  const {db,registry}=await seed();const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');const zip=await JSZip.loadAsync(await(await createAllUserSaveBackup()).arrayBuffer());const manifest=JSON.parse(await zip.file('user-saves.json')!.async('string'));const path=manifest.saves[1].databases[0].stores.find((s:any)=>s.name==='messages').parts[0];zip.file(path,'[]');
  const damaged=new Blob([await zip.generateAsync({type:'uint8array'}) as BlobPart]);const plan=(await prepareUserSaveRestore(damaged))!;await expect(plan.restore()).rejects.toThrow('损坏');expect(JSON.parse(localStorage.getItem(key)!)).toEqual(registry);expect((await rows(db,'messages'))[0].content).toBe('A聊天');db.close();
 });
+it('does not silently restore remote account tokens or cloud auto-sync settings when shared preferences are missing',async()=>{
+  const {db}=await seed();
+  const dangerous={
+    'os_cloud_backup_config':'{"enabled":true,"token":"cloud-old"}',
+    'os_remote_vector_config':'{"enabled":true,"token":"vector-old"}',
+    'os_realtime_config':'{"enabled":true,"token":"realtime-old"}',
+    'push_vapid_v1':'{"vapidPrivateKey":"secret"}',
+    'aetheros.mcp.servers':'[{"name":"remote","headers":{"Authorization":"secret"}}]',
+    'aetheros.mcd.mcpToken':'mcd-token',
+    'aetheros.luckin.mcpToken':'luckin-token',
+    'sully-beauty-author-session-v1':'{"token":"beauty-session"}'
+  };
+  for(const [key,value]of Object.entries(dangerous))localStorage.setItem(key,value);
+  const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
+  const backup=await createAllUserSaveBackup();
+  for(const key of Object.keys(dangerous))localStorage.removeItem(key);
+  await (await prepareUserSaveRestore(backup))!.restore();
+  for(const key of Object.keys(dangerous))expect(localStorage.getItem(key),key).toBeNull();
+  expect(localStorage.getItem('os_theme')).toBe('原外观');
+  db.close();
+});
 it('does not reinterpret legacy ZIP backups as all-identity archives',async()=>{const zip=new JSZip();zip.file('data.json','{}');const {prepareUserSaveRestore}=await import('./userSaveBackup');expect(await prepareUserSaveRestore(new Blob([await zip.generateAsync({type:'uint8array'}) as BlobPart]))).toBeNull();});
 it('rename changes only the label; backup locks block switching and label edits',async()=>{
  const {db}=await seed();const {renameUserSave,beginUserSaveOperation,activateUserSave}=await import('./userSaves');renameUserSave('original','  新名称  ');expect(JSON.parse(localStorage.getItem(key)!).saves[0].name).toBe('新名称');expect((await rows(db,'user_profile'))[0].name).toBe('A身份');expect(()=>renameUserSave('original',' ')).toThrow();
