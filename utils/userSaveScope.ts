@@ -97,6 +97,7 @@ const SHARED_PREFERENCES = new Set([
         'aetheros.mcd.mcpToken', 'aetheros.mcd.mcpEnabled',
         'aetheros.luckin.mcpToken', 'aetheros.luckin.mcpEnabled',
         'sullyos_backup_reminder', 'sully-chat-input-preferences-v1',
+        'sully-call-preferences-v1', 'sully-call-update-preferences-2026-08-v2',
         'handbook_lifestream_depth', 'groupchat_context_limit', 'bm25_mode',
         'chat_translate_source_lang', 'chat_translate_lang',
         'sullyos_chat_wardrobe_update_v2_seen', 'sullyos_chat_wardrobe_guide_v2_done',
