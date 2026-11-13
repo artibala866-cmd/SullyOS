@@ -111,36 +111,58 @@ const STORAGE_PREFIX = 'sully:save-data:';
 export function userSaveStoragePrefix(id = USER_SAVE_ID): string {
     return id === DEFAULT_USER_SAVE ? '' : `${STORAGE_PREFIX}${id}:`;
 }
-/** Older releases wrote settings inside identity-specific storage. Promote only
- * audited settings, and never overwrite a setting already present globally. */
+/** Retire obsolete per-identity copies after a shared setting has a durable
+ * global value. Otherwise an old credential can reappear after "clear"/"remove". */
+function retireLegacySharedCopies(raw: Storage, key: string): void {
+    const suffix = ':' + key;
+    const shadowKeys: string[] = [];
+    for (let i = 0; i < raw.length; i++) {
+        const physical = raw.key(i);
+        if (physical?.startsWith(STORAGE_PREFIX) && physical.endsWith(suffix) &&
+            /^(original|[a-f0-9-]{36})$/.test(physical.slice(STORAGE_PREFIX.length, -suffix.length)))
+            shadowKeys.push(physical);
+    }
+    for (const shadow of shadowKeys) raw.removeItem(shadow);
+}
+/** Older releases stored settings under identity-specific keys. Promote only
+ * audited shared keys; never overwrite a newer global choice. */
 export function promoteSharedPreferences(raw: Storage, id = USER_SAVE_ID): void {
     const prefix = userSaveStoragePrefix(id);
     if (!prefix) return;
+    const oldKeys: string[] = [];
     for (let i = 0; i < raw.length; i++) {
-        const physicalKey = raw.key(i);
-        if (!physicalKey?.startsWith(prefix)) continue;
-        const key = physicalKey.slice(prefix.length);
-        if (!isSharedPreference(key) || raw.getItem(key) !== null) continue;
-        const value = raw.getItem(physicalKey);
-        if (value !== null) {
-            try { raw.setItem(key, value); }
-            catch { /* The old value stays intact and remains readable. */ }
-        }
+        const physical = raw.key(i);
+        if (physical?.startsWith(prefix) && isSharedPreference(physical.slice(prefix.length)))
+            oldKeys.push(physical);
+    }
+    for (const physical of oldKeys) {
+        const key = physical.slice(prefix.length);
+        const old = raw.getItem(physical);
+        if (old === null) continue;
+        try {
+            if (raw.getItem(key) === null) raw.setItem(key, old);
+            // Only discard the shadow after a readable global value is present.
+            if (raw.getItem(key) !== null) raw.removeItem(physical);
+        } catch { /* Keep the source copy readable if migration cannot commit. */ }
     }
 }
 export function createSaveStorage(raw: Storage, id: string, shared = true): Storage {
     const prefix = `${STORAGE_PREFIX}${id}:`;
     const map = (key: string) => shared && isSharedPreference(key) ? key : userSaveStoragePrefix(id) + key;
     const keys = () => {
-        const result: string[] = [];
+        const result = new Set<string>();
         for (let i = 0; i < raw.length; i++) {
             const key = raw.key(i)!;
             if (isUserSaveIndexKey(key)) continue;
-            if (shared && isSharedPreference(key)) result.push(key);
-            else if (id === DEFAULT_USER_SAVE && !key.startsWith(STORAGE_PREFIX)) result.push(key);
-            else if (id !== DEFAULT_USER_SAVE && key.startsWith(prefix)) result.push(key.slice(prefix.length));
+            if (shared && isSharedPreference(key)) result.add(key);
+            else if (id === DEFAULT_USER_SAVE && !key.startsWith(STORAGE_PREFIX)) result.add(key);
+            else if (id !== DEFAULT_USER_SAVE && key.startsWith(prefix)) {
+                const logical = key.slice(prefix.length);
+                if (logical && (!shared || !isSharedPreference(logical) || raw.getItem(logical) === null))
+                    result.add(logical);
+            }
         }
-        return result;
+        return [...result];
     };
     const api: Storage = {
         get length() { return keys().length; },
@@ -153,9 +175,25 @@ export function createSaveStorage(raw: Storage, id: string, shared = true): Stor
             return value ?? (shared && id !== DEFAULT_USER_SAVE && isSharedPreference(logical)
                 ? raw.getItem(prefix + logical) : null);
         },
-        setItem: (key, value) => { if (!isUserSaveIndexKey(String(key))) raw.setItem(map(String(key)), String(value)); },
-        removeItem: key => { if (!isUserSaveIndexKey(String(key))) raw.removeItem(map(String(key))); },
-        clear: () => { for (const key of keys()) raw.removeItem(map(key)); },
+        setItem: (key, value) => {
+            const logical = String(key);
+            if (isUserSaveIndexKey(logical)) return;
+            raw.setItem(map(logical), String(value));
+            if (shared && isSharedPreference(logical)) retireLegacySharedCopies(raw, logical);
+        },
+        removeItem: key => {
+            const logical = String(key);
+            if (isUserSaveIndexKey(logical)) return;
+            raw.removeItem(map(logical));
+            if (shared && isSharedPreference(logical)) retireLegacySharedCopies(raw, logical);
+        },
+        // Clearing one identity must not reset shared phone settings.
+        clear: () => {
+            for (const key of keys()) {
+                if (shared && isSharedPreference(key)) continue;
+                raw.removeItem(map(key));
+            }
+        },
     };
     // Support the few legacy property/enumeration callers as well as Storage methods.
     return new Proxy(api, {
