@@ -352,13 +352,13 @@ export const selectStoryArchiveAuthorInstructions = (
         const content = box.summary ?? '';
         // The exact heading must begin a line; a quoted heading inside a
         // character's prose is not an archive section or an author command.
-        const headings = [...content.matchAll(/^【未解决事项与续写落点】[ \\t]*/gm)];
+        const headings = [...content.matchAll(/^【未解决事项与续写落点】[ \t]*/gm)];
         const lastHeading = headings.at(-1);
         if (!lastHeading || lastHeading.index === undefined) continue;
         const section = content.slice(lastHeading.index + lastHeading[0].length);
         // An explicit author-instruction label must start this section or
         // follow a paragraph/semicolon boundary, not appear inside a quotation.
-        const instructionMatch = /(?:^|[；\\n])\\s*用户协助指令：([\\s\\S]*)$/.exec(section);
+        const instructionMatch = /(?:^|[；\n])\s*用户协助指令：([\s\S]*)$/.exec(section);
         if (!instructionMatch) continue;
         const instruction = instructionMatch[1].trim();
         if (!instruction || instruction === '原文未交代' || seen.has(instruction)) continue;
