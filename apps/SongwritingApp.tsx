@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { ContextBuilder } from '../utils/context';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
@@ -209,6 +210,7 @@ const buildLyricSlots = (song: SongSheet): LyricSlot[] => {
 
 const SongwritingApp: React.FC = () => {
     const { closeApp, openApp, songs, addSong, updateSong, deleteSong, characters, apiConfig, addToast, userProfile, characterGroups } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const { addLocalSong, removeLocalSong, localAlbumSongs, playSong, current: currentMusicSong, markRegenerating } = useMusic();
 
     // Navigation
@@ -1824,9 +1826,9 @@ const SongwritingApp: React.FC = () => {
                     <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                         <p className="text-xs text-stone-500 mb-3">选择一个角色，以卡片形式把乐谱分享到聊天</p>
                         {/* 分组筛选（没建分组时不渲染），白底 Modal 走浅色 */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                        <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                             value={shareGroupId} onChange={setShareGroupId} className="mb-2" />
-                        {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
+                        {filterCharactersByGroup(visibleCharacters, characterGroups, shareGroupId).map(c => (
                             <button key={c.id} onClick={() => handleShareToChat(c.id)} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-stone-50 border border-stone-100 transition-colors">
                                 <TokenImg value={c.avatar} className="w-10 h-10 rounded-full object-cover" />
                                 <span className="font-medium text-sm text-stone-700">{c.name}</span>
@@ -2227,7 +2229,7 @@ const SongwritingApp: React.FC = () => {
     // --- Partner View (Step 2 of create flow) ---
     if (view === 'partner') {
         // 按分组筛出的伙伴候选（筛选只影响显示，已选中的 tempCollaboratorId 不受影响）
-        const partnerChars = filterCharactersByGroup(characters, characterGroups, partnerGroupId);
+        const partnerChars = filterCharactersByGroup(visibleCharacters, characterGroups, partnerGroupId);
         return (
             <div
                 className="h-full w-full flex flex-col font-sans relative overflow-hidden"
@@ -2262,7 +2264,7 @@ const SongwritingApp: React.FC = () => {
 
                 <div className="flex-1 overflow-y-auto px-5 pb-32 space-y-5 no-scrollbar relative z-10">
                     {/* 分组筛选（没建分组时不渲染），浅色梦幻底 */}
-                    <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                    <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                         value={partnerGroupId} onChange={setPartnerGroupId} />
                     {/* Collaborator list */}
                     <div className="space-y-2">
@@ -2750,9 +2752,9 @@ const SongwritingApp: React.FC = () => {
                     <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                         <p className="text-xs text-stone-500 mb-3">选择一个角色，把乐谱卡片发送到聊天</p>
                         {/* 分组筛选（没建分组时不渲染），白底 Modal 走浅色 */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                        <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                             value={shareGroupId} onChange={setShareGroupId} className="mb-2" />
-                        {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
+                        {filterCharactersByGroup(visibleCharacters, characterGroups, shareGroupId).map(c => (
                             <button key={c.id} onClick={() => handleShareToChat(c.id)} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-stone-50 border border-stone-100 transition-colors">
                                 <TokenImg value={c.avatar} className="w-10 h-10 rounded-full object-cover" />
                                 <span className="font-medium text-sm text-stone-700">{c.name}</span>
