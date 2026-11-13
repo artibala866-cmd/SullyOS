@@ -23,6 +23,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
+import { isRetiredDecorationAssetId, stripRetiredDesktopDecorations, stripRetiredDecorationPreset } from '../utils/retiredDesktopDecorations';
 import { createToastSequencer } from '../utils/toastSequencer';
 import {exportStudyRoomLocal,restoreStudyRoomLocal} from '../utils/studyRoomLocalBackup';
 import { reportDatabaseFailure } from '../utils/databaseHealth';
@@ -1497,7 +1498,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         if (savedThemeStr) {
              try {
                  const parsed = JSON.parse(savedThemeStr);
-                 loadedTheme = { ...loadedTheme, ...parsed };
+                 const hadRetiredDecorations = Object.prototype.hasOwnProperty.call(parsed, 'desktopDecorations');
+                 loadedTheme = stripRetiredDesktopDecorations({ ...loadedTheme, ...parsed });
                  // 仅迁移旧系统默认值；用户自定义过的壁纸、文字色和主题色全部保留。
                  const retiredVariant = hasRetiredDesktopVariant(loadedTheme);
                  if (isLegacyDefaultWallpaper(loadedTheme.wallpaper) || (isPaperWallpaper(loadedTheme.wallpaper) && loadedTheme.wallpaper !== DEFAULT_WALLPAPER)) {
@@ -1531,7 +1533,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                  if (companionRepair.repaired) {
                      loadedTheme = companionRepair.theme;
                  }
-                 if (companionRepair.repaired || retiredVariant) {
+                 if (companionRepair.repaired || retiredVariant || hadRetiredDecorations) {
                      localStorage.setItem('os_theme', JSON.stringify(loadedTheme));
                  }
              } catch(e) { console.error('Theme load error', e); }
@@ -1589,6 +1591,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             const assetMap: Record<string, string> = {};
             if (Array.isArray(assets)) {
                 assets.forEach(a => assetMap[a.id] = a.data);
+                // Retired desktop sticker rows have no consumers; preserve all other assets.
+                for (const asset of assets) {
+                    if (isRetiredDecorationAssetId(asset.id)) await DB.deleteAsset(asset.id);
+                }
 
                 if (assetMap['wallpaper']) {
                     // assets 'wallpaper' 现在存的是指针（blobref 令牌 / 旧 data: / http）。
@@ -1650,28 +1656,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
                 // Load appearance presets from assets
                 const loadedPresets: AppearancePreset[] = [];
-                Object.keys(assetMap).forEach(key => {
-                    if (key.startsWith('appearance_preset_')) {
-                        try {
-                            const preset = JSON.parse(assetMap[key]);
-                            loadedPresets.push(preset);
-                        } catch {}
-                    }
-                });
+                for (const key of Object.keys(assetMap)) {
+                    if (!key.startsWith('appearance_preset_')) continue;
+                    try {
+                        const original = JSON.parse(assetMap[key]) as AppearancePreset;
+                        const preset = stripRetiredDecorationPreset(original);
+                        loadedPresets.push(preset);
+                        if (preset !== original) await DB.saveAsset(key, JSON.stringify(preset));
+                    } catch {}
+                }
 
                 loadedPresets.sort((a, b) => b.createdAt - a.createdAt);
                 setAppearancePresets(loadedPresets);
 
-                // Restore desktop decoration images from IndexedDB
-                if (loadedTheme.desktopDecorations && loadedTheme.desktopDecorations.length > 0) {
-                    loadedTheme.desktopDecorations = loadedTheme.desktopDecorations.map(d => {
-                        if (d.type === 'image' && (!d.content || d.content === '')) {
-                            const restored = assetMap[`deco_${d.id}`];
-                            return restored ? { ...d, content: restored } : d;
-                        }
-                        return d;
-                    }).filter(d => d.content && d.content !== '');
-                }
             }
         } catch (e) {
             console.error("Failed to load assets from DB", e);
@@ -1688,7 +1685,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                 ...loadedTheme,
                 ...DEFAULT_PAPER_APPEARANCE,
                 skin: 'default',
-                desktopDecorations: (loadedTheme.desktopDecorations || []).filter(d => !d.id.startsWith('acnh-leaf-')),
                 wallpaper: await resolveWallpaperStoredValue(restoredWallpaper || DEFAULT_WALLPAPER),
             };
             // The retired theme must not reappear after a reload.
@@ -2968,14 +2964,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return;
     }
     stopBeautyForThemeChange(updates);
-    const { wallpaper, lockWallpaper, launcherWidgetImage, launcherWidgets, desktopDecorations, customFont, ...styleUpdates } = updates;
+    const { wallpaper, lockWallpaper, launcherWidgetImage, launcherWidgets, customFont, ...styleUpdates } = updates;
     // Legacy slots are banned — never let them enter state, regardless of caller intent.
     const sanitizedWidgets = launcherWidgets !== undefined
         ? Object.fromEntries(Object.entries(launcherWidgets).filter(([k]) => k !== 'bl' && k !== 'br'))
         : undefined;
-    const sanitizedUpdates: Partial<OSTheme> = { ...updates, launcherWidgetImage: undefined };
+    const sanitizedUpdates: Partial<OSTheme> = stripRetiredDesktopDecorations({ ...updates, launcherWidgetImage: undefined });
     if (sanitizedWidgets !== undefined) sanitizedUpdates.launcherWidgets = sanitizedWidgets;
-    const newTheme = { ...theme, ...sanitizedUpdates, launcherWidgetImage: undefined };
+    const newTheme = stripRetiredDesktopDecorations({ ...theme, ...sanitizedUpdates, launcherWidgetImage: undefined });
     if (newTheme.launcherWidgets) {
         const w = { ...newTheme.launcherWidgets };
         delete w['bl'];
@@ -3022,24 +3018,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         await DB.deleteAsset('widget_br');
     }
 
-    // Save desktop decoration images to IndexedDB
-    if (desktopDecorations !== undefined) {
-        // Clean up old decoration assets first
-        const allAssets = await DB.getAllAssets();
-        const oldDecoKeys = allAssets.filter(a => a.id.startsWith('deco_')).map(a => a.id);
-        for (const key of oldDecoKeys) {
-            await DB.deleteAsset(key);
-        }
-        // Save new decoration images
-        if (desktopDecorations) {
-            for (const deco of desktopDecorations) {
-                if (deco.content && deco.content.startsWith('data:') && deco.type === 'image') {
-                    await DB.saveAsset(`deco_${deco.id}`, deco.content);
-                }
-            }
-        }
-    }
-
     // Logic for Font: Differentiate between Data URI (Blob) and URL (Web Font)
     // Use `in` check so an explicit `customFont: undefined` (user-initiated reset)
     // still triggers the reset branch — `customFont !== undefined` would skip it.
@@ -3074,14 +3052,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             cleanWidgets[k] = (v && v.startsWith('data:')) ? '' : v;
         }
         lsTheme.launcherWidgets = cleanWidgets;
-    }
-
-    // Strip data URIs from desktop decorations for LS
-    if (lsTheme.desktopDecorations) {
-        lsTheme.desktopDecorations = lsTheme.desktopDecorations.map(d => ({
-            ...d,
-            content: (d.content && d.content.startsWith('data:') && d.type === 'image') ? '' : d.content
-        }));
     }
 
     // Clear data URI font from LS, keep URL font
@@ -3588,7 +3558,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const saveAppearancePreset = async (name: string, themeOverride?: OSTheme) => {
       // theme.wallpaper 在内存里是 blob: objectURL（会话临时），不能存进预设。
       // 换成 assets 'wallpaper' 里的持久指针（blobref 令牌 / http / 渐变）。
-      const presetTheme: OSTheme = { ...(themeOverride || theme) };
+      const presetTheme: OSTheme = stripRetiredDesktopDecorations({ ...(themeOverride || theme) });
       if (presetTheme.wallpaper && presetTheme.wallpaper.startsWith('blob:')) {
           presetTheme.wallpaper = (await DB.getAsset('wallpaper')) || '';
       }
@@ -3615,7 +3585,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (!preset) throw new Error('外观预设不存在，请重新导入');
       // Strip banned legacy widget data from preset before applying — old beautification packs
       // may still carry launcherWidgetImage / bl / br, and they must never reach the UI.
-      const sanitizedPresetTheme: any = { ...preset.theme, launcherWidgetImage: undefined };
+      const sanitizedPresetTheme: any = stripRetiredDesktopDecorations({ ...preset.theme, launcherWidgetImage: undefined });
       if (sanitizedPresetTheme.launcherWidgets) {
           const w = { ...sanitizedPresetTheme.launcherWidgets } as Record<string, string>;
           delete w['bl'];
@@ -3667,12 +3637,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           lsTheme.launcherWidgets = cleanWidgets;
       }
-      if (lsTheme.desktopDecorations) {
-          lsTheme.desktopDecorations = lsTheme.desktopDecorations.map((d: any) => ({
-              ...d,
-              content: (d.content && typeof d.content === 'string' && d.content.startsWith('data:') && d.type === 'image') ? '' : d.content,
-          }));
-      }
       if (lsTheme.customFont && typeof lsTheme.customFont === 'string' && lsTheme.customFont.startsWith('data:')) lsTheme.customFont = '';
       try {
           localStorage.setItem('os_theme', JSON.stringify(lsTheme));
@@ -3721,14 +3685,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return merged;
           });
       }
-      // 壁纸指针已在上面 resolveWallpaperStoredValue 里落库（令牌→assets），此处不再重复写。
-      if (preset.theme.desktopDecorations) {
-          for (const d of preset.theme.desktopDecorations) {
-              if (d.type === 'image' && d.content) {
-                  await DB.saveAsset(`deco_${d.id}`, d.content);
-              }
-          }
-      }
       await startBeautyUsage(preset.id, 'appearance');
       if (!builtin) stopBeautyUsage('chat:global');
       addToast(`已应用预设「${preset.name}」`, 'success');
@@ -3740,8 +3696,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       addToast('预设已删除', 'info');
   };
 
-  // 一键还原外观：把主题、图标、壁纸、小组件、装饰、字体全部回到出厂状态。
-  // 用户在不同版本/不同备份之间反复导入时，customIcons 与 IndexedDB 里的 widget_/deco_/icon_
+  // 一键还原外观：把主题、图标、壁纸、小组件、字体全部回到出厂状态。
+  // 用户在不同版本/不同备份之间反复导入时，customIcons 与 IndexedDB 里的 widget_/icon_
   // 残留经常导致图标错乱，这里直接整体清空再写回 default。
   // 已保存的外观预设不动，用户随时还能切回去。
   const resetAppearance = async () => {
@@ -3770,7 +3726,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   id === 'launcherWidgetImage' ||
                   id === 'custom_font_data' ||
                   id.startsWith('widget_') ||
-                  id.startsWith('deco_') ||
+                  isRetiredDecorationAssetId(id) ||
                   id.startsWith('icon_')
               ) {
                   await DB.deleteAsset(id);
@@ -3795,7 +3751,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const old=JSON.parse(existing) as AppearancePreset;
       const raw=data as any;
       if(raw?.type!=='sully_appearance_preset'||!raw.theme)throw Error('主题格式无效');
-      const presetTheme={...raw.theme};
+      const presetTheme=stripRetiredDesktopDecorations({...raw.theme});
       if(presetTheme.wallpaper?.startsWith('blob:'))presetTheme.wallpaper=(await DB.getAsset('wallpaper'))||'';
       if(presetTheme.lockWallpaper?.startsWith('blob:'))presetTheme.lockWallpaper=(await DB.getAsset('lock_wallpaper'))||undefined;
       const preset=await migrateAppearancePresetBlobRefs({id,name:raw.name||old.name,createdAt:old.createdAt,theme:presetTheme,customIcons:raw.customIcons,chatThemes:raw.chatThemes,chatLayout:raw.chatLayout} as AppearancePreset);
@@ -3819,7 +3775,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (!preset) throw new Error('预设不存在');
       // 预设里的壁纸可能是 blobref 令牌（本机 blob_assets），导出到别的设备会失效——
       // 先深拷贝再把令牌解析回 data:image，保证导出文件自包含可移植。
-      const exportPreset = deepCloneForExport(preset);
+      const exportPreset = stripRetiredDecorationPreset(deepCloneForExport(preset));
       await resolveBlobRefsDeep(exportPreset);
       // 保留原始壁纸画质，把整个预设 JSON 塞进 zip 包压体积
       const {readDecorationOrigin} = await import('../utils/decorationLibrary');
@@ -3854,7 +3810,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           name: raw.name || '导入的预设',
           createdAt: Date.now(),
-          theme: raw.theme,
+          theme: stripRetiredDesktopDecorations(raw.theme),
           customIcons: raw.customIcons,
           chatThemes: raw.chatThemes,
           chatLayout: raw.chatLayout,
@@ -3997,7 +3953,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               id === 'spark_user_bg' ||
               id === 'room_custom_assets_list' ||
               id.startsWith('widget_') ||
-              id.startsWith('deco_') ||
+              isRetiredDecorationAssetId(id) ||
               id.startsWith('icon_') ||
               id.startsWith('appearance_preset_')
           );
@@ -4063,12 +4019,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               availableModels: (mode === 'text_only' || mode === 'full') ? availableModels : undefined,
               realtimeConfig: (mode === 'text_only' || mode === 'full') ? realtimeConfig : undefined,
               memoryPalaceConfig: (mode === 'text_only' || mode === 'full') ? memoryPalaceConfig : undefined,
-              theme: cloneForInPlace(theme), // Include theme in all modes (text/media)
+              theme: stripRetiredDesktopDecorations(cloneForInPlace(theme)), // Include theme in all modes (text/media)
               customIcons: (mode === 'text_only' || mode === 'media_only' || mode === 'full')
                   ? cloneForInPlace(customIcons)
                   : undefined,
               appearancePresets: (mode === 'text_only' || mode === 'media_only' || mode === 'full')
-                  ? cloneForInPlace(appearancePresets)
+                  ? cloneForInPlace(appearancePresets).map(stripRetiredDecorationPreset)
                   : undefined,
               
               socialAppData: (mode === 'text_only' || mode === 'media_only' || mode === 'full') ? {
@@ -4316,24 +4272,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (backupData.customIcons) backupData.customIcons = stripBase64(backupData.customIcons);
               if (backupData.appearancePresets) backupData.appearancePresets = stripBase64(backupData.appearancePresets);
               if (backupData.theme) {
-                  // Save preset decoration content before stripping (SVGs start with data:image and would be stripped)
-                  const savedPresetDecos = backupData.theme.desktopDecorations
-                      ?.filter(d => d.type === 'preset')
-                      .map(d => ({ id: d.id, content: d.content }));
-                  const strippedTheme = stripBase64(backupData.theme) as OSTheme;
                   // text_only 不带图片：内存里的壁纸是 blob: objectURL（会话临时，恢复端认不得），
                   // blobref 令牌 stripBase64 已清空——这里补清 blob: 避免导出一个死链接壁纸。
                   if (strippedTheme.wallpaper && strippedTheme.wallpaper.startsWith('blob:')) strippedTheme.wallpaper = '';
                   backupData.theme = strippedTheme;
-                  // Restore preset SVGs and remove image decorations (they have no data in text mode)
-                  if (strippedTheme.desktopDecorations && savedPresetDecos) {
-                      strippedTheme.desktopDecorations = strippedTheme.desktopDecorations
-                          .map(d => {
-                              const saved = savedPresetDecos.find(p => p.id === d.id);
-                              return saved ? { ...d, content: saved.content } : d;
-                          })
-                          .filter(d => d.content && d.content !== '');
-                  }
               }
           }
 
@@ -4490,6 +4432,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               const id = item?.id;
                               if (typeof id === 'string' && (
                                   isRedundantManagedAssetId(id)
+                                  || isRetiredDecorationAssetId(id)
                                   || (isCompanionVoiceAssetId(id) && !companionVoiceAssetIdsForBackup.has(id))
                                   || !shouldIncludeVoiceRelatedAssetInBackup(item, mode !== 'text_only')
                               )) return undefined;
@@ -4587,7 +4530,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (storeName === 'assets' && Array.isArray(rawData)) {
                   rawData = rawData.filter((asset: { id?: string; data?: { favorite?: boolean } } | null | undefined) => {
                       if (!asset || typeof asset.id !== 'string') return true;
-                      if (isRedundantManagedAssetId(asset.id)) return false;
+                      if (isRedundantManagedAssetId(asset.id) || isRetiredDecorationAssetId(asset.id)) return false;
                       if (isCompanionVoiceAssetId(asset.id) && !companionVoiceAssetIdsForBackup.has(asset.id)) return false;
                       // Shared TTS rows and un-favorited message voice are implementation
                       // cache. Only explicit favorites and saved Live2D-preset dependencies
@@ -5201,8 +5144,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           for (const {id, profile} of restoredImageProfiles) writeCharacterImageProfile(id, profile);
           if (missingRoleReferences) addToast(`备份缺少 ${missingRoleReferences} 张角色锁脸图片，已保留本机已有的参考图`, 'info');
           if (data.theme) {
-              await restoreAssetsInPlace(data.theme, '系统主题');
-              await updateTheme(data.theme);
+              const cleanTheme = stripRetiredDesktopDecorations(data.theme);
+              await restoreAssetsInPlace(cleanTheme, '系统主题');
+              await updateTheme(cleanTheme);
           }
           if (data.apiConfig) updateApiConfig(data.apiConfig);
           if (data.checkPhoneApi !== undefined) setCheckPhoneApi(data.checkPhoneApi ?? null);
@@ -5213,6 +5157,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
           if (data.customIcons !== undefined || data.appearancePresets !== undefined) {
               await restoreAssetsInPlace(data.customIcons, '应用图标');
+              if (data.appearancePresets) data.appearancePresets = data.appearancePresets.map(stripRetiredDecorationPreset);
               await restoreAssetsInPlace(data.appearancePresets, '外观预设');
               const existingAssets = await DB.getAllAssets();
               if (Array.isArray(existingAssets)) {
@@ -5234,7 +5179,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (data.appearancePresets) {
                   const migratedPresets: AppearancePreset[] = [];
                   for (const preset of data.appearancePresets) {
-                      const migrated = await migrateAppearancePresetBlobRefs(preset);
+                      const migrated = await migrateAppearancePresetBlobRefs(stripRetiredDecorationPreset(preset));
                       migratedPresets.push(migrated);
                       await DB.saveAsset(`appearance_preset_${migrated.id}`, JSON.stringify(migrated));
                   }
@@ -5376,7 +5321,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       }
                       if (a.id.startsWith('appearance_preset_')) {
                           try {
-                              loadedPresets.push(JSON.parse(a.data));
+                              loadedPresets.push(stripRetiredDecorationPreset(JSON.parse(a.data)));
                           } catch {}
                       }
                   }
@@ -5463,6 +5408,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           } catch (e) {
               console.warn('[amsg2] 导入后云端对账失败（本地数据已恢复，不受影响）', e);
+          }
+
+          // Old archives can also restore retired sticker rows directly into the assets store.
+          for (const asset of await DB.getAllAssets()) {
+              if (isRetiredDecorationAssetId(asset.id)) await DB.deleteAsset(asset.id);
           }
 
           // 全部设置与音乐库都恢复完成后才刷新镜像；避免导入前的旧配置
