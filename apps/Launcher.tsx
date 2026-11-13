@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { DEFAULT_WALLPAPER, isPaperWallpaper, useOS } from '../context/OSContext';
 import { INSTALLED_APPS, DOCK_APPS } from '../constants';
 import { isDevDebugAvailable, subscribeDevDebugAvailability } from '../utils/devDebug';
@@ -408,6 +409,7 @@ let _lastPageIndex = 0;
 
 const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false }) => {
   const { openApp, characters, activeCharacterId, theme, updateTheme, lastMsgTimestamp, isDataLoaded, unreadMessages } = useOS();
+  const visibleCharacters = useIdentityCharacterOptions();
 
   // Local state for widget data to prevent context trashing
   const [widgetChar, setWidgetChar] = useState<CharacterProfile | null>(staticPreview ? characters[0] || null : null);
@@ -1157,7 +1159,7 @@ const Launcher: React.FC<{ staticPreview?: boolean }> = ({ staticPreview = false
       <ScheduleFullscreenViewer
           open={scheduleViewerOpen}
           onClose={() => setScheduleViewerOpen(false)}
-          characters={characters}
+          characters={visibleCharacters}
           activeCharId={scheduleChar?.id || null}
           onSwitchCharacter={(id) => setScheduleCharId(id)}
           schedule={scheduleData}
