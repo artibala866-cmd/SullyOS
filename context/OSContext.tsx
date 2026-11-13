@@ -4272,6 +4272,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (backupData.customIcons) backupData.customIcons = stripBase64(backupData.customIcons);
               if (backupData.appearancePresets) backupData.appearancePresets = stripBase64(backupData.appearancePresets);
               if (backupData.theme) {
+                  const strippedTheme = stripRetiredDesktopDecorations(stripBase64(backupData.theme) as OSTheme);
                   // text_only 不带图片：内存里的壁纸是 blob: objectURL（会话临时，恢复端认不得），
                   // blobref 令牌 stripBase64 已清空——这里补清 blob: 避免导出一个死链接壁纸。
                   if (strippedTheme.wallpaper && strippedTheme.wallpaper.startsWith('blob:')) strippedTheme.wallpaper = '';
