@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import React,{useEffect,useState,useRef,useLayoutEffect,useCallback,Suspense} from 'react';
 import {useOS} from '../context/OSContext';
 import {AppID} from '../types';
@@ -16,6 +17,7 @@ const Home3DView=React.lazy(()=>import('./room3d/Home3DSetupEntry'));
  * not imported. Dream Theater is retained as a standalone 3D-home feature. */
 const RoomApp:React.FC=()=>{
  const {activeApp,closeApp,characters,characterGroups,setActiveCharacterId,updateCharacter,userProfile}=useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
  const intent=roomLaunch.peek();
  const [selected,setSelected]=useState<string|null>(()=>intent?.charId||null);
  const [dreamOpen,setDreamOpen]=useState(()=>!!intent?.openDream);
@@ -120,9 +122,9 @@ const RoomApp:React.FC=()=>{
   </Suspense>:<div className="flex h-full flex-col px-5 py-6">
    <div className="flex items-center gap-3"><button aria-label="返回桌面" onClick={closeApp}><ArrowLeft size={22}/></button><h1 className="text-lg font-semibold">3D 家园</h1></div>
    <p className="mt-2 text-sm text-neutral-500">选择角色，进入 3D 家园。</p>
-   <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={group} onChange={setGroup} className="mt-5"/>
+   <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups} value={group} onChange={setGroup} className="mt-5"/>
    <div className="mt-5 grid grid-cols-2 gap-3 overflow-y-auto pb-8">
-    {filterCharactersByGroup(characters,characterGroups,group).map(c=><button key={c.id} onClick={()=>{setSelected(c.id);setActiveCharacterId(c.id);}} className="flex flex-col items-center gap-3 rounded-2xl bg-white/75 p-5 text-sm shadow-sm">
+    {filterCharactersByGroup(visibleCharacters,characterGroups,group).map(c=><button key={c.id} onClick={()=>{setSelected(c.id);setActiveCharacterId(c.id);}} className="flex flex-col items-center gap-3 rounded-2xl bg-white/75 p-5 text-sm shadow-sm">
      <TokenImg value={c.avatar} className="h-16 w-16 rounded-full object-cover"/><span>{c.name}</span>
     </button>)}
    </div>
