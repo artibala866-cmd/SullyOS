@@ -10,7 +10,7 @@ export function stripRetiredDesktopDecorations<T extends object>(theme: T): T {
 export function stripRetiredDecorationPreset<T extends { theme?: unknown }>(preset: T): T {
   if (!preset || typeof preset !== 'object' || !preset.theme || typeof preset.theme !== 'object') return preset;
   const cleanTheme = stripRetiredDesktopDecorations(preset.theme);
-  return cleanTheme === preset.theme ? preset : { ...preset, theme: cleanTheme };
+  return cleanTheme === preset.theme ? preset : ({ ...preset, theme: cleanTheme } as T);
 }
 
 /** This IndexedDB namespace belonged exclusively to the retired desktop sticker DIY. */
