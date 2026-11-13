@@ -487,7 +487,7 @@ async function writeStoryArchiveRange(
         const box: StoryTheaterArchive = {
             ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
             messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
-            ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id) } : { summary }),
+            ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id), summary: undefined } : { summary }),
         };
         return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
     }, vector?.remote);
