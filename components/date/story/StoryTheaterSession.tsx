@@ -56,6 +56,7 @@ import {
     resolveStoryPresetDocument,
     selectStoryArchiveBatch,
     selectStoryArchiveContext,
+    selectStoryArchiveAuthorInstructions,
     storyTheaterMemoryRecipientIds,
     storyTheaterThreadId,
     type StoryAffinityInput,
@@ -1234,7 +1235,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             ]);
             const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
-            const summaries = selectStoryArchiveContext(promptEntry.archives, turnBoundary)
+            const recentArchives = selectStoryArchiveContext(promptEntry.archives, turnBoundary);
+            const oldAuthorInstructions = selectStoryArchiveAuthorInstructions(promptEntry.archives, turnBoundary, recentArchives);
+            const summaries = recentArchives
                 .map((archive, index) => {
                     const first = floorNumbers.get(archive.fromMessageId), last = floorNumbers.get(archive.toMessageId);
                     const range = first && last ? '（第 ' + first + '–' + last + ' 楼）' : '';
@@ -1298,6 +1301,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     // Story-owned archive context must work even with imported presets
                     // that have no enabled scenario slot or scenario macro.
                     ...(summaries ? [{ role: 'system' as const, content: '### 常驻事件盒\n' + summaries }] : []),
+                    ...(oldAuthorInstructions ? [{ role: 'system' as const,
+                        content: '### 较早事件盒的用户协助指令（历史记录）\n这些要求来自更早的剧情归档，仅作为写作连续性参考；若与较新的明确用户要求冲突，不能覆盖后者。\n' + oldAuthorInstructions }] : []),
                     ...(vectorRecall ? [{ role: 'system' as const, content: buildStoryArchiveMemoryEnvelope(vectorRecall) }] : []),
                     ...(appendUnslottedHistory ? historyMessages : []),
                     ...(compiled.continueNudge ? [compiled.continueNudge] : []),
