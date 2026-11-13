@@ -43,7 +43,7 @@ describe('user 身份存档隔离', () => {
             });
         }
         expect(privateStores.length).toBeGreaterThan(25);
-        const originalProfile = {id:'me',name:'原身份',bio:'原设定',avatar:'blobref:private-face',perCharAvatars:{c:'blobref:private-chat-face'},
+        const originalProfile = {id:'me',name:'原身份',bio:'原设定',avatar:'blobref:private-face',perCharAvatars:{c:'blobref:private-chat-face'},boundCharacterIds:['c'],
             imageAppearance:'原外貌',imageReference:'blobref:private-ref',imageLockEnabled:true,wardrobeOutfits:[{id:'private-outfit'}],
             chibiStudio:{userChibi:{img:'blobref:private-body'}},vrState:{enabled:true,chibi:{img:'blobref:private-vr'},activity:'旧活动'}};
         await write(source, {user_profile:[originalProfile],worldbooks:[{id:'w',name:'基础世界书'}],
@@ -60,7 +60,7 @@ describe('user 身份存档隔离', () => {
         const [char]=await rows(target,'characters');
         for(const key of ['phoneState','socialProfile','savedDateState','activeMsg2Config'])expect(char[key],key).toBeUndefined();
         expect(char.home3D.records).toBeUndefined();expect(char.home3D.petLife).toBeUndefined();expect(char.home3D.romanticPairs).toBeUndefined();
-        const bProfile={id:'me',name:'B改名',bio:'B设定',avatar:'blobref:b-face',perCharAvatars:{c:'blobref:b-chat-face'},imageAppearance:'B外貌',imageReference:'blobref:b-ref',imageLockEnabled:true};
+        const bProfile={id:'me',name:'B改名',bio:'B设定',avatar:'blobref:b-face',perCharAvatars:{c:'blobref:b-chat-face'},boundCharacterIds:['b-role'],imageAppearance:'B外貌',imageReference:'blobref:b-ref',imageLockEnabled:true};
         await write(target,{user_profile:[bProfile]});source.close();target.close();
         vi.resetModules();await (await import('./userSaves')).activateUserSave('original');
         const a=await open('AetherOS_Data');expect(await rows(a,'user_profile')).toEqual([originalProfile]);a.close();
