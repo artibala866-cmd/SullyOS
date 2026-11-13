@@ -737,7 +737,8 @@ export const resolveStoryPresetDocument = (
     override?: StoryTheaterPresetDocument,
 ): StoryTheaterPresetDocument => {
     if (!override) return preset.document;
-    if (!preset.builtIn) return override;
+    // Quick preset changes story prompt choices, not the saved preset's output budget.
+    if (!preset.builtIn) return { ...override, generation: preset.document.generation };
     const enabledById = new Map(override.prompts.map(prompt => [prompt.id, prompt.enabled]));
     return {
         ...preset.document,

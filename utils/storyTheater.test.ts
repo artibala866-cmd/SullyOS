@@ -56,6 +56,15 @@ import {
 } from './storyTheater';
 
 describe('剧情单次最大输出额度', () => {
+    it('剧情快捷预设快照不会锁住作者后来更新的最大输出', () => {
+        const preset = createBlankStoryPreset('自定义预设');
+        const oldOverride = { ...preset.document, generation: { ...preset.document.generation } };
+        const updated = { ...preset, document: { ...preset.document,
+            generation: { ...preset.document.generation, maxTokens: 250_000 } } };
+        const effective = resolveStoryPresetDocument(updated, oldOverride);
+        expect(effective.generation.maxTokens).toBe(250_000);
+        expect(effective.prompts).toBe(oldOverride.prompts);
+    });
     it('不再对预设额度施加固定上限，旧剧情专属覆盖清除，缺省仍使用默认预设值', () => {
         expect(STORY_DEFAULT_OUTPUT_TOKENS).toBe(30_000);
         expect(normalizeStoryOutputTokens(100_000)).toBe(100_000);
