@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
@@ -308,6 +309,7 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
  // Never auto-run handleTeach: opening a link must not start a paid model request.
 const StudyApp: React.FC<{onExit?:()=>void;highlightCourseId?:string;companionCharId?:string;onCompanionSelect?:(id:string)=>void;onLearningStateChange?:(state:{courseTitle:string;chapterTitle:string;progress:number;tutorCharId?:string}|null)=>void}> = ({onExit,highlightCourseId,companionCharId,onCompanionSelect,onLearningStateChange}) => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, characterGroups } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const [mode, setMode] = useState<'bookshelf' | 'classroom' | 'quiz' | 'quiz_review' | 'practice_book'>('bookshelf');
     const [courses, setCourses] = useState<StudyCourse[]>([]);
     const [coursesLoaded, setCoursesLoaded] = useState(false);
@@ -1699,10 +1701,10 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     <div className="mb-4 rounded-[20px] bg-white px-4 py-3">
                         <h3 className="text-sm font-semibold text-neutral-800 mb-2">助教</h3>
                         {/* 分组筛选（没建分组时不渲染），横向头像列表太挤，单独放一行 */}
-                        <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                        <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                             value={tutorGroupId} onChange={setTutorGroupId} className="mb-2" />
                         <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-                            {filterCharactersByGroup(characters, characterGroups, tutorGroupId).map(c => (
+                            {filterCharactersByGroup(visibleCharacters, characterGroups, tutorGroupId).map(c => (
                                 <div key={c.id} onClick={() => {setSelectedChar(c);onCompanionSelect?.(c.id);}} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${selectedChar?.id === c.id ? 'opacity-100' : 'opacity-50'}`}>
                                     <div className={`w-11 h-11 rounded-full p-[2px] ${selectedChar?.id === c.id ? 'border-2 border-neutral-500' : 'border border-slate-200'}`}>
                                         <TokenImg value={c.avatar} className="w-full h-full rounded-full object-cover" />
@@ -1908,7 +1910,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                 <button type="button" disabled={savingCourseTutor} className="mb-2 min-h-11 w-full rounded-xl bg-[#f5f5f5] px-3 text-left text-sm"
                   onClick={()=>void chooseCourseTutor(undefined)}>跟随学习室 Char</button>
                 <div className="max-h-[42dvh] space-y-1 overflow-y-auto">
-                  {characters.map(c=><button type="button" key={c.id} disabled={savingCourseTutor}
+                  {visibleCharacters.map(c=><button type="button" key={c.id} disabled={savingCourseTutor}
                       aria-pressed={activeCourse?.tutorCharId===c.id}
                       className={'flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-sm '+(activeCourse?.tutorCharId===c.id?'bg-[#e9e9e9]':'hover:bg-[#f7f7f7]')}
                       onClick={()=>void chooseCourseTutor(c.id)}>
