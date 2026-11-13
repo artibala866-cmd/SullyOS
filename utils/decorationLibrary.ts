@@ -1,5 +1,6 @@
 import {localizeCssImages} from './cssImageAssets';
 import {DB} from './db';
+import {DECORATION_DELETED_STORE,parseDecorationDeletedIds} from './decorationTombstones';
 import {decorationSourceKey, rememberBeautySource} from './beautyUsage';
 import {validateDecoration, type DecorationPreset} from './chatDecoration';
 import type {BeautyShare} from './beautyShareContract';
@@ -37,9 +38,11 @@ function serialized<T>(work:()=>Promise<T>):Promise<T>{const result=queue.then(w
 async function readLibrary():Promise<LibraryDecoration[]>{
  const raw=await DB.getAsset(DECORATION_STORE);const values=raw?JSON.parse(raw):[];
  if(!Array.isArray(values))throw Error('装扮收藏格式无效');
+ const deleted=new Set(parseDecorationDeletedIds(await DB.getAsset(DECORATION_DELETED_STORE)));
  const ids=new Set<string>();let changed=false;const list:LibraryDecoration[]=[];
  for(const value of values){
   let id=typeof value._libraryId==='string'?value._libraryId:'';
+  if(id&&deleted.has(id)){changed=true;continue;}
   if(!id||ids.has(id)){id='local-chat-'+crypto.randomUUID();changed=true;await writeDecorationOrigin(id,await readDecorationOrigin(await decorationSourceKey(value)));}
   ids.add(id);list.push({...validateDecoration(value),_libraryId:id,...(value._collection==='outfit'?{_collection:'outfit' as const}:{})});
  }
@@ -48,7 +51,13 @@ async function readLibrary():Promise<LibraryDecoration[]>{
 export const readLibraryDecorations=()=>serialized(readLibrary);
 export const deleteLibraryDecoration=(id:string)=>serialized(async()=>{
  const list=await readLibrary();if(!list.some(item=>item._libraryId===id))throw Error('这份装扮已不存在');
- await DB.saveAsset(DECORATION_STORE,JSON.stringify(list.filter(item=>item._libraryId!==id)));
+ const deleted=parseDecorationDeletedIds(await DB.getAsset(DECORATION_DELETED_STORE));
+ // One transaction commits the removal and its cross-identity deletion marker.
+ // A failed write must never hide the item locally but leave it live elsewhere.
+ await DB.saveAssetBatch([
+  {id:DECORATION_STORE,data:JSON.stringify(list.filter(item=>item._libraryId!==id))},
+  {id:DECORATION_DELETED_STORE,data:JSON.stringify([...new Set([...deleted,id])])},
+ ]);
 });
 export const saveLibraryDecoration=(preset:DecorationPreset,origin:DecorationOrigin,replaceKey?:string,collection?:'outfit')=>serialized(async()=>{
  const list=await readLibrary();let index=-1;
