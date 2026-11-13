@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppID } from '../types';
 import { useAppShortcut } from '../utils/appShortcutLaunch';
@@ -47,6 +48,7 @@ const save = (key: string, value: unknown) => {
 
 const ScheduleApp: React.FC = () => {
   const { closeApp, characters, activeCharacterId, addToast, apiConfig, userProfile } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
   const [tasks, setTasks] = useState<FocusTask[]>(() => load('tasks', []));
   const [records, setRecords] = useState<FocusRecord[]>(() => load('records', []));
   const [taskInput, setTaskInput] = useState('');
@@ -841,7 +843,7 @@ const ScheduleApp: React.FC = () => {
         {previousCoachPlan && !session && !pendingCoachAction && tab!=='study' && <p role="status"
           className="mx-auto max-w-[510px] rounded-2xl bg-white px-4 py-3 text-xs text-neutral-600">{previousCoachPlan}</p>}
         {showCharPicker&&<section className={shell + ' px-2.5 py-2'} aria-label="Char 头像角色栏">
-          <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
+          <StudyCharPicker compact characters={visibleCharacters} selectedId={charId} onSelect={chooseChar}/>
         </section>}
         {tab === 'timer' && <section className="relative mx-auto w-full max-w-[510px] space-y-3 pb-2 sm:pt-3">
             
@@ -1053,7 +1055,7 @@ const ScheduleApp: React.FC = () => {
                 className="grid h-8 w-8 shrink-0 place-items-center"><X size={16}/></button>
             </div>
             {assistantPickerOpen&&<div className="shrink-0 border-b border-neutral-200 bg-white p-2" aria-label="快速切换 Char">
-              <StudyCharPicker compact characters={characters} selectedId={charId} onSelect={chooseChar}/>
+              <StudyCharPicker compact characters={visibleCharacters} selectedId={charId} onSelect={chooseChar}/>
             </div>}
             <div className="study-phone-body">
               {!session&&phonePage==='private'&&activeChar?(
