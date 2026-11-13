@@ -257,7 +257,7 @@ describe('manual event box floor selection', () => {
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(body.messages[0].content).toContain('普通十轮尽量 350—600 字');
         expect(body.messages[0].content).toContain('复杂内容最多约 800 字');
-        expect(body.messages[0].content).toContain('每个事实只写一次');
+        expect(body.messages[0].content).toContain('信息相同只记一次');
         expect(body.messages[0].content).toContain('不能为了省字把不同人物混成');
         expect(body.messages[0].content).toContain('已请求、已联系、正在办理≠成功完成');
         expect(body.messages[0].content).toContain('旁白揭示／内心独白≠其他角色知情');
