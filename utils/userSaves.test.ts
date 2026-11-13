@@ -375,6 +375,20 @@ it('deleting an identity switches safely before purging private data, retaining 
     const target=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(target,'messages')).toEqual([]);expect((await rows(target,'characters'))[0].name).toBe('角色');expect((await rows(target,'characters'))[0].memories).toEqual([]);
     expect(await rows(target,'blob_assets')).toEqual([{id:'shared-wallpaper',blob:'图片内容'}]);target.close();
 });
+it('deleting a secondary identity purges its physical legacy settings without erasing the shared phone preference',async()=>{
+    const scope=await import('./userSaveScope');
+    scope.writeUserSaves({activeId:'original',saves:[{id:'original',name:'保留'}],
+        deletedSaves:[{id:SECOND,name:'已删除',deletedAt:1,purgePending:true}]},null);
+    localStorage.setItem('os_cloud_backup_config','shared-cloud-choice');
+    localStorage.setItem('sully:save-data:'+SECOND+':os_cloud_backup_config','stale-cloud-secret');
+    localStorage.setItem('sully:save-data:'+SECOND+':mp_lastMsgId_c1','private-memory-marker');
+    const {purgeDeletedUserSaves}=await import('./userSaves');
+    await purgeDeletedUserSaves();
+    expect(localStorage.getItem('os_cloud_backup_config')).toBe('shared-cloud-choice');
+    expect(localStorage.getItem('sully:save-data:'+SECOND+':os_cloud_backup_config')).toBeNull();
+    expect(localStorage.getItem('sully:save-data:'+SECOND+':mp_lastMsgId_c1')).toBeNull();
+    expect(scope.readUserSaves().deletedSaves).toEqual([]);
+});
 it('the last identity cannot be deleted',async()=>{
     const {deleteCurrentUserSave}=await import('./userSaves');await expect(deleteCurrentUserSave()).rejects.toThrow('至少保留');expect(reload).not.toHaveBeenCalled();
 });
