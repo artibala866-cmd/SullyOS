@@ -11,7 +11,6 @@ import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { normalizeStoryOutputTokens } from '../../../utils/storyOutputLimits';
 import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
-import { selectLayeredStoryArchiveContext, renderLayeredStoryArchiveContext } from '../../../utils/storyArchiveLayering';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
@@ -56,6 +55,7 @@ import {
     hasStoryTheaterParticipant,
     resolveStoryPresetDocument,
     selectStoryArchiveBatch,
+    selectStoryArchiveContext,
     storyTheaterMemoryRecipientIds,
     storyTheaterThreadId,
     type StoryAffinityInput,
@@ -1234,13 +1234,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             ]);
             const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
-            // Only the API-facing view is layered. Event-box summaries and floor originals
-            // remain byte-for-byte intact and can be recalled in full when relevant.
-            const archiveQuery = [...requestHistory.slice(-2).map(item => item.message.content), modelText].join('\n');
-            const summaries = renderLayeredStoryArchiveContext(
-                selectLayeredStoryArchiveContext(promptEntry.archives, turnBoundary, archiveQuery),
-                floorNumbers,
-            );
+            const summaries = selectStoryArchiveContext(promptEntry.archives, turnBoundary)
+                .map((archive, index) => {
+                    const first = floorNumbers.get(archive.fromMessageId), last = floorNumbers.get(archive.toMessageId);
+                    const range = first && last ? '（第 ' + first + '–' + last + ' 楼）' : '';
+                    return '事件盒 ' + (index + 1) + range + '：' + archive.summary;
+                }).join('\n\n');
             const scenario = [
                 `### 当前剧情\n标题：${entry.title}\n前提：${entry.premise || '沿用已经发生的正文自然继续。'}`,
             ].filter(Boolean).join('\n\n');
