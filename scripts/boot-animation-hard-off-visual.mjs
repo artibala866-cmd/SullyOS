@@ -122,8 +122,21 @@ async function run({ label, width, height, enabled }) {
   } finally {
     try { ws?.close(); } catch {}
     child.kill('SIGTERM');
-    await sleep(180);
-    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    // Chromium writes to Default/ while shutting down. Wait for the child
+    // process to exit; a fixed 180ms sleep races and spuriously fails CI.
+    for (let i = 0; i < 40 && child.exitCode === null && child.signalCode === null; i++)
+      await sleep(100);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await sleep(200);
+    }
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 15, retryDelay: 200 });
+    } catch (error) {
+      // Temporary browser-profile cleanup must never overturn screenshots
+      // that were already checked; leave a diagnostic instead.
+      console.warn('Chrome temporary profile cleanup warning:', error);
+    }
   }
 }
 
