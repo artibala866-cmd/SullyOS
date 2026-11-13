@@ -333,6 +333,40 @@ export const selectStoryArchiveContext = (
 };
 
 /**
+ * Surface older author corrections separately when their event boxes have fallen
+ * outside the limited recent-story window. Never re-inject the old scenes.
+ * Keep records intact and bounded; do not clip an instruction mid-sentence.
+ */
+export const selectStoryArchiveAuthorInstructions = (
+    archives: StoryTheaterArchive[], beforeId: number, recent: StoryTheaterArchive[], budget = 1600,
+): string => {
+    const recentIds = new Set(recent.map(box => box.id));
+    const marker = '用户协助指令：';
+    const selected: string[] = [];
+    const seen = new Set<string>();
+    let used = 0;
+    for (const box of archives
+        .filter(item => item.strategy === 'summary' && item.toMessageId < beforeId
+            && !recentIds.has(item.id) && !!item.summary?.trim())
+        .sort((a, b) => b.toMessageId - a.toMessageId)) {
+        const content = box.summary ?? '';
+        const sectionAt = content.lastIndexOf('【未解决事项与续写落点】');
+        if (sectionAt < 0) continue;
+        const section = content.slice(sectionAt + '【未解决事项与续写落点】'.length);
+        const instructionAt = section.indexOf(marker);
+        if (instructionAt < 0) continue;
+        const instruction = section.slice(instructionAt + marker.length).trim();
+        if (!instruction || instruction === '原文未交代' || seen.has(instruction)) continue;
+        const line = marker + instruction;
+        if (used + line.length + (selected.length ? 1 : 0) > budget) continue;
+        selected.push(line);
+        seen.add(instruction);
+        used += line.length + (selected.length > 1 ? 1 : 0);
+    }
+    return selected.reverse().join('\n');
+};
+
+/**
  * 达到水位线后只归档最旧部分，并至少保留最近若干楼。
  * 如果切点正好落在“你的推进 / 剧场正文”之间，宁可多留一楼，也不拆散这一轮。
  */
