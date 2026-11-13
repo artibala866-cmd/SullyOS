@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import '../components/chat/WeixinOriginalAssets.css';
 import { readLifeClock, writeLifeClock, getLifeTime } from '../utils/sullyLifeClock';
 import { resolveSchedulePresence } from '../utils/chatSchedulePresence';
@@ -178,6 +179,7 @@ const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 export interface HomePhoneChatProps {characterId:string;getContext:()=>string;onBack:()=>void;hideHeader?:boolean}
 const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     const { activeApp, characters, activeCharacterId: osActiveCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, openDateWithChar } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const activeCharacterId=homePhone?.characterId??osActiveCharacterId;
     const privateChatSpeech = usePrivateChatSpeech(activeCharacterId, apiConfig);
     const [typedVoiceEnabled, setTypedVoiceEnabled] = useState(false);
@@ -5045,7 +5047,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                     emojis={filteredEmojis}
                     emojiSuggestionsEnabled={inputPreferences.emojiSuggestions}
                     suggestionEmojis={aiVisibleEmojis}
-                    characters={characters} activeCharacterId={activeCharacterId}
+                    characters={visibleCharacters} activeCharacterId={activeCharacterId}
                     onCharSelect={handleCharSelectCallback}
                     unreadMessages={unreadMessages}
                     customThemes={customThemes} onUpdateTheme={(id) => updateCharacter(char.id, { bubbleStyle: id })}
@@ -5237,7 +5239,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             }} />}
             <Modal isOpen={showForwardModal} title="转发聊天记录" onClose={() => setShowForwardModal(false)}>
                 {(() => {
-                    const forwardCandidates = characters.filter(c => c.id !== activeCharacterId);
+                    const forwardCandidates = visibleCharacters.filter(c => c.id !== activeCharacterId);
                     const forwardChars = filterCharactersByGroup(forwardCandidates, characterGroups, forwardGroupId);
                     return (
                         <div className="space-y-2 max-h-64 overflow-y-auto">
