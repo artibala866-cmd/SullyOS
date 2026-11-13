@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
@@ -28,6 +28,45 @@ const isValidHttpImageUrl = (value: string) => {
 const PerCharAvatarPicker: React.FC = () => {
     const { characters, userProfile, updateUserProfile, addToast } = useOS();
     const overrides = userProfile.perCharAvatars || {};
+    const boundCharacterIds = useMemo(() => new Set(userProfile.boundCharacterIds || []), [userProfile.boundCharacterIds]);
+    const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pressOrigin = useRef<{ x: number; y: number } | null>(null);
+    const suppressClickUntil = useRef(0);
+    useEffect(() => () => { if (pressTimer.current !== null) clearTimeout(pressTimer.current); }, []);
+    const clearPress = () => {
+        if (pressTimer.current !== null) clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+        pressOrigin.current = null;
+    };
+    const toggleBinding = async (charId: string) => {
+        let release: (() => void) | undefined;
+        try {
+            release = beginUserSaveOperation('保存身份绑定');
+            await updateUserProfile(prev => {
+                const existing = new Set((prev.boundCharacterIds || []).filter(id => characters.some(c => c.id === id)));
+                if (existing.has(charId)) existing.delete(charId);
+                else existing.add(charId);
+                return { boundCharacterIds: characters.filter(c => existing.has(c.id)).map(c => c.id) };
+            });
+        } catch (error) {
+            addToast(error instanceof Error ? error.message : '绑定保存失败', 'error');
+        } finally { release?.(); }
+    };
+    const startPress = (charId: string, event: React.PointerEvent<HTMLButtonElement>) => {
+        if (!event.isPrimary || event.button !== 0) return;
+        clearPress();
+        pressOrigin.current = { x: event.clientX, y: event.clientY };
+        pressTimer.current = setTimeout(() => {
+            pressTimer.current = null;
+            pressOrigin.current = null;
+            suppressClickUntil.current = Date.now() + 850;
+            void toggleBinding(charId);
+        }, 550);
+    };
+    const movePress = (event: React.PointerEvent<HTMLButtonElement>) => {
+        const start = pressOrigin.current;
+        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) clearPress();
+    };
 
     const [query, setQuery] = useState('');
     const [page, setPage] = useState(0);
@@ -153,10 +192,22 @@ const PerCharAvatarPicker: React.FC = () => {
                     <div key={`${safePage}-${query}`} className={`grid grid-cols-4 gap-3 ${slideDir === 'l' ? 'pca-slide-l' : 'pca-slide-r'}`}>
                         {pageChars.map(c => {
                             const override = overrides[c.id];
+                            const bound = boundCharacterIds.has(c.id);
                             return (
-                                <button key={c.id} onClick={() => openEditor(c.id)} className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform">
+                                <button key={c.id} type="button" aria-pressed={bound} aria-label={`${c.name}，长按切换身份绑定`}
+                                    onPointerDown={event => startPress(c.id, event)}
+                                    onPointerMove={movePress}
+                                    onPointerUp={clearPress}
+                                    onPointerCancel={clearPress}
+                                    onPointerLeave={clearPress}
+                                    onContextMenu={event => { event.preventDefault(); clearPress(); if (Date.now() >= suppressClickUntil.current) { suppressClickUntil.current = Date.now() + 850; void toggleBinding(c.id); } }}
+                                    onClick={() => { if (Date.now() < suppressClickUntil.current) return; openEditor(c.id); }}
+                                    className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform touch-manipulation">
                                     <div className="relative">
-                                        <TokenImg value={c.avatar} alt="" className="w-14 h-14 rounded-full object-cover bg-slate-100 border border-slate-100 group-hover:border-primary/30 transition-colors" />
+                                        <TokenImg value={c.avatar} alt="" className={`w-14 h-14 rounded-full object-cover bg-slate-100 border border-slate-100 transition-all ${bound ? 'ring-2 ring-primary ring-offset-2 ring-offset-white shadow-[0_2px_12px_rgba(90,90,90,0.16)]' : 'group-hover:border-primary/30'}`} />
+                                        {bound && <span aria-hidden="true" className="absolute -top-1.5 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white ring-2 ring-white shadow-sm pointer-events-none">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="m5 12 4 4L19 6" /></svg>
+                                        </span>}
                                         {/* 右下小圆 = 这个聊天里「你」的头像；设置过 → 主题色描边，否则灰显整体头像 */}
                                         <TokenImg
                                             value={override || userProfile.avatar}
