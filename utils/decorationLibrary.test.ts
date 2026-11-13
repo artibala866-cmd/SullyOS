@@ -1,5 +1,6 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {canEditDecoration,importedOrigin,readDecorationOrigin,saveLibraryDecoration,combineDecorationOrigins,DECORATION_STORE,readLibraryDecorations,deleteLibraryDecoration,replaceReceivedDecoration,remixOrigin,originLabel} from './decorationLibrary';
+import {DECORATION_DELETED_STORE} from './decorationTombstones';
 const assets=vi.hoisted(()=>new Map<string,string>());
 vi.mock('./db',()=>({DB:{saveAssetBatch:vi.fn(async(entries:any[])=>{for(const entry of entries)assets.set(entry.id,entry.data);}),getAsset:async(key:string)=>assets.get(key)||null,saveAsset:async(key:string,value:string)=>{assets.set(key,value);}}}));
 vi.mock('./beautyUsage',()=>({decorationSourceKey:async(p:any)=>'chat-'+p.name,rememberBeautySource:async(key:string,share:unknown)=>{assets.set('beauty_source_'+key,JSON.stringify(share));}}));
@@ -41,7 +42,19 @@ it('keeps stable identity through edits and distinguishes identical copies',asyn
  expect(a).not.toBe(b);await saveLibraryDecoration({...preset,name:'改名'}, {kind:'self'},a);
  const list=await readLibraryDecorations();expect(list.find(p=>p._libraryId===a)?.name).toBe('改名');expect(list.find(p=>p._libraryId===b)?.name).toBe('测试');
  await deleteLibraryDecoration(b);expect((await readLibraryDecorations()).map(p=>p._libraryId)).toEqual([a]);
+ expect(JSON.parse(assets.get(DECORATION_DELETED_STORE)!)).toContain(b);
+ // A stale identity can reintroduce the old list; the deletion marker still wins.
+ assets.set(DECORATION_STORE,JSON.stringify([...(JSON.parse(assets.get(DECORATION_STORE)!)),{...preset,_libraryId:b}]));
+ expect((await readLibraryDecorations()).map(p=>p._libraryId)).toEqual([a]);
  await expect(saveLibraryDecoration(preset,{kind:'self'},b)).rejects.toThrow('不存在');
+});
+it('failed deletion transaction leaves the outfit and its deletion metadata unchanged',async()=>{
+ const {DB}=await import('./db');
+ const id=await saveLibraryDecoration(preset,{kind:'self'});
+ vi.mocked(DB.saveAssetBatch).mockRejectedValueOnce(Error('quota'));
+ await expect(deleteLibraryDecoration(id)).rejects.toThrow('quota');
+ expect((await readLibraryDecorations()).map(item=>item._libraryId)).toEqual([id]);
+ expect(assets.get(DECORATION_DELETED_STORE)).toBeUndefined();
 });
 it('migrates old records once, without exposing IDs in exported packages',async()=>{
  assets.set(DECORATION_STORE,JSON.stringify([preset,preset]));const first=await readLibraryDecorations();
