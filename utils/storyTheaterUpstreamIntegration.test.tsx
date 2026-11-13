@@ -129,7 +129,7 @@ it.each([
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][0]).toBe('https://fixture.invalid/v1/chat/completions');
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
-        max_tokens: delayedHeaders ? 30_000 : 8_000,
+        max_tokens: 8_000, // even with legacy 30000 override, the active preset controls the request
         stream: delayedHeaders,
     });
     await act(async () => root!.render(null));
