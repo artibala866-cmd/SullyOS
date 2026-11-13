@@ -3523,7 +3523,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       userProfileRef.current = next;
       setUserProfile(next);
       await DB.saveUserProfile(next);
-      markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
+      // Role binding controls visible picker options only. Avoid dirtying AI/cloud
+      // message state when no identity/persona content actually changed.
+      if (Object.keys(patch).some(key => key !== 'boundCharacterIds')) {
+          markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
+      }
   };
   const addCustomTheme = async (theme: ChatTheme) => { setCustomThemes(prev => { const exists = prev.find(t => t.id === theme.id); if (exists) return prev.map(t => t.id === theme.id ? theme : t); return [...prev, theme]; }); await DB.saveTheme(theme); };
   const removeCustomTheme = async (id: string) => { setCustomThemes(prev => prev.filter(t => t.id !== id)); await DB.deleteTheme(id); };
