@@ -350,12 +350,17 @@ export const selectStoryArchiveAuthorInstructions = (
             && !recentIds.has(item.id) && !!item.summary?.trim())
         .sort((a, b) => b.toMessageId - a.toMessageId)) {
         const content = box.summary ?? '';
-        const sectionAt = content.lastIndexOf('【未解决事项与续写落点】');
-        if (sectionAt < 0) continue;
-        const section = content.slice(sectionAt + '【未解决事项与续写落点】'.length);
-        const instructionAt = section.indexOf(marker);
-        if (instructionAt < 0) continue;
-        const instruction = section.slice(instructionAt + marker.length).trim();
+        // The exact heading must begin a line; a quoted heading inside a
+        // character's prose is not an archive section or an author command.
+        const headings = [...content.matchAll(/^【未解决事项与续写落点】[ \\t]*/gm)];
+        const lastHeading = headings.at(-1);
+        if (!lastHeading || lastHeading.index === undefined) continue;
+        const section = content.slice(lastHeading.index + lastHeading[0].length);
+        // An explicit author-instruction label must start this section or
+        // follow a paragraph/semicolon boundary, not appear inside a quotation.
+        const instructionMatch = /(?:^|[；\\n])\\s*用户协助指令：([\\s\\S]*)$/.exec(section);
+        if (!instructionMatch) continue;
+        const instruction = instructionMatch[1].trim();
         if (!instruction || instruction === '原文未交代' || seen.has(instruction)) continue;
         const line = marker + instruction;
         if (used + line.length + (selected.length ? 1 : 0) > budget) continue;
