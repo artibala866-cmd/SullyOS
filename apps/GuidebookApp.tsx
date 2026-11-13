@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { ContextBuilder, type ContextMessage } from '../utils/context';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
@@ -592,6 +593,7 @@ const SessionCard: React.FC<{
 // ===== MAIN APP =====
 const GuidebookApp: React.FC = () => {
     const { closeApp, characters, userProfile, apiConfig, addToast, updateCharacter } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
 
     // View State
     const [view, setView] = useState<'lobby' | 'setup' | 'opening' | 'playing' | 'replay'>('lobby');
@@ -1105,7 +1107,7 @@ const GuidebookApp: React.FC = () => {
 
                     {/* Character Banners */}
                     <div className="px-4 pb-3 space-y-3">
-                        {characters.map((c, idx) => {
+                        {visibleCharacters.map((c, idx) => {
                             const charSessions = savedSessions.filter(s => s.charId === c.id);
                             const lastSession = charSessions[0];
                             const isEven = idx % 2 === 0;
@@ -1221,7 +1223,7 @@ const GuidebookApp: React.FC = () => {
                         })}
                     </div>
 
-                    {characters.length === 0 && (
+                    {visibleCharacters.length === 0 && (
                         <div className="text-center py-16 px-6">
                             <div className="text-[10px] tracking-[0.3em] mb-2" style={{ fontFamily: 'Georgia, serif', color: 'rgba(169,169,169,0.3)' }}>NO CHARACTERS FOUND</div>
                             <div className="text-xs" style={{ color: 'rgba(149,149,149,0.5)' }}>还没有角色，先去创建一个吧</div>
