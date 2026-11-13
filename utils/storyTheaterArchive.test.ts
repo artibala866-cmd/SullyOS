@@ -11,7 +11,9 @@ const completion = (content: unknown, finish_reason = 'stop', reasoning_content 
 const sections = ['关键事件与因果', '时间地点与场景', '人物关系与转折', '好感与心理变化', '新增设定与细节', '未解决事项与续写落点'];
 // Test completions contain enough independent story facts to meet the real 100-character saved-box minimum.
 const fixtureFacts = '；补充已确认的剧情背景：小雨与阿泽在雨夜车站一起等待雨停，双方互相认识；阿泽明确答应陪小雨走回家，但还没有确认出发时间。站台外仍有积水，二人尚未离开车站，也没有发生其他已明确完成的行动。';
-const savedSummary = (text: string) => '【关键事件与因果】\n' + text + fixtureFacts;
+const savedSummary = (text: string) => sections.map((heading, index) =>
+    '【' + heading + '】\n' + (index === 0 ? text + fixtureFacts : '原文未交代'),
+).join('\n\n');
 const structured = (text: string, details: Record<string, string> = {}) => completion(sections.map((section, index) =>
     '【' + section + '】\n' + (index === 0 ? (details[section] ?? text) + fixtureFacts : (details[section] ?? '原文未交代')),
 ).join('\n\n'));
@@ -78,11 +80,19 @@ describe('story summary final channel', () => {
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
     it('rejects a too-short final event box rather than archiving the original floors', async () => {
-        const tooShort = sections.map((heading, index) => '【' + heading + '】\n' + (index === 0 ? '两人见面。' : '原文未交代')).join('\n\n');
+        const tooShort = sections.map((heading, index) => '【' + heading + '】\n' + (index === 0 ? '嗯' : '原文未交代')).join('\n\n');
         fetchMock.mockResolvedValueOnce(response(completion(tooShort)));
         await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('必须在 100～1500 字符之间');
         expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
+    });
+
+    it('persists the original six headings even when a category is unknown', async () => {
+        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
+        expect(summary.match(/【[^】]+】/g)).toEqual(sections.map(heading => '【' + heading + '】'));
+        expect(summary).toContain('【人物关系与转折】\n原文未交代');
+        expect(summary).toContain('【未解决事项与续写落点】\n原文未交代');
+        expect(Array.from(summary).length).toBeGreaterThanOrEqual(100);
     });
 
     it('checks the complete saved box including appended UI affinity, not only the model output', async () => {
@@ -104,7 +114,7 @@ describe('story summary final channel', () => {
             { ...messages[0], content: '（纠正：你不要擅自替小雨决定离开）' }, messages[1],
         ], api);
         expect(text).toContain('【未解决事项与续写落点】\n仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。');
-        expect(text.match(/【[^】]+】/g)).toHaveLength(2);
+        expect(text.match(/【[^】]+】/g)).toHaveLength(6);
         expect(Array.from(text).length).toBeGreaterThanOrEqual(100);
         expect(Array.from(text).length).toBeLessThanOrEqual(1500);
         const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
