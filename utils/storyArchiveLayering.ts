@@ -106,7 +106,8 @@ export function selectLayeredStoryArchiveContext(
     const limit = Number.isFinite(budget) ? Math.max(1, budget) : 6000;
     const add = (box: ArchiveRange, tier: LayeredStoryArchive['tier']) => {
         if (taken.has(box.id)) return;
-        const content = tier === 'long-term' ? longTermStoryArchiveView(box.summary) : box.summary;
+        const storedSummary = box.summary || '';
+        const content = tier === 'long-term' ? longTermStoryArchiveView(storedSummary) : storedSummary;
         if (!content.trim()) return;
         const length = Array.from(content).length;
         if (picked.length > 0 && used + length > limit) return;
