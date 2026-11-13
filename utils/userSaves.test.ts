@@ -100,7 +100,19 @@ describe('user 身份存档隔离', () => {
         localStorage.setItem('sully:save-data:' + SECOND + ':os_realtime_config', 'old-b');
         promoteSharedPreferences(localStorage, SECOND);
         expect(a.getItem('os_realtime_config')).toBe('common:os_realtime_config');
-        expect(localStorage.getItem('sully:save-data:' + SECOND + ':os_cloud_backup_config')).toBe('old-b-setting');
+        expect(localStorage.getItem('sully:save-data:' + SECOND + ':os_cloud_backup_config')).toBeNull();
+        expect(localStorage.getItem('sully:save-data:' + SECOND + ':os_realtime_config')).toBeNull();
+        // A cleared setting must not reappear from a stale B preference.
+        localStorage.setItem('sully:save-data:' + SECOND + ':os_cloud_backup_config', 'stale-value');
+        a.removeItem('os_cloud_backup_config');
+        expect(b.getItem('os_cloud_backup_config')).toBeNull();
+        expect(localStorage.getItem('sully:save-data:' + SECOND + ':os_cloud_backup_config')).toBeNull();
+        b.setItem('sully_image_api_v1', 'phone-wide-setting');
+        b.setItem('mp_lastMsgId_c1', 'B-private');
+        b.clear();
+        expect(a.getItem('sully_image_api_v1')).toBe('phone-wide-setting');
+        expect(b.getItem('mp_lastMsgId_c1')).toBeNull();
+        expect(b.getItem('os_realtime_config')).toBe('common:os_realtime_config');
     });
     it('retains all saved chat backgrounds across A/B/A, with role memories and chats isolated', async () => {
         const { openDB } = await import('./db');
@@ -148,6 +160,42 @@ describe('user 身份存档隔离', () => {
         expect((await rows(bAgain, 'messages')).map(row => row.content)).toEqual(['B的聊天记录']);
         expect((await rows(bAgain, 'characters'))[0].memories).toEqual([]);
         bAgain.close();
+    });
+    it('never resurrects a deleted chat outfit from a stale identity after A/B/A/B', async () => {
+        const {openDB}=await import('./db');
+        const original=await openDB();
+        const preset=(id:string)=>({_libraryId:id,format:'sullyos-chat-decoration',version:1,
+            name:'我的聊天背景',parts:{background:{image:'data:image/png;base64,AA==',style:'plain'}}});
+        await write(original,{assets:[{id:'chat_decoration_presets_v1',data:JSON.stringify([preset('deleted-id'),preset('kept-id')])}],
+            messages:[{id:1,charId:'c',content:'A的聊天'}]});
+        await (await import('./userSaves')).activateUserSave(SECOND,{name:'另一个身份'});
+        original.close();
+        vi.resetModules();
+        const {deleteLibraryDecoration}=await import('./decorationLibrary');
+        await deleteLibraryDecoration('deleted-id');
+        const b=await open('AetherOS_Data__user_'+SECOND);
+        expect(JSON.parse((await rows(b,'assets')).find(r=>r.id==='chat_decoration_deleted_ids_v1').data)).toEqual(['deleted-id']);
+        b.close();
+        await (await import('./userSaves')).activateUserSave('original');
+        const a=await open('AetherOS_Data');
+        const contents=await rows(a,'assets');
+        expect(JSON.parse(contents.find(r=>r.id==='chat_decoration_presets_v1').data).map((item:any)=>item._libraryId)).toEqual(['kept-id']);
+        expect(JSON.parse(contents.find(r=>r.id==='chat_decoration_deleted_ids_v1').data)).toEqual(['deleted-id']);
+        expect((await rows(a,'messages')).map(row=>row.content)).toEqual(['A的聊天']);
+        a.close();
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        const again=await open('AetherOS_Data__user_'+SECOND);
+        expect(JSON.parse((await rows(again,'assets')).find(r=>r.id==='chat_decoration_presets_v1').data).map((item:any)=>item._libraryId)).toEqual(['kept-id']);
+        again.close();
+    });
+    it('corrupt chat-deletion metadata cannot silently repopulate another identity',async()=>{
+        const {openDB}=await import('./db');const source=await openDB();
+        await write(source,{assets:[{id:'chat_decoration_deleted_ids_v1',data:'[invalid'}]});
+        const {activateUserSave,readUserSaves}=await import('./userSaves');
+        await expect(activateUserSave(SECOND,{name:'新身份'})).rejects.toThrow('删除记录损坏');
+        expect(readUserSaves().activeId).toBe('original');
+        expect(reload).not.toHaveBeenCalled();source.close();
     });
     it('copies theme-only and CSS image bytes, and repairs an existing broken save without private media', async () => {
         const {openDB}=await import('./db');const source=await openDB();
