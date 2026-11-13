@@ -68,6 +68,87 @@ describe('user 身份存档隔离', () => {
         const b=await open(`AetherOS_Data__user_${SECOND}`);expect(await rows(b,'user_profile')).toEqual([bProfile]);
         expect((await rows(b,'worldbooks'))[0].name).toBe('基础世界书');b.close();
     });
+    it('keeps settings and chat decoration preferences shared while interaction memory stays private', async () => {
+        const { createSaveStorage, isSharedPreference, promoteSharedPreferences } = await import('./userSaveScope');
+        const a = createSaveStorage(localStorage, 'original'), b = createSaveStorage(localStorage, SECOND);
+        const common = [
+            'os_theme', 'os_api_config', 'os_realtime_config', 'os_cloud_backup_config',
+            'os_remote_vector_config', 'os_vision_available_models', 'sully_image_api_v1',
+            'sully_image_presets_v1', 'sully_proxy_worker_url_v1', 'aetheros.mcp.servers',
+            'aetheros.mcp.useNativeTools', 'push_vapid_v1', 'sullyos_backup_reminder',
+            'sully-chat-input-preferences-v1', 'sullyos_chat_wardrobe_guide_v2_done',
+            'chat_translate_enabled_c1',
+        ];
+        for (const key of common) {
+            expect(isSharedPreference(key), key).toBe(true);
+            a.setItem(key, 'common:' + key);
+            expect(b.getItem(key), key).toBe('common:' + key);
+        }
+        for (const key of ['mp_lastMsgId_c1', 'palace_hwm_c1', 'os_last_active_char_id', 'chat_draft_c1']) {
+            expect(isSharedPreference(key), key).toBe(false);
+            a.setItem(key, 'private-a');
+            expect(b.getItem(key), key).toBeNull();
+            b.setItem(key, 'private-b');
+            expect(a.getItem(key), key).toBe('private-a');
+        }
+        localStorage.removeItem('os_cloud_backup_config');
+        localStorage.setItem('sully:save-data:' + SECOND + ':os_cloud_backup_config', 'old-b-setting');
+        promoteSharedPreferences(localStorage, SECOND);
+        expect(a.getItem('os_cloud_backup_config')).toBe('old-b-setting');
+        // If a pre-existing common preference is present, never overwrite it with a
+        // stale identity-local value during a later migration.
+        localStorage.setItem('sully:save-data:' + SECOND + ':os_realtime_config', 'old-b');
+        promoteSharedPreferences(localStorage, SECOND);
+        expect(a.getItem('os_realtime_config')).toBe('common:os_realtime_config');
+        expect(localStorage.getItem('sully:save-data:' + SECOND + ':os_cloud_backup_config')).toBe('old-b-setting');
+    });
+    it('retains all saved chat backgrounds across A/B/A, with role memories and chats isolated', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        const { activateUserSave } = await import('./userSaves');
+        const makePreset = (id: string) => ({
+            _libraryId: id, format: 'sullyos-chat-decoration', version: 1,
+            name: '我的聊天背景', parts: { background: { image: 'data:image/png;base64,AA==', style: 'plain' } },
+        });
+        await write(original, {
+            characters: [{ id: 'c', name: '角色', avatar: '', systemPrompt: '', memories: [{ summary: 'A的独立记忆' }] }],
+            messages: [{ id: 1, charId: 'c', content: 'A的聊天记录' }],
+            assets: [
+                { id: 'chat_decoration_presets_v1', data: JSON.stringify([makePreset('background-a')]) },
+                { id: 'decoration_origin_background-a', data: JSON.stringify({ kind: 'self' }) },
+            ],
+        });
+        await activateUserSave(SECOND, { name: '新身份' });
+        original.close();
+        const b = await open('AetherOS_Data__user_' + SECOND);
+        const backgroundIds = Array.from({ length: 10 }, (_, i) => 'background-b-' + i);
+        await write(b, {
+            assets: [
+                { id: 'chat_decoration_presets_v1', data: JSON.stringify([makePreset('background-a'), ...backgroundIds.map(makePreset)]) },
+                { id: 'decoration_origin_background-b-0', data: JSON.stringify({ kind: 'self' }) },
+            ],
+            messages: [{ id: 2, charId: 'c', content: 'B的聊天记录' }],
+        });
+        b.close();
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        const aAgain = await open('AetherOS_Data');
+        const assets = await rows(aAgain, 'assets');
+        const saved = JSON.parse(assets.find(row => row.id === 'chat_decoration_presets_v1').data);
+        expect(saved.map((item: any) => item._libraryId)).toEqual(['background-a', ...backgroundIds]);
+        expect(assets.find(row => row.id === 'decoration_origin_background-b-0')).toBeDefined();
+        expect((await rows(aAgain, 'messages')).map(row => row.content)).toEqual(['A的聊天记录']);
+        expect((await rows(aAgain, 'characters'))[0].memories).toEqual([{ summary: 'A的独立记忆' }]);
+        aAgain.close();
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        const bAgain = await open('AetherOS_Data__user_' + SECOND);
+        const restored = JSON.parse((await rows(bAgain, 'assets')).find(row => row.id === 'chat_decoration_presets_v1').data);
+        expect(restored.map((item: any) => item._libraryId)).toEqual(['background-a', ...backgroundIds]);
+        expect((await rows(bAgain, 'messages')).map(row => row.content)).toEqual(['B的聊天记录']);
+        expect((await rows(bAgain, 'characters'))[0].memories).toEqual([]);
+        bAgain.close();
+    });
     it('copies theme-only and CSS image bytes, and repairs an existing broken save without private media', async () => {
         const {openDB}=await import('./db');const source=await openDB();
         const theme={launcherWidgets:{film1:'blobref:theme-photo'},chatChromeCustomCss:'background:url("blobref:css-photo")'};
