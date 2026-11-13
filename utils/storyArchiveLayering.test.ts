@@ -30,6 +30,10 @@ describe('剧情六栏事件盒只读分层', () => {
         expect(view).not.toContain('【好感与心理变化】');
         expect(original.summary).toBe(raw);
         expect(readStoryArchiveSections(original.summary || '')).toHaveLength(6);
+        const withAffinity = makeSummary('小雨', {
+            '好感与心理变化': '小雨动摇。\n界面好感记录（用户→角色）：阿泽 · +3 · 未告知角色',
+        });
+        expect(longTermStoryArchiveView(withAffinity)).toContain('界面好感记录');
     });
 
     it('最近两盒完整，老盒关键事实常驻；真正提到旧事才展开心理和地点', () => {
@@ -45,6 +49,8 @@ describe('剧情六栏事件盒只读分层', () => {
         expect(matched?.tier).toBe('related-full');
         expect(matched?.text).toContain('害怕阿泽离开');
         expect(matched?.text).toContain('雨夜车站');
+        const recentRelevant = selectLayeredStoryArchiveContext(entries, 100, '阶段6还有什么未实现的承诺？', 9000);
+        expect(recentRelevant.find(x => x.archiveId === '阶段6')?.tier).toBe('related-full');
     });
 
     it('可召回早于最近8盒的剧情，不偷取未来楼层', () => {
