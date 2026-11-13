@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import AutomaticImageToggle from '../components/chat/AutomaticImageToggle';
 import {photoInstruction} from '../utils/automaticImage';
 import '../components/chat/WeixinOriginalAssets.css';
@@ -505,6 +506,7 @@ export const GroupMessageItem = React.memo(({
 
 const GroupChat: React.FC = () => {
     const { closeApp, groups, createGroup, updateGroup, deleteGroup, updateCharacter, characters, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
     useAppShortcut(ShortcutAppID.GroupChat, intent => {
@@ -1879,9 +1881,9 @@ ${memberTimeline || '(暂无互动记录)'}
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">选择成员</label>
                             {/* 分组筛选（没建分组时不渲染）：只影响可选项的显示，不影响已勾选成员 */}
-                            <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={memberGroupId} onChange={setMemberGroupId} className="mb-2" />
+                            <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups} value={memberGroupId} onChange={setMemberGroupId} className="mb-2" />
                             <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
-                                {filterCharactersByGroup(characters, characterGroups, memberGroupId).map(c => (
+                                {filterCharactersByGroup(visibleCharacters, characterGroups, memberGroupId).map(c => (
                                     <div key={c.id} onClick={() => toggleMemberSelection(c.id)} className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all cursor-pointer ${selectedMembers.has(c.id) ? 'border-neutral-500 bg-neutral-50 ring-1 ring-neutral-500' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                                         <TokenImg value={c.avatar} className="w-10 h-10 rounded-full object-cover" />
                                         <span className="text-[9px] text-slate-600 truncate w-full text-center font-medium">{c.name}</span>
