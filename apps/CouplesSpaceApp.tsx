@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CaretLeft, CaretRight, ArrowRight, GearSix, HandHeart, Heart, Users } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
@@ -167,6 +168,7 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
 
 export default function CouplesSpaceApp() {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, userProfile, apiConfig, addToast } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
   const [partnerId, setPartnerId] = useState(() => characters.some(item => item.id === activeCharacterId) ? (activeCharacterId || '') : (characters[0]?.id || ''));
   const [pickerStep, setPickerStep] = useState<'orbit' | 'actions' | 'space'>('orbit');
   const [pairs, setPairs] = useState(false);
@@ -481,7 +483,7 @@ export default function CouplesSpaceApp() {
           <div className="couple-actions">
             {[{ value: pairA, set: setPairA, name: '角色 A' }, { value: pairB, set: setPairB, name: '角色 B' }].map(item =>
               <select key={item.name} aria-label={item.name} value={item.value} onChange={event => item.set(event.target.value)}>
-                <option value="">{item.name}</option>{characters.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
+                <option value="">{item.name}</option>{visibleCharacters.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
               </select>)}
             <select aria-label="配对关系" value={relation} onChange={event => setRelation(event.target.value as Relation)}>
               {Object.entries(relationNames).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -502,7 +504,7 @@ export default function CouplesSpaceApp() {
         </div>)}
       </>}
       {spaces && !pairs && pickerStep === 'orbit' && <OrbitCharacterPicker
-        characters={characters} selectedId={partnerId} status={bond?.status} busy={busy}
+        characters={visibleCharacters} selectedId={partnerId} status={bond?.status} busy={busy}
         onSelect={id => setPartnerId(id)}
         onContinue={() => setPickerStep(bond?.status === 'open' ? 'space' : 'actions')}
         onPairs={() => setPairs(true)} />}
