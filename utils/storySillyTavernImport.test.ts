@@ -723,7 +723,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
             { title: 'Akover', t: 1, topP: .97, freq: .32, pres: .48, tokens: 65535, effective: 65535 },
             { title: 'Mur', t: 1, topP: 1, freq: 0, pres: 0, tokens: 20000, effective: 20000 },
             { title: 'Janus', t: 1.05, topP: .95, freq: .4, pres: .4, tokens: 10000, effective: 10000 },
-            { title: '上限校验', t: 1, topP: 1, freq: 0, pres: 0, tokens: 120000, effective: 100000 },
+            { title: '超过旧软件上限', t: 1, topP: 1, freq: 0, pres: 0, tokens: 120000, effective: 120000 },
         ];
         for (const sample of samples) {
             const imported = parseStoryTheaterPreset(JSON.stringify({
@@ -743,7 +743,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
                 temperature: sample.t, top_p: sample.topP,
                 frequency_penalty: sample.freq, presence_penalty: sample.pres, max_tokens: sample.effective,
             });
-            if (sample.tokens > 100000) expect(imported.document.importWarnings?.join('\n')).toContain('100000');
+            if (sample.tokens > 100000) expect(imported.document.importWarnings?.join('\n') || '').not.toContain('100000');
         }
     });
 
