@@ -3029,16 +3029,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     latestThemeRef.current = newTheme;
     setTheme(newTheme);
 
-    // Legacy single-image asset is permanently banned — always delete, never save.
-    await DB.deleteAsset('launcherWidgetImage');
-
-    // Save widget images to IndexedDB (each slot is a separate asset)
-    // 值是 blobref 令牌（写端见 apps/Appearance.tsx 的 handleWidgetUpload），一律原样落库。
-    // 别按 data: 前缀挑着存——令牌不带这个前缀，挑的结果是这张图只剩 localStorage 一份，
-    // 启动时 assets 那份是空的、界面上小组件直接没了。
+    // Queue the whole slot map before the first await, so fast repeated uploads cannot
+    // reorder IndexedDB writes even if earlier unrelated asset operations are slow.
+    let widgetPersistence: Promise<void> | null = null;
     if (widgetsChanged) {
         const widgetsForThisWrite = sanitizedWidgets;
-        const persistence = widgetPersistTailRef.current.catch(() => {}).then(async () => {
+        widgetPersistence = widgetPersistTailRef.current.catch(() => {}).then(async () => {
             for (const slot of LAUNCHER_WIDGET_SLOTS) {
                 const val = widgetsForThisWrite?.[slot];
                 if (val) await DB.saveAsset(`widget_${slot}`, val);
@@ -3047,9 +3043,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             await DB.deleteAsset('widget_bl');
             await DB.deleteAsset('widget_br');
         });
-        widgetPersistTailRef.current = persistence;
-        await persistence;
+        widgetPersistTailRef.current = widgetPersistence;
     }
+
+    // Legacy single-image asset is permanently banned — always delete, never save.
+    await DB.deleteAsset('launcherWidgetImage');
+    if (widgetPersistence) await widgetPersistence;
 
     // Logic for Font: Differentiate between Data URI (Blob) and URL (Web Font)
     // Use `in` check so an explicit `customFont: undefined` (user-initiated reset)
