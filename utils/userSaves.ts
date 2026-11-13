@@ -363,9 +363,24 @@ async function purgePendingDeletions(): Promise<void> {
         ));
         const latest = readUserSaves();
         if (latest.activeId !== USER_SAVE_ID || !latest.deletedSaves?.some(entry => entry.id === save.id && entry.purgePending)) continue;
-        const storage = createSaveStorage(nativeLocalStorage, save.id);
-        for (const key of Object.keys(storage)) {
-            if (!isSharedPreference(key)) storage.removeItem(key);
+        if (save.id === DEFAULT_USER_SAVE) {
+            // The original identity uses unprefixed private keys, which must be
+            // removed without touching the global phone-wide preferences.
+            const storage = createSaveStorage(nativeLocalStorage, save.id);
+            for (const key of Object.keys(storage)) {
+                if (!isSharedPreference(key)) storage.removeItem(key);
+            }
+        } else {
+            // For deleted secondary identities, remove ALL physical namespaced
+            // keys, including legacy shadow copies of now-shared API settings.
+            // The real global preference is unprefixed and is not affected.
+            const prefix = `sully:save-data:${save.id}:`;
+            const stale: string[] = [];
+            for (let i = 0; i < nativeLocalStorage.length; i++) {
+                const key = nativeLocalStorage.key(i);
+                if (key?.startsWith(prefix)) stale.push(key);
+            }
+            for (const key of stale) nativeLocalStorage.removeItem(key);
         }
         writeUserSaves({
             ...latest,
