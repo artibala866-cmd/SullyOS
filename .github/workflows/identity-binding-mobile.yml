@@ -1,0 +1,67 @@
+name: Identity binding real mobile UI check
+
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - '.github/workflows/identity-binding-mobile.yml'
+      - 'components/user/PerCharAvatarPicker.tsx'
+      - 'utils/identityCharacterBinding*'
+      - 'hooks/useIdentityCharacterOptions.ts'
+      - 'tests/identity-character-binding-visual.*'
+      - 'scripts/identity-character-binding-visual.mjs'
+      - 'types.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity-binding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check identity filtering and A/B private profiles
+        run: pnpm exec vitest run utils/identityCharacterBinding.test.ts utils/userSaves.test.ts
+      - name: Check binding TypeScript
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/identity-tsc.log 2>&1 || true
+          grep -E '^(utils/identityCharacterBinding(\\.test)?\\.ts|hooks/useIdentityCharacterOptions\\.ts|components/user/PerCharAvatarPicker\\.tsx|tests/identity-character-binding-visual\\.tsx)[(]' /tmp/identity-tsc.log > /tmp/identity-errors.log || true
+          if [ -s /tmp/identity-errors.log ]; then cat /tmp/identity-errors.log; exit 1; fi
+      - name: Test actual avatar long press and capture 320/390px screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite --host 127.0.0.1 --port 5196 --strictPort >/tmp/identity-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:5196/tests/identity-character-binding-visual.html >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/identity-vite.log; exit 1; fi
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node scripts/identity-character-binding-visual.mjs || {
+            tail -n 120 /tmp/identity-vite.log || true
+            exit 1
+          }
+      - name: Upload true UserApp mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-binding-ui-320-390
+          path: /tmp/identity-binding-shots/*.png
+          if-no-files-found: warn
+          retention-days: 7
