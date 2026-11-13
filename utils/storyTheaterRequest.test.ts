@@ -55,6 +55,17 @@ describe('见面剧情实际请求', () => {
             { id: 'future', strategy: 'summary', fromMessageId: rows[12].id, toMessageId: rows[12].id,
                 messageCount: 1, summary: '这一段还未发生', createdAt: 2 },
         ];
+        if (mode === '事件盒') {
+            // The oldest correction falls outside the eight newest event boxes,
+            // but should still reach the prose request without the old scene.
+            entry.archives.unshift(...Array.from({ length: 10 }, (_, i) => ({
+                id: 'history-' + i, strategy: 'summary' as const, fromMessageId: i * 2 + 1,
+                toMessageId: i * 2 + 2, messageCount: 2, createdAt: i,
+                summary: i === 0
+                    ? '【关键事件与因果】\n旧场景在车站发生。\n\n【未解决事项与续写落点】\n用户协助指令：不替小雨决定离开。'
+                    : '旧事件盒普通剧情记录 ' + i,
+            })));
+        }
         if (mode !== '事件盒') {
             entry.archives = mode !== '已撤销向量'
                 ? [{ ...entry.archives[0], summary: undefined, strategy: 'vector', vectorMemoryIds: ['active-'+mode] }]
@@ -92,6 +103,11 @@ describe('见面剧情实际请求', () => {
             expect(payload.some(message => message.content.includes('<delta>+17</delta>'))).toBe(readsOriginal);
             expect(payload.some(message => message.content.includes('楼层内容 11'))).toBe(true);
             expect(payload.filter(message => message.content.includes('旧约定：先去庭院找钥匙。'))).toHaveLength(mode === '事件盒' ? 1 : 0);
+            expect(payload.some(message => message.content.includes('较早事件盒的用户协助指令'))).toBe(mode === '事件盒');
+            if (mode === '事件盒') {
+                expect(payload.some(message => message.content.includes('用户协助指令：不替小雨决定离开。'))).toBe(true);
+                expect(payload.some(message => message.content.includes('旧场景在车站发生'))).toBe(false);
+            }
             expect(payload.filter(message => message.content.includes(vectorText))).toHaveLength(mode === '独立向量' ? 1 : 0);
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
             expect(payload.at(-2)?.content).toBe('侧门通向庭院。');
