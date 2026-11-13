@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { resolveDialogueApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
@@ -516,6 +517,7 @@ ${currentVoiceActingGuide()}
 };
 const CallApp: React.FC = () => {
   const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, updateApiConfig, userProfile, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
 
   const [viewMode, setViewMode] = useState<ViewMode>('role-select');
   useAppShortcut(ShortcutAppID.Call, intent => {
@@ -3111,7 +3113,7 @@ ${sentencePlan}`;
     />
   ) : null;
   if (viewMode === 'role-select') {
-    const groupChars = filterCharactersByGroup(characters, characterGroups, roleGroupId);
+    const groupChars = filterCharactersByGroup(visibleCharacters, characterGroups, roleGroupId);
     const totalPages = Math.max(1, Math.ceil(groupChars.length / ROLES_PER_PAGE));
     const page = Math.min(rolePage, totalPages - 1);
     const pagedChars = groupChars.slice(page * ROLES_PER_PAGE, page * ROLES_PER_PAGE + ROLES_PER_PAGE);
@@ -3222,7 +3224,7 @@ ${sentencePlan}`;
           </div>
 
           {/* 分组筛选（没建分组时不渲染） */}
-          <CharacterGroupFilterBar characters={characters} groups={characterGroups} dark={!lightTheme}
+          <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups} dark={!lightTheme}
             value={roleGroupId} onChange={(id) => { setRoleGroupId(id); setRolePage(0); }} className="mt-4 shrink-0" />
 
           {/* character cards (6 / page) */}
