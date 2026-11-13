@@ -100,7 +100,7 @@ const HandbookApp: React.FC = () => {
         () => entries.find(e => e.date === getLocalDateStr()) || null,
         [entries],
     );
-    const lifestreamCandidates = useMemo(() => pickLifestreamChars(characters), [characters]);
+    const lifestreamCandidates = useMemo(() => pickLifestreamChars(visibleCharacters), [visibleCharacters]);
 
     // ─── 写入 entry 助手 ────────────────────────────────
     const upsertEntry = useCallback(async (date: string, mutate: (e: HandbookEntry) => HandbookEntry) => {
@@ -114,7 +114,7 @@ const HandbookApp: React.FC = () => {
 
     // ─── 打开"生成今日"面板 ─────────────────────────
     const openGeneratePicker = async () => {
-        const chatted = await findCharactersWithChatToday(characters, activeDate);
+        const chatted = await findCharactersWithChatToday(visibleCharacters, activeDate);
         setChatCharIds(chatted);
         setExcludedChatChars(new Set());
         setExcludedLifeChars(new Set());
