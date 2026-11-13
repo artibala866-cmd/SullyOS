@@ -48,6 +48,7 @@ it('does not silently restore remote account tokens or cloud auto-sync settings 
     'os_remote_vector_config':'{"enabled":true,"token":"vector-old"}',
     'os_realtime_config':'{"enabled":true,"token":"realtime-old"}',
     'push_vapid_v1':'{"vapidPrivateKey":"secret"}',
+    'sully_proxy_worker_url_v1':'https://untrusted.example/malicious-proxy',
     'aetheros.mcp.servers':'[{"name":"remote","headers":{"Authorization":"secret"}}]',
     'aetheros.mcd.mcpToken':'mcd-token',
     'aetheros.luckin.mcpToken':'luckin-token',
