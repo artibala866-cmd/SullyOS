@@ -94,7 +94,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
         expect(doc.sourceFormat).toBe('sillytavern');
         expect(doc.squashSystemMessages).toBe(true);
         expect(doc.generation).toEqual({
-            temperature: 1.05, topP: 0.96, frequencyPenalty: 0.6, presencePenalty: 0.5, maxTokens: 30000,
+            temperature: 1.05, topP: 0.96, frequencyPenalty: 0.6, presencePenalty: 0.5, maxTokens: 50000,
         });
         expect(doc.prompts.map(p => p.id).slice(0, 3)).toEqual(['st-worldInfoBefore', 'st-main', 'st-charDescription']);
         expect(doc.prompts.find(p => p.id === 'st-main')).toMatchObject({ enabled: true, content: '核心 {{char}} {{user}}' });
@@ -713,10 +713,11 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
 
     it('视频默认版参数：四份酒馆导出里的温度、Top P、两项惩罚和输出上限实际映射到请求设置', () => {
         const samples = [
-            { title: '冥王星', t: 1, topP: .9, freq: 0, pres: 0, tokens: 60000, effective: 30000 },
-            { title: 'Akover', t: 1, topP: .97, freq: .32, pres: .48, tokens: 65535, effective: 30000 },
+            { title: '冥王星', t: 1, topP: .9, freq: 0, pres: 0, tokens: 60000, effective: 60000 },
+            { title: 'Akover', t: 1, topP: .97, freq: .32, pres: .48, tokens: 65535, effective: 65535 },
             { title: 'Mur', t: 1, topP: 1, freq: 0, pres: 0, tokens: 20000, effective: 20000 },
             { title: 'Janus', t: 1.05, topP: .95, freq: .4, pres: .4, tokens: 10000, effective: 10000 },
+            { title: '上限校验', t: 1, topP: 1, freq: 0, pres: 0, tokens: 120000, effective: 100000 },
         ];
         for (const sample of samples) {
             const imported = parseStoryTheaterPreset(JSON.stringify({
@@ -736,7 +737,7 @@ describe('酒馆 Chat Completion JSON 智能适配', () => {
                 temperature: sample.t, top_p: sample.topP,
                 frequency_penalty: sample.freq, presence_penalty: sample.pres, max_tokens: sample.effective,
             });
-            if (sample.tokens > 30000) expect(imported.document.importWarnings?.join('\n')).toContain('30000');
+            if (sample.tokens > 100000) expect(imported.document.importWarnings?.join('\n')).toContain('100000');
         }
     });
 
