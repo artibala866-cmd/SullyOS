@@ -111,6 +111,25 @@ describe('story summary final channel', () => {
         expect(summary.match(/【[^】]+】/g)).toHaveLength(6);
     });
 
+    it('keeps ambiguous lookalike names, tentative sensing, failed actions and delivery status in the actual source prompt', async () => {
+        const ambiguous: Message[] = [
+            { ...messages[0], content: '幸芳白是已故哥哥（魂魄）；妹妹幸福哭着求哥哥带走自己，但本人仍活着。' },
+            { ...messages[1], content: '幸福凭宠物反应和冷气认定哥哥在旁，但看不到魂魄。幸芳白试图用智能音箱开暖气失败。顾北成联系老王送货，货尚未到；平措刚骑车到店门口。' },
+        ];
+        await generateStoryArchiveSummary(entry.title, ambiguous, api);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        const system: string = body.messages[0].content;
+        const source: string = body.messages[1].content;
+        for (const rule of ['人物的愿望、请求、计划', '角色A知道的事≠角色B也知道', '失败的尝试不能写成成功', '不能把将到场写成已交谈']) {
+            expect(system).toContain(rule);
+        }
+        expect(system).not.toContain('幸芳白');
+        expect(system).not.toContain('幸福');
+        expect(source).toContain('妹妹幸福哭着求哥哥带走自己，但本人仍活着');
+        expect(source).toContain('货尚未到；平措刚骑车到店门口');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
     it('rejects a missing or empty section without changing the box or retrying', async () => {
         fetchMock.mockResolvedValueOnce(response(completion('【关键事件与因果】\n两人一起回家。')));
         await expect(regenerate()).rejects.toThrow('时间地点与场景');
@@ -236,11 +255,15 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('普通十轮剧情以 400—650 字为目标');
-        expect(body.messages[0].content).toContain('复杂情节最多 800 字');
+        expect(body.messages[0].content).toContain('普通十轮尽量 350—600 字');
+        expect(body.messages[0].content).toContain('复杂内容最多约 800 字');
         expect(body.messages[0].content).toContain('每个事实只写一次');
-        expect(body.messages[0].content).toContain('不逐楼流水账');
-        expect(body.messages[0].content).toContain('不能把感应、猜测写成确定事实');
+        expect(body.messages[0].content).toContain('不能为了省字把不同人物混成');
+        expect(body.messages[0].content).toContain('已请求、已联系、正在办理≠成功完成');
+        expect(body.messages[0].content).toContain('旁白揭示／内心独白≠其他角色知情');
+        expect(body.messages[0].content).toContain('旧事件盒由续写系统另行读取');
+        expect(body.messages[0].content).toContain('不写完整叙事、对话复述、心理散文或每楼流水账');
+        expect(body.messages[0].content).toContain('怀疑、感应、猜测≠亲眼确认');
         expect(body.messages[0].content).toContain('人物关系与转折');
         expect(body.messages[0].content).toContain('新增设定与细节');
         expect(body.messages[0].content).toContain('未解决事项与续写落点');
