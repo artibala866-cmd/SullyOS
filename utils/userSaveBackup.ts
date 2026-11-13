@@ -20,7 +20,8 @@ interface DatabaseSnapshot { kind: Kind; version: number; stores: StoreSnapshot[
  * or unattended cloud services when restoring a backup on a different device. */
 const RESTORE_CONNECTION_PREFS = new Set([
     'os_remote_vector_config', 'os_cloud_backup_config', 'os_realtime_config',
-    'push_vapid_v1', 'aetheros.mcp.servers', 'aetheros.mcp.useNativeTools',
+    'push_vapid_v1', 'sully_proxy_worker_url_v1',
+    'aetheros.mcp.servers', 'aetheros.mcp.useNativeTools',
     'aetheros.mcd.mcpToken', 'aetheros.mcd.mcpEnabled',
     'aetheros.luckin.mcpToken', 'aetheros.luckin.mcpEnabled',
     'sully-beauty-author-session-v1',
