@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 /**
  * 手账主编排
  *
@@ -34,6 +35,7 @@ import { CaretLeft, Plus, Sparkle } from '@phosphor-icons/react';
 
 const HandbookApp: React.FC = () => {
     const { closeApp, characters, apiConfig, userProfile, addToast } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
 
     type View = 'list' | 'day';
     const [view, setView] = useState<View>('list');
@@ -588,8 +590,8 @@ const HandbookApp: React.FC = () => {
             />
             <HandbookCharPicker
                 visible={showCharPicker}
-                chatChars={chatCharObjs}
-                lifeChars={lifestreamCandidates}
+                chatChars={chatCharObjs.filter(c => visibleCharacters.some(v => v.id === c.id))}
+                lifeChars={lifestreamCandidates.filter(c => visibleCharacters.some(v => v.id === c.id))}
                 excludedChat={excludedChatChars}
                 excludedLife={excludedLifeChars}
                 onToggleChat={(id) => setExcludedChatChars(prev => {
