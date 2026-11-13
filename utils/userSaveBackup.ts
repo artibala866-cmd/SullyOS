@@ -16,6 +16,16 @@ interface StoreSnapshot {
     parts: string[]; count: number;
 }
 interface DatabaseSnapshot { kind: Kind; version: number; stores: StoreSnapshot[] }
+/** Shared while switching locally, but never silently re-authorize accounts
+ * or unattended cloud services when restoring a backup on a different device. */
+const RESTORE_CONNECTION_PREFS = new Set([
+    'os_remote_vector_config', 'os_cloud_backup_config', 'os_realtime_config',
+    'push_vapid_v1', 'aetheros.mcp.servers', 'aetheros.mcp.useNativeTools',
+    'aetheros.mcd.mcpToken', 'aetheros.mcd.mcpEnabled',
+    'aetheros.luckin.mcpToken', 'aetheros.luckin.mcpEnabled',
+    'sully-beauty-author-session-v1',
+]);
+
 interface SaveSnapshot { id: string; name: string; preferences: Wire; databases: DatabaseSnapshot[] }
 interface Manifest { format: typeof FORMAT; version: 1; saves: SaveSnapshot[]; files: Record<string, { size: number; sha256: string }> }
 const constructors: Record<string, any> = { Uint8Array, Uint8ClampedArray, Int8Array, Uint16Array, Int16Array, Uint32Array, Int32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, DataView };
@@ -225,6 +235,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                 for(const [key,value] of Object.entries(preferences)) {
                     // Restored copies must not reconnect to the source identity's remote
                     // memories, cloud backup target or unattended online account.
+                    if(RESTORE_CONNECTION_PREFS.has(key))continue;
                     if(typeof value==='string' && isSharedPreference(key)) { if(nativeLocalStorage.getItem(key)===null) missingShared.set(key,value); continue; }
                     if(typeof value!=='string' || isSharedPreference(key) || isUserSaveIndexKey(key) || key.startsWith('sully:save-data:') || ['os_remote_vector_config','os_cloud_backup_config','os_realtime_config'].includes(key))continue;
                     const rawKey=`sully:save-data:${id}:${key}`;localKeys.push(rawKey);nativeLocalStorage.setItem(rawKey,value);
