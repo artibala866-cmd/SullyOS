@@ -66,9 +66,8 @@ try {
         identity: document.body?.dataset.identity,
         count: document.querySelectorAll('.wardrobe-item').length,
         error: document.body?.dataset.visualError || document.querySelector('[role="alert"]')?.textContent,
-        rendered: Array.from(document.querySelectorAll('.wardrobe-item'))
-          .filter(el => !!el.querySelector('.beauty-preset-preview')?.shadowRoot ||
-            !!el.querySelector('.beauty-preset-preview')?.querySelector('*')?.shadowRoot).length,
+        rendered: Array.from(document.querySelectorAll('[data-beauty-preview-source]'))
+          .filter(el => !!el.shadowRoot?.querySelector('.beauty-preview-body')).length,
       })`);
       if (last?.error) throw Error('Wardrobe browser error: ' + last.error);
       if (last?.identity === identity && last.count === 10) return last;
@@ -82,6 +81,8 @@ try {
   await send('Page.navigate', { url: origin + '/test/fixtures/user-save-wardrobe.html' });
   const b = await ready('B');
   await sleep(1800); // Let the asynchronous Shadow DOM thumbnail previews render.
+  const previews = await evaluate("Array.from(document.querySelectorAll('[data-beauty-preview-source]')).filter(el => !!el.shadowRoot?.querySelector('.beauty-preview-body')).length");
+  assert(previews >= 3, 'Saved background thumbnail previews were blank: ' + previews);
   await screenshot('identity-b-390');
   await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 700, deviceScaleFactor: 1, mobile: true });
   await sleep(500);
