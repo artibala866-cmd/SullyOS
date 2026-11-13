@@ -50,7 +50,7 @@ export function longTermStoryArchiveView(summary: string): string {
 }
 
 function storyQueryKeywords(query: string): string[] {
-    const words = query.slice(-1600).match(/[\u3400-\u9fff]{2,}|[A-Za-z][A-Za-z0-9_-]{3,}|\d{3,}/g) || [];
+    const words = query.slice(-1600).match(/[\u3400-\u9fff]{2,}\d{1,6}|[\u3400-\u9fff]{2,}|[A-Za-z][A-Za-z0-9_-]{3,}|\d{3,}/g) || [];
     const terms = new Set<string>();
     for (const word of words) {
         if (/^[\u3400-\u9fff]+$/.test(word)) {
@@ -68,7 +68,13 @@ function relevanceScore(summary: string, keywords: string[]): number {
     const body = summary.toLowerCase();
     let score = 0;
     for (const word of keywords) {
+        if (/[\u3400-\u9fff]\d/.test(word)) {
+            // "章节1" must not accidentally match "章节10".
+            const escaped = word.replace(/[.*+?^{}$()|[\]\\]/g, '\\    for (const word of keywords) {
         if (body.includes(word)) score++;
+    }');
+            if (new RegExp(escaped + '(?!\\d)').test(body)) score += 8;
+        } else if (body.includes(word)) score++;
     }
     // One common Chinese bigram is not enough to recall an entire old event box.
     return score;
