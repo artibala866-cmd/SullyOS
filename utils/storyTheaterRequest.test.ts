@@ -107,6 +107,8 @@ describe('见面剧情实际请求', () => {
             if (mode === '事件盒') {
                 expect(payload.some(message => message.content.includes('用户协助指令：不替小雨决定离开。'))).toBe(true);
                 expect(payload.some(message => message.content.includes('旧场景在车站发生'))).toBe(false);
+                expect(payload.some(message => message.content.includes('事件盒只记录已经发生的关键事件'))).toBe(true);
+                expect(payload.some(message => message.content.includes('事件盒记录该楼段结束时的状态'))).toBe(false);
             }
             expect(payload.filter(message => message.content.includes(vectorText))).toHaveLength(mode === '独立向量' ? 1 : 0);
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
