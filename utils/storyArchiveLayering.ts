@@ -70,9 +70,7 @@ function relevanceScore(summary: string, keywords: string[]): number {
     for (const word of keywords) {
         if (/[\u3400-\u9fff]\d/.test(word)) {
             // "章节1" must not accidentally match "章节10".
-            const escaped = word.replace(/[.*+?^{}$()|[\]\\]/g, '\\    for (const word of keywords) {
-        if (body.includes(word)) score++;
-    }');
+            const escaped = word; // Words only contain Han characters and digits.
             if (new RegExp(escaped + '(?!\\d)').test(body)) score += 8;
         } else if (body.includes(word)) score++;
     }
@@ -101,7 +99,7 @@ export function selectLayeredStoryArchiveContext(
     const keywords = storyQueryKeywords(query);
     const recent = eligible.slice(0, 2);
     const matching = eligible.slice(2)
-        .map(box => ({ box, score: relevanceScore(box.summary, keywords) }))
+        .map(box => ({ box, score: relevanceScore(box.summary || '', keywords) }))
         .filter(item => item.score >= 2)
         .sort((a, b) => b.score - a.score || b.box.toMessageId - a.box.toMessageId)
         .slice(0, 2)
