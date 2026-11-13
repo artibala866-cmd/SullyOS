@@ -125,12 +125,31 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
         return '[' + floor + speaker + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
+    // The app appends original affinity receipts after the LLM replies.
+    // Reserve their exact length so the advertised 1500-character ceiling
+    // applies to the final saved box, not merely the model's draft.
+    const extraAffinityText = affinity.length
+        ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n')
+        : '';
+    const extraAffinityChars = storyArchiveCharacterCount(extraAffinityText);
+    const availableModelChars = STORY_ARCHIVE_MAX_CHARS - extraAffinityChars;
+    const minimumSixSections = archiveHeadings.map((heading, index) =>
+        '【' + heading + '】\n' + (index === 0 ? '事' : UNSPECIFIED),
+    ).join('\n\n');
+    if (availableModelChars < storyArchiveCharacterCount(minimumSixSections)) {
+        throw new Error('本批界面好感记录过长，留给六栏事件盒的空间不足；请分较小的楼层范围归档或缩短好感备注，原文和旧归档已保留');
+    }
+    const instruction = extraAffinityChars > 0
+        ? STORY_ARCHIVE_INSTRUCTION + '\n本批界面好感记录将在保存时额外占用 '
+            + extraAffinityChars + ' 字符。你只生成六栏文本，最多 '
+            + availableModelChars + ' 字符；不要重复抄写好感记录。'
+        : STORY_ARCHIVE_INSTRUCTION;
     const stream = !options?.storyOnlyProvider && isGlobalStreamEnabled();
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(api.apiKey ? { Authorization: `Bearer ${api.apiKey}` } : {}) },
         body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, max_tokens: 4096, messages: [
-            { role: 'system', content: STORY_ARCHIVE_INSTRUCTION },
+            { role: 'system', content: instruction },
             { role: 'user', content: `剧情：${title}\n\n${transcript}` },
         ] }),
         __sullyMeta: { appId: 'date', appName: '见面', purpose: options?.strategy === 'vector' ? '剧情独立向量 · 总结' : '剧情事件盒总结' },
