@@ -17,7 +17,7 @@ import type {
     UserProfile,
 } from '../types';
 import nightScreeningV627 from '../assets/presets/night-screening-v6.14.sully.json';
-import { normalizeStoryOutputTokens, STORY_MAX_OUTPUT_TOKENS } from './storyOutputLimits';
+import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS } from './storyOutputLimits';
 import { normalizeStoryMemoryApi } from './storyMemoryApi';
 import {
     type WorldbookScanMessage,
@@ -841,7 +841,7 @@ export const createBlankStoryPreset = (name = '新剧情预设', now = Date.now(
     id: makeStoryTheaterId(), name, format: 'sullyos-story-preset', createdAt: now, updatedAt: now,
     document: {
         schema: 'sullyos.story-preset', version: 1, name,
-        generation: { temperature: 0.9, topP: 1, frequencyPenalty: 0, presencePenalty: 0, maxTokens: STORY_MAX_OUTPUT_TOKENS },
+        generation: { temperature: 0.9, topP: 1, frequencyPenalty: 0, presencePenalty: 0, maxTokens: STORY_DEFAULT_OUTPUT_TOKENS },
         prompts: [
             { id: makeStoryTheaterId(), name: '主叙事规则', enabled: true, role: 'system', content: '直接续写连续的第三人称故事，让人物保持独立动机与知识边界。' },
             { id: makeStoryTheaterId(), name: '世界书 · 角色设定前', enabled: true, role: 'system', content: '', marker: 'world_before' },

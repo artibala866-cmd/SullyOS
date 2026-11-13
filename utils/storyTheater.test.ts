@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readStoryCompletion, storyStreamingPreviewText } from './storyTheaterCompletionIntegrity';
 import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
+import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS, STORY_MAX_OUTPUT_TOKENS } from './storyOutputLimits';
 import {
     appendStoryAffinityInput,
     appendStoryAffinityInputs,
@@ -53,6 +54,19 @@ import {
     makeStoryPresetFileName,
     makeStoryTheaterFileName,
 } from './storyTheater';
+
+describe('剧情单次最大输出额度', () => {
+    it('上限允许 100000 tokens，已保存的 30000 和默认配置保持不变', () => {
+        expect(STORY_MAX_OUTPUT_TOKENS).toBe(100_000);
+        expect(STORY_DEFAULT_OUTPUT_TOKENS).toBe(30_000);
+        expect(normalizeStoryOutputTokens(100_000)).toBe(100_000);
+        expect(normalizeStoryOutputTokens(200_000)).toBe(100_000);
+        expect(normalizeStoryOutputTokens(undefined)).toBe(30_000);
+        expect(createBlankStoryPreset('测试预设').document.generation.maxTokens).toBe(30_000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), outputMaxTokens: 100_000 }).outputMaxTokens).toBe(100_000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), outputMaxTokens: 30_000 }).outputMaxTokens).toBe(30_000);
+    });
+});
 
 describe('线下剧情多轮历史一致性', () => {
     it('12 轮后仍按落库 ID 读取真正的上一条，不被旧时间戳反向排序', () => {
