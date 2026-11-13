@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useOS } from '../context/OSContext';
@@ -18,6 +19,7 @@ import {
 
 const Gallery: React.FC<{lockedCharacterId?:string; onExit?:()=>void}> = ({lockedCharacterId,onExit}) => {
     const { closeApp, characters, apiConfig, addToast } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const [view, setView] = useState<'albums' | 'grid' | 'detail'>(lockedCharacterId?'grid':'albums');
     const [activeCharId, setActiveCharId] = useState<string | null>(lockedCharacterId||null);
     useAppShortcut(ShortcutAppID.Gallery, intent => {
@@ -295,7 +297,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
     const renderAlbums = () => (
         <div className="grid grid-cols-2 gap-5 p-5 animate-fade-in">
-            {characters.map(char => {
+            {visibleCharacters.map(char => {
                 const count = albumCounts[char.id] || 0;
                 const status = imgStatus[char.id] || 'loading';
                 return (
@@ -337,7 +339,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     </button>
                 );
             })}
-            {characters.length === 0 && <div className="col-span-2 text-center text-slate-400 py-16 text-xs">暂无角色相册</div>}
+            {visibleCharacters.length === 0 && <div className="col-span-2 text-center text-slate-400 py-16 text-xs">暂无角色相册</div>}
         </div>
     );
 
