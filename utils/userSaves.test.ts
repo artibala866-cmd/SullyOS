@@ -76,7 +76,8 @@ describe('user 身份存档隔离', () => {
             'os_remote_vector_config', 'os_vision_available_models', 'sully_image_api_v1',
             'sully_image_presets_v1', 'sully_proxy_worker_url_v1', 'aetheros.mcp.servers',
             'aetheros.mcp.useNativeTools', 'push_vapid_v1', 'sullyos_backup_reminder',
-            'sully-chat-input-preferences-v1', 'sullyos_chat_wardrobe_guide_v2_done',
+            'sully-chat-input-preferences-v1', 'sully-call-preferences-v1',
+            'sully-call-update-preferences-2026-08-v2', 'sullyos_chat_wardrobe_guide_v2_done',
             'chat_translate_enabled_c1',
         ];
         for (const key of common) {
