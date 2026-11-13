@@ -8,6 +8,8 @@ on:
       - 'components/date/story/StoryTheaterSession.tsx'
       - 'components/date/story/StoryTheaterTheme.tsx'
       - 'utils/storyTheater.ts'
+      - 'utils/storyArchiveLayering.ts'
+      - 'utils/storyArchiveLayering.test.ts'
       - 'utils/db.ts'
   workflow_dispatch:
 permissions:
@@ -29,7 +31,7 @@ jobs:
       - name: Real React story reader, rapid paging, archive cancellation, swap during load
         env:
           SULLY_TEST_OFFLINE: '1'
-        run: pnpm exec vitest run utils/storyAdversarialReader.test.ts utils/largeHistoryStress.test.tsx --reporter=verbose
+        run: pnpm exec vitest run utils/storyAdversarialReader.test.ts utils/largeHistoryStress.test.tsx utils/storyArchiveLayering.test.ts --reporter=verbose
       - name: Check new reader scenario typing
         shell: bash
         run: |
