@@ -39,6 +39,13 @@ jobs:
           pnpm exec tsc --noEmit --pretty false > /tmp/identity-tsc.log 2>&1 || true
           grep -E '^(utils/identityCharacterBinding(\\.test)?\\.ts|hooks/useIdentityCharacterOptions\\.ts|components/user/PerCharAvatarPicker\\.tsx|tests/identity-character-binding-visual\\.tsx)[(]' /tmp/identity-tsc.log > /tmp/identity-errors.log || true
           if [ -s /tmp/identity-errors.log ]; then cat /tmp/identity-errors.log; exit 1; fi
+      - name: Install Chinese font for real mobile UI screenshots
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/share/fonts"
+          curl -fL --retry 2 --max-time 60 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o "$HOME/.local/share/fonts/NotoSansCJKsc-Regular.otf"
+          fc-cache -f "$HOME/.local/share/fonts"
+
       - name: Test actual avatar long press and capture 320/390px screens
         shell: bash
         run: |
