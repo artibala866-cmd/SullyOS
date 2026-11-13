@@ -44,6 +44,36 @@ export function isSharedAsset(id: string): boolean {
     return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1'].includes(id) ||
         /^(icon_|widget_|deco_|appearance_preset_|decoration_|beauty_|chat_theme_)/.test(id);
 }
+/** Shared asset IDs use last-active-save semantics, but a decoration library is
+ * a collection inside one row. Merge by stable preset ID to keep target-only
+ * saved backgrounds instead of erasing them on every identity switch. */
+export function mergeSharedAppearanceAssets(source: any[], target: any[]): any[] {
+    const byId = new Map<string, any>();
+    for (const row of target) if (isSharedAsset(row.id)) byId.set(row.id, row);
+    for (const row of source) {
+        if (!isSharedAsset(row.id)) continue;
+        if (row.id === 'chat_decoration_presets_v1' && byId.has(row.id) && byId.get(row.id).data !== row.data) {
+            let incoming: any[], existing: any[];
+            try {
+                incoming = JSON.parse(row.data);
+                existing = JSON.parse(byId.get(row.id).data);
+            } catch { throw new Error('聊天装扮收藏无法读取，切换已取消以保护原有收藏'); }
+            if (!Array.isArray(incoming) || !Array.isArray(existing))
+                throw new Error('聊天装扮收藏格式异常，切换已取消以保护原有收藏');
+            const identity = (item: any) => typeof item?._libraryId === 'string' && item._libraryId
+                ? 'id:' + item._libraryId : 'legacy:' + JSON.stringify(item);
+            const seen = new Set(incoming.map(identity));
+            const missing = existing.filter(item => {
+                const key = identity(item);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            byId.set(row.id, {...row, data: JSON.stringify([...incoming, ...missing])});
+        } else byId.set(row.id, row);
+    }
+    return Array.from(byId.values());
+}
 function all(db: IDBDatabase, name: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(name, 'readonly'); const req = tx.objectStore(name).getAll();
@@ -201,6 +231,7 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
         const previous = await all(target, 'characters');
         const previousAssets = await all(target, 'assets');
+        const mergedSharedAssets = mergeSharedAppearanceAssets(sharedAssets, previousAssets);
         await new Promise<void>((resolve, reject) => {
             const tx = target!.transaction(['characters', 'assets', 'blob_assets', 'user_profile', ...storeNames], 'readwrite');
             // Keep target-only character records. A restored or late-edited identity may
@@ -216,8 +247,9 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
                 for (const row of resources[i]) store.put(row);
             }
             const assetStore = tx.objectStore('assets');
-            for (const row of previousAssets) if (isSharedAsset(row.id)) assetStore.delete(row.id);
-            for (const row of sharedAssets) assetStore.put(row);
+            // Never clear target-only decorations or their provenance. A background
+            // made in another identity must remain usable on return.
+            for (const row of mergedSharedAssets) assetStore.put(row);
             for (const row of blobs) tx.objectStore('blob_assets').put(row);
             if (newProfile) tx.objectStore('user_profile').put({ ...newProfile, id: 'me' });
             tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('身份存档保存失败'));
