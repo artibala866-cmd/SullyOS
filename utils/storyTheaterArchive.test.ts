@@ -463,6 +463,9 @@ describe('independent vector archive', () => {
         queueArchive('小雨开始信任阿泽。');
         const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
         const oldBox = initial.archives[0];
+        // A legacy vector box might carry an obsolete summary property.
+        // Replacing vectors must not promote that stale prose back into the story.
+        await DB.saveStoryTheater({ ...initial, archives: [{ ...oldBox, summary: '旧的场景结尾不应再读取。' }] });
         const oldIds = oldBox.vectorMemoryIds!;
         expect(oldIds).toHaveLength(1);
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(oldIds);
@@ -471,6 +474,7 @@ describe('independent vector archive', () => {
         queueArchive('阿泽把备用钥匙交给小雨，两人成为搭档。');
         const replaced = await archiveStoryFloorRange(entry.id, floors.slice(1), api, oldBox.id, vector);
         expect(replaced.archives).toHaveLength(1);
+        expect(replaced.archives[0].summary).toBeUndefined();
         expect(replaced.archives[0].id).toBe(oldBox.id);
         expect(await MemoryNodeDB.getById(oldIds[0])).toBeUndefined();
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(replaced.archives[0].vectorMemoryIds);
