@@ -29,7 +29,10 @@ function VisualFixture() {
           name: '我的聊天背景',
           parts: { background: { image: background(index), style: 'plain' as const } },
         }));
-        await DB.saveAsset('chat_decoration_presets_v1', JSON.stringify(presets));
+        await DB.saveAssetBatch([
+          { id: 'chat_decoration_presets_v1', data: JSON.stringify(presets) },
+          ...presets.map(preset => ({ id: 'decoration_origin_' + preset._libraryId, data: JSON.stringify({ kind: 'self' }) })),
+        ]);
         localStorage.setItem('sully_image_api_v1', JSON.stringify({ apiKey: 'visual-test-only' }));
         await activateUserSave(SECOND, { name: '第二身份' });
         return;
