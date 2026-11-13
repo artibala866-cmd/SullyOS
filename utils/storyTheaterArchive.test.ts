@@ -132,13 +132,13 @@ describe('story summary final channel', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
-    it('accepts terse causal shorthand and keeps distinct knowledge and scene state', async () => {
+    it('accepts terse causal shorthand and keeps distinct knowledge without saving the last-scene snapshot', async () => {
         fetchMock.mockResolvedValueOnce(response(structured('阿泽交备用钥匙→小雨接管店；小雨感到身旁冷气，猜测阿泽在场。', {
-            时间地点与场景: '当日正午｜水果店；末尾平措抵达。',
+            时间地点与场景: '当日正午从政务中心转至水果店。',
             人物关系与转折: '阿泽=小雨兄长；小雨未证实鬼魂身份。',
             好感与心理变化: '阿泽：担忧小雨受冻→主动退开。',
             新增设定与细节: '鬼魂不能碰实物；狗能察觉鬼魂。',
-            未解决事项与续写落点: '老王发货未到；店门口平措刚到。',
+            未解决事项与续写落点: '老王发货未到；店铺进货待处理。',
         })));
         const summary = await generateStoryArchiveSummary(entry.title, messages, api);
         expect(summary).toContain('阿泽交备用钥匙→小雨接管店');
@@ -156,7 +156,7 @@ describe('story summary final channel', () => {
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
         const system: string = body.messages[0].content;
         const source: string = body.messages[1].content;
-        for (const rule of ['人物的愿望、请求、计划', '角色A知道的事≠角色B也知道', '失败的尝试不能写成成功', '不能把将到场写成已交谈']) {
+        for (const rule of ['人物的愿望、请求、计划', '角色A知道的事≠角色B也知道', '失败的尝试不能写成成功', '不记录末尾场景、最后动作或下一幕开场位置']) {
             expect(system).toContain(rule);
         }
         expect(system).not.toContain('幸芳白');
