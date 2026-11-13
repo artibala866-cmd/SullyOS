@@ -287,14 +287,14 @@ const check = () => {
     if (!native && dialect === 'unseen' && (focus === 'inspect' || focus === 'returned')) {
         if (stage === 0) {
             const view = document.querySelector<HTMLElement>('main.story-page-scroll');
-            const preview = clickByText('查看原文');
+            const preview = clickByText('编辑条目');
             if (!view || !preview) { setTimeout(check, 180); return; }
             view.scrollTop = 200;
             preview.click();
             stage = 1; setTimeout(check, 180); return;
         }
         if (stage === 1) {
-            const inspector = document.querySelector('[role="dialog"][aria-label="查看原作者原文"]');
+            const inspector = document.querySelector('[role="dialog"][aria-label="编辑原作者条目"]');
             const choice = inspector && [...inspector.querySelectorAll<HTMLButtonElement>('button')]
                 .find(button => button.textContent?.includes('晦夜'));
             if (!choice) { setTimeout(check, 180); return; }
@@ -369,9 +369,9 @@ const check = () => {
     const selectedSourceChoice = dialect === 'baby' && stage === 1
         && document.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：不抢（已启用）"]')?.getAttribute('aria-pressed') === 'true'
         && !document.querySelector<HTMLButtonElement>('button[aria-label="抢话权限：完全（已启用）"]');
-    const inspector = document.querySelector('[role="dialog"][aria-label="查看原作者原文"]');
+    const inspector = document.querySelector('[role="dialog"][aria-label="编辑原作者条目"]');
     const inPlaceInspectOk = stage === 2 && Boolean(inspector)
-        && inspector?.querySelector('pre')?.textContent?.includes('ONLY-UNKNOWN-DUSK')
+        && inspector?.querySelector<HTMLTextAreaElement>('textarea[aria-label="编辑原作者条目内容"]')?.value.includes('ONLY-UNKNOWN-DUSK')
         && !proOn;
     const returnPositionOk = stage === 3 && !inspector
         && !proOn && authorOnly
