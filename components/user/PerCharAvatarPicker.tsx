@@ -189,7 +189,7 @@ const PerCharAvatarPicker: React.FC = () => {
                         if (Math.abs(dx) > 48) goPage(safePage + (dx < 0 ? 1 : -1));
                     }}
                 >
-                    <div key={`${safePage}-${query}`} className={`grid grid-cols-4 gap-3 ${slideDir === 'l' ? 'pca-slide-l' : 'pca-slide-r'}`}>
+                    <div key={`${safePage}-${query}`} className={`grid grid-cols-4 gap-2 min-[360px]:gap-3 ${slideDir === 'l' ? 'pca-slide-l' : 'pca-slide-r'}`}>
                         {pageChars.map(c => {
                             const override = overrides[c.id];
                             const bound = boundCharacterIds.has(c.id);
@@ -204,7 +204,7 @@ const PerCharAvatarPicker: React.FC = () => {
                                     onClick={() => { if (Date.now() < suppressClickUntil.current) return; openEditor(c.id); }}
                                     className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform touch-manipulation">
                                     <div className="relative">
-                                        <TokenImg value={c.avatar} alt="" className={`w-14 h-14 rounded-full object-cover bg-slate-100 border border-slate-100 transition-all ${bound ? 'ring-2 ring-primary ring-offset-2 ring-offset-white shadow-[0_2px_12px_rgba(90,90,90,0.16)]' : 'group-hover:border-primary/30'}`} />
+                                        <TokenImg value={c.avatar} alt="" className={`w-12 h-12 min-[360px]:w-14 min-[360px]:h-14 rounded-full object-cover bg-slate-100 border border-slate-100 transition-all ${bound ? 'ring-2 ring-primary ring-offset-2 ring-offset-white shadow-[0_2px_12px_rgba(90,90,90,0.16)]' : 'group-hover:border-primary/30'}`} />
                                         {bound && <span aria-hidden="true" className="absolute -top-1.5 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white ring-2 ring-white shadow-sm pointer-events-none">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="m5 12 4 4L19 6" /></svg>
                                         </span>}
@@ -222,7 +222,7 @@ const PerCharAvatarPicker: React.FC = () => {
                         {/* 末页不满 8 人时用隐形占位补齐两行高度，翻页时容器不弹跳 */}
                         {pageCount > 1 && pageChars.length < PAGE_SIZE && Array.from({ length: PAGE_SIZE - pageChars.length }, (_, i) => (
                             <div key={`pad-${i}`} className="flex flex-col items-center gap-1.5 invisible" aria-hidden="true">
-                                <div className="w-14 h-14 rounded-full" />
+                                <div className="w-12 h-12 min-[360px]:w-14 min-[360px]:h-14 rounded-full" />
                                 <span className="text-[10px]">&nbsp;</span>
                             </div>
                         ))}
