@@ -15,6 +15,15 @@ describe('剧情分页与归档上下文边界', () => {
         expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), readingBatchSize: 10 }).readingBatchSize).toBe(10);
     });
 
+    it('does not inject a stale summary attached to a vector archive', () => {
+        const summary = box(1, '有效的事件盒事实。');
+        const vectorWithOldProse = { ...box(2, '过期的向量策略摘要及场景'), strategy: 'vector' as const };
+        expect(selectStoryArchiveContext([summary, vectorWithOldProse], Infinity).map(item => item.id))
+            .toEqual(['box-1']);
+        expect(selectStoryArchiveAuthorInstructions([vectorWithOldProse], Infinity, []))
+            .toBe('');
+    });
+
     it('只自动带入最近有限事件盒，原存档保持完整且不改动顺序', () => {
         const archives = Array.from({ length: 30 }, (_, i) => box(i + 1));
         const selected = selectStoryArchiveContext(archives, Number.POSITIVE_INFINITY);
