@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { resolveDialogueApi } from '../utils/characterApi';
 import { useDateMessageHistory } from '../utils/useDateMessageHistory';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -46,6 +47,7 @@ import {
 
 const DateApp: React.FC = () => {
     const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, virtualTime, userProfile, memoryPalaceConfig, dateAutoStartCharId, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const { library: musicLibrary, playSong: playMusic, stopDateBgmIfCurrent } = useMusic();
     // Only the real Meet session starts BGM. Selecting a character / sensing is silent.
     // Never start an empty or unbound playlist, and never alter unrelated music on exit.
@@ -781,7 +783,7 @@ const DateApp: React.FC = () => {
 
     if (mode === 'select' || !char) {
         // 6 个角色一页，横向翻页（先按分组筛选，再切页）
-        const selectChars = filterCharactersByGroup(characters, characterGroups, selectGroupId);
+        const selectChars = filterCharactersByGroup(visibleCharacters, characterGroups, selectGroupId);
         const pages: CharacterProfile[][] = [];
         for (let i = 0; i < selectChars.length; i += SELECT_PAGE_SIZE) pages.push(selectChars.slice(i, i + SELECT_PAGE_SIZE));
         if (pages.length === 0) pages.push([]);
@@ -833,7 +835,7 @@ const DateApp: React.FC = () => {
                     {/* 仅见面浅色页采用雾面分组条，其他入口原样保留 */}
                     {characterGroups.length > 0 && (
                         <div className="mx-5 mb-3 rounded-2xl border border-white/60 bg-white/25 px-2 py-1.5 shadow-[0_2px_12px_rgba(120,120,120,0.06)]">
-                            <CharacterGroupFilterBar characters={characters} groups={characterGroups} appearance="mist"
+                            <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups} appearance="mist"
                                 value={selectGroupId}
                                 onChange={(id) => { setSelectGroupId(id); setSelectPage(0); pagerRef.current?.scrollTo({ left: 0 }); }}
                                 className="gap-2" />
