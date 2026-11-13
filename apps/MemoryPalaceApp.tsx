@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { ContextBuilder } from '../utils/context';
 import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 
@@ -676,6 +677,7 @@ const MemoryWaterlineEditor: React.FC<{
 export default function MemoryPalaceApp() {
     const guideStep = useFirstUseGuideStep();
     const { activeCharacterId, characters, updateCharacter, setActiveCharacterId, closeApp, apiPresets, userProfile, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, updateRemoteVectorConfig, addToast, apiConfig, characterGroups, groups, realtimeConfig } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     const char = characters.find(c => c.id === activeCharacterId);
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 选角色页的分组筛选
 
@@ -2498,7 +2500,7 @@ export default function MemoryPalaceApp() {
                 </div>
 
                 {/* 分组筛选（没建分组时不渲染） */}
-                <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                     value={selectGroupId} onChange={setSelectGroupId}
                     className="mb-4 relative z-[1]" />
                 {characters.length === 0 ? (
@@ -2514,7 +2516,7 @@ export default function MemoryPalaceApp() {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', zIndex: 1 }}>
-                        {filterCharactersByGroup(characters, characterGroups, selectGroupId).map(c => {
+                        {filterCharactersByGroup(visibleCharacters, characterGroups, selectGroupId).map(c => {
                             const isActive = c.id === activeCharacterId;
                             const palaceOn = !!(c as any).memoryPalaceEnabled;
                             const autoOn = !!(c as any).autoArchiveEnabled;
@@ -2991,7 +2993,7 @@ export default function MemoryPalaceApp() {
                 {/* 切换到其他角色 */}
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#727272', marginBottom: 8 }}>切换角色</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {characters.filter(c => c.id !== char.id).map(c => (
+                    {visibleCharacters.filter(c => c.id !== char.id).map(c => (
                         <div
                             key={c.id}
                             onClick={() => handleSwitchChar(c.id)}
@@ -5089,7 +5091,7 @@ create table if not exists memory_vectors (
                             border: '1px solid #e7e7e7', backgroundColor: 'white',
                             textAlign: 'left', boxShadow: '0 4px 12px rgba(0, 0, 0,0.08)',
                         }}>
-                            {characters.map(c => (
+                            {visibleCharacters.map(c => (
                                 <div
                                     key={c.id}
                                     onClick={() => handleSwitchChar(c.id)}
