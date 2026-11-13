@@ -1,6 +1,7 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { openDB } from './db';
 import { characterImageProfileKey } from './characterImageProfile';
+import { DECORATION_DELETED_STORE, parseDecorationDeletedIds } from './decorationTombstones';
 import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
 /** Explicit base-data allowlist. New character fields are private until audited;
@@ -41,13 +42,19 @@ export function mergeCharacterBase(base: CharacterProfile, previous?: CharacterP
 export const SHARED_STORES = ['character_groups', 'worldbooks', 'themes', 'emojis', 'emoji_categories', 'journal_stickers',
     'cc_custom_parts', 'pixel_home_assets', 'pixel_home_layouts', 'vr_novels', 'vr_scripts', 'vr_presets', 'story_theater_presets', 'story_theater_masks'];
 export function isSharedAsset(id: string): boolean {
-    return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1'].includes(id) ||
+    return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1', DECORATION_DELETED_STORE].includes(id) ||
         /^(icon_|widget_|deco_|appearance_preset_|decoration_|beauty_|chat_theme_)/.test(id);
 }
 /** Shared asset IDs use last-active-save semantics, but a decoration library is
  * a collection inside one row. Merge by stable preset ID to keep target-only
  * saved backgrounds instead of erasing them on every identity switch. */
 export function mergeSharedAppearanceAssets(source: any[], target: any[]): any[] {
+    // Merge deletion markers before merging presets. Without this, removing an
+    // item in B and returning to A silently resurrects A's stale copy.
+    const deleted = new Set<string>([
+        ...parseDecorationDeletedIds(target.find(row => row.id === DECORATION_DELETED_STORE)?.data),
+        ...parseDecorationDeletedIds(source.find(row => row.id === DECORATION_DELETED_STORE)?.data),
+    ]);
     const byId = new Map<string, any>();
     for (const row of target) if (isSharedAsset(row.id)) byId.set(row.id, row);
     for (const row of source) {
@@ -72,6 +79,18 @@ export function mergeSharedAppearanceAssets(source: any[], target: any[]): any[]
             byId.set(row.id, {...row, data: JSON.stringify([...incoming, ...missing])});
         } else byId.set(row.id, row);
     }
+    if (deleted.size) {
+        const library = byId.get('chat_decoration_presets_v1');
+        if (library) {
+            let items: any[];
+            try { items = JSON.parse(library.data); }
+            catch { throw new Error('聊天装扮收藏无法读取，切换已取消以保护原有收藏'); }
+            if (!Array.isArray(items)) throw new Error('聊天装扮收藏格式异常，切换已取消以保护原有收藏');
+            byId.set(library.id, {...library, data: JSON.stringify(items.filter(item => !deleted.has(item?._libraryId)))});
+        }
+    }
+    if (deleted.size || byId.has(DECORATION_DELETED_STORE))
+        byId.set(DECORATION_DELETED_STORE, {id: DECORATION_DELETED_STORE, data: JSON.stringify([...deleted])});
     return Array.from(byId.values());
 }
 function all(db: IDBDatabase, name: string): Promise<any[]> {
