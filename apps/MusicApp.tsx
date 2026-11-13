@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
@@ -32,6 +33,7 @@ type View = 'search' | 'settings' | 'player' | 'profile';
 // ========================= 主组件 =========================
 const MusicApp: React.FC = () => {
   const { closeApp, addToast, characters, userProfile } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
   const {
     cfg, setCfg, effectiveWorkerUrl,
     current, playing, progress, duration, loadingSong, actualQualityLabel, lyricMessage,
@@ -910,7 +912,7 @@ const MusicApp: React.FC = () => {
         )}
       </div>
       {togetherSheetOpen && <MusicTogetherSheet
-        people={characters.map(c => ({
+        people={visibleCharacters.map(c => ({
           id: c.id,
           name: c.name,
           incoming: !!charInvites[c.id],
