@@ -118,7 +118,7 @@ export interface OSTheme {
   desktopClockStyle?: 'serif' | 'bold' | 'system';
   /** 动森皮肤下，聊天 App 是否也跟随换成动森界面。默认 true（undefined 视为 true）。关掉则聊天保持原样式。 */
   launcherWidgetImage?: string; // DEPRECATED: always stripped on load — never renders.
-  launcherWidgets?: Record<string, string>; // slots: 'tl' | 'tr' | 'wide' | 'dsq' (legacy 'bl' / 'br' are banned)
+  launcherWidgets?: Record<string, string>; // independent base tl/tr/wide/dsq and film1–film4, legacy bl/br banned
   /** 默认桌面长按编辑后的 App / Dock / 第二页风车组件顺序。 */
   launcherAppOrder?: string[];
   launcherDockOrder?: string[];
