@@ -1,3 +1,4 @@
+import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -135,6 +136,7 @@ const getLocalDateStr = () => {
 
 const JournalApp: React.FC = () => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, memoryPalaceConfig, characterGroups, theme } = useOS();
+    const visibleCharacters = useIdentityCharacterOptions();
     // 预览草稿只活在当前 JournalApp 会话里，不写 theme/localStorage。状态放在
     // App 顶层，才能在选择页、列表页与书写页之间切换时继续预览同一套 CSS。
     const [previewJournalAppearance, setPreviewJournalAppearance] = useState<JournalAppearance | undefined>();
@@ -1035,7 +1037,7 @@ ${charPart}
         );
     })() : null;
 
-    const visibleNotebooks = filterCharactersByGroup(characters, characterGroups, journalGroupId);
+    const visibleNotebooks = filterCharactersByGroup(visibleCharacters, characterGroups, journalGroupId);
 
     const handleNotebookGroupChange = (groupId: string) => {
         if (openingNotebookRef.current) return;
@@ -1092,7 +1094,7 @@ ${charPart}
                 </div>
                 
                 {/* 每次只展示一本日记，左右滑动切换，避免角色多时压缩网格行高。 */}
-                <CharacterGroupFilterBar characters={characters} groups={characterGroups}
+                <CharacterGroupFilterBar characters={visibleCharacters} groups={characterGroups}
                     value={journalGroupId} onChange={handleNotebookGroupChange} className="sully-journal-group-filter px-6 pt-4 shrink-0" />
                 {visibleNotebooks.length > 0 ? (
                     <div className="sully-journal-notebook-stage flex-1 min-h-0 w-full flex flex-col justify-center overflow-hidden py-5">
