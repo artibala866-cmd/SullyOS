@@ -56,13 +56,14 @@ import {
     makeStoryTheaterFileName,
 } from './storyTheater';
 
-describe('事件盒篇幅是可调的提示词建议', () => {
-    it('新旧剧情的默认建议为3000，0代表不限制，非法数据回退默认', () => {
-        expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(3000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: undefined }).archiveSummaryGuideMaxChars).toBe(3000);
+describe('事件盒归档保存上限', () => {
+    it('新旧剧情默认不限制，明确设置的上限保持不变，非法数据回退到不限', () => {
+        expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(0);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: undefined }).archiveSummaryGuideMaxChars).toBe(0);
         expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 0 }).archiveSummaryGuideMaxChars).toBe(0);
         expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 9000 }).archiveSummaryGuideMaxChars).toBe(9000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: -1 }).archiveSummaryGuideMaxChars).toBe(3000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 3000 }).archiveSummaryGuideMaxChars).toBe(3000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: -1 }).archiveSummaryGuideMaxChars).toBe(0);
     });
     it('向量篇幅较长时完整分段，汉字和emoji都不丢失', () => {
         const source = '他离开了。'.repeat(1300) + '✨🚗' + '回来的约定'.repeat(400);
