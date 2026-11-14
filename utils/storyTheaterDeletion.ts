@@ -3,6 +3,7 @@ import type { RemoteVectorConfig } from './memoryPalace/types';
 import { DB, openDB } from './db';
 import { storyTheaterMemoryRecipientIds, storyTheaterThreadId } from './storyTheater';
 import { deleteStoryVectorMemory, listStoryVectorMemories } from './storyTheaterVectorMemory';
+import { clearStoryInputDraft } from './storyTheaterInputDraft';
 
 export interface DeleteStoryTheaterResult {
     deletedMessageCount: number;
@@ -80,6 +81,7 @@ export async function deleteStoryTheaterData(
 
     if (messageIds.size > 0) await DB.deleteMessages([...messageIds]);
     await DB.deleteStoryTheater(entry.id);
+    clearStoryInputDraft(entry.id);
     try { localStorage.removeItem(`mp_lastMsgId_${threadId}`); } catch { /* storage unavailable */ }
 
     return {
