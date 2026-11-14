@@ -124,6 +124,18 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
         ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n')
         : '';
     const extraAffinityChars = storyArchiveCharacterCount(extraAffinityText);
+    const saveMaxChars = normalizeStoryArchiveGuideMaxChars(options?.guideMaxChars);
+    // Reject an impossible user-configured ceiling before making a paid request.
+    // Required section headers and original affinity receipts cannot be omitted.
+    if (saveMaxChars > 0) {
+        const minimumBox = archiveHeadings.map((heading, index) => '【' + heading + '】\n'
+            + (index === 0 ? '事' : UNSPECIFIED)
+            + (heading === '好感与心理变化' && affinity.length
+                ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n') : '')).join('\n\n');
+        if (storyArchiveCharacterCount(minimumBox) > saveMaxChars) {
+            throw new Error('本剧情设置的归档保存上限不足以容纳六栏标题及界面好感记录；请调整保存上限，本次未调用总结 API');
+        }
+    }
     const instruction = STORY_ARCHIVE_INSTRUCTION
         + (extraAffinityChars ? '\n本批界面好感记录将在保存时额外占用 ' + extraAffinityChars
             + ' 字符，程序会原样附加；不要重复抄写好感记录。若超出建议值，不可因此遗漏关键事实。' : '');
@@ -144,7 +156,6 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
     const summary = checkedStoryArchiveSections(parseStoryArchiveSummary(data), affinity).join('\n\n');
     // The author-editable ceiling applies only after a complete paid response.
     // Never trim it or turn the 1500-character writing instruction into a save limit.
-    const saveMaxChars = normalizeStoryArchiveGuideMaxChars(options?.guideMaxChars);
     const savedChars = storyArchiveCharacterCount(summary);
     if (saveMaxChars > 0 && savedChars > saveMaxChars) {
         throw new Error(`归档总结共 ${savedChars} 字符，超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留，可调整上限后重新归档`);
