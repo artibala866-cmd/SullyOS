@@ -16,7 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 
 const STORY_ARCHIVE_MIN_CHARS = 100;
-const STORY_ARCHIVE_MAX_CHARS = 1500;
+const STORY_ARCHIVE_MAX_CHARS = 3000;
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
 /** Summaries must come from the final channel, never a reasoning-only fallback. */
@@ -73,7 +73,7 @@ export const STORY_ARCHIVE_INSTRUCTION = [
     '按固定顺序写六个标题，每个标题独占一行，下一行写精简要点；同栏可用「；」分隔。一个事实只放最合适的栏，禁止换句话跨栏重复。该栏确无资料时严格写「原文未交代」，不能猜着填。',
     ...ARCHIVE_SECTIONS.map(([heading, instruction]) => '【' + heading + '】' + instruction),
     '最后自检（不输出检查）：每条能辨别谁做什么、谁知情、结果与状态吗？人名相近是否搞反？有无把想法写成事实、未完成写成完成、无证据的猜测写成真相？是否遗漏用户明确提出的协助指令？是否误将角色台词当成用户指令？是否仍记录了末尾场景或续写起点？若有，纠正后再输出。',
-    '篇幅：最终输出必须为100～1500字符，包含六栏标题、正文、标点与换行。不得少于100字符，不得超过1500字符；此范围适用于任何楼层数量，不按轮数套用固定字数。在此范围内按实际信息量组织内容，优先保留身份、因果、重要变化、规则、用户协助指令及未解决事项。内容过长时先删除重复描述、无后效过程和修饰性文字，再压缩句式；不得通过省略关键主体、否定条件或事实状态来压缩。内容较少时准确写明已有事实，不编造、不重复凑字。只输出六栏，不加前言。',
+    '篇幅：以约1500字符为建议目标，不是1500字符的硬截断线。为完整保留身份、因果、人物关系、明确否定、重要变化、规则、用户协助指令及未解决事项，允许超过1500字符；程序保存上限为3000字符（含六栏标题、正文、标点与换行），不得少于100字符。此建议适用于任何楼层数量，不按轮数套用固定字数，应按实际信息量组织内容。内容过长时先删除重复描述、无后效过程和修饰性文字，再压缩句式；不得通过省略关键主体、否定条件或事实状态来压缩。内容较少时准确写明已有事实，不编造、不重复凑字。只输出六栏，不加前言。',
 ].join('\n');
 
 function storyArchiveAffinity(message: Message): string[] {
@@ -126,7 +126,7 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
     // The app appends original affinity receipts after the LLM replies.
-    // Reserve their exact length so the advertised 1500-character ceiling
+    // Reserve their exact length so the 3000-character save limit
     // applies to the final saved box, not merely the model's draft.
     const extraAffinityText = affinity.length
         ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n')
