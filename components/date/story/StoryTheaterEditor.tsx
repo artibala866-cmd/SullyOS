@@ -4,6 +4,7 @@ import TokenImg from '../../os/TokenImg';
 import StoryTavernImportReport from './StoryTavernImportReport';
 import type { APIConfig, ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
+import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from '../../../utils/storyArchiveLength';
 import { normalizeApiPresets } from '../../../utils/apiConfigNormalize';
 import { findActivePresetId } from '../../../utils/apiPresetSwitch';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
@@ -418,7 +419,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
         setSaving(true);
         const archiveAfter = Math.max(2, Math.min(200, Number(draft.archiveAfter) || 40));
         const archiveKeepRecent = Math.max(1, Math.min(archiveAfter - 1, Number(draft.archiveKeepRecent) || 5));
-        try { await onSave({ ...draft, title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
+        const archiveSummaryGuideMaxChars = normalizeStoryArchiveGuideMaxChars(draft.archiveSummaryGuideMaxChars);
+        try { await onSave({ ...draft, title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, archiveSummaryGuideMaxChars, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
         catch (error) { setSaveError(error instanceof Error ? `剧情未保存：${error.message}` : '剧情未保存，请检查本地存储后重试'); }
         finally { saveLock.current = false; setSaving(false); }
     };
@@ -635,7 +637,14 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <label><span className='block mb-2 text-[10px] text-slate-500'>累计多少层后归档</span><input type='number' min={2} max={200} value={draft.archiveAfter} onChange={event => update('archiveAfter', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                         <label><span className='block mb-2 text-[10px] text-slate-500'>至少保留最近几层</span><input type='number' min={1} max={Math.max(1, Number(draft.archiveAfter) - 1)} value={draft.archiveKeepRecent ?? 5} onChange={event => update('archiveKeepRecent', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                     </div>
-                    
+                    <label className='block'>
+                        <span className='block mb-2 text-[10px] text-slate-500'>归档建议上限（字符，0 为不限）</span>
+                        <input type='number' aria-label='归档建议上限' min={0} step={100}
+                            value={draft.archiveSummaryGuideMaxChars ?? STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
+                            onChange={event => update('archiveSummaryGuideMaxChars', normalizeStoryArchiveGuideMaxChars(event.target.value === '' ? 0 : Number(event.target.value)))}
+                            className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
+                        <span className='block mt-1 text-[10px] text-slate-500'>1500字只是生成建议；超过这里的数值也会完整保存，不会截断或丢弃。</span>
+                    </label>
                 </div>}
                 <div className='mt-6 flex items-start justify-between gap-3 border-t border-slate-200 pt-5'>
                     <div className='min-w-0'>

@@ -14,9 +14,8 @@ import { ensureFloat32 } from './memoryPalace/db';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
+import { normalizeStoryArchiveGuideMaxChars, splitStoryArchiveVectorText } from './storyArchiveLength';
 
-const STORY_ARCHIVE_MIN_CHARS = 100;
-const STORY_ARCHIVE_MAX_CHARS = 3000;
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
 /** Summaries must come from the final channel, never a reasoning-only fallback. */
@@ -40,14 +39,8 @@ export function parseStoryArchiveSummary(data: any): string {
     const summary = extractContent({ choices: [{ message: { content } }] });
     if (!summary) throw new Error('模型没有返回事件盒正文（可能只返回了思维链），未保存；请重试');
     if (hasSummaryReasoningLeak(summary)) throw new Error('事件盒总结混入了推理过程，未保存；请重试');
-    // Some models ignore the requested size and return several
-    // thousand words. Persisting such a blob hides original floors, then injects
-    // the huge/low-quality recap into EVERY later expensive prose request.
-    // Fail closed rather than silently truncate potentially important facts.
-    const characters = storyArchiveCharacterCount(summary);
-    if (characters > STORY_ARCHIVE_MAX_CHARS) {
-        throw new Error(`归档摘要返回了 ${characters} 字符，超过 ${STORY_ARCHIVE_MAX_CHARS} 字符的上限。原文和旧归档已保留。`);
-    }
+    // Preserve every complete model-generated character, regardless of the advisory length.
+    // Incomplete responses, reasoning leakage and invalid section formats remain rejected.
     return summary;
 }
 
@@ -73,7 +66,7 @@ export const STORY_ARCHIVE_INSTRUCTION = [
     '按固定顺序写六个标题，每个标题独占一行，下一行写精简要点；同栏可用「；」分隔。一个事实只放最合适的栏，禁止换句话跨栏重复。该栏确无资料时严格写「原文未交代」，不能猜着填。',
     ...ARCHIVE_SECTIONS.map(([heading, instruction]) => '【' + heading + '】' + instruction),
     '最后自检（不输出检查）：每条能辨别谁做什么、谁知情、结果与状态吗？人名相近是否搞反？有无把想法写成事实、未完成写成完成、无证据的猜测写成真相？是否遗漏用户明确提出的协助指令？是否误将角色台词当成用户指令？是否仍记录了末尾场景或续写起点？若有，纠正后再输出。',
-    '篇幅：以约1500字符为建议目标，不是1500字符的硬截断线。为完整保留身份、因果、人物关系、明确否定、重要变化、规则、用户协助指令及未解决事项，允许超过1500字符；程序保存上限为3000字符（含六栏标题、正文、标点与换行），不得少于100字符。此建议适用于任何楼层数量，不按轮数套用固定字数，应按实际信息量组织内容。内容过长时先删除重复描述、无后效过程和修饰性文字，再压缩句式；不得通过省略关键主体、否定条件或事实状态来压缩。内容较少时准确写明已有事实，不编造、不重复凑字。只输出六栏，不加前言。',
+    '篇幅：以约1500字符为建议目标，而非必须达到或停在1500。仅按本批实际信息量组织内容，不按楼层轮数强行套用字数。为完整保留身份、因果、人物关系、明确否定、重要变化、规则、用户协助指令及未解决事项，可以超过建议篇幅。内容过长时先去除重复描写、无后效过程和修饰性文字，勿省略重要主体或事实；内容较少时不编造、不凑字。只输出六栏，不加前言。',
 ].join('\n');
 
 function storyArchiveAffinity(message: Message): string[] {
@@ -108,7 +101,7 @@ function checkedStoryArchiveSections(summary: string, affinity: string[]): strin
 }
 
 /** Shared by automatic archiving and manual regeneration; one physical request. */
-export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number; strategy?: StoryTheaterArchiveStrategy }): Promise<string> {
+export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number; strategy?: StoryTheaterArchiveStrategy; guideMaxChars?: number }): Promise<string> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const affinity: string[] = [];
     const transcript = messages.map((message, index) => {
@@ -125,30 +118,24 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
         return '[' + floor + speaker + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
-    // The app appends original affinity receipts after the LLM replies.
-    // Reserve their exact length so the 3000-character save limit
-    // applies to the final saved box, not merely the model's draft.
+    // Affinity receipts are appended to the model's six sections verbatim.
+    // Their size can exceed the suggestion; never reject a valid paid response for that reason.
     const extraAffinityText = affinity.length
         ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n')
         : '';
     const extraAffinityChars = storyArchiveCharacterCount(extraAffinityText);
-    const availableModelChars = STORY_ARCHIVE_MAX_CHARS - extraAffinityChars;
-    const minimumSixSections = archiveHeadings.map((heading, index) =>
-        '【' + heading + '】\n' + (index === 0 ? '事' : UNSPECIFIED),
-    ).join('\n\n');
-    if (availableModelChars < storyArchiveCharacterCount(minimumSixSections)) {
-        throw new Error('本批界面好感记录过长，留给六栏事件盒的空间不足；请分较小的楼层范围归档或缩短好感备注，原文和旧归档已保留');
-    }
-    const instruction = extraAffinityChars > 0
-        ? STORY_ARCHIVE_INSTRUCTION + '\n本批界面好感记录将在保存时额外占用 '
-            + extraAffinityChars + ' 字符。你只生成六栏文本，最多 '
-            + availableModelChars + ' 字符；不要重复抄写好感记录。'
-        : STORY_ARCHIVE_INSTRUCTION;
+    const guideMaxChars = normalizeStoryArchiveGuideMaxChars(options?.guideMaxChars);
+    const guide = guideMaxChars === 0
+        ? '作者未设置归档建议字数上限。应以完整、准确记录重要事实为准。'
+        : '本剧情的归档建议上限为' + guideMaxChars + '字符（包括六栏标题和界面好感记录），仅用于指导写作；不是程序硬上限，超过也应完整输出。';
+    const instruction = STORY_ARCHIVE_INSTRUCTION + '\n' + guide
+        + (extraAffinityChars ? '\n本批界面好感记录将在保存时额外占用 ' + extraAffinityChars
+            + ' 字符，程序会原样附加；不要在六栏中重复抄写好感记录。若超出建议值，不可因此遗漏关键事实。' : '');
     const stream = !options?.storyOnlyProvider && isGlobalStreamEnabled();
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(api.apiKey ? { Authorization: `Bearer ${api.apiKey}` } : {}) },
-        body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, max_tokens: 4096, messages: [
+        body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, messages: [
             { role: 'system', content: instruction },
             { role: 'user', content: `剧情：${title}\n\n${transcript}` },
         ] }),
@@ -158,12 +145,7 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
     } as RequestInit);
     const data = await safeResponseJson(response, { keepInterruptedBody: true });
     if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
-    const summary = checkedStoryArchiveSections(parseStoryArchiveSummary(data), affinity).join('\n\n');
-    const characters = storyArchiveCharacterCount(summary);
-    if (characters < STORY_ARCHIVE_MIN_CHARS || characters > STORY_ARCHIVE_MAX_CHARS) {
-        throw new Error(`最终事件盒共 ${characters} 字符，必须在 ${STORY_ARCHIVE_MIN_CHARS}～${STORY_ARCHIVE_MAX_CHARS} 字符之间（含好感记录）；原文和旧归档已保留。`);
-    }
-    return summary;
+    return checkedStoryArchiveSections(parseStoryArchiveSummary(data), affinity).join('\n\n');
 }
 
 function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArchive): Message[] {
@@ -263,6 +245,7 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         const firstFloor = storyArchiveFloors(rows, entryId).findIndex(row => row.id === archive.fromMessageId) + 1;
         const summary = await generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), {
             storyOnlyProvider: !!entry.memorySummaryApi, firstFloor,
+            guideMaxChars: entry.archiveSummaryGuideMaxChars,
         });
         const db = await openDB();
         return await new Promise<StoryTheaterEntry>((resolve, reject) => {
@@ -474,6 +457,7 @@ async function writeStoryArchiveRange(
     const summary = await generateStoryArchiveSummary(entry.title, initial.batch, resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api), {
         storyOnlyProvider: !!entry.memorySummaryApi,
         strategy,
+        guideMaxChars: entry.archiveSummaryGuideMaxChars,
         firstFloor: floors.findIndex(row => row.id === first) + 1,
     });
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
@@ -494,16 +478,15 @@ async function writeStoryArchiveRange(
 
     if (!embedding) return commit();
 
-    if (summary.length > EMBEDDING_MAX_INPUT_CHARS) {
-        throw new Error('归档正文超过单条向量容量，未发送向量请求，原文和旧归档已保留；请分较小的楼层范围整理');
-    }
+    // Embedding has a per-item transport limit. Split complete text into owned nodes,
+    // instead of throwing away a paid summary over 4000 characters.
     const now = Date.now();
-    const node: MemoryNode = {
-        id: makeStoryTheaterId(), charId: thread, content: summary, room: 'living_room', tags: ['剧情'],
-        importance: 6, mood: 'neutral', embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
-    };
+    const nodes: MemoryNode[] = splitStoryArchiveVectorText(summary, EMBEDDING_MAX_INPUT_CHARS).map(content => ({
+        id: makeStoryTheaterId(), charId: thread, content, room: 'living_room', tags: ['剧情'],
+        importance: 6, mood: 'neutral', embedded: false, createdAt: now, lastAccessed: now, accessCount: 0,
+    }));
     let updated: StoryTheaterEntry | undefined;
-    await vectorizeAndStore([node], { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引' }, vector?.remote, {
+    await vectorizeAndStore(nodes, { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引' }, vector?.remote, {
         // Each batch owns its own nodes so undoing one cannot erase another.
         skipDedup: true,
         commit: async vectors => { updated = await commit(vectors); },

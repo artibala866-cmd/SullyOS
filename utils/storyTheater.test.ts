@@ -4,6 +4,7 @@ import { readStoryCompletion, storyStreamingPreviewText } from './storyTheaterCo
 import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
 import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS } from './storyOutputLimits';
+import { splitStoryArchiveVectorText } from './storyArchiveLength';
 import {
     appendStoryAffinityInput,
     appendStoryAffinityInputs,
@@ -55,7 +56,23 @@ import {
     makeStoryTheaterFileName,
 } from './storyTheater';
 
-describe('剧情单次最大输出额度', () => {
+describe('事件盒篇幅是可调的提示词建议', () => {
+    it('新旧剧情的默认建议为3000，0代表不限制，非法数据回退默认', () => {
+        expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(3000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: undefined }).archiveSummaryGuideMaxChars).toBe(3000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 0 }).archiveSummaryGuideMaxChars).toBe(0);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 9000 }).archiveSummaryGuideMaxChars).toBe(9000);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: -1 }).archiveSummaryGuideMaxChars).toBe(3000);
+    });
+    it('向量篇幅较长时完整分段，汉字和emoji都不丢失', () => {
+        const source = '他离开了。'.repeat(1300) + '✨🚗' + '回来的约定'.repeat(400);
+        const chunks = splitStoryArchiveVectorText(source, 4000);
+        expect(chunks.length).toBeGreaterThan(1);
+        expect(chunks.every(x => x.length <= 4000)).toBe(true);
+        expect(chunks.join('')).toBe(source);
+    });
+});
+\ndescribe('剧情单次最大输出额度', () => {
     it('剧情快捷预设快照不会锁住作者后来更新的最大输出', () => {
         const preset = createBlankStoryPreset('自定义预设');
         const oldOverride = { ...preset.document, generation: { ...preset.document.generation } };

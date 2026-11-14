@@ -1088,6 +1088,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 setMemoryStatus('正在把 ' + batch.length + ' 条正文压成事件盒……');
                 const summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {
                     storyOnlyProvider: !!archiveEntry.memorySummaryApi, firstFloor: rows.indexOf(first) + 1,
+                    guideMaxChars: archiveEntry.archiveSummaryGuideMaxChars,
                 });
                 next = await commitStoryArchiveBatch(archiveEntry, batch, {
                     id: makeStoryTheaterId(), strategy: 'summary', fromMessageId: first.id,

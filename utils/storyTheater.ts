@@ -19,6 +19,7 @@ import type {
 import nightScreeningV627 from '../assets/presets/night-screening-v6.14.sully.json';
 import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS } from './storyOutputLimits';
 import { normalizeStoryMemoryApi } from './storyMemoryApi';
+import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import {
     type WorldbookScanMessage,
 } from './worldbook';
@@ -251,6 +252,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     archiveAfter: 40,
     archiveKeepRecent: 5,
     archiveStrategy: 'summary',
+    archiveSummaryGuideMaxChars: STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS,
     archives: [],
     selectedWorldbookIds: [],
     forceUserLastMessage: false,
@@ -287,6 +289,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveAfter,
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
+        archiveSummaryGuideMaxChars: normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars),
         archives: Array.isArray(entry.archives) ? entry.archives : [],
         automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true,
         memorySummaryApi: normalizeStoryMemoryApi(entry.memorySummaryApi),
