@@ -44,7 +44,8 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     }
     const byId = new Map(all.map(node => [node.id, node]));
     for (const box of archives) {
-        if (box.toMessageId >= beforeId || !box.vectorMemoryIds?.some(id => available.has(id))) continue;
+        if (box.toMessageId >= beforeId || !box.vectorMemoryIds?.length
+            || !box.vectorMemoryIds.every(id => available.has(id))) continue;
         const nodes = box.vectorMemoryIds.flatMap(id => {
             const node = byId.get(id);
             return node ? [node] : [];
@@ -67,7 +68,7 @@ export async function selectStoryVectorRecall(
     const candidates = groups.map(group => ({
         ...group,
         text: group.nodes.map(node => node.content).join(separator),
-    })).filter(group => group.text.length <= limit);
+    }));
     const allText = candidates.map(group => group.text).join(separator);
     if (allText.length <= limit) {
         return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)) };
@@ -99,8 +100,10 @@ export async function selectStoryVectorRecall(
     let text = '';
     for (const group of priority) {
         const combined = text ? text + separator + group.text : group.text;
-        // A range can replace its original floors only if every selected section fits.
-        if (combined.length > limit) continue;
+        // Keep whole ranges: the 6000-character budget is a preference, not a
+        // reason to silently discard an otherwise complete oversized archive.
+        // Do not concatenate more groups after selecting an oversized one.
+        if (text && combined.length > limit) continue;
         text = combined;
         for (const id of group.archiveIds) archiveIds.add(id);
     }

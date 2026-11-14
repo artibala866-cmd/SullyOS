@@ -516,6 +516,27 @@ describe('independent vector archive', () => {
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
+    it('saves, embeds and recalls an archive longer than both 3000 and 6000 without losing text', async () => {
+        const floors = await prepare();
+        const longText = '剧情信息不可省略。'.repeat(850);
+        fetchMock.mockResolvedValueOnce(response(structured(longText)));
+        fetchMock.mockImplementation(async (_url, init) => {
+            const inputs = JSON.parse(init.body).input as string[];
+            return response({ data: inputs.map((_: string, index: number) => ({ index, embedding: [1, 0, 0] })) });
+        });
+        const saved = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+        const ids = saved.archives[0].vectorMemoryIds ?? [];
+        expect(ids.length).toBeGreaterThan(1);
+        const nodes = await Promise.all(ids.map(id => MemoryNodeDB.getById(id)));
+        expect(nodes.every(node => node && node.content.length <= 4000)).toBe(true);
+        const fullText = nodes.map(node => node!.content).join('');
+        expect(fullText).toContain(longText);
+        const recalled = await selectStoryVectorRecall(await loadStoryVectorRecall(saved, Infinity), '');
+        expect(recalled.text).toContain(longText);
+        expect(recalled.archiveIds.has(saved.archives[0].id)).toBe(true);
+        expect(fetchMock.mock.calls.filter(call => String(call[0]).includes('/chat/completions'))).toHaveLength(1);
+    });
+
     it('recalls all sections of a range together or leaves its floors in the request history', async () => {
         const floors = await prepare();
         queueArchive('最先发生的剧情。');
@@ -527,8 +548,9 @@ describe('independent vector archive', () => {
         await MemoryNodeDB.save({ ...node, id: secondId, content: '【好感与心理变化】' + '变化'.repeat(70) });
         const snapshot = { ...first, archives: [{ ...first.archives[0], vectorMemoryIds: [firstId, secondId] }] };
         const recall = await selectStoryVectorRecall(await loadStoryVectorRecall(snapshot, Infinity), '');
-        expect(recall.text).toBe('');
-        expect(recall.archiveIds.size).toBe(0);
+        expect(recall.text).toContain('旧'.repeat(5900));
+        expect(recall.text).toContain('变化'.repeat(70));
+        expect(recall.archiveIds.size).toBe(1);
     });
 
     it('only sends a separate query embedding when saved ranges compete for the recall window', async () => {
