@@ -84,14 +84,14 @@ try {
     await until("Boolean(document.querySelector('section[aria-label=\"向量节点\"]'))", 'real vector memory page');
     await tap('button[aria-label="返回剧情"]');
     await until(`document.querySelector('textarea')?.value === ${JSON.stringify(text)}`, 'return from real memory page');
-    await tap('button:has(svg.phosphor-arrow-left)');
+    await tap('.story-safe-header button');
     await until("Boolean(document.querySelector('button[aria-label=\"进入剧情 另一段剧情\"]'))", 'story list');
     await tap('button[aria-label="进入剧情 另一段剧情"]');
     await until("document.querySelector('textarea')?.value === ''", 'different story blank');
     await evaluate("document.querySelector('textarea').focus()");
     await call('Input.insertText', { text: other });
     await until(`document.querySelector('textarea')?.value === ${JSON.stringify(other)}`, 'other story draft');
-    await tap('button:has(svg.phosphor-arrow-left)');
+    await tap('.story-safe-header button');
     await until("Boolean(document.querySelector('button[aria-label=\"进入剧情 雨夜剧情\"]'))", 'story list return');
     await tap('button[aria-label="进入剧情 雨夜剧情"]');
     await until(`document.querySelector('textarea')?.value === ${JSON.stringify(text)}`, 'original story restored');
