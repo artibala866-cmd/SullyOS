@@ -67,7 +67,9 @@ export async function selectStoryVectorRecall(
     const separator = '\n\n';
     const candidates = groups.map(group => ({
         ...group,
-        text: group.nodes.map(node => node.content).join(separator),
+        // Owned chunks of one archive must reconstruct the exact generated text;
+        // only legacy groups made of separate archives need paragraph separators.
+        text: group.nodes.map(node => node.content).join(group.archiveIds.length === 1 ? '' : separator),
     }));
     const allText = candidates.map(group => group.text).join(separator);
     if (allText.length <= limit) {
