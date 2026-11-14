@@ -80,7 +80,7 @@ describe('story summary final channel', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(sent).not.toHaveProperty('max_tokens');
-        expect(sent.messages[0].content).toContain('约1500字符为建议目标');
+        expect(sent.messages[0].content).toContain('篇幅：不超过1500字');
         expect(sent.messages[0].content).toContain('建议上限为3000字符');
     });
     it('allows per-story advisory limits and a zero unlimited choice without clipping results', async () => {
@@ -344,8 +344,8 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('以约1500字符为建议目标');
-        expect(body.messages[0].content).toContain('允许超过1500字符');
+        expect(body.messages[0].content).toContain('篇幅：不超过1500字');
+        expect(body.messages[0].content).not.toContain('允许超过1500字符');
         expect(body.messages[0].content).toContain('归档建议上限为3000字符');
         expect(body.messages[0].content).toContain('此建议适用于任何楼层数量');
         expect(body.messages[0].content).toContain('不按轮数套用固定字数');
