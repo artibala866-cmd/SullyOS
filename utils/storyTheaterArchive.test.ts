@@ -84,8 +84,10 @@ describe('story summary final channel', () => {
         expect(sent.messages[0].content).toContain('建议上限为3000字符');
     });
     it('allows per-story advisory limits and a zero unlimited choice without clipping results', async () => {
+        fetchMock.mockResolvedValueOnce(response(structured('自定义建议上限')));
         await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 6500 });
         expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('建议上限为6500字符');
+        fetchMock.mockResolvedValueOnce(response(structured('不设上限')));
         await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 0 });
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content).toContain('未设置归档建议字数上限');
         expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -268,7 +270,8 @@ describe('story archive regeneration', () => {
         expect(payload.messages[1].content).not.toContain('先计划情节');
         expect(payload.messages[1].content).not.toContain('盒外');
         expect(payload.messages[1].content).not.toContain('旧摘要');
-        expect(payload).toMatchObject({ model: 'test', stream: false, max_tokens: 4096 });
+        expect(payload).toMatchObject({ model: 'test', stream: false });
+        expect(payload).not.toHaveProperty('max_tokens');
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(result.archives[0]).toEqual({ ...entry.archives[0], summary: savedSummary('新摘要') });
         expect(result.archives).toHaveLength(2);
