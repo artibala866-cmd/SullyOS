@@ -81,18 +81,19 @@ describe('story summary final channel', () => {
         const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(sent).not.toHaveProperty('max_tokens');
         expect(sent.messages[0].content).toContain('篇幅：归档正文应控制在100～1500字');
-        expect(sent.messages[0].content).toContain('建议上限为3000字符');
+        expect(sent.messages[0].content).not.toContain('归档建议上限为');
     });
-    it('allows per-story advisory limits and a zero unlimited choice without clipping results', async () => {
-        fetchMock.mockResolvedValueOnce(response(structured('自定义建议上限')));
-        await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 6500 });
-        expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content).toContain('建议上限为6500字符');
-        fetchMock.mockResolvedValueOnce(response(structured('不设上限')));
-        await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 0 });
-        expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content).toContain('未设置归档建议字数上限');
-        fetchMock.mockResolvedValueOnce(response(structured('缩短参考篇幅')));
-        await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 500 });
-        expect(JSON.parse(fetchMock.mock.calls[2][1].body).messages[0].content).toContain('当前建议值小于默认1500字符');
+    it('keeps the 100–1500 writing instruction unchanged regardless of saved per-story limits', async () => {
+        for (const guideMaxChars of [6500, 0, 500]) {
+            fetchMock.mockResolvedValueOnce(response(structured('保留完整有效归档')));
+            await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars });
+        }
+        const prompts = fetchMock.mock.calls.map(call => JSON.parse(call[1].body).messages[0].content as string);
+        expect(prompts).toHaveLength(3);
+        expect(prompts[0]).toContain('篇幅：归档正文应控制在100～1500字');
+        expect(prompts[1]).toBe(prompts[0]);
+        expect(prompts[2]).toBe(prompts[0]);
+        expect(prompts[0]).not.toContain('归档建议上限为');
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     it('accepts complete 1501–3000-character summaries without truncation or a second paid request', async () => {
@@ -346,7 +347,7 @@ describe('manual event box floor selection', () => {
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(body.messages[0].content).toContain('篇幅：归档正文应控制在100～1500字');
         expect(body.messages[0].content).not.toContain('允许超过1500字符');
-        expect(body.messages[0].content).toContain('归档建议上限为3000字符');
+        expect(body.messages[0].content).not.toContain('归档建议上限为');
         expect(body.messages[0].content).toContain('此建议适用于任何楼层数量');
         expect(body.messages[0].content).toContain('不按轮数套用固定字数');
         expect(body.messages[0].content).toContain('用户协助指令：具体要求');
