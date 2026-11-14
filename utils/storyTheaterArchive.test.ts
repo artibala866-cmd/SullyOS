@@ -74,13 +74,13 @@ describe('story summary final channel', () => {
     it('saves a complete 7000-character model reply instead of rejecting or cutting it at 3000', async () => {
         const detail = '重要剧情'.repeat(1750);
         fetchMock.mockResolvedValueOnce(response(structured(detail)));
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
+        const summary = await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 0 });
         expect(summary).toContain(detail);
         expect(Array.from(summary).length).toBeGreaterThan(7000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(sent).not.toHaveProperty('max_tokens');
-        expect(sent.messages[0].content).toContain('篇幅：归档正文应控制在100～1500字');
+        expect(sent.messages[0].content).toContain('篇幅：最终六栏归档必须控制在100～1500字');
         expect(sent.messages[0].content).not.toContain('归档建议上限为');
     });
     it('keeps the 100–1500 writing instruction unchanged regardless of saved per-story limits', async () => {
@@ -90,7 +90,7 @@ describe('story summary final channel', () => {
         }
         const prompts = fetchMock.mock.calls.map(call => JSON.parse(call[1].body).messages[0].content as string);
         expect(prompts).toHaveLength(3);
-        expect(prompts[0]).toContain('篇幅：归档正文应控制在100～1500字');
+        expect(prompts[0]).toContain('篇幅：最终六栏归档必须控制在100～1500字');
         expect(prompts[1]).toBe(prompts[0]);
         expect(prompts[2]).toBe(prompts[0]);
         expect(prompts[0]).not.toContain('归档建议上限为');
@@ -104,6 +104,20 @@ describe('story summary final channel', () => {
         expect(Array.from(summary).length).toBeGreaterThan(1500);
         expect(Array.from(summary).length).toBeLessThanOrEqual(3000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    it('enforces each story’s configured save ceiling without truncation or a second API call', async () => {
+        const detail = '长'.repeat(1700);
+        fetchMock.mockResolvedValueOnce(response(structured(detail)));
+        await expect(generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 1200 }))
+            .rejects.toThrow('超过本剧情设置的 1200 字符保存上限');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+        expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
+        fetchMock.mockResolvedValueOnce(response(structured(detail)));
+        const summary = await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 2200 });
+        expect(summary).toContain(detail);
+        expect(Array.from(summary).length).toBeGreaterThan(1500);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     it('keeps a short but complete six-section box without arbitrary minimum length', async () => {
         const short = sections.map((heading, index) => '【' + heading + '】\n' + (index === 0 ? '两人回家。' : '原文未交代')).join('\n\n');
@@ -126,7 +140,7 @@ describe('story summary final channel', () => {
         } }, messages[1]];
         const detailed = '长'.repeat(2850);
         fetchMock.mockResolvedValueOnce(response(structured(detailed)));
-        const summary = await generateStoryArchiveSummary(entry.title, source, api);
+        const summary = await generateStoryArchiveSummary(entry.title, source, api, { guideMaxChars: 0 });
         expect(summary).toContain(detailed);
         expect(summary).toContain('阿泽 · 用户对角色 · +3 · 允许察觉');
         expect(Array.from(summary).length).toBeGreaterThan(3000);
@@ -138,7 +152,7 @@ describe('story summary final channel', () => {
                 characterName: '演员' + i, delta: 1, reason: '无法容纳的备注'.repeat(60), awareness: 'noticed',
             })),
         } };
-        const summary = await generateStoryArchiveSummary(entry.title, [input, messages[1]], api);
+        const summary = await generateStoryArchiveSummary(entry.title, [input, messages[1]], api, { guideMaxChars: 0 });
         expect(summary).toContain('演员29 · 用户对角色');
         expect(Array.from(summary).length).toBeGreaterThan(3000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -345,10 +359,10 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('篇幅：归档正文应控制在100～1500字');
+        expect(body.messages[0].content).toContain('篇幅：最终六栏归档必须控制在100～1500字');
         expect(body.messages[0].content).not.toContain('允许超过1500字符');
         expect(body.messages[0].content).not.toContain('归档建议上限为');
-        expect(body.messages[0].content).toContain('此建议适用于任何楼层数量');
+        expect(body.messages[0].content).toContain('此要求适用于任何楼层数量');
         expect(body.messages[0].content).toContain('不按轮数套用固定字数');
         expect(body.messages[0].content).toContain('用户协助指令：具体要求');
         expect(body.messages[0].content).toContain('禁止记录本批末尾场景');
@@ -522,6 +536,7 @@ describe('independent vector archive', () => {
 
     it('saves, embeds and recalls an archive longer than both 3000 and 6000 without losing text', async () => {
         const floors = await prepare();
+        await DB.saveStoryTheater({ ...entry, archiveSummaryGuideMaxChars: 0 });
         const longText = '剧情信息不可省略。'.repeat(850);
         fetchMock.mockResolvedValueOnce(response(structured(longText)));
         fetchMock.mockImplementation(async (_url, init) => {
