@@ -90,7 +90,10 @@ describe('story summary final channel', () => {
         fetchMock.mockResolvedValueOnce(response(structured('不设上限')));
         await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 0 });
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content).toContain('未设置归档建议字数上限');
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        fetchMock.mockResolvedValueOnce(response(structured('缩短参考篇幅')));
+        await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 500 });
+        expect(JSON.parse(fetchMock.mock.calls[2][1].body).messages[0].content).toContain('当前建议值小于默认1500字符');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     it('accepts complete 1501–3000-character summaries without truncation or a second paid request', async () => {
         const detailed = '长'.repeat(1700);
