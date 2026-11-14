@@ -72,7 +72,8 @@ describe('事件盒篇幅是可调的提示词建议', () => {
         expect(chunks.join('')).toBe(source);
     });
 });
-\ndescribe('剧情单次最大输出额度', () => {
+
+describe('剧情单次最大输出额度', () => {
     it('剧情快捷预设快照不会锁住作者后来更新的最大输出', () => {
         const preset = createBlankStoryPreset('自定义预设');
         const oldOverride = { ...preset.document, generation: { ...preset.document.generation } };

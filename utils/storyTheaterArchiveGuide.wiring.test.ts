@@ -9,7 +9,8 @@ describe('剧情归档建议长度全链路', () => {
         const editor = read('../components/date/story/StoryTheaterEditor.tsx');
         expect(editor).toContain("aria-label='归档建议上限'");
         expect(editor).toContain("archiveSummaryGuideMaxChars, presetId");
-        expect(editor).toContain('超过这里的数值也会完整保存');
+        expect(editor).toContain('超出也完整保存、不截断');
+        expect(editor).toContain('后续续写可能增加费用');
     });
     it('自动归档、手动归档、重新总结都读取本剧情设置', () => {
         const archive = read('./storyTheaterArchive.ts');
