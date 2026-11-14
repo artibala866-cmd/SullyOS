@@ -11,6 +11,7 @@ import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { normalizeStoryOutputTokens } from '../../../utils/storyOutputLimits';
 import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
+import { readStoryInputDraft, saveStoryInputDraft, clearStoryInputDraft } from '../../../utils/storyTheaterInputDraft';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowDown, ArrowLeft, Broadcast, CaretDown, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
@@ -482,7 +483,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const [messages, setMessages] = useState<Message[]>([]);
     const [historyLoaded, setHistoryLoaded] = useState(false);
     const [initialReadingDisplayed, setInitialReadingDisplayed] = useState(false);
-    const [input, setInput] = useState('');
+    const [input, setInput] = useState(() => readStoryInputDraft(entry.id));
     const [sending, setSending] = useState(false);
     const [backgroundTask, setBackgroundTask] = useState(() => getStoryGenerationSnapshot(entry.id));
     const [memoryStatus, setMemoryStatus] = useState('');
@@ -567,8 +568,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         // session's local setState or using its stale in-memory message list.
         if (snapshot.phase === 'completed' || snapshot.phase === 'failed') {
             void loadMessages().catch(error => console.warn('[StoryBackground] refresh failed', error));
+            // A reply may finish while this screen is reopened. The original
+            // request already cleared its draft in storage; reflect that here.
+            if (snapshot.phase === 'completed') {
+                setInput(current => current && !readStoryInputDraft(entry.id) ? '' : current);
+            }
         }
     }), [entry.id, loadMessages]);
+    useEffect(() => { setInput(readStoryInputDraft(entry.id)); }, [entry.id]);
     useEffect(() => {
         // A reused screen must not show the previous story's live draft.
         setBackgroundTask(getStoryGenerationSnapshot(entry.id));
@@ -1396,7 +1403,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             };
             try { await commit(); }
             catch (error) { throw new StoryReplySaveError({ content, fromTavern, commit }, error); }
-            if (!isReroll && !isContinueTurn) setInput('');
+            if (!isReroll && !isContinueTurn) {
+                clearStoryInputDraft(entry.id, input);
+                setInput('');
+            }
             setAffinityDrafts({});
             setShowAffinityInput(false);
             await loadMessages().catch(error => addToast(`正文已保存，页面读取失败：${error?.message || error}`, 'error'));
@@ -1730,7 +1740,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 </div>}
                 <div className='flex items-end gap-2 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm'>
                     <button type='button' onClick={() => void send(undefined, true)} disabled={generationBlocked || !canStart} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本轮不主动行动，让剧情按当前预设继续' aria-label='继续当前剧情'>继续</button>
-                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={generationBlocked} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
+                    <textarea value={input} onChange={event => { setInput(event.target.value); saveStoryInputDraft(entry.id, event.target.value); }} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={generationBlocked} rows={2} placeholder={pendingRetryInput ? '留空并点击推进，可继续上次中断' : canWriteOpening ? '也可以先写一句；留空推进则由故事开场' : '写下动作、对白、时间跳转，或你希望故事发生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
                     <button onClick={() => void send()} disabled={generationBlocked || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '继续上次中断' : canWriteOpening && !input.trim() ? '让故事先开场' : '推进'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{generationBusy ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
                 </div>
                 <div className='mt-2 text-center text-[9px] text-slate-400'>Ctrl / ⌘ + Enter 推进 · 长按楼层可编辑或删除</div>
