@@ -483,7 +483,7 @@ async function writeStoryArchiveRange(
     const now = Date.now();
     const nodes: MemoryNode[] = splitStoryArchiveVectorText(summary, EMBEDDING_MAX_INPUT_CHARS).map(content => ({
         id: makeStoryTheaterId(), charId: thread, content, room: 'living_room' as const, tags: ['剧情'],
-        importance: 6, mood: 'neutral' as const, embedded: false, createdAt: now, lastAccessed: now, accessCount: 0,
+        importance: 6, mood: 'neutral' as const, embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
     }));
     let updated: StoryTheaterEntry | undefined;
     await vectorizeAndStore(nodes, { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引' }, vector?.remote, {
