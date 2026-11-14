@@ -117,7 +117,7 @@ describe('story summary final channel', () => {
 
     it('rejects impossible affinity receipts before spending an API call', async () => {
         const input = { ...messages[0], metadata: { ...messages[0].metadata,
-            theaterAffinityInputs: Array.from({ length: 10 }, (_, i) => ({
+            theaterAffinityInputs: Array.from({ length: 30 }, (_, i) => ({
                 characterName: '演员' + i, delta: 1, reason: '无法容纳的备注'.repeat(60), awareness: 'noticed',
             })),
         } };
