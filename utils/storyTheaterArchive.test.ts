@@ -536,7 +536,7 @@ describe('independent vector archive', () => {
 
     it('saves, embeds and recalls an archive longer than both 3000 and 6000 without losing text', async () => {
         const floors = await prepare();
-        await DB.saveStoryTheater({ ...entry, archiveSummaryGuideMaxChars: 0 });
+        await DB.saveStoryTheater({ ...(await fresh()), archiveSummaryGuideMaxChars: 0 });
         const longText = '剧情信息不可省略。'.repeat(850);
         fetchMock.mockResolvedValueOnce(response(structured(longText)));
         fetchMock.mockImplementation(async (_url, init) => {
