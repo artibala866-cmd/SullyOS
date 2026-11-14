@@ -1,7 +1,7 @@
-/** Story event-box size is author guidance, never a paid-result rejection threshold. */
+/** Default for the author-editable story archive save ceiling. */
 export const STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS = 3000;
 
-/** 0 explicitly means no recommended ceiling; undefined keeps older stories at 3000. */
+/** 0 disables the save ceiling; missing or invalid values retain the existing default. */
 export function normalizeStoryArchiveGuideMaxChars(value: unknown): number {
     if (value === undefined || value === null || value === '') return STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS;
     const parsed = typeof value === 'number' ? value : Number(value);
