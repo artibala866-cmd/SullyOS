@@ -643,7 +643,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                             value={draft.archiveSummaryGuideMaxChars ?? STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
                             onChange={event => update('archiveSummaryGuideMaxChars', normalizeStoryArchiveGuideMaxChars(event.target.value === '' ? 0 : Number(event.target.value)))}
                             className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
-                        <span className='block mt-1 text-[10px] text-slate-500'>1500字只是生成建议；超出也完整保存、不截断。归档越长，后续续写可能增加费用。</span>
                     </label>
                 </div>}
                 <div className='mt-6 flex items-start justify-between gap-3 border-t border-slate-200 pt-5'>
