@@ -3,6 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
+import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
@@ -104,6 +105,25 @@ describe('story summary final channel', () => {
         expect(Array.from(summary).length).toBeGreaterThan(1500);
         expect(Array.from(summary).length).toBeLessThanOrEqual(3000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    it('does not silently impose an arbitrary default ceiling on paid summaries', () => {
+        expect(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS).toBe(0);
+        expect(normalizeStoryArchiveGuideMaxChars(undefined)).toBe(0);
+        expect(normalizeStoryArchiveGuideMaxChars(6500)).toBe(6500);
+    });
+    it('rejects an impossible custom save ceiling before charging the summary API', async () => {
+        await expect(generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 1 }))
+            .rejects.toThrow('本次未调用总结 API');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
+    });
+    it('rejects an impossible custom save ceiling caused by mandatory affinity receipts before paying', async () => {
+        const source = [{ ...messages[0], metadata: { ...messages[0].metadata,
+            theaterAffinityInputs: [{ characterName: '阿泽', delta: 3, reason: '确认'.repeat(200), awareness: 'noticed' }],
+        } }, messages[1]];
+        await expect(generateStoryArchiveSummary(entry.title, source, api, { guideMaxChars: 200 }))
+            .rejects.toThrow('本次未调用总结 API');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
     it('enforces each story’s configured save ceiling without truncation or a second API call', async () => {
         const detail = '长'.repeat(1700);
