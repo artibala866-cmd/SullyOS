@@ -638,8 +638,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <label><span className='block mb-2 text-[10px] text-slate-500'>至少保留最近几层</span><input type='number' min={1} max={Math.max(1, Number(draft.archiveAfter) - 1)} value={draft.archiveKeepRecent ?? 5} onChange={event => update('archiveKeepRecent', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                     </div>
                     <label className='block'>
-                        <span className='block mb-2 text-[10px] text-slate-500'>归档建议上限（字符，0 为不限）</span>
-                        <input type='number' aria-label='归档建议上限' min={0} step={100}
+                        <span className='block mb-2 text-[10px] text-slate-500'>归档保存上限（字符，0 为不限）</span>
+                        <input type='number' aria-label='归档保存上限' min={0} step={100}
                             value={draft.archiveSummaryGuideMaxChars ?? STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
                             onChange={event => update('archiveSummaryGuideMaxChars', normalizeStoryArchiveGuideMaxChars(event.target.value === '' ? 0 : Number(event.target.value)))}
                             className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
