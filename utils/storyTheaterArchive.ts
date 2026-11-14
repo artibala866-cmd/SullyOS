@@ -14,7 +14,7 @@ import { ensureFloat32 } from './memoryPalace/db';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
-import { normalizeStoryArchiveGuideMaxChars, splitStoryArchiveVectorText } from './storyArchiveLength';
+import { splitStoryArchiveVectorText } from './storyArchiveLength';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
@@ -124,12 +124,7 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
         ? '\n界面好感记录（用户→角色）：\n' + affinity.join('\n')
         : '';
     const extraAffinityChars = storyArchiveCharacterCount(extraAffinityText);
-    const guideMaxChars = normalizeStoryArchiveGuideMaxChars(options?.guideMaxChars);
-    const guide = guideMaxChars === 0
-        ? '作者未设置归档建议字数上限。应以完整、准确记录重要事实为准。'
-        : '本剧情的归档建议上限为' + guideMaxChars + '字符（包括六栏标题和界面好感记录），仅用于指导写作；不是程序硬上限，超过也应完整输出。'
-            + (guideMaxChars < 1500 ? ' 当前建议值小于默认1500字符，优先按较短篇幅整理，不能为凑1500字符而扩写。' : '');
-    const instruction = STORY_ARCHIVE_INSTRUCTION + '\n' + guide
+    const instruction = STORY_ARCHIVE_INSTRUCTION
         + (extraAffinityChars ? '\n本批界面好感记录将在保存时额外占用 ' + extraAffinityChars
             + ' 字符，程序会原样附加；不要重复抄写好感记录。若超出建议值，不可因此遗漏关键事实。' : '');
     const stream = !options?.storyOnlyProvider && isGlobalStreamEnabled();
