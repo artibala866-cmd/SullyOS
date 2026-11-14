@@ -558,6 +558,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Test per-story draft preservation and concurrent-send safety
         run: pnpm exec vitest run utils/storyTheaterInputDraft.test.ts utils/storyTheaterBackground.test.ts utils/storyTheaterSaveNavigate.test.ts
+      - name: Install Chinese font for readable real-composer screenshots
+        shell: bash
+        run: |
+          if [ -z "$(fc-list :lang=zh family | head -n 1)" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq fonts-noto-cjk
+          fi
+          test -n "$(fc-list :lang=zh family | head -n 1)"
       - name: Verify real story composer restoration in 320px and 390px mobile screenshots
         shell: bash
         run: |
