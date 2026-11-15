@@ -66,9 +66,9 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
             ? [[fact.vectorNodeId, fact] as const] : []))), [entry.archives]);
     const staticSetup = useMemo(() => [
         entry.premise, userProfile?.name, userProfile?.bio,
-        ...characters.filter(char => entry.characterIds.includes(char.id))
+        ...(characters ?? []).filter(char => entry.characterIds.includes(char.id))
             .flatMap(char => [char.description, char.systemPrompt, char.worldview]),
-        ...worldbooks.filter(book => entry.selectedWorldbookIds?.includes(book.id))
+        ...(worldbooks ?? []).filter(book => entry.selectedWorldbookIds?.includes(book.id))
             .map(book => book.content),
     ].filter(Boolean).join('\n'), [entry.premise, entry.characterIds, entry.selectedWorldbookIds, userProfile, characters, worldbooks]);
     const isKnownSetup = (node: MemoryNode) => {
