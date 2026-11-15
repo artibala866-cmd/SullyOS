@@ -198,6 +198,22 @@ describe('story summary final channel', () => {
         expect(excerpt).toBe('[第 1 楼] 旧闸左灯双闪时，救生艇必须停在退水石阶外。');
     });
 
+    it('does not retrieve unrelated generic questions or duplicate a fact already sent from that floor', () => {
+        const rows = [
+            {id:1, role:'assistant',content:'第二天上午，巡堤员已完成南堤巡查。'},
+            {id:2, role:'user',content:'核对阿禾什么时候能出院。'},
+            {id:3, role:'user',content:'向站务员确认检修申请的档案编号。'},
+            {id:4, role:'assistant',content:'检修申请的档案编号是 G-5612，申请订在旧记录夹。'},
+        ];
+        const archives = [{id:'old',strategy:'vector' as const,createdAt:1,
+            fromMessageId:1,toMessageId:4,messageCount:4,vectorMemoryIds:[],facts:[]}];
+        const known='[第 1 楼 · 剧情时间：第二天上午] 巡堤员已完成南堤巡查。\n[第 4 楼] 档案编号是 G-5612。';
+        const floors=new Map(rows.map(row=>[row.id,row.id]));
+        expect(findStoryArchiveEvidence(rows,archives,10,'回看南堤巡查，分别是什么时候？',known,'',floors)).toBe('');
+        expect(findStoryArchiveEvidence(rows,archives,10,'检修申请的档案编号呢？',known,'',floors)).toBe('');
+        expect(findStoryArchiveEvidence(rows,archives,10,'旧记录夹放了什么？',known,'',floors)).toContain('申请订在旧记录夹');
+    });
+
     it('selects relevant facts but presents them chronologically in prose context', () => {
         const facts = [
             { key: '甲/地点', kind: 'fact' as const, text: '甲在庭院。', terms: ['庭院'], sourceMessageId: 11 },

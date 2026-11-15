@@ -423,22 +423,19 @@ export function formatStoryArchiveProseContext(
     }).filter(Boolean).join('\n\n');
 }
 
-/** Pull a small, verbatim fallback only for an explicit query absent from the saved facts. */
+/** Pull a small, verbatim fallback only when archived text can add evidence. */
 export function findStoryArchiveEvidence(
-    rows: readonly { id: number; content: string }[], archives: StoryTheaterArchive[], beforeId: number,
+    rows: readonly { id: number; content: string; role?: string }[], archives: StoryTheaterArchive[], beforeId: number,
     query: string, alreadySent: string, baseline: string, floorNumbers: ReadonlyMap<number, number>,
 ): string {
     const known = normalize(alreadySent);
+    const knownLines = known.split('\n');
     const needles = new Set<string>();
-    for (const span of normalize(query).slice(-1200).match(/\p{Script=Han}{4,}|[a-z0-9]{4,}/gu) ?? []) {
-        if (/^[a-z0-9]+$/u.test(span)) {
-            needles.add(span);
-            continue;
-        }
-        for (let i = 0; i <= span.length - 4; i++) {
-            const word = span.slice(i, i + 4);
-            needles.add(word);
-        }
+    const searchText = normalize(query).slice(-1200)
+        .replace(/(?:什么时候|什么时间|什么地方|怎么回事|怎么样|怎么做|分别是什么|分别是|能不能|可不可以|是不是|有没有|请确认|请告诉|请区分|后来怎么样)/gu, ' ');
+    for (const span of searchText.match(/\p{Script=Han}{4,}|[a-z0-9]{4,}/gu) ?? []) {
+        if (/^[a-z0-9]+$/u.test(span)) needles.add(span);
+        else for (let i = 0; i <= span.length - 4; i++) needles.add(span.slice(i, i + 4));
     }
     if (!needles.size) return '';
     const boxes = archives.filter(box => box.strategy === 'vector' && box.facts && box.toMessageId < beforeId);
@@ -450,7 +447,18 @@ export function findStoryArchiveEvidence(
         if (deletedSources.has(row.id) || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
         for (const sentence of storySentences(row.content)) {
             const text = normalize(sentence);
-            if (known.includes(text)) continue;
+            if (known.includes(text) || /[？?]$/u.test(text)
+                || (row.role === 'user' && /^(?:请|问|核对|看看|检查|告诉|确认|向.{1,12}确认)/u.test(text))) continue;
+            const body = text.replace(leadingTime, '').replace(/^[\s，,：:、】\]]+/u, '');
+            const floor = floorNumbers.get(row.id);
+            if (body !== text && floor !== undefined
+                && knownLines.some(line => line.startsWith('[第 ' + floor + ' 楼') && line.includes(body))) continue;
+            const codes = storyArchiveCodes(text);
+            if (codes.length && codes.every(code => known.includes(code.value.toLowerCase()))) {
+                const lastCode = normalize(codes[codes.length - 1].phrase);
+                const rest = text.slice(text.lastIndexOf(lastCode) + lastCode.length);
+                if (![...needles].some(word => rest.includes(word) && !known.includes(word))) continue;
+            }
             let score = 0;
             let offset = -1;
             for (const word of needles) {
