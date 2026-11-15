@@ -169,6 +169,21 @@ describe('story summary final channel', () => {
         expect(formatStoryArchiveFacts(confirmed, new Map([[16, 16]]))).toContain('林星已在第二天清晨检查侧门。');
         expect(formatStoryArchiveFacts(confirmed)).not.toContain('尚未发生的计划');
     });
+    it('retrieves an old but relevant plot transition under a tight history budget, then orders selected facts by floor', () => {
+        const archives = Array.from({ length: 22 }, (_, i) => ({
+            id: 'history-' + i, strategy: 'summary' as const,
+            fromMessageId: i + 1, toMessageId: i + 1, messageCount: 1, createdAt: i,
+            facts: [{ key: '调查/线索', kind: 'fact' as const,
+                text: i === 0 ? '蓝雨暗号是进入钟楼的线索。' : '调查队第' + (i + 1) + '次改变了行动路线。',
+                terms: i === 0 ? ['蓝雨暗号', '钟楼'] : ['路线'],
+                sourceMessageId: i + 1 }],
+        }));
+        const floors = new Map(Array.from({ length: 22 }, (_, i) => [i + 1, i + 1]));
+        const newestOnly = formatStoryArchiveTransitions(archives, Infinity, floors, undefined, 60);
+        expect(newestOnly).not.toContain('蓝雨暗号');
+        const relevant = formatStoryArchiveTransitions(archives, Infinity, floors, undefined, 60, '蓝雨暗号在哪');
+        expect(relevant).toContain('[第 1 楼] 蓝雨暗号是进入钟楼的线索。');
+    });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
         expect(parseStoryArchiveSummary(completion([{ type: 'thinking', text: '计划' }, { type: 'text', text: '正文' }]))).toBe('正文');
