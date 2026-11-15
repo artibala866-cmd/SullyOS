@@ -78,9 +78,13 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   return time?[[row.id,time] as const]:[];
  })),[floors]);
  const readableSummary=(box:StoryTheaterArchive)=>{
-  if(!box.facts?.length)return box.summary||'';
-  return [formatStoryArchiveFacts(box.facts,floorNumbers,Infinity,true,sourceTimes),
-   box.affinityLog?.join('\n')].filter(Boolean).join('\n\n');
+  if(!box.facts&&!box.historyFacts)return box.summary||'';
+  return [
+   ...(box.historyFacts?.length?['【本段历史变化（非当前状态）】\n'
+    +formatStoryArchiveFacts(box.historyFacts,floorNumbers,Infinity,true,sourceTimes)]:[]),
+   formatStoryArchiveFacts(box.facts??[],floorNumbers,Infinity,true,sourceTimes),
+   box.affinityLog?.join('\n'),
+  ].filter(Boolean).join('\n\n')||box.summary||'';
  };
  const char=actors.find(c=>c.id===charId);
  const available=boxes.filter(box=>!box.memoryConversions?.[charId]);
