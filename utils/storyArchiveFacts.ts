@@ -3,6 +3,22 @@ import type { StoryArchiveFact, StoryTheaterArchive } from '../types';
 const normalize = (text: string) => text.normalize('NFKC').trim().toLowerCase();
 const comparable = (text: string) => normalize(text).replace(/[\p{P}\p{Z}\s]/gu, '');
 
+/** Backward-compatible reading only: older saves have no modality field.
+ * Classify explicit future intention and hearsay conservatively; keep the
+ * actual memory wording and stored vector bytes unchanged.
+ */
+export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'modality'>):
+    'planned' | 'unverified' | undefined {
+    if (fact.modality) return fact.modality;
+    const text = fact.text;
+    if (/(?:据说|传闻|听说|怀疑|猜测|尚未证实|未经证实|无人证实|尚未核实|未确认|可能存在)/u.test(text)
+        && !/(?:最终证实|已经证实|查明真相|明确证实|证据表明)/u.test(text)) return 'unverified';
+    const intends = /(?:打算|计划|准备于|准备在|决定.{0,55}(?:后|前|以后|之后|明天|下周|改天)|承诺.{0,35}(?:以后|明天|今后|将来|下周)|将要|拟于)/u.test(text);
+    if (intends && !/(?:计划已经完成|计划已完成|打算已取消|放弃计划|取消计划|终于做到了|最终完成|随后已经前往|后来已经前往)/u.test(text)) return 'planned';
+    return undefined;
+}
+
+
 /** Preserve only explicit story-time words; never use Date.now() or a message timestamp.
  * If several different moments occur in one floor, don't guess which event owns which.
  */
@@ -238,7 +254,7 @@ export function formatStoryArchiveFacts(
             ...(storyTime ? ['剧情时间：' + storyTime] : []),
         ];
         const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '')
-            + (fact.kind === 'author' ? '用户协助指令：' : fact.modality === 'planned' ? '【尚未发生的计划】' : fact.modality === 'unverified' ? '【尚未核实的说法】' : '') + fact.text;
+            + (fact.kind === 'author' ? '用户协助指令：' : storyArchiveModality(fact) === 'planned' ? '【尚未发生的计划】' : storyArchiveModality(fact) === 'unverified' ? '【尚未核实的说法】' : '') + fact.text;
         if (used + line.length + 1 > budget && selected.length) continue;
         selected.push({ fact, line });
         used += line.length + 1;
@@ -261,17 +277,17 @@ export function formatStoryArchiveProseContext(
     const sections: Array<{ title: string; entries: StoryArchiveFact[]; budget: number }> = [
         {
             title: '已确认的剧情事实（仅表示已经发生，不要求再次发生）',
-            entries: facts.filter(fact => fact.kind === 'fact' && !fact.modality),
+            entries: facts.filter(fact => fact.kind === 'fact' && !storyArchiveModality(fact)),
             budget: facts.length > 12 ? 1450 : 3200,
         },
         {
             title: '尚未发生的计划和承诺（不是已完成事件）',
-            entries: facts.filter(fact => fact.modality === 'planned'),
+            entries: facts.filter(fact => storyArchiveModality(fact) === 'planned'),
             budget: 580,
         },
         {
             title: '未经证实的信息（不能当成已知真相）',
-            entries: facts.filter(fact => fact.modality === 'unverified'),
+            entries: facts.filter(fact => storyArchiveModality(fact) === 'unverified'),
             budget: 500,
         },
         {
