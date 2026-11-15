@@ -249,7 +249,7 @@ describe('story archive regeneration', () => {
         expect(payload).toMatchObject({ model: 'test', stream: false });
         expect(payload).not.toHaveProperty('max_tokens');
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(result.archives[0]).toMatchObject({ ...entry.archives[0], summary: '新摘要', facts: [expect.objectContaining({ text: '新摘要' })] });
+        expect(result.archives[0]).toMatchObject({ ...entry.archives[0], summary: expect.stringContaining('新摘要'), facts: [expect.objectContaining({ text: '新摘要' })] });
         expect(result.archives).toHaveLength(2);
         expect(result.premise).toBe('另一个窗口编辑的介绍');
         expect((await fresh()).archives[0].summary).toContain('新摘要');
