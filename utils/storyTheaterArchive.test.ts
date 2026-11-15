@@ -157,6 +157,51 @@ describe('story summary final channel', () => {
         expect(() => parseStoryArchiveSummary(completion('Paragraph 1: 31 chars\nStill too long'))).toThrow('推理过程');
         expect(parseStoryArchiveSummary(completion('他说「Let’s count together」，两人一起数星星。'))).toContain('数星星');
     });
+    it('does not re-archive existing role/worldbook setup, but retains a genuinely new event', async () => {
+        const originalCharacters = vi.spyOn(DB, 'getAllCharacters').mockResolvedValue([{
+            id: 'existing-actor', name: '阿泽', description: '阿泽是医生。',
+            systemPrompt: '阿泽善于救人。', worldview: '故事发生在雾城。',
+        } as any]);
+        const originalBooks = vi.spyOn(DB, 'getAllWorldbooks').mockResolvedValue([
+            { id: 'book-selected', title: '夜间医院', content: '医院夜间关闭。', category: '设定' } as any,
+            { id: 'book-other', title: '未选择的设定', content: '秘密飞船会在天亮前出现。', category: '设定' } as any,
+        ]);
+        try {
+            entry.characterIds = ['existing-actor'];
+            entry.selectedWorldbookIds = ['book-selected'];
+            const raw = JSON.stringify({ changes: [
+                { key: '阿泽/职业', kind: 'fact', text: '阿泽是医生。',
+                    terms: ['阿泽'], sourceMessageId: messages[0].id },
+                { key: '医院/夜间规则', kind: 'fact', text: '医院夜间关闭。',
+                    terms: ['医院'], sourceMessageId: messages[0].id },
+                { key: '阿泽/承诺', kind: 'fact', text: '阿泽答应陪小雨走回家。',
+                    terms: ['阿泽', '小雨'], sourceMessageId: messages[1].id },
+            ] });
+            fetchMock.mockResolvedValueOnce(response(completion(raw)));
+            const result = await generateStoryArchiveDelta(entry, messages, api, 1, 'summary');
+            expect(result.facts.map(fact => fact.key)).toEqual(['阿泽/承诺']);
+            expect(result.summary).toContain('阿泽答应陪小雨走回家。');
+            const request = JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content as string;
+            expect(request).toContain('阿泽是医生。');
+            expect(request).toContain('医院夜间关闭。');
+            expect(request).not.toContain('秘密飞船会在天亮前出现');
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            originalCharacters.mockRestore();
+            originalBooks.mockRestore();
+        }
+    });
+    it('keeps changes to an existing role state even when the original state is in the role card', () => {
+        const known = [{ key: '阿泽/职业', kind: 'fact' as const, text: '阿泽是医生。',
+            terms: ['阿泽'], sourceMessageId: 1 }];
+        const sources = new Map([[3, { text: '阿泽已经从医院辞职。', authorInput: false }]]);
+        const raw = JSON.stringify({ changes: [{
+            action: 'update', kind: 'fact', key: '阿泽/职业', text: '阿泽已辞去医生工作。',
+            terms: ['阿泽'], sourceMessageId: 3,
+        }] });
+        expect(parseStoryArchiveChanges(raw, sources, known, '【阿泽】\n人物档案：阿泽是医生。'))
+            .toEqual([expect.objectContaining({ key: '阿泽/职业', text: '阿泽已辞去医生工作。' })]);
+    });
     it('strips legacy Tavern title comments before sending the actual opening', async () => {
         const opening = { ...messages[0], content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
             metadata: { ...messages[0].metadata, theaterOpeningGreeting: { characterId: 'actor', greetingId: 'opening' } } } as Message;
