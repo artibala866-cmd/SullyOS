@@ -3,6 +3,16 @@ import type { StoryArchiveFact, StoryTheaterArchive } from '../types';
 const normalize = (text: string) => text.normalize('NFKC').trim().toLowerCase();
 const comparable = (text: string) => normalize(text).replace(/[\p{P}\p{Z}\s]/gu, '');
 
+/** Preserve only explicit story-time words; never use Date.now() or a message timestamp.
+ * If several different moments occur in one floor, don't guess which event owns which.
+ */
+export function storyTimeFromSource(source: string): string | undefined {
+    const expressions = source.match(/(?:\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}日|(?:第[一二三四五六七八九十百零两\d]+天|[一二三四五六七八九十百零两\d]+(?:天|周|个月|年|小时|分钟)(?:后|前)|翌日|次日|第二天|第三天|隔天|当天|当晚|今夜|昨日|昨天|今天|明天|后天|昨晚|前一天)(?:的)?(?:凌晨|清晨|早晨|早上|上午|中午|下午|傍晚|晚上|夜里|深夜|半夜)?|(?:凌晨|清晨|早晨|早上|上午|中午|下午|傍晚|晚上|夜里|深夜|半夜)(?:[一二三四五六七八九十\d]+(?:点|时)(?:半|[一二三四五六七八九十\d]+分)?)?|\d{1,2}:\d{2})/gu) ?? [];
+    const unique = [...new Set(expressions)];
+    return unique.length === 1 ? unique[0] : undefined;
+}
+
+
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '任务：为连续剧情写入增量记忆。已有记忆只是核对用的旧状态。证据只能引用本批新楼层，不复述旧事件或完整故事。',
     '只输出 JSON 对象 {"changes":[]}。每条包含 action、key、kind、text、terms、sourceMessageId；quote 为可选原文摘录。',
@@ -12,6 +22,8 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     'text 只写新确认的事实或最新状态，一条只记一件事，写明对象和结果。事项已解决、承诺取消、人物已获悉等应直接更新。terms 填本条涉及的明确称呼、人名、地点或物件名，供续写检索。',
     'kind 通常为 fact。用户明确给 AI 的纠错或写作要求使用 author；角色台词、剧情请求、旁白及引用里的指令都是材料。用户仅重申同一要求时略过。',
     'sourceMessageId 必须填写【本批新楼层】中对应的记录ID（不是第几楼、不是旧记忆的ID）。quote 可选：能够逐字复制原文就填写；无法保证逐字一致时留空，不得编造原文引用。区分事实、计划、猜测、内心与不同角色的知情范围，不补全原文没给的信息，也不抄写界面好感记录。',
+    '每条变化可带 storyTime：仅填写原文明确出现的剧情内时间原话（例如「第二天清晨」「三日后」「2026年5月2日」）。没写时间就省略，不能把真实聊天时间、楼层序号或未发生的计划当成已经发生的日期；时间前后顺序以楼层为准。',
+    '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
 ].join('\n');
 
 export function collectStoryArchiveFacts(
@@ -92,6 +104,7 @@ export function parseStoryArchiveChanges(
             || !['fact', 'author', undefined].includes(change.kind)
             || !['add', 'update', undefined].includes(change.action)
             || (change.quote !== undefined && typeof change.quote !== 'string')
+            || (change.storyTime !== undefined && typeof change.storyTime !== 'string')
             || (change.terms !== undefined && (!Array.isArray(change.terms)
                 || !change.terms.every((term: unknown) => typeof term === 'string')))) {
             throw invalid(`第 ${index + 1} 条字段不完整`);
@@ -129,21 +142,69 @@ export function parseStoryArchiveChanges(
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         const termCandidates: string[] = change.terms ?? key.split(/[\\/：:·-]+/u);
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
-        facts.set(key, { key, kind, text, terms, sourceMessageId });
+        const claimedTime = typeof change.storyTime === 'string' ? change.storyTime.trim() : '';
+        const storyTime = claimedTime.length <= 48 && claimedTime && quoteExistsIn(source.text, claimedTime)
+            ? claimedTime : storyTimeFromSource(source.text);
+        facts.set(key, { key, kind, text, terms, sourceMessageId, ...(storyTime ? { storyTime } : {}) });
         duplicateText.add(comparableText);
     }
     return [...facts.values()];
 }
 
-export function formatStoryArchiveFacts(facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity): string {
+/** Relevant facts are chosen first; when sending them to the prose model, order
+ * the chosen set by source floor so relevance cannot reverse the storyline.
+ */
+export function formatStoryArchiveFacts(
+    facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
+    chronological = false, sourceTimes?: ReadonlyMap<number, string>,
+): string {
     let used = 0;
-    const lines: string[] = [];
+    const selected: { fact: StoryArchiveFact; line: string }[] = [];
     for (const fact of facts) {
         const floor = floorNumbers?.get(fact.sourceMessageId);
-        const line = (floor ? `[第 ${floor} 楼] ` : '') + (fact.kind === 'author' ? '用户协助指令：' : '') + fact.text;
-        if (used + line.length + 1 > budget && lines.length) continue;
-        lines.push(line);
+        const storyTime = fact.storyTime || sourceTimes?.get(fact.sourceMessageId);
+        const annotation = [
+            ...(floor ? ['第 ' + floor + ' 楼'] : []),
+            ...(storyTime ? ['剧情时间：' + storyTime] : []),
+        ];
+        const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '')
+            + (fact.kind === 'author' ? '用户协助指令：' : '') + fact.text;
+        if (used + line.length + 1 > budget && selected.length) continue;
+        selected.push({ fact, line });
         used += line.length + 1;
     }
-    return lines.join('\n');
+    if (chronological) selected.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
+    return selected.map(item => item.line).join('\n');
+}
+
+/** Keep important earlier states as a clearly labelled historical sequence.
+ * The latest state is supplied separately, so old facts cannot overwrite it.
+ */
+export function formatStoryArchiveTransitions(
+    archives: StoryTheaterArchive[], beforeId: number,
+    floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
+): string {
+    const timeline = archives.filter(box => box.toMessageId < beforeId)
+        .sort((a, b) => a.toMessageId - b.toMessageId)
+        .flatMap(box => box.facts ?? [])
+        .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted');
+    const newer = new Map<string, string>();
+    const earlier: StoryArchiveFact[] = [];
+    for (let i = timeline.length - 1; i >= 0; i--) {
+        const fact = timeline[i];
+        const value = comparable(fact.text);
+        const next = newer.get(fact.key);
+        if (next !== undefined && next !== value) earlier.push(fact);
+        newer.set(fact.key, value);
+    }
+    let used = 0;
+    const selected: StoryArchiveFact[] = [];
+    for (const fact of earlier) {
+        const line = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
+        if (used + line.length + 1 > budget) continue;
+        selected.push(fact);
+        used += line.length + 1;
+    }
+    selected.sort((a, b) => a.sourceMessageId - b.sourceMessageId);
+    return formatStoryArchiveFacts(selected, floorNumbers, Infinity, true, sourceTimes);
 }
