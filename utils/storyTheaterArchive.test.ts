@@ -66,15 +66,29 @@ describe('story summary final channel', () => {
         expect(() => parseStoryArchiveChanges(raw, new Map([[12, sources.get(13)!], [13, sources.get(13)!]]), []))
             .toThrow('来源无效');
     });
-    it('never accepts an invented quote or assistant text disguised as author instruction', () => {
+    it('anchors a paraphrased model quote by real record ID, but never invents a missing source or author instruction', () => {
         const sources = new Map([[12, { text: '阿岚站在车站。', authorInput: false }]]);
-        const change = { action: 'add', key: '阿岚/行程', kind: 'fact',
-            text: '阿岚已经离开。', terms: ['阿岚'], sourceMessageId: 12, quote: '阿岚已经离开车站。' };
-        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [change] }), sources, []))
-            .toThrow('来源无效');
+        const change = { action: 'add', key: '阿岚/位置', kind: 'fact',
+            text: '阿岚仍在车站。', terms: ['阿岚'], sourceMessageId: 12, quote: '阿岚还在车站等候。' };
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes: [change] }), sources, []))
+            .toEqual([expect.objectContaining({ sourceMessageId: 12, text: '阿岚仍在车站。' })]);
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            ...change, sourceMessageId: 999,
+        }] }), sources, [])).toThrow('原文记录ID');
         expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [{
             ...change, kind: 'author', quote: '阿岚站在车站。',
         }] }), sources, [])).toThrow('作者指令');
+    });
+    it('accepts missing quotes and infers missing action/terms without losing its source', () => {
+        const sources = new Map([[12, { text: '小林把铜钥匙交给阿岚。', authorInput: false }]]);
+        const previous = [{ key: '铜钥匙/持有人', kind: 'fact' as const, text: '小林保管铜钥匙。',
+            terms: ['铜钥匙'], sourceMessageId: 5 }];
+        const raw = JSON.stringify({ changes: [{ key: '铜钥匙/持有人', text: '铜钥匙现在由阿岚保管。',
+            sourceMessageId: 12, action: 'add' }] });
+        expect(parseStoryArchiveChanges(raw, sources, previous)).toEqual([expect.objectContaining({
+            text: '铜钥匙现在由阿岚保管。', sourceMessageId: 12,
+            terms: ['铜钥匙', '持有人'],
+        })]);
     });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
@@ -532,9 +546,10 @@ describe('consecutive automatic archives', () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
-    it('rejects invented citations and actor dialogue mislabeled as author corrections before saving', async () => {
+    it('rejects nonexistent source IDs and actor dialogue mislabeled as author corrections before saving', async () => {
         const row = await append('阿岚对小林说：“以后不要开门。”');
-        queue([{ ...change('add', '钟楼/开门', row.content, row), quote: '已经把门封住了' }]);
+        queue([{ ...change('add', '钟楼/开门', row.content, row), sourceMessageId: 9999,
+            quote: '已经把门封住了' }]);
         await expect(saveSummary(await fresh(), row, 3)).rejects.toThrow('来源无效');
         queue([{ ...change('add', '作者/开门', '以后不要开门。', row), kind: 'author' }]);
         await expect(saveSummary(await fresh(), row, 3)).rejects.toThrow('来源无效');
@@ -611,6 +626,26 @@ describe('long story archives process small consecutive requests', () => {
         });
         return { ids, input, body: completion(JSON.stringify({ changes })) };
     };
+
+    it('archives three sourced facts in one request when the third quote is paraphrased', async () => {
+        const floors = await saveLongStory();
+        const firstBatch = floors.slice(0, 12);
+        const changes = [
+            { action: 'add', key: '铜钥匙/刻字', kind: 'fact', text: sample.get(4)!.text,
+                terms: ['铜钥匙'], sourceMessageId: firstBatch[3].id, quote: sample.get(4)!.text },
+            { action: 'add', key: '铜钥匙/持有人', kind: 'fact', text: sample.get(12)!.text,
+                terms: ['小林', '铜钥匙'], sourceMessageId: firstBatch[11].id, quote: sample.get(12)!.text },
+            { action: 'add', key: '钟楼/调查', kind: 'fact', text: '众人仍在调查钟楼。',
+                terms: ['钟楼'], sourceMessageId: firstBatch[7].id, quote: '大家正在仔细调查钟楼内部。' },
+        ];
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({ changes }))));
+        const result = await generateStoryArchiveDelta(entry, firstBatch, api, 1, 'summary');
+        expect(result.facts).toHaveLength(3);
+        expect(result.facts.map(fact => fact.sourceMessageId)).toEqual([
+            firstBatch[3].id, firstBatch[7].id, firstBatch[11].id,
+        ]);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
 
     it('keeps complete turns together and splits earlier when source text is long', () => {
         const rows = Array.from({ length: 6 }, (_, index): Message => ({
