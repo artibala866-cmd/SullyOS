@@ -5,7 +5,7 @@ import { squashAdjacentSystemMessages } from '../../../utils/storySillyTavernImp
 import { storyRegexApplies, storyRegexInstruction, type StoryRegexInput, type StoryRegexResult, type StoryRegexRule } from '../../../utils/storyRegex';
 import { alchemyRulesFor } from '../../../utils/alchemyRegex';
 import { runStoryRegex } from '../../../utils/storyRegexRunner';
-import { hideStoryStatusForDisplay, parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
+import { countStoryProseCharacters, hideStoryStatusForDisplay, parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
 import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
@@ -299,6 +299,17 @@ interface StoryOutputProps {
     content: string; onChoose?: (text: string) => void; affinityInputs: StoryAffinityInput[];
     fromTavern?: boolean; regexResult?: StoryRegexResult;
 }
+
+// Keep the counter isolated from the live clock and scroll state, so reading
+// hundreds of saved floors never recalculates their prose on every tick.
+const StoryProseCount: React.FC<{ content: string; fromTavern: boolean; regexResult?: StoryRegexResult }> = React.memo(
+    ({ content, fromTavern, regexResult }) => {
+        const count = useMemo(() => countStoryProseCharacters(
+            regexResult || { text: content, cards: [], matches: 0 }, fromTavern,
+        ), [content, fromTavern, regexResult]);
+        return <span data-story-prose-count={count} className='ml-auto shrink-0 tabular-nums text-slate-400'>正文 {count} 字</span>;
+    },
+);
 
 // The live OS provider ticks every second to update the clock. Story floor
 // bodies must not subscribe to that global context: React.memo does not
@@ -1632,6 +1643,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                             <span className='font-semibold tabular-nums text-slate-500'>{String(floorIndexOffset + floorIndex + 1).padStart(2, '0')}</span>
                             <span aria-hidden='true' className='text-slate-300'>/</span>
                             <span>{message.role === 'user' ? '你的推进' : '剧场正文'}</span>
+                            {message.role === 'assistant' && <StoryProseCount content={message.content}
+                                fromTavern={message.metadata?.theaterSourceFormat === 'sillytavern' || (!message.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(message.content))}
+                                regexResult={regexResultFor(String(message.id))} />}
                         </div>;
                         if (archived) {
                             const groupKey = storyArchiveGroupKey(message, entry);
@@ -1663,7 +1677,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                                         {archivedRows.map((row, index) => {
                                             const original = archiveBodies.get(row.id);
                                             return <section key={row.id} className='border-b border-slate-100 py-5 last:border-0'>
-                                                <div className='mb-3 text-[10px] text-slate-400'>第 {floorIndexOffset + floorIndex + index + 1} 楼 · {row.role === 'user' ? '你的推进' : '剧场正文'}</div>
+                                                <div className='mb-3 flex items-baseline gap-2.5 text-[10px] text-slate-400'>
+                                                    <span>第 {floorIndexOffset + floorIndex + index + 1} 楼 · {row.role === 'user' ? '你的推进' : '剧场正文'}</span>
+                                                    {original?.role === 'assistant' && <StoryProseCount content={storyReadingSource(original)}
+                                                        fromTavern={original.metadata?.theaterSourceFormat === 'sillytavern' || (!original.metadata?.theaterSourceFormat && looksLikeLegacyTavernStoryOutput(original.content))}
+                                                        regexResult={regexResultFor(String(original.id))} />}
+                                                </div>
                                                 {!original ? <p className='py-3 text-xs text-slate-400'>{archiveReadErrors.has(row.id) ? '原文暂不可读取' : '正在读取原文…'}</p>
                                                     : original.role === 'user'
                                                         ? <StoryUserOutput className='whitespace-pre-wrap break-words text-sm leading-7 text-slate-600' content={original.content} regexResult={regexResultFor(String(original.id))} />
