@@ -7,6 +7,9 @@ import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemo
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
 import { DB } from '../../../utils/db';
+import { storyArchiveRepeatsPreset, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
+import { storyArchiveFloors } from '../../../utils/storyTheaterArchive';
+import { storyTheaterThreadId } from '../../../utils/storyTheater';
 
 interface Props {
     entry: StoryTheaterEntry;
@@ -17,7 +20,7 @@ interface Props {
 const PAGE_SIZE = 10;
 
 const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) => {
-    const { memoryPalaceConfig, remoteVectorConfig, addToast } = useOS();
+    const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
     const [nodes, setNodes] = useState<MemoryNode[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -26,6 +29,9 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
     const [editing, setEditing] = useState<MemoryNode | null>(null);
     const [deleting, setDeleting] = useState<MemoryNode | null>(null);
     const [draft, setDraft] = useState('');
+    const [floorNumbers, setFloorNumbers] = useState<Map<number, number>>(new Map());
+    const [sourceTimes, setSourceTimes] = useState<Map<number, string>>(new Map());
+    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
     const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const addToastRef = useRef(addToast);
 
@@ -43,6 +49,33 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
         return () => { active = false; };
     }, [entry.id, entry.updatedAt]);
     useEffect(() => {
+        let active = true;
+        void DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true).then(rows => {
+            if (!active) return;
+            const floors = storyArchiveFloors(rows, entry.id);
+            setFloorNumbers(new Map(floors.map((row, index) => [row.id, index + 1])));
+            setSourceTimes(new Map(floors.flatMap(row => {
+                const time = storyTimeFromSource(row.content);
+                return time ? [[row.id, time] as const] : [];
+            })));
+        }).catch(error => console.warn('[StoryTheater] vector archive floor labels unavailable', error));
+        return () => { active = false; };
+    }, [entry.id, entry.updatedAt]);
+    const factByNodeId = useMemo(() => new Map(entry.archives.flatMap(box =>
+        (box.facts ?? []).flatMap(fact => fact.vectorNodeId
+            ? [[fact.vectorNodeId, fact] as const] : []))), [entry.archives]);
+    const staticSetup = useMemo(() => [
+        entry.premise, userProfile?.name, userProfile?.bio,
+        ...characters.filter(char => entry.characterIds.includes(char.id))
+            .flatMap(char => [char.description, char.systemPrompt, char.worldview]),
+        ...worldbooks.filter(book => entry.selectedWorldbookIds?.includes(book.id))
+            .map(book => book.content),
+    ].filter(Boolean).join('\n'), [entry.premise, entry.characterIds, entry.selectedWorldbookIds, userProfile, characters, worldbooks]);
+    const isKnownSetup = (node: MemoryNode) => {
+        const fact = factByNodeId.get(node.id);
+        return !!fact && storyArchiveRepeatsPreset(node.content, fact.key, staticSetup);
+    };
+    useEffect(() => {
         const maxPage = Math.max(0, Math.ceil(nodes.length / PAGE_SIZE) - 1);
         if (page > maxPage) setPage(maxPage);
     }, [nodes.length, page]);
@@ -51,7 +84,11 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
     }, []);
 
     const pageCount = Math.max(1, Math.ceil(nodes.length / PAGE_SIZE));
-    const visibleNodes = useMemo(() => nodes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [nodes, page]);
+    const visibleNodes = useMemo(() => [...nodes].sort((a, b) =>
+        (floorNumbers.get(factByNodeId.get(a.id)?.sourceMessageId ?? -1) ?? Number.MAX_SAFE_INTEGER)
+        - (floorNumbers.get(factByNodeId.get(b.id)?.sourceMessageId ?? -1) ?? Number.MAX_SAFE_INTEGER)
+        || a.createdAt - b.createdAt).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+        [nodes, page, floorNumbers, factByNodeId]);
 
     const cancelLongPress = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -128,7 +165,28 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
                         className='select-none py-5 flex items-start gap-4'
                     >
                         <div className='shrink-0 pt-0.5 text-[10px] font-serif text-neutral-500'>{String(page * PAGE_SIZE + index + 1).padStart(2, '0')}</div>
-                        <div className='min-w-0 flex-1'><p className='whitespace-pre-wrap text-[12px] leading-6'>{node.content}</p><div className='mt-3 flex flex-wrap gap-x-1 sm:gap-x-3 gap-y-1 text-[9px] text-slate-400'><span>{new Date(node.createdAt).toLocaleString()}</span><span>重要度 {node.importance}/10</span><span>{Array.from(node.content.replace(/\s/g, '')).length}字</span><span>{node.embedded ? '向量已就绪' : '等待向量化'}</span>{node.tags?.slice(0, 3).map(tag => <span key={tag}>#{tag}</span>)}</div></div>
+                        <div className='min-w-0 flex-1'>
+                            {(()=>{const fact=factByNodeId.get(node.id);
+                                const floor=fact&&floorNumbers.get(fact.sourceMessageId);
+                                const time=fact&&(fact.storyTime||sourceTimes.get(fact.sourceMessageId));
+                                return <div className='mb-2 text-[10px] leading-5 text-slate-500'>
+                                    {floor?'剧情第 '+floor+' 楼':'剧情楼层未标记'} · {time?'剧情时间：'+time:'剧情时间：原文未明确'}
+                                    {fact?.modality==='planned'?' · 仅是计划':fact?.modality==='unverified'?' · 尚未证实':''}
+                                    {isKnownSetup(node)?' · 已有人设（续写不重复输入）':''}
+                                </div>;})()}
+                            <p className='whitespace-pre-wrap break-words text-[12px] leading-6'>
+                                {expandedNodeIds.has(node.id)||node.content.length<=108?node.content:node.content.slice(0,108)+'…'}
+                            </p>
+                            {node.content.length>108&&<button type='button' className='mt-1 text-[10px] text-slate-500 underline'
+                                onPointerDown={event=>event.stopPropagation()} onClick={()=>setExpandedNodeIds(current=>{
+                                    const next=new Set(current);next.has(node.id)?next.delete(node.id):next.add(node.id);return next;
+                                })}>{expandedNodeIds.has(node.id)?'收起全文':'查看完整记忆'}</button>}
+                            <div className='mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[9px] text-slate-400'>
+                                <span>归档时间：{new Date(node.createdAt).toLocaleString()}</span>
+                                <span>重要度 {node.importance}/10</span>
+                                <span>{node.embedded ? '向量已就绪' : '等待向量化'}</span>
+                            </div>
+                        </div>
                         <button onClick={() => setMenuNode(node)} onPointerDown={event => event.stopPropagation()} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' aria-label='记忆操作'><DotsThree size={18} weight='bold' /></button>
                     </article>)}</div>
                     {pageCount > 1 && <nav className='pt-6 border-t border-slate-200 flex items-center justify-between'><button disabled={page === 0} onClick={() => setPage(current => Math.max(0, current - 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretLeft size={15} /></button><span className='text-[10px] text-slate-500'>第 {page + 1} / {pageCount} 页</span><button disabled={page + 1 >= pageCount} onClick={() => setPage(current => Math.min(pageCount - 1, current + 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretRight size={15} /></button></nav>}
