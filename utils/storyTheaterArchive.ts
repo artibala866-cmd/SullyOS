@@ -138,6 +138,8 @@ export async function generateStoryArchiveDelta(
         floor += rows.length;
         return segment;
     });
+    const floorNumbers = new Map<number, number>(segments.flatMap(segment =>
+        [...segment.sources].map(([id, source]) => [id, source.floorNumber] as const)));
     const beforeId = batch[0].id;
     const vector = await loadStoryVectorRecall(entry, beforeId);
     const known = new Map(collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById).map(fact => [fact.key, fact]));
@@ -155,10 +157,10 @@ export async function generateStoryArchiveDelta(
     const changed = new Map<string, StoryArchiveFact>();
     for (const [index, { sources, transcript }] of segments.entries()) {
         const current = [...known.values()];
-        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text'>> = [];
+        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime'>> = [];
         let used = 0;
-        for (const { key, kind, text } of rankStoryArchiveFacts(current, transcript)) {
-            const reference = { key, kind, text };
+        for (const { key, kind, text, storyTime } of rankStoryArchiveFacts(current, transcript)) {
+            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}) };
             const size = JSON.stringify(reference).length;
             if (used + size > 12000) continue;
             previous.push(reference);
@@ -183,7 +185,7 @@ export async function generateStoryArchiveDelta(
         }
     }
     const facts = [...changed.values()].sort((a, b) => a.sourceMessageId - b.sourceMessageId);
-    const summary = [formatStoryArchiveFacts(facts), affinityLog.join('\n')].filter(Boolean).join('\n\n') || '本批无新增或变化';
+    const summary = [formatStoryArchiveFacts(facts, floorNumbers, Infinity, true), affinityLog.join('\n')].filter(Boolean).join('\n\n') || '本批无新增或变化';
     if (saveMaxChars > 0 && (facts.length || affinityLog.length) && storyArchiveCharacterCount(summary) > saveMaxChars) {
         throw new Error(`增量归档超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留`);
     }
