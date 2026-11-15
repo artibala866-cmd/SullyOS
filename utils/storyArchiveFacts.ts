@@ -104,8 +104,8 @@ export function parseStoryArchiveChanges(
         }
         const quote = typeof change.quote === 'string' ? change.quote.trim() : '';
         const sourceToken = String(change.sourceMessageId ?? '').trim();
-        const floorRef = /^第\\s*(\\d+)\\s*楼$/.exec(sourceToken);
-        const sourceRef = /^(?:记录ID\\s*)?(\\d+)$/.exec(sourceToken);
+        const floorRef = /^第\s*(\d+)\s*楼$/.exec(sourceToken);
+        const sourceRef = /^(?:记录ID\s*)?(\d+)$/.exec(sourceToken);
         const providedId = Number((floorRef ?? sourceRef)?.[1]);
         const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
