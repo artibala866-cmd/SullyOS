@@ -7,7 +7,8 @@ import { updateStoredMemoryNode } from './memoryPalace/vectorStore';
 import { deleteVector as deleteRemoteVector } from './memoryPalace/supabaseVector';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { hybridSearch } from './memoryPalace/hybridSearch';
-import { EMBEDDING_MAX_INPUT_CHARS } from './memoryPalace/embedding';
+import { EMBEDDING_MAX_INPUT_CHARS, getEmbeddings } from './memoryPalace/embedding';
+import { bm25Search } from './memoryPalace/bm25';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
 import { storyTimeFromSource } from './storyArchiveFacts';
@@ -115,9 +116,17 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes: liveNodes.filter(node => factTextById.has(node.id)) };
 }
 
+/**
+ * Story-local Memory Palace-style retrieval:
+ * - keep ALL verified memories in prose when they fit the context budget;
+ * - only search when the archive overflows (no unnecessary embedding bill);
+ * - search recent turns independently, sharing ONE batched embedding request;
+ * - merge hybrid vector/BM25 hits and use local BM25 on API failure;
+ * - never return memories from another story's private vector partition.
+ */
 export async function selectStoryVectorRecall(
     { nodes, groups }: Pick<Awaited<ReturnType<typeof loadStoryVectorRecall>>, 'nodes' | 'groups'>,
-    query: string,
+    query: string | readonly string[],
     embedding?: EmbeddingConfig,
     currentFactNodes: MemoryNode[] = [],
 ): Promise<{ text: string; archiveIds: Set<string>; semanticFactRank: Map<string, number> }> {
@@ -127,8 +136,6 @@ export async function selectStoryVectorRecall(
     const separator = '\n\n';
     const candidates = groups.map(group => ({
         ...group,
-        // Owned chunks of one archive must reconstruct the exact generated text;
-        // only legacy groups made of separate archives need paragraph separators.
         text: group.nodes.map(node => node.content).join(group.archiveIds.length === 1 ? '' : separator),
     }));
     const allText = candidates.map(group => group.text).join(separator);
@@ -137,34 +144,59 @@ export async function selectStoryVectorRecall(
     if (!needsLegacyRanking && !needsFactRanking) {
         return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)), semanticFactRank };
     }
-    let ordered = nodes;
-    if (embedding?.baseUrl && embedding.apiKey && embedding.model && query.trim()) {
-        try {
-            const searchNodes = [
-                ...(needsLegacyRanking ? nodes : []),
-                ...(needsFactRanking ? currentFactNodes : []),
-            ];
-            const charId = searchNodes[0].charId;
-            const ids = new Set(searchNodes.map(node => node.id));
-            const factIds = new Set(currentFactNodes.map(node => node.id));
-            const allVectors = (await MemoryVectorDB.getAllByCharId(charId)).filter(vector => ids.has(vector.memoryId));
-            if (allVectors.length) {
-                bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
-                const recallConfig = { ...embedding, requestPurpose: '剧情独立向量 · 续写召回' };
-                const matches = await hybridSearch(query, charId, recallConfig, 10, undefined, {
-                    allNodes: searchNodes, allVectors,
-                });
-                const rank = new Map(matches.map((match, index) => [match.node.id, index]));
-                for (const [id, position] of rank) {
-                    if (factIds.has(id)) semanticFactRank.set(id, position);
+    const queries = [...new Set((typeof query === 'string' ? [query] : query)
+        .map(text => text.trim().slice(-2000)).filter(text => text.length >= 2))].slice(-3);
+    const searchNodes = [
+        ...(needsLegacyRanking ? nodes : []),
+        ...(needsFactRanking ? currentFactNodes : []),
+    ].filter(node => node.content.trim() && !node.archived);
+    const ids = new Set(searchNodes.map(node => node.id));
+    const factIds = new Set(currentFactNodes.map(node => node.id));
+    const relevance = new Map<string, number>();
+
+    if (searchNodes.length && queries.length) {
+        // Works without an embedding API, and is the fallback if the network is down.
+        const local = queries.flatMap(text => bm25Search(text, searchNodes, 20));
+        for (const item of local) relevance.set(item.node.id, Math.max(relevance.get(item.node.id) ?? 0, item.score));
+
+        if (embedding?.baseUrl && embedding.apiKey && embedding.model) {
+            try {
+                const charId = searchNodes[0].charId;
+                const allVectors = (await MemoryVectorDB.getAllByCharId(charId))
+                    .filter(vector => ids.has(vector.memoryId));
+                if (allVectors.length) {
+                    // Palace retrieves several meaningful message spikes with one
+                    // batched embedding call, instead of diluting them into one query.
+                    const recallConfig = { ...embedding, requestPurpose: '剧情独立向量 · 续写召回' };
+                    const queryVectors = await getEmbeddings(queries, recallConfig);
+                    bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
+                    const paths = await Promise.all(queries.map((text, i) =>
+                        hybridSearch(text, charId, recallConfig, 20, undefined, {
+                            queryVector: queryVectors[i], allNodes: searchNodes, allVectors,
+                        })));
+                    // Hybrid scores and local BM25 are different scales; a hybrid
+                    // hit takes precedence, with local lexical matches as fallback.
+                    const hybridRanks = new Map<string, number>();
+                    for (const matches of paths) {
+                        for (const [index, item] of matches.entries()) {
+                            hybridRanks.set(item.node.id, Math.min(hybridRanks.get(item.node.id) ?? Infinity, index));
+                        }
+                    }
+                    if (hybridRanks.size) {
+                        for (const id of [...relevance.keys()]) relevance.set(id, -1000 + relevance.get(id)!);
+                        for (const [id, rank] of hybridRanks) relevance.set(id, 1000 - rank);
+                    }
                 }
-                ordered = [...nodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+            } catch (error) {
+                console.warn('[StoryTheater] semantic recall failed; using local BM25', error);
             }
-        } catch (error) {
-            console.warn('[StoryTheater] vector recall fell back to saved text', error);
         }
     }
-    const rank = new Map(ordered.map((node, index) => [node.id, index]));
+
+    const orderedHits = [...relevance].sort((a, b) => b[1] - a[1])
+        .map(([id]) => id);
+    const rank = new Map(orderedHits.map((id, index) => [id, index]));
+    for (const id of orderedHits) if (factIds.has(id)) semanticFactRank.set(id, rank.get(id)!);
     const priority = candidates.map(group => ({
         ...group,
         rank: Math.min(...group.nodes.map(node => rank.get(node.id) ?? Infinity)),
@@ -172,9 +204,6 @@ export async function selectStoryVectorRecall(
     let text = '';
     for (const group of priority) {
         const combined = text ? text + separator + group.text : group.text;
-        // Keep whole ranges: the 6000-character budget is a preference, not a
-        // reason to silently discard an otherwise complete oversized archive.
-        // Do not concatenate more groups after selecting an oversized one.
         if (text && combined.length > limit) continue;
         text = combined;
         for (const id of group.archiveIds) archiveIds.add(id);
