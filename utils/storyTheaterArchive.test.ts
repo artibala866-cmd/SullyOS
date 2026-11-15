@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -101,6 +101,48 @@ describe('story summary final channel', () => {
         }
         expect(() => parseStoryArchiveChanges(make('第4楼'), sources, [])).toThrow('原文记录ID');
     });
+    it('anchors explicit in-story time without manufacturing real dates or changing floor order', () => {
+        const original = new Map([[111, { text: '第一天傍晚，小林保管铜钥匙。', authorInput: false }]]);
+        const later = new Map([[222, { text: '第二天清晨，小林把铜钥匙交给阿岚。', authorInput: false }]]);
+        const first = parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            action: 'add', key: '铜钥匙/持有人', kind: 'fact', text: '小林保管铜钥匙。',
+            terms: ['钥匙'], sourceMessageId: 111, quote: '小林保管铜钥匙。',
+        }] }), original, []);
+        const second = parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            action: 'update', key: '铜钥匙/持有人', kind: 'fact', text: '阿岚保管铜钥匙。',
+            terms: ['阿岚', '铜钥匙'], sourceMessageId: 222,
+            storyTime: '第二天清晨', quote: '小林把铜钥匙交给阿岚。',
+        }] }), later, first);
+        expect(first[0].storyTime).toBe('第一天傍晚');
+        expect(second[0].storyTime).toBe('第二天清晨');
+        const archives = [
+            { id: 'a', strategy: 'summary' as const, fromMessageId: 111, toMessageId: 111,
+                messageCount: 1, createdAt: 1, facts: first },
+            { id: 'b', strategy: 'summary' as const, fromMessageId: 222, toMessageId: 222,
+                messageCount: 1, createdAt: 2, facts: second },
+        ];
+        const floors = new Map([[111, 3], [222, 17]]);
+        const sourceTimes = new Map([[111, '第一天傍晚'], [222, '第二天清晨']]);
+        expect(formatStoryArchiveTransitions(archives, Infinity, floors, sourceTimes))
+            .toBe('[第 3 楼 · 剧情时间：第一天傍晚] 小林保管铜钥匙。');
+        expect(formatStoryArchiveFacts(collectStoryArchiveFacts(archives, Infinity, new Map()), floors, 6000, true))
+            .toBe('[第 17 楼 · 剧情时间：第二天清晨] 阿岚保管铜钥匙。');
+        expect(storyTimeFromSource('小林把铜钥匙放进木箱。')).toBeUndefined();
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            action: 'add', key: '箱子/位置', text: '箱子在地下室。', sourceMessageId: 111,
+            storyTime: '2039年1月1日', quote: '第一天傍晚',
+        }] }), original, [])[0].storyTime).toBe('第一天傍晚');
+    });
+    it('selects relevant facts but presents them chronologically in prose context', () => {
+        const facts = [
+            { key: '甲/地点', kind: 'fact' as const, text: '甲在庭院。', terms: ['庭院'], sourceMessageId: 11 },
+            { key: '乙/钥匙', kind: 'fact' as const, text: '乙收到了钥匙。', terms: ['钥匙'], sourceMessageId: 30 },
+        ];
+        const ranked = rankStoryArchiveFacts(facts, '钥匙');
+        expect(ranked[0].sourceMessageId).toBe(30);
+        expect(formatStoryArchiveFacts(ranked, new Map([[11, 2], [30, 9]]), 6000, true))
+            .toBe('[第 2 楼] 甲在庭院。\n[第 9 楼] 乙收到了钥匙。');
+    });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
         expect(parseStoryArchiveSummary(completion([{ type: 'thinking', text: '计划' }, { type: 'text', text: '正文' }]))).toBe('正文');
@@ -145,7 +187,7 @@ describe('story summary final channel', () => {
         const longFact = '具体信息。'.repeat(1500);
         fetchMock.mockImplementation(async (_url, init) => response(structured(longFact, init)));
         const saved = await generateStoryArchiveDelta(entry, messages, api, 1, 'summary');
-        expect(saved.summary).toBe(longFact);
+        expect(saved.summary).toBe('[第 1 楼] ' + longFact);
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('max_tokens');
         await expect(generateStoryArchiveDelta({ ...entry, archiveSummaryGuideMaxChars: 1200 },
             messages, api, 1, 'summary')).rejects.toThrow('1200');
@@ -210,14 +252,14 @@ describe('story archive regeneration', () => {
         expect(result.archives[0]).toMatchObject({ ...entry.archives[0], summary: '新摘要', facts: [expect.objectContaining({ text: '新摘要' })] });
         expect(result.archives).toHaveLength(2);
         expect(result.premise).toBe('另一个窗口编辑的介绍');
-        expect((await fresh()).archives[0].summary).toBe('新摘要');
+        expect((await fresh()).archives[0].summary).toContain('新摘要');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
     it('keeps the old summary on reasoning-only response and unlocks for an explicit retry', async () => {
         fetchMock.mockResolvedValueOnce(response(completion('', 'stop', '只有推理')));
         await expect(regenerate()).rejects.toThrow('思维链');
         expect((await fresh()).archives[0]).toEqual(entry.archives[0]);
-        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: fixtureSummary }] });
+        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: expect.stringContaining(fixtureSummary) }] });
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     it('allows recovery of an empty summary but refuses incomplete source before making a request', async () => {
@@ -553,7 +595,7 @@ describe('consecutive automatic archives', () => {
             change('add', '铜钥匙/用途', discovery.content, discovery, ['铜钥匙', '钟楼']),
         ]);
         const delta = await generateStoryArchiveDelta(second, [transfer, discovery], api, 5, 'summary');
-        expect(delta.summary).toBe('铜钥匙现在由阿岚保管。\n阿岚确认铜钥匙可以打开钟楼。');
+        expect(delta.summary).toBe('[第 5 楼] 铜钥匙现在由阿岚保管。\n[第 6 楼] 阿岚确认铜钥匙可以打开钟楼。');
         const updated = await commitStoryArchiveBatch(second, [transfer, discovery], {
             id: 'updated', strategy: 'summary', fromMessageId: transfer.id, toMessageId: discovery.id,
             messageCount: 2, createdAt: 5, ...delta,
