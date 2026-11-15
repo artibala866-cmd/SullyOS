@@ -124,6 +124,21 @@ describe('story summary final channel', () => {
         expect(payload.messages[1].content).not.toContain('<!-- title:');
         expect(payload.messages[1].content).not.toContain('先计划情节');
     });
+    it('does not offer a continue-button control as quotable plot evidence', async () => {
+        const control = { ...messages[0], content: '继续生成；此句不是剧情设定。',
+            metadata: { ...messages[0].metadata, theaterContinue: true } } as Message;
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({ changes: [{
+            action: 'add', key: '阿泽/承诺', kind: 'fact', text: '阿泽答应陪小雨回家。',
+            terms: ['阿泽', '小雨'], sourceMessageId: messages[1].id, quote: '阿泽答应陪小雨走回家。',
+        }] }))));
+        const result = await generateStoryArchiveDelta(entry, [control, messages[1]], api, 1, 'summary');
+        const input = JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content as string;
+        expect(input).toContain('续写操作（无新事实，不作为来源）');
+        expect(input).not.toContain('继续生成；此句不是剧情设定。');
+        expect(input).not.toContain('记录ID ' + control.id + ']');
+        expect(result.facts).toEqual([expect.objectContaining({ sourceMessageId: messages[1].id })]);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
     it('uses the configured save ceiling without truncation or another model request', async () => {
         expect(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS).toBe(0);
         expect(normalizeStoryArchiveGuideMaxChars(undefined)).toBe(0);
