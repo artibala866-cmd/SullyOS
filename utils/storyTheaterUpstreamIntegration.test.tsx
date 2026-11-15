@@ -249,7 +249,7 @@ it.each([200, 400])('自动独立向量：一次增量提取、逐条建向量�
     expect(archives).toHaveLength(status === 200 ? 1 : 0);
     const proseRequest = String(fetchMock.mock.calls[2][1]?.body);
     expect(proseRequest).toContain(facts[0]);
-    expect(proseRequest.includes('本剧情目前已确认的状态（按楼层先后排列）')).toBe(status === 200);
+    expect(proseRequest.includes('剧情记忆时间线（按原剧情楼层排列）')).toBe(status === 200);
 });
 
 it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重建', async () => {

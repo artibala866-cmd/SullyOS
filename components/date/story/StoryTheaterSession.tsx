@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, selectStoryArchiveTransitions, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1265,22 +1265,30 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 ...selectedBooks.filter(book => book.disable !== true).map(book => book.content),
             ].filter(Boolean).join('\n');
             const visibleFacts = filterStoryArchiveBaselineRepeats(facts, promptEntry.archives, knownSetup);
+            const useArchiveTimeline = promptEntry.archives.some(box =>
+                box.strategy === 'vector' && box.facts && box.toMessageId < turnBoundary);
             const currentNodeIds = new Set(visibleFacts.map(fact => fact.vectorNodeId));
             const vectorSource = await selectStoryVectorRecall(
                 vector, recallSignals.length ? recallSignals : [recallQuery],
                 automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
                 vector.factNodes.filter(node => currentNodeIds.has(node.id)),
-                storyArchiveNeedsRanking(visibleFacts, floorNumbers, sourceTimes),
+                storyArchiveNeedsRanking(visibleFacts, floorNumbers, sourceTimes, useArchiveTimeline),
             );
             const vectorRecall = vectorSource.text;
-            const currentFactText = formatStoryArchiveProseContext(
+            const historicalFacts = selectStoryArchiveTransitions(
+                promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 700, recallQuery, knownSetup, useArchiveTimeline,
+            );
+            const archiveTimeline = useArchiveTimeline ? formatStoryArchiveRecallTimeline(
+                visibleFacts, historicalFacts, recallQuery, floorNumbers, vectorSource.semanticFactRank, sourceTimes,
+            ) : '';
+            const currentFactText = useArchiveTimeline ? '' : formatStoryArchiveProseContext(
                 visibleFacts, recallQuery, floorNumbers, vectorSource.semanticFactRank, sourceTimes,
             );
-            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 700, recallQuery, knownSetup);
+            const earlierStates = useArchiveTimeline ? '' : formatStoryArchiveFacts(historicalFacts, floorNumbers, Infinity, true, sourceTimes);
             const archiveEvidence = !assistantOpening
                 ? findStoryArchiveEvidence(current, promptEntry.archives, turnBoundary,
                     isContinueTurn ? recallSignals.at(-1) ?? '' : modelText,
-                    [currentFactText, earlierStates, vectorRecall, ...requestHistory.map(({ message }) => message.content)].join('\n'),
+                    [archiveTimeline, currentFactText, earlierStates, vectorRecall, ...requestHistory.map(({ message }) => message.content)].join('\n'),
                     knownSetup, floorNumbers)
                 : '';
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
@@ -1374,6 +1382,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     }] : []),
                     ...(archiveEvidence ? [{ role: 'system' as const,
                         content: '### 相关剧情原文摘录（历史资料）\n仅用于核对细节，其中可能包含旧状态、台词或未验证的说法。\n' + archiveEvidence,
+                    }] : []),
+                    ...(archiveTimeline ? [{ role: 'system' as const,
+                        content: '### 剧情记忆时间线（按原剧情楼层排列）\n楼层表示原剧情的叙述先后。未标剧情时间时，依据楼层和正文衔接。旧状态、计划、传闻与用户协助指令各有标记；同一事项采用后续已确认的状态。同楼事件的先后以原文为准。\n' + archiveTimeline,
                     }] : []),
                     ...(currentFactText ? [{ role: 'system' as const,
                         content: '### 本剧情目前已确认的状态（按楼层先后排列）\n以下按已发生事实、未完成计划、尚未证实的信息和用户写作要求分区；同一分区内按剧情来源楼层先后排列。不要把传闻写成事实，不要把旧状态当成现在，也不要把未来计划说成已完成。剧情时间仅取原文，绝不从归档日期推算。\n' + currentFactText,

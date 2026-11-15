@@ -367,28 +367,38 @@ export function parseStoryArchiveChanges(
     return [...facts.values()];
 }
 
-/** Relevant facts are chosen first; when sending them to the prose model, order
- * the chosen set by source floor so relevance cannot reverse the storyline.
- */
-export function formatStoryArchiveFacts(
+function storyArchiveFactLines(
     facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
-    chronological = false, sourceTimes?: ReadonlyMap<number, string>,
-): string {
+    sourceTimes?: ReadonlyMap<number, string>, timelineStatus?: 'current' | 'past',
+) {
     let used = 0;
     const selected: { fact: StoryArchiveFact; line: string }[] = [];
     for (const fact of facts) {
         const floor = floorNumbers?.get(fact.sourceMessageId);
         const storyTime = storyArchiveFactTime(fact, sourceTimes);
         const annotation = [
-            ...(floor ? ['第 ' + floor + ' 楼'] : []),
+            ...(floor ? ['第 ' + floor + ' 楼'] : timelineStatus ? ['来源楼层缺失'] : []),
             ...(storyTime ? ['剧情时间：' + storyTime] : []),
         ];
-        const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '')
-            + (fact.kind === 'author' ? '用户协助指令：' : storyArchiveModality(fact) === 'planned' ? '【尚未发生的计划】' : storyArchiveModality(fact) === 'unverified' ? '【尚未核实的说法】' : '') + fact.text;
+        const modality = storyArchiveModality(fact);
+        const status = timelineStatus === 'past' ? '【旧状态】'
+            : timelineStatus === 'current' && fact.kind !== 'author' && !modality ? '【已发生】' : '';
+        const qualifier = fact.kind === 'author' ? '用户协助指令：'
+            : modality === 'planned' ? '【尚未发生的计划】' : modality === 'unverified' ? '【尚未核实的说法】' : '';
+        const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '') + status + qualifier + fact.text;
         if (used + line.length + 1 > budget && selected.length) continue;
         selected.push({ fact, line });
         used += line.length + 1;
     }
+    return selected;
+}
+
+/** Relevant facts are chosen first; the selected facts can then be sent in source order. */
+export function formatStoryArchiveFacts(
+    facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
+    chronological = false, sourceTimes?: ReadonlyMap<number, string>,
+): string {
+    const selected = storyArchiveFactLines(facts, floorNumbers, budget, sourceTimes);
     if (chronological) selected.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
     return selected.map(item => item.line).join('\n');
 }
@@ -420,9 +430,11 @@ function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
 
 export function storyArchiveNeedsRanking(
     facts: StoryArchiveFact[], floorNumbers: ReadonlyMap<number, number>, sourceTimes: ReadonlyMap<number, string>,
+    timeline = false,
 ): boolean {
     return storyArchiveRecallSections(facts).some(({ entries, budget }) =>
-        entries.length > 1 && formatStoryArchiveFacts(entries, floorNumbers, Infinity, false, sourceTimes).length + 1 > budget);
+        entries.length > 1 && storyArchiveFactLines(entries, floorNumbers, Infinity, sourceTimes, timeline ? 'current' : undefined)
+            .reduce((size, item) => size + item.line.length + 1, 0) > budget);
 }
 
 /** Select relevant facts within each section's budget, then send them in floor order. */
@@ -439,6 +451,22 @@ export function formatStoryArchiveProseContext(
         );
         return text ? '【' + title + '】\n' + text : '';
     }).filter(Boolean).join('\n\n');
+}
+
+/** Structured independent vectors share one source order across fact categories and old states. */
+export function formatStoryArchiveRecallTimeline(
+    facts: StoryArchiveFact[], historical: StoryArchiveFact[], query: string,
+    floorNumbers: ReadonlyMap<number, number>, semanticRank: ReadonlyMap<string, number>,
+    sourceTimes: ReadonlyMap<number, string>,
+): string {
+    const lines = storyArchiveRecallSections(facts).flatMap(({ entries, budget }) =>
+        storyArchiveFactLines(rankStoryArchiveFacts(entries, query, semanticRank, sourceTimes),
+            floorNumbers, budget, sourceTimes, 'current'));
+    lines.push(...storyArchiveFactLines(historical, floorNumbers, Infinity, sourceTimes, 'past'));
+    return lines.sort((a, b) =>
+        (floorNumbers.get(a.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER)
+        - (floorNumbers.get(b.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER),
+    ).map(item => item.line).join('\n');
 }
 
 /** Pull a small, verbatim fallback only when archived text can add evidence. */
@@ -533,11 +561,11 @@ export function storyArchiveReadableLines(
 /** Keep important earlier states as a clearly labelled historical sequence.
  * The latest state is supplied separately, so old facts cannot overwrite it.
  */
-export function formatStoryArchiveTransitions(
+export function selectStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
-    query = '', baseline = '',
-): string {
+    query = '', baseline = '', timelineLabels = false,
+): StoryArchiveFact[] {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
         .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
@@ -568,12 +596,19 @@ export function formatStoryArchiveTransitions(
     const priority = directMatches.length
         ? rankStoryArchiveFacts(directMatches, query)
         : query.trim() ? earlier.slice(0, 2) : earlier;
-    for (const fact of priority) {
-        const line = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
+    for (const { fact, line } of storyArchiveFactLines(priority, floorNumbers, Infinity, sourceTimes, timelineLabels ? 'past' : undefined)) {
         if (used + line.length + 1 > budget) continue;
         selected.push(fact);
         used += line.length + 1;
     }
-    selected.sort((a, b) => a.sourceMessageId - b.sourceMessageId);
+    return selected;
+}
+
+export function formatStoryArchiveTransitions(
+    archives: StoryTheaterArchive[], beforeId: number,
+    floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
+    query = '', baseline = '',
+): string {
+    const selected = selectStoryArchiveTransitions(archives, beforeId, floorNumbers, sourceTimes, budget, query, baseline);
     return formatStoryArchiveFacts(selected, floorNumbers, Infinity, true, sourceTimes);
 }

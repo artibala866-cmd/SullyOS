@@ -165,7 +165,10 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
     return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving}>
             <section aria-label='向量节点'>
                 <div className='flex flex-wrap items-baseline justify-between gap-2 pb-3'>
-                    <h2 className='text-sm font-semibold'>向量记忆 · {filteredNodes.length} 条</h2>
+                    <div>
+                        <h2 className='text-sm font-semibold'>向量记忆 · {filteredNodes.length} 条</h2>
+                        {floorNumbers.size > 0 && <p className='mt-1 text-xs text-slate-600'>按原剧情楼层排列</p>}
+                    </div>
                     {!!repeatedSetupIds.size && <button type='button' className='text-xs text-slate-600 underline'
                         aria-pressed={showRepeatedSetup} onClick={() => { setPage(0); setShowRepeatedSetup(value => !value); }}>
                         {showRepeatedSetup ? '收起已有人设' : `查看已有人设（${repeatedSetupIds.size}）`}
@@ -193,7 +196,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
                             <div className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-5'>
                                 <strong className='font-semibold'>{time || (floor ? '第 ' + floor + ' 楼' : '旧记忆')}</strong>
                                 {time && floor && <span className='text-slate-600'>第 {floor} 楼</span>}
-                                {fact?.kind === 'fact' && !time && <span className='text-slate-600'>时间未写明</span>}
+                                {fact?.kind === 'fact' && !time && !floor && <span className='text-slate-600'>来源楼层缺失</span>}
                                 {past && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>过去的状态</span>}
                                 {label && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>{label}</span>}
                             </div>

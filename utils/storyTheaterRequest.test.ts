@@ -134,7 +134,14 @@ describe('见面剧情实际请求', () => {
             }
             expect(payload.filter(message => message.content.includes(vectorText))).toHaveLength((mode === '独立向量' || mode === '向量超预算') ? 1 : 0);
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
-            if (mode === '增量事实' || textFallback) {
+            if (textFallback) {
+                const timeline = payload.at(-3)?.content ?? '';
+                expect(timeline).toContain('### 剧情记忆时间线（按原剧情楼层排列）');
+                expect(timeline).toContain('[第 1 楼] 【旧状态】林星保管钥匙。');
+                expect(timeline).toContain('[第 11 楼] 【已发生】钥匙现在由小雨保管。');
+                expect(timeline.indexOf('[第 1 楼]')).toBeLessThan(timeline.indexOf('[第 11 楼]'));
+            }
+            if (mode === '增量事实') {
                 expect(payload.at(-3)).toMatchObject({ role: 'system', content: expect.stringContaining('[第 11 楼] 钥匙现在由小雨保管。') });
                 expect(payload.some(message => message.content.includes('林星保管钥匙。'))).toBe(true);
                 expect(payload.some(message => message.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）')
@@ -159,7 +166,7 @@ describe('见面剧情实际请求', () => {
             vi.unstubAllGlobals();
         }
     });
-    it('player simulation: real continue button injects one current state, ordered historical changes and one worldbook without duplicates', async () => {
+    it.each(['summary', 'vector'] as const)('%s: continues with ordered memories and one worldbook without duplicate summaries', async strategy => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
         const entry = {
@@ -171,17 +178,21 @@ describe('见面剧情实际请求', () => {
         const preset = createBlankStoryPreset('不含世界书与历史插槽的自定义预设', 1);
         preset.document.prompts = [];
         const charId = storyTheaterThreadId(entry.id);
-        const rows: Message[] = Array.from({ length: 31 }, (_, i) => ({
+        const vector = strategy === 'vector';
+        const archivedCount = vector ? 49 : 24;
+        const firstBatchCount = vector ? 21 : 12;
+        const pending = vector ? 49 : 30;
+        const rows: Message[] = Array.from({ length: pending + 1 }, (_, i) => ({
             id: 500 + 3 * i, charId, type: 'text',
-            role: i % 2 === 0 ? 'user' : 'assistant',
-            content: i === 30 ? '第二天清晨，我要拿铜钥匙打开侧门。' : '已有剧情楼层 ' + (i + 1),
+            role: i === pending || i % 2 === 0 && i !== pending - 1 ? 'user' : 'assistant',
+            content: i === pending ? (vector ? '我要拿铜钥匙打开侧门。' : '第二天清晨，我要拿铜钥匙打开侧门。') : '已有剧情楼层 ' + (i + 1),
             timestamp: 9000 - i,
-            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: i < 24 },
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: i < archivedCount },
         }));
         const base = { key: '铜钥匙/持有人', kind: 'fact' as const, terms: ['铜钥匙'] };
         entry.archives = [
-            { id: 'old', strategy: 'summary', fromMessageId: rows[0].id, toMessageId: rows[11].id,
-                createdAt: 1, messageCount: 12,
+            { id: 'old', strategy, fromMessageId: rows[0].id, toMessageId: rows[firstBatchCount - 1].id,
+                createdAt: vector ? 2 : 1, messageCount: firstBatchCount,
                 facts: [
                     { key: '侧门/出口', kind: 'fact' as const, text: '侧门通向庭院。',
                         terms: ['侧门'], sourceMessageId: rows[0].id },
@@ -189,23 +200,44 @@ describe('见面剧情实际请求', () => {
                 ],
                 summary: '不能重复注入的结构化旧摘要：林星保管铜钥匙。',
             },
-            { id: 'new', strategy: 'summary', fromMessageId: rows[12].id, toMessageId: rows[23].id,
-                createdAt: 2, messageCount: 12,
+            { id: 'new', strategy, fromMessageId: rows[firstBatchCount].id, toMessageId: rows[archivedCount - 1].id,
+                createdAt: vector ? 1 : 2, messageCount: archivedCount - firstBatchCount,
                 historyFacts: [{ ...base, text: '阿泽曾暂时保管铜钥匙。',
-                    storyTime: '第一天傍晚', sourceMessageId: rows[13].id }],
+                    ...(!vector ? {storyTime:'第一天傍晚'} : {}), sourceMessageId: rows[vector ? 23 : 13].id }],
                 facts: [
-                    { ...base, text: '铜钥匙现在由小雨保管。', storyTime: '第二天清晨',
-                        sourceMessageId: rows[15].id },
+                    { ...base, text: '铜钥匙现在由小雨保管。', ...(!vector ? {storyTime:'第二天清晨'} : {}),
+                        sourceMessageId: rows[vector ? 36 : 15].id },
                     { key: '作者/执笔', kind: 'author' as const, terms: ['小雨'],
-                        text: '后续不得替小雨擅自决定重大行动。', sourceMessageId: rows[20].id },
+                        text: '后续不得替小雨擅自决定重大行动。', sourceMessageId: rows[vector ? 42 : 20].id },
                     { key: '钟楼/地图传言', kind: 'fact' as const, modality: 'unverified' as const,
-                        terms: ['钟楼'], text: '据说钟楼地下有地图，但无人证实。', sourceMessageId: rows[17].id },
+                        terms: ['钟楼'], text: '据说钟楼地下有地图，但无人证实。', sourceMessageId: rows[vector ? 24 : 17].id },
                     { key: '侧门/探查计划', kind: 'fact' as const, modality: 'planned' as const,
-                        terms: ['侧门'], text: '林星打算以后再检查侧门。', sourceMessageId: rows[19].id },
+                        terms: ['侧门'], text: '林星打算以后再检查侧门。', sourceMessageId: rows[vector ? 23 : 19].id },
                 ],
                 summary: '不能重复注入的结构化新摘要：铜钥匙现在由小雨保管。',
             },
         ];
+        if (vector) {
+            entry.archives[0].facts!.push({
+                key:'侧门/门栓',kind:'fact',text:'侧门的门栓已经松开。',terms:['侧门'],sourceMessageId:rows[12].id,
+            });
+            entry.archives[0].facts!.push({
+                key:'侧门/清点',kind:'fact',modality:'planned',text:'计划清点侧门备件。',terms:['侧门'],sourceMessageId:rows[9].id,
+            });
+            entry.archives.reverse();
+            for (const box of entry.archives) {
+                box.vectorMemoryIds = [];
+                for (const [index, fact] of box.facts!.entries()) {
+                    const id = entry.id + '-' + box.id + '-' + index;
+                    fact.vectorNodeId = id;
+                    fact.vectorTextState = 'synced';
+                    box.vectorMemoryIds.push(id);
+                    await MemoryNodeDB.save({ id, charId, content:fact.text, room:'living_room', tags:fact.terms,
+                        mood:'neutral',embedded:true,createdAt:1,lastAccessedAt:1,accessCount:0,importance:6 });
+                }
+            }
+            await DB.saveStoryTheater(entry);
+        }
         vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async () => ({ messages: [...rows], totalCount: rows.length }));
         vi.spyOn(DB, 'getMessagesByCharId').mockImplementation(async () => [...rows].reverse());
         const save = vi.spyOn(DB, 'saveStoryTheaterTurn').mockImplementation(async row => {
@@ -229,21 +261,40 @@ describe('见面剧情实际请求', () => {
             await act(async () => retry!.click());
             await vi.waitFor(() => expect(completion).toHaveBeenCalledOnce());
             const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
-            const current = payload.find(item => item.content.includes('### 本剧情目前已确认的状态（按楼层先后排列）'))?.content || '';
-            const history = payload.find(item => item.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）'))?.content || '';
-            expect(current).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙现在由小雨保管。');
-            expect(current).toContain('用户协助指令：后续不得替小雨擅自决定重大行动。');
-            expect(current).toContain('【尚未核实的说法】据说钟楼地下有地图，但无人证实。');
-            expect(current).toContain('【尚未发生的计划】林星打算以后再检查侧门。');
-            expect(current).not.toContain('林星保管铜钥匙。');
-            expect(current).not.toContain('侧门通向庭院。'); // Already included in selected worldbook
-            expect(history).toContain('[第 6 楼] 林星保管铜钥匙。');
-            expect(history).toContain('[第 14 楼 · 剧情时间：第一天傍晚] 阿泽曾暂时保管铜钥匙。');
-            expect(history.indexOf('林星保管铜钥匙。')).toBeLessThan(history.indexOf('阿泽曾暂时保管铜钥匙。'));
+            if (vector) {
+                const timeline = payload.find(item => item.content.startsWith('### 剧情记忆时间线'))?.content || '';
+                expect(timeline.split('\n').filter(line => line.startsWith('[第 '))).toEqual([
+                    '[第 6 楼] 【旧状态】林星保管铜钥匙。',
+                    '[第 10 楼] 【尚未发生的计划】计划清点侧门备件。',
+                    '[第 13 楼] 【已发生】侧门的门栓已经松开。',
+                    '[第 24 楼] 【尚未发生的计划】林星打算以后再检查侧门。',
+                    '[第 24 楼] 【旧状态】阿泽曾暂时保管铜钥匙。',
+                    '[第 25 楼] 【尚未核实的说法】据说钟楼地下有地图，但无人证实。',
+                    '[第 37 楼] 【已发生】铜钥匙现在由小雨保管。',
+                    '[第 43 楼] 用户协助指令：后续不得替小雨擅自决定重大行动。',
+                ]);
+                expect(timeline).not.toContain('剧情时间：');
+                expect(timeline).toContain('同楼事件的先后以原文为准');
+                expect(payload.some(item => item.content.startsWith('### 本剧情目前已确认的状态'))).toBe(false);
+                expect(payload.some(item => item.content.startsWith('### 剧情经过'))).toBe(false);
+                expect((await DB.getStoryTheaters()).find(item => item.id === entry.id)?.archives).toEqual(entry.archives);
+            } else {
+                const current = payload.find(item => item.content.includes('### 本剧情目前已确认的状态（按楼层先后排列）'))?.content || '';
+                const history = payload.find(item => item.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）'))?.content || '';
+                expect(current).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙现在由小雨保管。');
+                expect(current).toContain('用户协助指令：后续不得替小雨擅自决定重大行动。');
+                expect(current).toContain('【尚未核实的说法】据说钟楼地下有地图，但无人证实。');
+                expect(current).toContain('【尚未发生的计划】林星打算以后再检查侧门。');
+                expect(current).not.toContain('林星保管铜钥匙。');
+                expect(current).not.toContain('侧门通向庭院。'); // Already included in selected worldbook
+                expect(history).toContain('[第 6 楼] 林星保管铜钥匙。');
+                expect(history).toContain('[第 14 楼 · 剧情时间：第一天傍晚] 阿泽曾暂时保管铜钥匙。');
+                expect(history.indexOf('林星保管铜钥匙。')).toBeLessThan(history.indexOf('阿泽曾暂时保管铜钥匙。'));
+            }
             expect(payload.filter(item => item.content.includes('侧门通向庭院。'))).toHaveLength(1);
             expect(payload.some(item => item.content.includes('不能重复注入的结构化旧摘要'))).toBe(false);
             expect(payload.some(item => item.content.includes('不能重复注入的结构化新摘要'))).toBe(false);
-            expect(payload.at(-1)?.content).toContain('[第 31 楼 · 本轮用户推进]');
+            expect(payload.at(-1)?.content).toContain(`[第 ${pending + 1} 楼 · 本轮用户推进]`);
             await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
             expect(completion).toHaveBeenCalledTimes(1); // No extra archive/API call on a disabled switch
         } finally {
