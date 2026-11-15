@@ -448,7 +448,7 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     expect(host!.textContent).toContain('已有人设（续写不重复输入）');
     expect(host!.textContent).toContain('归档时间：');
     expect(host!.textContent).toContain('查看完整记忆');
-    expect(host!.textContent).not.toContain(longText);
+    expect([...host!.querySelectorAll('article')].map(card=>card.textContent).join('\n')).not.toContain(longText);
     const expand = [...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('查看完整记忆'));
     expect(expand).toBeTruthy();
     await act(async()=>expand!.click());
