@@ -39,42 +39,91 @@ export function rankStoryArchiveFacts(
         || b.matches - a.matches || bySemanticMatch(a.fact) - bySemanticMatch(b.fact) || b.fact.sourceMessageId - a.fact.sourceMessageId).map(item => item.fact);
 }
 
+/** Normalize only Unicode form and whitespace when checking a verbatim source quote.
+ * A fact without a quote grounded in the actual floors must never be archived. */
+const comparableQuote = (text: string) => text.normalize('NFKC').replace(/\s+/g, ' ').trim();
+const quoteExistsIn = (source: string, quote: string) =>
+    source.includes(quote) || comparableQuote(source).includes(comparableQuote(quote));
+
+function decodeArchiveChanges(raw: string): unknown {
+    const trimmed = raw.replace(/^\uFEFF/, '').trim();
+    const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const input = fence ? fence[1].trim() : trimmed;
+    try {
+        return JSON.parse(input);
+    } catch {
+        // Some OpenAI-compatible models add a short introduction after a complete
+        // JSON object. Extract ONE balanced object, without repairing incomplete JSON.
+        const begin = input.indexOf('{');
+        if (begin < 0) throw new Error('无 JSON 对象');
+        let depth = 0, quoted = false, escaped = false;
+        for (let i = begin; i < input.length; i++) {
+            const char = input[i];
+            if (quoted) {
+                if (escaped) escaped = false;
+                else if (char === '\\') escaped = true;
+                else if (char === '"') quoted = false;
+            } else if (char === '"') quoted = true;
+            else if (char === '{') depth++;
+            else if (char === '}' && --depth === 0) return JSON.parse(input.slice(begin, i + 1));
+        }
+        throw new Error('JSON 对象不完整');
+    }
+}
+
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean }>, known: StoryArchiveFact[],
 ): StoryArchiveFact[] {
-    const invalid = () => new Error('增量归档格式或来源无效，原文和旧归档已保留');
+    const invalid = (detail: string) => new Error(`增量归档格式或来源无效（${detail}），原文和旧归档已保留`);
     let value: unknown;
     try {
-        value = JSON.parse(raw.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1'));
+        value = decodeArchiveChanges(raw);
     } catch {
-        throw invalid();
+        throw invalid('模型没有返回完整的 changes JSON');
     }
-    if (!value || typeof value !== 'object' || !('changes' in value) || !Array.isArray(value.changes)) throw invalid();
+    if (!value || typeof value !== 'object' || !('changes' in value) || !Array.isArray(value.changes)) {
+        throw invalid('缺少 changes 数组');
+    }
     const existing = new Map(known.map(fact => [fact.key, fact]));
     const duplicateText = new Set(known.map(fact => fact.kind + ':' + comparable(fact.text)));
-    const changed = new Set<string>();
-    const facts: StoryArchiveFact[] = [];
-    for (const change of value.changes) {
+    const facts = new Map<string, StoryArchiveFact>();
+    for (const [index, change] of value.changes.entries()) {
         if (!change || !['add', 'update'].includes(change.action) || !['fact', 'author'].includes(change.kind)
             || typeof change.key !== 'string' || typeof change.text !== 'string' || typeof change.quote !== 'string'
-            || !Array.isArray(change.terms) || !change.terms.every((term: unknown) => typeof term === 'string')) throw invalid();
+            || !Array.isArray(change.terms) || !change.terms.every((term: unknown) => typeof term === 'string')) {
+            throw invalid(`第 ${index + 1} 条字段不完整`);
+        }
         const key = normalize(change.key).replace(/\s+/g, '');
         const text = change.text.trim();
         const quote = change.quote.trim();
-        const source = sources.get(change.sourceMessageId);
-        if (!/^[\p{L}\p{N}_/-]{2,120}$/u.test(key) || !comparable(text) || !comparable(quote)
-            || !source?.text.includes(quote) || (change.kind === 'author' && !source.authorInput)) throw invalid();
+        if (!/^[\p{L}\p{N}\p{M}\p{P}\p{S}]{2,120}$/u.test(key) || !comparable(text) || !comparable(quote)) {
+            throw invalid(`第 ${index + 1} 条记忆键或正文为空/不合法`);
+        }
+        // Accept a numeric ID provided as a string. If the model copied an
+        // incorrect ID, recover it ONLY when the quote exists in one unique floor.
+        const providedId = Number(change.sourceMessageId);
+        const match = Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
+        const matchesQuote = (source?: { text: string }) => !!source && quoteExistsIn(source.text, quote);
+        const candidates = [...sources].filter(([, source]) => matchesQuote(source));
+        const selected = matchesQuote(match) && Number.isSafeInteger(providedId)
+            ? [providedId, match] as const
+            : candidates.length === 1 ? candidates[0] : undefined;
+        if (!selected) throw invalid(`第 ${index + 1} 条引用无法对应原文楼层`);
+        const [sourceMessageId, source] = selected;
+        if (change.kind === 'author' && !source.authorInput) {
+            throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
+        }
         const previous = existing.get(key);
+        if (previous && previous.kind !== change.kind) throw invalid(`第 ${index + 1} 条改变了已有记忆类型`);
         const comparableText = change.kind + ':' + comparable(text);
-        if (previous && previous.kind !== change.kind) throw invalid();
         if (duplicateText.has(comparableText)) continue;
-        if ((change.action === 'update') !== Boolean(previous) || changed.has(key)) throw invalid();
+        const oldInBatch = facts.get(key);
+        if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         const terms = [...new Set<string>(change.terms.map((term: string) => normalize(term)).filter((term: string) => term.length >= 2))];
-        changed.add(key);
+        facts.set(key, { key, kind: change.kind, text, terms, sourceMessageId });
         duplicateText.add(comparableText);
-        facts.push({ key, kind: change.kind, text, terms, sourceMessageId: change.sourceMessageId });
     }
-    return facts;
+    return [...facts.values()];
 }
 
 export function formatStoryArchiveFacts(facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity): string {
