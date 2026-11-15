@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -222,6 +222,21 @@ describe('story summary final channel', () => {
         );
         expect(full.semanticFactRank.size).toBe(0);
         expect(fetchMock).not.toHaveBeenCalled(); // All facts fit: inject directly, no extra Embedding cost
+    });
+    it('filters already archived static setup on reading, but keeps corrected states and author instructions', () => {
+        const staticFact = { key: '阿泽/身份', kind: 'fact' as const, text: '阿泽是医生。', terms: ['阿泽'], sourceMessageId: 1 };
+        const older = { key: '钥匙/主人', kind: 'fact' as const, text: '阿泽拿着钥匙。', terms: ['钥匙'], sourceMessageId: 2 };
+        const current = { ...older, sourceMessageId: 4, text: '小雨拿着钥匙。' };
+        const author = { key: '写作/不代写', kind: 'author' as const, text: '不得替小雨做重大决定。', terms: ['小雨'], sourceMessageId: 4 };
+        const archive = [{
+            id: 'a', strategy: 'summary' as const, fromMessageId: 1, toMessageId: 4,
+            messageCount: 4, createdAt: 1, facts: [staticFact, older, current, author],
+        }];
+        const baseline = '【阿泽】\n人物档案：阿泽是医生。\n世界书：小雨拿着钥匙。';
+        const filtered = filterStoryArchiveBaselineRepeats([staticFact, current, author], archive, baseline);
+        expect(filtered.map(fact => fact.key)).toEqual(['钥匙/主人', '写作/不代写']);
+        expect(filterStoryArchiveBaselineRepeats([staticFact], [], '')).toHaveLength(1);
+        expect(archive[0].facts).toHaveLength(4); // Read-only; never delete user archives
     });
     it('strips legacy Tavern title comments before sending the actual opening', async () => {
         const opening = { ...messages[0], content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
