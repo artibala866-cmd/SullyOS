@@ -88,6 +88,29 @@ function decodeArchiveChanges(raw: string): unknown {
     }
 }
 
+/** Read-time suppression for older archives: never delete saved data, only avoid
+ * repeating static role/worldbook sentences already injected by the preset.
+ * A key whose story state changed remains visible even if it later reverted.
+ */
+export function filterStoryArchiveBaselineRepeats(
+    facts: StoryArchiveFact[], archives: StoryTheaterArchive[], baseline: string,
+): StoryArchiveFact[] {
+    if (!baseline.trim()) return facts;
+    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line))
+        .filter(line => line.length >= 5);
+    const variants = new Map<string, Set<string>>();
+    for (const box of archives) for (const fact of box.facts ?? []) {
+        const values = variants.get(fact.key) ?? new Set<string>();
+        values.add(comparable(fact.text));
+        variants.set(fact.key, values);
+    }
+    return facts.filter(fact => {
+        if (fact.kind === 'author' || (variants.get(fact.key)?.size ?? 0) > 1) return true;
+        const text = comparable(fact.text);
+        return !(text.length >= 5 && staticSentences.some(line => line === text || line.endsWith(text)));
+    });
+}
+
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
 ): StoryArchiveFact[] {
