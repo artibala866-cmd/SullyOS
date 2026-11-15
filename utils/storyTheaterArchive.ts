@@ -160,7 +160,7 @@ async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey
 export async function generateStoryArchiveDelta(
     entry: StoryTheaterEntry, batch: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
     firstFloor: number, strategy: StoryTheaterArchiveStrategy,
-): Promise<{ summary: string; facts: StoryArchiveFact[]; affinityLog: string[] }> {
+): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const batches = splitStoryArchiveBatches(batch);
     if (!batches.length) throw new Error('请先选择要归档的楼层');
@@ -190,6 +190,7 @@ export async function generateStoryArchiveDelta(
         throw new Error('归档保存上限不足以容纳界面好感记录，本次未调用总结 API');
     }
     const changed = new Map<string, StoryArchiveFact>();
+    const historyFacts: StoryArchiveFact[] = [];
     for (const [index, { sources, transcript }] of segments.entries()) {
         const current = [...known.values()];
         const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime'>> = [];
@@ -211,6 +212,13 @@ export async function generateStoryArchiveDelta(
         try {
             const raw = await requestArchiveCompletion(api, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION, input, !!entry.memorySummaryApi, strategy);
             for (const fact of parseStoryArchiveChanges(raw, sources, current, reference)) {
+                const earlier = changed.get(fact.key);
+                // When 91 floors become eight LLM batches, successive changes
+                // to the same state must not erase the path from A to B to C.
+                // Earlier states belong to a historical lane, not current facts
+                // or duplicate embedding nodes.
+                if (earlier && earlier.kind === 'fact' && fact.kind === 'fact'
+                    && earlier.text !== fact.text) historyFacts.push(earlier);
                 known.set(fact.key, fact);
                 changed.set(fact.key, fact);
             }
@@ -221,11 +229,16 @@ export async function generateStoryArchiveDelta(
         }
     }
     const facts = [...changed.values()].sort((a, b) => a.sourceMessageId - b.sourceMessageId);
-    const summary = [formatStoryArchiveFacts(facts, floorNumbers, Infinity, true), affinityLog.join('\n')].filter(Boolean).join('\n\n') || '本批无新增或变化';
+    const summary = [
+        ...(historyFacts.length ? ['【本段历史变化（非当前状态）】\n'
+            + formatStoryArchiveFacts(historyFacts, floorNumbers, Infinity, true)] : []),
+        formatStoryArchiveFacts(facts, floorNumbers, Infinity, true),
+        affinityLog.join('\n'),
+    ].filter(Boolean).join('\n\n') || '本批无新增或变化';
     if (saveMaxChars > 0 && (facts.length || affinityLog.length) && storyArchiveCharacterCount(summary) > saveMaxChars) {
         throw new Error(`增量归档超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留`);
     }
-    return { facts, summary, affinityLog };
+    return { facts, historyFacts, summary, affinityLog };
 }
 
 function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArchive): Message[] {
@@ -239,7 +252,7 @@ function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArch
 }
 
 const sourceKey = (entry: StoryTheaterEntry, archive: StoryTheaterArchive) => JSON.stringify([
-    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds, archive.facts, archive.affinityLog,
+    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds, archive.facts, archive.historyFacts, archive.affinityLog,
 ]);
 const priorArchiveKey = (entry: StoryTheaterEntry, beforeId: number) => JSON.stringify(
     entry.archives.filter(box => box.toMessageId < beforeId).map(box => sourceKey(entry, box)),
@@ -557,7 +570,7 @@ async function writeStoryArchiveRange(
             ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
             messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
             ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id), summary: undefined } : { summary: delta.summary }),
-            facts: factNodes ?? delta.facts, affinityLog: delta.affinityLog,
+            facts: factNodes ?? delta.facts, historyFacts: delta.historyFacts, affinityLog: delta.affinityLog,
         };
         return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
     }, vector?.remote);
