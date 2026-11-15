@@ -72,7 +72,7 @@ function decodeArchiveChanges(raw: string): unknown {
 }
 
 export function parseStoryArchiveChanges(
-    raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean }>, known: StoryArchiveFact[],
+    raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[],
 ): StoryArchiveFact[] {
     const invalid = (detail: string) => new Error(`增量归档格式或来源无效（${detail}），原文和旧归档已保留`);
     let value: unknown;
@@ -103,17 +103,19 @@ export function parseStoryArchiveChanges(
             throw invalid(`第 ${index + 1} 条记忆键或正文为空/不合法`);
         }
         const quote = typeof change.quote === 'string' ? change.quote.trim() : '';
-        const providedId = Number(change.sourceMessageId);
-        const direct = Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
+        const sourceToken = String(change.sourceMessageId ?? '').trim();
+        const floorRef = /^第\\s*(\\d+)\\s*楼$/.exec(sourceToken);
+        const sourceRef = /^(?:记录ID\\s*)?(\\d+)$/.exec(sourceToken);
+        const providedId = Number((floorRef ?? sourceRef)?.[1]);
+        const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
+        const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
         const candidates = quote ? [...sources.entries()].filter(([, source]) => quoteExistsIn(source.text, quote)) : [];
-        // A real source record ID is the stable evidence pointer. A model's quote
-        // is only a helpful hint: LLMs often paraphrase or change punctuation.
-        // Never reject a valid source record solely because a generated quote
-        // differs from the literal source. Never accept a nonexistent record ID
-        // unless an exact quote uniquely identifies an existing source floor.
+        // Original records, not model-written quote strings, are the evidence.
+        // A model may return an ordinal floor number rather than a database ID.
+        // Match those only against the current batch's actual floor mapping.
         const selected = candidates.length === 1
             ? candidates[0]
-            : direct ? [providedId, direct] as const : undefined;
+            : direct ? [providedId, direct] as const : floorRef || sourceRef ? floor : undefined;
         if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
         if (kind === 'author' && !source.authorInput) {
