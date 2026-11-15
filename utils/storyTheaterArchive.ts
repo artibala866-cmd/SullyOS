@@ -74,7 +74,9 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number) {
         const floor = '第 ' + (firstFloor + index) + ' 楼';
         const affinityRows = storyArchiveAffinity(message);
         affinity.push(...affinityRows.map(row => floor + ' · ' + row));
-        return '[' + floor + ' · ' + speaker + ' · 记录ID ' + message.id + ']\n' + content
+        return message.metadata?.theaterContinue
+            ? '[' + floor + ' · 续写操作（无新事实，不作为来源）]'
+            : '[' + floor + ' · ' + speaker + ' · 记录ID ' + message.id + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
     return { affinity, transcript, sources };
