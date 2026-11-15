@@ -143,6 +143,32 @@ describe('story summary final channel', () => {
         expect(formatStoryArchiveFacts(ranked, new Map([[11, 2], [30, 9]]), 6000, true))
             .toBe('[第 2 楼] 甲在庭院。\n[第 9 楼] 乙收到了钥匙。');
     });
+    it('classifies future plans and unverified reports distinctly, then updates to a confirmed event', () => {
+        const first = new Map([
+            [11, { text: '林星说明天打算查看侧门。', authorInput: false, floorNumber: 4 }],
+            [12, { text: '有人听说钟楼地下有地图，但没人核实。', authorInput: false, floorNumber: 5 }],
+        ]);
+        const input = JSON.stringify({ changes: [
+            { action: 'add', key: '侧门/调查状态', kind: 'fact',
+                text: '林星打算明天检查侧门。', modality: 'planned',
+                terms: ['侧门'], sourceMessageId: 11 },
+            { action: 'add', key: '钟楼/地图', kind: 'fact',
+                text: '传闻钟楼地下有地图，尚未核实。', modality: 'unverified',
+                terms: ['地图'], sourceMessageId: 12 },
+        ] });
+        const existing = parseStoryArchiveChanges(input, first, []);
+        const displayed = formatStoryArchiveFacts(existing, new Map([[11, 4], [12, 5]]), 6000, true);
+        expect(displayed).toContain('【尚未发生的计划】林星打算明天检查侧门。');
+        expect(displayed).toContain('【尚未核实的说法】传闻钟楼地下有地图，尚未核实。');
+        const confirmed = parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            action: 'update', key: '侧门/调查状态', kind: 'fact',
+            text: '林星已在第二天清晨检查侧门。', terms: ['侧门'],
+            sourceMessageId: 16, storyTime: '第二天清晨',
+        }] }), new Map([[16, { text: '第二天清晨，林星检查了侧门。', authorInput: false, floorNumber: 16 }]]), existing);
+        expect(confirmed[0].modality).toBeUndefined();
+        expect(formatStoryArchiveFacts(confirmed, new Map([[16, 16]]))).toContain('林星已在第二天清晨检查侧门。');
+        expect(formatStoryArchiveFacts(confirmed)).not.toContain('尚未发生的计划');
+    });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
         expect(parseStoryArchiveSummary(completion([{ type: 'thinking', text: '计划' }, { type: 'text', text: '正文' }]))).toBe('正文');
