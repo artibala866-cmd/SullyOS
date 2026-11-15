@@ -247,6 +247,33 @@ export function formatStoryArchiveFacts(
     return selected.map(item => item.line).join('\n');
 }
 
+/** One readable timeline for a single archive. Old events and end-of-segment
+ * facts are sorted TOGETHER; printing the two arrays separately falsely makes
+ * an event from floor 9 look older than a fact extracted from floor 1.
+ */
+export function storyArchiveReadableLines(
+    archive: StoryTheaterArchive,
+    floorNumbers?: ReadonlyMap<number, number>,
+    sourceTimes?: ReadonlyMap<number, string>,
+): string[] {
+    if (!archive.facts && !archive.historyFacts) return archive.summary ? [archive.summary] : [];
+    const ordered = [
+        ...(archive.historyFacts ?? []).map(fact => ({ fact, phase: '历史' })),
+        ...(archive.facts ?? []).map(fact => ({ fact, phase: '本段' })),
+    ].sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
+    const seen = new Set<string>();
+    const lines: string[] = [];
+    for (const { fact, phase } of ordered) {
+        const sig = [fact.sourceMessageId, comparable(fact.text), fact.kind].join(':');
+        if (seen.has(sig) || fact.vectorTextState === 'deleted') continue;
+        seen.add(sig);
+        const body = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
+        lines.push(phase === '历史' ? '（当时发生）' + body : '（本段记录）' + body);
+    }
+    if (archive.affinityLog?.length) lines.push('界面关系变化：' + archive.affinityLog.join('；'));
+    return lines;
+}
+
 /** Keep important earlier states as a clearly labelled historical sequence.
  * The latest state is supplied separately, so old facts cannot overwrite it.
  */
@@ -258,7 +285,8 @@ export function formatStoryArchiveTransitions(
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
         .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
-        .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted');
+        .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted')
+        .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
     const newer = new Map<string, string>();
     const earlier: StoryArchiveFact[] = [];
     for (let i = timeline.length - 1; i >= 0; i--) {
