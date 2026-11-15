@@ -212,7 +212,7 @@ describe('story summary final channel', () => {
             { nodes: [], groups: [] },
             ['刚才天气怎么样', '铜钥匙放在哪里'],
             undefined,
-            [node('weather', '今天一直在下雨。'.repeat(700)), node('key', '铜钥匙藏在钟楼的第三阶。')],
+            [node('weather', '今天一直在下雨。'.repeat(1200)), node('key', '铜钥匙藏在钟楼的第三阶。')],
         );
         expect(recalled.semanticFactRank.has('key')).toBe(true);
         expect(fetchMock).not.toHaveBeenCalled();
