@@ -443,7 +443,7 @@ it('video playback regression: 19 real vector cards label story time, hide long 
         <StoryVectorMemoryPanel entry={entry} onBack={() => {}} onUpdated={() => {}} />
     </StoryTheaterThemeProvider></OSPreviewProvider>));
     await vi.waitFor(() => expect(host!.textContent).toContain('向量记忆 · 19 条'));
-    expect(host!.textContent).toContain('剧情第 1 楼 · 剧情时间：原文未明确');
+    await vi.waitFor(() => expect(host!.textContent).toContain('剧情第 1 楼 · 剧情时间：原文未明确'));
     expect(host!.textContent).toContain('剧情第 2 楼 · 剧情时间：第二天早晨');
     expect(host!.textContent).toContain('已有人设（续写不重复输入）');
     expect(host!.textContent).toContain('归档时间：');
