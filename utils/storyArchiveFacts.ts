@@ -24,6 +24,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     'sourceMessageId 必须填写【本批新楼层】中对应的记录ID（不是第几楼、不是旧记忆的ID）。quote 可选：能够逐字复制原文就填写；无法保证逐字一致时留空，不得编造原文引用。区分事实、计划、猜测、内心与不同角色的知情范围，不补全原文没给的信息，也不抄写界面好感记录。',
     '每条变化可带 storyTime：仅填写原文明确出现的剧情内时间原话（例如「第二天清晨」「三日后」「2026年5月2日」）。没写时间就省略，不能把真实聊天时间、楼层序号或未发生的计划当成已经发生的日期；时间前后顺序以楼层为准。',
     '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
+    '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。',
 ].join('\n');
 
 export function collectStoryArchiveFacts(
@@ -84,7 +85,7 @@ function decodeArchiveChanges(raw: string): unknown {
 }
 
 export function parseStoryArchiveChanges(
-    raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[],
+    raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
 ): StoryArchiveFact[] {
     const invalid = (detail: string) => new Error(`增量归档格式或来源无效（${detail}），原文和旧归档已保留`);
     let value: unknown;
@@ -98,6 +99,13 @@ export function parseStoryArchiveChanges(
     }
     const existing = new Map(known.map(fact => [fact.key, fact]));
     const duplicateText = new Set(known.map(fact => fact.kind + ':' + comparable(fact.text)));
+    // Only skip a new fact that repeats a whole existing role/worldbook
+    // sentence. Do NOT reject changed states on semantic similarity.
+    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line)).filter(line => line.length >= 6);
+    const isStaticRepeat = (text: string) => {
+        const fact = comparable(text);
+        return fact.length >= 6 && staticSentences.some(line => line === fact || line.endsWith(fact));
+    };
     const facts = new Map<string, StoryArchiveFact>();
     for (const [index, change] of value.changes.entries()) {
         if (!change || typeof change.key !== 'string' || typeof change.text !== 'string'
@@ -137,7 +145,7 @@ export function parseStoryArchiveChanges(
         const previous = existing.get(key);
         if (previous && previous.kind !== kind) throw invalid(`第 ${index + 1} 条改变了已有记忆类型`);
         const comparableText = kind + ':' + comparable(text);
-        if (duplicateText.has(comparableText)) continue;
+        if (duplicateText.has(comparableText) || (!previous && kind === 'fact' && isStaticRepeat(text))) continue;
         const oldInBatch = facts.get(key);
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         const termCandidates: string[] = change.terms ?? key.split(/[\\/：:·-]+/u);
