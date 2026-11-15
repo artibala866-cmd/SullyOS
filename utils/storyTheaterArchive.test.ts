@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, rankStoryArchiveFacts } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
