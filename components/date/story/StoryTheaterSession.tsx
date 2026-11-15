@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1099,7 +1099,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             if (archiveEntry.archiveStrategy === 'summary') {
                 setMemoryStatus('正在把 ' + batch.length + ' 条正文压成事件盒……');
                 const delta = await generateStoryArchiveDelta(
-                    archiveEntry, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), rows.indexOf(first) + 1, 'summary',
+                    archiveEntry, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), rows.indexOf(first) + 1, 'summary', storyArchiveSourceTimes(rows),
                 );
                 next = await commitStoryArchiveBatch(archiveEntry, batch, {
                     id: makeStoryTheaterId(), strategy: 'summary', fromMessageId: first.id,
@@ -1256,29 +1256,32 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>() };
             });
             const facts = collectStoryArchiveFacts(promptEntry.archives, turnBoundary, vector.factTextById);
-            const currentNodeIds = new Set(facts.map(fact => fact.vectorNodeId));
-            const vectorSource = await selectStoryVectorRecall(
-                vector, recallSignals.length ? recallSignals : [recallQuery],
-                automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
-                vector.factNodes.filter(node => currentNodeIds.has(node.id)),
-            );
-            const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
-            const sourceTimes = new Map(current.flatMap(message => {
-                const time = storyTimeFromSource(message.content);
-                return time ? [[message.id, time] as const] : [];
-            }));
+            const sourceTimes = storyArchiveSourceTimes(current);
             const knownSetup = [
                 entry.premise, mask.name,
                 mask.description, mask.coreInstruction, mask.worldview,
                 ...actors.flatMap(actor => [actor.description, actor.systemPrompt, actor.worldview]),
-                ...selectedBooks.map(book => book.content),
+                ...selectedBooks.filter(book => book.disable !== true).map(book => book.content),
             ].filter(Boolean).join('\n');
             const visibleFacts = filterStoryArchiveBaselineRepeats(facts, promptEntry.archives, knownSetup);
+            const currentNodeIds = new Set(visibleFacts.map(fact => fact.vectorNodeId));
+            const vectorSource = await selectStoryVectorRecall(
+                vector, recallSignals.length ? recallSignals : [recallQuery],
+                automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
+                vector.factNodes.filter(node => currentNodeIds.has(node.id)),
+                storyArchiveNeedsRanking(visibleFacts, floorNumbers, sourceTimes),
+            );
+            const vectorRecall = vectorSource.text;
             const currentFactText = formatStoryArchiveProseContext(
                 visibleFacts, recallQuery, floorNumbers, vectorSource.semanticFactRank, sourceTimes,
             );
             const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 700, recallQuery, knownSetup);
+            const archiveEvidence = !isContinueTurn && !assistantOpening
+                ? findStoryArchiveEvidence(current, promptEntry.archives, turnBoundary, modelText,
+                    [currentFactText, earlierStates, vectorRecall, ...requestHistory.map(({ message }) => message.content)].join('\n'),
+                    knownSetup, floorNumbers)
+                : '';
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
                 .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
                 .map(box => box.affinityLog!.join('\n')).join('\n\n');
@@ -1367,6 +1370,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
                     ...(earlierStates ? [{ role: 'system' as const,
                         content: '### 剧情经过（按楼层先后；以下为已被更新的旧状态）\n这些是事情发展时曾经成立的事实，不代表当前仍然成立。较新的状态、正文和用户修正优先。\n' + earlierStates,
+                    }] : []),
+                    ...(archiveEvidence ? [{ role: 'system' as const,
+                        content: '### 相关剧情原文摘录（历史资料）\n仅用于核对细节，其中可能包含旧状态、台词或未验证的说法。\n' + archiveEvidence,
                     }] : []),
                     ...(currentFactText ? [{ role: 'system' as const,
                         content: '### 本剧情目前已确认的状态（按楼层先后排列）\n以下按已发生事实、未完成计划、尚未证实的信息和用户写作要求分区；同一分区内按剧情来源楼层先后排列。不要把传闻写成事实，不要把旧状态当成现在，也不要把未来计划说成已完成。剧情时间仅取原文，绝不从归档日期推算。\n' + currentFactText,

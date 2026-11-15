@@ -444,13 +444,17 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     await act(async () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
         <StoryVectorMemoryPanel entry={entry} onBack={() => {}} onUpdated={() => {}} />
     </StoryTheaterThemeProvider></OSPreviewProvider>));
-    await vi.waitFor(() => expect(host!.textContent).toContain('向量记忆 · 19 条'));
-    await vi.waitFor(() => expect(host!.textContent).toContain('剧情第 1 楼 · 剧情时间：原文未明确'));
-    expect(host!.textContent).toContain('剧情第 2 楼 · 剧情时间：第二天早晨');
-    expect(host!.textContent).toContain('已有人设（续写不重复输入）');
+    await vi.waitFor(() => expect(host!.textContent).toContain('向量记忆 · 18 条'));
+    await vi.waitFor(() => expect(host!.textContent).toContain('第二天早晨第 2 楼'));
+    expect(host!.textContent).not.toContain(oldProfile);
+    expect(host!.textContent).toContain('查看已有人设（1）');
+    await act(async () => click('查看已有人设（1）'));
+    expect(host!.textContent).toContain(oldProfile);
+    await act(async () => click('收起已有人设'));
     expect(host!.textContent).toContain('仅是计划');
     expect(host!.textContent).toContain('尚未证实');
-    expect(host!.textContent).toContain('归档时间：');
+    expect(host!.textContent).not.toContain('归档时间：');
+    expect(host!.textContent).toContain('归档范围与操作');
     expect(host!.textContent).toContain('查看完整记忆');
     expect([...host!.querySelectorAll('article')].map(card=>card.textContent).join('\n')).not.toContain(longText);
     const expand = [...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('查看完整记忆'));

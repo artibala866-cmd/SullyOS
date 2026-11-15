@@ -511,7 +511,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
     />{importConflictDialog}</>;
 
-    if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
+    if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
     if (view === 'archives' && activeEntry) return <StoryArchivePanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
 
     if (view === 'session' && activeEntry) {

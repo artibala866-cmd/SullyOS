@@ -129,6 +129,7 @@ export async function selectStoryVectorRecall(
     query: string | readonly string[],
     embedding?: EmbeddingConfig,
     currentFactNodes: MemoryNode[] = [],
+    factContextOverflow?: boolean,
 ): Promise<{ text: string; archiveIds: Set<string>; semanticFactRank: Map<string, number> }> {
     const archiveIds = new Set<string>();
     const semanticFactRank = new Map<string, number>();
@@ -140,7 +141,7 @@ export async function selectStoryVectorRecall(
     }));
     const allText = candidates.map(group => group.text).join(separator);
     const needsLegacyRanking = allText.length > limit;
-    const needsFactRanking = currentFactNodes.reduce((size, node) => size + node.content.length + 1, 0) > limit;
+    const needsFactRanking = factContextOverflow ?? (currentFactNodes.reduce((size, node) => size + node.content.length + 1, 0) > limit);
     if (!needsLegacyRanking && !needsFactRanking) {
         return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)), semanticFactRank };
     }

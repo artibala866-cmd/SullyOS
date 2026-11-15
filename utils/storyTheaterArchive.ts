@@ -16,7 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { loadStoryVectorRecall } from './storyTheaterVectorMemory';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
@@ -47,7 +47,8 @@ export async function buildStoryArchiveReference(entry: StoryTheaterEntry): Prom
     }
     try {
         const [characters, worldbooks] = await Promise.all([DB.getAllCharacters(), DB.getAllWorldbooks()]);
-        const participants = characters.filter(char => entry.characterIds.includes(char.id));
+        const maskCharacterId = entry.mask?.type === 'character' ? entry.mask.id : undefined;
+        const participants = characters.filter(char => entry.characterIds.includes(char.id) || char.id === maskCharacterId);
         for (const char of participants.slice(0, 8)) {
             const parts = [
                 char.description && '人物档案：' + char.description.trim().slice(0, 850),
@@ -106,7 +107,7 @@ function storyArchiveAffinity(message: Message): string[] {
     });
 }
 
-function storyArchiveTranscript(messages: Message[], firstFloor: number) {
+function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>) {
     const affinity: string[] = [];
     const sources = new Map<number, { text: string; authorInput: boolean; floorNumber: number }>();
     const transcript = messages.map((message, index) => {
@@ -125,7 +126,9 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number) {
         affinity.push(...affinityRows.map(row => floor + ' · ' + row));
         return message.metadata?.theaterContinue
             ? '[' + floor + ' · 续写操作（无新事实，不作为来源）]'
-            : '[' + floor + ' · ' + speaker + ' · 记录ID ' + message.id + ']\n' + content
+            : '[' + floor + ' · ' + speaker
+                + (sourceTimes.has(message.id) ? ' · 剧情场景时间 ' + sourceTimes.get(message.id) : '')
+                + ' · 记录ID ' + message.id + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
     return { affinity, transcript, sources };
@@ -177,13 +180,14 @@ async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey
 export async function generateStoryArchiveDelta(
     entry: StoryTheaterEntry, batch: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
     firstFloor: number, strategy: StoryTheaterArchiveStrategy,
+    sourceTimes = storyArchiveSourceTimes(batch),
 ): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const batches = splitStoryArchiveBatches(batch);
     if (!batches.length) throw new Error('请先选择要归档的楼层');
     let floor = firstFloor;
     const segments = batches.map(rows => {
-        const segment = storyArchiveTranscript(rows, floor);
+        const segment = storyArchiveTranscript(rows, floor, sourceTimes);
         floor += rows.length;
         return segment;
     });
@@ -229,7 +233,7 @@ export async function generateStoryArchiveDelta(
         try {
             const raw = await requestArchiveCompletion(api, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION, input, !!entry.memorySummaryApi, strategy);
             for (const fact of parseStoryArchiveChanges(raw, sources, current, reference,
-                earlier => historyFacts.push(earlier))) {
+                earlier => historyFacts.push(earlier), sourceTimes)) {
                 const earlier = changed.get(fact.key);
                 // When 91 floors become eight LLM batches, successive changes
                 // to the same state must not erase the path from A to B to C.
@@ -357,9 +361,10 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         if (!entry || !archive || archive.strategy !== 'summary') throw new Error('找不到剧情事件盒，请重新打开后重试');
         const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entryId), true);
         const messages = archiveRows(rows, entryId, archive);
-        const firstFloor = storyArchiveFloors(rows, entryId).findIndex(row => row.id === archive.fromMessageId) + 1;
+        const floors = storyArchiveFloors(rows, entryId);
+        const firstFloor = floors.findIndex(row => row.id === archive.fromMessageId) + 1;
         const archiveApi = resolveStoryMemoryApi(entry, api);
-        const delta = await generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor, 'summary');
+        const delta = await generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor, 'summary', storyArchiveSourceTimes(floors));
         const db = await openDB();
         return await new Promise<StoryTheaterEntry>((resolve, reject) => {
             const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
@@ -571,7 +576,7 @@ async function writeStoryArchiveRange(
     const initial = validate(entry, floors);
     const archiveApi = resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api);
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
-    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy);
+    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors));
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
     const factNodes = embedding ? delta.facts.map(fact => ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,

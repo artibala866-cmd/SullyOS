@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -133,6 +133,31 @@ describe('story summary final channel', () => {
             storyTime: '2039年1月1日', quote: '第一天傍晚',
         }] }), original, [])[0].storyTime).toBe('第一天傍晚');
     });
+    it('inherits adjacent scene headings, keeps recurring events, and excludes paraphrased profile facts', () => {
+        const rows = [
+            { id: 1, content: '第一天早上。' },
+            { id: 2, content: '完成巡查。值班员是登记员。' },
+            { id: 3, content: '第二天晚上。' },
+            { id: 4, content: '完成巡查。今天曾有人传言系统故障。' },
+            { id: 5, content: '材料昨天已提交。明天才会领取回执。' },
+        ];
+        const sources = new Map(rows.map(row => [row.id, { text: row.content, authorInput: false }]));
+        const raw = JSON.stringify({ changes: [
+            { action: 'add', key: '巡查/完成', text: '已完成巡查。', sourceMessageId: 2 },
+            { action: 'add', key: '职业/资料', text: '值班员的职业是登记员。', sourceMessageId: 2 },
+            { action: 'add', key: '巡查/完成', text: '已完成巡查。', storyTime: '今天', sourceMessageId: 4 },
+            { action: 'add', key: '回执/领取', text: '将领取回执。', storyTime: '昨天', sourceMessageId: 5,
+                quote: '明天才会领取回执。', modality: 'planned' },
+            { action: 'add', key: '材料/提交', text: '已提交材料。', storyTime: '昨天', sourceMessageId: 5 },
+        ] });
+        const facts = parseStoryArchiveChanges(raw, sources, [], '值班员是登记员。', undefined, storyArchiveSourceTimes(rows));
+        expect(facts.map(fact => [fact.text, fact.storyTime])).toEqual([
+            ['已完成巡查。', '第一天早上'], ['已完成巡查。', '第二天晚上'],
+            ['将领取回执。', undefined], ['已提交材料。', undefined],
+        ]);
+        expect(facts[0].key).not.toBe(facts[1].key);
+    });
+
     it('selects relevant facts but presents them chronologically in prose context', () => {
         const facts = [
             { key: '甲/地点', kind: 'fact' as const, text: '甲在庭院。', terms: ['庭院'], sourceMessageId: 11 },
@@ -347,6 +372,30 @@ describe('story summary final channel', () => {
         expect(full.semanticFactRank.size).toBe(0);
         expect(fetchMock).not.toHaveBeenCalled(); // All facts fit: inject directly, no extra Embedding cost
     });
+    it('uses vector ranking when the actual prose budget fills below the old 6000-character gate', async () => {
+        const charId = storyTheaterThreadId(entry.id);
+        const text = '准入凭证归值班员保管，离开时须交还柜台，并在登记簿签字。凭证必须封存，未经登记不得转交旁人。';
+        const important = { id: 'old-permit', charId, room: 'living_room' as const, mood: 'neutral' as const,
+            content: text, tags: [], importance: 6, embedded: true, createdAt: 1, lastAccessedAt: 1, accessCount: 0 };
+        const nodes = [important, ...Array.from({ length: 45 }, (_, index) =>
+            ({ ...important, id: 'other-' + index, content: '普通日常记录。'.repeat(7) + index }))];
+        const facts = nodes.map((node, index) => ({ key: node.id, kind: 'fact' as const, text: node.content,
+            sourceMessageId: index + 1, vectorNodeId: node.id, terms: [] }));
+        const query = '怎样才能获准进去？';
+        const floorNumbers = new Map(facts.map(fact => [fact.sourceMessageId, fact.sourceMessageId]));
+        expect(storyArchiveNeedsRanking(facts, floorNumbers, new Map())).toBe(true);
+        expect(nodes.reduce((count, node) => count + node.content.length, 0)).toBeLessThan(6000);
+        await MemoryNodeDB.save(important);
+        await MemoryVectorDB.save({ memoryId: important.id, charId, vector: [1, 0, 0], dimensions: 3, model: 'vector' });
+        fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
+        const recalled = await selectStoryVectorRecall({ nodes: [], groups: [] }, query,
+            { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'vector', dimensions: 3 },
+            nodes, storyArchiveNeedsRanking(facts, floorNumbers, new Map()));
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(recalled.semanticFactRank.has(important.id)).toBe(true);
+        expect(formatStoryArchiveProseContext(facts, query, floorNumbers, recalled.semanticFactRank)).toContain(text);
+    });
+
     it('filters already archived static setup on reading, but keeps corrected states and author instructions', () => {
         const staticFact = { key: '阿泽/身份', kind: 'fact' as const, text: '阿泽是医生。', terms: ['阿泽'], sourceMessageId: 1 };
         const older = { key: '钥匙/主人', kind: 'fact' as const, text: '阿泽拿着钥匙。', terms: ['钥匙'], sourceMessageId: 2 };

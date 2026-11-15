@@ -9,7 +9,7 @@ import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
-import {storyArchiveReadableLines,storyTimeFromSource} from '../../../utils/storyArchiveFacts';
+import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
 
 export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onClick:()=>void;disabled?:boolean;children:React.ReactNode}){
  return <button type='button' aria-label={label} title={label} disabled={disabled} onClick={onClick}
@@ -73,10 +73,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   finally{running.current=false;setBusy(false);}
  };
  const floorNumbers=useMemo(()=>new Map((floors??[]).map((row,index)=>[row.id,index+1])),[floors]);
- const sourceTimes=useMemo(()=>new Map((floors??[]).flatMap(row=>{
-  const time=storyTimeFromSource(row.content);
-  return time?[[row.id,time] as const]:[];
- })),[floors]);
+ const sourceTimes=useMemo(()=>storyArchiveSourceTimes(floors??[]),[floors]);
  const readableLines=(box:StoryTheaterArchive)=>storyArchiveReadableLines(box,floorNumbers,sourceTimes);
  const readableSummary=(box:StoryTheaterArchive)=>readableLines(box).join('\n');
  const archivePreview=(box:StoryTheaterArchive)=>{
@@ -150,6 +147,35 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
    await shareOrDownloadFile({content,fileName:`${entry.title.replace(/[\\/:*?"<>|]/g,'_').slice(0,80)||'剧情'}-事件盒.txt`,mimeType:'text/plain;charset=utf-8',shareTitle:'剧情事件盒'});
   }catch(e:any){setError(e?.message||'导出失败，请重试');}
  };
+ const archiveRows = <div className='divide-y divide-slate-200'>
+     {boxes.map((box,index)=>{
+      const checked=selected.includes(box.id),receipt=box.memoryConversions?.[charId];
+      const firstFloor=floors?.findIndex(row=>row.id===box.fromMessageId)??-1;
+      const lastFloor=floors?.findIndex(row=>row.id===box.toMessageId)??-1;
+      const legacyBox=isVector&&!box.vectorMemoryIds;
+      const timeline=children&&isVector?{...box,facts:[]}:box;
+      return <section key={box.id} className='py-2'>
+       <div className='flex items-center gap-2'>
+        {!isVector&&<input type='checkbox' aria-label={'选择事件盒 '+(index+1)} checked={checked} disabled={blocked} onChange={()=>toggle(box.id)} className='accent-violet-600'/>}
+        <div className='min-w-0 flex-1'>
+         <h2 className='truncate text-xs font-semibold'>{legacyBox?'旧向量归档':(isVector?'向量归档 ':'事件盒 ')+(index+1)}</h2>
+         <p className='truncate text-[10px] text-slate-500'>{legacyBox&&legacy.length>1?legacy.length+' 段 · 按组处理':firstFloor>=0&&lastFloor>=0?'第 '+(firstFloor+1)+'–'+(lastFloor+1)+' 楼':box.messageCount+' 条原文'}{receipt?' · 已转化':''}</p>
+        </div>
+        {!isVector&&<ArchiveIcon label={'重新总结事件盒 '+(index+1)} disabled={blocked} onClick={()=>void regenerate(box.id)}>{regeneratingId===box.id?<SpinnerGap size={17} className='animate-spin'/>:<ArrowClockwise size={18}/>}</ArchiveIcon>}
+        <ArchiveIcon label='重选楼层' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)}><Selection size={18}/></ArchiveIcon>
+        <ArchiveIcon label='撤销归档' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={18}/></ArchiveIcon>
+       </div>
+       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情记忆 · 按楼层整理</summary>{archivePreview(box)}</details>}
+       {isVector&&!!((!children&&box.facts?.length)||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>{children?'过去的变化':'剧情时间线'} · {readableLines(timeline).length} 条（点开查看）</summary>{archivePreview(timeline)}</details>}
+       {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
+        <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
+        <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
+        <ArchiveIcon label='取消撤销' disabled={blocked} onClick={()=>setRevokeTarget(null)}><X size={17}/></ArchiveIcon>
+       </div>}
+       {!isVector&&checked&&!receipt&&<label className='mt-2 block pl-5 text-[11px]'>记忆日期<input type='date' aria-label={'事件盒 '+(index+1)+' 记忆日期'} disabled={blocked} value={dates[box.id]??''} onChange={e=>setDates(current=>({...current,[box.id]:e.target.value}))} className='ml-2 rounded-lg border border-slate-200 bg-white p-1.5'/></label>}
+      </section>;
+     })}
+    </div>;
  return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
   <header className='story-safe-header shrink-0 border-b border-slate-200'>
    <div className='h-14 px-3 flex items-center gap-1'>
@@ -200,35 +226,11 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      <ArchiveIcon label='导出选中' disabled={blocked} onClick={()=>void exportSelected()}><DownloadSimple size={18}/></ArchiveIcon>
      <ArchiveIcon label='转为角色记忆' disabled={blocked||!char||!chosen.length||chosen.some(box=>!dateValid(dates[box.id]))} onClick={()=>void convert()}><UserPlus size={18}/></ArchiveIcon>
     </div>}
-    <div className='divide-y divide-slate-200'>
-     {boxes.map((box,index)=>{
-      const checked=selected.includes(box.id),receipt=box.memoryConversions?.[charId];
-      const firstFloor=floors?.findIndex(row=>row.id===box.fromMessageId)??-1;
-      const lastFloor=floors?.findIndex(row=>row.id===box.toMessageId)??-1;
-      const legacyBox=isVector&&!box.vectorMemoryIds;
-      return <section key={box.id} className='py-2'>
-       <div className='flex items-center gap-2'>
-        {!isVector&&<input type='checkbox' aria-label={'选择事件盒 '+(index+1)} checked={checked} disabled={blocked} onChange={()=>toggle(box.id)} className='accent-violet-600'/>}
-        <div className='min-w-0 flex-1'>
-         <h2 className='truncate text-xs font-semibold'>{legacyBox?'旧向量归档':(isVector?'向量归档 ':'事件盒 ')+(index+1)}</h2>
-         <p className='truncate text-[10px] text-slate-500'>{legacyBox&&legacy.length>1?legacy.length+' 段 · 按组处理':firstFloor>=0&&lastFloor>=0?'第 '+(firstFloor+1)+'–'+(lastFloor+1)+' 楼':box.messageCount+' 条原文'}{receipt?' · 已转化':''}</p>
-        </div>
-        {!isVector&&<ArchiveIcon label={'重新总结事件盒 '+(index+1)} disabled={blocked} onClick={()=>void regenerate(box.id)}>{regeneratingId===box.id?<SpinnerGap size={17} className='animate-spin'/>:<ArrowClockwise size={18}/>}</ArchiveIcon>}
-        <ArchiveIcon label='重选楼层' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)}><Selection size={18}/></ArchiveIcon>
-        <ArchiveIcon label='撤销归档' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={18}/></ArchiveIcon>
-       </div>
-       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情记忆 · 按楼层整理</summary>{archivePreview(box)}</details>}
-       {isVector&&!!(box.facts?.length||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情时间线 · {readableLines(box).length} 条（点开查看）</summary>{archivePreview(box)}</details>}
-       {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
-        <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
-        <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
-        <ArchiveIcon label='取消撤销' disabled={blocked} onClick={()=>setRevokeTarget(null)}><X size={17}/></ArchiveIcon>
-       </div>}
-       {!isVector&&checked&&!receipt&&<label className='mt-2 block pl-5 text-[11px]'>记忆日期<input type='date' aria-label={'事件盒 '+(index+1)+' 记忆日期'} disabled={blocked} value={dates[box.id]??''} onChange={e=>setDates(current=>({...current,[box.id]:e.target.value}))} className='ml-2 rounded-lg border border-slate-200 bg-white p-1.5'/></label>}
-      </section>;
-     })}
-    </div>
     {children}
+    {isVector&&children&&boxes.length>0?<details className='border-t border-slate-200 pt-3'>
+     <summary className='cursor-pointer text-xs font-medium text-slate-600'>归档范围与操作</summary>
+     {archiveRows}
+    </details>:archiveRows}
    </div>
   </main>
  </div>;
