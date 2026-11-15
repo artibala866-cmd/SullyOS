@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -156,6 +156,46 @@ describe('story summary final channel', () => {
             ['将领取回执。', undefined], ['已提交材料。', undefined],
         ]);
         expect(facts[0].key).not.toBe(facts[1].key);
+    });
+
+    it('checks labelled details against source, recovers omissions, and preserves uncertainty', () => {
+        const rows = [
+            { id: 1, content: '第一天上午，库房回执编号是 74851。库房找到铜牌。' },
+            { id: 2, content: '第二天中午，检修申请的档案编号是 G-5612。第三天黎明，撤下了旧标志。' },
+            { id: 3, content: '据说电台校验码是 Z-1234，尚未有人核实。' },
+            { id: 4, content: '叶澄多年担任港务登记员。叶澄确认蓝柜已经关好。' },
+            { id: 5, content: '叶澄在第四天傍晚把窗户关好。' },
+        ];
+        const sources = new Map(rows.map(row => [row.id, {text:row.content,authorInput:false}]));
+        const changes = [
+            {key:'库房/铜牌',text:'库房找到铜牌。',sourceMessageId:1,quote:'库房找到铜牌。'},
+            {key:'检修/申请',text:'检修申请的档案编号是 G-5613。',sourceMessageId:2,quote:'第二天中午，检修申请的档案编号是 G-5612。'},
+            {key:'检修/标志',text:'撤下了旧标志。',sourceMessageId:2,storyTime:'第二天中午',quote:'第三天黎明，撤下了旧标志。'},
+            {key:'电台/传闻',text:'电台校验码是 Z-1234。',sourceMessageId:3,quote:rows[2].content},
+            {key:'电台/编造',text:'电台校验码是 Z-9999。',sourceMessageId:4,quote:'叶澄确认蓝柜已经关好。'},
+            {key:'叶澄/职业',text:'叶澄的职业是港务登记员。',sourceMessageId:4,quote:'叶澄多年担任港务登记员。'},
+            {key:'资料室/窗户',text:'叶澄关好了窗户。',sourceMessageId:5,storyTime:'第四天傍晚',quote:rows[4].content},
+        ];
+        const facts = parseStoryArchiveChanges(JSON.stringify({changes}), sources, [], '叶澄是港务登记员。', undefined, storyArchiveSourceTimes(rows));
+        expect(facts).toHaveLength(6);
+        expect(facts.find(fact=>fact.key==='资料室/窗户')?.storyTime).toBe('第四天傍晚');
+        expect(facts.find(fact=>fact.key==='检修/申请')).toMatchObject({text:'检修申请的档案编号是 G-5612。',storyTime:'第二天中午'});
+        expect(facts.find(fact=>fact.key==='检修/标志')?.storyTime).toBe('第三天黎明');
+        expect(facts.find(fact=>fact.key==='电台/传闻')?.modality).toBe('unverified');
+        expect(facts.find(fact=>fact.text.includes('74851'))).toMatchObject({sourceMessageId:1,storyTime:'第一天上午'});
+        expect(facts.filter(fact=>fact.sourceMessageId===3)).toHaveLength(1);
+        expect(facts.some(fact=>fact.sourceMessageId===4)).toBe(false);
+    });
+
+    it('recovers an omitted condition on Continue even when the recent prose already mentions its subject', () => {
+        const rows = [
+            {id:1,content:'旧闸左灯双闪时，救生艇必须停在退水石阶外。领航员把航线表交给站务。'},
+            {id:2,content:'领航员抬手指向旧闸左灯，确认这次双闪能不能进。'},
+        ];
+        const archives = [{id:'old',strategy:'vector' as const,createdAt:1,
+            fromMessageId:1,toMessageId:1,messageCount:1,vectorMemoryIds:[],facts:[]}];
+        const excerpt=findStoryArchiveEvidence(rows,archives,3,rows[1].content,rows[1].content,'',new Map([[1,1],[2,2]]));
+        expect(excerpt).toBe('[第 1 楼] 旧闸左灯双闪时，救生艇必须停在退水石阶外。');
     });
 
     it('selects relevant facts but presents them chronologically in prose context', () => {
@@ -372,6 +412,37 @@ describe('story summary final channel', () => {
         expect(full.semanticFactRank.size).toBe(0);
         expect(fetchMock).not.toHaveBeenCalled(); // All facts fit: inject directly, no extra Embedding cost
     });
+    it('looks up semantically related old vector records before a later summary when references overflow', async () => {
+        const charId = storyTheaterThreadId(entry.id);
+        const node = { id: 'original-permit', charId, room: 'living_room' as const, mood: 'neutral' as const,
+            content: '准入凭证由第一班值班员保管，交柜台验签后方可进入。', tags: [], importance: 6,
+            embedded: true, createdAt: 1, lastAccessedAt: 1, accessCount: 0 };
+        await MemoryNodeDB.save(node);
+        await MemoryVectorDB.save({memoryId:node.id,charId,vector:[1,0,0],dimensions:3,model:'vector'});
+        const facts = [{key:'旧关卡/通行规则',kind:'fact' as const,text:node.content,terms:[],sourceMessageId:1,vectorNodeId:node.id}];
+        const distractors = Array.from({length:90},(_,index)=>({
+            key:'交接/物资'+index, kind:'fact' as const,
+            text:('雨棚内的交接表由当班站务登记，待分配的箱子在防雨货架。').repeat(5)+index,
+            terms:['交接'], sourceMessageId:index+2,
+        }));
+        const story = {...entry, archives:[
+            {id:'permit',strategy:'vector' as const,createdAt:1,messageCount:1,fromMessageId:1,toMessageId:1,vectorMemoryIds:[node.id],facts},
+            {id:'unrelated',strategy:'summary' as const,createdAt:2,messageCount:90,fromMessageId:2,toMessageId:91,facts:distractors},
+        ]};
+        const message = {...messages[0],id:200,content:'怎样才能获准进去？'};
+        fetchMock.mockReset().mockImplementation(async (url,init)=>{
+            if (String(url).endsWith('/embeddings')) return response({data:[{index:0,embedding:[1,0,0]}]});
+            const body=JSON.parse(String(init.body));
+            expect(body.messages[1].content).toContain('旧关卡/通行规则');
+            expect(body.messages[1].content).toContain(node.content);
+            return response(completion('{"changes":[]}'));
+        });
+        const delta = await generateStoryArchiveDelta(story,[message],api,92,'vector',new Map(),
+            {baseUrl:'https://vector.invalid/v1',apiKey:'test',model:'vector',dimensions:3});
+        expect(delta.facts).toEqual([]);
+        expect(fetchMock.mock.calls.map(([url])=>String(url).split('/').at(-1))).toEqual(['embeddings','completions']);
+    });
+
     it('uses vector ranking when the actual prose budget fills below the old 6000-character gate', async () => {
         const charId = storyTheaterThreadId(entry.id);
         const text = '准入凭证归值班员保管，离开时须交还柜台，并在登记簿签字。凭证必须封存，未经登记不得转交旁人。';

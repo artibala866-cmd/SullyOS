@@ -177,8 +177,8 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
                         const floor = fact && floorNumbers.get(fact.sourceMessageId);
                         const time = fact && (fact.storyTime || sourceTimes.get(fact.sourceMessageId));
                         const modality = fact && storyArchiveModality(fact);
+                        const past = fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId;
                         const label = repeatedSetupIds.has(node.id) ? '已有人设'
-                            : fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId ? '过去的状态'
                             : modality === 'planned' ? '仅是计划' : modality === 'unverified' ? '尚未证实'
                             : fact?.kind === 'author' ? '写作要求' : '';
                         const expanded = expandedNodeIds.has(node.id);
@@ -194,6 +194,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
                                 <strong className='font-semibold'>{time || (floor ? '第 ' + floor + ' 楼' : '旧记忆')}</strong>
                                 {time && floor && <span className='text-slate-600'>第 {floor} 楼</span>}
                                 {!time && <span className='text-slate-600'>时间未明确</span>}
+                                {past && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>过去的状态</span>}
                                 {label && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>{label}</span>}
                             </div>
                             <p className='mt-1.5 whitespace-pre-wrap break-words text-sm leading-6'>

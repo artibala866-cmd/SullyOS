@@ -168,7 +168,7 @@ export async function selectStoryVectorRecall(
                 if (allVectors.length) {
                     // Palace retrieves several meaningful message spikes with one
                     // batched embedding call, instead of diluting them into one query.
-                    const recallConfig = { ...embedding, requestPurpose: '剧情独立向量 · 续写召回' };
+                    const recallConfig = { ...embedding, requestPurpose: embedding.requestPurpose || '剧情独立向量 · 续写召回' };
                     const queryVectors = await getEmbeddings(queries, recallConfig);
                     bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
                     const paths = await Promise.all(queries.map((text, i) =>

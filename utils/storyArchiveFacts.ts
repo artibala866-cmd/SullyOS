@@ -19,16 +19,25 @@ export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'moda
 }
 
 
-const timeOfDay = '(?:凌晨|清晨|早晨|早上|上午|中午|下午|午后|傍晚|晚上|夜里|深夜|半夜)';
+const timeOfDay = '(?:凌晨|黎明|清晨|早晨|早上|上午|中午|下午|午后|傍晚|晚上|夜里|深夜|半夜)';
 const date = '(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}日|[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}';
 const count = '[一二三四五六七八九十百零两0-9]+';
-const day = `第${count}[天日]|${count}(?:天|日|周|个月|年|小时|分钟)(?:后|前)|翌日|次日|隔天|当天|当晚|今夜|昨日|昨天|今天|明天|后天|昨晚|前一天|头七(?:前夜|当天)?|[春夏秋冬]日`;
+const day = `第${count}[天日]|${count}(?:天|日|周|个月|年|小时|分钟)(?:后|前)|翌日|次日|隔天|当天|当晚|今夜|昨日|昨天|今天|明天|后天|昨晚|前一天|头七(?:前夜|当天|交界|过后|之后)?|[春夏秋冬]日`;
 const time = String.raw`(?:(?:${date}|${day})(?:的)?(?:${timeOfDay})?|${timeOfDay})(?:\s*(?:[0-9]{1,2}:[0-9]{2}|${count}(?:点|时)(?:半|${count}分)?))?|[0-9]{1,2}:[0-9]{2}`;
+const explicitTimes = new RegExp(time, 'gu');
 const leadingTime = new RegExp(String.raw`^\s*(?:[【\[]|(?:剧情时间|时间)[:：]\s*)?(${time})(?=$|[\s，,。！!？?；;：:、】\]])`, 'u');
 
 /** Read the scene's opening time. A time mentioned mid-paragraph may belong to a different event. */
 export function storyTimeFromSource(source: string): string | undefined {
     return source.normalize('NFKC').match(leadingTime)?.[1];
+}
+
+const storySentences = (text: string) => text.match(/[^。！？\r\n]+[。！？]?/gu) ?? [];
+
+function unambiguousOpeningTime(source: string): string | undefined {
+    const first = storyTimeFromSource(source);
+    const otherTimes = storySentences(source).slice(1).map(storyTimeFromSource);
+    return otherTimes.some(time => time && time !== first) ? undefined : first;
 }
 
 /** A standalone time heading can also label the immediately following floor. */
@@ -37,8 +46,9 @@ export function storyArchiveSourceTimes(rows: readonly { id: number; content: st
     let heading: string | undefined;
     for (const row of rows) {
         if (row.metadata?.theaterContinue) continue;
-        const time = storyTimeFromSource(row.content);
-        const sceneTime = time ?? heading;
+        const time = unambiguousOpeningTime(row.content);
+        const conflictingTimes = !time && storySentences(row.content).some(sentence => !!storyTimeFromSource(sentence));
+        const sceneTime = time ?? (conflictingTimes ? undefined : heading);
         if (sceneTime) times.set(row.id, sceneTime);
         const rest = row.content.normalize('NFKC').replace(leadingTime, '').trim();
         heading = time && /^[\s，,。！!？?；;：:、】\]]*$/u.test(rest) ? time : undefined;
@@ -83,16 +93,24 @@ export function rankStoryArchiveFacts(
     facts: StoryArchiveFact[], query: string, semanticRank: ReadonlyMap<string, number> = new Map(),
 ): StoryArchiveFact[] {
     const text = normalize(query);
+    const matchingTerms = facts.map(fact => [...new Set(fact.terms.map(normalize))]
+        .filter(term => term.length >= 2 && text.includes(term)));
+    const frequency = new Map<string, number>();
+    for (const terms of matchingTerms) for (const term of terms) {
+        frequency.set(term, (frequency.get(term) ?? 0) + 1);
+    }
     const bySemanticMatch = (fact: StoryArchiveFact) => semanticRank.get(fact.vectorNodeId ?? '') ?? Number.MAX_SAFE_INTEGER;
-    return facts.map(fact => ({
-        fact,
-        matches: fact.terms.reduce((score, term) => score + (text.includes(normalize(term)) ? term.length : 0), 0),
-    })).sort((a, b) => Number(b.fact.kind === 'author') - Number(a.fact.kind === 'author')
-        || b.matches - a.matches || bySemanticMatch(a.fact) - bySemanticMatch(b.fact) || b.fact.sourceMessageId - a.fact.sourceMessageId).map(item => item.fact);
+    return facts.map((fact, index) => {
+        const terms = matchingTerms[index];
+        const distinctive = terms.reduce((score, term) => frequency.get(term)! <= Math.max(2, facts.length * 0.15)
+            ? Math.max(score, term.length / frequency.get(term)!) : score, 0);
+        return { fact, distinctive, matches: terms.length };
+    }).sort((a, b) => Number(b.fact.kind === 'author') - Number(a.fact.kind === 'author')
+        || b.distinctive - a.distinctive || bySemanticMatch(a.fact) - bySemanticMatch(b.fact)
+        || b.matches - a.matches || b.fact.sourceMessageId - a.fact.sourceMessageId).map(item => item.fact);
 }
 
-/** Normalize only Unicode form and whitespace when checking a verbatim source quote.
- * A fact without a quote grounded in the actual floors must never be archived. */
+// Normalize only Unicode form and whitespace when checking a verbatim quote.
 const comparableQuote = (text: string) => text.normalize('NFKC').replace(/\s+/g, ' ').trim();
 const quoteExistsIn = (source: string, quote: string) =>
     source.includes(quote) || comparableQuote(source).includes(comparableQuote(quote));
@@ -169,6 +187,17 @@ export function filterStoryArchiveBaselineRepeats(
     });
 }
 
+// Explicit labelled codes are checkable without guessing what a model meant.
+const archivedCodePattern = /(回执(?:编号|号码|号)|登记(?:编号|号码|号)|门禁(?:密码|口令)|校验码|识别码|序列号|通行码|档案编号)\s*(?:是|为|改为|[:：])?\s*([A-Z0-9][A-Z0-9-]{2,23})(?![A-Z0-9-])/giu;
+function storyArchiveCodes(text: string) {
+    return [...text.normalize('NFKC').matchAll(archivedCodePattern)].map(match => ({
+        phrase: match[0],
+        label: match[1].replace(/^回执(?:号码|号)$/u, '回执编号').replace(/^登记(?:号码|号)$/u, '登记编号')
+            .replace(/^门禁口令$/u, '门禁密码'),
+        value: match[2].toUpperCase(),
+    })).filter(code => /[0-9]/u.test(code.value));
+}
+
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
@@ -201,9 +230,9 @@ export function parseStoryArchiveChanges(
             throw invalid(`第 ${index + 1} 条字段不完整`);
         }
         let key = normalize(change.key).replace(/\s+/g, '');
-        const text = change.text.trim();
+        let text = change.text.trim();
         const kind: 'fact' | 'author' = change.kind ?? 'fact';
-        const modality = kind === 'fact' && (change.modality === 'planned' || change.modality === 'unverified')
+        let modality = kind === 'fact' && (change.modality === 'planned' || change.modality === 'unverified')
             ? change.modality as 'planned' | 'unverified' : undefined;
         if (!/^[\p{L}\p{N}\p{M}\p{P}\p{S}]{2,120}$/u.test(key) || !comparable(text)) {
             throw invalid(`第 ${index + 1} 条记忆键或正文为空/不合法`);
@@ -236,14 +265,42 @@ export function parseStoryArchiveChanges(
         if (kind === 'author' && !source.authorInput) {
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
-        const claimedTime = typeof change.storyTime === 'string' ? change.storyTime.trim() : '';
-        const localTime = storyTimeFromSource(source.text);
-        // A quoted clause can establish an event's own time inside a multi-event floor.
-        const quotedClause = quote && quoteExistsIn(source.text, quote)
-            ? source.text.match(/[^。！？\r\n]+[。！？]?/gu)?.find(clause => quoteExistsIn(clause, quote)) : undefined;
-        const quoteTime = quotedClause ? storyTimeFromSource(quotedClause) : undefined;
-        const storyTime = kind === 'fact' ? (claimedTime && claimedTime === quoteTime
-            ? quoteTime : localTime ?? sourceTimes?.get(sourceMessageId)) : undefined;
+        // A quote anchors the actual clause, even when the model copies another clause's date.
+        const quotedClauses = quote && quoteExistsIn(source.text, quote)
+            ? storySentences(source.text).filter(clause => quoteExistsIn(clause, quote)) : [];
+        const quotedClause = quotedClauses.length === 1 ? quotedClauses[0] : undefined;
+        const claimedTime = typeof change.storyTime === 'string' ? change.storyTime.normalize('NFKC').trim() : '';
+        const citedTimes = quotedClause && claimedTime
+            ? new Set(quotedClause.normalize('NFKC').match(explicitTimes) ?? []) : undefined;
+        const verifiedTime = citedTimes?.size === 1 && citedTimes.has(claimedTime) ? claimedTime : undefined;
+        const storyTime = kind === 'fact'
+            ? (quotedClause && storyTimeFromSource(quotedClause)) || verifiedTime
+                || unambiguousOpeningTime(source.text) || sourceTimes?.get(sourceMessageId)
+            : undefined;
+        if (kind === 'fact') {
+            const evidence = quotedClause ?? source.text;
+            const evidenceModality = quotedClause || storySentences(source.text).length === 1
+                ? storyArchiveModality({ text: evidence }) : undefined;
+            modality = evidenceModality ?? modality;
+            const codeClaims = storyArchiveCodes(text);
+            let unsupportedCode = false;
+            for (const claim of codeClaims) {
+                const citedCodes = storyArchiveCodes(evidence).filter(code => code.label === claim.label);
+                const sourceCodes = citedCodes.length ? citedCodes
+                    : storyArchiveCodes(source.text).filter(code => code.label === claim.label);
+                const values = [...new Set(sourceCodes.map(code => code.value))];
+                if (values.length === 1 && values[0] !== claim.value) {
+                    const sourceCode = sourceCodes[0];
+                    text = text.includes(claim.phrase)
+                        ? text.replace(claim.phrase, sourceCode.phrase)
+                        : text.normalize('NFKC').replace(claim.phrase, sourceCode.phrase);
+                } else if (!source.text.normalize('NFKC').toUpperCase().match(/[A-Z0-9-]+/g)?.includes(claim.value)) {
+                    unsupportedCode = true;
+                    break;
+                }
+            }
+            if (unsupportedCode) continue;
+        }
         const knownState = facts.get(key) ?? existing.get(key);
         if (kind === 'fact' && change.action === 'add' && storyTime && knownState?.storyTime
             && knownState.storyTime !== storyTime && comparable(knownState.text) === comparable(text)) {
@@ -259,13 +316,35 @@ export function parseStoryArchiveChanges(
         const sameState = previous && comparable(previous.text) === comparable(text) && previous.modality === modality;
         if (sameState && !oldInBatch && change.action !== 'add') continue;
         if (duplicateText.has(comparableText) && !oldInBatch && (!previous || sameState)) continue;
-        if (!previous && kind === 'fact' && storyArchiveRepeatsPreset(text, key, baseline, source.text)) continue;
+        if (!previous && kind === 'fact' && storyArchiveRepeatsPreset(text, key, baseline, quotedClause ?? source.text)) continue;
         const termCandidates: string[] = change.terms ?? key.split(/[\/：:·-]+/u);
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
             && oldInBatch.text !== text) onEarlierState?.(oldInBatch);
         facts.set(key, { ...fact, terms });
         duplicateText.add(comparableText);
+    }
+    // Preserve a missed exact detail as a sourced one-line fact. Only single,
+    // unambiguous assertions qualify; plans, quotes and multi-value comparisons
+    // stay in the original floors for contextual retrieval.
+    const recordedCodes = new Set([...known, ...facts.values()].flatMap(fact =>
+        storyArchiveCodes(fact.text).map(code => code.label + '/' + code.value)));
+    for (const [sourceMessageId, source] of sources) {
+        for (const sentence of storySentences(source.text)) {
+            const codes = storyArchiveCodes(sentence);
+            if (codes.length !== 1 || sentence.length > 150 || storyArchiveModality({ text: sentence })
+                || /[“”「」"'？?]|(?:计划|猜测|传闻|听说|据说|也许|可能|假如|如果|尚未|旧版|作废|撤销|取消|并非|不是|不再|之前|曾经|有人说|改为|更正|修正)/u.test(sentence)) continue;
+            const [code] = codes;
+            if (!/[:：]|(?:是|为|改为)\s*[A-Z0-9]/iu.test(code.phrase)) continue;
+            const identity = code.label + '/' + code.value;
+            if (recordedCodes.has(identity) || storyArchiveRepeatsPreset(sentence, code.label, baseline)) continue;
+            const key = '剧情凭据/' + identity;
+            const storyTime = storyTimeFromSource(sentence) || sourceTimes?.get(sourceMessageId);
+            const text = sentence.replace(leadingTime, '').replace(/^[\s，,：:、】\]]+/u, '').trim();
+            facts.set(key, { key, kind: 'fact', text, terms: [code.label, code.value],
+                sourceMessageId, ...(storyTime ? { storyTime } : {}) });
+            recordedCodes.add(identity);
+        }
     }
     return [...facts.values()];
 }
@@ -351,14 +430,14 @@ export function findStoryArchiveEvidence(
 ): string {
     const known = normalize(alreadySent);
     const needles = new Set<string>();
-    for (const span of normalize(query).match(/\p{Script=Han}{4,}|[a-z0-9]{4,}/gu) ?? []) {
+    for (const span of normalize(query).slice(-1200).match(/\p{Script=Han}{4,}|[a-z0-9]{4,}/gu) ?? []) {
         if (/^[a-z0-9]+$/u.test(span)) {
-            if (!known.includes(span)) needles.add(span);
+            needles.add(span);
             continue;
         }
         for (let i = 0; i <= span.length - 4; i++) {
             const word = span.slice(i, i + 4);
-            if (!known.includes(word)) needles.add(word);
+            needles.add(word);
         }
     }
     if (!needles.size) return '';
@@ -369,8 +448,9 @@ export function findStoryArchiveEvidence(
     const hits: { id: number; excerpt: string; score: number }[] = [];
     for (const row of rows) {
         if (deletedSources.has(row.id) || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
-        for (const sentence of row.content.match(/[^。！？\r\n]+[。！？]?/gu) ?? []) {
+        for (const sentence of storySentences(row.content)) {
             const text = normalize(sentence);
+            if (known.includes(text)) continue;
             let score = 0;
             let offset = -1;
             for (const word of needles) {
@@ -387,9 +467,11 @@ export function findStoryArchiveEvidence(
         }
     }
     const seen = new Set<string>();
+    const usedFloors = new Set<number>();
     return hits.sort((a, b) => b.score - a.score || b.id - a.id).filter(hit => {
-        if (seen.has(hit.excerpt)) return false;
+        if (seen.has(hit.excerpt) || usedFloors.has(hit.id)) return false;
         seen.add(hit.excerpt);
+        usedFloors.add(hit.id);
         return true;
     }).slice(0, 2).sort((a, b) => a.id - b.id)
         .map(hit => `[第 ${floorNumbers.get(hit.id)} 楼] ${hit.excerpt}`).join('\n');

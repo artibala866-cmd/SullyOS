@@ -17,7 +17,8 @@ import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
 import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
-import { loadStoryVectorRecall } from './storyTheaterVectorMemory';
+import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
+import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
@@ -181,6 +182,7 @@ export async function generateStoryArchiveDelta(
     entry: StoryTheaterEntry, batch: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
     firstFloor: number, strategy: StoryTheaterArchiveStrategy,
     sourceTimes = storyArchiveSourceTimes(batch),
+    embedding?: EmbeddingConfig,
 ): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
     const batches = splitStoryArchiveBatches(batch);
@@ -214,9 +216,22 @@ export async function generateStoryArchiveDelta(
     const historyFacts: StoryArchiveFact[] = [];
     for (const [index, { sources, transcript }] of segments.entries()) {
         const current = [...known.values()];
+        // Like Memory Palace extraction, prioritize related existing nodes for
+        // comparison. Reuse the grouped vector/BM25 search when the references
+        // would no longer fit. New facts from earlier batches still participate.
+        const currentNodeIds = new Set(current.map(fact => fact.vectorNodeId));
+        const estimate = current.reduce((size, fact) => size + JSON.stringify({
+            key: fact.key, kind: fact.kind, text: fact.text, storyTime: fact.storyTime, modality: fact.modality,
+        }).length + 1, 0);
+        const { semanticFactRank } = estimate > 12000
+            ? await selectStoryVectorRecall({ nodes: [], groups: [] },
+                sampleSnippetsFromMessages([...sources.values()].map(source => ({ content: source.text })), 2, 600),
+                embedding ? { ...embedding, requestPurpose: '剧情独立向量 · 总结核对旧记忆' } : undefined,
+                vector.factNodes.filter(node => currentNodeIds.has(node.id)), true)
+            : { semanticFactRank: new Map<string, number>() };
         const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality'>> = [];
         let used = 0;
-        for (const { key, kind, text, storyTime, modality } of rankStoryArchiveFacts(current, transcript)) {
+        for (const { key, kind, text, storyTime, modality } of rankStoryArchiveFacts(current, transcript, semanticFactRank)) {
             const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}) };
             const size = JSON.stringify(reference).length;
             if (used + size > 12000) continue;
@@ -576,7 +591,7 @@ async function writeStoryArchiveRange(
     const initial = validate(entry, floors);
     const archiveApi = resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api);
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
-    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors));
+    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), embedding);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
     const factNodes = embedding ? delta.facts.map(fact => ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,

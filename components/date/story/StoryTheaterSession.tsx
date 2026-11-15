@@ -1277,8 +1277,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 visibleFacts, recallQuery, floorNumbers, vectorSource.semanticFactRank, sourceTimes,
             );
             const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 700, recallQuery, knownSetup);
-            const archiveEvidence = !isContinueTurn && !assistantOpening
-                ? findStoryArchiveEvidence(current, promptEntry.archives, turnBoundary, modelText,
+            const archiveEvidence = !assistantOpening
+                ? findStoryArchiveEvidence(current, promptEntry.archives, turnBoundary,
+                    isContinueTurn ? recallSignals.at(-1) ?? '' : modelText,
                     [currentFactText, earlierStates, vectorRecall, ...requestHistory.map(({ message }) => message.content)].join('\n'),
                     knownSetup, floorNumbers)
                 : '';
