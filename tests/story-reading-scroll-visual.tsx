@@ -169,7 +169,7 @@ const audit = () => {
             index, text: floor.querySelector<HTMLElement>('[data-story-prose-count]')?.getAttribute('data-story-prose-count'),
         }));
         const proseCountsValid = proseCounters.every(({ index, text }) => index % 2 === 0
-            ? text === undefined : text !== undefined && /^\\d+$/.test(text))
+            ? text === undefined : text !== undefined && /^\d+$/.test(text))
             && (!withThinking || proseCounters[floorCount - 1]?.text === '4');
         const valid = proseCountsValid && (mode !== 'cinema' || cinemaReady)
             && floors.length === floorCount
