@@ -1,7 +1,7 @@
 import type { APIConfig, Message, StoryArchiveFact, StoryTheaterArchive, StoryTheaterArchiveStrategy, StoryTheaterEntry } from '../types';
 import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
-import { describeStoryApiError, makeStoryTheaterId, storyAffinityInputsFromMessage, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
+import { describeStoryApiError, makeStoryTheaterId, resolveStoryTheaterWorldbooks, storyAffinityInputsFromMessage, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
 import { hasSummaryReasoningLeak } from './summaryReasoning';
 import { resolveStoryMemoryApi } from './storyMemoryApi';
 import { tavernOpeningSceneText } from './tavernOpeningGreeting';
@@ -20,6 +20,38 @@ import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveCha
 import { loadStoryVectorRecall } from './storyTheaterVectorMemory';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
+
+/**
+ * The same role cards and explicitly selected worldbooks as story prose are
+ * reference-only material for extraction, never evidence of a new plot event.
+ */
+export async function buildStoryArchiveReference(entry: StoryTheaterEntry): Promise<string> {
+    const descriptions: string[] = [];
+    if (entry.premise?.trim()) descriptions.push('剧情原有前提：' + entry.premise.trim().slice(0, 1100));
+    try {
+        const [characters, worldbooks] = await Promise.all([DB.getAllCharacters(), DB.getAllWorldbooks()]);
+        const participants = characters.filter(char => entry.characterIds.includes(char.id));
+        for (const char of participants.slice(0, 8)) {
+            const parts = [
+                char.description && '人物档案：' + char.description.trim().slice(0, 850),
+                char.systemPrompt && '已有核心人设：' + char.systemPrompt.trim().slice(0, 850),
+                char.worldview && '已有世界观：' + char.worldview.trim().slice(0, 650),
+            ].filter(Boolean);
+            if (parts.length) descriptions.push('【' + char.name + '】\n' + parts.join('\n'));
+        }
+        const selected = new Set(entry.selectedWorldbookIds ?? []);
+        const books = resolveStoryTheaterWorldbooks(worldbooks, characters)
+            .filter(book => selected.has(book.id) && book.disable !== true);
+        for (const book of books.slice(0, 12)) {
+            if (book.content?.trim()) descriptions.push('【世界书：' + book.title + '】' + book.content.trim().slice(0, 800));
+        }
+    } catch (error) {
+        // Keep source-only archiving available when local reference storage fails.
+        console.warn('[StoryTheater] archive baseline reference read failed', error);
+    }
+    return descriptions.join('\n\n').slice(0, 9200);
+}
+
 
 /** Summaries must come from the final channel, never a reasoning-only fallback. */
 export function parseStoryArchiveSummary(data: any): string {
@@ -141,7 +173,10 @@ export async function generateStoryArchiveDelta(
     const floorNumbers = new Map<number, number>(segments.flatMap(segment =>
         [...segment.sources].map(([id, source]) => [id, source.floorNumber] as const)));
     const beforeId = batch[0].id;
-    const vector = await loadStoryVectorRecall(entry, beforeId);
+    const [reference, vector] = await Promise.all([
+        buildStoryArchiveReference(entry),
+        loadStoryVectorRecall(entry, beforeId),
+    ]);
     const known = new Map(collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById).map(fact => [fact.key, fact]));
     const legacy = [
         ...entry.archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
@@ -169,12 +204,13 @@ export async function generateStoryArchiveDelta(
         const input = [
             `剧情：${entry.title}（第 ${index + 1}/${segments.length} 批）`,
             '已有结构化记忆（用于核对）\n' + JSON.stringify(previous),
+            ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + reference] : []),
             ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
             '本批新楼层\n' + transcript,
         ].join('\n\n');
         try {
             const raw = await requestArchiveCompletion(api, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION, input, !!entry.memorySummaryApi, strategy);
-            for (const fact of parseStoryArchiveChanges(raw, sources, current)) {
+            for (const fact of parseStoryArchiveChanges(raw, sources, current, reference)) {
                 known.set(fact.key, fact);
                 changed.set(fact.key, fact);
             }
