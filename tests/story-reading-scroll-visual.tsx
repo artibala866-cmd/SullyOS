@@ -12,6 +12,7 @@ const params = new URLSearchParams(location.search);
 const mode = params.get('mode') || 'novel';
 const floorCount = Math.max(2, Math.min(240, Number(params.get('count')) || 26));
 const richStoryFrames = params.get('rich') === '1';
+const withThinking = params.get('with-thinking') === '1';
 const storySamples = [
     '他走到门口，像是还在犹豫要不要开口。',
     '雨声从屋檐滑下来，沿着窗框积起细小的水痕。\\n\\n林星没有立刻追问。他把伞放在玄关，手指在木柄上停了一瞬。',
@@ -24,14 +25,16 @@ const storySamples = [
 ];
 const rows = Array.from({ length: floorCount }, (_, i) => ({
     id: i + 1, charId: 'story-theater:visual-story', role: i % 2 === 0 ? 'user' : 'assistant',
-    type: 'text', content: richStoryFrames && i % 2 === 1
+    type: 'text', content: withThinking && i === floorCount - 1 && i % 2 === 1
+        ? '<Think>这些思考文字绝对不能计入字数，只有真实正文才可以计数。</Think><content>雨停了。</content><sidestory>附录也不计数。</sidestory>'
+        : richStoryFrames && i % 2 === 1
         ? '<div class="story-test-html"><h3>第 ' + (i + 1) + ' 楼 · 长篇排版</h3>'
             + Array.from({ length: 18 }, (_, part) => '<p>第 ' + (i + 1) + ' 楼，第 ' + (part + 1)
                 + ' 段。雨声沿着窗框落下，人物继续说话，完整的剧情内容应该随外层页面连续滚动。</p>').join('')
             + '</div>'
         : storySamples[i % storySamples.length].replaceAll('\\n', '\n'),
     timestamp: 1700000000000 + i * 60000,
-    metadata: { source: 'story_theater', ...(richStoryFrames && i % 2 === 1 ? { theaterSourceFormat: 'sillytavern' } : {}) },
+    metadata: { source: 'story_theater', ...((richStoryFrames && i % 2 === 1) || (withThinking && i === floorCount - 1 && i % 2 === 1) ? { theaterSourceFormat: 'sillytavern' } : {}) },
 } as Message));
 const originalGetMessages = DB.getMessagesByCharId;
 DB.getMessagesByCharId = async (charId: string, ..._args: any[]) =>
@@ -162,7 +165,13 @@ const audit = () => {
             && !document.querySelector('[aria-labelledby="story-appearance-title"]')
             && getComputedStyle(scroll).backgroundImage.includes('radial-gradient')
             && floorDecoration.includes('✦');
-        const valid = (mode !== 'cinema' || cinemaReady)
+        const proseCounters = [...floors].map((floor, index) => ({
+            index, text: floor.querySelector<HTMLElement>('[data-story-prose-count]')?.getAttribute('data-story-prose-count'),
+        }));
+        const proseCountsValid = proseCounters.every(({ index, text }) => index % 2 === 0
+            ? text === undefined : text !== undefined && /^\\d+$/.test(text))
+            && (!withThinking || proseCounters[floorCount - 1]?.text === '4');
+        const valid = proseCountsValid && (mode !== 'cinema' || cinemaReady)
             && floors.length === floorCount
             && (!richStoryFrames || scroll.querySelectorAll('iframe').length >= Math.floor(floorCount / 2))
             && !document.querySelector('button[aria-label="更早一页"]')
@@ -177,7 +186,7 @@ const audit = () => {
         const output = document.createElement('output');output.hidden = true;
         output.id = 'story-scroll-report';
         output.textContent = JSON.stringify({
-            valid, cinemaReady, floorDecoration, count: floors.length, displayedProgress: progress?.textContent,
+            valid, cinemaReady, floorDecoration, proseCountsValid, proseCounters, count: floors.length, displayedProgress: progress?.textContent,
             indicatorInHeader: floorIndicatorClear, hasLatestButton: !!latestButton,
             scrollWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
             scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight, scrollTop: scroll.scrollTop, nearEnd, anchorDrift,
