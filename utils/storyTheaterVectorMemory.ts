@@ -10,6 +10,7 @@ import { hybridSearch } from './memoryPalace/hybridSearch';
 import { EMBEDDING_MAX_INPUT_CHARS } from './memoryPalace/embedding';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
+import { storyTimeFromSource } from './storyArchiveFacts';
 
 function assertStoryPartition(entryId: string, node: MemoryNode | undefined): MemoryNode {
     if (!node) throw new Error('这条剧情记忆已经不存在了');
@@ -211,7 +212,7 @@ export async function updateStoryVectorMemory(
                     try {
                         const current = assertStoryPartition(entryId, node.result as MemoryNode | undefined);
                         if (current.content !== previous.content) throw new Error('剧情记忆已变更，请重新打开后编辑');
-                        changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text, vectorTextState: 'synced' }));
+                        changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text, storyTime: storyTimeFromSource(text), vectorTextState: 'synced' }));
                         for (const { node: next, vector } of entries) {
                             const floats = ensureFloat32(vector.vector);
                             nodes.put(next);
