@@ -331,6 +331,57 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
 });
 
 
+it('真实归档页面把同一次分段里变更过的旧状态显示成历史，不冒充现在', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = { ...createStoryTheaterDraft(), title: '三日寻钥匙' };
+    const thread = 'story-theater:' + entry.id;
+    const floors = [];
+    for (const content of [
+        '第一天傍晚，林星持有铜钥匙。',
+        '第二天清晨，林星把钥匙给阿泽。',
+        '第三天深夜，阿泽把钥匙交给小雨。',
+    ]) {
+        const id = await DB.saveMessage({
+            charId: thread, role: 'assistant', type: 'text', content,
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: true },
+        });
+        floors.push(id);
+    }
+    entry.archives = [{
+        id: 'three-days', strategy: 'summary', createdAt: 1, messageCount: 3,
+        fromMessageId: floors[0], toMessageId: floors[2],
+        summary: '此段旧摘要不应该覆盖结构化时间线',
+        facts: [{ key: '钥匙/持有人', kind: 'fact', terms: ['钥匙'],
+            text: '铜钥匙现在由小雨保管。', storyTime: '第三天深夜', sourceMessageId: floors[2] }],
+        historyFacts: [
+            { key: '钥匙/持有人', kind: 'fact', terms: ['钥匙'],
+                text: '林星曾保管铜钥匙。', storyTime: '第一天傍晚', sourceMessageId: floors[0] },
+            { key: '钥匙/持有人', kind: 'fact', terms: ['钥匙'],
+                text: '阿泽随后保管铜钥匙。', storyTime: '第二天清晨', sourceMessageId: floors[1] },
+        ],
+    }];
+    const os = {
+        characters: [], userProfile: { name: '用户' },
+        apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'story' },
+        memoryPalaceConfig: {}, theme: {}, addToast: vi.fn(),
+    } as any;
+    await act(async () => root!.render(
+        <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+            <StoryArchivePanel entry={entry} masks={[]} onBack={() => {}} onUpdated={() => {}} />
+        </StoryTheaterThemeProvider></OSPreviewProvider>,
+    ));
+    await vi.waitFor(() => {
+        expect(host!.textContent).toContain('【本段历史变化（非当前状态）】');
+        expect(host!.textContent).toContain('第 1 楼 · 剧情时间：第一天傍晚');
+        expect(host!.textContent).toContain('第 2 楼 · 剧情时间：第二天清晨');
+        expect(host!.textContent).toContain('第 3 楼 · 剧情时间：第三天深夜');
+    });
+    expect(host!.textContent).not.toContain('此段旧摘要不应该覆盖结构化时间线');
+    expect(host!.textContent!.indexOf('林星曾保管铜钥匙')).toBeLessThan(host!.textContent!.indexOf('铜钥匙现在由小雨保管'));
+});
+
 it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {
     host = document.createElement('div');
     document.body.append(host);
