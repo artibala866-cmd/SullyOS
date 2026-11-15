@@ -28,6 +28,22 @@ const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 export async function buildStoryArchiveReference(entry: StoryTheaterEntry): Promise<string> {
     const descriptions: string[] = [];
     if (entry.premise?.trim()) descriptions.push('剧情原有前提：' + entry.premise.trim().slice(0, 1100));
+    // The role played by the user must be part of the baseline too. Without
+    // this, cheap models re-save {{user}}'s name, age, background and family
+    // relationships as if they were new plot developments.
+    try {
+        const [user, masks] = await Promise.all([DB.getUserProfile(), DB.getStoryTheaterMasks()]);
+        if (entry.mask?.type === 'custom') {
+            const mask = masks.find(item => item.id === entry.mask?.id);
+            if (mask) descriptions.push('【用户执笔身份：' + mask.name + '】\n'
+                + [mask.description, mask.coreInstruction, mask.worldview].filter(Boolean).join('\n').slice(0, 1600));
+        } else if (entry.mask?.type !== 'character' && user) {
+            descriptions.push('【用户执笔身份（已有人设，并非剧情新事实）】\n'
+                + ('姓名：' + (user.name || '你') + '\n' + (user.bio || '')).slice(0, 1600));
+        }
+    } catch (error) {
+        console.warn('[StoryTheater] user identity baseline unavailable; proceeding with source floors', error);
+    }
     try {
         const [characters, worldbooks] = await Promise.all([DB.getAllCharacters(), DB.getAllWorldbooks()]);
         const participants = characters.filter(char => entry.characterIds.includes(char.id));
