@@ -33,11 +33,12 @@ export async function buildStoryArchiveReference(entry: StoryTheaterEntry): Prom
     // relationships as if they were new plot developments.
     try {
         const [user, masks] = await Promise.all([DB.getUserProfile(), DB.getStoryTheaterMasks()]);
-        if (entry.mask?.type === 'custom') {
-            const mask = masks.find(item => item.id === entry.mask?.id);
+        const selectedMask = entry.mask;
+        if (selectedMask?.type === 'custom') {
+            const mask = masks.find(item => item.id === selectedMask.id);
             if (mask) descriptions.push('【用户执笔身份：' + mask.name + '】\n'
                 + [mask.description, mask.coreInstruction, mask.worldview].filter(Boolean).join('\n').slice(0, 1600));
-        } else if (entry.mask?.type !== 'character' && user) {
+        } else if (selectedMask?.type !== 'character' && user) {
             descriptions.push('【用户执笔身份（已有人设，并非剧情新事实）】\n'
                 + ('姓名：' + (user.name || '你') + '\n' + (user.bio || '')).slice(0, 1600));
         }
