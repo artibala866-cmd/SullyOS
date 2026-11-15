@@ -59,7 +59,7 @@ function storyArchiveAffinity(message: Message): string[] {
 
 function storyArchiveTranscript(messages: Message[], firstFloor: number) {
     const affinity: string[] = [];
-    const sources = new Map<number, { text: string; authorInput: boolean }>();
+    const sources = new Map<number, { text: string; authorInput: boolean; floorNumber: number }>();
     const transcript = messages.map((message, index) => {
         const sourceText = message.metadata?.theaterOpeningGreeting
             ? tavernOpeningSceneText(message.content)
