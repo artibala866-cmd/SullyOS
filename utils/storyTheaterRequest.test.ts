@@ -152,4 +152,94 @@ describe('见面剧情实际请求', () => {
             vi.unstubAllGlobals();
         }
     });
+    it('player simulation: real continue button injects one current state, ordered historical changes and one worldbook without duplicates', async () => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+        const entry = {
+            ...createStoryTheaterDraft(1), title: '钟楼的铜钥匙',
+            characterIds: ['actor'], selectedWorldbookIds: ['side-door'],
+            archiveAfter: 200, forceUserLastMessage: true,
+            automaticMemoryApiEnabled: false, // User can still read saved facts without paying for automatic extraction.
+        };
+        const preset = createBlankStoryPreset('不含世界书与历史插槽的自定义预设', 1);
+        preset.document.prompts = [];
+        const charId = storyTheaterThreadId(entry.id);
+        const rows: Message[] = Array.from({ length: 31 }, (_, i) => ({
+            id: 500 + 3 * i, charId, type: 'text',
+            role: i % 2 === 0 ? 'user' : 'assistant',
+            content: i === 30 ? '第二天清晨，我要拿铜钥匙打开侧门。' : '已有剧情楼层 ' + (i + 1),
+            timestamp: 9000 - i,
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: i < 24 },
+        }));
+        const base = { key: '铜钥匙/持有人', kind: 'fact' as const, terms: ['铜钥匙'] };
+        entry.archives = [
+            { id: 'old', strategy: 'summary', fromMessageId: rows[0].id, toMessageId: rows[11].id,
+                createdAt: 1, messageCount: 12,
+                facts: [
+                    { key: '侧门/出口', kind: 'fact' as const, text: '侧门通向庭院。',
+                        terms: ['侧门'], sourceMessageId: rows[0].id },
+                    { ...base, text: '林星保管铜钥匙。', sourceMessageId: rows[5].id },
+                ],
+                summary: '不能重复注入的结构化旧摘要：林星保管铜钥匙。',
+            },
+            { id: 'new', strategy: 'summary', fromMessageId: rows[12].id, toMessageId: rows[23].id,
+                createdAt: 2, messageCount: 12,
+                historyFacts: [{ ...base, text: '阿泽曾暂时保管铜钥匙。',
+                    storyTime: '第一天傍晚', sourceMessageId: rows[13].id }],
+                facts: [
+                    { ...base, text: '铜钥匙现在由小雨保管。', storyTime: '第二天清晨',
+                        sourceMessageId: rows[15].id },
+                    { key: '作者/执笔', kind: 'author' as const, terms: ['小雨'],
+                        text: '后续不得替小雨擅自决定重大行动。', sourceMessageId: rows[20].id },
+                ],
+                summary: '不能重复注入的结构化新摘要：铜钥匙现在由小雨保管。',
+            },
+        ];
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async () => ({ messages: [...rows], totalCount: rows.length }));
+        vi.spyOn(DB, 'getMessagesByCharId').mockImplementation(async () => [...rows].reverse());
+        const save = vi.spyOn(DB, 'saveStoryTheaterTurn').mockImplementation(async row => {
+            rows.push({ ...row, id: 990 });
+            return 990;
+        });
+        const completion = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+            choices: [{ message: { content: '小雨握紧了钥匙，侧门仍在前方。' } }],
+        })));
+        vi.stubGlobal('fetch', completion);
+        const container = document.createElement('div');
+        document.body.append(container);
+        const root = createRoot(container);
+        try {
+            await act(async () => root.render(React.createElement(StoryTheaterSession, {
+                entry, preset, masks: [], onBack: vi.fn(), onEdit: vi.fn(),
+                onEntryChange: vi.fn(), onArchiveCommitted: vi.fn(),
+            })));
+            const retry = container.querySelector<HTMLButtonElement>('button[title="继续上次中断"]');
+            expect(retry).toBeTruthy();
+            await act(async () => retry!.click());
+            await vi.waitFor(() => expect(completion).toHaveBeenCalledOnce());
+            const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
+            const current = payload.find(item => item.content.includes('### 本剧情目前已确认的状态（按楼层先后排列）'))?.content || '';
+            const history = payload.find(item => item.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）'))?.content || '';
+            expect(current).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙现在由小雨保管。');
+            expect(current).toContain('用户协助指令：后续不得替小雨擅自决定重大行动。');
+            expect(current).not.toContain('林星保管铜钥匙。');
+            expect(current).not.toContain('侧门通向庭院。'); // Already included in selected worldbook
+            expect(history).toContain('[第 6 楼] 林星保管铜钥匙。');
+            expect(history).toContain('[第 14 楼 · 剧情时间：第一天傍晚] 阿泽曾暂时保管铜钥匙。');
+            expect(history.indexOf('林星保管铜钥匙。')).toBeLessThan(history.indexOf('阿泽曾暂时保管铜钥匙。'));
+            expect(payload.filter(item => item.content.includes('侧门通向庭院。'))).toHaveLength(1);
+            expect(payload.some(item => item.content.includes('不能重复注入的结构化旧摘要'))).toBe(false);
+            expect(payload.some(item => item.content.includes('不能重复注入的结构化新摘要'))).toBe(false);
+            expect(payload.at(-1)?.content).toContain('[第 31 楼 · 本轮用户推进]');
+            await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+            expect(completion).toHaveBeenCalledTimes(1); // No extra archive/API call on a disabled switch
+        } finally {
+            await act(async () => root.unmount());
+            container.remove();
+            Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
+            vi.restoreAllMocks();
+            vi.unstubAllGlobals();
+        }
+    });
+
 });
