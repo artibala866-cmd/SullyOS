@@ -36,12 +36,10 @@ export function collectStoryArchiveFacts(
     }
     return [...current.values()].flatMap(fact => {
         if (fact.vectorTextState === 'deleted') return [];
-        // The vector index is for finding a memory, not the source of truth.
-        // A synced archive copy remains readable when IndexedDB vector/node
-        // retrieval fails. Explicitly deleted facts must never come back.
-        const text = fact.vectorNodeId
-            ? vectorTexts.get(fact.vectorNodeId) ?? (fact.vectorTextState === 'synced' ? fact.text : undefined)
-            : fact.text;
+        // The vector loader checks the latest persisted archive before falling
+        // back to its synced copy. Never use an old tab's copy directly: that
+        // could revive a fact explicitly deleted in a newer tab.
+        const text = fact.vectorNodeId ? vectorTexts.get(fact.vectorNodeId) : fact.text;
         return text?.trim() ? [{ ...fact, text }] : [];
     });
 }
