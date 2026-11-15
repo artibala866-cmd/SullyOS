@@ -212,6 +212,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
         <ArchiveIcon label='撤销归档' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={18}/></ArchiveIcon>
        </div>
        {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>摘要</summary><p className='whitespace-pre-wrap py-1 leading-6'>{readableSummary(box)||'暂无摘要'}</p></details>}
+       {isVector&&!!(box.facts?.length||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>本段记忆与历史变化</summary><p className='whitespace-pre-wrap py-1 leading-6'>{readableSummary(box)}</p></details>}
        {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
         <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
         <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
