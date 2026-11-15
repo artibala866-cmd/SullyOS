@@ -383,6 +383,8 @@ export const PERSONALITY_WEIGHTS: Record<PersonalityStyle, Record<LinkType, numb
 // ─── Embedding 配置（独立于聊天 API） ─────────────────
 
 export interface EmbeddingConfig {
+    /** Request-specific override for callers that fail a rejected batch as a unit. */
+    allowSingleInputFallback?: boolean;
     signal?: AbortSignal;
     requestPurpose?: string;
     baseUrl: string;            // OpenAI 兼容端点，如 https://api.siliconflow.cn/v1

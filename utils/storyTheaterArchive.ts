@@ -583,7 +583,9 @@ async function writeStoryArchiveRange(
         importance: 6, mood: 'neutral' as const, embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
     }));
     let updated: StoryTheaterEntry | undefined;
-    await vectorizeAndStore(nodes, { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引' }, vector?.remote, {
+    await vectorizeAndStore(nodes, { ...embedding, requestPurpose: '剧情独立向量 · 归档建索引',
+        ...(delta ? { allowSingleInputFallback: false } : {}),
+    }, vector?.remote, {
         // Each batch owns its own nodes so undoing one cannot erase another.
         skipDedup: true,
         commit: async vectors => { updated = await commit(vectors); },

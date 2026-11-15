@@ -195,7 +195,7 @@ const archiveFixture = [
     '【未解决事项与续写落点】\n原文未交代',
 ].join('\n');
 
-it.each([200, 400])('自动独立向量：一次总结、一条向量，Embedding %s 不再额外发请求', async status => {
+it.each([200, 400])('自动独立向量：一次增量提取、逐条建向量，Embedding %s 不再额外发请求', async status => {
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -206,17 +206,22 @@ it.each([200, 400])('自动独立向量：一次总结、一条向量，Embeddin
     };
     const thread = 'story-theater:' + entry.id;
     await DB.saveStoryTheater(entry);
+    const facts = ['小雨接过侧门钥匙。', '阿泽向小雨解释了误会。'];
+    const sourceIds: number[] = [];
     for (const [i, role] of (['user', 'assistant', 'user', 'assistant'] as const).entries()) {
-        await DB.saveMessage({
-            charId: thread, role, type: 'text', content: '旧原文第 ' + (i + 1) + ' 楼',
+        sourceIds.push(await DB.saveMessage({
+            charId: thread, role, type: 'text', content: facts[i] ?? '旧原文第 ' + (i + 1) + ' 楼',
             metadata: { source: 'story_theater', theaterId: entry.id },
-        });
+        }));
     }
     const complete = (content: string) => Response.json({ choices: [{ message: { content }, finish_reason: 'stop' }] });
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async url => {
-        if (String(url).startsWith('https://memory.invalid/')) return complete(archiveFixture);
+        if (String(url).startsWith('https://memory.invalid/')) return complete(JSON.stringify({ changes: facts.map((text, index) => ({
+            action: 'add', kind: 'fact', key: ['侧门钥匙/持有人', '阿泽与小雨/解释误会'][index],
+            text, terms: ['小雨'], sourceMessageId: sourceIds[index], quote: text,
+        })) }));
         if (String(url).startsWith('https://embedding.invalid/')) {
-            return status === 200 ? Response.json({ data: [{ index: 0, embedding: [1, 0, 0] }] })
+            return status === 200 ? Response.json({ data: facts.map((_, index) => ({ index, embedding: [1, 0, 0] })) })
                 : Response.json({ error: '不支持该请求' }, { status });
         }
         return complete('续写已返回并保存。');
@@ -244,14 +249,14 @@ it.each([200, 400])('自动独立向量：一次总结、一条向量，Embeddin
         'https://memory.invalid/v1/chat/completions', 'https://embedding.invalid/v1/embeddings', 'https://prose.invalid/v1/chat/completions',
     ]);
     const embeddingRequest = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
-    expect(embeddingRequest.input).toHaveLength(1);
-    for (const fact of ['深夜，在候车厅', '两人解除误会', '钥匙归小雨']) expect(embeddingRequest.input[0]).toContain(fact);
+    expect(embeddingRequest.input).toEqual(facts);
     const stored = await listStoryVectorMemories(entry.id);
-    expect(stored).toHaveLength(status === 200 ? 1 : 0);
+    expect(stored).toHaveLength(status === 200 ? facts.length : 0);
     const archives = (await DB.getStoryTheaters()).find(row => row.id === entry.id)?.archives;
     expect(archives).toHaveLength(status === 200 ? 1 : 0);
     const proseRequest = String(fetchMock.mock.calls[2][1]?.body);
-    expect(proseRequest).toContain(status === 200 ? '钥匙归小雨' : '旧原文第 1 楼');
+    expect(proseRequest).toContain(facts[0]);
+    expect(proseRequest.includes('本剧情已确认的记忆')).toBe(status === 200);
 });
 
 it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重建', async () => {

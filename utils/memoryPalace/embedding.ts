@@ -172,7 +172,7 @@ async function callEmbeddingAPI(
         // automatically resubmit the same batch: it may charge the user twice.
         // 批量被 400 拒 → 自动降级为逐条向量化：一来绕开「批内 token 总量
         // 超限」类校验（每条单独发就合法），二来能精确定位坏输入是哪条。
-        if (status === 400 && input.length > 1) {
+        if (status === 400 && input.length > 1 && config.allowSingleInputFallback !== false) {
             console.warn(`⚡ [Embedding] 批量 ${input.length} 条被 400 拒，自动降级为逐条向量化`);
             const results: number[][] = [];
             for (let i = 0; i < input.length; i++) {
