@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveTransitions, rankStoryArchiveFacts, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1269,16 +1269,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 return time ? [[message.id, time] as const] : [];
             }));
             const knownSetup = [
-                entry.premise,
+                entry.premise, mask.name,
                 mask.description, mask.coreInstruction, mask.worldview,
                 ...actors.flatMap(actor => [actor.description, actor.systemPrompt, actor.worldview]),
                 ...selectedBooks.map(book => book.content),
             ].filter(Boolean).join('\n');
             const visibleFacts = filterStoryArchiveBaselineRepeats(facts, promptEntry.archives, knownSetup);
-            const currentFactText = formatStoryArchiveFacts(
-                rankStoryArchiveFacts(visibleFacts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000, true, sourceTimes,
+            const currentFactText = formatStoryArchiveProseContext(
+                visibleFacts, recallQuery, floorNumbers, vectorSource.semanticFactRank, sourceTimes,
             );
-            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 1400, recallQuery);
+            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 700, recallQuery);
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
                 .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
                 .map(box => box.affinityLog!.join('\n')).join('\n\n');
@@ -1369,7 +1369,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                         content: '### 剧情经过（按楼层先后；以下为已被更新的旧状态）\n这些是事情发展时曾经成立的事实，不代表当前仍然成立。较新的状态、正文和用户修正优先。\n' + earlierStates,
                     }] : []),
                     ...(currentFactText ? [{ role: 'system' as const,
-                        content: '### 本剧情目前已确认的状态（按楼层先后排列）\n先后顺序由剧情楼号决定，剧情时间仅来自原文明确表述；没有明确时间不能推算真实日期。较新状态覆盖旧状态，人物的计划不是已经完成的行动，并保留各角色知情边界。\n' + currentFactText,
+                        content: '### 本剧情目前已确认的状态（按楼层先后排列）\n以下按已发生事实、未完成计划、尚未证实的信息和用户写作要求分区；同一分区内按剧情来源楼层先后排列。不要把传闻写成事实，不要把旧状态当成现在，也不要把未来计划说成已完成。剧情时间仅取原文，绝不从归档日期推算。\n' + currentFactText,
                     }] : []),
                 ];
                     // appendStoryUserTurn 保留预填充/兼容规则，再替换本轮消息为公共管线认识的引用。
