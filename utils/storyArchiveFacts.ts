@@ -247,6 +247,48 @@ export function formatStoryArchiveFacts(
     return selected.map(item => item.line).join('\n');
 }
 
+/** Worldbook-like story context: currently true facts, uncompleted plans,
+ * rumors and user instructions live in separate, bounded slots. We select by
+ * retrieval relevance and then order each selected slot by the source floors.
+ * Saved facts are never truncated or deleted.
+ */
+export function formatStoryArchiveProseContext(
+    facts: StoryArchiveFact[], query: string,
+    floorNumbers?: ReadonlyMap<number, number>,
+    semanticRank: ReadonlyMap<string, number> = new Map(),
+    sourceTimes?: ReadonlyMap<number, string>,
+): string {
+    const sections: Array<{ title: string; entries: StoryArchiveFact[]; budget: number }> = [
+        {
+            title: '已确认的剧情事实（仅表示已经发生，不要求再次发生）',
+            entries: facts.filter(fact => fact.kind === 'fact' && !fact.modality),
+            budget: facts.length > 12 ? 1450 : 3200,
+        },
+        {
+            title: '尚未发生的计划和承诺（不是已完成事件）',
+            entries: facts.filter(fact => fact.modality === 'planned'),
+            budget: 580,
+        },
+        {
+            title: '未经证实的信息（不能当成已知真相）',
+            entries: facts.filter(fact => fact.modality === 'unverified'),
+            budget: 500,
+        },
+        {
+            title: '用户明确提出的写作要求',
+            entries: facts.filter(fact => fact.kind === 'author'),
+            budget: 800,
+        },
+    ];
+    return sections.map(({ title, entries, budget }) => {
+        if (!entries.length) return '';
+        const text = formatStoryArchiveFacts(
+            rankStoryArchiveFacts(entries, query, semanticRank), floorNumbers, budget, true, sourceTimes,
+        );
+        return text ? '【' + title + '】\n' + text : '';
+    }).filter(Boolean).join('\n\n');
+}
+
 /** One readable timeline for a single archive. Old events and end-of-segment
  * facts are sorted TOGETHER; printing the two arrays separately falsely makes
  * an event from floor 9 look older than a fact extracted from floor 1.
@@ -301,7 +343,16 @@ export function formatStoryArchiveTransitions(
     // Palace-style: choose relevant older evidence before applying the budget.
     // Afterwards restore chronological order so the model does not confuse
     // retrieval ranking with the actual order of events.
-    const priority = query.trim() ? rankStoryArchiveFacts(earlier, query) : earlier;
+    const normalizedQuery = normalize(query);
+    const directMatches = normalizedQuery ? earlier.filter(fact => fact.terms.some(term => {
+        const token = normalize(term);
+        return token.length >= 2 && normalizedQuery.includes(token);
+    })) : [];
+    // Do not flood the current scene with unrelated old states merely because
+    // they are recent. A vague continuation gets at most the most recent two.
+    const priority = directMatches.length
+        ? rankStoryArchiveFacts(directMatches, query)
+        : query.trim() ? earlier.slice(0, 2) : earlier;
     for (const fact of priority) {
         const line = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
         if (used + line.length + 1 > budget) continue;
