@@ -230,6 +230,7 @@ export function formatStoryArchiveFacts(
 export function formatStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
+    query = '',
 ): string {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
@@ -246,7 +247,11 @@ export function formatStoryArchiveTransitions(
     }
     let used = 0;
     const selected: StoryArchiveFact[] = [];
-    for (const fact of earlier) {
+    // Palace-style: choose relevant older evidence before applying the budget.
+    // Afterwards restore chronological order so the model does not confuse
+    // retrieval ranking with the actual order of events.
+    const priority = query.trim() ? rankStoryArchiveFacts(earlier, query) : earlier;
+    for (const fact of priority) {
         const line = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
         if (used + line.length + 1 > budget) continue;
         selected.push(fact);
