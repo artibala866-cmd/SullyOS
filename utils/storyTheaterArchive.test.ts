@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -183,6 +183,76 @@ describe('story summary final channel', () => {
         expect(newestOnly).not.toContain('蓝雨暗号');
         const relevant = formatStoryArchiveTransitions(archives, Infinity, floors, undefined, 60, '蓝雨暗号在哪');
         expect(relevant).toContain('[第 1 楼] 蓝雨暗号是进入钟楼的线索。');
+    });
+    it('video regression: archive rendering sorts all remembered events together, not an enormous history block before floor one', () => {
+        const archived = {
+            id: 'video-case', strategy: 'vector' as const, fromMessageId: 1, toMessageId: 20,
+            messageCount: 20, createdAt: 1,
+            historyFacts: [
+                { key: '葬礼/安排', kind: 'fact' as const, text: '葬礼结束后返回旧城。',
+                    terms: ['葬礼'], sourceMessageId: 3 },
+                { key: '水果店/调查', kind: 'fact' as const, text: '午后去水果店找线索。',
+                    terms: ['水果店'], sourceMessageId: 9 },
+            ],
+            facts: [
+                { key: '事故/结果', kind: 'fact' as const, text: '早前发生车祸，随后举行葬礼。',
+                    terms: ['车祸'], sourceMessageId: 1 },
+            ],
+        };
+        const lines = storyArchiveReadableLines(archived, new Map([[1, 1], [3, 3], [9, 9]]));
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toContain('第 1 楼');
+        expect(lines[1]).toContain('第 3 楼');
+        expect(lines[2]).toContain('第 9 楼');
+        expect(lines.join('\n')).not.toContain('2026/11/16');
+    });
+    it('video regression: avoid copying user bio, but preserve actual discoveries or identity changes', () => {
+        const baseline = '【用户执笔身份】\n姓名：幸福\n23岁，大学毕业，是幸芳白的亲妹妹。';
+        const profile = '{{user}}全名为幸福，现年23岁，大学毕业，是幸芳白的亲妹妹。';
+        const source = new Map([[10, { text: profile, authorInput: true }]]);
+        const raw = JSON.stringify({ changes: [{
+            action: 'add', key: '幸福/基本信息', kind: 'fact', text: profile,
+            terms: ['幸福'], sourceMessageId: 10, quote: profile,
+        }] });
+        expect(storyArchiveRepeatsPreset(profile, '幸福/基本信息', baseline)).toBe(true);
+        expect(parseStoryArchiveChanges(raw, source, [], baseline)).toEqual([]);
+        const discovered = '幸福第一次得知自己有一个同父异母的姐姐。';
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            action: 'add', key: '幸福/新得知的身世', kind: 'fact', text: discovered,
+            sourceMessageId: 20, terms: ['幸福'],
+        }] }), new Map([[20, { text: discovered, authorInput: false }]]), [], baseline)).toHaveLength(1);
+    });
+    it('uses specific event keys instead of treating unrelated scenes as one changing state', () => {
+        const rows = new Map([
+            [1, { text: '早餐在车站吃饭。', authorInput: false }],
+            [2, { text: '下午从车站去了书店。', authorInput: false }],
+        ]);
+        const found = parseStoryArchiveChanges(JSON.stringify({ changes: [
+            { key: '剧情/进展', text: '早餐在车站吃饭。', sourceMessageId: 1 },
+            { key: '剧情/进展', text: '下午从车站去了书店。', sourceMessageId: 2 },
+        ] }), rows, []);
+        expect(found).toHaveLength(2);
+        expect(found[0].key).not.toBe(found[1].key);
+        expect(found.map(fact => fact.text)).toEqual(['早餐在车站吃饭。', '下午从车站去了书店。']);
+    });
+    it('sends confirmed events, pending plans, rumors and user writing boundaries in distinct compact sections', () => {
+        const facts = [
+            { key: '钥匙/位置', kind: 'fact' as const, text: '钥匙放进铁盒。',
+                terms: ['钥匙'], sourceMessageId: 2 },
+            { key: '书店/计划', kind: 'fact' as const, modality: 'planned' as const,
+                text: '林星打算明天去书店。', terms: ['书店'], sourceMessageId: 3 },
+            { key: '门后/传闻', kind: 'fact' as const, modality: 'unverified' as const,
+                text: '有人说门后藏着地图，尚未证实。', terms: ['门'], sourceMessageId: 4 },
+            { key: '用户/行动', kind: 'author' as const,
+                text: '不要擅自替用户做决定。', terms: ['用户'], sourceMessageId: 5 },
+        ];
+        const text = formatStoryArchiveProseContext(facts, '钥匙和书店');
+        expect(text).toContain('【已确认的剧情事实');
+        expect(text).toContain('【尚未发生的计划和承诺');
+        expect(text).toContain('【未经证实的信息');
+        expect(text).toContain('【用户明确提出的写作要求】');
+        expect(text.indexOf('钥匙放进铁盒')).toBeLessThan(text.indexOf('林星打算明天去书店'));
+        expect(text).not.toContain('本段历史变化');
     });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
