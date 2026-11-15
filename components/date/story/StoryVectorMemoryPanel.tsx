@@ -7,7 +7,7 @@ import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemo
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
 import { DB } from '../../../utils/db';
-import { storyArchiveRepeatsPreset, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
+import { storyArchiveModality, storyArchiveRepeatsPreset, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
 import { storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { storyTheaterThreadId } from '../../../utils/storyTheater';
 
@@ -171,7 +171,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
                                 const time=fact&&(fact.storyTime||sourceTimes.get(fact.sourceMessageId));
                                 return <div className='mb-2 text-[10px] leading-5 text-slate-500'>
                                     {floor?'剧情第 '+floor+' 楼':'剧情楼层未标记'} · {time?'剧情时间：'+time:'剧情时间：原文未明确'}
-                                    {fact?.modality==='planned'?' · 仅是计划':fact?.modality==='unverified'?' · 尚未证实':''}
+                                    {fact&&storyArchiveModality(fact)==='planned'?' · 仅是计划':fact&&storyArchiveModality(fact)==='unverified'?' · 尚未证实':''}
                                     {isKnownSetup(node)?' · 已有人设（续写不重复输入）':''}
                                 </div>;})()}
                             <p className='whitespace-pre-wrap break-words text-[12px] leading-6'>
