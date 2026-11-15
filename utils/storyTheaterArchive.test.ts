@@ -43,6 +43,39 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('story summary final channel', () => {
+    it('accepts a fenced completion with string source ID, punctuation key and whitespace-only quote differences', () => {
+        const sources = new Map([[12, { text: '阿岚对小雨说：\n今天去钟楼。', authorInput: false }]]);
+        const raw = '```json\n' + JSON.stringify({ changes: [{
+            action: 'add', key: '阿岚：行程', kind: 'fact', text: '阿岚决定今天去钟楼。',
+            terms: ['阿岚', '钟楼'], sourceMessageId: '12', quote: '阿岚对小雨说： 今天去钟楼。',
+        }] }) + '\n```';
+        expect(parseStoryArchiveChanges(raw, sources, [])).toEqual([expect.objectContaining({
+            key: '阿岚:行程', text: '阿岚决定今天去钟楼。', sourceMessageId: 12,
+        })]);
+    });
+    it('recovers an incorrect record ID only if the quote has one unambiguous source', () => {
+        const sources = new Map([
+            [12, { text: '今天下雨。', authorInput: false }],
+            [13, { text: '小雨把铜钥匙放在木盒里。', authorInput: false }],
+        ]);
+        const raw = JSON.stringify({ changes: [{
+            action: 'add', key: '铜钥匙/位置', kind: 'fact', text: '铜钥匙在木盒里。',
+            terms: ['铜钥匙'], sourceMessageId: '999', quote: '铜钥匙放在木盒里',
+        }] });
+        expect(parseStoryArchiveChanges('下面是 JSON：\n' + raw, sources, [])[0]?.sourceMessageId).toBe(13);
+        expect(() => parseStoryArchiveChanges(raw, new Map([[12, sources.get(13)!], [13, sources.get(13)!]]), []))
+            .toThrow('来源无效');
+    });
+    it('never accepts an invented quote or assistant text disguised as author instruction', () => {
+        const sources = new Map([[12, { text: '阿岚站在车站。', authorInput: false }]]);
+        const change = { action: 'add', key: '阿岚/行程', kind: 'fact',
+            text: '阿岚已经离开。', terms: ['阿岚'], sourceMessageId: 12, quote: '阿岚已经离开车站。' };
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [change] }), sources, []))
+            .toThrow('来源无效');
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            ...change, kind: 'author', quote: '阿岚站在车站。',
+        }] }), sources, [])).toThrow('作者指令');
+    });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
         expect(parseStoryArchiveSummary(completion([{ type: 'thinking', text: '计划' }, { type: 'text', text: '正文' }]))).toBe('正文');
