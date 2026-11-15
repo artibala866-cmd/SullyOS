@@ -380,6 +380,16 @@ it('真实归档页面把同一次分段里变更过的旧状态显示成历史�
     });
     expect(host!.textContent).not.toContain('此段旧摘要不应该覆盖结构化时间线');
     expect(host!.textContent!.indexOf('林星曾保管铜钥匙')).toBeLessThan(host!.textContent!.indexOf('铜钥匙现在由小雨保管'));
+    const vectorEntry = { ...entry, archives: entry.archives.map(box => ({
+        ...box, strategy: 'vector' as const, vectorMemoryIds: [],
+    })) };
+    await act(async () => root!.render(
+        <OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+            <StoryArchivePanel strategy='vector' entry={vectorEntry} masks={[]} onBack={() => {}} onUpdated={() => {}} />
+        </StoryTheaterThemeProvider></OSPreviewProvider>,
+    ));
+    expect(host!.textContent).toContain('本段记忆与历史变化');
+    expect(host!.textContent).toContain('【本段历史变化（非当前状态）】');
 });
 
 it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {
