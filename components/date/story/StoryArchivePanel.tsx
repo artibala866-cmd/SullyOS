@@ -9,7 +9,7 @@ import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
-import {formatStoryArchiveFacts,storyTimeFromSource} from '../../../utils/storyArchiveFacts';
+import {storyArchiveReadableLines,storyTimeFromSource} from '../../../utils/storyArchiveFacts';
 
 export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onClick:()=>void;disabled?:boolean;children:React.ReactNode}){
  return <button type='button' aria-label={label} title={label} disabled={disabled} onClick={onClick}
@@ -77,14 +77,20 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   const time=storyTimeFromSource(row.content);
   return time?[[row.id,time] as const]:[];
  })),[floors]);
- const readableSummary=(box:StoryTheaterArchive)=>{
-  if(!box.facts&&!box.historyFacts)return box.summary||'';
-  return [
-   ...(box.historyFacts?.length?['【本段历史变化（非当前状态）】\n'
-    +formatStoryArchiveFacts(box.historyFacts,floorNumbers,Infinity,true,sourceTimes)]:[]),
-   formatStoryArchiveFacts(box.facts??[],floorNumbers,Infinity,true,sourceTimes),
-   box.affinityLog?.join('\n'),
-  ].filter(Boolean).join('\n\n')||box.summary||'';
+ const readableLines=(box:StoryTheaterArchive)=>storyArchiveReadableLines(box,floorNumbers,sourceTimes);
+ const readableSummary=(box:StoryTheaterArchive)=>readableLines(box).join('\n');
+ const archivePreview=(box:StoryTheaterArchive)=>{
+  const lines=readableLines(box);
+  const renderLine=(line:string,index:number)=><div key={index} className='py-2 border-b border-slate-100 last:border-0'>
+   {line.length>105?<details><summary className='cursor-pointer leading-6 break-words'>{line.slice(0,105)}… <span className='text-slate-500'>展开此条</span></summary><p className='mt-2 leading-6 break-words whitespace-pre-wrap'>{line}</p></details>
+    :<p className='leading-6 break-words whitespace-pre-wrap'>{line}</p>}
+  </div>;
+  return <div className='py-2 text-xs'>
+   {!!box.historyFacts?.length&&<p className='mb-2 text-[11px] text-slate-500'>按剧情楼层排列；过去的状态不是现在的状态。同楼多件事以原文为准。</p>}
+   {lines.slice(0,3).map(renderLine)}
+   {lines.length>3&&<details className='mt-2'><summary className='cursor-pointer py-2 text-slate-500'>查看其余 {lines.length-3} 条</summary><div>{lines.slice(3).map((line,index)=>renderLine(line,index+3))}</div></details>}
+   {!lines.length&&<p className='text-slate-500'>暂无新剧情记忆</p>}
+  </div>;
  };
  const char=actors.find(c=>c.id===charId);
  const available=boxes.filter(box=>!box.memoryConversions?.[charId]);
@@ -211,8 +217,8 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
         <ArchiveIcon label='重选楼层' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)}><Selection size={18}/></ArchiveIcon>
         <ArchiveIcon label='撤销归档' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={18}/></ArchiveIcon>
        </div>
-       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>摘要</summary><p className='whitespace-pre-wrap py-1 leading-6'>{readableSummary(box)||'暂无摘要'}</p></details>}
-       {isVector&&!!(box.facts?.length||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>本段记忆与历史变化</summary><p className='whitespace-pre-wrap py-1 leading-6'>{readableSummary(box)}</p></details>}
+       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情记忆 · 按楼层整理</summary>{archivePreview(box)}</details>}
+       {isVector&&!!(box.facts?.length||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情时间线 · {readableLines(box).length} 条（点开查看）</summary>{archivePreview(box)}</details>}
        {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
         <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
         <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
