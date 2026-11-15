@@ -322,12 +322,13 @@ export function storyArchiveReadableLines(
 export function formatStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
-    query = '',
+    query = '', baseline = '',
 ): string {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
         .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
-        .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted')
+        .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted'
+            && (!baseline || !storyArchiveRepeatsPreset(fact.text, fact.key, baseline)))
         .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
     const newer = new Map<string, string>();
     const earlier: StoryArchiveFact[] = [];
