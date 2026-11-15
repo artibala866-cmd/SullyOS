@@ -90,6 +90,17 @@ describe('story summary final channel', () => {
             terms: ['铜钥匙', '持有人'],
         })]);
     });
+    it('resolves visible floor numbers back to actual records if a cheap model confuses them', () => {
+        const sources = new Map([[914, { text: '阿岚把钥匙交给小雨。', authorInput: false, floorNumber: 3 }]]);
+        const make = (sourceMessageId: number | string) => JSON.stringify({ changes: [{
+            key: '钥匙/归属', text: '小雨现在持有钥匙。', sourceMessageId,
+            quote: '小雨现在拿着钥匙。',
+        }] });
+        for (const ref of ['第3楼', '3', 3]) {
+            expect(parseStoryArchiveChanges(make(ref), sources, [])[0]?.sourceMessageId).toBe(914);
+        }
+        expect(() => parseStoryArchiveChanges(make('第4楼'), sources, [])).toThrow('原文记录ID');
+    });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
         expect(parseStoryArchiveSummary(completion([{ type: 'thinking', text: '计划' }, { type: 'text', text: '正文' }]))).toBe('正文');
