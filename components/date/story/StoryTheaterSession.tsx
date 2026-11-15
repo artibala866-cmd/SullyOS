@@ -8,7 +8,7 @@ import { runStoryRegex } from '../../../utils/storyRegexRunner';
 import { countStoryProseCharacters, hideStoryStatusForDisplay, parseStoryRegexDisplay, splitStoryRegexOutput } from '../../../utils/storyRegexDisplay';
 import { sanitizeStoryTheaterHtml } from '../../../utils/storyTheaterHtml';
 import { storyOpeningReadingText } from '../../../utils/tavernOpeningGreeting';
-import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveSummary, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
+import { archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { normalizeStoryOutputTokens } from '../../../utils/storyOutputLimits';
 import { resolveStoryMemoryApi } from '../../../utils/storyMemoryApi';
 import { readStoryInputDraft, saveStoryInputDraft, clearStoryInputDraft } from '../../../utils/storyTheaterInputDraft';
@@ -72,6 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, rankStoryArchiveFacts } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1097,13 +1098,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             let next: StoryTheaterEntry;
             if (archiveEntry.archiveStrategy === 'summary') {
                 setMemoryStatus('正在把 ' + batch.length + ' 条正文压成事件盒……');
-                const summary = await generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {
-                    storyOnlyProvider: !!archiveEntry.memorySummaryApi, firstFloor: rows.indexOf(first) + 1,
-                    guideMaxChars: archiveEntry.archiveSummaryGuideMaxChars,
-                });
+                const delta = await generateStoryArchiveDelta(
+                    archiveEntry, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), rows.indexOf(first) + 1, 'summary',
+                );
                 next = await commitStoryArchiveBatch(archiveEntry, batch, {
                     id: makeStoryTheaterId(), strategy: 'summary', fromMessageId: first.id,
-                    toMessageId: last.id, messageCount: batch.length, summary, createdAt: Date.now(),
+                    toMessageId: last.id, messageCount: batch.length, ...delta, createdAt: Date.now(),
                 });
             } else {
                 setMemoryStatus('正在整理独立向量归档……');
@@ -1212,12 +1212,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const turnBoundary = userMessageId || rerollTarget?.id || Infinity;
-            const vectorSource = await loadStoryVectorRecall(promptEntry, turnBoundary)
-                .then(source => selectStoryVectorRecall(source, modelText, automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined))
-                .catch(error => {
-                    console.warn('[StoryTheater] vector memory unavailable, reading original floors', error);
-                    return { text: '', archiveIds: new Set<string>() };
-                });
             let requestHistory = buildStoryRequestHistory(current, turnBoundary, message => {
                 const box = storyArchiveAtFloor(promptEntry.archives, message.id);
                 // Do not fall back to entire archived originals when vector recall misses.
@@ -1252,8 +1246,28 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 buildActorContexts(modelText),
                 buildMaskMemoryContext(modelText),
             ]);
+            const recallQuery = [
+                ...requestHistory.slice(-3).map(({ message }) => message.content),
+                ...(!isContinueTurn ? [modelText] : []),
+            ].join('\n').slice(-6000) || modelText;
+            const vector = await loadStoryVectorRecall(promptEntry, turnBoundary).catch(error => {
+                console.warn('[StoryTheater] vector memory unavailable', error);
+                return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>() };
+            });
+            const facts = collectStoryArchiveFacts(promptEntry.archives, turnBoundary, vector.factTextById);
+            const currentNodeIds = new Set(facts.map(fact => fact.vectorNodeId));
+            const vectorSource = await selectStoryVectorRecall(
+                vector, recallQuery, automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
+                vector.factNodes.filter(node => currentNodeIds.has(node.id)),
+            );
             const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
+            const currentFactText = formatStoryArchiveFacts(
+                rankStoryArchiveFacts(facts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000,
+            );
+            const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
+                .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
+                .map(box => box.affinityLog!.join('\n')).join('\n\n');
             const recentArchives = selectStoryArchiveContext(promptEntry.archives, turnBoundary);
             const oldAuthorInstructions = selectStoryArchiveAuthorInstructions(promptEntry.archives, turnBoundary, recentArchives);
             const summaries = recentArchives
@@ -1322,6 +1336,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     ...(summaries ? [{ role: 'system' as const, content: '### 常驻事件盒\n' + summaries }] : []),
                     ...(oldAuthorInstructions ? [{ role: 'system' as const,
                         content: '### 较早事件盒的用户协助指令（历史记录）\n这些要求来自更早的剧情归档，仅作为写作连续性参考；若与较新的明确用户要求冲突，不能覆盖后者。\n' + oldAuthorInstructions }] : []),
+                    ...(recentAffinityLog ? [{ role: 'system' as const, content: '### 历史界面好感记录（已发生）\n' + recentAffinityLog }] : []),
                     ...(vectorRecall ? [{ role: 'system' as const, content: buildStoryArchiveMemoryEnvelope(vectorRecall) }] : []),
                     ...(appendUnslottedHistory ? historyMessages : []),
                     ...(compiled.continueNudge ? [compiled.continueNudge] : []),
@@ -1336,6 +1351,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     { role: 'system' as const, content: identityGuard },
                     { role: 'system' as const, content: continuity },
                     ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
+                    ...(currentFactText ? [{ role: 'system' as const,
+                        content: '### 本剧情已确认的记忆\n按本轮相关内容承接。以下是截至标注楼层的事实；若后续原文或用户明确纠正更新了事实，以较新证据为准，并保留各角色的知情边界。\n' + currentFactText,
+                    }] : []),
                 ];
                     // appendStoryUserTurn 保留预填充/兼容规则，再替换本轮消息为公共管线认识的引用。
                     const assembled = appendStoryUserTurn(payloadBeforeTurn, modelInput, compiled.assistantPrefill, promptEntry.forceUserLastMessage === true);

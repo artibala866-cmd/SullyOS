@@ -2199,6 +2199,15 @@ export interface DateState {
 /** 独立剧场达到水位后，旧正文的归档去向。切换策略只影响之后的新归档。 */
 export type StoryTheaterArchiveStrategy = 'summary' | 'vector';
 
+export interface StoryArchiveFact {
+    key: string;
+    kind: 'fact' | 'author';
+    text: string;
+    terms: string[];
+    sourceMessageId: number;
+    vectorNodeId?: string;
+}
+
 export interface StoryTheaterArchive {
     id: string;
     strategy: StoryTheaterArchiveStrategy;
@@ -2209,6 +2218,8 @@ export interface StoryTheaterArchive {
     vectorMemoryIds?: string[];
     /** summary 策略的事件盒正文；vector 策略留空，由独立 charId 分区召回。 */
     summary?: string;
+    facts?: StoryArchiveFact[];
+    affinityLog?: string[];
     createdAt: number;
     /** User-approved memory conversions, persisted with story archives. */
     memoryConversions?: Record<string, { date: string; convertedAt: number; destination: 'palace' | 'neural'; memoryIds: string[]; skipped: number }>;

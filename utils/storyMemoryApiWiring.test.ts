@@ -14,7 +14,7 @@ const pipeline = read('./memoryPalace/pipeline.ts');
 
 describe('per-story API uses only memory call sites', () => {
     it('auto event box calls the isolated summary endpoint, not global prose endpoint', () => {
-        expect(session).toContain('generateStoryArchiveSummary(archiveEntry.title, batch, resolveStoryMemoryApi(archiveEntry, apiConfig), {');
+        expect(session).toMatch(/generateStoryArchiveDelta\(\s*archiveEntry, batch, resolveStoryMemoryApi\(archiveEntry, apiConfig\)/);
         const archive = session.split('const archiveIfNeeded =')[1].split('const send =')[0];
         expect(archive).not.toContain('callCompletion(');
         expect(archive).not.toContain('/chat/completions');
@@ -39,7 +39,8 @@ describe('per-story API uses only memory call sites', () => {
         expect(archiveEngine).toContain('await vectorizeAndStore(nodes, { ...embedding, requestPurpose:');
     });
     it('event box regeneration is story-specific, but conversion and real companionship use shared-character memory settings', () => {
-        expect(archiveEngine).toContain('generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), {');
+        expect(archiveEngine).toContain('const archiveApi = resolveStoryMemoryApi(entry, api);');
+        expect(archiveEngine).toContain('generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor');
         expect(archives).toContain('const llm=memoryPalaceConfig.lightLLM?.baseUrl?memoryPalaceConfig.lightLLM:apiConfig;');
         expect(archives).not.toContain('resolveStoryMemoryApi(');
         const actorMemory = session.split('const applyActorMemoryPipeline =')[1].split('const archiveIfNeeded =')[0];

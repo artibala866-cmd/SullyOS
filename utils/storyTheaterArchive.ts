@@ -1,4 +1,4 @@
-import type { APIConfig, Message, StoryTheaterArchive, StoryTheaterArchiveStrategy, StoryTheaterEntry } from '../types';
+import type { APIConfig, Message, StoryArchiveFact, StoryTheaterArchive, StoryTheaterArchiveStrategy, StoryTheaterEntry } from '../types';
 import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
 import { describeStoryApiError, makeStoryTheaterId, storyAffinityInputsFromMessage, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
@@ -15,6 +15,9 @@ import { bm25Index } from './memoryPalace/bm25Index';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars, splitStoryArchiveVectorText } from './storyArchiveLength';
+
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { loadStoryVectorRecall } from './storyTheaterVectorMemory';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
@@ -100,24 +103,33 @@ function checkedStoryArchiveSections(summary: string, affinity: string[]): strin
     return parts.flat();
 }
 
-/** Shared by automatic archiving and manual regeneration; one physical request. */
-export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number; strategy?: StoryTheaterArchiveStrategy; guideMaxChars?: number }): Promise<string> {
-    if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
+function storyArchiveTranscript(messages: Message[], firstFloor?: number, includeIds = false) {
     const affinity: string[] = [];
+    const sources = new Map<number, { text: string; authorInput: boolean }>();
     const transcript = messages.map((message, index) => {
         const sourceText = message.metadata?.theaterOpeningGreeting
             ? tavernOpeningSceneText(message.content)
             : message.content;
         const content = extractContent({ choices: [{ message: { content: sourceText } }] });
         if (!content) throw new Error('事件盒原文缺少正文，未生成总结');
+        if (!message.metadata?.theaterContinue) {
+            sources.set(message.id, { text: content, authorInput: message.role === 'user' });
+        }
         const speaker = message.role === 'assistant' ? '剧场正文'
             : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : '用户推进';
-        const floor = options?.firstFloor === undefined ? '' : '第 ' + (options.firstFloor + index) + ' 楼 · ';
+        const floor = firstFloor === undefined ? '' : '第 ' + (firstFloor + index) + ' 楼 · ';
         const affinityRows = storyArchiveAffinity(message);
-        affinity.push(...affinityRows.map(row => (options?.firstFloor === undefined ? '' : '第 ' + (options.firstFloor + index) + ' 楼 · ') + row));
-        return '[' + floor + speaker + ']\n' + content
+        affinity.push(...affinityRows.map(row => (firstFloor === undefined ? '' : '第 ' + (firstFloor + index) + ' 楼 · ') + row));
+        return '[' + floor + speaker + (includeIds ? ' · 记录ID ' + message.id : '') + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
+    return { affinity, transcript, sources };
+}
+
+/** One-off six-section summary for explicitly selected floors and legacy boxes. */
+export async function generateStoryArchiveSummary(title: string, messages: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, options?: { storyOnlyProvider?: boolean; firstFloor?: number; strategy?: StoryTheaterArchiveStrategy; guideMaxChars?: number }): Promise<string> {
+    if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
+    const { affinity, transcript } = storyArchiveTranscript(messages, options?.firstFloor);
     // Affinity receipts are appended to the model's six sections verbatim.
     // Their size can exceed the suggestion; never reject a valid paid response for that reason.
     const extraAffinityText = affinity.length
@@ -139,21 +151,8 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
     const instruction = STORY_ARCHIVE_INSTRUCTION
         + (extraAffinityChars ? '\n本批界面好感记录将在保存时额外占用 ' + extraAffinityChars
             + ' 字符，程序会原样附加；不要重复抄写好感记录。若超出建议值，不可因此遗漏关键事实。' : '');
-    const stream = !options?.storyOnlyProvider && isGlobalStreamEnabled();
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(api.apiKey ? { Authorization: `Bearer ${api.apiKey}` } : {}) },
-        body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, messages: [
-            { role: 'system', content: instruction },
-            { role: 'user', content: `剧情：${title}\n\n${transcript}` },
-        ] }),
-        __sullyMeta: { appId: 'date', appName: '见面', purpose: options?.strategy === 'vector' ? '剧情独立向量 · 总结' : '剧情事件盒总结' },
-        // Consume the stream here so a completed but unclosed response cannot block prose.
-        __sullySkipStreamUpgrade: true,
-    } as RequestInit);
-    const data = await safeResponseJson(response, { keepInterruptedBody: true });
-    if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
-    const summary = checkedStoryArchiveSections(parseStoryArchiveSummary(data), affinity).join('\n\n');
+    const result = await requestArchiveCompletion(api, instruction, `剧情：${title}\n\n${transcript}`, options?.storyOnlyProvider, options?.strategy);
+    const summary = checkedStoryArchiveSections(result, affinity).join('\n\n');
     // The author-editable ceiling applies only after a complete paid response.
     // Never trim it or turn the 1500-character writing instruction into a save limit.
     const savedChars = storyArchiveCharacterCount(summary);
@@ -161,6 +160,67 @@ export async function generateStoryArchiveSummary(title: string, messages: Messa
         throw new Error(`归档总结共 ${savedChars} 字符，超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留，可调整上限后重新归档`);
     }
     return summary;
+}
+
+async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, instruction: string, input: string, storyOnlyProvider?: boolean, strategy?: StoryTheaterArchiveStrategy) {
+    const stream = !storyOnlyProvider && isGlobalStreamEnabled();
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(api.apiKey ? { Authorization: `Bearer ${api.apiKey}` } : {}) },
+        body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, messages: [
+            { role: 'system', content: instruction },
+            { role: 'user', content: input },
+        ] }),
+        __sullyMeta: { appId: 'date', appName: '见面', purpose: strategy === 'vector' ? '剧情独立向量 · 总结' : '剧情事件盒总结' },
+        // Consume the stream here so a completed but unclosed response cannot block prose.
+        __sullySkipStreamUpgrade: true,
+    } as RequestInit);
+    const data = await safeResponseJson(response, { keepInterruptedBody: true });
+    if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
+    return parseStoryArchiveSummary(data);
+}
+
+export async function generateStoryArchiveDelta(
+    entry: StoryTheaterEntry, batch: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+    firstFloor: number, strategy: StoryTheaterArchiveStrategy,
+): Promise<{ summary: string; facts: StoryArchiveFact[]; affinityLog: string[] }> {
+    if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
+    const { affinity, sources, transcript } = storyArchiveTranscript(batch, firstFloor, true);
+    const beforeId = batch[0].id;
+    const vector = await loadStoryVectorRecall(entry, beforeId);
+    const known = collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById);
+    const ranked = rankStoryArchiveFacts(known, transcript);
+    const previous: StoryArchiveFact[] = [];
+    let used = 0;
+    for (const fact of ranked) {
+        const size = JSON.stringify(fact).length;
+        if (used + size > 12000) continue;
+        previous.push(fact);
+        used += size;
+    }
+    const legacy = [
+        ...entry.archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
+            .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 4).map(box => box.summary),
+        ...vector.groups.slice(-4).map(group => group.nodes.map(node => node.content).join('')),
+    ].filter(Boolean).join('\n\n').slice(0, 6000);
+    const affinityLog = affinity.length ? ['界面好感记录（用户→角色）：', ...affinity] : [];
+    const saveMaxChars = normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars);
+    if (saveMaxChars > 0 && storyArchiveCharacterCount(affinityLog.join('\n')) > saveMaxChars) {
+        throw new Error('归档保存上限不足以容纳界面好感记录，本次未调用总结 API');
+    }
+    const input = [
+        `剧情：${entry.title}`,
+        '已有结构化记忆（用于核对）\n' + JSON.stringify(previous.map(({ key, kind, text }) => ({ key, kind, text }))),
+        ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
+        '本批新楼层\n' + transcript,
+    ].join('\n\n');
+    const raw = await requestArchiveCompletion(api, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION, input, !!entry.memorySummaryApi, strategy);
+    const facts = parseStoryArchiveChanges(raw, sources, known);
+    const summary = [formatStoryArchiveFacts(facts), affinityLog.join('\n')].filter(Boolean).join('\n\n') || '本批无新增或变化';
+    if (saveMaxChars > 0 && (facts.length || affinityLog.length) && storyArchiveCharacterCount(summary) > saveMaxChars) {
+        throw new Error(`增量归档超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留`);
+    }
+    return { facts, summary, affinityLog };
 }
 
 function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArchive): Message[] {
@@ -174,7 +234,7 @@ function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArch
 }
 
 const sourceKey = (entry: StoryTheaterEntry, archive: StoryTheaterArchive) => JSON.stringify([
-    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds,
+    entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds, archive.facts, archive.affinityLog,
 ]);
 const rowsKey = (messages: Message[]) => JSON.stringify(messages.map(message => [
     message.id, message.role, message.content, message.metadata?.theaterOpeningGreeting, message.metadata?.theaterContinue,
@@ -258,7 +318,9 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entryId), true);
         const messages = archiveRows(rows, entryId, archive);
         const firstFloor = storyArchiveFloors(rows, entryId).findIndex(row => row.id === archive.fromMessageId) + 1;
-        const summary = await generateStoryArchiveSummary(entry.title, messages, resolveStoryMemoryApi(entry, api), {
+        const archiveApi = resolveStoryMemoryApi(entry, api);
+        const delta = archive.facts ? await generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor, 'summary') : undefined;
+        const summary = delta?.summary ?? await generateStoryArchiveSummary(entry.title, messages, archiveApi, {
             storyOnlyProvider: !!entry.memorySummaryApi, firstFloor,
             guideMaxChars: entry.archiveSummaryGuideMaxChars,
         });
@@ -278,10 +340,11 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
                     const fresh = storyRead.result as StoryTheaterEntry | undefined;
                     const box = fresh?.archives.find(item => item.id === archiveId);
                     if (!fresh || !box || sourceKey(fresh, box) !== sourceKey(entry, archive)
+                        || (delta && JSON.stringify(fresh.archives) !== JSON.stringify(entry.archives))
                         || rowsKey(archiveRows(rowsRead.result, entryId, box)) !== rowsKey(messages)) {
                         throw new Error('剧情事件盒或原文已变更，本次未保存；请重新打开后重试');
                     }
-                    updated = { ...fresh, archives: fresh.archives.map(item => item.id === archiveId ? { ...item, summary } : item), updatedAt: Date.now() };
+                    updated = { ...fresh, archives: fresh.archives.map(item => item.id === archiveId ? { ...item, summary, ...delta } : item), updatedAt: Date.now() };
                     store.put(updated);
                 } catch (error) { failure = error; tx.abort(); }
             };
@@ -430,7 +493,7 @@ export function archiveStoryVectorRangeInGeneration(
     entryId: string, selected: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
     options: VectorArchiveOptions,
 ): Promise<StoryTheaterEntry> {
-    return writeStoryArchiveRange(entryId, selected, api, undefined, options);
+    return writeStoryArchiveRange(entryId, selected, api, undefined, options, true);
 }
 
 export function archiveStoryFloorRange(
@@ -442,7 +505,7 @@ export function archiveStoryFloorRange(
 
 async function writeStoryArchiveRange(
     entryId: string, selected: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
-    replaceArchiveId?: string, vector?: VectorArchiveOptions,
+    replaceArchiveId?: string, vector?: VectorArchiveOptions, automatic = false,
 ): Promise<StoryTheaterEntry> {
     const strategy = vector ? 'vector' : 'summary';
     const embedding = vector?.embedding;
@@ -469,24 +532,32 @@ async function writeStoryArchiveRange(
     if (!entry) throw new Error('剧情已不存在');
     const floors = storyArchiveFloors(await DB.getMessagesByCharId(thread, true), entryId);
     const initial = validate(entry, floors);
-    const summary = await generateStoryArchiveSummary(entry.title, initial.batch, resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api), {
+    const archiveApi = resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api);
+    const firstFloor = floors.findIndex(row => row.id === first) + 1;
+    const delta = automatic || initial.previous?.facts
+        ? await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy)
+        : undefined;
+    const summary = delta?.summary ?? await generateStoryArchiveSummary(entry.title, initial.batch, archiveApi, {
         storyOnlyProvider: !!entry.memorySummaryApi,
         strategy,
         guideMaxChars: entry.archiveSummaryGuideMaxChars,
-        firstFloor: floors.findIndex(row => row.id === first) + 1,
+        firstFloor,
     });
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
+    const factNodes = delta && embedding ? delta.facts.map(fact => ({ ...fact, vectorNodeId: makeStoryTheaterId() })) : undefined;
     const revisionKey = (snapshot: StoryTheaterEntry, boxes: StoryTheaterArchive[]) =>
         JSON.stringify(boxes.map(box => sourceKey(snapshot, box)));
     const commit = (vectors?: VectorEntry[]) => archiveEdit(entryId, strategy, (fresh, currentFloors) => {
         const { batch, previous, removed, others } = validate(fresh, currentFloors);
-        if (fresh.title !== entry.title || revisionKey(entry, initial.removed) !== revisionKey(fresh, removed)) {
+        if (fresh.title !== entry.title || revisionKey(entry, initial.removed) !== revisionKey(fresh, removed)
+            || (delta && revisionKey(entry, initial.others) !== revisionKey(fresh, others))) {
             throw new Error('归档在整理期间已变更，旧内容已保留');
         }
         const box: StoryTheaterArchive = {
             ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
             messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
             ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id), summary: undefined } : { summary }),
+            ...(delta ? { facts: factNodes ?? delta.facts, affinityLog: delta.affinityLog } : {}),
         };
         return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
     }, vector?.remote);
@@ -496,8 +567,19 @@ async function writeStoryArchiveRange(
     // Embedding has a per-item transport limit. Split complete text into owned nodes,
     // instead of throwing away a paid summary over 4000 characters.
     const now = Date.now();
-    const nodes: MemoryNode[] = splitStoryArchiveVectorText(summary, EMBEDDING_MAX_INPUT_CHARS).map(content => ({
-        id: makeStoryTheaterId(), charId: thread, content, room: 'living_room' as const, tags: ['剧情'],
+    const payloads = factNodes
+        ? factNodes.map(fact => ({
+            id: fact.vectorNodeId,
+            content: fact.text,
+            tags: ['剧情', ...fact.terms],
+        }))
+        : splitStoryArchiveVectorText(summary, EMBEDDING_MAX_INPUT_CHARS).map(content => ({ id: makeStoryTheaterId(), content, tags: ['剧情'] }));
+    if (!payloads.length) return commit([]);
+    if (payloads.some(item => item.content.length > EMBEDDING_MAX_INPUT_CHARS)) {
+        throw new Error('单条剧情事实超过向量容量，原文和旧归档已保留');
+    }
+    const nodes: MemoryNode[] = payloads.map(item => ({
+        ...item, charId: thread, room: 'living_room' as const,
         importance: 6, mood: 'neutral' as const, embedded: false, createdAt: now, lastAccessedAt: now, accessCount: 0,
     }));
     let updated: StoryTheaterEntry | undefined;

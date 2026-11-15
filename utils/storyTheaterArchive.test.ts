@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
-import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
+import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, rankStoryArchiveFacts } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
-import { archiveStoryFloorRange, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
+import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
@@ -643,5 +644,104 @@ describe('independent vector archive', () => {
         expect((await loadStoryVectorRecall(revoked, Infinity)).nodes.map(node => node.id)).toEqual([ownedId]);
         expect(await MemoryNodeDB.getById('legacy-node')).toBeUndefined();
         expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('consecutive automatic archives', () => {
+    const embedding = { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test-vector', dimensions: 3 };
+    const append = async (content: string, role: Message['role'] = 'assistant') => {
+        const row = { charId: storyTheaterThreadId(entry.id), role, type: 'text' as const, content, timestamp: 10,
+            metadata: { source: 'story_theater', theaterId: entry.id } };
+        return { ...row, id: await DB.saveMessage(row) };
+    };
+    const change = (action: 'add' | 'update', key: string, text: string, row: Message, terms = ['钥匙']) => ({
+        action, key, kind: 'fact', text, terms, sourceMessageId: row.id, quote: row.content,
+    });
+    const queue = (changes: unknown[]) => fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({ changes }))));
+    const queueEmbedding = () => fetchMock.mockImplementationOnce(async (_url, init) => response({
+        data: JSON.parse(init.body).input.map((_part: string, index: number) => ({ index, embedding: [1, 0, 0] })),
+    }));
+    const saveSummary = async (snapshot: StoryTheaterEntry, row: Message, floor: number) => {
+        const delta = await generateStoryArchiveDelta(snapshot, [row], api, floor, 'summary');
+        return commitStoryArchiveBatch(snapshot, [row], {
+            id: 'delta-' + row.id, strategy: 'summary', fromMessageId: row.id, toMessageId: row.id,
+            messageCount: 1, createdAt: floor, ...delta,
+        });
+    };
+
+    it('stores only new events and changed state, leaves a repeat empty, and reads the newest state', async () => {
+        const original = await append('小林保管铜钥匙。');
+        queue([change('add', '铜钥匙/持有人', original.content, original)]);
+        const first = await saveSummary(await fresh(), original, 3);
+
+        const repeated = await append('阿岚提起小林还在保管铜钥匙。');
+        // A weak model repeats the exact fact under a different key.
+        queue([change('add', '旧钥匙/保管人', original.content, repeated)]);
+        const second = await saveSummary(first, repeated, 4);
+        expect(second.archives.at(-1)?.facts).toEqual([]);
+
+        const transfer = await append('小林把铜钥匙交给阿岚。');
+        const discovery = await append('阿岚确认铜钥匙可以打开钟楼。');
+        queue([
+            change('update', '铜钥匙/持有人', '铜钥匙现在由阿岚保管。', transfer),
+            change('add', '铜钥匙/用途', discovery.content, discovery, ['铜钥匙', '钟楼']),
+        ]);
+        const delta = await generateStoryArchiveDelta(second, [transfer, discovery], api, 5, 'summary');
+        expect(delta.summary).toBe('铜钥匙现在由阿岚保管。\n阿岚确认铜钥匙可以打开钟楼。');
+        const updated = await commitStoryArchiveBatch(second, [transfer, discovery], {
+            id: 'updated', strategy: 'summary', fromMessageId: transfer.id, toMessageId: discovery.id,
+            messageCount: 2, createdAt: 5, ...delta,
+        });
+        const input = JSON.parse(fetchMock.mock.calls.at(-1)![1].body).messages[1].content;
+        expect(input).toContain('"key":"铜钥匙/持有人","kind":"fact","text":"小林保管铜钥匙。"');
+        expect(input.split('本批新楼层')[1]).not.toContain(original.content);
+
+        const facts = collectStoryArchiveFacts((await fresh()).archives, Infinity, new Map());
+        const selected = formatStoryArchiveFacts(rankStoryArchiveFacts(facts, '拿着钥匙去钟楼'), new Map([
+            [transfer.id, 5], [discovery.id, 6],
+        ]));
+        expect(selected).toBe('[第 6 楼] 阿岚确认铜钥匙可以打开钟楼。\n[第 5 楼] 铜钥匙现在由阿岚保管。');
+        expect(collectStoryArchiveFacts(updated.archives, transfer.id, new Map()).map(fact => fact.text)).toEqual([original.content]);
+        expect(updated.archives[0]).toEqual(entry.archives[0]);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('rejects invented citations and actor dialogue mislabeled as author corrections before saving', async () => {
+        const row = await append('阿岚对小林说：“以后不要开门。”');
+        queue([{ ...change('add', '钟楼/开门', row.content, row), quote: '已经把门封住了' }]);
+        await expect(saveSummary(await fresh(), row, 3)).rejects.toThrow('来源无效');
+        queue([{ ...change('add', '作者/开门', '以后不要开门。', row), kind: 'author' }]);
+        await expect(saveSummary(await fresh(), row, 3)).rejects.toThrow('来源无效');
+        expect((await fresh()).archives).toEqual(entry.archives);
+        expect((await DB.getMessageById(row.id))?.metadata?.theaterArchived).toBeUndefined();
+    });
+
+    it('stores one vector per changed fact, skips embedding empty batches and respects edits and deletions', async () => {
+        const original = await append('小林保管铜钥匙。');
+        queue([change('add', '铜钥匙/持有人', original.content, original)]);
+        queueEmbedding();
+        await archiveStoryVectorRangeInGeneration(entry.id, [original], api, { embedding });
+
+        const repeat = await append('他们又提起钥匙。');
+        queue([]);
+        const empty = await archiveStoryVectorRangeInGeneration(entry.id, [repeat], api, { embedding });
+        expect(empty.archives.at(-1)?.vectorMemoryIds).toEqual([]);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+
+        const transfer = await append('小林把铜钥匙交给阿岚。');
+        queue([change('update', '铜钥匙/持有人', '阿岚保管铜钥匙。', transfer)]);
+        queueEmbedding();
+        const updated = await archiveStoryVectorRangeInGeneration(entry.id, [transfer], api, { embedding });
+        const id = updated.archives.at(-1)!.vectorMemoryIds![0];
+        const readFacts = async () => collectStoryArchiveFacts(updated.archives, Infinity,
+            (await loadStoryVectorRecall(updated, Infinity)).factTextById);
+        expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚保管铜钥匙。']);
+        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(updated, Infinity), '')).text).toBe('');
+
+        queueEmbedding();
+        await updateStoryVectorMemory(entry.id, id, '阿岚把铜钥匙放在书桌。', embedding);
+        expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
+        await deleteStoryVectorMemory(entry.id, id);
+        expect(await readFacts()).toEqual([]);
     });
 });

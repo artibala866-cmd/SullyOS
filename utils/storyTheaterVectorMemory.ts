@@ -31,21 +31,29 @@ export async function listStoryVectorMemories(entryId: string): Promise<MemoryNo
 export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: number) {
     const archives = entry.archives.filter(box => box.strategy === 'vector');
     const groups: { archiveIds: string[]; nodes: MemoryNode[] }[] = [];
-    if (!archives.length) return { nodes: [], groups };
+    const factTextById = new Map<string, string>();
+    if (!archives.length) return { nodes: [], groups, factTextById, factNodes: [] };
     const owned = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
     const legacy = archives.filter(box => !box.vectorMemoryIds);
     const all = (await listStoryVectorMemories(entry.id)).filter(node => !node.archived && node.content.trim());
-    const available = new Set(all.map(node => node.id));
+    const byId = new Map(all.map(node => [node.id, node]));
+    for (const box of archives) {
+        if (box.toMessageId >= beforeId) continue;
+        for (const fact of box.facts ?? []) {
+            if (!fact.vectorNodeId || !box.vectorMemoryIds?.includes(fact.vectorNodeId)) continue;
+            const node = byId.get(fact.vectorNodeId);
+            if (node) factTextById.set(node.id, node.content);
+        }
+    }
     const legacyNodes = legacy.length && legacy.every(box => box.toMessageId < beforeId)
         ? all.filter(node => !owned.has(node.id)) : [];
     if (legacyNodes.length) {
         const ids = legacy.map(box => box.id);
         groups.push({ archiveIds: ids, nodes: legacyNodes });
     }
-    const byId = new Map(all.map(node => [node.id, node]));
     for (const box of archives) {
-        if (box.toMessageId >= beforeId || !box.vectorMemoryIds?.length
-            || !box.vectorMemoryIds.every(id => available.has(id))) continue;
+        if (box.facts || box.toMessageId >= beforeId || !box.vectorMemoryIds?.length
+            || !box.vectorMemoryIds.every(id => byId.has(id))) continue;
         const nodes = box.vectorMemoryIds.flatMap(id => {
             const node = byId.get(id);
             return node ? [node] : [];
@@ -53,16 +61,17 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         groups.push({ archiveIds: [box.id], nodes });
     }
     const eligibleIds = new Set(groups.flatMap(group => group.nodes.map(node => node.id)));
-    return { nodes: all.filter(node => eligibleIds.has(node.id)), groups };
+    return { nodes: all.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes: all.filter(node => factTextById.has(node.id)) };
 }
 
 export async function selectStoryVectorRecall(
-    { nodes, groups }: Awaited<ReturnType<typeof loadStoryVectorRecall>>,
+    { nodes, groups }: Pick<Awaited<ReturnType<typeof loadStoryVectorRecall>>, 'nodes' | 'groups'>,
     query: string,
     embedding?: EmbeddingConfig,
-): Promise<{ text: string; archiveIds: Set<string> }> {
+    currentFactNodes: MemoryNode[] = [],
+): Promise<{ text: string; archiveIds: Set<string>; semanticFactRank: Map<string, number> }> {
     const archiveIds = new Set<string>();
-    if (!nodes.length) return { text: '', archiveIds };
+    const semanticFactRank = new Map<string, number>();
     const limit = 6000;
     const separator = '\n\n';
     const candidates = groups.map(group => ({
@@ -72,22 +81,32 @@ export async function selectStoryVectorRecall(
         text: group.nodes.map(node => node.content).join(group.archiveIds.length === 1 ? '' : separator),
     }));
     const allText = candidates.map(group => group.text).join(separator);
-    if (allText.length <= limit) {
-        return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)) };
+    const needsLegacyRanking = allText.length > limit;
+    const needsFactRanking = currentFactNodes.reduce((size, node) => size + node.content.length + 1, 0) > limit;
+    if (!needsLegacyRanking && !needsFactRanking) {
+        return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)), semanticFactRank };
     }
     let ordered = nodes;
     if (embedding?.baseUrl && embedding.apiKey && embedding.model && query.trim()) {
         try {
-            const charId = nodes[0].charId;
-            const ids = new Set(candidates.flatMap(group => group.nodes.map(node => node.id)));
+            const searchNodes = [
+                ...(needsLegacyRanking ? nodes : []),
+                ...(needsFactRanking ? currentFactNodes : []),
+            ];
+            const charId = searchNodes[0].charId;
+            const ids = new Set(searchNodes.map(node => node.id));
+            const factIds = new Set(currentFactNodes.map(node => node.id));
             const allVectors = (await MemoryVectorDB.getAllByCharId(charId)).filter(vector => ids.has(vector.memoryId));
             if (allVectors.length) {
                 bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
                 const recallConfig = { ...embedding, requestPurpose: '剧情独立向量 · 续写召回' };
                 const matches = await hybridSearch(query, charId, recallConfig, 10, undefined, {
-                    allNodes: nodes.filter(node => ids.has(node.id)), allVectors,
+                    allNodes: searchNodes, allVectors,
                 });
                 const rank = new Map(matches.map((match, index) => [match.node.id, index]));
+                for (const [id, position] of rank) {
+                    if (factIds.has(id)) semanticFactRank.set(id, position);
+                }
                 ordered = [...nodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
             }
         } catch (error) {
@@ -109,7 +128,7 @@ export async function selectStoryVectorRecall(
         text = combined;
         for (const id of group.archiveIds) archiveIds.add(id);
     }
-    return { text, archiveIds };
+    return { text, archiveIds, semanticFactRank };
 }
 
 export async function updateStoryVectorMemory(

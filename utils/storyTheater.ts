@@ -322,7 +322,7 @@ export const storyArchiveAtFloor = (archives: StoryTheaterArchive[], messageId: 
 export const selectStoryArchiveContext = (
     archives: StoryTheaterArchive[], beforeId: number, budget = 6000,
 ): StoryTheaterArchive[] => {
-    const eligible = archives.filter(box => box.strategy === 'summary' && box.toMessageId < beforeId && !!box.summary?.trim())
+    const eligible = archives.filter(box => box.strategy === 'summary' && !box.facts && box.toMessageId < beforeId && !!box.summary?.trim())
         .sort((a, b) => b.toMessageId - a.toMessageId);
     const selected: StoryTheaterArchive[] = [];
     let used = 0;
@@ -349,7 +349,7 @@ export const selectStoryArchiveAuthorInstructions = (
     const seen = new Set<string>();
     let used = 0;
     for (const box of archives
-        .filter(item => item.strategy === 'summary' && item.toMessageId < beforeId
+        .filter(item => item.strategy === 'summary' && !item.facts && item.toMessageId < beforeId
             && !recentIds.has(item.id) && !!item.summary?.trim())
         .sort((a, b) => b.toMessageId - a.toMessageId)) {
         const content = box.summary ?? '';
