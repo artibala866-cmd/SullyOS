@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -212,6 +212,58 @@ describe('story summary final channel', () => {
         expect(findStoryArchiveEvidence(rows,archives,10,'回看南堤巡查，分别是什么时候？',known,'',floors)).toBe('');
         expect(findStoryArchiveEvidence(rows,archives,10,'检修申请的档案编号呢？',known,'',floors)).toBe('');
         expect(findStoryArchiveEvidence(rows,archives,10,'旧记录夹放了什么？',known,'',floors)).toContain('申请订在旧记录夹');
+    });
+
+    it.each([
+        ['下葬后她回到新家。', '下葬后'],
+        ['下葬当夜她仍在客厅。', '下葬当夜'],
+        ['值班员死后数日才有人看见档案。', '死后数日'],
+        ['头七子时阴阳交界时，她听见动静。', '头七子时阴阳交界时'],
+        ['头七夜零点交界，门边站着一人。', '头七夜零点交界'],
+        ['头七过后的首个冬日清晨，众人再次碰面。', '头七过后的首个冬日清晨'],
+        ['她计划头七过后再去。', undefined],
+        ['她在窗边等人。', undefined],
+    ])('recognizes narrative time from old cards and their original floors: %s', (text, expected) => {
+        const fact = {kind:'fact' as const, text, sourceMessageId:11};
+        expect(storyTimeFromSource(text)).toBe(expected);
+        expect(storyArchiveFactTime(fact)).toBe(expected);
+        expect(storyArchiveFactTime({ ...fact, kind:'author' })).toBeUndefined();
+    });
+
+    it('prioritizes an older memory when a query names its narrative time', () => {
+        const earlier={key:'较早/重逢',kind:'fact' as const,terms:['旧屋'],text:'家人收到一封信。',sourceMessageId:3};
+        const later={...earlier,key:'最近/重逢',sourceMessageId:4,text:'家人收拾木匣。'};
+        expect(rankStoryArchiveFacts([earlier,later],'头七过后家人做了什么？',new Map(),new Map([[3,'头七过后']]))[0]).toBe(earlier);
+    });
+
+    it('keeps the same confirmed-memory budget when another memory is added', () => {
+        const facts = Array.from({length:13},(_,index)=>({
+            key:'fact-'+index, kind:'fact' as const, terms:[], sourceMessageId:index+1,
+            text:'这条独立剧情事实用于核对上下文是否按同一容量保留。'.repeat(6)+'记录'+index+'。',
+        }));
+        expect(storyArchiveNeedsRanking(facts,new Map(),new Map())).toBe(false);
+        expect(formatStoryArchiveProseContext(facts,'')).toContain('记录0。');
+        expect(formatStoryArchiveProseContext(facts,'')).toContain('记录12。');
+    });
+
+    it('can repeatedly rank synced text locally before a real vector node exists', async () => {
+        const text='夜间门闩由车站管理员保管。';
+        const id=entry.id+'-missing-node';
+        const box={id:'saved-vector',strategy:'vector' as const,fromMessageId:messages[0].id,toMessageId:messages[1].id,
+            messageCount:2,createdAt:1,vectorMemoryIds:[id],
+            facts:[{key:'门闩/位置',kind:'fact' as const,text,terms:[],sourceMessageId:messages[0].id,
+                vectorNodeId:id,vectorTextState:'synced' as const}]};
+        const snapshot={...entry,archives:[box]};
+        await DB.saveStoryTheater(snapshot);
+        expect((await loadStoryVectorRecall(snapshot,messages[1].id)).factNodes).toHaveLength(0);
+        for (let turn=0;turn<3;turn++) {
+            const recall=await loadStoryVectorRecall(snapshot,Infinity);
+            expect(recall.factNodes).toEqual([expect.objectContaining({id,content:text,embedded:false})]);
+            const picked=await selectStoryVectorRecall(recall,'问一下夜间门闩',undefined,recall.factNodes,true);
+            expect(picked.semanticFactRank.has(id)).toBe(true);
+        }
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(await MemoryNodeDB.getById(id)).toBeUndefined();
     });
 
     it('selects relevant facts but presents them chronologically in prose context', () => {
@@ -464,7 +516,7 @@ describe('story summary final channel', () => {
         const text = '准入凭证归值班员保管，离开时须交还柜台，并在登记簿签字。凭证必须封存，未经登记不得转交旁人。';
         const important = { id: 'old-permit', charId, room: 'living_room' as const, mood: 'neutral' as const,
             content: text, tags: [], importance: 6, embedded: true, createdAt: 1, lastAccessedAt: 1, accessCount: 0 };
-        const nodes = [important, ...Array.from({ length: 45 }, (_, index) =>
+        const nodes = [important, ...Array.from({ length: 62 }, (_, index) =>
             ({ ...important, id: 'other-' + index, content: '普通日常记录。'.repeat(7) + index }))];
         const facts = nodes.map((node, index) => ({ key: node.id, kind: 'fact' as const, text: node.content,
             sourceMessageId: index + 1, vectorNodeId: node.id, terms: [] }));
@@ -474,13 +526,20 @@ describe('story summary final channel', () => {
         expect(nodes.reduce((count, node) => count + node.content.length, 0)).toBeLessThan(6000);
         await MemoryNodeDB.save(important);
         await MemoryVectorDB.save({ memoryId: important.id, charId, vector: [1, 0, 0], dimensions: 3, model: 'vector' });
-        fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
-        const recalled = await selectStoryVectorRecall({ nodes: [], groups: [] }, query,
-            { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'vector', dimensions: 3 },
-            nodes, storyArchiveNeedsRanking(facts, floorNumbers, new Map()));
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(recalled.semanticFactRank.has(important.id)).toBe(true);
-        expect(formatStoryArchiveProseContext(facts, query, floorNumbers, recalled.semanticFactRank)).toContain(text);
+        fetchMock.mockImplementation(async (_url, init) => {
+            const request = JSON.parse(String(init.body));
+            expect(request.input).toHaveLength(3);
+            return response({ data: request.input.map((_:string,index:number)=>({ index, embedding:[1,0,0] })) });
+        });
+        const signals = ['上一轮的正文', '再之前的推进', query];
+        for (let turn=0;turn<3;turn++) {
+            const recalled=await selectStoryVectorRecall({nodes:[],groups:[]},signals,
+                {baseUrl:'https://vector.invalid/v1',apiKey:'test',model:'vector',dimensions:3},
+                nodes,storyArchiveNeedsRanking(facts,floorNumbers,new Map()));
+            expect(recalled.semanticFactRank.has(important.id)).toBe(true);
+            expect(formatStoryArchiveProseContext(facts,query,floorNumbers,recalled.semanticFactRank)).toContain(text);
+        }
+        expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
     it('filters already archived static setup on reading, but keeps corrected states and author instructions', () => {

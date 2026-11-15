@@ -22,14 +22,22 @@ export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'moda
 const timeOfDay = '(?:凌晨|黎明|清晨|早晨|早上|上午|中午|下午|午后|傍晚|晚上|夜里|深夜|半夜)';
 const date = '(?:[0-9]{4}年)?[0-9]{1,2}月[0-9]{1,2}日|[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}';
 const count = '[一二三四五六七八九十百零两0-9]+';
-const day = `第${count}[天日]|${count}(?:天|日|周|个月|年|小时|分钟)(?:后|前)|翌日|次日|隔天|当天|当晚|今夜|昨日|昨天|今天|明天|后天|昨晚|前一天|头七(?:前夜|当天|交界|过后|之后)?|[春夏秋冬]日`;
-const time = String.raw`(?:(?:${date}|${day})(?:的)?(?:${timeOfDay})?|${timeOfDay})(?:\s*(?:[0-9]{1,2}:[0-9]{2}|${count}(?:点|时)(?:半|${count}分)?))?|[0-9]{1,2}:[0-9]{2}`;
+const ritualTime = '(?:头七(?:(?:夜零点|子夜零点|子时|午夜|零点|时)?(?:阴阳)?交界(?:时)?|子时|前夜|当晚|当天|当夜|过后|之后|结束后|夜里|夜)?|(?:下葬|安葬|入殓|出殡)(?:之后|以前|前夜|当天|当夜|当晚|次日|后|前)|(?:去世|过世|死亡|死)后(?:第[一二三四五六七八九十百零两0-9]+[天日]|数日|几天|数天|翌日|次日|当晚|当夜)?)';
+const season = '[春夏秋冬]日';
+const day = `第${count}[天日]|${count}(?:天|日|周|个月|年|小时|分钟)(?:后|前)|翌日|次日|隔天|当天|当晚|今夜|昨日|昨天|今天|明天|后天|昨晚|前一天|${ritualTime}|${season}`;
+const time = String.raw`(?:(?:${date}|${day})(?:(?:的)?(?:首个|第${count}个)?${season}${timeOfDay}|(?:的)?${timeOfDay})?|${timeOfDay})(?:\s*(?:[0-9]{1,2}:[0-9]{2}|${count}(?:点|时)(?:半|${count}分)?))?|[0-9]{1,2}:[0-9]{2}`;
 const explicitTimes = new RegExp(time, 'gu');
+// Relative milestones can naturally run into the subject without a comma.
+const narrativeMilestone = new RegExp(String.raw`^\s*(?:(?!.*(?:打算|计划|预计|将要|还没|要到))([\p{Script=Han}]{2,8}?))?((?:${ritualTime})(?:(?:的)?(?:首个|第${count}个)?${season}${timeOfDay}|(?:的)?${timeOfDay})?)(?=$|[\s，,。！!？?；;：:、】\]]|[\p{Script=Han}])`, 'u');
 const leadingTime = new RegExp(String.raw`^\s*(?:[【\[]|(?:剧情时间|时间)[:：]\s*)?(${time})(?=$|[\s，,。！!？?；;：:、】\]])`, 'u');
 
 /** Read the scene's opening time. A time mentioned mid-paragraph may belong to a different event. */
 export function storyTimeFromSource(source: string): string | undefined {
-    return source.normalize('NFKC').match(leadingTime)?.[1];
+    const text = source.normalize('NFKC');
+    const marked = text.match(leadingTime)?.[1];
+    if (marked) return marked;
+    const milestone = text.match(narrativeMilestone);
+    return milestone && milestone[2] !== '头七' ? milestone[2] : undefined;
 }
 
 const storySentences = (text: string) => text.match(/[^。！？\r\n]+[。！？]?/gu) ?? [];
@@ -54,6 +62,15 @@ export function storyArchiveSourceTimes(rows: readonly { id: number; content: st
         heading = time && /^[\s，,。！!？?；;：:、】\]]*$/u.test(rest) ? time : undefined;
     }
     return times;
+}
+
+/** Older cards sometimes have a time in their text but no separate field. */
+export function storyArchiveFactTime(
+    fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'sourceMessageId' | 'storyTime'>,
+    sourceTimes?: ReadonlyMap<number, string>,
+): string | undefined {
+    if (fact.kind === 'author') return undefined;
+    return fact.storyTime || unambiguousOpeningTime(fact.text) || sourceTimes?.get(fact.sourceMessageId);
 }
 
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
@@ -91,9 +108,10 @@ export function collectStoryArchiveFacts(
 
 export function rankStoryArchiveFacts(
     facts: StoryArchiveFact[], query: string, semanticRank: ReadonlyMap<string, number> = new Map(),
+    sourceTimes?: ReadonlyMap<number, string>,
 ): StoryArchiveFact[] {
     const text = normalize(query);
-    const matchingTerms = facts.map(fact => [...new Set(fact.terms.map(normalize))]
+    const matchingTerms = facts.map(fact => [...new Set([...fact.terms, storyArchiveFactTime(fact, sourceTimes) ?? ''].map(normalize))]
         .filter(term => term.length >= 2 && text.includes(term)));
     const frequency = new Map<string, number>();
     for (const terms of matchingTerms) for (const term of terms) {
@@ -360,7 +378,7 @@ export function formatStoryArchiveFacts(
     const selected: { fact: StoryArchiveFact; line: string }[] = [];
     for (const fact of facts) {
         const floor = floorNumbers?.get(fact.sourceMessageId);
-        const storyTime = fact.storyTime || sourceTimes?.get(fact.sourceMessageId);
+        const storyTime = storyArchiveFactTime(fact, sourceTimes);
         const annotation = [
             ...(floor ? ['第 ' + floor + ' 楼'] : []),
             ...(storyTime ? ['剧情时间：' + storyTime] : []),
@@ -380,7 +398,7 @@ function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
         {
             title: '已确认的剧情事实（仅表示已经发生，不要求再次发生）',
             entries: facts.filter(fact => fact.kind === 'fact' && !storyArchiveModality(fact)),
-            budget: facts.length > 12 ? 1450 : 3200,
+            budget: 3200,
         },
         {
             title: '尚未发生的计划和承诺（不是已完成事件）',
@@ -417,7 +435,7 @@ export function formatStoryArchiveProseContext(
     return storyArchiveRecallSections(facts).map(({ title, entries, budget }) => {
         if (!entries.length) return '';
         const text = formatStoryArchiveFacts(
-            rankStoryArchiveFacts(entries, query, semanticRank), floorNumbers, budget, true, sourceTimes,
+            rankStoryArchiveFacts(entries, query, semanticRank, sourceTimes), floorNumbers, budget, true, sourceTimes,
         );
         return text ? '【' + title + '】\n' + text : '';
     }).filter(Boolean).join('\n\n');
@@ -506,7 +524,7 @@ export function storyArchiveReadableLines(
         if (seen.has(sig) || fact.vectorTextState === 'deleted') continue;
         seen.add(sig);
         const body = formatStoryArchiveFacts([fact], floorNumbers, Infinity, false, sourceTimes);
-        lines.push(phase === '历史' ? '（当时发生）' + body : '（本段记录）' + body);
+        lines.push(phase === '历史' ? '（历史记录）' + body : '（本段记录）' + body);
     }
     if (archive.affinityLog?.length) lines.push('界面关系变化：' + archive.affinityLog.join('；'));
     return lines;

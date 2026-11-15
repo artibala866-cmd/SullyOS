@@ -113,7 +113,19 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         groups.push({ archiveIds: [box.id], nodes });
     }
     const eligibleIds = new Set(groups.flatMap(group => group.nodes.map(node => node.id)));
-    return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes: liveNodes.filter(node => factTextById.has(node.id)) };
+    const factNodes = visibleFacts.flatMap(fact => {
+        const id = fact.vectorNodeId!;
+        const content = factTextById.get(id);
+        if (!content) return [];
+        // Synced text can still take part in local relevance search while its
+        // vector node is missing. This is a transient result, never a DB write.
+        return [byId.get(id) ?? {
+            id, charId: storyTheaterThreadId(entry.id), content, tags: fact.terms,
+            room: 'living_room' as const, mood: 'neutral' as const, importance: 6,
+            embedded: false, createdAt: 0, lastAccessedAt: 0, accessCount: 0,
+        }];
+    });
+    return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes };
 }
 
 /**
@@ -151,7 +163,7 @@ export async function selectStoryVectorRecall(
         ...(needsLegacyRanking ? nodes : []),
         ...(needsFactRanking ? currentFactNodes : []),
     ].filter(node => node.content.trim() && !node.archived);
-    const ids = new Set(searchNodes.map(node => node.id));
+    const embeddedIds = new Set(searchNodes.filter(node => node.embedded).map(node => node.id));
     const factIds = new Set(currentFactNodes.map(node => node.id));
     const relevance = new Map<string, number>();
 
@@ -164,7 +176,7 @@ export async function selectStoryVectorRecall(
             try {
                 const charId = searchNodes[0].charId;
                 const allVectors = (await MemoryVectorDB.getAllByCharId(charId))
-                    .filter(vector => ids.has(vector.memoryId));
+                    .filter(vector => embeddedIds.has(vector.memoryId));
                 if (allVectors.length) {
                     // Palace retrieves several meaningful message spikes with one
                     // batched embedding call, instead of diluting them into one query.

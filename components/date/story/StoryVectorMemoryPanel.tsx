@@ -7,7 +7,7 @@ import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemo
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
 import { DB } from '../../../utils/db';
-import { filterStoryArchiveBaselineRepeats, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
+import { filterStoryArchiveBaselineRepeats, storyArchiveFactTime, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { storyArchiveFloors } from '../../../utils/storyTheaterArchive';
 import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks, storyTheaterThreadId } from '../../../utils/storyTheater';
 
@@ -175,7 +175,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
                     <div className='space-y-2.5'>{visibleNodes.map(node => {
                         const fact = factByNodeId.get(node.id);
                         const floor = fact && floorNumbers.get(fact.sourceMessageId);
-                        const time = fact && (fact.storyTime || sourceTimes.get(fact.sourceMessageId));
+                        const time = fact && storyArchiveFactTime({ ...fact, text: node.content }, sourceTimes);
                         const modality = fact && storyArchiveModality(fact);
                         const past = fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId;
                         const label = repeatedSetupIds.has(node.id) ? '已有人设'
@@ -193,7 +193,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
                             <div className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-5'>
                                 <strong className='font-semibold'>{time || (floor ? '第 ' + floor + ' 楼' : '旧记忆')}</strong>
                                 {time && floor && <span className='text-slate-600'>第 {floor} 楼</span>}
-                                {!time && <span className='text-slate-600'>时间未明确</span>}
+                                {fact?.kind === 'fact' && !time && <span className='text-slate-600'>时间未写明</span>}
                                 {past && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>过去的状态</span>}
                                 {label && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>{label}</span>}
                             </div>
