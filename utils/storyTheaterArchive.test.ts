@@ -878,6 +878,11 @@ describe('long story archives process small consecutive requests', () => {
     );
 
     it('player simulation: 91 floors, eight cheap-model batches, A-to-B-to-C, one current state and historical provenance', async () => {
+        // This fixture normally starts with an old two-floor box. A player's
+        // fresh 91-floor story must instead begin at floor one.
+        for (const row of messages) await DB.deleteMessage(row.id);
+        entry.archives = [];
+        await DB.saveStoryTheater(entry);
         const floorTexts = new Map([
             [3, '第一天傍晚，林星正在保管铜钥匙。'],
             [16, '第二天清晨，林星把铜钥匙交给阿泽。'],
