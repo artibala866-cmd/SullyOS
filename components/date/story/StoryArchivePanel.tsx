@@ -9,6 +9,7 @@ import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
+import {formatStoryArchiveFacts,storyTimeFromSource} from '../../../utils/storyArchiveFacts';
 
 export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onClick:()=>void;disabled?:boolean;children:React.ReactNode}){
  return <button type='button' aria-label={label} title={label} disabled={disabled} onClick={onClick}
@@ -71,6 +72,16 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   }catch(e:any){setError(e?.message||'归档失败，原文和旧摘要已保留');setStatus('');}
   finally{running.current=false;setBusy(false);}
  };
+ const floorNumbers=useMemo(()=>new Map((floors??[]).map((row,index)=>[row.id,index+1])),[floors]);
+ const sourceTimes=useMemo(()=>new Map((floors??[]).flatMap(row=>{
+  const time=storyTimeFromSource(row.content);
+  return time?[[row.id,time] as const]:[];
+ })),[floors]);
+ const readableSummary=(box:StoryTheaterArchive)=>{
+  if(!box.facts?.length)return box.summary||'';
+  return [formatStoryArchiveFacts(box.facts,floorNumbers,Infinity,true,sourceTimes),
+   box.affinityLog?.join('\n')].filter(Boolean).join('\n\n');
+ };
  const char=actors.find(c=>c.id===charId);
  const available=boxes.filter(box=>!box.memoryConversions?.[charId]);
  const chosen=boxes.filter(box=>selected.includes(box.id)&&!box.memoryConversions?.[charId]);
@@ -125,7 +136,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const exportSelected=async()=>{
   const rows=boxes.filter(b=>selected.includes(b.id));if(!rows.length)return;
   try{
-   const content=[`剧情事件盒 · ${entry.title}`,...rows.map(box=>`\n===== 事件盒 ${boxes.indexOf(box)+1} · ${box.messageCount} 条原文 =====\n${box.summary}`)].join('\n');
+   const content=[`剧情事件盒 · ${entry.title}`,...rows.map(box=>`\n===== 事件盒 ${boxes.indexOf(box)+1} · ${box.messageCount} 条原文 =====\n${readableSummary(box)}`)].join('\n');
    await shareOrDownloadFile({content,fileName:`${entry.title.replace(/[\\/:*?"<>|]/g,'_').slice(0,80)||'剧情'}-事件盒.txt`,mimeType:'text/plain;charset=utf-8',shareTitle:'剧情事件盒'});
   }catch(e:any){setError(e?.message||'导出失败，请重试');}
  };
@@ -196,7 +207,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
         <ArchiveIcon label='重选楼层' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)}><Selection size={18}/></ArchiveIcon>
         <ArchiveIcon label='撤销归档' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={18}/></ArchiveIcon>
        </div>
-       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>摘要</summary><p className='whitespace-pre-wrap py-1 leading-6'>{box.summary||'暂无摘要'}</p></details>}
+       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>摘要</summary><p className='whitespace-pre-wrap py-1 leading-6'>{readableSummary(box)||'暂无摘要'}</p></details>}
        {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
         <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
         <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
