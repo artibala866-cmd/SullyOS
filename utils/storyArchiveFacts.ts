@@ -161,9 +161,10 @@ export function parseStoryArchiveChanges(
         // Original records, not model-written quote strings, are the evidence.
         // A model may return an ordinal floor number rather than a database ID.
         // Match those only against the current batch's actual floor mapping.
-        const selected = candidates.length === 1
-            ? candidates[0]
-            : direct ? [providedId, direct] as const : floorRef || sourceRef ? floor : undefined;
+        const selected = direct ? [providedId, direct] as const
+            : floorRef && floor ? floor
+            : candidates.length === 1 ? candidates[0]
+            : floorRef || sourceRef ? floor : undefined;
         if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
         if (kind === 'author' && !source.authorInput) {
@@ -221,7 +222,7 @@ export function formatStoryArchiveTransitions(
 ): string {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
-        .flatMap(box => box.facts ?? [])
+        .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
         .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted');
     const newer = new Map<string, string>();
     const earlier: StoryArchiveFact[] = [];
