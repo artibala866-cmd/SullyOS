@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, formatStoryArchiveTransitions, rankStoryArchiveFacts, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveTransitions, rankStoryArchiveFacts, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1268,8 +1268,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 const time = storyTimeFromSource(message.content);
                 return time ? [[message.id, time] as const] : [];
             }));
+            const knownSetup = [
+                entry.premise,
+                mask.description, mask.coreInstruction, mask.worldview,
+                ...actors.flatMap(actor => [actor.description, actor.systemPrompt, actor.worldview]),
+                ...selectedBooks.map(book => book.content),
+            ].filter(Boolean).join('\n');
+            const visibleFacts = filterStoryArchiveBaselineRepeats(facts, promptEntry.archives, knownSetup);
             const currentFactText = formatStoryArchiveFacts(
-                rankStoryArchiveFacts(facts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000, true, sourceTimes,
+                rankStoryArchiveFacts(visibleFacts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000, true, sourceTimes,
             );
             const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes);
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
