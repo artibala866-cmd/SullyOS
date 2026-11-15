@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -253,6 +253,19 @@ describe('story summary final channel', () => {
         expect(text).toContain('【用户明确提出的写作要求】');
         expect(text.indexOf('钥匙放进铁盒')).toBeLessThan(text.indexOf('林星打算明天去书店'));
         expect(text).not.toContain('本段历史变化');
+    });
+    it('video regression: legacy vector facts reading preserves future plans and rumors without altering saved data', () => {
+        const planned = { text: '幸福决定忙完水果店事务后前往老房子寻找线索。' };
+        const uncertain = { text: '据说老房子的阁楼藏有钥匙，尚未证实。' };
+        const completed = { text: '幸福决定去老房子，后来已经前往并找到了线索。' };
+        expect(storyArchiveModality(planned)).toBe('planned');
+        expect(storyArchiveModality(uncertain)).toBe('unverified');
+        expect(storyArchiveModality(completed)).toBeUndefined();
+        expect(formatStoryArchiveProseContext([
+            { key: '寻找线索/安排', kind: 'fact', sourceMessageId: 2, terms: ['老房子'], ...planned },
+            { key: '阁楼/传闻', kind: 'fact', sourceMessageId: 4, terms: ['阁楼'], ...uncertain },
+        ], '老房子')).toContain('【尚未发生的计划】');
+        expect(planned).toEqual({ text: '幸福决定忙完水果店事务后前往老房子寻找线索。' });
     });
     it('strips inline thinking and ignores native or typed reasoning, while retaining final text', () => {
         expect(parseStoryArchiveSummary(completion('<thinking>计划</thinking>回家途中他们约定下周再见。'))).toBe('回家途中他们约定下周再见。');
