@@ -193,10 +193,10 @@ export async function generateStoryArchiveDelta(
     const historyFacts: StoryArchiveFact[] = [];
     for (const [index, { sources, transcript }] of segments.entries()) {
         const current = [...known.values()];
-        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime'>> = [];
+        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality'>> = [];
         let used = 0;
-        for (const { key, kind, text, storyTime } of rankStoryArchiveFacts(current, transcript)) {
-            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}) };
+        for (const { key, kind, text, storyTime, modality } of rankStoryArchiveFacts(current, transcript)) {
+            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}) };
             const size = JSON.stringify(reference).length;
             if (used + size > 12000) continue;
             previous.push(reference);
