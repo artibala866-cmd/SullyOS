@@ -67,7 +67,7 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number) {
         const content = extractContent({ choices: [{ message: { content: sourceText } }] });
         if (!content) throw new Error('事件盒原文缺少正文，未生成总结');
         if (!message.metadata?.theaterContinue) {
-            sources.set(message.id, { text: content, authorInput: message.role === 'user' });
+            sources.set(message.id, { text: content, authorInput: message.role === 'user', floorNumber: firstFloor + index });
         }
         const speaker = message.role === 'assistant' ? '剧场正文'
             : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : '用户推进';
