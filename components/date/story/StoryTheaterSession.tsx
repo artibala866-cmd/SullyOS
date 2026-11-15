@@ -1278,7 +1278,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const currentFactText = formatStoryArchiveFacts(
                 rankStoryArchiveFacts(visibleFacts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000, true, sourceTimes,
             );
-            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes);
+            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes, 1400, recallQuery);
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
                 .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
                 .map(box => box.affinityLog!.join('\n')).join('\n\n');
