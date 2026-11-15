@@ -534,6 +534,11 @@ describe('consecutive automatic archives', () => {
         queueEmbedding();
         await updateStoryVectorMemory(entry.id, id, '阿岚把铜钥匙放在书桌。', embedding);
         expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
+        const edited = (await MemoryNodeDB.getById(id))!;
+        // A missing local node still sends the user's latest edit from the archive.
+        await MemoryNodeDB.delete(id);
+        expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
+        await MemoryNodeDB.save(edited);
         await deleteStoryVectorMemory(entry.id, id);
         expect(await readFacts()).toEqual([]);
     });

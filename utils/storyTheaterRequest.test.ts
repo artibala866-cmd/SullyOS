@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
 vi.mock('../context/OSContext', () => ({ useOS: () => state }));
 
 describe('见面剧情实际请求', () => {
-    it.each(['事件盒', '独立向量', '已撤销向量', '向量超预算', '增量事实'] as const)('%s：续写读取当前归档或原文，本轮推进排在深度 0 世界书之后', async (mode) => {
+    it.each(['事件盒', '独立向量', '已撤销向量', '向量超预算', '增量事实', '向量节点缺失', '向量读取失败'] as const)('%s：续写读取当前归档或原文，本轮推进排在深度 0 世界书之后', async (mode) => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
         const entry = {
@@ -35,7 +35,8 @@ describe('见面剧情实际请求', () => {
         preset.document.generation.maxTokens = 250_000;
         const charId = storyTheaterThreadId(entry.id);
         const vectorText = '关系变化：林星答应把侧门钥匙交给小雨。';
-        if (mode !== '事件盒' && mode !== '增量事实') {
+        const textFallback = mode === '向量节点缺失' || mode === '向量读取失败';
+        if (mode !== '事件盒' && mode !== '增量事实' && !textFallback) {
             await MemoryNodeDB.save({
                 id: 'active-'+mode, charId, room: 'living_room', content: mode === '向量超预算' ? vectorText.repeat(400) : vectorText, tags: [], mood: 'neutral',
                 embedded: true, createdAt: 1, lastAccessedAt: 1, accessCount: 0, importance: 6,
@@ -66,20 +67,28 @@ describe('见面剧情实际请求', () => {
                     : '旧事件盒普通剧情记录 ' + i,
             })));
         }
-        if (mode !== '事件盒' && mode !== '增量事实') {
+        if (mode !== '事件盒' && mode !== '增量事实' && !textFallback) {
             entry.archives = mode !== '已撤销向量'
                 ? [{ ...entry.archives[0], summary: undefined, strategy: 'vector', vectorMemoryIds: ['active-'+mode] }]
                 : [];
         }
-        if (mode === '增量事实') {
+        if (mode === '增量事实' || textFallback) {
             const key = '侧门钥匙/持有人';
             const fact = { key, kind: 'fact' as const, terms: ['侧门', '钥匙'] };
+            const id = 'fallback-' + entry.id;
+            const storage = textFallback ? { strategy: 'vector' as const, vectorMemoryIds: [id] } : { strategy: 'summary' as const };
+            const binding = textFallback ? { vectorNodeId: id, vectorTextState: 'synced' as const } : {};
             entry.archives = [
                 { ...entry.archives[0], facts: [{ ...fact, text: '林星保管钥匙。', sourceMessageId: rows[0].id }] },
-                { id: 'latest', strategy: 'summary', fromMessageId: rows[10].id, toMessageId: rows[10].id, messageCount: 1, createdAt: 2,
-                    facts: [{ ...fact, text: '钥匙现在由小雨保管。', sourceMessageId: rows[10].id }] },
+                { id: 'latest', ...storage, fromMessageId: rows[10].id, toMessageId: rows[10].id, messageCount: 1, createdAt: 2,
+                    facts: [{ ...fact, ...binding, text: '钥匙现在由小雨保管。', sourceMessageId: rows[10].id }] },
                 entry.archives[1],
             ];
+        }
+        if (textFallback) await DB.saveStoryTheater(entry);
+        if (mode === '向量读取失败') {
+            vi.spyOn(MemoryNodeDB, 'getByCharId').mockRejectedValueOnce(new Error('索引暂时不可用'));
+            vi.spyOn(MemoryNodeDB, 'getById').mockRejectedValueOnce(new Error('节点暂时不可用'));
         }
         vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async () => ({ messages: [...rows], totalCount: rows.length }));
         vi.spyOn(DB, 'getMessagesByCharId').mockImplementation(async () => [...rows].reverse());
@@ -104,7 +113,7 @@ describe('见面剧情实际请求', () => {
             const retry = container.querySelector<HTMLButtonElement>('button[title="继续上次中断"]');
             expect(retry).toBeTruthy();
             await act(async () => { retry!.click(); });
-            expect(completion).toHaveBeenCalledOnce();
+            await vi.waitFor(() => expect(completion).toHaveBeenCalledOnce());
             const requestBody = JSON.parse(String(completion.mock.calls[0][1]?.body));
             expect(requestBody.max_tokens).toBe(250_000);
             const payload = requestBody.messages as StoryApiMessage[];
@@ -123,13 +132,13 @@ describe('见面剧情实际请求', () => {
             }
             expect(payload.filter(message => message.content.includes(vectorText))).toHaveLength((mode === '独立向量' || mode === '向量超预算') ? 1 : 0);
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
-            if (mode === '增量事实') {
+            if (mode === '增量事实' || textFallback) {
                 expect(payload.at(-3)).toMatchObject({ role: 'system', content: expect.stringContaining('[第 11 楼] 钥匙现在由小雨保管。') });
                 expect(payload.some(message => message.content.includes('林星保管钥匙。'))).toBe(false);
             }
             expect(payload.at(-2)?.content).toBe('侧门通向庭院。');
             expect(payload.at(-1)).toEqual({ role: 'user', content: '[第 13 楼 · 本轮用户推进]\n我要打开侧门。' });
-            expect(save).toHaveBeenCalledOnce();
+            await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
             expect(save.mock.calls[0][0]).toMatchObject({ role: 'assistant', metadata: { theaterReplyToUserId: 136 } });
         } finally {
             await act(async () => root.unmount());

@@ -2206,6 +2206,8 @@ export interface StoryArchiveFact {
     terms: string[];
     sourceMessageId: number;
     vectorNodeId?: string;
+    /** Distinguishes a current archive copy from an explicitly deleted vector fact. */
+    vectorTextState?: 'synced' | 'deleted';
 }
 
 export interface StoryTheaterArchive {

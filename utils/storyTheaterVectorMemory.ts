@@ -1,6 +1,6 @@
-import type { StoryTheaterEntry } from '../types';
+import type { StoryArchiveFact, StoryTheaterEntry } from '../types';
 import type { EmbeddingConfig, MemoryNode, RemoteVectorConfig } from './memoryPalace/types';
-import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
+import { ensureFloat32, MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { openDB } from './db';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { updateStoredMemoryNode } from './memoryPalace/vectorStore';
@@ -27,7 +27,30 @@ export async function listStoryVectorMemories(entryId: string): Promise<MemoryNo
         .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-/** Only local nodes still owned by a visible range can participate in this turn. */
+async function readStoryVectorArchive(entryId: string): Promise<StoryTheaterEntry | undefined> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const request = db.transaction('story_theaters', 'readonly').objectStore('story_theaters').get(entryId);
+        request.onsuccess = () => resolve(request.result as StoryTheaterEntry | undefined);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function changeOwnedStoryFact(
+    store: IDBObjectStore, entry: StoryTheaterEntry | undefined, nodeId: string,
+    change: (fact: StoryArchiveFact) => StoryArchiveFact,
+) {
+    if (!entry) return;
+    let changed = false;
+    const archives = entry.archives.map(box => {
+        if (box.strategy !== 'vector' || !box.vectorMemoryIds?.includes(nodeId) || !box.facts?.some(fact => fact.vectorNodeId === nodeId)) return box;
+        changed = true;
+        return { ...box, facts: box.facts.map(fact => fact.vectorNodeId === nodeId ? change(fact) : fact) };
+    });
+    if (changed) store.put({ ...entry, archives, updatedAt: Date.now() });
+}
+
+/** Read visible nodes and use the synced archive text if its node is unavailable. */
 export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: number) {
     const archives = entry.archives.filter(box => box.strategy === 'vector');
     const groups: { archiveIds: string[]; nodes: MemoryNode[] }[] = [];
@@ -35,18 +58,45 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     if (!archives.length) return { nodes: [], groups, factTextById, factNodes: [] };
     const owned = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
     const legacy = archives.filter(box => !box.vectorMemoryIds);
-    const all = (await listStoryVectorMemories(entry.id)).filter(node => !node.archived && node.content.trim());
-    const byId = new Map(all.map(node => [node.id, node]));
-    for (const box of archives) {
-        if (box.toMessageId >= beforeId) continue;
-        for (const fact of box.facts ?? []) {
-            if (!fact.vectorNodeId || !box.vectorMemoryIds?.includes(fact.vectorNodeId)) continue;
-            const node = byId.get(fact.vectorNodeId);
-            if (node) factTextById.set(node.id, node.content);
+    const visibleFacts = archives
+        .filter(box => box.toMessageId < beforeId)
+        .flatMap(box => (box.facts ?? []).filter(fact => fact.vectorNodeId && box.vectorMemoryIds?.includes(fact.vectorNodeId)));
+    const visibleNodeIds = [...new Set(visibleFacts.map(fact => fact.vectorNodeId!))];
+    const all = await listStoryVectorMemories(entry.id).catch(async error => {
+        console.warn('[StoryTheater] vector partition read failed; recovering by node ID', error);
+        const ids = [...new Set([...visibleNodeIds, ...archives.filter(box => box.toMessageId < beforeId)
+            .flatMap(box => box.vectorMemoryIds ?? [])])];
+        const reads = await Promise.allSettled(ids.map(id => MemoryNodeDB.getById(id)));
+        return reads.flatMap(result => result.status === 'fulfilled' && result.value?.charId === storyTheaterThreadId(entry.id)
+            ? [result.value] : []);
+    });
+    const liveNodes = all.filter(node => !node.archived && node.content.trim());
+    const byId = new Map(liveNodes.map(node => [node.id, node]));
+    for (const id of visibleNodeIds) {
+        const node = byId.get(id);
+        if (node) factTextById.set(id, node.content);
+    }
+
+    const present = new Set(all.map(node => node.id));
+    const missingIds = new Set(visibleNodeIds.filter(id => !present.has(id)));
+    if (missingIds.size) {
+        try {
+            // Use the current saved archive so an older open tab cannot revive a deleted or edited fact.
+            const saved = await readStoryVectorArchive(entry.id);
+            for (const box of saved?.archives ?? []) {
+                if (box.strategy !== 'vector' || box.toMessageId >= beforeId) continue;
+                for (const fact of box.facts ?? []) {
+                    const id = fact.vectorNodeId;
+                    if (id && missingIds.has(id) && box.vectorMemoryIds?.includes(id)
+                        && fact.vectorTextState === 'synced' && fact.text.trim()) factTextById.set(id, fact.text);
+                }
+            }
+        } catch (error) {
+            console.warn('[StoryTheater] could not verify archived vector text', error);
         }
     }
     const legacyNodes = legacy.length && legacy.every(box => box.toMessageId < beforeId)
-        ? all.filter(node => !owned.has(node.id)) : [];
+        ? liveNodes.filter(node => !owned.has(node.id)) : [];
     if (legacyNodes.length) {
         const ids = legacy.map(box => box.id);
         groups.push({ archiveIds: ids, nodes: legacyNodes });
@@ -61,7 +111,7 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         groups.push({ archiveIds: [box.id], nodes });
     }
     const eligibleIds = new Set(groups.flatMap(group => group.nodes.map(node => node.id)));
-    return { nodes: all.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes: all.filter(node => factTextById.has(node.id)) };
+    return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes: liveNodes.filter(node => factTextById.has(node.id)) };
 }
 
 export async function selectStoryVectorRecall(
@@ -139,11 +189,42 @@ export async function updateStoryVectorMemory(
     remoteVectorConfig?: RemoteVectorConfig,
 ): Promise<MemoryNode> {
     return runStoryArchiveOperation(entryId, async () => {
-        assertStoryPartition(entryId, await MemoryNodeDB.getById(nodeId));
+        const previous = assertStoryPartition(entryId, await MemoryNodeDB.getById(nodeId));
         const text = content.trim();
         if (text.length > EMBEDDING_MAX_INPUT_CHARS) throw new Error('记忆正文超过单条向量容量，旧内容已保留');
         const config = embeddingConfig && { ...embeddingConfig, requestPurpose: '剧情独立向量 · 编辑后建索引' };
-        const result = await updateStoredMemoryNode(nodeId, { content: text }, config, remoteVectorConfig);
+        const result = await updateStoredMemoryNode(nodeId, { content: text }, config, remoteVectorConfig, async entries => {
+            const db = await openDB();
+            await new Promise<void>((resolve, reject) => {
+                const tx = db.transaction(['story_theaters', 'memory_nodes', 'memory_vectors'], 'readwrite');
+                const stories = tx.objectStore('story_theaters');
+                const nodes = tx.objectStore('memory_nodes');
+                const vectors = tx.objectStore('memory_vectors');
+                const story = stories.get(entryId);
+                const node = nodes.get(nodeId);
+                let pending = 2;
+                let failure: unknown;
+                tx.oncomplete = () => resolve();
+                tx.onabort = () => reject(failure ?? tx.error ?? new Error('剧情记忆编辑已回滚'));
+                const finish = () => {
+                    if (--pending) return;
+                    try {
+                        const current = assertStoryPartition(entryId, node.result as MemoryNode | undefined);
+                        if (current.content !== previous.content) throw new Error('剧情记忆已变更，请重新打开后编辑');
+                        changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text, vectorTextState: 'synced' }));
+                        for (const { node: next, vector } of entries) {
+                            const floats = ensureFloat32(vector.vector);
+                            nodes.put(next);
+                            vectors.put({ ...vector, vector: new Uint8Array(floats.buffer.slice(floats.byteOffset, floats.byteOffset + floats.byteLength)) });
+                        }
+                    } catch (error) { failure = error; tx.abort(); }
+                };
+                story.onsuccess = finish;
+                node.onsuccess = finish;
+            });
+            bm25Index.onNodesSaved(entries.map(entry => entry.node));
+            notifyMemoryNodesChanged(storyTheaterThreadId(entryId));
+        });
         return assertStoryPartition(entryId, result.node);
     });
 }
@@ -157,18 +238,23 @@ export async function deleteStoryVectorMemory(
     // half-deleted memory when the browser quota or a tab fails mid-operation.
     const db = await openDB();
     await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(['memory_nodes', 'memory_vectors', 'memory_links'], 'readwrite');
+        const tx = db.transaction(['story_theaters', 'memory_nodes', 'memory_vectors', 'memory_links'], 'readwrite');
         const nodes = tx.objectStore('memory_nodes');
         const vectors = tx.objectStore('memory_vectors');
         const links = tx.objectStore('memory_links');
+        const stories = tx.objectStore('story_theaters');
+        const story = stories.get(entryId);
         const read = nodes.get(nodeId);
+        let pending = 2;
         let failure: unknown;
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(failure ?? tx.error ?? new Error('删除剧情记忆失败'));
         tx.onabort = () => reject(failure ?? tx.error ?? new Error('删除剧情记忆已回滚'));
-        read.onsuccess = () => {
+        const finish = () => {
+            if (--pending) return;
             try {
                 assertStoryPartition(entryId, read.result as MemoryNode | undefined);
+                changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text: '', vectorTextState: 'deleted' }));
                 vectors.delete(nodeId);
                 nodes.delete(nodeId);
                 for (const indexName of ['sourceId', 'targetId']) {
@@ -186,6 +272,8 @@ export async function deleteStoryVectorMemory(
                 tx.abort();
             }
         };
+        read.onsuccess = finish;
+        story.onsuccess = finish;
     });
     bm25Index.onNodeDeleted(nodeId);
     notifyMemoryNodesChanged(storyTheaterThreadId(entryId));

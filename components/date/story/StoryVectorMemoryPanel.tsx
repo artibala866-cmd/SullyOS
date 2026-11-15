@@ -6,6 +6,7 @@ import { useOS } from '../../../context/OSContext';
 import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
+import { DB } from '../../../utils/db';
 
 interface Props {
     entry: StoryTheaterEntry;
@@ -72,6 +73,15 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
         setDraft(node.content);
     };
 
+    const refreshArchive = async () => {
+        try {
+            const saved = (await DB.getStoryTheaters()).find(story => story.id === entry.id);
+            if (saved) onUpdated(saved);
+        } catch (error) {
+            console.warn('[StoryTheater] could not refresh edited archive', error);
+        }
+    };
+
     const saveEdit = async () => {
         if (!editing || !draft.trim() || saving) return;
         setSaving(true);
@@ -79,6 +89,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
             const updated = await updateStoryVectorMemory(entry.id, editing.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig);
             setNodes(current => current.map(node => node.id === updated.id ? updated : node));
             setEditing(null);
+            await refreshArchive();
             addToast('剧情记忆与向量已同步更新', 'success');
         } catch (error: any) {
             addToast(error?.message || '剧情记忆修改失败', 'error');
@@ -94,6 +105,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack, onUpdated }) =
             const result = await runStoryArchiveOperation(entry.id, () => deleteStoryVectorMemory(entry.id, deleting.id, remoteVectorConfig));
             setNodes(current => current.filter(node => node.id !== deleting.id));
             setDeleting(null);
+            await refreshArchive();
             addToast(result.remoteDeleted === false ? '本地已删除；远端暂未同步，请检查网络' : '已从本剧情向量分区删除', result.remoteDeleted === false ? 'info' : 'success');
         } catch (error: any) {
             addToast(error?.message || '剧情记忆删除失败', 'error');

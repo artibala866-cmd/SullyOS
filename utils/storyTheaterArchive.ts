@@ -501,7 +501,9 @@ async function writeStoryArchiveRange(
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
     const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
-    const factNodes = embedding ? delta.facts.map(fact => ({ ...fact, vectorNodeId: makeStoryTheaterId() })) : undefined;
+    const factNodes = embedding ? delta.facts.map(fact => ({
+        ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,
+    })) : undefined;
     const revisionKey = (snapshot: StoryTheaterEntry, boxes: StoryTheaterArchive[]) =>
         JSON.stringify(boxes.map(box => sourceKey(snapshot, box)));
     const commit = (vectors?: VectorEntry[]) => archiveEdit(entryId, strategy, (fresh, currentFloors) => {

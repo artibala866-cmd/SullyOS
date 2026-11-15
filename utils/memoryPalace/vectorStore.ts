@@ -118,6 +118,7 @@ export async function updateStoredMemoryNode(
     updates: Partial<MemoryNode>,
     embeddingConfig?: EmbeddingConfig,
     remoteVectorConfig?: RemoteVectorConfig,
+    commit?: NonNullable<Parameters<typeof vectorizeAndStore>[3]>['commit'],
 ): Promise<UpdateStoredMemoryNodeResult> {
     const existing = await MemoryNodeDB.getById(nodeId);
     if (!existing) throw new Error('这条记忆已经不存在了');
@@ -140,7 +141,7 @@ export async function updateStoredMemoryNode(
         [updated],
         embeddingConfig,
         remoteVectorConfig,
-        { skipDedup: true },
+        { skipDedup: true, commit },
     );
     return { node: { ...updated, embedded: true }, reembedded: true };
 }
