@@ -90,6 +90,28 @@ function decodeArchiveChanges(raw: string): unknown {
     }
 }
 
+/** Conservative, source-preserving static-reference overlap test. A role profile
+ * only wins for truly static descriptions; story discoveries and changed
+ * relationships remain eligible for archiving and recall.
+ */
+export function storyArchiveRepeatsPreset(text: string, key: string, baseline: string, source = ''): boolean {
+    const fact = comparable(text);
+    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line)).filter(line => line.length >= 5);
+    if (fact.length >= 5 && staticSentences.some(line => line === fact || line.endsWith(fact))) return true;
+    if (!/(?:姓名|年龄|身份|背景|学历|家庭|亲属|关系|基本信息|人设)/u.test(key)
+        && !/(?:\{\{user\}\}|(?:全名|现年|年龄|大学毕业|亲妹妹|亲哥哥|亲姐姐|亲弟弟))/iu.test(text)) return false;
+    if (!/(?:全名|现年|年龄|大学毕业|亲妹妹|亲哥哥|亲姐姐|亲弟弟|职业是)/u.test(text)
+        || /(?:得知|发现|揭露|确认|改名|成为|变成|身份暴露|认出)/u.test(source + text)) return false;
+    const values = [
+        text.match(/(?:全名(?:为|是)|名字叫|名叫)\s*([\p{L}]{2,8})/u)?.[1],
+        text.match(/\d{1,3}\s*岁/u)?.[0],
+        ...[...text.matchAll(/([\p{L}]{2,8})(?:的亲|的)?(?:妹妹|哥哥|姐姐|弟弟|父亲|母亲)/gu)]
+            .map(match => match[1]),
+    ].filter((value): value is string => Boolean(value));
+    const body = comparable(baseline);
+    return [...new Set(values.map(value => comparable(value)))].filter(value => value && body.includes(value)).length >= 2;
+}
+
 /** Read-time suppression for older archives: never delete saved data, only avoid
  * repeating static role/worldbook sentences already injected by the preset.
  * A key whose story state changed remains visible even if it later reverted.
@@ -98,8 +120,6 @@ export function filterStoryArchiveBaselineRepeats(
     facts: StoryArchiveFact[], archives: StoryTheaterArchive[], baseline: string,
 ): StoryArchiveFact[] {
     if (!baseline.trim()) return facts;
-    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line))
-        .filter(line => line.length >= 5);
     const variants = new Map<string, Set<string>>();
     for (const box of archives) for (const fact of box.facts ?? []) {
         const values = variants.get(fact.key) ?? new Set<string>();
@@ -108,8 +128,7 @@ export function filterStoryArchiveBaselineRepeats(
     }
     return facts.filter(fact => {
         if (fact.kind === 'author' || (variants.get(fact.key)?.size ?? 0) > 1) return true;
-        const text = comparable(fact.text);
-        return !(text.length >= 5 && staticSentences.some(line => line === text || line.endsWith(text)));
+        return !storyArchiveRepeatsPreset(fact.text, fact.key, baseline);
     });
 }
 
@@ -131,25 +150,6 @@ export function parseStoryArchiveChanges(
     const duplicateText = new Set(known.map(fact => fact.kind + ':' + comparable(fact.text)));
     // Only skip a new fact that repeats a whole existing role/worldbook
     // sentence. Do NOT reject changed states on semantic similarity.
-    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line)).filter(line => line.length >= 5);
-    const isStaticRepeat = (text: string, key: string, source: string) => {
-        const fact = comparable(text);
-        if (fact.length >= 5 && staticSentences.some(line => line === fact || line.endsWith(fact))) return true;
-        // Role-card paraphrases need not be character-for-character identical.
-        // For personal biographies only, require multiple distinctive values
-        // already in the baseline; never suppress a new discovery or change.
-        if (!/(?:姓名|年龄|身份|背景|学历|家庭|亲属|关系|基本信息|人设)/u.test(key)
-            || !/(?:全名|现年|年龄|大学毕业|亲妹妹|亲哥哥|亲姐姐|亲弟弟|职业是)/u.test(text)
-            || /(?:得知|发现|揭露|确认|改名|成为|变成|身份暴露|认出)/u.test(source)) return false;
-        const values = [
-            text.match(/(?:全名(?:为|是)|名字叫|名叫)\s*([\p{L}]{2,8})/u)?.[1],
-            text.match(/\d{1,3}\s*岁/u)?.[0],
-            ...[...text.matchAll(/([\p{L}]{2,8})(?:的亲|的)?(?:妹妹|哥哥|姐姐|弟弟|父亲|母亲)/gu)]
-                .map(match => match[1]),
-        ].filter((value): value is string => Boolean(value));
-        const body = comparable(baseline);
-        return [...new Set(values.map(value => comparable(value)))].filter(value => value && body.includes(value)).length >= 2;
-    };
     const facts = new Map<string, StoryArchiveFact>();
     for (const [index, change] of value.changes.entries()) {
         if (!change || typeof change.key !== 'string' || typeof change.text !== 'string'
@@ -206,7 +206,7 @@ export function parseStoryArchiveChanges(
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         if (oldInBatch && comparable(oldInBatch.text) === comparable(text)) continue;
         if (duplicateText.has(comparableText) && !oldInBatch) continue;
-        if (!previous && kind === 'fact' && isStaticRepeat(text, key, source.text)) continue;
+        if (!previous && kind === 'fact' && storyArchiveRepeatsPreset(text, key, baseline, source.text)) continue;
         const termCandidates: string[] = change.terms ?? key.split(/[\\/：:·-]+/u);
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         const claimedTime = typeof change.storyTime === 'string' ? change.storyTime.trim() : '';
