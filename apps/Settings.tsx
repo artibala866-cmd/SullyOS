@@ -12,7 +12,8 @@ import { useFirstUseGuideStep } from '../utils/firstUseGuide';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
-import { extractContent, safeResponseJson } from '../utils/safeApi';
+import { safeResponseJson } from '../utils/safeApi';
+import { testDialogueApiConnection } from '../utils/dialogueApiConnectionTest';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
@@ -2418,28 +2419,12 @@ const Settings: React.FC = () => {
                         setTestingApi(true);
                         setTestApiResult(null);
                         try {
-                            const res = await fetch(`${normalizeApiBaseUrl(localUrl)}/chat/completions`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${normalizeApiCredential(localKey)}` },
-                                body: JSON.stringify({
-                                    model: normalizeApiModel(localModel),
-                                    messages: [{ role: 'user', content: 'Hi' }],
-                                    max_tokens: 5,
-                                    stream: localStream,
-                                }),
+                            const result = await testDialogueApiConnection({
+                                baseUrl: localUrl, apiKey: localKey, model: localModel, stream: localStream,
                             });
-                            if (res.ok) {
-                                const data = await safeResponseJson(res);
-                                const reply = extractContent(data, false);
-                                setTestApiResult(reply
-                                    ? `✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`
-                                    : '❌ 模型没有返回有效回复');
-                            } else {
-                                const text = await res.text().catch(() => '');
-                                setTestApiResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
-                            }
+                            setTestApiResult(result);
                         } catch (err: any) {
-                            setTestApiResult(`❌ 连接失败: ${err.message}`);
+                            setTestApiResult(`❌ 测试请求失败: ${err?.message || '未知错误'}`);
                         } finally {
                             testingApiRef.current = false;
                             setTestingApi(false);
