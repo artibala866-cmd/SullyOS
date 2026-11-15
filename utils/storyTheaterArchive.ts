@@ -211,7 +211,8 @@ export async function generateStoryArchiveDelta(
         ].join('\n\n');
         try {
             const raw = await requestArchiveCompletion(api, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION, input, !!entry.memorySummaryApi, strategy);
-            for (const fact of parseStoryArchiveChanges(raw, sources, current, reference)) {
+            for (const fact of parseStoryArchiveChanges(raw, sources, current, reference,
+                earlier => historyFacts.push(earlier))) {
                 const earlier = changed.get(fact.key);
                 // When 91 floors become eight LLM batches, successive changes
                 // to the same state must not erase the path from A to B to C.
@@ -228,6 +229,7 @@ export async function generateStoryArchiveDelta(
             throw new Error(`第 ${index + 1}/${segments.length} 批总结失败：${detail}；本次原文和旧归档已保留`);
         }
     }
+    historyFacts.sort((a, b) => a.sourceMessageId - b.sourceMessageId);
     const facts = [...changed.values()].sort((a, b) => a.sourceMessageId - b.sourceMessageId);
     const summary = [
         ...(historyFacts.length ? ['【本段历史变化（非当前状态）】\n'
