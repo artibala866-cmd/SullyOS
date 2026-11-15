@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, rankStoryArchiveFacts } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, formatStoryArchiveTransitions, rankStoryArchiveFacts, storyTimeFromSource } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1262,9 +1262,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             );
             const vectorRecall = vectorSource.text;
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
+            const sourceTimes = new Map(current.flatMap(message => {
+                const time = storyTimeFromSource(message.content);
+                return time ? [[message.id, time] as const] : [];
+            }));
             const currentFactText = formatStoryArchiveFacts(
-                rankStoryArchiveFacts(facts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000,
+                rankStoryArchiveFacts(facts, recallQuery, vectorSource.semanticFactRank), floorNumbers, 6000, true, sourceTimes,
             );
+            const earlierStates = formatStoryArchiveTransitions(promptEntry.archives, turnBoundary, floorNumbers, sourceTimes);
             const recentAffinityLog = promptEntry.archives.filter(box => box.toMessageId < turnBoundary && box.affinityLog?.length)
                 .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
                 .map(box => box.affinityLog!.join('\n')).join('\n\n');
@@ -1351,8 +1356,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                     { role: 'system' as const, content: identityGuard },
                     { role: 'system' as const, content: continuity },
                     ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
+                    ...(earlierStates ? [{ role: 'system' as const,
+                        content: '### 剧情经过（按楼层先后；以下为已被更新的旧状态）\n这些是事情发展时曾经成立的事实，不代表当前仍然成立。较新的状态、正文和用户修正优先。\n' + earlierStates,
+                    }] : []),
                     ...(currentFactText ? [{ role: 'system' as const,
-                        content: '### 本剧情已确认的记忆\n按本轮相关内容承接。以下是截至标注楼层的事实；若后续原文或用户明确纠正更新了事实，以较新证据为准，并保留各角色的知情边界。\n' + currentFactText,
+                        content: '### 本剧情目前已确认的状态（按楼层先后排列）\n先后顺序由剧情楼号决定，剧情时间仅来自原文明确表述；没有明确时间不能推算真实日期。较新状态覆盖旧状态，人物的计划不是已经完成的行动，并保留各角色知情边界。\n' + currentFactText,
                     }] : []),
                 ];
                     // appendStoryUserTurn 保留预填充/兼容规则，再替换本轮消息为公共管线认识的引用。
