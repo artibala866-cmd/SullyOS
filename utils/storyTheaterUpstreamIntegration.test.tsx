@@ -404,6 +404,8 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     const nodeIds: string[] = [];
     const oldProfile = '{{user}}全名为幸福，现年23岁，大学毕业，是幸芳白的亲妹妹。';
     const longText = '他们在旧城调查了关于铜钥匙的线索。'.repeat(15);
+    const oldPlan = '幸福决定忙完水果店事务后前往老房子寻找线索。';
+    const oldRumor = '据说老房子还有秘密通道，尚未证实。';
     for (let i = 0; i < 19; i++) {
         const sourceMessageId = await DB.saveMessage({
             charId: thread, role: 'assistant', type: 'text',
@@ -415,7 +417,7 @@ it('video playback regression: 19 real vector cards label story time, hide long 
         nodeIds.push(nodeId);
         await MemoryNodeDB.save({
             id: nodeId, charId: thread, room: 'living_room', mood: 'neutral',
-            content: i === 0 ? oldProfile : i === 1 ? longText : '第' + (i+1) + '楼的事件已发生。',
+            content: i === 0 ? oldProfile : i === 1 ? longText : i === 2 ? oldPlan : i === 3 ? oldRumor : '第' + (i+1) + '楼的事件已发生。',
             tags: ['剧情'], importance: 6, embedded: true,
             createdAt: 1730000000000+i, lastAccessedAt: 1730000000000+i, accessCount: 0,
         });
@@ -427,7 +429,7 @@ it('video playback regression: 19 real vector cards label story time, hide long 
         facts: nodeIds.map((nodeId,i)=>({
             key: i === 0 ? '幸福/基本信息' : '线索/事件'+i,
             kind: 'fact' as const,
-            text: i === 0 ? oldProfile : i === 1 ? longText : '第'+(i+1)+'楼的事件已发生。',
+            text: i === 0 ? oldProfile : i === 1 ? longText : i === 2 ? oldPlan : i === 3 ? oldRumor : '第'+(i+1)+'楼的事件已发生。',
             sourceMessageId: floorIds[i], vectorNodeId: nodeId, vectorTextState: 'synced' as const,
             terms: ['剧情'], ...(i === 1 ? { storyTime: '第二天早晨' } : {}),
         })),
@@ -446,6 +448,8 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     await vi.waitFor(() => expect(host!.textContent).toContain('剧情第 1 楼 · 剧情时间：原文未明确'));
     expect(host!.textContent).toContain('剧情第 2 楼 · 剧情时间：第二天早晨');
     expect(host!.textContent).toContain('已有人设（续写不重复输入）');
+    expect(host!.textContent).toContain('仅是计划');
+    expect(host!.textContent).toContain('尚未证实');
     expect(host!.textContent).toContain('归档时间：');
     expect(host!.textContent).toContain('查看完整记忆');
     expect([...host!.querySelectorAll('article')].map(card=>card.textContent).join('\n')).not.toContain(longText);
