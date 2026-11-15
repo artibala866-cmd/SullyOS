@@ -751,6 +751,7 @@ const Settings: React.FC = () => {
 
   const [statusMsg, setStatusMsg] = useState('');
   const [testingApi, setTestingApi] = useState(false);
+  const testingApiRef = useRef(false);
   const [testApiResult, setTestApiResult] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const avatarModelBackupInputRef = useRef<HTMLInputElement>(null);
@@ -2412,7 +2413,8 @@ const Settings: React.FC = () => {
 
                 <button
                     onClick={async () => {
-                        if (!localUrl.trim() || !localKey.trim() || !localModel.trim()) return;
+                        if (testingApiRef.current || !localUrl.trim() || !localKey.trim() || !localModel.trim()) return;
+                        testingApiRef.current = true;
                         setTestingApi(true);
                         setTestApiResult(null);
                         try {
@@ -2429,7 +2431,9 @@ const Settings: React.FC = () => {
                             if (res.ok) {
                                 const data = await safeResponseJson(res);
                                 const reply = extractContent(data);
-                                setTestApiResult(`✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`);
+                                setTestApiResult(reply
+                                    ? `✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`
+                                    : '❌ 模型没有返回有效回复');
                             } else {
                                 const text = await res.text().catch(() => '');
                                 setTestApiResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
@@ -2437,6 +2441,7 @@ const Settings: React.FC = () => {
                         } catch (err: any) {
                             setTestApiResult(`❌ 连接失败: ${err.message}`);
                         } finally {
+                            testingApiRef.current = false;
                             setTestingApi(false);
                         }
                     }}
