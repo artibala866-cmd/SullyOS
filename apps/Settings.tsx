@@ -2430,7 +2430,7 @@ const Settings: React.FC = () => {
                             });
                             if (res.ok) {
                                 const data = await safeResponseJson(res);
-                                const reply = extractContent(data);
+                                const reply = extractContent(data, false);
                                 setTestApiResult(reply
                                     ? `✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`
                                     : '❌ 模型没有返回有效回复');
