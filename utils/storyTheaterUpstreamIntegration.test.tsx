@@ -373,7 +373,7 @@ it('真实归档页面把同一次分段里变更过的旧状态显示成历史�
         </StoryTheaterThemeProvider></OSPreviewProvider>,
     ));
     await vi.waitFor(() => {
-        expect(host!.textContent).toContain('【本段历史变化（非当前状态）】');
+        expect(host!.textContent).toContain('按剧情楼层排列');
         expect(host!.textContent).toContain('第 1 楼 · 剧情时间：第一天傍晚');
         expect(host!.textContent).toContain('第 2 楼 · 剧情时间：第二天清晨');
         expect(host!.textContent).toContain('第 3 楼 · 剧情时间：第三天深夜');
@@ -388,8 +388,8 @@ it('真实归档页面把同一次分段里变更过的旧状态显示成历史�
             <StoryArchivePanel strategy='vector' entry={vectorEntry} masks={[]} onBack={() => {}} onUpdated={() => {}} />
         </StoryTheaterThemeProvider></OSPreviewProvider>,
     ));
-    expect(host!.textContent).toContain('本段记忆与历史变化');
-    expect(host!.textContent).toContain('【本段历史变化（非当前状态）】');
+    expect(host!.textContent).toContain('剧情时间线 · 3 条（点开查看）');
+    expect(host!.textContent).toContain('按剧情楼层排列');
 });
 
 it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {
