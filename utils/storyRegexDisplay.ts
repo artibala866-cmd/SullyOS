@@ -95,3 +95,19 @@ export function parseStoryRegexDisplay(result: StoryRegexResult, fromTavern: boo
         ];
     });
 }
+
+/**
+ * Count the visible main prose of a saved story reply, not model reasoning,
+ * scene/status panels, mini theaters or other appendix blocks.
+ * Reuse the exact same display parser as the reader; no model/API call.
+ */
+export function countStoryProseCharacters(result: StoryRegexResult, fromTavern = false): number {
+    const blocks = parseStoryRegexDisplay(result, fromTavern);
+    const prose = blocks.filter(block => block.kind === 'story');
+    // Some imported stories contain only a rich HTML body. The reader already
+    // treats this as the main content when there are no normal prose blocks.
+    const body = prose.length > 0 ? prose
+        : blocks.filter(block => block.kind === 'html'
+            && (block.regexTemplate || !block.title?.includes('剧场')));
+    return Array.from(body.map(block => block.text).join('').replace(/\s/gu, '')).length;
+}
