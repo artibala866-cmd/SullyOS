@@ -134,7 +134,11 @@ describe('见面剧情实际请求', () => {
             expect(payload.some(message => message.content.includes('这一段还未发生'))).toBe(false);
             if (mode === '增量事实' || textFallback) {
                 expect(payload.at(-3)).toMatchObject({ role: 'system', content: expect.stringContaining('[第 11 楼] 钥匙现在由小雨保管。') });
-                expect(payload.some(message => message.content.includes('林星保管钥匙。'))).toBe(false);
+                expect(payload.some(message => message.content.includes('林星保管钥匙。'))).toBe(true);
+                expect(payload.some(message => message.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）')
+                    && message.content.includes('[第 1 楼] 林星保管钥匙。'))).toBe(true);
+                expect(payload.some(message => message.content.includes('### 本剧情目前已确认的状态（按楼层先后排列）')
+                    && message.content.includes('[第 11 楼] 钥匙现在由小雨保管。'))).toBe(true);
             }
             expect(payload.at(-2)?.content).toBe('侧门通向庭院。');
             expect(payload.at(-1)).toEqual({ role: 'user', content: '[第 13 楼 · 本轮用户推进]\n我要打开侧门。' });
