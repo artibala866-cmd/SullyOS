@@ -1246,10 +1246,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 buildActorContexts(modelText),
                 buildMaskMemoryContext(modelText),
             ]);
-            const recallQuery = [
-                ...requestHistory.slice(-3).map(({ message }) => message.content),
+            const recallSignals = [
+                ...requestHistory.slice(-2).map(({ message }) => message.content),
                 ...(!isContinueTurn ? [modelText] : []),
-            ].join('\n').slice(-6000) || modelText;
+            ].map(text => text.trim()).filter(Boolean);
+            const recallQuery = recallSignals.join('\n').slice(-6000) || modelText;
             const vector = await loadStoryVectorRecall(promptEntry, turnBoundary).catch(error => {
                 console.warn('[StoryTheater] vector memory unavailable', error);
                 return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>() };
@@ -1257,7 +1258,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const facts = collectStoryArchiveFacts(promptEntry.archives, turnBoundary, vector.factTextById);
             const currentNodeIds = new Set(facts.map(fact => fact.vectorNodeId));
             const vectorSource = await selectStoryVectorRecall(
-                vector, recallQuery, automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
+                vector, recallSignals.length ? recallSignals : [recallQuery],
+                automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
                 vector.factNodes.filter(node => currentNodeIds.has(node.id)),
             );
             const vectorRecall = vectorSource.text;
