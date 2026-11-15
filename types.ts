@@ -2207,6 +2207,8 @@ export interface StoryArchiveFact {
     sourceMessageId: number;
     /** Original in-story time phrase, never derived from the message's real-world timestamp. */
     storyTime?: string;
+    /** Distinguishes a planned future action or unverified report from confirmed story events. */
+    modality?: 'planned' | 'unverified';
     vectorNodeId?: string;
     /** Distinguishes a current archive copy from an explicitly deleted vector fact. */
     vectorTextState?: 'synced' | 'deleted';
