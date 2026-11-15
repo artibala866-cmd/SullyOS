@@ -15,11 +15,11 @@ describe('剧情归档建议长度全链路', () => {
     it('自动归档、手动归档、重新总结都读取本剧情设置', () => {
         const archive = read('./storyTheaterArchive.ts');
         const session = read('../components/date/story/StoryTheaterSession.tsx');
-        expect(session).toContain('guideMaxChars: archiveEntry.archiveSummaryGuideMaxChars');
-        expect(archive).toContain('guideMaxChars: entry.archiveSummaryGuideMaxChars');
+        expect(session).toMatch(/generateStoryArchiveDelta\(\s*archiveEntry,/);
+        expect(archive).toContain('generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor');
+        expect(archive).toContain('generateStoryArchiveDelta({ ...entry, archives: initial.others }');
+        expect(archive).toContain('normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars)');
         expect(archive).not.toContain('max_tokens: 4096');
-        expect(archive).not.toContain('STORY_ARCHIVE_MAX_CHARS');
-        expect(archive).toContain('saveMaxChars > 0 && savedChars > saveMaxChars');
-        expect(archive).toContain('splitStoryArchiveVectorText(summary, EMBEDDING_MAX_INPUT_CHARS)');
+        expect(archive).toContain('storyArchiveCharacterCount(summary) > saveMaxChars');
     });
 });

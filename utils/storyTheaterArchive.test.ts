@@ -6,19 +6,20 @@ import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall
 import { collectStoryArchiveFacts, formatStoryArchiveFacts, rankStoryArchiveFacts } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
-import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, generateStoryArchiveSummary, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
+import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
-const sections = ['关键事件与因果', '时间地点与场景', '人物关系与转折', '好感与心理变化', '新增设定与细节', '未解决事项与续写落点'];
-// Test completions contain enough independent story facts to meet the real 100-character saved-box minimum.
-const fixtureFacts = '；补充已确认的剧情背景：小雨与阿泽在雨夜车站一起等待雨停，双方互相认识；阿泽明确答应陪小雨走回家，但还没有确认出发时间。站台外仍有积水，二人尚未离开车站，也没有发生其他已明确完成的行动。';
-const savedSummary = (text: string) => sections.map((heading, index) =>
-    '【' + heading + '】\n' + (index === 0 ? text + fixtureFacts : '原文未交代'),
-).join('\n\n');
-const structured = (text: string, details: Record<string, string> = {}) => completion(sections.map((section, index) =>
-    '【' + section + '】\n' + (index === 0 ? (details[section] ?? text) + fixtureFacts : (details[section] ?? '原文未交代')),
-).join('\n\n'));
+const fixtureSummary = '两人在车站等雨停，一起走回家。';
+const structured = (text: string, init: RequestInit) => {
+    const input = JSON.parse(String(init.body)).messages[1].content as string;
+    const match = input.split('本批新楼层\n')[1].match(/记录ID (\d+)\]\n([^\n]+)/);
+    if (!match) throw new Error('归档测试缺少来源编号');
+    return completion(JSON.stringify({ changes: [{
+        action: 'add', key: '剧情/事件-' + match[1], kind: 'fact', text, terms: ['车站'],
+        sourceMessageId: Number(match[1]), quote: match[2],
+    }] }));
+};
 const response = (data: unknown) => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
 let entry: StoryTheaterEntry, messages: Message[], serial = 0;
 const fetchMock = vi.fn();
@@ -28,7 +29,7 @@ const regenerate = () => regenerateStoryArchiveSummary(entry.id, 'box', api);
 beforeEach(async () => {
     serial++;
     vi.stubGlobal('fetch', fetchMock);
-    fetchMock.mockReset().mockResolvedValue(response(structured('两人在车站等雨停，一起走回家。')));
+    fetchMock.mockReset().mockImplementation(async (_url, init) => response(structured(fixtureSummary, init)));
     entry = { ...createStoryTheaterDraft(), id: `archive-qa-${serial}`, title: '雨夜车站', writesToCharacterMemory: false };
     messages = [];
     for (const [role, content] of [['user', '我们先在车站等雨停。'], ['assistant', '<think>先计划情节</think>阿泽答应陪小雨走回家。']] as const) {
@@ -56,221 +57,42 @@ describe('story summary final channel', () => {
         expect(() => parseStoryArchiveSummary(completion('Paragraph 1: 31 chars\nStill too long'))).toThrow('推理过程');
         expect(parseStoryArchiveSummary(completion('他说「Let’s count together」，两人一起数星星。'))).toContain('数星星');
     });
-    it('does not send legacy Tavern title/desc header comments when summarizing an old opening', async () => {
-        const taggedOpening = {
-            ...messages[1],
-            content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
-            metadata: {
-                ...messages[1].metadata,
-                theaterOpeningGreeting: { characterId: 'actor', greetingId: 'legacy-opening' },
-            },
-        } as Message;
-        await generateStoryArchiveSummary(entry.title, [taggedOpening, messages[0]], api);
-        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[1].content).toContain('{{char}}走进车站');
-        expect(body.messages[1].content).not.toContain('<!-- title:');
-        expect(body.messages[1].content).not.toContain('<!-- desc:');
-        expect(taggedOpening.content).toContain('<!-- title:'); // source remains intact
+    it('strips legacy Tavern title comments before sending the actual opening', async () => {
+        const opening = { ...messages[0], content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
+            metadata: { ...messages[0].metadata, theaterOpeningGreeting: { characterId: 'actor', greetingId: 'opening' } } } as Message;
+        await generateStoryArchiveDelta(entry, [opening, messages[1]], api, 1, 'summary');
+        const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(payload.messages[1].content).toContain('{{char}}走进车站。');
+        expect(payload.messages[1].content).not.toContain('<!-- title:');
+        expect(payload.messages[1].content).not.toContain('先计划情节');
     });
-
-    it('saves a complete 7000-character model reply instead of rejecting or cutting it at 3000', async () => {
-        const detail = '重要剧情'.repeat(1750);
-        fetchMock.mockResolvedValueOnce(response(structured(detail)));
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 0 });
-        expect(summary).toContain(detail);
-        expect(Array.from(summary).length).toBeGreaterThan(7000);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(sent).not.toHaveProperty('max_tokens');
-        expect(sent.messages[0].content).toContain('篇幅：最终六栏归档必须控制在100～1500字');
-        expect(sent.messages[0].content).not.toContain('归档建议上限为');
-    });
-    it('keeps the 100–1500 writing instruction unchanged regardless of saved per-story limits', async () => {
-        for (const guideMaxChars of [6500, 0, 500]) {
-            fetchMock.mockResolvedValueOnce(response(structured('保留完整有效归档')));
-            await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars });
-        }
-        const prompts = fetchMock.mock.calls.map(call => JSON.parse(call[1].body).messages[0].content as string);
-        expect(prompts).toHaveLength(3);
-        expect(prompts[0]).toContain('篇幅：最终六栏归档必须控制在100～1500字');
-        expect(prompts[1]).toBe(prompts[0]);
-        expect(prompts[2]).toBe(prompts[0]);
-        expect(prompts[0]).not.toContain('归档建议上限为');
-        expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    it('accepts complete 1501–3000-character summaries without truncation or a second paid request', async () => {
-        const detailed = '长'.repeat(1700);
-        fetchMock.mockResolvedValueOnce(response(structured(detailed)));
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
-        expect(summary).toContain(detailed);
-        expect(Array.from(summary).length).toBeGreaterThan(1500);
-        expect(Array.from(summary).length).toBeLessThanOrEqual(3000);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-    it('does not silently impose an arbitrary default ceiling on paid summaries', () => {
+    it('uses the configured save ceiling without truncation or another model request', async () => {
         expect(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS).toBe(0);
         expect(normalizeStoryArchiveGuideMaxChars(undefined)).toBe(0);
-        expect(normalizeStoryArchiveGuideMaxChars(6500)).toBe(6500);
-    });
-    it('rejects an impossible custom save ceiling before charging the summary API', async () => {
-        await expect(generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 1 }))
-            .rejects.toThrow('本次未调用总结 API');
-        expect(fetchMock).not.toHaveBeenCalled();
-        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
-    });
-    it('rejects an impossible custom save ceiling caused by mandatory affinity receipts before paying', async () => {
-        const source = [{ ...messages[0], metadata: { ...messages[0].metadata,
-            theaterAffinityInputs: [{ characterName: '阿泽', delta: 3, reason: '确认'.repeat(200), awareness: 'noticed' }],
-        } }, messages[1]];
-        await expect(generateStoryArchiveSummary(entry.title, source, api, { guideMaxChars: 200 }))
-            .rejects.toThrow('本次未调用总结 API');
-        expect(fetchMock).not.toHaveBeenCalled();
-    });
-    it('enforces each story’s configured save ceiling without truncation or a second API call', async () => {
-        const detail = '长'.repeat(1700);
-        fetchMock.mockResolvedValueOnce(response(structured(detail)));
-        await expect(generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 1200 }))
-            .rejects.toThrow('超过本剧情设置的 1200 字符保存上限');
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
-        expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
-        fetchMock.mockResolvedValueOnce(response(structured(detail)));
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api, { guideMaxChars: 2200 });
-        expect(summary).toContain(detail);
-        expect(Array.from(summary).length).toBeGreaterThan(1500);
+        const longFact = '具体信息。'.repeat(1500);
+        fetchMock.mockImplementation(async (_url, init) => response(structured(longFact, init)));
+        const saved = await generateStoryArchiveDelta(entry, messages, api, 1, 'summary');
+        expect(saved.summary).toBe(longFact);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('max_tokens');
+        await expect(generateStoryArchiveDelta({ ...entry, archiveSummaryGuideMaxChars: 1200 },
+            messages, api, 1, 'summary')).rejects.toThrow('1200');
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    it('keeps a short but complete six-section box without arbitrary minimum length', async () => {
-        const short = sections.map((heading, index) => '【' + heading + '】\n' + (index === 0 ? '两人回家。' : '原文未交代')).join('\n\n');
-        fetchMock.mockResolvedValueOnce(response(completion(short)));
-        expect(await generateStoryArchiveSummary(entry.title, messages, api)).toBe(short);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+    it('checks guaranteed affinity receipts before calling and preserves them on success', async () => {
+        const row = { ...messages[0], metadata: { ...messages[0].metadata,
+            theaterAffinityInputs: [{ characterId: 'a', characterName: '阿泽', delta: 4, awareness: 'unnoticed', reason: '等我回家' }] } } as Message;
+        await expect(generateStoryArchiveDelta({ ...entry, archiveSummaryGuideMaxChars: 1 },
+            [row, messages[1]], api, 5, 'summary')).rejects.toThrow('本次未调用');
+        expect(fetchMock).not.toHaveBeenCalled();
+        const saved = await generateStoryArchiveDelta(entry, [row, messages[1]], api, 5, 'summary');
+        expect(saved.affinityLog.join('\n')).toContain('第 5 楼 · 阿泽 · 用户对角色 · +4 · 未告知角色 · 原因：等我回家');
     });
-
-    it('persists the original six headings even when a category is unknown', async () => {
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
-        expect(summary.match(/【[^】]+】/g)).toEqual(sections.map(heading => '【' + heading + '】'));
-        expect(summary).toContain('【人物关系与转折】\n原文未交代');
-        expect(summary).toContain('【未解决事项与续写落点】\n原文未交代');
-        expect(Array.from(summary).length).toBeGreaterThanOrEqual(100);
-    });
-
-    it('keeps long summaries AND original affinity receipts, even above the suggested limit', async () => {
-        const source = [{ ...messages[0], metadata: { ...messages[0].metadata,
-            theaterAffinityInputs: [{ characterName: '阿泽', delta: 3, reason: '补充'.repeat(80), awareness: 'noticed' }],
-        } }, messages[1]];
-        const detailed = '长'.repeat(2850);
-        fetchMock.mockResolvedValueOnce(response(structured(detailed)));
-        const summary = await generateStoryArchiveSummary(entry.title, source, api, { guideMaxChars: 0 });
-        expect(summary).toContain(detailed);
-        expect(summary).toContain('阿泽 · 用户对角色 · +3 · 允许察觉');
-        expect(Array.from(summary).length).toBeGreaterThan(3000);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-    it('does not block a paid archive call just because preserved affinity exceeds advisory length', async () => {
-        const input = { ...messages[0], metadata: { ...messages[0].metadata,
-            theaterAffinityInputs: Array.from({ length: 30 }, (_, i) => ({
-                characterName: '演员' + i, delta: 1, reason: '无法容纳的备注'.repeat(60), awareness: 'noticed',
-            })),
-        } };
-        const summary = await generateStoryArchiveSummary(entry.title, [input, messages[1]], api, { guideMaxChars: 0 });
-        expect(summary).toContain('演员29 · 用户对角色');
-        expect(Array.from(summary).length).toBeGreaterThan(3000);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect((await fresh()).archives[0].summary).toBe('旧摘要里只有思考过程');
-    });
-
-    it('keeps author corrections in the existing sixth section rather than inventing another section', async () => {
-        fetchMock.mockResolvedValueOnce(response(structured('小雨与阿泽仍在车站等雨停。', {
-            未解决事项与续写落点: '仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。',
-        })));
-        const text = await generateStoryArchiveSummary(entry.title, [
-            { ...messages[0], content: '（纠正：你不要擅自替小雨决定离开）' }, messages[1],
-        ], api);
-        expect(text).toContain('【未解决事项与续写落点】\n仍需确认是否离开；用户协助指令：禁止替小雨做重大选择。');
-        expect(text.match(/【[^】]+】/g)).toHaveLength(6);
-        expect(Array.from(text).length).toBeGreaterThanOrEqual(100);
-        expect(Array.from(text).length).toBeLessThanOrEqual(3000);
-        const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
-        expect(system).toContain('不得将角色台词、故事内的请求、普通剧情推进误当成用户对AI的协助指令');
-    });
-
-    it('keeps scene transitions, supporting relationships, custom settings and exact UI affinity in one request', async () => {
-        const content = '周五 21:10，车站站台：小雨、阿泽和阿祁在场。次日清晨转到旅馆。阿祁是阿泽的姐姐。小雨左眼怕强光。';
-        const source = [{ ...messages[0], content, metadata: { theaterAffinityInputs: [
-            { characterName: '阿泽', delta: 17, reason: '守住秘密', awareness: 'unnoticed' },
-            { characterName: '阿祁', delta: -3, reason: '隐瞒约定', awareness: 'noticed' },
-        ] } }, messages[1]];
-        fetchMock.mockResolvedValueOnce(response(structured('阿泽答应陪小雨回去。', {
-            时间地点与场景: '周五 21:10 车站站台 → 次日清晨旅馆。',
-            人物关系与转折: '阿祁是阿泽的姐姐。',
-            新增设定与细节: '小雨左眼怕强光。',
-        })));
-        const summary = await generateStoryArchiveSummary(entry.title, source, api, { firstFloor: 5 });
-        expect(summary).toContain('周五 21:10 车站站台 → 次日清晨旅馆');
-        expect(summary).toContain('阿祁是阿泽的姐姐');
-        expect(summary).toContain('小雨左眼怕强光');
-        expect(summary).toContain('第 5 楼 · 阿泽 · 用户对角色 · +17 · 未告知角色 · 原因：守住秘密');
-        expect(summary).toContain('第 5 楼 · 阿祁 · 用户对角色 · -3 · 允许察觉 · 原因：隐瞒约定');
-        expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content).toContain('界面好感记录：');
-        const prompt = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content as string;
-        expect(prompt).toContain('本批界面好感记录将在保存时额外占用');
-        expect(prompt).toContain('不要重复抄写好感记录');
-        expect(Array.from(summary).length).toBeLessThanOrEqual(3000);
-        expect(fetchMock).toHaveBeenCalledOnce();
-    });
-
-    it('accepts terse causal shorthand and keeps distinct knowledge without saving the last-scene snapshot', async () => {
-        fetchMock.mockResolvedValueOnce(response(structured('阿泽交备用钥匙→小雨接管店；小雨感到身旁冷气，猜测阿泽在场。', {
-            时间地点与场景: '当日正午从政务中心转至水果店。',
-            人物关系与转折: '阿泽=小雨兄长；小雨未证实鬼魂身份。',
-            好感与心理变化: '阿泽：担忧小雨受冻→主动退开。',
-            新增设定与细节: '鬼魂不能碰实物；狗能察觉鬼魂。',
-            未解决事项与续写落点: '老王发货未到；店铺进货待处理。',
-        })));
-        const summary = await generateStoryArchiveSummary(entry.title, messages, api);
-        expect(summary).toContain('阿泽交备用钥匙→小雨接管店');
-        expect(summary).toContain('小雨未证实鬼魂身份');
-        expect(summary).toContain('老王发货未到');
-        expect(summary.match(/【[^】]+】/g)).toHaveLength(6);
-    });
-
-    it('keeps ambiguous lookalike names, tentative sensing, failed actions and delivery status in the actual source prompt', async () => {
-        const ambiguous: Message[] = [
-            { ...messages[0], content: '幸芳白是已故哥哥（魂魄）；妹妹幸福哭着求哥哥带走自己，但本人仍活着。' },
-            { ...messages[1], content: '幸福凭宠物反应和冷气认定哥哥在旁，但看不到魂魄。幸芳白试图用智能音箱开暖气失败。顾北成联系老王送货，货尚未到；平措刚骑车到店门口。' },
-        ];
-        await generateStoryArchiveSummary(entry.title, ambiguous, api);
-        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        const system: string = body.messages[0].content;
-        const source: string = body.messages[1].content;
-        for (const rule of ['人物的愿望、请求、计划', '角色A知道的事≠角色B也知道', '失败的尝试不能写成成功', '不记录末尾场景、最后动作或下一幕开场位置']) {
-            expect(system).toContain(rule);
-        }
-        expect(system).not.toContain('幸芳白');
-        expect(system).not.toContain('幸福');
-        expect(source).toContain('妹妹幸福哭着求哥哥带走自己，但本人仍活着');
-        expect(source).toContain('货尚未到；平措刚骑车到店门口');
-        expect(fetchMock).toHaveBeenCalledOnce();
-    });
-
-    it('rejects a missing or empty section without changing the box or retrying', async () => {
-        fetchMock.mockResolvedValueOnce(response(completion('【关键事件与因果】\n两人一起回家。')));
-        await expect(regenerate()).rejects.toThrow('时间地点与场景');
-        fetchMock.mockResolvedValueOnce(response(structured('两人一起回家。', { 人物关系与转折: '' })));
-        await expect(regenerate()).rejects.toThrow('人物关系与转折');
-        expect((await fresh()).archives).toEqual(entry.archives);
-        expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-
-    it('uses only Content-Type for keyless story summary endpoints (no empty Bearer header)', async () => {
-        await generateStoryArchiveSummary(entry.title, messages, { ...api, apiKey: '' });
+    it('uses only Content-Type for keyless endpoints and makes no retry on error', async () => {
+        await generateStoryArchiveDelta(entry, messages, { ...api, apiKey: '' }, 1, 'summary');
         expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' });
-    });
-    it('does not retry automatically and rejects upstream errors', async () => {
-        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: '服务不可用' } }), { status: 503 }));
-        await expect(generateStoryArchiveSummary(entry.title, messages, api)).rejects.toThrow('服务不可用');
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        fetchMock.mockResolvedValueOnce(new Response('服务不可用', { status: 503 }));
+        await expect(generateStoryArchiveDelta(entry, messages, api, 1, 'summary')).rejects.toThrow('服务不可用');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -299,9 +121,9 @@ describe('story archive regeneration', () => {
     it('regenerates only the exact archived source, saves in place and preserves concurrent unrelated edits/receipts', async () => {
         const { id: _id, ...newMessage } = messages[0];
         await DB.saveMessage({ ...newMessage, content: '盒外的新剧情' });
-        fetchMock.mockImplementationOnce(async () => {
+        fetchMock.mockImplementationOnce(async (_url, init) => {
             await DB.saveStoryTheater({ ...entry, premise: '另一个窗口编辑的介绍', archives: [...entry.archives, { ...entry.archives[0], id: 'later' }] });
-            return response(structured('新摘要'));
+            return response(structured('新摘要', init));
         });
         const result = await regenerate();
         const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -312,17 +134,17 @@ describe('story archive regeneration', () => {
         expect(payload).toMatchObject({ model: 'test', stream: false });
         expect(payload).not.toHaveProperty('max_tokens');
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(result.archives[0]).toEqual({ ...entry.archives[0], summary: savedSummary('新摘要') });
+        expect(result.archives[0]).toMatchObject({ ...entry.archives[0], summary: '新摘要', facts: [expect.objectContaining({ text: '新摘要' })] });
         expect(result.archives).toHaveLength(2);
         expect(result.premise).toBe('另一个窗口编辑的介绍');
-        expect((await fresh()).archives[0].summary).toBe(savedSummary('新摘要'));
+        expect((await fresh()).archives[0].summary).toBe('新摘要');
         expect((await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).slice(0, 2)).toEqual(messages);
     });
     it('keeps the old summary on reasoning-only response and unlocks for an explicit retry', async () => {
         fetchMock.mockResolvedValueOnce(response(completion('', 'stop', '只有推理')));
         await expect(regenerate()).rejects.toThrow('思维链');
         expect((await fresh()).archives[0]).toEqual(entry.archives[0]);
-        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: savedSummary('两人在车站等雨停，一起走回家。') }] });
+        await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: fixtureSummary }] });
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     it('allows recovery of an empty summary but refuses incomplete source before making a request', async () => {
@@ -334,11 +156,11 @@ describe('story archive regeneration', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
     it.each(['summary', 'message', 'delete'] as const)('rejects stale %s while the request is running', async change => {
-        fetchMock.mockImplementationOnce(async () => {
+        fetchMock.mockImplementationOnce(async (_url, init) => {
             if (change === 'summary') await DB.saveStoryTheater({ ...entry, archives: [{ ...entry.archives[0], summary: '其他窗口的新摘要' }] });
             if (change === 'message') await DB.updateMessage(messages[1].id, '已编辑的原文');
             if (change === 'delete') await DB.deleteStoryTheater(entry.id);
-            return response(structured('本次旧请求结果'));
+            return response(structured('本次旧请求结果', init));
         });
         await expect(regenerate()).rejects.toThrow('已变更');
         if (change !== 'delete') expect((await fresh()).archives[0].summary).toBe(change === 'summary' ? '其他窗口的新摘要' : entry.archives[0].summary);
@@ -350,7 +172,7 @@ describe('story archive regeneration', () => {
         const pending = regenerate();
         await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
         await expect(regenerate()).rejects.toThrow('正在重新总结');
-        release(response(structured('新摘要')));
+        release(response(structured('新摘要', fetchMock.mock.calls[0][1])));
         await pending;
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -380,27 +202,8 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('篇幅：最终六栏归档必须控制在100～1500字');
-        expect(body.messages[0].content).not.toContain('允许超过1500字符');
-        expect(body.messages[0].content).not.toContain('归档建议上限为');
-        expect(body.messages[0].content).toContain('此要求适用于任何楼层数量');
-        expect(body.messages[0].content).toContain('不按轮数套用固定字数');
-        expect(body.messages[0].content).toContain('用户协助指令：具体要求');
-        expect(body.messages[0].content).toContain('禁止记录本批末尾场景');
-        expect(body.messages[0].content).toContain('不记录末尾场景、最后动作或下一幕开场位置');
-        expect(body.messages[0].content).not.toContain('末尾单列最后场景与正在发生的动作');
-        expect(body.messages[0].content).not.toMatch(/普通十轮|350—600|最多约 800/);
-        expect(body.messages[0].content).toContain('信息相同只记一次');
-        expect(body.messages[0].content).toContain('不能为了省字把不同人物混成');
-        expect(body.messages[0].content).toContain('已请求、已联系、正在办理≠成功完成');
-        expect(body.messages[0].content).toContain('旁白揭示／内心独白≠其他角色知情');
-        expect(body.messages[0].content).toContain('旧事件盒由续写系统另行读取');
-        expect(body.messages[0].content).toContain('不写完整叙事、对话复述、心理散文或每楼流水账');
-        expect(body.messages[0].content).toContain('怀疑、感应、猜测≠亲眼确认');
-        expect(body.messages[0].content).toContain('人物关系与转折');
-        expect(body.messages[0].content).toContain('新增设定与细节');
-        expect(body.messages[0].content).toContain('未解决事项与续写落点');
-        expect(body.messages[0].content).toContain('按固定顺序写六个标题');
+        expect(body.messages[0].content).toContain('逐楼检查');
+        expect(body.messages[0].content).toContain('只是重复提及、没有变化，直接略过');
         expect(body.messages[1].content).toContain('第 3 楼');
         expect(body.messages[1].content).toContain('备用钥匙');
         expect(body.messages[1].content).not.toContain('范围之外');
@@ -448,9 +251,9 @@ describe('manual event box floor selection', () => {
 
     it('keeps the old box and flags when source content changes during a re-selection', async () => {
         const third = await addFloor('新的剧情');
-        fetchMock.mockImplementationOnce(async () => {
+        fetchMock.mockImplementationOnce(async (_url, init) => {
             await DB.updateMessage(third.id, '在另一个窗口修改了这层');
-            return response(structured('旧请求生成的摘要'));
+            return response(structured('旧请求生成的摘要', init));
         });
         await expect(archiveStoryFloorRange(entry.id, [messages[1], third], api, 'box')).rejects.toThrow('已变更');
         expect((await fresh()).archives).toEqual(entry.archives);
@@ -510,7 +313,7 @@ describe('independent vector archive', () => {
     const partition = () => storyTheaterThreadId(entry.id);
     const read = () => DB.getMessagesByCharId(partition(), true);
     const queueArchive = (summary: string) => {
-        fetchMock.mockResolvedValueOnce(response(structured(summary)));
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured(summary, init)));
         fetchMock.mockImplementationOnce(async (_url, init) => response({
             data: JSON.parse(init.body).input.map((_part: string, index: number) => ({ index, embedding: [1, 0, 0] })),
         }));
@@ -535,7 +338,7 @@ describe('independent vector archive', () => {
         expect(oldIds).toHaveLength(1);
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(oldIds);
         expect((await loadStoryVectorRecall(initial, floors[1].id)).nodes).toEqual([]);
-        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(initial, Infinity), '')).text).toContain('开始信任');
+        expect([...(await loadStoryVectorRecall(initial, Infinity)).factTextById.values()]).toEqual(['小雨开始信任阿泽。']);
         queueArchive('阿泽把备用钥匙交给小雨，两人成为搭档。');
         const replaced = await archiveStoryFloorRange(entry.id, floors.slice(1), api, oldBox.id, vector);
         expect(replaced.archives).toHaveLength(1);
@@ -545,8 +348,7 @@ describe('independent vector archive', () => {
         expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(replaced.archives[0].vectorMemoryIds);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([false, true, true]);
         const recall = await loadStoryVectorRecall(replaced, Infinity);
-        expect((await selectStoryVectorRecall(recall, '')).text).toContain('成为搭档');
-        expect((await selectStoryVectorRecall(recall, '')).text).not.toContain('开始信任');
+        expect([...recall.factTextById.values()]).toEqual(['阿泽把备用钥匙交给小雨，两人成为搭档。']);
         const revoked = await revokeStoryArchive(entry.id, replaced.archives[0]);
         expect((await selectStoryVectorRecall(await loadStoryVectorRecall(revoked, Infinity), '')).archiveIds.size).toBe(0);
         expect(await MemoryNodeDB.getByCharId(partition())).toEqual([]);
@@ -555,26 +357,15 @@ describe('independent vector archive', () => {
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
-    it('saves, embeds and recalls an archive longer than both 3000 and 6000 without losing text', async () => {
+    it('keeps archived floors intact if one proposed fact exceeds vector capacity', async () => {
         const floors = await prepare();
-        await DB.saveStoryTheater({ ...(await fresh()), archiveSummaryGuideMaxChars: 0 });
         const longText = '剧情信息不可省略。'.repeat(850);
-        fetchMock.mockResolvedValueOnce(response(structured(longText)));
-        fetchMock.mockImplementation(async (_url, init) => {
-            const inputs = JSON.parse(init.body).input as string[];
-            return response({ data: inputs.map((_: string, index: number) => ({ index, embedding: [1, 0, 0] })) });
-        });
-        const saved = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
-        const ids = saved.archives[0].vectorMemoryIds ?? [];
-        expect(ids.length).toBeGreaterThan(1);
-        const nodes = await Promise.all(ids.map(id => MemoryNodeDB.getById(id)));
-        expect(nodes.every(node => node && node.content.length <= 4000)).toBe(true);
-        const fullText = nodes.map(node => node!.content).join('');
-        expect(fullText).toContain(longText);
-        const recalled = await selectStoryVectorRecall(await loadStoryVectorRecall(saved, Infinity), '');
-        expect(recalled.text).toContain(longText);
-        expect(recalled.archiveIds.has(saved.archives[0].id)).toBe(true);
-        expect(fetchMock.mock.calls.filter(call => String(call[0]).includes('/chat/completions'))).toHaveLength(1);
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured(longText, init)));
+        await expect(archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector))
+            .rejects.toThrow('单条剧情事实超过向量容量');
+        expect((await fresh()).archives).toEqual([]);
+        expect((await read()).map(row => row.content)).toEqual(floors.map(row => row.content));
+        expect(fetchMock).toHaveBeenCalledOnce();
     });
 
     it('recalls all sections of a range together or leaves its floors in the request history', async () => {
@@ -586,7 +377,7 @@ describe('independent vector archive', () => {
         await MemoryNodeDB.save({ ...node, content: '旧'.repeat(5900) });
         const secondId = 'second-section-' + entry.id;
         await MemoryNodeDB.save({ ...node, id: secondId, content: '【好感与心理变化】' + '变化'.repeat(70) });
-        const snapshot = { ...first, archives: [{ ...first.archives[0], vectorMemoryIds: [firstId, secondId] }] };
+        const snapshot = { ...first, archives: [{ ...first.archives[0], vectorMemoryIds: [firstId, secondId], facts: undefined }] };
         const recall = await selectStoryVectorRecall(await loadStoryVectorRecall(snapshot, Infinity), '');
         expect(recall.text).toContain('旧'.repeat(5900));
         expect(recall.text).toContain('变化'.repeat(70));
@@ -599,16 +390,18 @@ describe('independent vector archive', () => {
         const first = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
         queueArchive('后来去了旅馆。');
         const second = await archiveStoryFloorRange(entry.id, floors.slice(2), api, undefined, vector);
-        const both = await selectStoryVectorRecall(await loadStoryVectorRecall(second, Infinity), '钥匙在哪里？', vector.embedding);
-        expect(both.archiveIds.size).toBe(2);
+        const source = await loadStoryVectorRecall(second, Infinity);
+        expect(source.factNodes).toHaveLength(2);
+        await selectStoryVectorRecall(source, '钥匙在哪里？', vector.embedding, source.factNodes);
         expect(fetchMock).toHaveBeenCalledTimes(4);
         for (const box of [first.archives[0], second.archives[1]]) {
             const node = (await MemoryNodeDB.getById(box.vectorMemoryIds![0]))!;
             await MemoryNodeDB.save({ ...node, content: node.content + '细节'.repeat(1600) });
         }
         fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
-        const selected = await selectStoryVectorRecall(await loadStoryVectorRecall(second, Infinity), '钥匙在哪里？', vector.embedding);
-        expect(selected.archiveIds.size).toBe(1);
+        const competing = await loadStoryVectorRecall(second, Infinity);
+        const selected = await selectStoryVectorRecall(competing, '钥匙在哪里？', vector.embedding, competing.factNodes);
+        expect(selected.semanticFactRank.size).toBeGreaterThan(0);
         expect(fetchMock).toHaveBeenCalledTimes(5);
         expect(fetchMock.mock.calls[4][1].__sullyMeta.purpose).toBe('剧情独立向量 · 续写召回');
     });
@@ -617,12 +410,12 @@ describe('independent vector archive', () => {
         const floors = await prepare();
         queueArchive('旧向量内容');
         const initial = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
-        fetchMock.mockResolvedValueOnce(response(structured('新向量内容')));
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured('新向量内容', init)));
         fetchMock.mockResolvedValueOnce(response({ data: [] }));
         await expect(archiveStoryFloorRange(entry.id, floors.slice(1), api, initial.archives[0].id, vector)).rejects.toThrow();
         expect((await fresh()).archives).toEqual(initial.archives);
         expect((await read()).map(row => !!row.metadata?.theaterArchived)).toEqual([true, true, false]);
-        expect((await selectStoryVectorRecall(await loadStoryVectorRecall(initial, Infinity), '')).text).toBe(savedSummary('旧向量内容'));
+        expect([...(await loadStoryVectorRecall(initial, Infinity)).factTextById.values()]).toEqual(['旧向量内容']);
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
@@ -638,10 +431,10 @@ describe('independent vector archive', () => {
         }));
         const withLegacy = { ...newer, archives: [...legacy, ...newer.archives] };
         await DB.saveStoryTheater(withLegacy);
-        expect((await loadStoryVectorRecall(withLegacy, Infinity)).nodes).toHaveLength(2);
+        expect((await loadStoryVectorRecall(withLegacy, Infinity)).nodes).toHaveLength(1);
         const revoked = await revokeStoryArchive(entry.id, legacy[0]);
         expect(revoked.archives).toEqual(newer.archives);
-        expect((await loadStoryVectorRecall(revoked, Infinity)).nodes.map(node => node.id)).toEqual([ownedId]);
+        expect((await loadStoryVectorRecall(revoked, Infinity)).factNodes.map(node => node.id)).toEqual([ownedId]);
         expect(await MemoryNodeDB.getById('legacy-node')).toBeUndefined();
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
@@ -743,5 +536,110 @@ describe('consecutive automatic archives', () => {
         expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
         await deleteStoryVectorMemory(entry.id, id);
         expect(await readFacts()).toEqual([]);
+    });
+});
+
+describe('long story archives process small consecutive requests', () => {
+    const sample = new Map([
+        [4, { key: '铜钥匙/刻字', text: '铜钥匙上刻着 17。' }],
+        [12, { key: '铜钥匙/持有人', text: '小林保管铜钥匙。' }],
+        [18, { key: '铜钥匙/持有人', text: '小林保管铜钥匙。' }],
+        [24, { key: '备用钥匙/藏处', text: '备用钥匙藏在钟楼第三阶。' }],
+        [36, { key: '钟楼/通行条件', text: '下雨时不能从东门进钟楼。' }],
+        [50, { key: '钟楼暗号/小林知情', text: '暗号是「蓝雨」，只有小林知道。' }],
+        [60, { key: '钟楼/开门时间', text: '钟楼要到午夜才开门。' }],
+        [70, { key: '铜钥匙/持有人', text: '铜钥匙改由阿岚保管。' }],
+    ]);
+    const saveLongStory = async () => {
+        const floors: Message[] = [];
+        const charId = storyTheaterThreadId(entry.id);
+        for (let floor = 1; floor <= 72; floor++) {
+            const row = { charId, role: floor % 2 ? 'user' as const : 'assistant' as const, type: 'text' as const,
+                content: sample.get(floor)?.text ?? '继续调查钟楼。', timestamp: floor,
+                metadata: { source: 'story_theater', theaterId: entry.id } };
+            floors.push({ ...row, id: await DB.saveMessage(row) });
+        }
+        return floors;
+    };
+    const fixture = (floors: Message[], init: RequestInit) => {
+        const input = JSON.parse(String(init.body)).messages[1].content as string;
+        const ids = [...input.split('本批新楼层\n')[1].matchAll(/记录ID (\d+)\]/g)].map(match => Number(match[1]));
+        const changes = ids.flatMap(id => {
+            const floor = floors.findIndex(row => row.id === id) + 1;
+            const fact = sample.get(floor);
+            if (!fact) return [];
+            return [{ ...fact, action: floor === 70 ? 'update' : 'add', kind: 'fact',
+                terms: ['钟楼', '铜钥匙', '暗号'], sourceMessageId: id, quote: fact.text }];
+        });
+        return { ids, input, body: completion(JSON.stringify({ changes })) };
+    };
+
+    it('keeps complete turns together and splits earlier when source text is long', () => {
+        const rows = Array.from({ length: 6 }, (_, index): Message => ({
+            ...messages[index % 2], id: index + 10, content: '长'.repeat(3500),
+        }));
+        expect(splitStoryArchiveBatches(rows).map(batch => batch.map(row => row.id))).toEqual([[10, 11], [12, 13], [14, 15]]);
+    });
+
+    it.each(['manual', 'automatic', 'regenerate', 'vector'] as const)(
+        'extracts 36 rounds in six ordered requests via %s and stores individual sourced facts', async mode => {
+            const floors = await saveLongStory();
+            if (mode === 'regenerate') {
+                entry.archives.push({ id: 'long-box', strategy: 'summary', fromMessageId: floors[0].id,
+                    toMessageId: floors.at(-1)!.id, messageCount: floors.length, createdAt: 2, summary: '旧的一次性摘要' });
+                await DB.saveStoryTheater(entry);
+            }
+            const ranges: number[][] = [];
+            const inputs: string[] = [];
+            fetchMock.mockImplementation(async (url, init) => {
+                if (String(url).endsWith('/embeddings')) {
+                    const texts = JSON.parse(String(init.body)).input as string[];
+                    expect(texts).toContain(sample.get(50)?.text);
+                    expect(texts).not.toContain(sample.get(12)?.text);
+                    return response({ data: texts.map((_, index) => ({ index, embedding: [1, 0, 0] })) });
+                }
+                const { ids, input, body } = fixture(floors, init);
+                ranges.push(ids);
+                inputs.push(input);
+                return response(body);
+            });
+
+            const result = mode === 'regenerate'
+                ? await regenerateStoryArchiveSummary(entry.id, 'long-box', api)
+                : mode === 'automatic'
+                    ? await generateStoryArchiveDelta(entry, floors, api, 3, 'summary')
+                    : await archiveStoryFloorRange(entry.id, floors, api, undefined, mode === 'vector' ? {
+                        embedding: { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test', dimensions: 3 },
+                    } : undefined);
+            expect(ranges.map(ids => ids.length)).toEqual([12, 12, 12, 12, 12, 12]);
+            expect(ranges.flat()).toEqual(floors.map(row => row.id));
+            expect(inputs[1]).toContain('小林保管铜钥匙。');
+            expect(inputs[5].split('本批新楼层\n')[0]).toContain('铜钥匙/持有人');
+            const archive = 'archives' in result ? result.archives.at(-1)! : result;
+            expect(archive.facts?.map(fact => [fact.sourceMessageId, fact.text])).toEqual(
+                [4, 24, 36, 50, 60, 70].map(floor => [floors[floor - 1].id, sample.get(floor)?.text]),
+            );
+            if ('archives' in result) {
+                const reloaded = await fresh();
+                const vector = await loadStoryVectorRecall(reloaded, Infinity);
+                const facts = collectStoryArchiveFacts(reloaded.archives, Infinity, vector.factTextById);
+                expect(facts.find(fact => fact.key === '钟楼暗号/小林知情')?.text).toBe(sample.get(50)?.text);
+            }
+            expect(fetchMock).toHaveBeenCalledTimes(mode === 'vector' ? 7 : 6);
+        },
+    );
+
+    it('stops on batch three, keeps old archive and original floors, and makes no extra requests', async () => {
+        const floors = await saveLongStory();
+        fetchMock.mockImplementation(async (_url, init) => {
+            const { input, body } = fixture(floors, init);
+            if (input.includes('（第 3/6 批）')) return new Response('服务繁忙', { status: 503 });
+            return response(body);
+        });
+        await expect(archiveStoryFloorRange(entry.id, floors, api)).rejects.toThrow('第 3/6 批总结失败');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect((await fresh()).archives).toEqual(entry.archives);
+        const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
+        expect(rows.slice(2)).toEqual(floors);
     });
 });

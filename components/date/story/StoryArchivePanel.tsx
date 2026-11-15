@@ -6,7 +6,7 @@ import {resolveStoryTheaterMask,storyTheaterThreadId} from '../../../utils/story
 import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyTheaterMemoryConversion';
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
-import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet} from '../../../utils/storyTheaterArchive';
+import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
 
@@ -162,7 +162,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      {overlaps&&<p className='text-[11px] text-rose-600'>与其他归档重叠，请调整范围。</p>}
      {includesPending&&<p className='text-[11px] text-rose-600'>最后一条推进尚未得到回复。</p>}
      {replacement.length>1&&<p className='text-[11px] text-amber-700'>旧向量按组存储。确认后重建所选楼层，其余旧归档楼层恢复原文。</p>}
-     <p className='text-[10px] text-slate-500'>{isVector?'调用总结 API 1 次，成功后调用向量 API 1 次。':'确认后调用一次总结 API。'}</p>
+     {!!chosenFloors.length&&<p className='text-[10px] text-slate-500'>分 {splitStoryArchiveBatches(chosenFloors).length} 批，每批调用总结 API 一次{isVector?'，完成后为新增或更新的记忆建向量。':'。'}</p>}
     </section>}
     {error&&<p role='alert' className='text-xs leading-5 text-rose-600'>{error}</p>}
     {status&&<p role='status' className='text-xs leading-5 text-violet-700'>{status}</p>}

@@ -186,15 +186,6 @@ it.each([
     }
 });
 
-const archiveFixture = [
-    '【关键事件与因果】\n两人交还钥匙后解开误会，确认钥匙现在归小雨保管。小雨表示将先核对店铺货物，阿泽同意协助，但货物清点尚未开始，原先的纠纷已经结束。',
-    '【时间地点与场景】\n深夜，在候车厅。',
-    '【人物关系与转折】\n两人解除误会。',
-    '【好感与心理变化】\n原文未交代',
-    '【新增设定与细节】\n钥匙归小雨。',
-    '【未解决事项与续写落点】\n原文未交代',
-].join('\n');
-
 it.each([200, 400])('自动独立向量：一次增量提取、逐条建向量，Embedding %s 不再额外发请求', async status => {
     host = document.createElement('div');
     document.body.append(host);
@@ -272,9 +263,13 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
             metadata: { source: 'story_theater', theaterId: entry.id },
         });
     }
-    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({
-        choices: [{ message: { content: archiveFixture }, finish_reason: 'stop' }],
-    }));
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+        const input = JSON.parse(String(init?.body)).messages[1].content as string;
+        const sourceMessageId = Number(input.match(/记录ID (\d+)\]\n第二楼交还钥匙/)?.[1]);
+        const changes = [{ action: 'add', kind: 'fact', key: '钥匙/交还', text: '钥匙已交还。',
+            terms: ['钥匙'], sourceMessageId, quote: '第二楼交还钥匙' }];
+        return Response.json({ choices: [{ message: { content: JSON.stringify({ changes }) }, finish_reason: 'stop' }] });
+    });
     vi.stubGlobal('fetch', fetchMock);
     const updated = vi.fn();
     const os = {
