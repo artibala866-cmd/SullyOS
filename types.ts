@@ -2223,6 +2223,8 @@ export interface StoryTheaterArchive {
     /** summary 策略的事件盒正文；vector 策略留空，由独立 charId 分区召回。 */
     summary?: string;
     facts?: StoryArchiveFact[];
+    /** Earlier states changed again inside this same multi-batch archive; read as history, never as current facts. */
+    historyFacts?: StoryArchiveFact[];
     affinityLog?: string[];
     createdAt: number;
     /** User-approved memory conversions, persisted with story archives. */
