@@ -885,8 +885,9 @@ describe('long story archives process small consecutive requests', () => {
         await DB.saveStoryTheater(entry);
         const floorTexts = new Map([
             [3, '第一天傍晚，林星正在保管铜钥匙。'],
-            [16, '第二天清晨，林星把铜钥匙交给阿泽。'],
-            [42, '第三天深夜，阿泽将铜钥匙交给小雨。'],
+            [7, '当晚，林星把铜钥匙交给阿泽。'],
+            [16, '第二天清晨，阿泽把铜钥匙交回林星。'],
+            [42, '第三天深夜，林星将铜钥匙交给小雨。'],
             [75, '小雨终于打开了钟楼的密门。'],
         ]);
         const floors: Message[] = [];
@@ -902,38 +903,41 @@ describe('long story archives process small consecutive requests', () => {
             const input = JSON.parse(String(init.body)).messages[1].content as string;
             inputs.push(input);
             const segment = Number(input.match(/（第 (\d+)\/8 批）/)?.[1]);
-            const eventFloor = ({ 1: 3, 2: 16, 4: 42, 7: 75 } as Record<number, number>)[segment];
-            const changes = !eventFloor ? [] : [{
+            const eventFloors = ({ 1: [3, 7], 2: [16], 4: [42], 7: [75] } as Record<number, number[]>)[segment] ?? [];
+            const changes = eventFloors.map(eventFloor => ({
                 action: eventFloor === 3 || eventFloor === 75 ? 'add' : 'update',
                 kind: 'fact',
                 key: eventFloor === 75 ? '钟楼/密门' : '铜钥匙/持有人',
                 text: ({
-                    3: '铜钥匙由林星保管。', 16: '铜钥匙现在由阿泽保管。',
+                    3: '铜钥匙由林星保管。', 7: '铜钥匙改由阿泽保管。',
+                    16: '铜钥匙重新由林星保管。',
                     42: '铜钥匙现在由小雨保管。', 75: '小雨已打开钟楼密门。',
                 } as Record<number, string>)[eventFloor],
                 sourceMessageId: floors[eventFloor - 1].id,
                 storyTime: eventFloor === 75 ? undefined
-                    : ({ 3: '第一天傍晚', 16: '第二天清晨', 42: '第三天深夜' } as Record<number, string>)[eventFloor],
+                    : ({ 3: '第一天傍晚', 7: '当晚', 16: '第二天清晨', 42: '第三天深夜' } as Record<number, string>)[eventFloor],
                 terms: ['铜钥匙', '钟楼'], quote: floorTexts.get(eventFloor),
-            }];
+            }));
             return response(completion(JSON.stringify({ changes })));
         });
         const result = await archiveStoryFloorRange(entry.id, floors.slice(0, 90), api);
         const box = result.archives.at(-1)!;
         expect(inputs).toHaveLength(8);
-        expect(inputs[1]).toContain('铜钥匙由林星保管。');
-        expect(inputs[3]).toContain('铜钥匙现在由阿泽保管。');
+        expect(inputs[1]).toContain('铜钥匙改由阿泽保管。');
+        expect(inputs[3]).toContain('铜钥匙重新由林星保管。');
         expect(box.facts?.map(fact => [fact.key, fact.sourceMessageId])).toEqual([
             ['铜钥匙/持有人', floors[41].id], ['钟楼/密门', floors[74].id],
         ]);
         expect(box.historyFacts?.map(fact => [fact.storyTime, fact.text])).toEqual([
             ['第一天傍晚', '铜钥匙由林星保管。'],
-            ['第二天清晨', '铜钥匙现在由阿泽保管。'],
+            ['当晚', '铜钥匙改由阿泽保管。'],
+            ['第二天清晨', '铜钥匙重新由林星保管。'],
         ]);
         const floorNumbers = new Map(floors.map((row, index) => [row.id, index + 1]));
         const history = formatStoryArchiveTransitions(result.archives, floors[90].id, floorNumbers);
         expect(history).toContain('[第 3 楼 · 剧情时间：第一天傍晚] 铜钥匙由林星保管。');
-        expect(history).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙现在由阿泽保管。');
+        expect(history).toContain('[第 7 楼 · 剧情时间：当晚] 铜钥匙改由阿泽保管。');
+        expect(history).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙重新由林星保管。');
         const current = formatStoryArchiveFacts(
             collectStoryArchiveFacts(result.archives, floors[90].id, new Map()), floorNumbers, 6000, true,
         );
