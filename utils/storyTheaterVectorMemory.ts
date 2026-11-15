@@ -176,15 +176,15 @@ export async function selectStoryVectorRecall(
                         })));
                     // Hybrid scores and local BM25 are different scales; a hybrid
                     // hit takes precedence, with local lexical matches as fallback.
-                    const hybridRanks = new Map<string, number>();
+                    const hybridScores = new Map<string, number>();
                     for (const matches of paths) {
-                        for (const [index, item] of matches.entries()) {
-                            hybridRanks.set(item.node.id, Math.min(hybridRanks.get(item.node.id) ?? Infinity, index));
+                        for (const item of matches) {
+                            hybridScores.set(item.node.id, Math.max(hybridScores.get(item.node.id) ?? -Infinity, item.finalScore));
                         }
                     }
-                    if (hybridRanks.size) {
+                    if (hybridScores.size) {
                         for (const id of [...relevance.keys()]) relevance.set(id, -1000 + relevance.get(id)!);
-                        for (const [id, rank] of hybridRanks) relevance.set(id, 1000 - rank);
+                        for (const [id, score] of hybridScores) relevance.set(id, 1000 + score);
                     }
                 }
             } catch (error) {
