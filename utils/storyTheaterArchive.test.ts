@@ -202,6 +202,27 @@ describe('story summary final channel', () => {
         expect(parseStoryArchiveChanges(raw, sources, known, '【阿泽】\n人物档案：阿泽是医生。'))
             .toEqual([expect.objectContaining({ key: '阿泽/职业', text: '阿泽已辞去医生工作。' })]);
     });
+    it('recalls plot-specific archived vector facts with local BM25 when semantic API is off', async () => {
+        const node = (id: string, content: string) => ({
+            id, charId: storyTheaterThreadId(entry.id), room: 'living_room' as const,
+            content, tags: ['剧情'], mood: 'neutral', importance: 6, embedded: true,
+            createdAt: 1, lastAccessedAt: 1, accessCount: 0,
+        });
+        const recalled = await selectStoryVectorRecall(
+            { nodes: [], groups: [] },
+            ['刚才天气怎么样', '铜钥匙放在哪里'],
+            undefined,
+            [node('weather', '今天一直在下雨。'.repeat(700)), node('key', '铜钥匙藏在钟楼的第三阶。')],
+        );
+        expect(recalled.semanticFactRank.has('key')).toBe(true);
+        expect(fetchMock).not.toHaveBeenCalled();
+        const full = await selectStoryVectorRecall(
+            { nodes: [], groups: [] }, '钥匙', { baseUrl: 'https://embedding.invalid/v1', apiKey: 't', model: 'test', dimensions: 3 },
+            [node('key', '铜钥匙藏在钟楼的第三阶。')],
+        );
+        expect(full.semanticFactRank.size).toBe(0);
+        expect(fetchMock).not.toHaveBeenCalled(); // All facts fit: inject directly, no extra Embedding cost
+    });
     it('strips legacy Tavern title comments before sending the actual opening', async () => {
         const opening = { ...messages[0], content: '<!-- title:第一幕 -->\n<!-- desc:雨夜。 -->\n{{char}}走进车站。',
             metadata: { ...messages[0].metadata, theaterOpeningGreeting: { characterId: 'actor', greetingId: 'opening' } } } as Message;
