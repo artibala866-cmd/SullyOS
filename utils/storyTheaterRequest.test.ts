@@ -191,6 +191,10 @@ describe('见面剧情实际请求', () => {
                         sourceMessageId: rows[15].id },
                     { key: '作者/执笔', kind: 'author' as const, terms: ['小雨'],
                         text: '后续不得替小雨擅自决定重大行动。', sourceMessageId: rows[20].id },
+                    { key: '钟楼/地图传言', kind: 'fact' as const, modality: 'unverified' as const,
+                        terms: ['钟楼'], text: '据说钟楼地下有地图，但无人证实。', sourceMessageId: rows[17].id },
+                    { key: '侧门/探查计划', kind: 'fact' as const, modality: 'planned' as const,
+                        terms: ['侧门'], text: '林星打算以后再检查侧门。', sourceMessageId: rows[19].id },
                 ],
                 summary: '不能重复注入的结构化新摘要：铜钥匙现在由小雨保管。',
             },
@@ -222,6 +226,8 @@ describe('见面剧情实际请求', () => {
             const history = payload.find(item => item.content.includes('### 剧情经过（按楼层先后；以下为已被更新的旧状态）'))?.content || '';
             expect(current).toContain('[第 16 楼 · 剧情时间：第二天清晨] 铜钥匙现在由小雨保管。');
             expect(current).toContain('用户协助指令：后续不得替小雨擅自决定重大行动。');
+            expect(current).toContain('【尚未核实的说法】据说钟楼地下有地图，但无人证实。');
+            expect(current).toContain('【尚未发生的计划】林星打算以后再检查侧门。');
             expect(current).not.toContain('林星保管铜钥匙。');
             expect(current).not.toContain('侧门通向庭院。'); // Already included in selected worldbook
             expect(history).toContain('[第 6 楼] 林星保管铜钥匙。');
