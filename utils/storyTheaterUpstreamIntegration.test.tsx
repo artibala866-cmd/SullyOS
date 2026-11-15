@@ -11,6 +11,8 @@ import { getStoryGenerationSnapshot } from './storyTheaterBackground';
 import { listStoryVectorMemories } from './storyTheaterVectorMemory';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
+import StoryVectorMemoryPanel from '../components/date/story/StoryVectorMemoryPanel';
+import { MemoryNodeDB } from './memoryPalace/db';
 import {BUILTIN_NIGHT_SCREENING_PRESET, createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
 import {applyStoryRegex, type StoryRegexRule} from './storyRegex';
 
@@ -390,6 +392,68 @@ it('真实归档页面把同一次分段里变更过的旧状态显示成历史�
     ));
     expect(host!.textContent).toContain('剧情时间线 · 3 条（点开查看）');
     expect(host!.textContent).toContain('按剧情楼层排列');
+});
+
+it('video playback regression: 19 real vector cards label story time, hide long prose and flag repeated profile facts', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = { ...createStoryTheaterDraft(), title: '视频里长篇向量记忆', characterIds: ['actor'] };
+    const thread = 'story-theater:' + entry.id;
+    const floorIds: number[] = [];
+    const nodeIds: string[] = [];
+    const oldProfile = '{{user}}全名为幸福，现年23岁，大学毕业，是幸芳白的亲妹妹。';
+    const longText = '他们在旧城调查了关于铜钥匙的线索。'.repeat(15);
+    for (let i = 0; i < 19; i++) {
+        const sourceMessageId = await DB.saveMessage({
+            charId: thread, role: 'assistant', type: 'text',
+            content: i === 0 ? oldProfile : '第' + (i+1) + '段剧情事件。',
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: true },
+        });
+        floorIds.push(sourceMessageId);
+        const nodeId = entry.id + '-node-' + i;
+        nodeIds.push(nodeId);
+        await MemoryNodeDB.save({
+            id: nodeId, charId: thread, room: 'living_room', mood: 'neutral',
+            content: i === 0 ? oldProfile : i === 1 ? longText : '第' + (i+1) + '楼的事件已发生。',
+            tags: ['剧情'], importance: 6, embedded: true,
+            createdAt: 1730000000000+i, lastAccessedAt: 1730000000000+i, accessCount: 0,
+        });
+    }
+    entry.archives = [{
+        id: entry.id+'-box', strategy: 'vector', createdAt: 1,
+        fromMessageId: floorIds[0], toMessageId: floorIds[18],
+        messageCount: 19, vectorMemoryIds: nodeIds,
+        facts: nodeIds.map((nodeId,i)=>({
+            key: i === 0 ? '幸福/基本信息' : '线索/事件'+i,
+            kind: 'fact' as const,
+            text: i === 0 ? oldProfile : i === 1 ? longText : '第'+(i+1)+'楼的事件已发生。',
+            sourceMessageId: floorIds[i], vectorNodeId: nodeId, vectorTextState: 'synced' as const,
+            terms: ['剧情'], ...(i === 1 ? { storyTime: '第二天早晨' } : {}),
+        })),
+    }];
+    const os = {
+        characters: [{ id: 'actor', name: '林星', description: '向导' }],
+        worldbooks: [], userProfile: { name: '幸福', bio: '23岁，大学毕业，是幸芳白的亲妹妹。' },
+        memoryPalaceConfig: {}, remoteVectorConfig: {},
+        apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'story' },
+        theme: {}, addToast: vi.fn(),
+    } as any;
+    await act(async () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+        <StoryVectorMemoryPanel entry={entry} onBack={() => {}} onUpdated={() => {}} />
+    </StoryTheaterThemeProvider></OSPreviewProvider>));
+    await vi.waitFor(() => expect(host!.textContent).toContain('向量记忆 · 19 条'));
+    expect(host!.textContent).toContain('剧情第 1 楼 · 剧情时间：原文未明确');
+    expect(host!.textContent).toContain('剧情第 2 楼 · 剧情时间：第二天早晨');
+    expect(host!.textContent).toContain('已有人设（续写不重复输入）');
+    expect(host!.textContent).toContain('归档时间：');
+    expect(host!.textContent).toContain('查看完整记忆');
+    expect(host!.textContent).not.toContain(longText);
+    const expand = [...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('查看完整记忆'));
+    expect(expand).toBeTruthy();
+    await act(async()=>expand!.click());
+    expect(host!.textContent).toContain(longText);
+    expect(host!.textContent).toContain('第 1 / 2 页');
 });
 
 it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {
