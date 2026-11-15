@@ -105,10 +105,10 @@ export function parseStoryArchiveChanges(
     const duplicateText = new Set(known.map(fact => fact.kind + ':' + comparable(fact.text)));
     // Only skip a new fact that repeats a whole existing role/worldbook
     // sentence. Do NOT reject changed states on semantic similarity.
-    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line)).filter(line => line.length >= 6);
+    const staticSentences = baseline.split(/[。！？；\n]/u).map(line => comparable(line)).filter(line => line.length >= 5);
     const isStaticRepeat = (text: string) => {
         const fact = comparable(text);
-        return fact.length >= 6 && staticSentences.some(line => line === fact || line.endsWith(fact));
+        return fact.length >= 5 && staticSentences.some(line => line === fact || line.endsWith(fact));
     };
     const facts = new Map<string, StoryArchiveFact>();
     for (const [index, change] of value.changes.entries()) {
