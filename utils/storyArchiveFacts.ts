@@ -103,7 +103,8 @@ export function parseStoryArchiveChanges(
         // incorrect ID, recover it ONLY when the quote exists in one unique floor.
         const providedId = Number(change.sourceMessageId);
         const match = Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
-        const matchesQuote = (source?: { text: string }) => !!source && quoteExistsIn(source.text, quote);
+        const matchesQuote = (source?: { text: string; authorInput: boolean }): source is { text: string; authorInput: boolean } =>
+            !!source && quoteExistsIn(source.text, quote);
         const candidates = [...sources].filter(([, source]) => matchesQuote(source));
         const selected = matchesQuote(match) && Number.isSafeInteger(providedId)
             ? [providedId, match] as const
