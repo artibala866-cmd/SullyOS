@@ -158,8 +158,8 @@ describe('见面剧情实际请求', () => {
         const entry = {
             ...createStoryTheaterDraft(1), title: '钟楼的铜钥匙',
             characterIds: ['actor'], selectedWorldbookIds: ['side-door'],
-            archiveAfter: 200, forceUserLastMessage: true,
-            automaticMemoryApiEnabled: false, // User can still read saved facts without paying for automatic extraction.
+            archiveAfter: 2, archiveKeepRecent: 1, forceUserLastMessage: true,
+            automaticMemoryApiEnabled: false, // Even with archive threshold passed, no automatic extraction/API call.
         };
         const preset = createBlankStoryPreset('不含世界书与历史插槽的自定义预设', 1);
         preset.document.prompts = [];
