@@ -25,6 +25,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '每条变化可带 storyTime：仅填写原文明确出现的剧情内时间原话（例如「第二天清晨」「三日后」「2026年5月2日」）。没写时间就省略，不能把真实聊天时间、楼层序号或未发生的计划当成已经发生的日期；时间前后顺序以楼层为准。',
     '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
     '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。',
+    '每条可填 modality：已确定发生的事实省略；尚未发生的计划、愿望、未来承诺用 planned；传闻、猜测、未知真伪的信息用 unverified。不能把计划/传闻改写成既成事实；后续有原文确认发生时更新同一 key，并去掉旧 modality。',
 ].join('\n');
 
 export function collectStoryArchiveFacts(
@@ -147,6 +148,8 @@ export function parseStoryArchiveChanges(
         const key = normalize(change.key).replace(/\s+/g, '');
         const text = change.text.trim();
         const kind: 'fact' | 'author' = change.kind ?? 'fact';
+        const modality = kind === 'fact' && (change.modality === 'planned' || change.modality === 'unverified')
+            ? change.modality as 'planned' | 'unverified' : undefined;
         if (!/^[\p{L}\p{N}\p{M}\p{P}\p{S}]{2,120}$/u.test(key) || !comparable(text)) {
             throw invalid(`第 ${index + 1} 条记忆键或正文为空/不合法`);
         }
@@ -181,7 +184,8 @@ export function parseStoryArchiveChanges(
         const claimedTime = typeof change.storyTime === 'string' ? change.storyTime.trim() : '';
         const storyTime = claimedTime.length <= 48 && claimedTime && quoteExistsIn(source.text, claimedTime)
             ? claimedTime : storyTimeFromSource(source.text);
-        facts.set(key, { key, kind, text, terms, sourceMessageId, ...(storyTime ? { storyTime } : {}) });
+        facts.set(key, { key, kind, text, terms, sourceMessageId,
+            ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}) });
         duplicateText.add(comparableText);
     }
     return [...facts.values()];
@@ -204,7 +208,7 @@ export function formatStoryArchiveFacts(
             ...(storyTime ? ['剧情时间：' + storyTime] : []),
         ];
         const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '')
-            + (fact.kind === 'author' ? '用户协助指令：' : '') + fact.text;
+            + (fact.kind === 'author' ? '用户协助指令：' : fact.modality === 'planned' ? '【尚未发生的计划】' : fact.modality === 'unverified' ? '【尚未核实的说法】' : '') + fact.text;
         if (used + line.length + 1 > budget && selected.length) continue;
         selected.push({ fact, line });
         used += line.length + 1;
