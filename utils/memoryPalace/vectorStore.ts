@@ -8,7 +8,7 @@
 
 import type { EmbeddingConfig, MemoryNode, MemoryVector, RemoteVectorConfig } from './types';
 import { MemoryNodeDB, MemoryVectorDB, ensureFloat32 } from './db';
-import { cosineSimilarity } from './embedding';
+import { cosineSimilarity, type SerialEmbeddingRun } from './embedding';
 import { getMemoryEmbeddings } from './memoryEmbeddings';
 import { upsertVector as remoteUpsert } from './supabaseVector';
 
@@ -33,6 +33,7 @@ export async function vectorizeAndStore(
     remoteVectorConfig?: RemoteVectorConfig,
     options: {
         skipDedup?: boolean;
+        serialEmbedding?: SerialEmbeddingRun;
         /** Commit related state in the same local transaction; remote publish still follows success only. */
         commit?: (entries: { node: MemoryNode; vector: MemoryVector }[]) => Promise<void>;
     } = {},
@@ -40,7 +41,7 @@ export async function vectorizeAndStore(
     if (nodes.length === 0) return { stored: 0, skipped: 0 };
 
     // 1. 批量向量化
-    const vectors = await getMemoryEmbeddings(nodes, embeddingConfig);
+    const vectors = await getMemoryEmbeddings(nodes, embeddingConfig, options.serialEmbedding);
     if (vectors.length !== nodes.length || vectors.some(vector => !vector.length || !Array.from(vector).every(Number.isFinite))) {
         throw new Error('Embedding 返回的向量不完整或无效，本次没有写入记忆');
     }

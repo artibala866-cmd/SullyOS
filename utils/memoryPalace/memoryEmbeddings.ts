@@ -1,5 +1,5 @@
 import type { EmbeddingConfig, MemoryNode } from './types';
-import { getEmbeddings } from './embedding';
+import { getEmbeddings, type SerialEmbeddingRun } from './embedding';
 
 // Keep below the embedding transport's 4000-character per-input guard.
 const SUMMARY_CHUNK_CHARS = 3000;
@@ -9,6 +9,7 @@ const SUMMARY_CHUNK_CHARS = 3000;
 export async function getMemoryEmbeddings(
     nodes: Pick<MemoryNode, 'content' | 'isBoxSummary'>[],
     config: EmbeddingConfig,
+    serialRun?: SerialEmbeddingRun,
 ): Promise<Float32Array[]> {
     const inputs: string[] = [];
     const spans = nodes.map(node => {
@@ -27,7 +28,7 @@ export async function getMemoryEmbeddings(
         }
         return { start, end: inputs.length };
     });
-    const vectors = await getEmbeddings(inputs, config);
+    const vectors = await (serialRun ? getEmbeddings(inputs, config, serialRun) : getEmbeddings(inputs, config));
     if (vectors.length !== inputs.length || vectors.some(v => !v?.length || !Array.from(v).every(Number.isFinite))) {
         throw new Error('Embedding 返回的向量不完整或无效，本次没有写入记忆');
     }

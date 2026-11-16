@@ -1,7 +1,7 @@
 import type { APIConfig, Message, StoryArchiveFact, StoryTheaterArchive, StoryTheaterArchiveStrategy, StoryTheaterEntry } from '../types';
 import { DB, openDB } from './db';
 import { extractContent, safeResponseJson } from './safeApi';
-import { describeStoryApiError, makeStoryTheaterId, resolveStoryTheaterWorldbooks, storyAffinityInputsFromMessage, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
+import { assertStoryApiConfigured, describeStoryApiError, makeStoryTheaterId, resolveStoryTheaterWorldbooks, storyAffinityInputsFromMessage, storyArchiveAtFloor, storyTheaterThreadId } from './storyTheater';
 import { hasSummaryReasoningLeak } from './summaryReasoning';
 import { resolveStoryMemoryApi } from './storyMemoryApi';
 import { tavernOpeningSceneText } from './tavernOpeningGreeting';
@@ -82,7 +82,7 @@ export function parseStoryArchiveSummary(data: any): string {
     }
     const reason = String(choice?.finish_reason ?? choice?.finishReason ?? '').toLowerCase();
     if (['length', 'max_tokens', 'max_output_tokens'].includes(reason)) {
-        throw new StoryArchiveIncompleteReply('事件盒总结已达到输出上限，未保存；请降低模型思考量或换模型后重试');
+        throw new StoryArchiveIncompleteReply('总结达到输出上限，原文已保留。可缩小选楼范围后重试');
     }
     if (reason === 'content_filter' || reason === 'safety') throw new Error(`事件盒总结被接口拦截（${reason}），未保存`);
     if (['error', 'failed', 'cancelled', 'canceled', 'incomplete'].includes(reason)) throw new Error(`事件盒生成中断（${reason}），原正文未归档`);
@@ -114,12 +114,13 @@ function storyArchiveBody(message: Message) {
 }
 
 export type StoryArchiveProgress =
-    | { phase: 'summary'; first: number; last: number }
-    | { phase: 'index' }
+    | { phase: 'summary'; first: number; last: number; requesting: boolean }
+    | { phase: 'index'; index?: number; total?: number }
     | { phase: 'saving' };
 export interface StoryArchiveRun {
     onProgress?: (progress: StoryArchiveProgress) => void;
     completed?: Map<string, string>;
+    indexedBatches?: Map<string, Float32Array[]>;
 }
 
 function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>) {
@@ -160,7 +161,12 @@ async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey
         __sullySkipStreamUpgrade: true,
     } as RequestInit);
     const data = await safeResponseJson(response, { keepInterruptedBody: true });
-    if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
+    if (!response.ok || data?.error) {
+        const detail = describeStoryApiError(response.status, data);
+        const oversized = response.status === 413 || data?.error?.code === 'context_length_exceeded'
+            || /context.length|context window|too many (?:input )?tokens|prompt (?:is )?too long|input.{0,40}(?:too long|token limit)|上下文.{0,16}(?:太长|超[过出]|上限)/iu.test(detail);
+        throw new Error(oversized ? '所选楼层超出总结接口容量，请缩小范围。' + detail : detail);
+    }
     return parseStoryArchiveSummary(data);
 }
 
@@ -170,7 +176,7 @@ export async function generateStoryArchiveDelta(
     sourceTimes = storyArchiveSourceTimes(batch),
     run?: StoryArchiveRun,
 ): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
-    if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
+    assertStoryApiConfigured(api);
     if (!batch.length) throw new Error('请先选择要归档的楼层');
     const { sources, transcript, affinity } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
     const floorNumbers = new Map([...sources].map(([id, source]) => [id, source.floorNumber]));
@@ -218,7 +224,10 @@ export async function generateStoryArchiveDelta(
         const key = run?.completed && JSON.stringify([api.baseUrl, api.model, strategy, instruction, input,
             [...sources].map(([id, source]) => [id, source.authorInput])]);
         const cached = key ? run?.completed?.get(key) : undefined;
-        run?.onProgress?.({ phase: 'summary', first: firstFloor, last: firstFloor + batch.length - 1 });
+        if (cached === undefined && run?.completed?.size) {
+            throw new Error('总结来源或配置已变更，本次未重新调用。请重新选择归档范围');
+        }
+        run?.onProgress?.({ phase: 'summary', first: firstFloor, last: firstFloor + batch.length - 1, requesting: cached === undefined });
         const raw = cached ?? await requestArchiveCompletion(api, instruction, input, !!entry.memorySummaryApi, strategy);
         facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes)
             .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
@@ -524,8 +533,17 @@ async function writeStoryArchiveRange(
 ): Promise<StoryTheaterEntry> {
     const strategy = vector ? 'vector' : 'summary';
     const embedding = vector?.embedding;
-    if (vector && (!embedding?.baseUrl || !embedding.apiKey || !embedding.model)) {
-        throw new Error('请先配置向量记忆的 Embedding API');
+    if (vector) {
+        if (!embedding?.baseUrl?.trim() || !embedding.apiKey?.trim() || !embedding.model?.trim()) {
+            throw new Error('请先配置向量记忆的 Embedding API');
+        }
+        let url: URL;
+        try { url = new URL(embedding.baseUrl.trim()); }
+        catch { throw new Error('Embedding 基础地址无效，本次未调用总结 API'); }
+        if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password
+            || /\/embeddings\/?$/iu.test(url.pathname)) {
+            throw new Error('请填写有效的 Embedding 基础地址，本次未调用总结 API');
+        }
     }
     const first = selected[0]?.id, last = selected.at(-1)?.id;
     if (first === undefined || last === undefined) throw new Error('请先选择要归档的楼层');
@@ -592,6 +610,10 @@ async function writeStoryArchiveRange(
     }, vector?.remote, {
         // Each batch owns its own nodes so undoing one cannot erase another.
         skipDedup: true,
+        serialEmbedding: {
+            completed: run?.indexedBatches,
+            onBatch: (index, total) => run?.onProgress?.({ phase: 'index', index, total }),
+        },
         commit: async vectors => { run?.onProgress?.({ phase: 'saving' }); updated = await commit(vectors); },
     });
     if (!updated) throw new Error('向量归档未保存');

@@ -24,7 +24,14 @@ export async function getEmbedding(text: string, config: EmbeddingConfig): Promi
  * 批量文本向量化（一次最多 10 条，超出自动分批）
  * 返回 Float32Array[] — 比 number[][] 节省约 50% 内存
  */
-export async function getEmbeddings(texts: string[], config: EmbeddingConfig): Promise<Float32Array[]> {
+export interface SerialEmbeddingRun {
+    completed?: Map<string, Float32Array[]>;
+    onBatch?: (index: number, total: number) => void;
+}
+
+export async function getEmbeddings(
+    texts: string[], config: EmbeddingConfig, serialRun?: SerialEmbeddingRun,
+): Promise<Float32Array[]> {
     if (texts.length === 0) return [];
 
     // DashScope（Qwen 官端）的 text-embedding-v3/v4、Qwen3-Embedding 单次 batch
@@ -78,6 +85,32 @@ export async function getEmbeddings(texts: string[], config: EmbeddingConfig): P
     if (currentChunk.length > 0) chunks.push(currentChunk);
 
     const results: Float32Array[] = [];
+    if (serialRun) {
+        const serialConfig = { ...config, allowSingleInputFallback: false };
+        let dimensions: number | undefined;
+        for (const [index, chunk] of chunks.entries()) {
+            const key = JSON.stringify([config.baseUrl, config.model, config.dimensions, chunk]);
+            const cached = serialRun.completed?.get(key);
+            let batch = cached;
+            if (!batch) {
+                serialRun.onBatch?.(index + 1, chunks.length);
+                const response = await callEmbeddingAPI(chunk, serialConfig);
+                if (response.length !== chunk.length || response.some(vector =>
+                    !Array.isArray(vector) || !vector.length || !vector.every(Number.isFinite))) {
+                    throw new Error('Embedding 返回的向量不完整或无效，本次没有写入记忆');
+                }
+                batch = response.map(vector => new Float32Array(vector));
+            }
+            dimensions ??= batch[0].length;
+            if (batch.some(vector => vector.length !== dimensions || !vector.every(Number.isFinite))) {
+                throw new Error('Embedding 返回的向量维度不一致或无效，本次没有写入记忆');
+            }
+            if (!cached) serialRun.completed?.set(key, batch);
+            results.push(...batch);
+        }
+        return results;
+    }
+
     // 每次并行跑 MAX_CONCURRENCY 个块；块间顺序、块内顺序都严格保持
     for (let i = 0; i < chunks.length; i += MAX_CONCURRENCY) {
         const window = chunks.slice(i, i + MAX_CONCURRENCY);

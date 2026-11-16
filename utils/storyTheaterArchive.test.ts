@@ -919,6 +919,53 @@ describe('independent vector archive', () => {
         expect(fetchMock.mock.calls.map(([url]) => url.split('/').at(-1))).toEqual(['completions', 'embeddings', 'embeddings']);
     });
 
+    it.each(['malformed', 'provider'])('stops after the first bad Embedding batch (%s), reusing successful work', async kind => {
+        const floors = (await prepare()).slice(0, 2);
+        const run = { completed: new Map<string, string>(), indexedBatches: new Map<string, Float32Array[]>(), onProgress: vi.fn() };
+        const changes = Array.from({ length: 23 }, (_, i) => ({
+            key: '线索/事件' + i, kind: 'fact', action: 'add', text: '巡逻员登记了不同地点的线索' + i + '。',
+            sourceMessageId: floors[0].id,
+        }));
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({ changes }))));
+        const numbers: number[] = [];
+        fetchMock.mockImplementation(async (_url, init) => {
+            const input = JSON.parse(String(init.body)).input as string[];
+            const i = Number(input[0].match(/(\d+)。$/u)?.[1]);
+            numbers.push(i);
+            if (numbers.length === 2) return kind === 'provider'
+                ? new Response('quota limit', { status: 429 }) : response({ data: [] });
+            return response({ data: input.map((_, index) => ({ index, embedding: [1, 0, 0] })) });
+        });
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run)).rejects.toThrow();
+        expect(numbers).toEqual([0, 10]);
+        expect((await fresh()).archives).toEqual([]);
+        expect(run.indexedBatches.size).toBe(1);
+        const saved = await archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run);
+        expect(numbers).toEqual([0, 10, 10, 20]);
+        expect(saved.archives[0].vectorMemoryIds).toHaveLength(23);
+        expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/chat/completions'))).toHaveLength(1);
+    });
+
+    it('does not spend on a new summary when the prior attempt is stale on retry', async () => {
+        const floors = (await prepare()).slice(0, 2);
+        const run = { completed: new Map<string, string>() };
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured('木盒已经找到。', init)));
+        fetchMock.mockResolvedValueOnce(new Response('retry later', { status: 503 }));
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run)).rejects.toThrow('503');
+        await DB.saveStoryTheater({ ...await fresh(), title: '另一窗口的新标题' });
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run))
+            .rejects.toThrow('本次未重新调用');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects a deterministic invalid Embedding endpoint before incurring a summary call', async () => {
+        const floors = (await prepare()).slice(0, 2);
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, {
+            embedding: { ...vector.embedding, baseUrl: 'https://vector.invalid/v1/embeddings' },
+        })).rejects.toThrow('本次未调用总结 API');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('keeps archived floors intact if one proposed fact exceeds vector capacity', async () => {
         const floors = await prepare();
         const longText = '剧情信息不可省略。'.repeat(850);
@@ -1179,7 +1226,15 @@ describe('long story archives process small consecutive requests', () => {
         await expect(generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, { onProgress: progress })).rejects.toThrow();
         expect(fetchMock).toHaveBeenCalledOnce();
         expect(fixture(rows, fetchMock.mock.calls[0][1]).ids).toEqual(rows.map(row => row.id));
-        expect(progress.mock.calls).toEqual([[{ phase: 'summary', first: 22, last: 93 }]]);
+        expect(progress.mock.calls).toEqual([[{ phase: 'summary', first: 22, last: 93, requesting: true }]]);
+        expect((await fresh()).archives).toEqual(entry.archives);
+    });
+
+    it('reports the upstream input limit and stops instead of paying for smaller follow-up requests', async () => {
+        const floors = await saveLongStory();
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: { message: 'bad request', code: 'context_length_exceeded' } }), { status: 400 }));
+        await expect(archiveStoryFloorRange(entry.id, floors, api)).rejects.toThrow('所选楼层超出总结接口容量');
+        expect(fetchMock).toHaveBeenCalledOnce();
         expect((await fresh()).archives).toEqual(entry.archives);
     });
 

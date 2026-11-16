@@ -30,8 +30,10 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [revokeTarget,setRevokeTarget]=useState<StoryTheaterArchive|null>(null);
  const running=useRef(false);
  const completedBatches=useRef(new Map<string,string>());
+ const indexedBatches=useRef(new Map<string,Float32Array[]>());
  const [rangeProgress,setRangeProgress]=useState<StoryArchiveProgress|null>(null);
  const [rangeFailure,setRangeFailure]=useState('');
+ const [failedRequests,setFailedRequests]=useState('');
  const [rangeBusy,setRangeBusy]=useState(false);
  const rangeActions=useRef<HTMLDivElement>(null);
  const isVector=strategy==='vector';
@@ -106,7 +108,8 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const includesPending=!!chosenFloors.length&&last===floors?.length&&floors.at(-1)?.role==='user';
  const changeRange=(next:typeof range)=>{
   completedBatches.current.clear();
-  setRangeFailure('');setRangeProgress(null);setStatus('');
+  indexedBatches.current.clear();
+  setRangeFailure('');setFailedRequests('');setRangeProgress(null);setStatus('');
   setRange(next);
  };
  const openRange=(id?:string)=>{
@@ -121,22 +124,28 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  useEffect(()=>{if(range)rangeSection.current?.scrollIntoView?.({block:'nearest'});},[!!range,range?.replaceId,tab]);
  const saveRange=async()=>{
   if(running.current||locked||!range||!chosenFloors.length||overlaps||includesPending)return;
-  running.current=true;setBusy(true);setRangeBusy(true);setError('');setStatus('');setRangeFailure('');setRangeProgress(null);
+  running.current=true;setBusy(true);setRangeBusy(true);setError('');setStatus('');setRangeFailure('');setFailedRequests('');setRangeProgress(null);
+  let summaries=0,vectors=0;
+  const requests=()=> '本次发起：总结 '+summaries+' 次'+(isVector?' · 向量 '+vectors+' 次':'');
   try{
    const updated=await archiveStoryFloorRange(entry.id,chosenFloors,apiConfig,range.replaceId,isVector?{
     embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,
     fallbackApi:memoryPalaceConfig.lightLLM?.baseUrl?{...memoryPalaceConfig.lightLLM,apiKey:memoryPalaceConfig.lightLLM.apiKey??''}:undefined,
-   }:undefined,{completed:completedBatches.current,onProgress:setRangeProgress});
-   onUpdated(updated);changeRange(null);setStatus('第 '+first+'–'+last+' 楼已归档。');
+   }:undefined,{completed:completedBatches.current,indexedBatches:indexedBatches.current,onProgress:progress=>{
+    if(progress.phase==='summary'&&progress.requesting)summaries++;
+    if(progress.phase==='index'&&progress.index!==undefined)vectors++;
+    setRangeProgress(progress);
+   }});
+   onUpdated(updated);changeRange(null);setStatus('第 '+first+'–'+last+' 楼已归档。'+requests());
    addToast('归档已保存','success');
-  }catch(e:any){setRangeFailure(e?.message||'请求失败');}
+  }catch(e:any){setRangeFailure(e?.message||'请求失败');setFailedRequests(requests());}
   finally{running.current=false;setBusy(false);setRangeBusy(false);}
  };
- const progressText=rangeProgress?.phase==='index'?'正在建立向量'
+ const progressText=rangeProgress?.phase==='index'?(rangeProgress.total ? '向量建索引 '+rangeProgress.index+' / '+rangeProgress.total : '正在准备向量索引')
   :rangeProgress?.phase==='saving'?'正在保存归档'
   :rangeProgress?'正在总结所选楼层'
   :'正在准备归档';
- const failureTitle=rangeProgress?.phase==='index'?'向量建立失败'
+ const failureTitle=rangeProgress?.phase==='index'?(rangeProgress.total ? '向量第 '+rangeProgress.index+' / '+rangeProgress.total+' 批失败' : '向量建立失败')
   :rangeProgress?.phase==='saving'?'归档保存失败'
   :rangeProgress?'总结失败'
   :'归档失败';
@@ -296,7 +305,8 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      </div>
      {range.first&&range.last&&!chosenFloors.length&&<p className='text-[11px] text-rose-600'>请输入有效的楼层范围。</p>}
      {chosenFloors.length>0&&<div className='space-y-1 text-[11px] leading-5 text-slate-500'>
-      <p>一次总结请求{isVector ? ' · 向量另行批量建立' : ''}</p>
+      <p>{completedBatches.current.size?'沿用已完成总结':chosenFloors.some(row=>!row.metadata?.theaterContinue)?'一次总结请求':'无总结请求'}{isVector ? ' · 向量另行批量建立' : ''}</p>
+      <p>所选正文约 {chosenFloors.reduce((size,row)=>size+(row.metadata?.theaterContinue?0:row.content.length),0).toLocaleString()} 字符</p>
       <p className='truncate'>起 · {chosenFloors[0].content.replace(/<[^>]*>/g,'').trim()}</p>
       {chosenFloors.length>1&&<p className='truncate'>止 · {chosenFloors.at(-1)?.content.replace(/<[^>]*>/g,'').trim()}</p>}
      </div>}
@@ -307,7 +317,8 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      {rangeBusy&&<p role='status' aria-live='polite' className='py-1 text-sm text-slate-700'>{progressText}</p>}
      {rangeFailure&&<div role='alert' className='rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-sm'>
       <p className='font-semibold text-rose-700'>{failureTitle}{failedBatch&&' · 第 '+failedBatch.first+(failedBatch.last===failedBatch.first?'':'–'+failedBatch.last)+' 楼'}</p>
-      <p className='mt-1 text-xs text-slate-700'>原文和旧归档已保留。{completedBatches.current.size>0?'本次已完成的总结可继续使用。':''}</p>
+      <p className='mt-1 text-xs text-slate-700'>原文和旧归档已保留。{completedBatches.current.size>0?'本次已完成的总结可继续使用。':''}{indexedBatches.current.size>0?'成功的向量批次会复用。':''}</p>
+      <p className='mt-1 text-xs text-slate-700'>{failedRequests}</p>
       {rangeProgress?<details className='mt-1 text-xs leading-5 text-slate-600'>
        <summary className='flex min-h-8 cursor-pointer items-center'>查看原因</summary>
        <p className='break-words'>{rangeFailure}</p>
