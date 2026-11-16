@@ -306,4 +306,115 @@ describe('见面剧情实际请求', () => {
         }
     });
 
+    it.each([
+        { model: 'fixture-prose-a', strategy: 'vector', source: 'vectors' },
+        { model: 'fixture-prose-b', strategy: 'vector', source: 'sync-copy' },
+        { model: 'fixture-prose-c', strategy: 'summary', source: 'archived-original' },
+    ] as const)('$model: carries rules and settled tasks with history disabled ($source)', async ({ model, strategy, source }) => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+        const prevModel = state.apiConfig.model;
+        state.apiConfig.model = model;
+        const entry = {
+            ...createStoryTheaterDraft(1), title: '旧城的亡魂', characterIds: ['actor'],
+            forceUserLastMessage: true, automaticMemoryApiEnabled: false,
+        };
+        const preset = createBlankStoryPreset('只读归档', 1);
+        preset.document.prompts = [{ id: 'disabled-history', name: '旧正文', role: 'system', marker: 'history', enabled: false, content: '' }];
+        const charId = storyTheaterThreadId(entry.id);
+        const rule = '主角是已经死去的鬼魂，普通人看不见他，也听不见他的声音。';
+        const plan = '小雨打算给王姨送橘子和换门锁。';
+        const oranges = '橘子已经送到王姨手里。';
+        const lock = '小雨已经把门锁换好了。';
+        const rows: Message[] = Array.from({ length: 121 }, (_, index) => ({
+            id: index + 1, charId, type: 'text', role: index % 2 ? 'assistant' : 'user',
+            content: index === 1 ? rule : index === 3 ? plan : index === 7 ? oranges : index === 9 ? lock
+                : index === 120 ? '接着写他走到街口，注意之前已经确定的状态。'
+                : '不可整楼发送的正文 ' + index,
+            timestamp: index,
+            metadata: { source: 'story_theater', theaterId: entry.id, theaterArchived: index < 118 },
+        }));
+        const fact = (key: string, text: string, sourceMessageId: number, terms: string[] = []) => ({
+            key, text, sourceMessageId, terms, kind: 'fact' as const,
+        });
+        entry.archives = [
+            { id: 'first', strategy, fromMessageId: 1, toMessageId: 6, messageCount: 6, createdAt: 9,
+                facts: [
+                    ...(source === 'archived-original' ? [] : [fact('主角/身份', rule, 2)]),
+                    { ...fact('王姨/拜访事项', plan, 4, ['王姨', '橘子', '门锁']), modality: 'planned' as const },
+                    { ...fact('邻居/送橘子', '小雨打算给李姨送橘子。', 5, ['李姨']), modality: 'planned' as const },
+                    { ...fact('王姨/另一次送橘子', '小雨打算明天再给王姨送橘子。', 5), storyTime: '明天', modality: 'planned' as const },
+                ] },
+            { id: 'second', strategy, fromMessageId: 7, toMessageId: 118, messageCount: 112, createdAt: 2,
+                facts: [
+                    ...(source === 'archived-original' ? [] : [
+                        fact('王姨/橘子交接', oranges, 8, ['王姨', '橘子']),
+                        fact('王姨/门锁更新', lock, 10, ['王姨', '门锁']),
+                    ]),
+                    ...Array.from({ length: 95 }, (_, i) => fact('城区/记录' + i,
+                        '当天街巷中有一块墙砖留着编号和刻字，巡查员登记它的位置。墙砖颜色与摆放位置各有不同。记录号' + i, i + 11)),
+                ] },
+        ];
+        if (strategy === 'vector') for (const box of entry.archives) {
+            box.vectorMemoryIds = [];
+            box.facts = box.facts!.map((item, index) => {
+                const id = entry.id + '-' + box.id + '-' + index;
+                box.vectorMemoryIds!.push(id);
+                return { ...item, vectorNodeId: id, vectorTextState: 'synced' };
+            });
+            if (source === 'vectors') for (const item of box.facts) {
+                await MemoryNodeDB.save({ id: item.vectorNodeId!, charId, content: item.text, room: 'living_room',
+                    tags: item.terms, mood: 'neutral', embedded: false, createdAt: 1, lastAccessedAt: 1, accessCount: 0, importance: 6 });
+            }
+        }
+        await DB.saveStoryTheater(entry);
+        if (source !== 'archived-original') {
+            // No ghost or outcome original exists in this request fixture;
+            // the corresponding facts must come from stored archive memory.
+            for (const i of [1, 7, 9]) rows[i].content = '不提供归档前的正文。';
+        }
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockImplementation(async () => ({ messages: [...rows], totalCount: rows.length }));
+        vi.spyOn(DB, 'getMessagesByCharId').mockImplementation(async () => [...rows]);
+        const save = vi.spyOn(DB, 'saveStoryTheaterTurn').mockResolvedValue(122);
+        const completion = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+            choices: [{ message: { content: '车从街口过去，司机的目光没有在他身上停留。' } }],
+        })));
+        vi.stubGlobal('fetch', completion);
+        const container = document.createElement('div');
+        document.body.append(container);
+        const root = createRoot(container);
+        try {
+            await act(async () => root.render(React.createElement(StoryTheaterSession, {
+                entry, preset, masks: [], onBack: vi.fn(), onEdit: vi.fn(),
+                onEntryChange: vi.fn(), onArchiveCommitted: vi.fn(),
+            })));
+            const retry = container.querySelector<HTMLButtonElement>('button[title="继续上次中断"]');
+            expect(retry).toBeTruthy();
+            await act(async () => { retry!.click(); });
+            await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+            expect(completion).toHaveBeenCalledOnce();
+            const request = JSON.parse(String(completion.mock.calls[0][1]?.body));
+            expect(request.model).toBe(model);
+            const payload = request.messages as StoryApiMessage[];
+            const archiveText = payload.find(item => item.content.includes('当前持续生效的剧情设定】'))?.content ?? '';
+            expect(archiveText).toContain(rule);
+            expect(archiveText).toContain('【已完成】' + oranges);
+            expect(archiveText).toContain('【已完成】' + lock);
+            expect(archiveText).toContain('小雨打算给李姨送橘子。');
+            expect(archiveText).toContain('小雨打算明天再给王姨送橘子。');
+            expect(archiveText).not.toContain(plan);
+            expect(archiveText.length).toBeLessThan(4750);
+            expect(payload.flatMap(item => item.content.match(/普通人看不见他/gu) ?? [])).toHaveLength(1);
+            expect(payload.some(item => item.content.includes('不可整楼发送的正文'))).toBe(false);
+            expect(payload.at(-1)?.role).toBe('user');
+        } finally {
+            await act(async () => root.unmount());
+            state.apiConfig.model = prevModel;
+            container.remove();
+            Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
+            vi.restoreAllMocks();
+            vi.unstubAllGlobals();
+        }
+    });
+
 });

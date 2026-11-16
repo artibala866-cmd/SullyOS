@@ -245,7 +245,7 @@ export async function generateStoryArchiveDelta(
         // would no longer fit. New facts from earlier batches still participate.
         const currentNodeIds = new Set(current.map(fact => fact.vectorNodeId));
         const estimate = current.reduce((size, fact) => size + JSON.stringify({
-            key: fact.key, kind: fact.kind, text: fact.text, storyTime: fact.storyTime, modality: fact.modality,
+            key: fact.key, kind: fact.kind, text: fact.text, storyTime: fact.storyTime, modality: fact.modality, continuity: fact.continuity,
         }).length + 1, 0);
         const { semanticFactRank } = !recovering && estimate > 12000
             ? await selectStoryVectorRecall({ nodes: [], groups: [] },
@@ -253,10 +253,10 @@ export async function generateStoryArchiveDelta(
                 embedding ? { ...embedding, requestPurpose: '剧情独立向量 · 总结核对旧记忆' } : undefined,
                 vector.factNodes.filter(node => currentNodeIds.has(node.id)), true)
             : { semanticFactRank: new Map<string, number>() };
-        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality'>> = [];
+        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality' | 'continuity'>> = [];
         let used = 0;
-        for (const { key, kind, text, storyTime, modality } of rankStoryArchiveFacts(current, transcript, semanticFactRank)) {
-            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}) };
+        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(current, transcript, semanticFactRank)) {
+            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
             const size = JSON.stringify(reference).length;
             if (used + size > (recovering ? 3000 : 12000)) continue;
             previous.push(reference);

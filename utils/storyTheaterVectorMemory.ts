@@ -262,7 +262,7 @@ export async function updateStoryVectorMemory(
                         if (current.content !== previous.content) throw new StoryVectorMemoryConflictError('剧情记忆已变更，草稿已保留');
                         changeOwnedStoryFact(stories, story.result, nodeId, fact => ({
                             ...fact, text, storyTime: storyTimeFromSource(text) ?? fact.storyTime,
-                            modality: storyArchiveModality({ text }), vectorTextState: 'synced',
+                            modality: storyArchiveModality({ text }), continuity: undefined, vectorTextState: 'synced',
                         }));
                         for (const { node: next, vector } of entries) {
                             const floats = ensureFloat32(vector.vector);

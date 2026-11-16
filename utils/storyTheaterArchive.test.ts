@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, reconcileStoryArchiveContinuity, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -1348,5 +1348,39 @@ describe('long story archives process small consecutive requests', () => {
         expect((await fresh()).archives).toEqual(entry.archives);
         const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
         expect(rows.slice(2)).toEqual(floors);
+    });
+});
+
+
+describe('续写前核对已结束的事项和持续设定', () => {
+    it('不把出发、计划一半做完和未来记录当成全部结案', () => {
+        const plan = { key: '王姨/拜访', kind: 'fact' as const, modality: 'planned' as const, sourceMessageId: 1,
+            text: '小雨打算给王姨送橘子和换门锁。', terms: [] };
+        const oranges = { key: '拜访/橘子', kind: 'fact' as const, sourceMessageId: 3,
+            text: '橘子已经送到王姨手里。', terms: [] };
+        const enRoute = { key: '拜访/刚出发', kind: 'fact' as const, sourceMessageId: 2,
+            text: '小雨已经出发去给王姨送橘子。', terms: [] };
+        const archived = [{ id: 'box', strategy: 'summary' as const, fromMessageId: 1, toMessageId: 3,
+            messageCount: 3, createdAt: 1, facts: [plan, oranges, enRoute] }];
+        expect(reconcileStoryArchiveContinuity([plan, oranges, enRoute], archived, 4, [
+            { id: 8, role: 'assistant', content: '小雨已经把门锁换好了。' },
+        ], []).closedPlans).toEqual([]);
+        expect(reconcileStoryArchiveContinuity([plan, oranges, enRoute], archived, 10, [], [
+            { id: 8, role: 'user', content: '小雨已经把门锁换好了。' },
+        ]).closedPlans).toEqual([]);
+        expect(reconcileStoryArchiveContinuity([plan, oranges, enRoute], archived, 10, [], [
+            { id: 8, role: 'assistant', content: '小雨已经把门锁换好了。' },
+        ]).closedPlans).toEqual([plan]);
+    });
+
+    it('保存有明确来源的持续设定，不从猜测或角色台词补记', () => {
+        const confirmed = '叶澄是鬼魂，普通人看不见他，只有戴戒指的人可以看见他。';
+        const facts = parseStoryArchiveChanges('{"changes":[]}', new Map([
+            [1, { text: confirmed, authorInput: false }],
+            [2, { text: '有人怀疑叶澄是鬼魂。', authorInput: false }],
+            [3, { text: '“我想你是鬼魂。”他玩笑道。', authorInput: false }],
+        ]), []);
+        expect(facts).toHaveLength(1);
+        expect(facts[0]).toMatchObject({ continuity: 'rule', text: confirmed, sourceMessageId: 1 });
     });
 });

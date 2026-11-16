@@ -2209,6 +2209,8 @@ export interface StoryArchiveFact {
     storyTime?: string;
     /** Distinguishes a planned future action or unverified report from confirmed story events. */
     modality?: 'planned' | 'unverified';
+    /** A persistent story-world rule, or the confirmed outcome of a tracked task. */
+    continuity?: 'rule' | 'completed' | 'canceled';
     vectorNodeId?: string;
     /** Distinguishes a current archive copy from an explicitly deleted vector fact. */
     vectorTextState?: 'synced' | 'deleted';
