@@ -1537,6 +1537,64 @@ describe('主动回查早期剧情', () => {
         }
     });
 
+    it('保留来源明确的分类标签，以及原文里出现的别名', () => {
+        const source = new Map([[7, { text: '蓝铜扣也叫「月扣」，阿梨把它交给渡工。', authorInput: false }]]);
+        const [fact] = parseStoryArchiveChanges(JSON.stringify({ changes: [{
+            key: '铜扣/交付', text: '阿梨把蓝铜扣交给渡工。', sourceMessageId: 7,
+            entities: [{ name: '蓝铜扣', type: 'object', aliases: ['月扣', '凭空别名'] },
+                { name: '阿梨', type: 'person' }, { name: '不存在的地点', type: 'place' }],
+        }] }), source, []);
+        expect(fact.entities).toEqual([
+            { name: '蓝铜扣', type: 'object', aliases: ['月扣'] }, { name: '阿梨', type: 'person' },
+        ]);
+    });
+
+    it('长篇旧档同时注入多个计划、按编号查旧状态，并从归档楼层补回未总结的短词', async () => {
+        const fact = (id: number, text: string, extra: Partial<StoryArchiveFact> = {}): StoryArchiveFact =>
+            ({ key: '条目/' + id, kind: 'fact', sourceMessageId: id, text, terms: [], ...extra });
+        const names = ['雪锚', '潮瓶', '塔笛', '双钥', '砂匣'];
+        const plans = names.map((alias, i) => fact(i + 10,
+            '巡守计划核对封条。' + '行动前要通知同班人员并检查运输路线。'.repeat(8) + i,
+            { modality: 'planned', entities: [{ name: '行动' + i, type: 'event', aliases: [alias] }] }));
+        const replaced = fact(2, '旧通行口位于西井。', { key: '入口/位置' });
+        const current = fact(200, '如今通行口改到北亭。', { key: replaced.key });
+        const rows: Message[] = Array.from({ length: 201 }, (_, index) => ({ ...messages[0], role: 'assistant',
+            id: index + 1, content: index === 0 ? '铜铃挂在南门值班板。' : '坊中熄灯。' }));
+        const boxes: StoryTheaterEntry['archives'] = [{
+            id: 'archive', strategy: 'vector', fromMessageId: 1, toMessageId: 200, createdAt: 1, messageCount: 200,
+            vectorMemoryIds: [], historyFacts: [replaced],
+            facts: [current, ...plans, ...Array.from({ length: 160 }, (_, index) =>
+                fact(31 + index, '围墙外的街景只有巡夜人和散开的雾。'.repeat(7) + index))],
+        }];
+        const recall = (userInput: string) => buildStoryTheaterRecall({
+            entry: { ...entry, archives: boxes }, rows, beforeId: 201, floor: 201, baseline: '', visibleRows: [],
+            historyVisible: false, continuation: false, opening: false, userInput, readOriginalEvidence: true,
+        });
+        const topics = await recall('请核对雪锚、潮瓶、塔笛、双钥、砂匣，还有第2、201楼。');
+        const payload = topics.messages.map(message => message.content).join('\n');
+        for (const plan of plans) expect(topics.receipt.injectedFloors).toContain(plan.sourceMessageId);
+        expect(payload).toContain('【旧状态】旧通行口位于西井。');
+        expect(payload).toContain('如今通行口改到北亭');
+        expect(topics.receipt.missedFloors).toEqual([201]);
+        expect((await recall('铜铃呢？')).messages.map(message => message.content).join('\n'))
+            .toContain('铜铃挂在南门值班板。');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('对旧事件盒的事实正文做本地排序，即使关键词没有写进标签', async () => {
+        const text = '霜锻匣的锁芯内藏着纵横蚀纹。';
+        const info = Array.from({ length: 80 }, (_, index) => ({ key: '旅程/' + index, kind: 'fact' as const,
+            text: index === 0 ? text : '山路很长，商旅沿石桥慢慢走过。'.repeat(10) + index,
+            terms: [], sourceMessageId: index + 1 }));
+        const archive = { id: 'summary-only', strategy: 'summary' as const, fromMessageId: 1, toMessageId: 80,
+            messageCount: 80, createdAt: 1, facts: info };
+        const result = await buildStoryTheaterRecall({ entry: { ...entry, archives: [archive] }, rows: [],
+            beforeId: 100, floor: 81, baseline: '', visibleRows: [], historyVisible: false, continuation: false,
+            opening: false, userInput: '霜锻匣的蚀纹可还在？', readOriginalEvidence: false });
+        expect(result.messages.map(message => message.content).join('\n')).toContain(text);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('同义向量命中可以带回同一事物的旧经过和有限的原始证据', async () => {
         const id = 'look-behind';
         const thread = storyTheaterThreadId(entry.id);

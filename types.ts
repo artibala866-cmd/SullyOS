@@ -2199,6 +2199,12 @@ export interface DateState {
 /** 独立剧场达到水位后，旧正文的归档去向。切换策略只影响之后的新归档。 */
 export type StoryTheaterArchiveStrategy = 'summary' | 'vector';
 
+export interface StoryArchiveEntity {
+    name: string;
+    type: 'person' | 'place' | 'object' | 'organization' | 'event' | 'code';
+    aliases?: string[];
+}
+
 export interface StoryArchiveFact {
     key: string;
     kind: 'fact' | 'author';
@@ -2206,6 +2212,7 @@ export interface StoryArchiveFact {
     terms: string[];
     /** Source-attested alternate names and directly connected archive keys. */
     aliases?: string[];
+    entities?: StoryArchiveEntity[];
     relatedKeys?: string[];
     sourceMessageId: number;
     /** Original in-story time phrase, never derived from the message's real-world timestamp. */

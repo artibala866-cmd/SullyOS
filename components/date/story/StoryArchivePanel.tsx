@@ -354,6 +354,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       <div className='space-y-1 pb-2 pl-4'>
         <p>带入楼层 · {recallReceipt.injectedFloors.join('、')||'无楼层标记'}</p>
         {!!recallReceipt.relatedFloors?.length&&<p>关联候选 · {recallReceipt.relatedFloors.join('、')}</p>}
+        {!!recallReceipt.missedFloors?.length&&<p>归档未带入 · {recallReceipt.missedFloors.join('、')} 楼</p>}
         <p>可读事实 {recallReceipt.availableFacts} 条 · 旧档 {recallReceipt.archiveIds.length} 段 · Embedding {recallReceipt.embeddingRequests} 次</p>
         {recallReceipt.fallback&&<p>部分记忆读取受限，已使用可用内容。</p>}
       </div>

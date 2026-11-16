@@ -311,7 +311,7 @@ export async function updateStoryVectorMemory(
                         changeOwnedStoryFact(stories, story.result, nodeId, fact => ({
                             ...fact, text, storyTime: storyTimeFromSource(text) ?? fact.storyTime,
                             modality: storyArchiveModality({ text }), continuity: undefined,
-                            aliases: undefined, relatedKeys: undefined, vectorTextState: 'synced',
+                            aliases: undefined, entities: undefined, relatedKeys: undefined, vectorTextState: 'synced',
                         }));
                         for (const { node: next, vector } of entries) {
                             const floats = ensureFloat32(vector.vector);

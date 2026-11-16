@@ -4,7 +4,8 @@ import { bm25Search } from './memoryPalace/bm25';
 import {
     collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState,
     formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveScene,
-    readStoryRecallArchives, reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveFactIdentity, storyArchiveNeedsRanking,
+    readStoryRecallArchives, reconcileStoryArchiveContinuity, selectExplicitStoryFacts, selectStoryArchiveTransitions,
+    storyArchiveFactIdentity, storyArchiveNeedsRanking, storyArchiveQueryFloors, storyArchiveSearchTerms,
     storyArchiveSourceTimes, storyRecentSceneCue, storyRelatedArchiveFacts,
 } from './storyArchiveFacts';
 import {
@@ -18,6 +19,7 @@ export interface StoryRecallReceipt {
     availableFacts: number;
     injectedFloors: number[];
     relatedFloors?: number[];
+    missedFloors?: number[];
     archiveIds: string[];
     embeddingRequests: number;
     fallback: boolean;
@@ -80,7 +82,7 @@ export async function buildStoryTheaterRecall(input: {
     const recentScene = storyRecentSceneCue(recentRows, floorNumbers);
     const clip = (text: string) => text.length <= 1800 ? text : text.slice(0, 900) + '\n' + text.slice(-900);
     const signals = [
-        ...(historyVisible ? visibleRows.slice(-2).map(row => clip(row.content)) : [scene.text || legacyScene, recentScene]),
+        ...(historyVisible ? visibleRows.slice(continuation ? -3 : -2).map(row => clip(row.content)) : [scene.text || legacyScene, recentScene]),
         ...(!continuation && !opening ? [clip(userInput)] : []),
     ].map(text => text.trim()).filter(Boolean);
     const query = signals.join('\n');
@@ -96,19 +98,27 @@ export async function buildStoryTheaterRecall(input: {
     }
     const useTimeline = entry.archives.some(box => box.strategy === 'vector' && box.facts && box.toMessageId < beforeId);
     const rankable = visibleFacts.filter(fact => !active.selected.has(storyArchiveFactIdentity(fact)));
-    const nodeIds = new Set(rankable.map(fact => fact.vectorNodeId));
-    const selected = await selectStoryVectorRecall(vector, signals, input.embedding,
-        vector.factNodes.filter(node => nodeIds.has(node.id)),
+    const liveNodes = new Map(vector.factNodes.map(node => [node.id, node]));
+    const candidates: MemoryNode[] = rankable.map(fact => liveNodes.get(fact.vectorNodeId ?? '') ?? {
+        id: storyArchiveFactIdentity(fact), charId: storyTheaterThreadId(entry.id), content: fact.text,
+        tags: storyArchiveSearchTerms(fact), room: 'living_room', mood: 'neutral', importance: 6,
+        embedded: false, createdAt: 0, lastAccessedAt: 0, accessCount: 0,
+    });
+    const selected = await selectStoryVectorRecall(vector, signals, input.embedding, candidates,
         storyArchiveNeedsRanking(rankable, floorNumbers, sourceTimes, useTimeline, active.cost));
-    const related = storyRelatedArchiveFacts(visibleFacts, continuation ? query : userInput, selected.semanticFactRank);
+    const explicitQuery = continuation || opening ? '' : userInput;
+    const explicitFloors = storyArchiveQueryFloors(explicitQuery);
+    const explicit = selectExplicitStoryFacts(visibleFacts, explicitQuery, floorNumbers, selected.semanticFactRank);
+    const graphRank = selected.embeddingRequests > 0 && !selected.embeddingFailed ? selected.semanticFactRank : new Map<string, number>();
+    const related = storyRelatedArchiveFacts(visibleFacts, continuation ? query : userInput, graphRank);
     const relatedKeys = new Set(related.map(fact => fact.key));
     const priority = new Map(selected.semanticFactRank);
     related.forEach((fact, index) => priority.set(fact.vectorNodeId ?? storyArchiveFactIdentity(fact), index - related.length));
-    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys, vector.factTextById)
+    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys, vector.factTextById, explicitFloors)
         .filter(fact => !reconciled.closedPlans.some(plan => plan.key === fact.key && plan.sourceMessageId === fact.sourceMessageId));
     const timeline = useTimeline
-        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys) : '';
-    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active);
+        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys, explicit, explicitFloors) : '';
+    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active, explicit);
     const previous = useTimeline ? '' : formatStoryArchiveFacts(past, floorNumbers, Infinity, true, sourceTimes);
     const legacyCandidates: MemoryNode[] = entry.archives.flatMap<MemoryNode>(box =>
         box.strategy === 'summary' && !box.facts && box.toMessageId < beforeId && box.summary?.trim() ? [{
@@ -123,14 +133,14 @@ export async function buildStoryTheaterRecall(input: {
         return '事件盒 ' + (index + 1) + (first && last ? '（第 ' + first + '–' + last + ' 楼）' : '') + '：' + box.summary;
     }).join('\n\n');
     const relatedByFloor = new Map<number, string[]>();
-    for (const fact of [...related, ...past.filter(fact => relatedKeys.has(fact.key))]) {
-        const terms = fact.terms.filter(term => term.trim().length >= 2 && !/^(?:剧情|事件|人物|地点|计划|状态|记录)$/u.test(term));
+    for (const fact of [...explicit, ...related, ...past.filter(fact => relatedKeys.has(fact.key))]) {
+        const terms = storyArchiveSearchTerms(fact);
         if (terms.length) relatedByFloor.set(fact.sourceMessageId, [...new Set([...(relatedByFloor.get(fact.sourceMessageId) ?? []), ...terms])]);
     }
     const evidence = !opening && readOriginalEvidence ? findStoryArchiveEvidence(rows, entry.archives, beforeId,
         continuation ? query : signals.at(-1) ?? '',
         [summaries, timeline, current, previous, selected.text, baseline].join('\n'),
-        baseline, floorNumbers, reconciled.closedPlans, relatedByFloor) : '';
+        baseline, floorNumbers, reconciled.closedPlans, relatedByFloor, explicitFloors) : '';
     const author = selectStoryArchiveAuthorInstructions(entry.archives, beforeId, boxes);
     const affinity = entry.archives.filter(box => box.toMessageId < beforeId && box.affinityLog?.length)
         .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 8).reverse()
@@ -145,7 +155,7 @@ export async function buildStoryTheaterRecall(input: {
         ['### 剧情记忆时间线（按原剧情楼层排列）\n沿用当前设定和结案结果。角色只知道其实际可感知或已获知的事情。同楼事件的先后以原文为准。', timeline],
         ['### 本剧情目前已确认的状态（按楼层先后排列）\n角色只知道其实际可感知或已获知的事情。', current],
     ].flatMap(([title, content]) => content ? [{ role: 'system' as const, content: [title, content].filter(Boolean).join('\n') }] : []);
-    const injectedFloors = [...new Set([...messages.map(message => message.content).join('\n').matchAll(/\[第 (\d+) 楼/gu)]
+    const injectedFloors = [...new Set([...messages.map(message => message.content).join('\n').matchAll(/^\[第 (\d+) 楼/gmu)]
         .map(match => Number(match[1])))].sort((a, b) => a - b);
     const injectedIds = injectedFloors.map(number => rows[number - 1]?.id);
     const sourceArchives = entry.archives.filter(box => box.toMessageId < beforeId
@@ -159,6 +169,7 @@ export async function buildStoryTheaterRecall(input: {
         messages,
         receipt: {
             floor, availableFacts: facts.length, injectedFloors, relatedFloors,
+            missedFloors: [...explicitFloors].filter(number => !injected.has(number)),
             archiveIds: [...new Set([...sourceArchives.map(box => box.id), ...boxes.map(box => box.id), ...selected.archiveIds])],
             embeddingRequests: selected.embeddingRequests, fallback: selected.embeddingFailed || vector.degraded,
         },

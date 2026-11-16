@@ -8,7 +8,7 @@ import { useOS } from '../../../context/OSContext';
 import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, readStoredStoryTheater, StoryVectorMemoryConflictError, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, storyArchiveFactIdentity, storyArchiveFactTime, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, readStoryRecallArchives, storyArchiveFactIdentity, storyArchiveFactTime, storyArchiveModality, storyArchiveSearchTerms, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks } from '../../../utils/storyTheater';
 import { StoryOutput } from './StoryTheaterSession';
 
@@ -29,11 +29,13 @@ interface MemoryRecord {
 
 const PAGE_SIZE = 10;
 const EMPTY_MASKS: StoryTheaterMask[] = [];
+const entityTypeNames = { person:'人物', place:'地点', object:'物品', organization:'组织', event:'事件', code:'编号' };
 const searchText = (text: string) => text.normalize('NFKC').toLowerCase();
 const actionClass = 'story-memory-action story-memory-action-icon inline-grid h-11 w-11 shrink-0 place-items-center rounded-full disabled:opacity-40';
 
 const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, onBack, onUpdated }) => {
     const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
+    const archives = useMemo(() => readStoryRecallArchives(entry.archives), [entry.archives]);
     const [nodes, setNodes] = useState<MemoryNode[]>([]);
     const [fallbackText, setFallbackText] = useState<ReadonlyMap<string, string>>(new Map());
     const [loading, setLoading] = useState(true);
@@ -58,7 +60,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     useEffect(() => {
         let active = true;
         void listStoryVectorMemories(entry.id).then(async rows => {
-            const recall = await loadStoryVectorRecall(entry, Infinity, rows);
+            const recall = await loadStoryVectorRecall({ ...entry, archives }, Infinity, rows);
             if (active) {
                 setNodes(rows.filter(node => !node.archived));
                 setFallbackText(recall.factTextById);
@@ -68,12 +70,12 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             if (active) setListError(error?.message || '读取剧情向量记忆失败');
         }).finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [entry, reload]);
+    }, [entry, archives, reload]);
 
     const floorNumbers = useMemo(() => new Map(floors.map((row, index) => [row.id, index + 1])), [floors]);
     const floorById = useMemo(() => new Map(floors.map(row => [row.id, row])), [floors]);
     const sourceTimes = useMemo(() => storyArchiveSourceTimes(floors), [floors]);
-    const vectorArchives = useMemo(() => entry.archives.filter(box => box.strategy === 'vector'), [entry.archives]);
+    const vectorArchives = useMemo(() => archives.filter(box => box.strategy === 'vector'), [archives]);
     const factByNodeId = useMemo(() => new Map(vectorArchives.flatMap(box =>
         (box.facts ?? []).flatMap(fact => fact.vectorNodeId ? [[fact.vectorNodeId, fact] as const] : []))), [vectorArchives]);
     const staticSetup = useMemo(() => {
@@ -98,8 +100,12 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                 return liveIds.has(id) || !text || fact.vectorTextState === 'deleted' ? [] : [{ id, text, fact, fallback:true }];
             }),
             ...vectorArchives.flatMap(box =>
-                (box.historyFacts ?? []).flatMap<MemoryRecord>((fact, index) => fact.vectorTextState === 'deleted' ? []
-                    : [{ id:'history-' + box.id + '-' + index, text:fact.text, fact }])),
+                [...(box.historyFacts ?? []), ...(box.facts ?? []).filter(fact => !fact.vectorNodeId)]
+                    .flatMap<MemoryRecord>((fact, index) => {
+                        const text = fact.vectorNodeId ? fallbackText.get(fact.vectorNodeId) : fact.text;
+                        return fact.vectorTextState === 'deleted' || !text?.trim() ? []
+                            : [{ id:'archive-' + box.id + '-' + index, text, fact }];
+                    })),
         ].sort((a, b) => (a.fact?.sourceMessageId ?? Infinity) - (b.fact?.sourceMessageId ?? Infinity)
             || (a.node?.createdAt ?? 0) - (b.node?.createdAt ?? 0));
     }, [nodes, factByNodeId, vectorArchives, fallbackText]);
@@ -124,7 +130,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             if (floorQuery && floor === Number(floorQuery[1])) return true;
             if (floorQuery && normalizedQuery.includes('楼')) return false;
             const time = fact && storyArchiveFactTime({ ...fact, text:record.text }, sourceTimes);
-            const body = searchText([record.text, time, ...(record.node?.tags ?? []), ...(fact?.terms ?? [])].filter(Boolean).join(' '));
+            const body = searchText([record.text, time, ...(record.node?.tags ?? []), ...(fact ? storyArchiveSearchTerms({ ...fact, text: record.text }) : [])].filter(Boolean).join(' '));
             return words.every(word => body.includes(word));
         });
     }, [normalizedQuery, records, showRepeatedSetup, repeatedSetupIds, floorNumbers, sourceTimes, currentIdentities]);
@@ -133,6 +139,8 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     const visibleRecords = filtered.slice(visiblePage * PAGE_SIZE, (visiblePage + 1) * PAGE_SIZE);
     useEffect(() => { if (page !== visiblePage) setPage(visiblePage); }, [page, visiblePage]);
     const record = records.find(item => item.id === selectedId);
+    const detailTags = [...new Set([...(record?.fact?.terms ?? record?.node?.tags ?? []), ...(record?.fact?.aliases ?? [])])]
+        .filter(tag => tag !== '剧情');
     const activeNode = record?.node;
     const original = record?.fact && floorById.get(record.fact.sourceMessageId);
     const floor = record?.fact && floorNumbers.get(record.fact.sourceMessageId);
@@ -236,7 +244,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving} onFloorsLoaded={setFloors}
         vectorSearch={<div className='relative story-memory-search-field'>
             <MagnifyingGlass size={18} aria-hidden className='pointer-events-none absolute left-3 top-3.5 text-slate-500' />
-            <input type='search' aria-label='搜索记忆' placeholder='搜索内容、时间或楼层'
+            <input type='search' aria-label='搜索记忆' placeholder='搜索内容、标签、时间或楼层'
                 value={query} onChange={event => { setQuery(event.target.value); changePage(0); }}
                 className='story-memory-search-input min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-base' />
         </div>}>
@@ -341,6 +349,14 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                             {(record.fallback || indexState) && <span>{record.fallback ? '仅有文字备份' : indexState}</span>}
                         </div>
                         <p className='whitespace-pre-wrap break-words text-base leading-7'>{record.text}</p>
+                        {record.fact?.entities?.length ? <ul aria-label='记忆实体' className='mt-3 flex flex-wrap gap-2 text-xs'>
+                            {record.fact.entities.map(entity => <li key={entity.name} className='max-w-full break-words rounded bg-stone-100 px-2 py-1'>
+                                {entityTypeNames[entity.type]} · {entity.name}{entity.aliases?.length ? '（' + entity.aliases.join('、') + '）' : ''}
+                            </li>)}
+                        </ul> : null}
+                        {!!detailTags.length && <p className='mt-2 break-words text-xs text-slate-600'>
+                            {detailTags.join(' · ')}
+                        </p>}
                     </>}
                     {detailView === 'source' && original && (original.role === 'assistant'
                         ? <StoryOutput content={original.content} affinityInputs={[]} />

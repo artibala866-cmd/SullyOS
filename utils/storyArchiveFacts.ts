@@ -1,4 +1,4 @@
-import type { StoryArchiveFact, StoryTheaterArchive } from '../types';
+import type { StoryArchiveEntity, StoryArchiveFact, StoryTheaterArchive } from '../types';
 import { extractContent } from './safeApi';
 
 const normalize = (text: string) => text.normalize('NFKC').trim().toLowerCase();
@@ -240,6 +240,75 @@ function archiveLinkLabels(values: unknown, limit: number) {
         .map(normalize).filter(value => value.length >= 2 && value.length <= 96))].slice(0, limit);
 }
 
+const archiveEntityTypes: StoryArchiveEntity['type'][] = ['person', 'place', 'object', 'organization', 'event', 'code'];
+
+function readArchiveEntities(value: unknown, evidence?: string): StoryArchiveEntity[] {
+    if (!Array.isArray(value)) return [];
+    const found = new Map<string, StoryArchiveEntity>();
+    const sourced = (label: string) => evidence === undefined || evidence.includes(normalize(label));
+    for (const item of value) {
+        if (!item || typeof item.name !== 'string' || !archiveEntityTypes.includes(item.type)) continue;
+        const name = item.name.normalize('NFKC').trim();
+        const key = normalize(name);
+        if (name.length > 48 || !specificArchiveTerm(key) || !sourced(name) || found.has(key)) continue;
+        const aliases = archiveLinkLabels(item.aliases, 4).filter(alias => alias !== key && specificArchiveTerm(alias) && sourced(alias));
+        found.set(key, { name, type: item.type, ...(aliases.length ? { aliases } : {}) });
+        if (found.size >= 10) break;
+    }
+    return [...found.values()];
+}
+
+export function storyArchiveSearchTerms(fact: StoryArchiveFact): string[] {
+    const aliasesFromText = [...fact.text.matchAll(/(?:又称|也叫|别名[为是：:]?|简称[为：:]?)[「『“"]([^」』”"\p{Cc}]{2,30})[」』”"]/gu)]
+        .slice(0, 4).map(match => match[1]);
+    return [...new Set([
+        ...fact.terms, ...(fact.aliases ?? []), ...aliasesFromText,
+        ...(fact.entities ?? []).flatMap(entity => [entity.name, ...(entity.aliases ?? [])]),
+        ...fact.key.split(/[\/：:·]/u), ...storyArchiveCodes(fact.text).map(code => code.value),
+    ].map(normalize).filter(specificArchiveTerm))];
+}
+
+export function storyArchiveQueryFloors(query: string): Set<number> {
+    const floors = new Set<number>();
+    const text = normalize(query);
+    for (const match of text.matchAll(/(?:第\s*)?(\d{1,8})\s*楼/gu)) floors.add(Number(match[1]));
+    for (const match of text.matchAll(/第\s*(\d{1,8}(?:\s*[、,和]\s*\d{1,8})+)\s*楼/gu)) {
+        for (const number of match[1].match(/\d+/gu) ?? []) floors.add(Number(number));
+    }
+    return floors;
+}
+
+/** Give each specific query target a route into the prompt before general ranking. */
+export function selectExplicitStoryFacts(
+    facts: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number>, rank: ReadonlyMap<string, number>,
+): StoryArchiveFact[] {
+    const text = normalize(query);
+    if (!text) return [];
+    const floors = storyArchiveQueryFloors(text);
+    const matchedNames = new Map<string, StoryArchiveFact[]>();
+    const result = new Map<string, StoryArchiveFact>();
+    const add = (fact: StoryArchiveFact) => result.set(storyArchiveFactIdentity(fact), fact);
+    for (const fact of facts) {
+        if (fact.kind !== 'fact' || fact.vectorTextState === 'deleted') continue;
+        if (floors.has(floorNumbers.get(fact.sourceMessageId) ?? -1)) add(fact);
+        for (const term of storyArchiveSearchTerms(fact)) {
+            const index = text.indexOf(term);
+            if (index < 0 || (/^[a-z0-9-]+$/u.test(term)
+                && (/[a-z0-9-]/u.test(text[index - 1] ?? '') || /[a-z0-9-]/u.test(text[index + term.length] ?? '')))) continue;
+            const matching = matchedNames.get(term) ?? [];
+            matching.push(fact);
+            matchedNames.set(term, matching);
+        }
+    }
+    const byName = [...matchedNames].sort(([a, aFacts], [b, bFacts]) => aFacts.length - bFacts.length || b.length - a.length);
+    for (const [, matching] of byName) {
+        if (result.size >= 8) break;
+        const ordered = rankStoryArchiveFacts(matching, text, rank);
+        if (ordered[0]) add(ordered[0]);
+    }
+    return [...result.values()].slice(0, 8);
+}
+
 /** Read older or partially exported archives without mutating the stored copy. */
 export function readStoryRecallArchives(archives: StoryTheaterArchive[] | undefined): StoryTheaterArchive[] {
     if (!Array.isArray(archives)) return [];
@@ -253,6 +322,7 @@ export function readStoryRecallArchives(archives: StoryTheaterArchive[] | undefi
                 || !Number.isFinite(fact.sourceMessageId) || fact.sourceMessageId < box.fromMessageId || fact.sourceMessageId > box.toMessageId) return [];
             return [{ ...fact, terms: Array.isArray(fact.terms) ? fact.terms.filter(term => typeof term === 'string') : [],
                 aliases: archiveLinkLabels(fact.aliases, 8), relatedKeys: archiveLinkLabels(fact.relatedKeys, 6),
+                entities: readArchiveEntities(fact.entities),
                 storyTime: typeof fact.storyTime === 'string' ? fact.storyTime : undefined }];
         }) : undefined;
         const strings = (values: string[] | undefined) => Array.isArray(values)
@@ -279,11 +349,7 @@ export function storyRelatedArchiveFacts(
         index.set(key, matches);
     };
     for (const fact of candidates) {
-        // Older archives can still recognize a name explicitly annotated in archived text.
-        const namedAliases = [...fact.text.matchAll(/(?:又称|也叫|别名[为是：:]?|简称[为：:]?)[「『“"]([^」』”"\p{Cc}]{2,30})[」』”"]/gu)]
-            .slice(0, 4).map(match => match[1]);
-        const terms = [...new Set([...fact.terms, ...(fact.aliases ?? []), ...namedAliases, ...fact.key.split(/[\/：:·]/u)]
-            .map(normalize).filter(specificArchiveTerm))];
+        const terms = storyArchiveSearchTerms(fact);
         tags.set(fact, terms);
         add(byKey, normalize(fact.key), fact);
         for (const term of terms) add(byTerm, term, fact);
@@ -292,7 +358,7 @@ export function storyRelatedArchiveFacts(
     const specific = (term: string) => (byTerm.get(term)?.size ?? 0) <= 4;
     const seeds = rankStoryArchiveFacts(candidates.filter(fact =>
         (tags.get(fact) ?? []).some(term => specific(term) && needle.includes(term))
-        || (semanticRank.get(fact.vectorNodeId ?? '') ?? Infinity) < 2), query, semanticRank).slice(0, 3);
+        || (semanticRank.get(fact.vectorNodeId ?? storyArchiveFactIdentity(fact)) ?? Infinity) < 2), query, semanticRank).slice(0, 3);
     const visited = new Set(seeds.map(storyArchiveFactIdentity));
     const results = [...seeds];
     let frontier = seeds;
@@ -407,6 +473,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。相同事件在不同剧情时间再次发生时，用新的事件 key，并分别保留剧情时间。',
     '用户执笔身份和人物档案也是已有设定。不要记录「{{user}}全名、年龄、学历、与谁是亲属」等已列明的角色卡内容；别人首次得知身份、身份确实发生变化才记录发生了什么。不要把「剧情/进展」之类笼统的 key 用来连续覆盖不相干事件，必须用具体对象和事项。',
     '事实可选 aliases（原文明确出现的别称，最多 4 条）、relatedKeys（存在直接因果、同一物品交接或同一未结事项的真实事实 key，最多 3 条）；不能凭空补别称或关联，不能用共现人物代替因果。没有依据就省略。',
+    '事实可选 entities：从该来源楼层列出与此事实直接有关的具体人名、地点、物品、组织、事件名或编号，格式 {"name":"原文专名","type":"person|place|object|organization|event|code","aliases":[]}。别名和专名都须出现在该楼层。普通关键词留在 terms。藉由物品去向、身份变化、承诺条件、未解决线索找到旧事时，请将这些要素一并写清。',
     '每条可填 modality：已确定发生的事实省略；尚未发生的计划、愿望、未来承诺用 planned；传闻、猜测、未知真伪的信息用 unverified。不能把计划/传闻改写成既成事实；后续有原文确认发生时更新同一 key，并去掉旧 modality。',
 ].join('\n');
 
@@ -425,7 +492,7 @@ export function collectStoryArchiveFacts(
         // Only use vector text checked against the live node or persisted archive.
         const text = fact.vectorNodeId ? vectorTexts.get(fact.vectorNodeId) : fact.text;
         if (!text?.trim()) return undefined;
-        return text === fact.text ? fact : { ...fact, text, aliases: undefined, relatedKeys: undefined };
+        return text === fact.text ? fact : { ...fact, text, aliases: undefined, entities: undefined, relatedKeys: undefined };
     };
     for (const archive of archives.filter(item => item.toMessageId < beforeId).sort((a, b) => a.toMessageId - b.toMessageId)) {
         if (includeLastConfirmed) {
@@ -457,7 +524,7 @@ export function rankStoryArchiveFacts(
     sourceTimes?: ReadonlyMap<number, string>,
 ): StoryArchiveFact[] {
     const text = normalize(query);
-    const matchingTerms = facts.map(fact => [...new Set([...fact.terms, storyArchiveFactTime(fact, sourceTimes) ?? ''].map(normalize))]
+    const matchingTerms = facts.map(fact => [...new Set([...storyArchiveSearchTerms(fact), storyArchiveFactTime(fact, sourceTimes) ?? ''].map(normalize))]
         .filter(term => term.length >= 2 && text.includes(term)));
     const frequency = new Map<string, number>();
     for (const terms of matchingTerms) for (const term of terms) {
@@ -711,8 +778,9 @@ export function parseStoryArchiveChanges(
             .filter(alias => normalize(source.text).includes(alias)) : [];
         const relatedKeys = kind === 'fact' ? archiveLinkLabels(change.relatedKeys, 3)
             .filter(link => link !== normalize(key)) : [];
+        const entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(source.text)) : [];
         facts.set(key, { ...fact, terms, ...(aliases.length ? { aliases } : {}),
-            ...(relatedKeys.length ? { relatedKeys } : {}) });
+            ...(relatedKeys.length ? { relatedKeys } : {}), ...(entities.length ? { entities } : {}) });
         duplicateText.add(comparableText);
     }
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
@@ -818,6 +886,42 @@ function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
     ];
 }
 
+function selectStoryArchiveRecallLines(
+    facts: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number> | undefined,
+    semanticRank: ReadonlyMap<string, number>, sourceTimes: ReadonlyMap<number, string> | undefined,
+    active: ReturnType<typeof formatStoryArchiveActiveState> | undefined, explicit: readonly StoryArchiveFact[],
+    timelineStatus?: 'current',
+) {
+    const reserved = new Map<string, { fact: StoryArchiveFact; line: string }>();
+    const available = new Set(facts.map(storyArchiveFactIdentity));
+    const targets = explicit.filter(fact => available.has(storyArchiveFactIdentity(fact))
+        && !active?.selected.has(storyArchiveFactIdentity(fact)));
+    const reserveBudget = Math.min(1600, Math.max(0, 3200 - (active?.cost ?? 0)));
+    const perTarget = Math.min(235, Math.floor(reserveBudget / Math.max(1, targets.length)) - 1);
+    for (const fact of targets) {
+        const item = storyArchiveFactLines([fact], floorNumbers, perTarget, sourceTimes, timelineStatus)[0];
+        if (!item) continue;
+        reserved.set(storyArchiveFactIdentity(fact), item);
+    }
+    let borrowed = 0;
+    const sections = storyArchiveRecallSections(facts).map(({ title, entries, budget }) => {
+        const priority = entries.flatMap(fact => reserved.get(storyArchiveFactIdentity(fact)) ?? []);
+        const cost = priority.reduce((size, item) => size + item.line.length + 1, 0);
+        if (budget !== 3200) borrowed += Math.max(0, cost - budget);
+        return { title, entries, budget, priority, cost };
+    });
+    return sections.map(({ title, entries, budget, priority, cost }) => {
+        const rankable = entries.filter(fact => {
+            const id = storyArchiveFactIdentity(fact);
+            return !reserved.has(id) && !active?.selected.has(id);
+        });
+        const space = budget - cost - (budget === 3200 ? (active?.cost ?? 0) + borrowed : 0);
+        const lines = storyArchiveFactLines(rankStoryArchiveFacts(rankable, query, semanticRank, sourceTimes),
+            floorNumbers, space, sourceTimes, timelineStatus);
+        return { title, lines: [...priority, ...lines] };
+    });
+}
+
 export function storyArchiveNeedsRanking(
     facts: StoryArchiveFact[], floorNumbers: ReadonlyMap<number, number>, sourceTimes: ReadonlyMap<number, string>,
     timeline = false, activeCost = 0,
@@ -832,14 +936,10 @@ export function formatStoryArchiveProseContext(
     facts: StoryArchiveFact[], query: string,
     floorNumbers?: ReadonlyMap<number, number>,
     semanticRank: ReadonlyMap<string, number> = new Map(),
-    sourceTimes?: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>,
+    sourceTimes?: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>, explicit: readonly StoryArchiveFact[] = [],
 ): string {
-    const sections = storyArchiveRecallSections(facts).map(({ title, entries, budget }) => {
-        if (!entries.length) return '';
-        const text = formatStoryArchiveFacts(
-            rankStoryArchiveFacts(entries.filter(fact => !active?.selected.has(storyArchiveFactIdentity(fact))),
-                query, semanticRank, sourceTimes), floorNumbers, budget === 3200 ? budget - (active?.cost ?? 0) : budget, true, sourceTimes,
-        );
+    const sections = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit).map(({ title, lines }) => {
+        const text = lines.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId).map(item => item.line).join('\n');
         return text ? '【' + title + '】\n' + text : '';
     });
     return [active?.text, ...sections].filter(Boolean).join('\n\n');
@@ -850,16 +950,16 @@ export function formatStoryArchiveRecallTimeline(
     facts: StoryArchiveFact[], historical: StoryArchiveFact[], query: string,
     floorNumbers: ReadonlyMap<number, number>, semanticRank: ReadonlyMap<string, number>,
     sourceTimes: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>,
-    relatedKeys: ReadonlySet<string> = new Set(),
+    relatedKeys: ReadonlySet<string> = new Set(), explicit: readonly StoryArchiveFact[] = [],
+    explicitFloors: ReadonlySet<number> = new Set(),
 ): string {
-    const lines = storyArchiveRecallSections(facts).flatMap(({ entries, budget }) =>
-        storyArchiveFactLines(rankStoryArchiveFacts(entries.filter(fact => !active?.selected.has(storyArchiveFactIdentity(fact))),
-            query, semanticRank, sourceTimes), floorNumbers, budget === 3200 ? budget - (active?.cost ?? 0) : budget,
-            sourceTimes, 'current'));
+    const lines = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit, 'current')
+        .flatMap(section => section.lines);
     const selectedKeys = new Set([...lines.map(item => item.fact.key), ...facts.filter(fact =>
         active?.selected.has(storyArchiveFactIdentity(fact))).map(fact => fact.key)]);
     const currentIdentities = new Set(facts.map(storyArchiveFactIdentity));
-    lines.push(...storyArchiveFactLines(historical.filter(fact => (selectedKeys.has(fact.key) || relatedKeys.has(fact.key)) && !currentIdentities.has(storyArchiveFactIdentity(fact))),
+    lines.push(...storyArchiveFactLines(historical.filter(fact => (selectedKeys.has(fact.key) || relatedKeys.has(fact.key)
+        || explicitFloors.has(floorNumbers.get(fact.sourceMessageId) ?? -1)) && !currentIdentities.has(storyArchiveFactIdentity(fact))),
         floorNumbers, Infinity, sourceTimes, 'past'));
     const timeline = lines.sort((a, b) =>
         (floorNumbers.get(a.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER)
@@ -873,6 +973,7 @@ export function findStoryArchiveEvidence(
     rows: readonly { id: number; content: string; role?: string }[], archives: StoryTheaterArchive[], beforeId: number,
     query: string, alreadySent: string, baseline: string, floorNumbers: ReadonlyMap<number, number>,
     closedPlans: StoryArchiveFact[] = [], relatedByFloor: ReadonlyMap<number, readonly string[]> = new Map(),
+    explicitFloors: ReadonlySet<number> = new Set(),
 ): string {
     const known = normalize(alreadySent);
     const knownLines = known.split('\n');
@@ -883,12 +984,16 @@ export function findStoryArchiveEvidence(
         if (/^[a-z0-9]+$/u.test(span)) needles.add(span);
         else for (let i = 0; i <= span.length - 4; i++) needles.add(span.slice(i, i + 4));
     }
-    if (!needles.size && !relatedByFloor.size) return '';
+    for (const match of searchText.matchAll(/[「『“"]([^」』”"]{2,36})[」』”"]/gu)) needles.add(match[1]);
+    const shortTarget = searchText.replace(/[\s？?。！!]+/gu, '').replace(/(?:在哪里|在哪|是什么|是谁|哪来的|呢)$/u, '');
+    if (shortTarget !== searchText.trim() && /^\p{Script=Han}{2,3}$/u.test(shortTarget) && specificArchiveTerm(shortTarget)
+        && !/^(?:继续|接着|后来|之前|然后|以后|过去|怎样|什么|如何|记得|知道|有人|结果)$/u.test(shortTarget)) needles.add(shortTarget);
+    if (!needles.size && !relatedByFloor.size && !explicitFloors.size) return '';
     const boxes = archives.filter(box => box.toMessageId < beforeId && (box.strategy === 'summary' || box.facts));
     if (!boxes.length) return '';
     const deletedSources = new Set(boxes.flatMap(box =>
         (box.facts ?? []).filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.sourceMessageId)));
-    const hits: { id: number; excerpt: string; score: number }[] = [];
+    const hits: { id: number; excerpt: string; score: number; explicit: boolean }[] = [];
     for (const row of rows) {
         if (deletedSources.has(row.id) || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
         const content = extractContent({ choices: [{ message: { content: row.content } }] }, false);
@@ -925,21 +1030,22 @@ export function findStoryArchiveEvidence(
                 score += 0.5;
                 if (offset < 0 || index < offset) offset = index;
             }
-            if (!score || storyArchiveRepeatsPreset(sentence, '', baseline)) continue;
+            const explicit = floor !== undefined && explicitFloors.has(floor);
+            if ((!score && !explicit) || storyArchiveRepeatsPreset(sentence, '', baseline)) continue;
             const start = Math.max(0, offset - 32);
             const excerpt = (start ? '…' : '') + sentence.slice(start, start + 128).trim()
                 + (sentence.length > start + 128 ? '…' : '');
-            hits.push({ id: row.id, excerpt, score });
+            hits.push({ id: row.id, excerpt, score, explicit });
         }
     }
     const seen = new Set<string>();
     const usedFloors = new Set<number>();
-    return hits.sort((a, b) => b.score - a.score || b.id - a.id).filter(hit => {
+    return hits.sort((a, b) => Number(b.explicit) - Number(a.explicit) || b.score - a.score || b.id - a.id).filter(hit => {
         if (seen.has(hit.excerpt) || usedFloors.has(hit.id)) return false;
         seen.add(hit.excerpt);
         usedFloors.add(hit.id);
         return true;
-    }).slice(0, 2).sort((a, b) => a.id - b.id)
+    }).slice(0, explicitFloors.size || [...needles].some(term => term.length < 4) ? 4 : 2).sort((a, b) => a.id - b.id)
         .map(hit => `[第 ${floorNumbers.get(hit.id)} 楼] ${hit.excerpt}`).join('\n');
 }
 
@@ -977,7 +1083,7 @@ export function selectStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
     query = '', baseline = '', timelineLabels = false, relatedKeys: ReadonlySet<string> = new Set(),
-    vectorTexts?: ReadonlyMap<string, string>,
+    vectorTexts?: ReadonlyMap<string, string>, explicitFloors: ReadonlySet<number> = new Set(),
 ): StoryArchiveFact[] {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
@@ -1005,15 +1111,16 @@ export function selectStoryArchiveTransitions(
     // Afterwards restore chronological order so the model does not confuse
     // retrieval ranking with the actual order of events.
     const normalizedQuery = normalize(query);
-    const directMatches = earlier.filter(fact => relatedKeys.has(fact.key)
-        || (normalizedQuery && fact.terms.some(term => {
+    const requestedFloor = (fact: StoryArchiveFact) => explicitFloors.has(floorNumbers.get(fact.sourceMessageId) ?? -1);
+    const directMatches = earlier.filter(fact => requestedFloor(fact) || relatedKeys.has(fact.key)
+        || (normalizedQuery && storyArchiveSearchTerms(fact).some(term => {
             const token = normalize(term);
             return token.length >= 2 && normalizedQuery.includes(token);
         })));
     // Do not flood the current scene with unrelated old states merely because
     // they are recent. A vague continuation gets at most the most recent two.
     const priority = directMatches.length
-        ? rankStoryArchiveFacts(directMatches, query)
+        ? rankStoryArchiveFacts(directMatches, query).sort((a, b) => Number(requestedFloor(b)) - Number(requestedFloor(a)))
         : query.trim() ? earlier.slice(0, 2) : earlier;
     for (const { fact, line } of storyArchiveFactLines(priority, floorNumbers, Infinity, sourceTimes, timelineLabels ? 'past' : undefined)) {
         if (used + line.length + 1 > budget) continue;
