@@ -5,7 +5,8 @@ import { act } from 'react-dom/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-    toast: vi.fn(), updateCharacter: vi.fn(), fetch: vi.fn(),
+    toast: vi.fn(), updateCharacter: vi.fn(), fetch: vi.fn(), dirty: vi.fn(),
+    responseText: '测试开场正文', responseBody: {} as Record<string, unknown>,
     session: null as any, rows: [] as any[],
     characters: [{ id: 'c', name: '测试角色', avatar: '', savedDateState: { currentText: '旧快照' } }],
 }));
@@ -26,32 +27,43 @@ vi.mock('../components/date/DateSession', () => ({ default: (props: any) => {
     mocks.session = props;
     return React.createElement('button', { onClick: props.onExit }, '退出见面');
 } }));
+vi.mock('../context/MusicContext', () => ({ useMusic: () => ({ library: [], playSong: vi.fn(), stopDateBgmIfCurrent: vi.fn() }) }));
 vi.mock('../components/date/DateSettings', () => ({ default: () => null }));
 vi.mock('../components/date/story/StoryTheater', () => ({ default: () => null }));
 vi.mock('./analytics', () => ({ trackEvent: vi.fn() }));
-vi.mock('./amsgStateSync', () => ({ markAmsgStateDirty: vi.fn() }));
+vi.mock('./amsgStateSync', () => ({ markAmsgStateDirty: mocks.dirty }));
 vi.mock('./chatContextRange', async importOriginal => ({
     ...await importOriginal<typeof import('./chatContextRange')>(),
-    loadCharacterContextMessages: vi.fn(async () => []),
+    loadCharacterContextMessages: vi.fn(async () => [...mocks.rows]),
 }));
 vi.mock('./visionApi', () => ({ materializeVisionDescriptions: vi.fn(async messages => messages) }));
-vi.mock('./safeApi', () => ({ safeResponseJson: vi.fn(async () => ({})), extractContent: vi.fn(() => '测试开场正文') }));
+vi.mock('./safeApi', () => ({ safeResponseJson: vi.fn(async () => mocks.responseBody), extractContent: vi.fn(() => mocks.responseText) }));
 vi.mock('./db', () => ({ DB: {
     getAsset: vi.fn(async () => undefined),
-    getRecentMessagesByCharIdAndSource: vi.fn(async () => mocks.rows),
+    getRecentMessagesByCharIdAndSource: vi.fn(async (_id, _source, limit, beforeId = Infinity) => mocks.rows.filter(row => row.id < beforeId).slice(-limit)),
     getEmojis: vi.fn(async () => []),
-    saveMessage: vi.fn(async message => { mocks.rows.push({ ...message, id: mocks.rows.length + 1, timestamp: 1 }); return mocks.rows.length; }),
+    saveMessage: vi.fn(async (message, signal) => { signal?.throwIfAborted(); mocks.rows.push({ ...message, id: mocks.rows.length + 1, timestamp: 1 }); return mocks.rows.length; }),
+    updateMessage: vi.fn(async (id, content, options) => {
+        options.signal.throwIfAborted();
+        const previous = mocks.rows.find(row => row.id === id);
+        if (previous?.content !== options.expectedContent) throw new Error('原回复已修改或删除');
+        previous.content = content;
+    }),
 } }));
 import DateApp from '../apps/DateApp';
+import { DB } from './db';
+import { dateLaunch } from './dateLaunch';
+import { MEETING_CONTINUE_DISPLAY_TEXT } from './meetingContinue';
 
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem('sully-date-entry-guide-v1', 'seen');
     mocks.rows = [];
     mocks.session = null;
-    mocks.fetch.mockResolvedValue({ ok: true });
+    mocks.responseText = '测试开场正文';
+    mocks.responseBody = {};
+    mocks.fetch.mockResolvedValue({ ok: true, headers: new Headers() });
     vi.stubGlobal('fetch', mocks.fetch);
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
@@ -84,26 +96,6 @@ const clickText = async (text: string) => {
     await act(async () => { element!.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 };
 
-it('首次到达三个选项才展示说明，确认后重新打开也不再提示', async () => {
-    localStorage.removeItem('sully-date-entry-guide-v1');
-    await act(async () => root.render(React.createElement(DateApp)));
-    expect(container.textContent).not.toContain('选择这次见面的开场方式');
-    await clickText('测试角色');
-    expect(container.textContent).toContain('选择这次见面的开场方式');
-    expect(container.textContent).toContain('你主动走过去');
-    expect(container.textContent).toContain('他主动来见你');
-    expect(container.textContent).toContain('直接见面 · 不生成开场白');
-    await clickText('知道了');
-    expect(localStorage.getItem('sully-date-entry-guide-v1')).toBe('seen');
-    expect(container.textContent).not.toContain('选择这次见面的开场方式');
-    await act(async () => root.unmount());
-    root = createRoot(container);
-    await act(async () => root.render(React.createElement(DateApp)));
-    await clickText('测试角色');
-    expect(container.textContent).not.toContain('选择这次见面的开场方式');
-    expect(mocks.fetch).not.toHaveBeenCalled();
-});
-
 it('有旧快照仍显示三个入口；直接见面不请求开场，退出无弹窗，再进入是独立场次', async () => {
     await act(async () => root.render(React.createElement(DateApp)));
     await clickText('测试角色');
@@ -126,4 +118,103 @@ it('有旧快照仍显示三个入口；直接见面不请求开场，退出无�
     await clickText('直接见面');
     expect(mocks.session.encounterId).not.toBe(firstId);
     expect(mocks.session.messages.map((message: any) => message.content)).toEqual(['上一场']);
+});
+
+
+const enterDirect = async () => {
+    await act(async () => root.render(React.createElement(DateApp)));
+    await clickText('测试角色');
+    await clickText('直接见面');
+};
+
+const lastRequest = () => JSON.parse(mocks.fetch.mock.calls.at(-1)![1].body).messages;
+
+it('重试复用已保存的输入，继续及其重掷使用同一段调度，不改原楼 ID 或时间', async () => {
+    await enterDirect();
+    mocks.fetch.mockRejectedValueOnce(new Error('测试断网'));
+    await act(async () => {
+        await expect(mocks.session.onSendMessage(MEETING_CONTINUE_DISPLAY_TEXT, 'continue')).rejects.toThrow('测试断网');
+    });
+    expect(mocks.rows.map(row => row.content)).toEqual([MEETING_CONTINUE_DISPLAY_TEXT]);
+
+    await act(async () => {
+        await mocks.session.onSendMessage(MEETING_CONTINUE_DISPLAY_TEXT, 'retry-continue');
+    });
+    expect(mocks.rows).toHaveLength(2);
+    const original = { ...mocks.rows[1] };
+    const originalPrompt = JSON.stringify(lastRequest());
+    expect(originalPrompt).toContain('[继续当前见面]');
+    expect(originalPrompt).not.toContain(MEETING_CONTINUE_DISPLAY_TEXT);
+
+    mocks.responseText = '重掷后的正文';
+    await act(async () => { await mocks.session.onReroll(); });
+    expect(JSON.stringify(lastRequest())).toContain('[继续当前见面]');
+    expect(mocks.rows[1]).toEqual({ ...original, content: '重掷后的正文' });
+    expect(mocks.dirty).toHaveBeenCalledTimes(3);
+});
+
+it('开场重掷保留原场次、邀请方式与正文，直到新正文成功写入', async () => {
+    await act(async () => root.render(React.createElement(DateApp)));
+    await clickText('测试角色');
+    await clickText('让他靠近');
+    await clickText('见到他');
+    const original = { ...mocks.rows[0] };
+
+    mocks.responseBody = { __sullyRawStreamTerminal: false };
+    await act(async () => { await expect(mocks.session.onReroll()).rejects.toThrow('模型回复中断'); });
+    expect(mocks.rows[0]).toEqual(original);
+
+    mocks.responseBody = {};
+    mocks.responseText = '另一段开场';
+    vi.mocked(DB.updateMessage).mockRejectedValueOnce(new Error('测试存储空间不足'));
+    await act(async () => { await expect(mocks.session.onReroll()).rejects.toThrow('测试存储空间不足'); });
+    expect(mocks.rows).toEqual([original]);
+    expect(mocks.session.peekStatus).toBe(original.content);
+
+    await act(async () => { await mocks.session.onReroll(); });
+    expect(mocks.rows).toEqual([{ ...original, content: '另一段开场' }]);
+    expect(JSON.stringify(lastRequest())).toContain('由你主动以合理的方式');
+    expect(mocks.session.peekStatus).toBe('另一段开场');
+});
+
+it('待回复时重复提交只生成一次，退出后隔离仍到达的旧结果', async () => {
+    await enterDirect();
+    let release!: (value: unknown) => void;
+    mocks.fetch.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    let request!: Promise<string>;
+    let outcome!: Promise<unknown>;
+    await act(async () => {
+        request = mocks.session.onSendMessage('本场输入');
+        outcome = request.catch(error => error);
+        await expect(mocks.session.onSendMessage('重复输入')).rejects.toThrow('正在等待本轮回复');
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const signal = mocks.fetch.mock.calls[0][1].signal;
+    await clickText('退出见面');
+    expect(signal.aborted).toBe(true);
+    await clickText('测试角色');
+    await clickText('直接见面');
+    await act(async () => {
+        release({ ok: true, headers: new Headers() });
+        expect(await outcome).toMatchObject({ name: 'AbortError' });
+    });
+    expect(mocks.rows.map(row => row.content)).toEqual(['本场输入']);
+    expect(mocks.toast).not.toHaveBeenCalled();
+});
+
+it('离开未生成完的感知页也会取消请求，仍可进入另一种开场', async () => {
+    await act(async () => root.render(React.createElement(DateApp)));
+    await clickText('测试角色');
+    let release!: (value: unknown) => void;
+    mocks.fetch.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    await clickText('靠近他');
+    const signal = mocks.fetch.mock.calls[0][1].signal;
+    await act(async () => dateLaunch.request({ surface: 'companion' }));
+    expect(signal.aborted).toBe(true);
+    await clickText('测试角色');
+    await clickText('让他靠近');
+    await act(async () => release({ ok: true, headers: new Headers() }));
+    await clickText('见到他');
+    expect(mocks.rows).toHaveLength(1);
+    expect(mocks.rows[0].metadata.dateOpeningMode).toBe('invite');
 });

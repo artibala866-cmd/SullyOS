@@ -45,7 +45,7 @@ const char = {
   dateAppearance: { preset: 'none' },
 } as any;
 const props = {
-  char, userProfile: { name: '玩家' }, messages: [],
+  char, userProfile: { name: '玩家', avatar: '', bio: '' }, messages: [],
   peekStatus: '[normal]「你来了。外面风挺大的，坐下来陪我聊聊吧。」',
   encounterId: 'fixture-encounter',
   onSendMessage: async () => '', onReroll: async () => '',

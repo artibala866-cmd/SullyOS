@@ -41,9 +41,9 @@ it('scrolls the preview with the editor, collapses it, and keeps focused input a
         const scroll = host.querySelector('[data-testid="date-settings-scroll"]') as HTMLElement;
         const toggle = [...host.querySelectorAll('button')].find(el => el.textContent === '收起场景预览')!;
         expect(scroll.contains(toggle)).toBe(true);
-        expect(scroll.textContent).toContain('预览 (Preview)');
+        expect(scroll.textContent).toContain('立绘位置预览');
         await act(async () => toggle.click());
-        expect(scroll.textContent).not.toContain('预览 (Preview)');
+        expect(scroll.textContent).not.toContain('立绘位置预览');
         expect(toggle.textContent).toBe('展开场景预览');
         const textarea = host.querySelector('textarea[aria-label="自定义补充"]') as HTMLTextAreaElement;
         vi.spyOn(scroll, 'getBoundingClientRect').mockReturnValue({ top: 64, bottom: 380, height: 316 } as DOMRect);

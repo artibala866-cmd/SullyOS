@@ -1,3 +1,5 @@
+export type MeetingTurnKind = 'continue' | 'retry' | 'retry-continue';
+
 /**
  * “继续”在记录里只保留一个简短、可读的用户侧占位；真正交给模型的调度词
  * 按模式单独构造，避免技术指令污染沉浸式阅读、导出和角色长期记忆。

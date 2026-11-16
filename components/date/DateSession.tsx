@@ -29,7 +29,7 @@ import { getPendingReplyText } from '../../utils/pendingReply';
 import { fetchBlobForShare } from '../../utils/shareExport';
 import VoiceFavoriteActionSheet from '../voice/VoiceFavoriteActionSheet';
 import { getVoiceFavorite, makeVoiceFavoriteId, removeVoiceFavorite, saveVoiceFavorite } from '../../utils/voiceFavorites';
-import { MEETING_CONTINUE_DISPLAY_TEXT } from '../../utils/meetingContinue';
+import { MEETING_CONTINUE_DISPLAY_TEXT, type MeetingTurnKind } from '../../utils/meetingContinue';
 import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel, voiceLanguagePromptLabel } from '../../utils/voiceLanguage';
 import { trackEvent } from '../../utils/analytics';
 
@@ -127,7 +127,7 @@ interface DateSessionProps {
     peekStatus: string;  // Initial text from the Peek phase
     initialState?: DateState; // Resume state
     encounterId?: string;
-    onSendMessage: (text: string, kind?: 'continue') => Promise<string>; // Returns AI content
+    onSendMessage: (text: string, kind?: MeetingTurnKind) => Promise<string>; // Returns AI content
     onReroll: () => Promise<string>;
     onExit: () => void;
     onEditMessage: (msg: Message) => void;
@@ -342,15 +342,16 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [input, setInput] = useState('');
     const [showInputBox, setShowInputBox] = useState(!peekStatus && !initialState);
     const [isTyping, setIsTyping] = useState(false); // Waiting for API
+    const turnBusy = useRef(false);
     const [isShowingOpening, setIsShowingOpening] = useState(!!peekStatus && !initialState); // True until first user interaction
     // API 失败时本地记住本轮输入，不依赖父组件的 DB 刷新是否已经完成；用户可直接点重试。
-    const [pendingRetryText, setPendingRetryText] = useState('');
+    const [pendingRetry, setPendingRetry] = useState<{ text: string; kind: 'retry' | 'retry-continue' } | null>(null);
+    const latestMessage = messages[messages.length - 1];
+    const pendingMessage = latestMessage?.metadata?.dateEncounterId === encounterId ? latestMessage : undefined;
+    const retryText = pendingRetry?.text || getPendingReplyText(pendingMessage ? [pendingMessage] : []);
     // The meeting's visible and spoken text now always comes from its own dialogue.
     const galShownText = currentText;
 
-    useEffect(() => {
-        if (!getPendingReplyText(messages)) setPendingRetryText('');
-    }, [messages]);
     
     // Settings Overlay State (Internal)
     const [showSettings, setShowSettings] = useState(false);
@@ -368,7 +369,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     const touchStartRef = useRef<{x: number, y: number} | null>(null);
     const novelScrollRef = useRef<HTMLDivElement>(null);
 
-    // Voice TTS — single shared cache keyed by dialogue text, used by both GAL & novel mode
+    // Both reading modes share audio for the same line, language and emotion.
     const [dateVoicePlaying, setDateVoicePlaying] = useState(false);
     const [galVoiceLoading, setGalVoiceLoading] = useState(false);
     const [showVoiceLangPicker, setShowVoiceLangPicker] = useState(false);
@@ -377,8 +378,10 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [novelPlayingId, setNovelPlayingId] = useState<string | null>(null);
 
     const dateAudioRef = useRef<HTMLAudioElement | null>(null);
+    const voicePlaybackRef = useRef(0);
     const voiceEnabled = !!char.dateVoiceEnabled;
     const voiceLang = char.dateVoiceLang || '';
+    const speechKey = (text: string, emotion?: string) => JSON.stringify([voiceLang, emotion, text]);
     // Bridges the current line's VOICE emotion ([v:xxx], 跟立绘情绪分开) to the GAL
     // voice effect (which keys off currentText only). undefined = 不传情绪，自然朗读。
     // A ref so it doesn't churn the effect's deps.
@@ -426,101 +429,77 @@ const DateSession: React.FC<DateSessionProps> = ({
         }
     };
 
-    // GAL mode: auto-play voice only for dialogue lines (quoted text), stop previous on advance
-    // Uses cache so replaying the same line doesn't re-fetch
-    useEffect(() => {
-        if (!voiceEnabled || isNovelMode || !galShownText || isTyping) return;
-        // Stop any currently playing audio when text changes (advancing to next line)
-        if (dateAudioRef.current) {
-            dateAudioRef.current.pause();
-            dateAudioRef.current.currentTime = 0;
-            setDateVoicePlaying(false);
-        }
-        setGalVoiceLoading(false);
-        // Skip voice during opening phase and for non-dialogue lines
-        if (isShowingOpening) return;
-        if (!isDialogueLine(galShownText)) return;
-        let cancelled = false;
-        const dialogueText = extractDialogueText(galShownText);
-        const cacheKey = dialogueText;
-        const play = async () => {
-            // Check cache first
-            let speech: DateSpeechResult | undefined = voiceCacheRef.current[cacheKey];
-            if (!speech) {
-                setGalVoiceLoading(true);
-                speech = await translateAndSpeak(dialogueText, currentLineEmotionRef.current) || undefined;
-                if (cancelled) return;
-                setGalVoiceLoading(false);
-                if (!speech) return;
-                voiceCacheRef.current[cacheKey] = speech;
-            }
-            if (cancelled) return;
-            if (!dateAudioRef.current) dateAudioRef.current = new Audio();
-            dateAudioRef.current.src = speech.url;
-            dateAudioRef.current.onended = () => setDateVoicePlaying(false);
-            dateAudioRef.current.play().catch(() => {});
-            setDateVoicePlaying(true);
-        };
-        play();
-        return () => { cancelled = true; setGalVoiceLoading(false); if (dateAudioRef.current) { dateAudioRef.current.pause(); } };
-    }, [galShownText, voiceEnabled, isNovelMode]);
-
-    // GAL mode: manual play/pause for the current dialogue line
-    const handleGalVoiceToggle = async () => {
-        if (!galShownText || !isDialogueLine(galShownText)) return;
-        // If playing, pause
-        if (dateVoicePlaying && dateAudioRef.current) {
-            dateAudioRef.current.pause();
-            setDateVoicePlaying(false);
-            return;
-        }
-        const dialogueText = extractDialogueText(galShownText);
-        const cacheKey = dialogueText;
-        let speech: DateSpeechResult | undefined = voiceCacheRef.current[cacheKey];
+    const playDateVoice = async (text: string, emotion?: string, lineKey?: string, automatic = false) => {
+        const request = ++voicePlaybackRef.current;
+        dateAudioRef.current?.pause();
+        setDateVoicePlaying(false);
+        setNovelPlayingId(null);
+        const key = speechKey(text, emotion);
+        let speech = voiceCacheRef.current[key];
         if (!speech) {
-            setGalVoiceLoading(true);
-            speech = await translateAndSpeak(dialogueText, currentLineEmotionRef.current) || undefined;
+            if (lineKey) setNovelVoiceLoading(new Set([lineKey]));
+            else setGalVoiceLoading(true);
+            const generated = await translateAndSpeak(text, emotion);
+            if (generated) voiceCacheRef.current[key] = generated;
+            if (request !== voicePlaybackRef.current) return;
             setGalVoiceLoading(false);
-            if (!speech) { addToast('语音合成失败，请稍后重试', 'error'); return; }
-            voiceCacheRef.current[cacheKey] = speech;
-        }
-        if (!dateAudioRef.current) dateAudioRef.current = new Audio();
-        dateAudioRef.current.src = speech.url;
-        dateAudioRef.current.onended = () => setDateVoicePlaying(false);
-        dateAudioRef.current.play().catch(() => {});
-        setDateVoicePlaying(true);
-    };
-
-    // Novel/Reading mode: play a specific dialogue line (shares voiceCacheRef with GAL mode)
-    // voiceEmotion（[v:xxx]）跟立绘模式保持一致地传给 TTS：这样两种模式合成的音频完全相同，
-    // 且命中同一条持久缓存（ttsCache/IndexedDB）——退出见面再进来点旧台词也能从本地缓存秒取，
-    // 不必按不同的 key 重新联网合成。
-    const handleNovelLinePlay = async (lineKey: string, dialogueText: string, voiceEmotion?: string) => {
-        const cached = voiceCacheRef.current[dialogueText];
-        if (cached) {
-            // Already have URL (from GAL or previous novel play), just play/pause
-            if (!dateAudioRef.current) dateAudioRef.current = new Audio();
-            if (novelPlayingId === lineKey) {
-                dateAudioRef.current.pause();
-                setNovelPlayingId(null);
+            setNovelVoiceLoading(new Set());
+            if (!generated) {
+                if (!automatic) addToast('语音合成失败，请稍后重试', 'error');
                 return;
             }
-            dateAudioRef.current.src = cached.url;
-            dateAudioRef.current.onended = () => setNovelPlayingId(null);
-            dateAudioRef.current.play().catch(() => {});
-            setNovelPlayingId(lineKey);
-            return;
+            speech = generated;
+        } else {
+            setGalVoiceLoading(false);
+            setNovelVoiceLoading(new Set());
         }
-        setNovelVoiceLoading(prev => new Set(prev).add(lineKey));
-        const speech = await translateAndSpeak(dialogueText, voiceEmotion);
-        setNovelVoiceLoading(prev => { const n = new Set(prev); n.delete(lineKey); return n; });
-        if (!speech) { addToast('语音合成失败，请稍后重试', 'error'); return; }
-        voiceCacheRef.current[dialogueText] = speech;
-        if (!dateAudioRef.current) dateAudioRef.current = new Audio();
-        dateAudioRef.current.src = speech.url;
-        dateAudioRef.current.onended = () => setNovelPlayingId(null);
-        dateAudioRef.current.play().catch(() => {});
-        setNovelPlayingId(lineKey);
+        const audio = (dateAudioRef.current ??= new Audio());
+        const clearPlaying = () => {
+            if (request !== voicePlaybackRef.current) return;
+            setDateVoicePlaying(false);
+            setNovelPlayingId(null);
+        };
+        audio.src = speech.url;
+        audio.onended = clearPlaying;
+        setDateVoicePlaying(!lineKey);
+        setNovelPlayingId(lineKey ?? null);
+        void audio.play().catch(clearPlaying);
+    };
+
+    const spriteVoiceLine = isNovelMode ? '' : galShownText;
+    const spriteVoiceEmotion = currentLineEmotionRef.current;
+    useEffect(() => {
+        setGalVoiceLoading(false);
+        setNovelVoiceLoading(new Set());
+        setDateVoicePlaying(false);
+        setNovelPlayingId(null);
+        if (voiceEnabled && !isTyping && !isShowingOpening && isDialogueLine(spriteVoiceLine)) {
+            void playDateVoice(extractDialogueText(spriteVoiceLine), spriteVoiceEmotion, undefined, true);
+        }
+        return () => {
+            voicePlaybackRef.current++;
+            dateAudioRef.current?.pause();
+        };
+    }, [spriteVoiceLine, spriteVoiceEmotion, voiceEnabled, voiceLang, isNovelMode, isTyping, isShowingOpening]);
+
+    const stopDateVoice = () => {
+        voicePlaybackRef.current++;
+        dateAudioRef.current?.pause();
+        setGalVoiceLoading(false);
+        setNovelVoiceLoading(new Set());
+        setDateVoicePlaying(false);
+        setNovelPlayingId(null);
+    };
+
+    const handleGalVoiceToggle = () => {
+        if (!isDialogueLine(galShownText)) return;
+        if (dateVoicePlaying || galVoiceLoading) stopDateVoice();
+        else void playDateVoice(extractDialogueText(galShownText), spriteVoiceEmotion);
+    };
+
+    const handleNovelLinePlay = (lineKey: string, dialogueText: string, voiceEmotion?: string) => {
+        if (novelPlayingId === lineKey || novelVoiceLoading.has(lineKey)) stopDateVoice();
+        else void playDateVoice(dialogueText, voiceEmotion, lineKey);
     };
 
     const resolveCurrentDateVoiceTarget = (): DateVoiceFavoriteTarget | null => {
@@ -586,10 +565,11 @@ const DateSession: React.FC<DateSessionProps> = ({
                 addToast('已取消收藏语音', 'info');
                 return;
             }
-            let speech: DateSpeechResult | undefined = voiceCacheRef.current[target.originalText];
+            const key = speechKey(target.originalText, target.voiceEmotion);
+            let speech: DateSpeechResult | undefined = voiceCacheRef.current[key];
             if (!speech) {
                 speech = await translateAndSpeak(target.originalText, target.voiceEmotion) || undefined;
-                if (speech) voiceCacheRef.current[target.originalText] = speech;
+                if (speech) voiceCacheRef.current[key] = speech;
             }
             if (!speech) throw new Error('语音合成失败，请稍后重试');
             const blob = await fetchBlobForShare(speech.url, 'audio/mpeg');
@@ -873,12 +853,13 @@ const DateSession: React.FC<DateSessionProps> = ({
     };
 
     const submitTurn = async (kind?: 'continue') => {
-        if (isTyping) return;
+        if (turnBusy.current) return;
         const inputText = input.trim();
-        // 本地失败输入优先，DB 时间线兜底。这样即使父组件刷新尚未落到这一帧，重试键也不会失效。
-        const retryText = pendingRetryText || getPendingReplyText(messages);
-        if (kind !== 'continue' && !inputText && !retryText) return;
+        if (!kind && !inputText && !retryText) return;
+        const retryKind = pendingRetry?.kind || (pendingMessage?.metadata?.meetingContinue ? 'retry-continue' : 'retry');
+        const requestKind = kind || (inputText ? undefined : retryKind);
         const text = kind === 'continue' ? MEETING_CONTINUE_DISPLAY_TEXT : (inputText || retryText);
+        turnBusy.current = true;
         if (kind !== 'continue' && inputText) {
             setInput('');
             setShowInputBox(false);
@@ -887,7 +868,7 @@ const DateSession: React.FC<DateSessionProps> = ({
         setIsShowingOpening(false); // First user interaction - opening phase is over
 
         try {
-            const aiContent = await onSendMessage(text, kind);
+            const aiContent = await onSendMessage(text, requestKind);
             // 先剥出观测块更新 HUD，再解析剩余正文
             const { observation: obs, rest } = extractObservation(aiContent, { lenient: observeEnabled, custom: char.dateObserve?.custom });
             if (hasObservation(obs)) setObservation(obs);
@@ -897,13 +878,15 @@ const DateSession: React.FC<DateSessionProps> = ({
             if (items.length > 0) {
                 processNextDialogue(items[0], items.slice(1));
             }
-            setPendingRetryText('');
+            setPendingRetry(null);
         } catch (e: any) {
             // onSendMessage 内部含 API 调用 + 回复后处理, 抛错不一定是网络。用中性文案, 不误导成"连接中断"。
-            setPendingRetryText(text);
+            if (e?.name === 'AbortError') return;
+            setPendingRetry({ text, kind: requestKind === 'continue' || requestKind === 'retry-continue' ? 'retry-continue' : 'retry' });
             setCurrentText(`(出错了: ${e?.message || '未知错误'})`);
             setShowInputBox(true);
         } finally {
+            turnBusy.current = false;
             setIsTyping(false);
         }
     };
@@ -912,7 +895,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     const handleContinue = () => { void submitTurn('continue'); };
 
     const handleRerollClick = async () => {
-        if (isTyping) return;
+        if (turnBusy.current) return;
+        turnBusy.current = true;
         setIsTyping(true);
         try {
             const aiContent = await onReroll();
@@ -925,8 +909,10 @@ const DateSession: React.FC<DateSessionProps> = ({
         } catch(e: any) {
             // 父级 handleReroll 只抛不提示；这里不给反馈的话，点了「重新生成」
             // 没动静用户会以为没点上（旧版更糟：消息已被删还毫无提示）
+            if (e?.name === 'AbortError') return;
             addToast(`重新生成失败: ${e?.message || '未知错误'}`, 'error');
         } finally {
+            turnBusy.current = false;
             setIsTyping(false);
         }
     };
@@ -935,7 +921,7 @@ const DateSession: React.FC<DateSessionProps> = ({
 
     // Message Touch Logic (Robust version for scrollable lists)
     const handleMsgTouchStart = (e: React.TouchEvent | React.MouseEvent, msg: Message) => {
-        if (!isNovelMode) return;
+        if (!isNovelMode || turnBusy.current) return;
         // If already in batch select mode, don't start a new long press timer
         if (isBatchSelectMode) return;
         if ('touches' in e) {
@@ -1374,7 +1360,6 @@ const DateSession: React.FC<DateSessionProps> = ({
                     <div className={`date-session-input-box w-[90%] min-w-0 max-w-lg backdrop-blur-xl rounded-2xl p-2 flex gap-2 shadow-2xl animate-fade-in mb-8 pointer-events-auto ${lightReading ? 'bg-stone-100 border border-stone-300' : 'bg-white/10 border border-white/20'}`} onClick={(e) => e.stopPropagation()}>
                         <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={isTyping ? "等待回应..." : "输入对话..."} disabled={isTyping} className={`date-session-input-text min-w-0 flex-1 bg-transparent px-3 sm:px-4 py-3 outline-none font-light resize-none h-14 overflow-y-auto overscroll-contain touch-pan-y no-scrollbar leading-tight ${lightReading ? 'text-stone-800 placeholder:text-stone-400' : 'text-white placeholder:text-white/30'}`} autoFocus />
                         {(() => {
-                            const retryText = pendingRetryText || getPendingReplyText(messages);
                             const canRetry = !input.trim() && !isTyping && !!retryText;
                             return (
                                 <button

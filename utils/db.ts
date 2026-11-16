@@ -1898,18 +1898,25 @@ export const DB = {
     });
   },
 
-  updateMessage: async (id: number, content: string): Promise<void> => {
+  updateMessage: async (id: number, content: string, options?: { expectedContent?: string; signal?: AbortSignal }): Promise<void> => {
     const db = await openDB();
+    const signal = options?.signal;
+    signal?.throwIfAborted();
     const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
     const store = transaction.objectStore(STORE_MESSAGES);
     
     // 同 saveAsset：等事务落盘再 resolve。put 发完就 resolve 的话，配额不足
     // （iOS Safari 常见）时改写静默丢失，界面上还是新内容、库里却是旧的。
     return new Promise((resolve, reject) => {
+        const abort = () => { try { transaction.abort(); } catch { /* transaction already settled */ } };
+        const cleanup = () => signal?.removeEventListener('abort', abort);
+        signal?.addEventListener('abort', abort, { once: true });
         const req = store.get(id);
         req.onsuccess = () => {
             const data = req.result as Message;
-            if (data) {
+            if (options?.expectedContent !== undefined && data?.content !== options.expectedContent) {
+                reject(new Error('原回复已修改或删除，请刷新后重试'));
+            } else if (data) {
                 data.content = content;
                 store.put(data);
             } else {
@@ -1917,9 +1924,8 @@ export const DB = {
             }
         };
         req.onerror = () => reject(req.error);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error || new Error('updateMessage transaction aborted'));
+        transaction.oncomplete = () => { cleanup(); resolve(); };
+        transaction.onabort = () => { cleanup(); reject(signal?.aborted ? signal.reason : transaction.error || new Error('updateMessage transaction aborted')); };
     });
   },
 

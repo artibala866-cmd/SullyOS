@@ -614,17 +614,17 @@ ${observeBlock}`;
  * 历史构建（send / reroll 共用）：
  * 1. 与其他 AI 入口共用自适应 / 手动范围及用户起点。调用方先读取有效窗口。
  * 2. 复用 ChatPrompts.buildMessageHistory 压缩各类卡片。
- * 3. 排除最后一条（待重发的 user msg），由调用方单独追加带 System Note 的版本。
+ * 3. 按 ID 排除本轮已保存的输入，由调用方追加带 System Note 的版本。
  */
 const buildDateHistory = (
     allMsgs: Message[],
     char: CharacterProfile,
     userProfile: UserProfile | null | undefined,
     emojis: Emoji[],
-    useVisionDescriptions: boolean = false,
+    useVisionDescriptions: boolean,
+    pendingId: number | undefined,
 ): ApiMessage[] => {
     const selected = selectCharacterContextMessages(allMsgs, char);
-    const pendingId = allMsgs[allMsgs.length - 1]?.id;
     const historyForBuild = selected.filter(message => message.id !== pendingId);
     const { apiMessages } = ChatPrompts.buildMessageHistory(
         historyForBuild,
@@ -744,6 +744,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
         emojis: Emoji[];
         userText: string;
         variant: 'send' | 'reroll';
+        pendingMessageId?: number;
         useVisionDescriptions?: boolean;
     }): Promise<{ messages: ApiMessage[] }> => {
 
@@ -755,6 +756,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
             userProfile,
             emojis,
             input.useVisionDescriptions === true,
+            input.pendingMessageId ?? allMsgs[allMsgs.length - 1]?.id,
         );
 
         const conversation = [...historyMsgs, { role: 'user', content: userText }];

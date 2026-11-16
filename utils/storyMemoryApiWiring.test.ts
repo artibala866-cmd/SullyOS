@@ -21,7 +21,7 @@ describe('per-story API uses only memory call sites', () => {
     });
     it('requires an explicit per-story opt-in for automatic API memory', () => {
         expect(story).toContain('automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true');
-        expect(session).toContain('automaticMemoryApiEnabled ? await archiveIfNeeded() : null');
+        expect(session).toContain('automaticMemoryApiEnabled ? await archiveIfNeeded(latestEntry) : null');
         expect(session).toContain('if (interruption || !automaticMemoryApiEnabled) return;');
         expect(session).toContain('entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled');
         expect(session).toContain('entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled');

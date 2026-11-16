@@ -37,7 +37,11 @@ it.each(['完成', '返回'])('expands outside clipping ancestors, follows the k
         await act(async () => exit === '完成' ? dialog.querySelector('button')!.click() : state.back!());
         expect(document.querySelector('[aria-label="编辑自定义补充"]')).toBeNull();
         expect(host.querySelector<HTMLTextAreaElement>('[aria-label="自定义补充"]')!.value).toBe('新的文风补充');
-        expect(state.update).toHaveBeenLastCalledWith('test', { dateStyleConfig: { extra: '新的文风补充', pov: 'first-you' } });
+        const [id, patch] = state.update.mock.lastCall!;
+        expect(id).toBe('test');
+        expect(patch({ dateStyleConfig: { extra: '旧内容', pov: 'first-you', preset: 'cinematic' } })).toEqual({
+            dateStyleConfig: { extra: '新的文风补充', pov: 'first-you', preset: 'cinematic' },
+        });
         expect(state.unregister).toHaveBeenCalled();
     } finally { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
 });

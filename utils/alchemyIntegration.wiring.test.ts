@@ -42,7 +42,7 @@ describe('Alchemy real app integration wiring — no new model requests', () => 
         expect(story).toContain("runStoryRegex(floors.map(({ input }) => input), activeRegexRules, 'history'");
         expect(read('components/date/story/StoryTheater.tsx')).toContain('window.addEventListener(ALCHEMY_CHANGED, refreshRules)');
         expect(date).toContain('applyMeetingAlchemyRequest(messages, modelText');
-        expect(date).toContain('applyMeetingAlchemyRequest(messages, lastUserMsg.content');
+        expect(date).toContain("generateSessionReply(target, previous, 'reroll', signal)");
         expect(date).toContain("applyMeetingAlchemyRequest(messages, ''");
         expect(screen).toContain("useAlchemyRules('offline')");
         expect(screen).toContain("domain='offline'");

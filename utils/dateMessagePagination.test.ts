@@ -25,3 +25,21 @@ describe('见面历史游标分页', () => {
     expect(await DB.getRecentMessagesByCharIdAndSource(charId, 'date', 51, ids[0])).toEqual([]);
   });
 });
+
+
+it('重掷原位保存，拒绝覆盖并发编辑、恢复删除或保存已取消的回复', async () => {
+  const character = 'date-reroll';
+  const metadata = { source: 'date' as const, dateEncounterId: 'encounter', isOpening: true };
+  const id = await DB.saveMessage({ charId: character, role: 'assistant', type: 'text', content: '原开场', timestamp: 123, metadata });
+  await DB.updateMessage(id, '重掷开场', { expectedContent: '原开场' });
+  expect(await DB.getMessageById(id)).toMatchObject({ id, content: '重掷开场', timestamp: 123, metadata });
+  await expect(DB.updateMessage(id, '迟到的重掷', { expectedContent: '原开场' })).rejects.toThrow('原回复已修改或删除');
+  const controller = new AbortController();
+  const update = DB.updateMessage(id, '已取消的重掷', { expectedContent: '重掷开场', signal: controller.signal });
+  controller.abort();
+  await expect(update).rejects.toMatchObject({ name: 'AbortError' });
+  expect(await DB.getMessageById(id)).toMatchObject({ content: '重掷开场' });
+  await DB.deleteMessage(id);
+  await expect(DB.updateMessage(id, '已删除的旧回复', { expectedContent: '重掷开场' })).rejects.toThrow('原回复已修改或删除');
+  expect(await DB.getMessageById(id)).toBeNull();
+});

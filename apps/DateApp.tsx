@@ -9,7 +9,7 @@ import { useMusic } from '../context/MusicContext';
 import { findCharacterDateBgm } from '../utils/dateBgm';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, AppID } from '../types';
-import { DatePrompts, ApiMessage } from '../utils/datePrompts';
+import { DatePrompts, ApiMessage, extractObservation } from '../utils/datePrompts';
 import { applyMeetingAlchemyRequest } from '../utils/alchemyMeeting';
 import { stripDateSceneTagsForDisplay } from '../utils/dateScenes';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
@@ -24,14 +24,13 @@ import DateSettings from '../components/date/DateSettings';
 import { clearDateResumeAttempt } from '../utils/dateSessionRecovery';
 import { BookOpen, Sparkle, CaretLeft, GearSix } from '@phosphor-icons/react';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
-import { trimHistoryThrough } from '../utils/dateSessionHistory';
 import { trackEvent } from '../utils/analytics';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import StoryTheater from '../components/date/story/StoryTheater';
 import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
-import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
+import { buildInPersonContinueInstruction, type MeetingTurnKind } from '../utils/meetingContinue';
 import { isRejectedPrivateMessage } from '../utils/chatBlock';
 import { applyInPersonBlockAction, buildInPersonCharBlockInstruction, extractCharacterBlockAction, type CharacterBlockAction } from '../utils/chatBlockAI';
 import {
@@ -92,11 +91,32 @@ const DateApp: React.FC = () => {
     const [mode, setMode] = useState<'select' | 'entry' | 'peek' | 'session' | 'settings' | 'history'>('select');
     // Track previous mode for Settings back navigation
     const [previousMode, setPreviousMode] = useState<'select' | 'peek'>('select');
+    const encounterIdRef = useRef('');
+    const encounterController = useRef<AbortController | null>(null);
+    const peekController = useRef<AbortController | null>(null);
+    const turnRef = useRef<AbortSignal | null>(null);
+    const historyRequestRef = useRef(0);
+
+    const resetEncounter = () => {
+        historyRequestRef.current++;
+        peekController.current?.abort();
+        encounterController.current?.abort();
+        encounterController.current = null;
+        encounterIdRef.current = '';
+        stopBgmOnUnmountRef.current();
+    };
+
+    useEffect(() => () => {
+        historyRequestRef.current++;
+        peekController.current?.abort();
+        encounterController.current?.abort();
+    }, []);
 
     // 全局更新弹窗等入口可直接落到「剧情」。peek 让首次渲染就显示目标页，
     // subscribe 则覆盖 DateApp 已经打开的情况；应用后立即消费，绝不污染下次普通打开。
     useEffect(() => {
         const applyLaunchIntent = (intent: { surface: 'companion' | 'story' }) => {
+            resetEncounter();
             setCameFromChat(false);
             setMode('select');
             setMeetSurface(intent.surface);
@@ -145,12 +165,10 @@ const DateApp: React.FC = () => {
     const [historyEditMsg, setHistoryEditMsg] = useState<Message | null>(null);
     const [historyEditContent, setHistoryEditContent] = useState('');
     
-    const encounterIdRef = useRef('');
     const [openingMode, setOpeningMode] = useState<'approach' | 'invite'>('approach');
-    const peekRequestRef = useRef(0);
     // 仅预览不改变关系，确认进入见面后才应用原版拉黑动作。
     const peekBlockActionRef = useRef<{ charId: string; action: CharacterBlockAction; expected: CharacterProfile['chatBlock'] } | null>(null);
-    const enteringSessionRef = useRef(false);
+    const enteringSessionRef = useRef<AbortSignal | null>(null);
 
     // --- NEW: Editing State lifted to here for DB sync ---
     const { messages: dateMessages, setMessages: setDateMessages, refresh: loadDateMessages,
@@ -183,18 +201,16 @@ const DateApp: React.FC = () => {
             .sort((a, b) => a.timestamp - b.timestamp);
     };
 
-    useEffect(() => () => { peekRequestRef.current++; }, []);
-
     // --- Navigation Helpers ---
     const handleBack = () => {
         if (mode === 'peek' || mode === 'entry') {
-            peekRequestRef.current++;
-            encounterIdRef.current = '';
+            resetEncounter();
             // 来自聊天：从感知页退出直接回聊天，不落在见面选择页
             if (cameFromChat) { returnToChat(); return; }
             setMode('select');
             setPeekStatus('');
         } else if (mode === 'history') {
+            historyRequestRef.current++;
             setMode('select');
         } else closeApp();
     };
@@ -202,10 +218,12 @@ const DateApp: React.FC = () => {
     const formatTime = () => `${virtualTime.hours.toString().padStart(2, '0')}:${virtualTime.minutes.toString().padStart(2, '0')}`;
 
     // peek / send / reroll 共用的 LLM 调用（提示词构建统一在 utils/datePrompts.ts）
-    const callLLM = async (messages: ApiMessage[], temperature: number, speaker = char): Promise<string> => {
+    const callLLM = async (messages: ApiMessage[], temperature: number, speaker: CharacterProfile, signal: AbortSignal) => {
+        signal.throwIfAborted();
         const dialogueApi = resolveDialogueApi(apiConfig, speaker);
         const response = await fetch(`${dialogueApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
+            signal,
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${dialogueApi.apiKey}` },
             body: JSON.stringify({
                 model: dialogueApi.model,
@@ -218,19 +236,26 @@ const DateApp: React.FC = () => {
                 stream: dialogueApi.stream ?? false,
             })
         });
+        signal.throwIfAborted();
         if (!response.ok) throw new Error(`API Error ${response.status}`);
         const data = await safeResponseJson(response);
-        // 思考型渠道会把正文塞进 reasoning_content、content 留空——直接取 content
-        // 会拿到空串且不报错：感知页黑屏卡死（无按钮可退），会话里则落库空消息。
-        const content = extractContent(data);
-        if (!content) throw new Error('模型返回了空回复，请重试或检查渠道/模型设置');
-        return content;
+        signal.throwIfAborted();
+        if (data?.error || data?.__sullyRawStreamTerminal === false
+            || (response.headers.get('X-Sully-Upgraded-Stream') === '1' && response.headers.get('X-Sully-Stream-Terminal') !== '1')) {
+            throw new Error(data?.error?.message || '模型回复中断，请重试');
+        }
+        const result = extractCharacterBlockAction(extractContent(data, false));
+        const { rest } = extractObservation(result.text, { lenient: speaker.dateObserve?.enabled === true, custom: speaker.dateObserve?.custom });
+        if (!stripDateSceneTagsForDisplay(rest).trim()) throw new Error('模型没有返回见面正文，请重试');
+        return result;
     };
 
     // 每次进入独立记次；模型上下文仍由共享管线决定。
     const handleCharClick = (c: CharacterProfile) => {
+        resetEncounter();
         clearDateResumeAttempt();
         setActiveCharacterId(c.id);
+        encounterController.current = new AbortController();
         encounterIdRef.current = crypto.randomUUID();
         setDateMessages([]);
         setPeekStatus('');
@@ -259,8 +284,9 @@ const DateApp: React.FC = () => {
 
     // --- 关键修复: 进入 Session 时立即归档开场白 ---
     const handleEnterSession = async () => {
-        if (!char || enteringSessionRef.current) return;
-        enteringSessionRef.current = true;
+        const signal = encounterController.current?.signal;
+        if (!char || !signal || signal.aborted || !peekStatus || enteringSessionRef.current === signal) return;
+        enteringSessionRef.current = signal;
         const enteringEncounterId = encounterIdRef.current;
         // Start on the actual user's entry gesture, before asynchronous archive writes.
         startDateBgm(char);
@@ -278,11 +304,12 @@ const DateApp: React.FC = () => {
                         type: 'text',
                         content: peekStatus,
                         metadata: { source: 'date', isOpening: true, dateEncounterId: enteringEncounterId, dateOpeningMode: openingMode }
-                    });
+                    }, signal);
                     markDateTurnDirty(char);
-                    if (encounterIdRef.current !== enteringEncounterId) return;
+                    if (signal.aborted) return;
                     setHasSavedOpening(true);
                 } catch (e) {
+                    if (signal.aborted) return;
                     console.error("Failed to save opening", e);
                     // 落库失败不能静默：开场白进不了 DB，阅读模式/见面记录会缺这次开场，
                     // 表现和「阅读模式播旧剧情」一样，让用户知道出了什么事
@@ -295,22 +322,43 @@ const DateApp: React.FC = () => {
             if (peekBlockActionRef.current?.charId === char.id) {
                 const { action, expected } = peekBlockActionRef.current;
                 peekBlockActionRef.current = null;
-                await applyMeetingBlockAction(char.id, action, expected);
+                try { await applyMeetingBlockAction(char.id, action, expected); }
+                catch (error) { console.warn('[DateApp] 开场关系动作保存失败', error); }
             }
             // 2. 切换模式并刷新数据
-            if (encounterIdRef.current !== enteringEncounterId) return;
+            if (signal.aborted) return;
             setMode('session');
             entered = true;
             trackEvent('走过去开始见面会话');
         } finally {
-            if (!entered) stopDateBgm();
-            enteringSessionRef.current = false;
+            if (!entered && activeBgmRef.current?.encounterId === enteringEncounterId) stopDateBgm();
+            if (enteringSessionRef.current === signal) enteringSessionRef.current = null;
         }
+    };
+
+    const generateOpening = async (target: CharacterProfile, allMsgs: Message[], selectedOpening: 'approach' | 'invite', signal: AbortSignal, reroll = false) => {
+        const { messages } = await DatePrompts.buildPeekPayload({
+            char: target,
+            userProfile,
+            allMsgs,
+            emojis: await DB.getEmojis(),
+            useVisionDescriptions: apiConfig.visionApi?.enabled === true,
+            openingMode: selectedOpening,
+        });
+        const inPersonBlock = buildInPersonCharBlockInstruction(target.chatBlock, userProfile?.name || '用户');
+        if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock });
+        signal.throwIfAborted();
+        try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: target.name, characterId: target.id, scene: 'meeting' }); }
+        catch (error) { console.warn('[Alchemy] meeting opening guidance unavailable', error); }
+        const temperature = resolveDialogueApi(apiConfig, target).temperature ?? 0.85;
+        return callLLM(messages, reroll ? Math.max(temperature, 0.9) : temperature, target, signal);
     };
 
     // --- Peek (Generation) Logic ---
     const startPeek = async (c: CharacterProfile, selectedOpening: 'approach' | 'invite' = openingMode) => {
-        const requestId = ++peekRequestRef.current;
+        if (!encounterController.current || enteringSessionRef.current === encounterController.current.signal) return;
+        peekController.current?.abort();
+        const { signal } = (peekController.current = new AbortController());
         setOpeningMode(selectedOpening);
         setActiveCharacterId(c.id);
         setMode('peek');
@@ -322,31 +370,15 @@ const DateApp: React.FC = () => {
 
         try {
             const msgs = await loadCharacterContextMessages(c);
+            signal.throwIfAborted();
             const preparedMsgs = await materializeVisionDescriptions(msgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
-            const emojis = await DB.getEmojis();
-            const { messages } = (await DatePrompts.buildPeekPayload({
-                char: c,
-                userProfile,
-                allMsgs: preparedMsgs,
-                emojis,
-                useVisionDescriptions: apiConfig.visionApi?.enabled === true,
-                openingMode: selectedOpening,
-            }));
-            const inPersonBlock = buildInPersonCharBlockInstruction(c.chatBlock, userProfile?.name || '用户');
-            if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: c.name, characterId: c.id, scene: 'meeting' }); }
-            catch (error) { console.warn('[Alchemy] meeting opening guidance unavailable', error); }
-            const content = await callLLM(messages, resolveDialogueApi(apiConfig, c).temperature ?? 0.85, c);
-            const action = extractCharacterBlockAction(content);
-            if (requestId === peekRequestRef.current) {
-                peekBlockActionRef.current = action.action ? { charId: c.id, action: action.action, expected: c.chatBlock } : null;
-                setPeekStatus(action.text);
-            }
-
+            const result = await generateOpening(c, preparedMsgs, selectedOpening, signal);
+            peekBlockActionRef.current = result.action ? { charId: c.id, action: result.action, expected: c.chatBlock } : null;
+            setPeekStatus(result.text);
         } catch (e: any) {
-            if (requestId === peekRequestRef.current) addToast(`开场生成失败：${e.message}`, 'error');
+            if (!signal.aborted) addToast(`开场生成失败：${e.message}`, 'error');
         } finally {
-            if (requestId === peekRequestRef.current) setPeekLoading(false);
+            if (!signal.aborted) setPeekLoading(false);
         }
     };
 
@@ -364,8 +396,8 @@ const DateApp: React.FC = () => {
             : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
         if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM.baseUrl) return;
 
-        const recentMsgs = await DB.getRecentMessagesByCharId(charForHook.id, 50);
         try {
+            const recentMsgs = await DB.getRecentMessagesByCharId(charForHook.id, 50);
             const pipelineResult = await processNewMessagesWithAutoArchive(
                 recentMsgs,
                 charForHook.id,
@@ -414,172 +446,108 @@ const DateApp: React.FC = () => {
         });
     };
 
-    // --- Session API Logic ---
-    const handleSendMessage = async (text: string, kind?: 'continue'): Promise<string> => {
-        const currentEncounterId = encounterIdRef.current;
-        if (!char) throw new Error("No char");
-
-        // 重发场景：如果 DB 里最后一条已经是这条 user 消息（上一轮发送后 API 失败 / 网络抖动等），
-        // 就跳过重复落库，直接走 API。与 chat app 行为对齐，让用户按发送键即可重新触发 LLM。
-        const recentCheck = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 1);
-        const isRetry = recentCheck.length > 0
-            && recentCheck[0].metadata?.dateEncounterId === currentEncounterId
-            && recentCheck[0].role === 'user'
-            && recentCheck[0].content === text
-            && recentCheck[0].metadata?.source === 'date';
-        // API 中断后的重试只会带回显示文本；从已落库标记恢复“继续”的完整语义。
-        const isContinueTurn = kind === 'continue'
-            || (isRetry && recentCheck[0].metadata?.meetingContinue === true);
-
-        if (!isRetry) {
-            // 1. Save User Msg
-            await DB.saveMessage({
-                charId: char.id,
-                role: 'user',
-                type: 'text',
-                content: text,
-                metadata: { source: 'date', dateEncounterId: currentEncounterId, ...(isContinueTurn ? { meetingContinue: true } : {}) },
-            });
-            markDateTurnDirty(char);
+    const runSessionTurn = async (run: (target: CharacterProfile, encounterId: string, signal: AbortSignal) => Promise<string>) => {
+        const signal = encounterController.current?.signal;
+        if (!char || !signal || signal.aborted) throw new Error('见面已结束');
+        if (turnRef.current === signal) throw new Error('正在等待本轮回复');
+        turnRef.current = signal;
+        try {
+            return await run(char, encounterIdRef.current, signal);
+        } finally {
+            if (turnRef.current === signal) turnRef.current = null;
         }
+    };
 
-        // 2. Prepare Context
-        // Re-fetch messages. Since we saved the opening in handleEnterSession,
-        // 'allMsgs' will now correctly contain: [History..., Opening, UserMsg]
-        const allMsgs = await loadCharacterContextMessages(char);
-        const preparedAllMsgs = await materializeVisionDescriptions(allMsgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
+    const loadMeetingContext = async (target: CharacterProfile, throughId: number, signal: AbortSignal) => {
+        const allMsgs = await loadCharacterContextMessages(target);
+        signal.throwIfAborted();
+        return materializeVisionDescriptions(
+            allMsgs.filter(message => message.id <= throughId && !isRejectedPrivateMessage(message)),
+            apiConfig.visionApi,
+        );
+    };
 
-        // Update local state for display
-        if (encounterIdRef.current === currentEncounterId) await loadDateMessages();
-
-        const emojis = await DB.getEmojis();
-        const modelText = isContinueTurn
-            ? buildInPersonContinueInstruction(userProfile?.name, char.name)
-            : text;
+    const generateSessionReply = async (
+        target: CharacterProfile, userMessage: Pick<Message, 'id' | 'content' | 'metadata'>,
+        variant: 'send' | 'reroll', signal: AbortSignal,
+    ) => {
+        const allMsgs = await loadMeetingContext(target, userMessage.id, signal);
+        const modelText = userMessage.metadata?.meetingContinue
+            ? buildInPersonContinueInstruction(userProfile?.name, target.name)
+            : userMessage.content;
         const { messages } = await DatePrompts.buildSessionPayload({
-            char,
+            char: { ...target },
             userProfile,
-            allMsgs: preparedAllMsgs,
-            emojis,
+            allMsgs,
+            emojis: await DB.getEmojis(),
             userText: modelText,
-            variant: 'send',
+            pendingMessageId: userMessage.id,
+            variant,
             useVisionDescriptions: apiConfig.visionApi?.enabled === true,
         });
-        // 原版允许被拉黑的双方当面交谈，不能把拒收私聊当成已读内容。
-        const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
-        if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-        try { await applyMeetingAlchemyRequest(messages, modelText, { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
+        const inPersonBlock = buildInPersonCharBlockInstruction(target.chatBlock, userProfile?.name || '用户');
+        if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock });
+        signal.throwIfAborted();
+        try { await applyMeetingAlchemyRequest(messages, modelText, { user: userProfile.name, char: target.name, characterId: target.id, scene: 'meeting' }); }
         catch (error) { console.warn('[Alchemy] meeting rules unavailable', error); }
-        const rawContent = await callLLM(messages, resolveDialogueApi(apiConfig, char).temperature ?? 0.85);
-        const blockAction = extractCharacterBlockAction(rawContent);
-        // 内部动作先从可见剧情剥除，不能变成气泡或语音正文。
-        if (blockAction.text) {
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
-        }
-        await applyMeetingBlockAction(char.id, blockAction.action, char.chatBlock);
-        markDateTurnDirty(char);
-
-        // Refresh local state
-        if (encounterIdRef.current === currentEncounterId) await loadDateMessages();
-
-        // Memory Palace 后台流程（不阻塞返回，与聊天侧一致）
-        runMemoryPalacePostHook(char);
-
-        return blockAction.text;
+        const temperature = resolveDialogueApi(apiConfig, target).temperature ?? 0.85;
+        return callLLM(messages, variant === 'reroll' ? Math.max(temperature, 0.9) : temperature, target, signal);
     };
 
-    const handleReroll = async (): Promise<string> => {
-        const currentEncounterId = encounterIdRef.current;
-        if (!char || dateMessages.length === 0) throw new Error("No context");
-
-        const lastMsg = dateMessages[dateMessages.length - 1];
-        if (lastMsg.role !== 'assistant' || lastMsg.metadata?.dateEncounterId !== currentEncounterId) throw new Error("Cannot reroll user message");
-
-        // Keep the old reply until the replacement request succeeds.
-        const allMsgs = await loadCharacterContextMessages(char);
-        const validMsgs = allMsgs.filter(m => m.id !== lastMsg.id);
-        const preparedValidMsgs = await materializeVisionDescriptions(validMsgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
-        const emojis = await DB.getEmojis();
-
-        // 重掷的是开场白（isOpening 锚点消息）：走感知同款 payload 重新生成开场。
-        // 不能走下面的普通 reroll 路径——开场白前面没有触发它的 user 消息。旧逻辑会
-        // 先删消息再报 "Context lost"（开场白被吞），即使上一条恰好是 user 侥幸续上，
-        // 新消息也不带 isOpening，阅读模式会从上一次见面的开场开始切片，表现为
-        // 「新见面只有立绘模式是新剧情，阅读模式全是旧剧情」。
-        if (lastMsg.metadata?.isOpening === true) {
-            const { messages } = (await DatePrompts.buildPeekPayload({
-                char,
-                userProfile,
-                allMsgs: preparedValidMsgs,
-                openingMode: lastMsg.metadata?.dateOpeningMode === 'invite' ? 'invite' : 'approach',
-                emojis,
-                useVisionDescriptions: apiConfig.visionApi?.enabled === true,
-            }));
-            const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
-            if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-            try { await applyMeetingAlchemyRequest(messages, '', { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
-            catch (error) { console.warn('[Alchemy] meeting opening reroll rules unavailable', error); }
-            const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
-            const blockDecision = extractCharacterBlockAction(rawContent);
-            const content = blockDecision.text;
-            // 生成成功后才动库：先删旧开场、再带 isOpening 落新开场，请求失败时原剧情不丢
-            await DB.deleteMessage(lastMsg.id);
-            if (content) {
-                await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { ...lastMsg.metadata, source: 'date', isOpening: true } });
-            }
-            await applyMeetingBlockAction(char.id, blockDecision.action, char.chatBlock);
-            markDateTurnDirty(char);
-            trackEvent('重掷见面回复', { 目标: '开场白' });
-            // 阅读模式空会话时顶部渲染的开场 & 退出快照里的 peekStatus 同步成新开场
-            if (encounterIdRef.current === currentEncounterId) {
-                setPeekStatus(content);
-                setDateMessages(previous => previous.filter(message => message.id !== lastMsg.id));
-                await loadDateMessages();
-            }
-            return content;
-        }
-
-        const validDateMsgs = preparedValidMsgs.filter(m => m.metadata?.source === 'date');
-        const lastUserMsg = validDateMsgs[validDateMsgs.length - 1];
-        if (!lastUserMsg || lastUserMsg.role !== 'user') throw new Error("Context lost");
-
-        // Call API logic（与 handleSendMessage 共用 buildSessionPayload，只差 variant）
-        // 历史裁到被重掷的那一轮为止：见面回复之后用户又在普通聊天里发过消息时，
-        // validMsgs（全来源）的尾巴不是这条 date user，直接传进去会把那条聊天消息当成
-        // 「待重发的最后一条」砍掉，同时 date user 又被追加一次（丢一条、重一条）。
-        const { messages } = await DatePrompts.buildSessionPayload({
-            char,
-            userProfile,
-            allMsgs: trimHistoryThrough(preparedValidMsgs, lastUserMsg.id),
-            emojis,
-            userText: lastUserMsg.content,
-            variant: 'reroll',
-            useVisionDescriptions: apiConfig.visionApi?.enabled === true,
-        });
-        // Reroll 略调高温度求多样性，但绝不低于用户配置的基线。
-        const inPersonBlock = buildInPersonCharBlockInstruction(char.chatBlock, userProfile?.name || '用户');
-        if (inPersonBlock) messages.unshift({ role: 'system', content: inPersonBlock } as ApiMessage);
-        try { await applyMeetingAlchemyRequest(messages, lastUserMsg.content, { user: userProfile.name, char: char.name, characterId: char.id, scene: 'meeting' }); }
-        catch (error) { console.warn('[Alchemy] meeting reroll rules unavailable', error); }
-        const rawContent = await callLLM(messages, Math.max(resolveDialogueApi(apiConfig, char).temperature ?? 0.85, 0.9));
-        const blockAction = extractCharacterBlockAction(rawContent);
-        // 生成成功后才删旧回复：保留原有重掷语义，同时不泄漏拉黑控制标签。
-        await DB.deleteMessage(lastMsg.id);
-        if (blockAction.text) {
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: blockAction.text, metadata: { source: 'date', dateEncounterId: currentEncounterId } });
-        }
-        await applyMeetingBlockAction(char.id, blockAction.action, char.chatBlock);
-        markDateTurnDirty(char);
-        trackEvent('重掷见面回复', { 目标: '回复' });
-
-        // Sync
-        if (encounterIdRef.current === currentEncounterId) await loadDateMessages();
-
-        // Memory Palace 后台流程（Reroll 也算一轮新输出）
-        runMemoryPalacePostHook(char);
-
-        return blockAction.text;
+    const finishSessionReply = async (target: CharacterProfile, action: ReturnType<typeof extractCharacterBlockAction>['action'], signal: AbortSignal) => {
+        markDateTurnDirty(target);
+        if (signal.aborted) return;
+        // The reply is already saved. A side effect failure must not offer a paid retry.
+        try { await applyMeetingBlockAction(target.id, action, target.chatBlock); }
+        catch (error) { console.warn('[DateApp] 见面关系动作保存失败', error); }
+        if (!signal.aborted) await loadDateMessages();
     };
+
+    const handleSendMessage = (text: string, kind?: MeetingTurnKind) => runSessionTurn(async (target, encounterId, signal) => {
+        const retry = kind === 'retry' || kind === 'retry-continue';
+        const [latest] = retry ? await DB.getRecentMessagesByCharIdAndSource(target.id, 'date', 1) : [];
+        const pending = latest?.role === 'user' && latest.metadata?.dateEncounterId === encounterId
+            && latest.content === text ? latest : undefined;
+        const isContinue = pending ? pending.metadata?.meetingContinue === true : kind === 'continue' || kind === 'retry-continue';
+        const metadata = { source: 'date' as const, dateEncounterId: encounterId, ...(isContinue ? { meetingContinue: true } : {}) };
+        const id = pending?.id ?? await DB.saveMessage({ charId: target.id, role: 'user', type: 'text', content: text, metadata }, signal);
+        if (!pending) markDateTurnDirty(target);
+        if (!signal.aborted) await loadDateMessages();
+        const result = await generateSessionReply(target, { id, content: text, metadata }, 'send', signal);
+        await DB.saveMessage({ charId: target.id, role: 'assistant', type: 'text', content: result.text,
+            metadata: { source: 'date', dateEncounterId: encounterId } }, signal);
+        await finishSessionReply(target, result.action, signal);
+        if (!signal.aborted) void runMemoryPalacePostHook(target);
+        return result.text;
+    });
+
+    const handleReroll = () => runSessionTurn(async (target, encounterId, signal) => {
+        const [lastMsg] = await DB.getRecentMessagesByCharIdAndSource(target.id, 'date', 1);
+        if (lastMsg?.role !== 'assistant' || lastMsg.metadata?.dateEncounterId !== encounterId) {
+            throw new Error('本场见面暂无可重掷的回复');
+        }
+
+        const isOpening = lastMsg.metadata.isOpening === true;
+        let result: Awaited<ReturnType<typeof callLLM>>;
+        if (isOpening) {
+            const allMsgs = await loadMeetingContext(target, lastMsg.id - 1, signal);
+            const opening = lastMsg.metadata.dateOpeningMode === 'invite' ? 'invite' : 'approach';
+            result = await generateOpening(target, allMsgs, opening, signal, true);
+        } else {
+            const [previous] = await DB.getRecentMessagesByCharIdAndSource(target.id, 'date', 1, lastMsg.id);
+            if (previous?.role !== 'user' || previous.metadata?.dateEncounterId !== encounterId) {
+                throw new Error('找不到这条回复对应的本场输入');
+            }
+            result = await generateSessionReply(target, previous, 'reroll', signal);
+        }
+
+        await DB.updateMessage(lastMsg.id, result.text, { expectedContent: lastMsg.content, signal });
+        if (isOpening && !signal.aborted) setPeekStatus(result.text);
+        await finishSessionReply(target, result.action, signal);
+        trackEvent('重掷见面回复', { 目标: isOpening ? '开场白' : '回复' });
+        if (!isOpening && !signal.aborted) void runMemoryPalacePostHook(target);
+        return result.text;
+    });
 
     // --- Editing & Deletion ---
     // 删改同样要打脏（对齐 Chat.tsx 的同款处理器）：云端快照里带着最近对话原文，
@@ -656,9 +624,8 @@ const DateApp: React.FC = () => {
     };
 
     const onExitSession = () => {
-        stopDateBgm();
+        resetEncounter();
         clearDateResumeAttempt();
-        encounterIdRef.current = '';
         // 来自聊天：退出见面回聊天
         if (cameFromChat) { returnToChat(); return; }
         setMode('select');
@@ -668,6 +635,7 @@ const DateApp: React.FC = () => {
 
     // 从选择页直接进设置（不用先进见面再点菜单），改完立绘/观测等即时生效
     const openSettings = (c: CharacterProfile) => {
+        resetEncounter();
         setActiveCharacterId(c.id);
         setPreviousMode('select');
         setMode('settings');
@@ -675,9 +643,13 @@ const DateApp: React.FC = () => {
     };
 
     const openHistory = async (c: CharacterProfile) => {
-        setActiveCharacterId(c.id);
+        const requestId = ++historyRequestRef.current;
         // 见面历史按 source=date 独立读取，不受聊天侧记忆宫殿高水位影响。
-        const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', DATE_HISTORY_MESSAGE_LIMIT);
+        const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', DATE_HISTORY_MESSAGE_LIMIT).catch(() => {
+            if (requestId === historyRequestRef.current) addToast('见面记录读取失败，请重试', 'error');
+        });
+        if (!msgs || requestId !== historyRequestRef.current) return;
+        setActiveCharacterId(c.id);
         setHistoryMessages(msgs);
         setHistoryView('encounter');
         setHistorySortOrder('newest');
@@ -688,6 +660,8 @@ const DateApp: React.FC = () => {
     };
 
     useAppShortcut(ShortcutAppID.Date, (intent, isCurrent) => {
+        resetEncounter();
+        const requestId = historyRequestRef.current;
         setCameFromChat(false);
         setMeetSurface(intent.entryId === 'story' ? 'story' : 'companion');
         // Story shortcuts must open the story list, not the companion opening screen.
@@ -697,15 +671,17 @@ const DateApp: React.FC = () => {
         setActiveCharacterId(target.id);
         setPreviousMode('select');
         if (intent.entryId === 'history') {
-            setHistoryMessages([]); setMode('history');
+            setHistoryMessages([]); setHistoryReachedEnd(false); setMode('history');
             setHistoryView('encounter'); setHistorySortOrder('newest'); setHistoryLoadLimit(DATE_HISTORY_MESSAGE_LIMIT);
             void DB.getRecentMessagesByCharIdAndSource(target.id, 'date', DATE_HISTORY_MESSAGE_LIMIT).then(msgs => {
-                if (isCurrent()) { setHistoryMessages(msgs); setHistoryReachedEnd(msgs.length < DATE_HISTORY_MESSAGE_LIMIT); }
-            }).catch(() => { if (isCurrent()) addToast('见面记录读取失败，请重试', 'error'); });
+                if (isCurrent() && requestId === historyRequestRef.current) { setHistoryMessages(msgs); setHistoryReachedEnd(msgs.length < DATE_HISTORY_MESSAGE_LIMIT); }
+            }).catch(() => { if (isCurrent() && requestId === historyRequestRef.current) addToast('见面记录读取失败，请重试', 'error'); });
         } else if (intent.entryId === 'settings') setMode('settings');
         else {
             // Opening a shortcut must not discard savedDateState or generate an opening.
-            clearDateResumeAttempt(); encounterIdRef.current = crypto.randomUUID();
+            clearDateResumeAttempt();
+            encounterController.current = new AbortController();
+            encounterIdRef.current = crypto.randomUUID();
             setDateMessages([]); setPeekStatus(''); setHasSavedOpening(false); setMode('entry');
         }
     });
@@ -830,7 +806,7 @@ const DateApp: React.FC = () => {
                     </div>
                     <div className='mx-auto mt-4 mb-3 grid w-[min(17.5rem,calc(100%-2.5rem))] grid-cols-2 rounded-2xl border border-white/60 bg-white/40 p-1 shadow-[0_3px_14px_rgba(120,120,120,0.08)]'>
                         <button className='rounded-xl bg-white/95 py-2 text-xs font-bold text-[#494949] shadow-[0_2px_8px_rgba(100,100,100,0.09)]'>陪伴</button>
-                        <button onClick={() => setMeetSurface('story')} className='rounded-xl py-2 text-xs font-bold text-[#686868]'>剧情</button>
+                        <button onClick={() => { resetEncounter(); setMeetSurface('story'); }} className='rounded-xl py-2 text-xs font-bold text-[#686868]'>剧情</button>
                     </div>
                     {/* 仅见面浅色页采用雾面分组条，其他入口原样保留 */}
                     {characterGroups.length > 0 && (
@@ -1134,6 +1110,7 @@ const DateApp: React.FC = () => {
         return (
             <>
                 <DateSession
+                    key={encounterIdRef.current}
                     char={char}
                     userProfile={userProfile}
                     messages={dateMessages}

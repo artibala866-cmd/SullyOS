@@ -165,9 +165,11 @@ describe('其余打脏入口接线', () => {
 
   it('DateApp：轮次落库与删改处理器都打脏（对齐 Chat.tsx）', () => {
     const src = read('../apps/DateApp.tsx');
+    expect(sliceBetween(src, 'const finishSessionReply', 'const handleSendMessage')).toContain('markDateTurnDirty(');
+    expect(sliceBetween(src, 'const handleSendMessage', 'const handleReroll')).toContain('finishSessionReply(');
+    expect(sliceBetween(src, 'const handleReroll', '// --- Editing & Deletion ---')).toContain('finishSessionReply(');
     for (const [start, end] of [
-      ['const handleSendMessage = async', 'const handleReroll'],
-      ['const handleReroll = async', '// --- Editing & Deletion ---'],
+      ['const handleSendMessage', 'const handleReroll'],
       ['const handleDeleteMessage = async', 'const handleDeleteMessages'],
       ['const handleDeleteMessages = async', 'const confirmEditMessage'],
       ['const confirmEditMessage = async', '// --- History Long Press ---'],
