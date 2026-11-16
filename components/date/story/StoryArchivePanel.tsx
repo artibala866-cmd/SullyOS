@@ -259,8 +259,8 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
     <StoryAppearanceButton/>
    </div>
    {hasTabs&&<nav aria-label='剧情记忆页面' className='mx-auto flex max-w-2xl gap-2 px-4 pb-2 text-sm'>
-    <button type='button' disabled={blocked} aria-pressed={tab==='vector'} onClick={()=>switchTab('vector')} className='min-h-10 flex-1 rounded-lg aria-pressed:bg-violet-100 aria-pressed:text-violet-800'>向量记忆</button>
-    <button type='button' disabled={blocked} aria-pressed={tab==='archives'} onClick={()=>switchTab('archives')} className='min-h-10 flex-1 rounded-lg aria-pressed:bg-violet-100 aria-pressed:text-violet-800'>归档记录</button>
+    <button type='button' disabled={blocked} aria-pressed={tab==='vector'} onClick={()=>switchTab('vector')} className={'min-h-10 flex-1 rounded-lg '+(tab==='vector'?'bg-violet-100 font-semibold text-violet-700':'')}>向量记忆</button>
+    <button type='button' disabled={blocked} aria-pressed={tab==='archives'} onClick={()=>switchTab('archives')} className={'min-h-10 flex-1 rounded-lg '+(tab==='archives'?'bg-violet-100 font-semibold text-violet-700':'')}>归档记录</button>
    </nav>}
   </header>
   <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3'>
@@ -271,7 +271,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>changeRange(null)} className='min-h-11 px-2 text-sm text-slate-600'>取消</button>
      </div>
      {!range.replaceId&&recentRange&&<button type='button' disabled={blocked} onClick={()=>changeRange(recentRange)}
-      className='min-h-10 rounded-lg bg-violet-50 px-3 text-sm text-violet-800'>最近未归档 · {recentRange.first}–{recentRange.last} 楼</button>}
+      className='min-h-11 rounded-lg bg-violet-50 px-3 text-sm font-medium text-violet-700'>最近未归档 · {recentRange.first}–{recentRange.last} 楼</button>}
      <div className='grid grid-cols-3 gap-2 text-xs'>
       <label>起始楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.first} disabled={blocked} onChange={e=>changeRange({...range,first:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
       <label>结束楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.last} disabled={blocked} onChange={e=>changeRange({...range,last:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
@@ -297,7 +297,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       </details>:<p className='mt-1 break-words text-xs text-slate-700'>{rangeFailure}</p>}
      </div>}
      <button type='button' onClick={()=>void saveRange()} disabled={blocked||!chosenFloors.length||overlaps||includesPending}
-      className='flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white disabled:opacity-40'>
+      className='flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white disabled:opacity-40'>
       {rangeBusy&&<SpinnerGap size={16} className='animate-spin'/>}{rangeBusy?'整理中…':rangeFailure?(rangeProgress?.phase==='index'?'重试建向量':completedBatches.current.size?'继续整理':'重试整理'):'开始整理'}
      </button>
      </div>
