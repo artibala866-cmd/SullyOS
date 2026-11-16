@@ -72,7 +72,7 @@ import { processNewMessagesWithAutoArchive } from '../../../utils/memoryPalace/a
 import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memoryPalace';
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveFactIdentity, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, readStoredStoryTheater, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
@@ -1272,12 +1272,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const activeState = formatStoryArchiveActiveState(reconciled.active, recallQuery, floorNumbers, sourceTimes);
             const useArchiveTimeline = promptEntry.archives.some(box =>
                 box.strategy === 'vector' && box.facts && box.toMessageId < turnBoundary);
-            const currentNodeIds = new Set(visibleFacts.map(fact => fact.vectorNodeId));
+            const rankableFacts = visibleFacts.filter(fact => !activeState.selected.has(storyArchiveFactIdentity(fact)));
+            const currentNodeIds = new Set(rankableFacts.map(fact => fact.vectorNodeId));
             const vectorSource = await selectStoryVectorRecall(
                 vector, recallSignals.length ? recallSignals : [recallQuery],
                 automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
                 vector.factNodes.filter(node => currentNodeIds.has(node.id)),
-                storyArchiveNeedsRanking(visibleFacts, floorNumbers, sourceTimes, useArchiveTimeline, activeState.cost),
+                storyArchiveNeedsRanking(rankableFacts, floorNumbers, sourceTimes, useArchiveTimeline, activeState.cost),
             );
             const vectorRecall = vectorSource.text;
             const historicalFacts = selectStoryArchiveTransitions(
