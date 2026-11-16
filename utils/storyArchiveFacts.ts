@@ -253,6 +253,8 @@ function storyArchiveCodes(text: string) {
     })).filter(code => /[0-9]/u.test(code.value));
 }
 
+export class StoryArchiveIncompleteReply extends Error {}
+
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
@@ -262,10 +264,10 @@ export function parseStoryArchiveChanges(
     try {
         value = decodeArchiveChanges(raw);
     } catch {
-        throw invalid('模型没有返回完整的 changes JSON');
+        throw new StoryArchiveIncompleteReply('模型没有返回完整的 changes JSON');
     }
     if (!value || typeof value !== 'object' || !('changes' in value) || !Array.isArray(value.changes)) {
-        throw invalid('缺少 changes 数组');
+        throw new StoryArchiveIncompleteReply('模型没有返回 changes 数组');
     }
     const existing = new Map(known.map(fact => [fact.key, fact]));
     const signature = (fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'storyTime' | 'modality'>) =>

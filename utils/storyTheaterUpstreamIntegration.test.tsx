@@ -302,7 +302,9 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
         }
     };
     await selectFloors();
-    expect(host!.textContent).toContain('第 2 至 3 楼，共 2 条');
+    expect([...host!.querySelectorAll<HTMLInputElement>('input[type="number"]')].map(input => input.value))
+        .toEqual(['2', '3', '2']);
+    expect(host!.textContent).toContain('预计整理 1 批');
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => click('开始整理'));
     await vi.waitFor(async () => {

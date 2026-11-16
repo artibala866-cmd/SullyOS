@@ -1164,6 +1164,55 @@ describe('long story archives process small consecutive requests', () => {
         expect(splitStoryArchiveBatches(rows).map(batch => batch.map(row => row.id))).toEqual([[10, 11], [12, 13], [14, 15]]);
     });
 
+    it('continues a 14-batch archive after the sixth reply is cut off, replaying only unfinished requests', async () => {
+        const rows = Array.from({ length:28 }, (_, index): Message => ({
+            ...messages[index % 2], id:index + 22, content:'原文第'+(index + 22)+'楼。'+'其余正文。'.repeat(980),
+        }));
+        const calls: number[][] = [];
+        let unavailable = true;
+        fetchMock.mockImplementation(async (_url, init) => {
+            const request = JSON.parse(String(init.body));
+            const text = (request.messages[1].content as string).split('本批新楼层\n')[1];
+            const ids = [...text.matchAll(/记录ID (\d+)\]/g)].map(match => Number(match[1]));
+            const isRecovery = request.messages[0].content.includes('上次输出不完整');
+            calls.push(ids);
+            if ((ids[0] === 32 && !isRecovery) || (ids[0] === 33 && unavailable)) {
+                return response(completion('{"changes":[{"key":"截断"'));
+            }
+            return response(completion(JSON.stringify({changes:ids.map(id => ({
+                action:'add', kind:'fact', key:'归档/事件'+id, text:'发生了第'+id+'楼的事件。',
+                terms:['事件'], sourceMessageId:id,
+            }))})));
+        });
+        const run = { completed:new Map<string,string>(), incomplete:new Set<string>(), onProgress:vi.fn() };
+        await expect(generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, undefined, run))
+            .rejects.toThrow('第 6/14 批总结失败');
+        expect(calls).toEqual([[22,23],[24,25],[26,27],[28,29],[30,31],[32,33],[32],[33]]);
+        expect(run.onProgress).toHaveBeenCalledWith({phase:'recovering', index:6, total:14, first:32, last:33});
+        unavailable = false;
+        const result = await generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, undefined, run);
+        expect(calls[8]).toEqual([33]);
+        expect(calls.slice(9).flat()).toEqual(rows.slice(12).map(row => row.id));
+        expect(result.facts.map(fact => fact.sourceMessageId)).toEqual(rows.map(row => row.id));
+    });
+
+    it('recovers an oversized individual floor in two passages without losing its source number', async () => {
+        const floor = { ...messages[1], content: '中段邀约。'.repeat(1500) + '结尾确认。'.repeat(1500) };
+        fetchMock.mockResolvedValueOnce(response(completion('{"changes":[', 'length')));
+        fetchMock.mockImplementation(async (_url, init) => {
+            const text = JSON.parse(String(init.body)).messages[1].content.split('本批新楼层\n')[1];
+            const fact = text.includes('中段邀约') ? '中段邀约' : '结尾确认';
+            return response(completion(JSON.stringify({changes:[{key:'长楼/'+fact, text:fact, quote:fact,
+                sourceMessageId:floor.id}]})));
+        });
+        const result = await generateStoryArchiveDelta(entry, [floor], api, 37, 'summary');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(result.facts.map(fact => [fact.sourceMessageId,fact.text])).toEqual([
+            [floor.id,'中段邀约'], [floor.id,'结尾确认'],
+        ]);
+        expect(result.summary).toContain('[第 37 楼] 结尾确认');
+    });
+
     it.each(['manual', 'automatic', 'regenerate', 'vector'] as const)(
         'extracts 36 rounds in six ordered requests via %s and stores individual sourced facts', async mode => {
             const floors = await saveLongStory();

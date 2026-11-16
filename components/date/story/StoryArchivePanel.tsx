@@ -7,7 +7,7 @@ import {resolveStoryTheaterMask,storyTheaterThreadId} from '../../../utils/story
 import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyTheaterMemoryConversion';
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
-import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches} from '../../../utils/storyTheaterArchive';
+import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches,type StoryArchiveProgress} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
 import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
@@ -29,6 +29,13 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [regeneratingId,setRegeneratingId]=useState<string|null>(null);
  const [revokeTarget,setRevokeTarget]=useState<StoryTheaterArchive|null>(null);
  const running=useRef(false);
+ const completedBatches=useRef(new Map<string,string>());
+ const incompleteBatches=useRef(new Set<string>());
+ const [rangeProgress,setRangeProgress]=useState<StoryArchiveProgress|null>(null);
+ const [rangeFailure,setRangeFailure]=useState('');
+ const [rangeBusy,setRangeBusy]=useState(false);
+ const rangeActions=useRef<HTMLDivElement>(null);
+ useEffect(()=>{if(rangeFailure)rangeActions.current?.scrollIntoView?.({block:'nearest'});},[rangeFailure]);
  const isVector=strategy==='vector';
  const allBoxes=useMemo(()=>entry.archives.filter(a=>a.strategy===strategy),[entry.archives,strategy]);
  const legacy=allBoxes.filter(box=>isVector&&!box.vectorMemoryIds);
@@ -91,6 +98,11 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const overlaps=entry.archives.some(box=>!replacement.includes(box)
   &&firstId!==undefined&&lastId!==undefined&&firstId<=box.toMessageId&&box.fromMessageId<=lastId);
  const includesPending=!!chosenFloors.length&&last===floors?.length&&floors.at(-1)?.role==='user';
+ const changeRange=(next:typeof range)=>{
+  completedBatches.current.clear();incompleteBatches.current.clear();
+  setRangeFailure('');setRangeProgress(null);setStatus('');
+  setRange(next);
+ };
  const openRange=(id?:string)=>{
   const box=boxes.find(item=>item.id===id);
   const firstIndex=floors?.findIndex(row=>row.id===box?.fromMessageId)??-1;
@@ -98,22 +110,31 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   setError('');setStatus('');setRevokeTarget(null);
   if(hasTabs) switchTab('archives');
   if((!hasTabs||tab==='archives')&&scrollRef.current)scrollRef.current.scrollTop=0;
-  setRange({first:firstIndex<0?'':String(firstIndex+1),last:lastIndex<0?'':String(lastIndex+1),replaceId:id});
+  changeRange({first:firstIndex<0?'':String(firstIndex+1),last:lastIndex<0?'':String(lastIndex+1),replaceId:id});
  };
  useEffect(()=>{if(range)rangeSection.current?.scrollIntoView?.({block:'nearest'});},[!!range,range?.replaceId,tab]);
  const saveRange=async()=>{
   if(running.current||locked||!range||!chosenFloors.length||overlaps||includesPending)return;
-  running.current=true;setBusy(true);setError('');setStatus('正在整理所选楼层，原文仍可保留…');
+  running.current=true;setBusy(true);setRangeBusy(true);setError('');setStatus('');setRangeFailure('');setRangeProgress(null);
   try{
    const updated=await archiveStoryFloorRange(entry.id,chosenFloors,apiConfig,range.replaceId,isVector?{
     embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,
     fallbackApi:memoryPalaceConfig.lightLLM?.baseUrl?{...memoryPalaceConfig.lightLLM,apiKey:memoryPalaceConfig.lightLLM.apiKey??''}:undefined,
-   }:undefined);
-   onUpdated(updated);setRange(null);setStatus('所选楼层已整理，续写将使用新归档。');
+   }:undefined,{completed:completedBatches.current,incomplete:incompleteBatches.current,onProgress:setRangeProgress});
+   onUpdated(updated);changeRange(null);setStatus('第 '+first+'–'+last+' 楼已归档。');
    addToast('归档已保存','success');
-  }catch(e:any){setError(e?.message||'归档失败，原文和旧摘要已保留');setStatus('');}
-  finally{running.current=false;setBusy(false);}
+  }catch(e:any){setRangeFailure(e?.message||'请求失败');}
+  finally{running.current=false;setBusy(false);setRangeBusy(false);}
  };
+ const progressText=rangeProgress?.phase==='index'?'正在建立向量'
+  :rangeProgress?.phase==='saving'?'正在保存归档'
+  :rangeProgress?'第 '+rangeProgress.index+' / '+rangeProgress.total+' 批 · '+(rangeProgress.phase==='recovering'?'正在用更短的内容重试':'正在总结')
+  :'正在准备归档';
+ const failureTitle=rangeProgress?.phase==='index'?'向量建立失败'
+  :rangeProgress?.phase==='saving'?'归档保存失败'
+  :rangeProgress?'第 '+rangeProgress.index+' / '+rangeProgress.total+' 批整理失败'
+  :'归档失败';
+ const failedBatch=rangeProgress&&(rangeProgress.phase==='summary'||rangeProgress.phase==='recovering')?rangeProgress:null;
  const floorNumbers=useMemo(()=>new Map((floors??[]).map((row,index)=>[row.id,index+1])),[floors]);
  const sourceTimes=useMemo(()=>storyArchiveSourceTimes(floors??[]),[floors]);
  const readableLines=(box:StoryTheaterArchive)=>storyArchiveReadableLines(box,floorNumbers,sourceTimes);
@@ -247,29 +268,39 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
     {showingArchives&&range&&<section ref={rangeSection} className='space-y-2 rounded-xl border border-violet-200 bg-white p-3' aria-label='选择归档楼层'>
      <div className='flex items-center justify-between gap-2'>
       <h2 className='text-xs font-semibold'>{range.replaceId?'重选楼层':'归档楼层'} <span className='font-normal text-slate-500'>· 共 {floors?.length||0} 楼</span></h2>
-      <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>setRange(null)} className='min-h-11 px-2 text-sm text-slate-600'>取消</button>
+      <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>changeRange(null)} className='min-h-11 px-2 text-sm text-slate-600'>取消</button>
      </div>
-     {!range.replaceId&&recentRange&&<button type='button' disabled={blocked} onClick={()=>setRange(recentRange)}
+     {!range.replaceId&&recentRange&&<button type='button' disabled={blocked} onClick={()=>changeRange(recentRange)}
       className='min-h-10 rounded-lg bg-violet-50 px-3 text-sm text-violet-800'>最近未归档 · {recentRange.first}–{recentRange.last} 楼</button>}
      <div className='grid grid-cols-3 gap-2 text-xs'>
-      <label>起始楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.first} disabled={blocked} onChange={e=>setRange({...range,first:e.target.value})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
-      <label>结束楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.last} disabled={blocked} onChange={e=>setRange({...range,last:e.target.value})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
-      <label>归档条数<input type='number' inputMode='numeric' min={1} value={range.first&&range.last&&Number.isSafeInteger(first)&&Number.isSafeInteger(last)&&last>=first?last-first+1:''} disabled={blocked||!Number.isSafeInteger(first)||first<1} onChange={e=>setRange({...range,last:e.target.value?String(first+Number(e.target.value)-1):''})} className='mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
+      <label>起始楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.first} disabled={blocked} onChange={e=>changeRange({...range,first:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
+      <label>结束楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.last} disabled={blocked} onChange={e=>changeRange({...range,last:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
+      <label>归档条数<input type='number' inputMode='numeric' min={1} value={range.first&&range.last&&Number.isSafeInteger(first)&&Number.isSafeInteger(last)&&last>=first?last-first+1:''} disabled={blocked||!Number.isSafeInteger(first)||first<1} onChange={e=>changeRange({...range,last:e.target.value?String(first+Number(e.target.value)-1):''})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
      </div>
      {range.first&&range.last&&!chosenFloors.length&&<p className='text-[11px] text-rose-600'>请输入有效的楼层范围。</p>}
      {chosenFloors.length>0&&<div className='space-y-1 text-[11px] leading-5 text-slate-500'>
-      <p>第 {first} 至 {last} 楼，共 {chosenFloors.length} 条</p>
+      <p>预计整理 {splitStoryArchiveBatches(chosenFloors).length} 批</p>
       <p className='truncate'>起 · {chosenFloors[0].content.replace(/<[^>]*>/g,'').trim()}</p>
       {chosenFloors.length>1&&<p className='truncate'>止 · {chosenFloors.at(-1)?.content.replace(/<[^>]*>/g,'').trim()}</p>}
      </div>}
      {overlaps&&<p className='text-[11px] text-rose-600'>与其他归档重叠，请调整范围。</p>}
      {includesPending&&<p className='text-[11px] text-rose-600'>最后一条推进尚未得到回复。</p>}
      {replacement.length>1&&<p className='text-[11px] text-amber-700'>旧向量按组存储。确认后重建所选楼层，其余旧归档楼层恢复原文。</p>}
-     {!!chosenFloors.length&&<p className='text-[10px] text-slate-500'>分 {splitStoryArchiveBatches(chosenFloors).length} 批，每批调用总结 API 一次{isVector?'，完成后为新增或更新的记忆建向量。':'。'}</p>}
+     <div ref={rangeActions} className='space-y-2'>
+     {rangeBusy&&<p role='status' aria-live='polite' className='py-1 text-sm text-slate-700'>{progressText}</p>}
+     {rangeFailure&&<div role='alert' className='rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-sm'>
+      <p className='font-semibold text-rose-700'>{failureTitle}{failedBatch&&' · 第 '+failedBatch.first+(failedBatch.last===failedBatch.first?'':'–'+failedBatch.last)+' 楼'}</p>
+      <p className='mt-1 text-xs text-slate-700'>原文和旧归档已保留。{completedBatches.current.size>0?'本次已完成的总结可继续使用。':''}</p>
+      {rangeProgress?<details className='mt-1 text-xs leading-5 text-slate-600'>
+       <summary className='flex min-h-8 cursor-pointer items-center'>查看原因</summary>
+       <p className='break-words'>{rangeFailure}</p>
+      </details>:<p className='mt-1 break-words text-xs text-slate-700'>{rangeFailure}</p>}
+     </div>}
      <button type='button' onClick={()=>void saveRange()} disabled={blocked||!chosenFloors.length||overlaps||includesPending}
       className='flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white disabled:opacity-40'>
-      {busy&&<SpinnerGap size={16} className='animate-spin'/>}开始整理
+      {rangeBusy&&<SpinnerGap size={16} className='animate-spin'/>}{rangeBusy?'整理中…':rangeFailure?(rangeProgress?.phase==='index'?'重试建向量':completedBatches.current.size?'继续整理':'重试整理'):'开始整理'}
      </button>
+     </div>
     </section>}
     {error&&<p role='alert' className='text-xs leading-5 text-rose-600'>{error}</p>}
     {status&&<p role='status' className='text-xs leading-5 text-violet-700'>{status}</p>}
