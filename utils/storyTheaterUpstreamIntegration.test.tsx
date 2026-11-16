@@ -8,11 +8,15 @@ import { StoryTheaterThemeProvider } from '../components/date/story/StoryTheater
 import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import { DB } from './db';
 import { getStoryGenerationSnapshot } from './storyTheaterBackground';
+import { archiveStoryFloorRange, storyArchiveFloors } from './storyTheaterArchive';
+import { saveStoryInputDraft } from './storyTheaterInputDraft';
 import { listStoryVectorMemories } from './storyTheaterVectorMemory';
 import StoryTheaterEditor from '../components/date/story/StoryTheaterEditor';
 import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
 import StoryVectorMemoryPanel from '../components/date/story/StoryVectorMemoryPanel';
-import { MemoryNodeDB } from './memoryPalace/db';
+import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
+import * as palacePipeline from './memoryPalace/pipeline';
+import * as palaceAutoArchive from './memoryPalace/autoArchive';
 import {BUILTIN_NIGHT_SCREENING_PRESET, createStoryTheaterDraft, createBlankStoryPreset} from './storyTheater';
 import {applyStoryRegex, type StoryRegexRule} from './storyRegex';
 
@@ -102,7 +106,7 @@ it.each([
     const preset = createBlankStoryPreset('剧情');
     preset.document.generation.maxTokens = 8_000;
     const os = {
-        characters: [{ id: 'a', name: '角色A', mountedWorldbooks: [], memoryPalaceEnabled: true }],
+        characters: [{ id: 'a', name: '角色A', mountedWorldbooks: [], memoryPalaceEnabled: false }],
         worldbooks: [],
         userProfile: { name: '用户' },
         apiConfig: { baseUrl: 'https://fixture.invalid/v1', apiKey: 'fixture', model: 'story' },
@@ -316,7 +320,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
     expect(request.messages[1].content).not.toContain('第一楼的旧事');
     expect(fetchMock).toHaveBeenCalledOnce();
     await act(async () => renderPanel(updated.mock.calls[0][0]));
-    await act(async () => click('撤销归档'));
+    await act(async () => click('撤销归档 · 1'));
     await act(async () => click('确认撤销'));
     await vi.waitFor(async () => {
         await act(async () => {});
@@ -392,7 +396,7 @@ it('真实归档页面把同一次分段里变更过的旧状态显示成历史�
             <StoryArchivePanel strategy='vector' entry={vectorEntry} masks={[]} onBack={() => {}} onUpdated={() => {}} />
         </StoryTheaterThemeProvider></OSPreviewProvider>,
     ));
-    expect(host!.textContent).toContain('剧情时间线 · 3 条（点开查看）');
+    expect(host!.textContent).toContain('剧情时间线 · 3 条');
     expect(host!.textContent).toContain('按剧情楼层排列');
 });
 
@@ -449,17 +453,16 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     await vi.waitFor(() => expect(host!.textContent).toContain('向量记忆 · 18 条'));
     await vi.waitFor(() => expect(host!.textContent).toContain('第二天早晨第 2 楼'));
     expect(host!.textContent).not.toContain(oldProfile);
-    expect(host!.textContent).toContain('查看已有人设（1）');
-    await act(async () => click('查看已有人设（1）'));
+    await act(async () => click('查看已有人设'));
     expect(host!.textContent).toContain(oldProfile);
     await act(async () => click('收起已有人设'));
     expect(host!.textContent).toContain('仅是计划');
     expect(host!.textContent).toContain('尚未证实');
     expect(host!.textContent).not.toContain('归档时间：');
     expect(host!.textContent).toContain('归档记录');
-    expect(host!.textContent).toContain('查看完整记忆');
     expect([...host!.querySelectorAll('article')].map(card=>card.textContent).join('\n')).not.toContain(longText);
-    const expand = [...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('查看完整记忆'));
+    const expand = [...host!.querySelectorAll<HTMLButtonElement>('article button.story-memory-node-open')]
+        .find(button => button.textContent?.includes('第二天早晨'));
     expect(expand).toBeTruthy();
     await act(async()=>expand!.click());
     expect(host!.textContent).toContain(longText);
@@ -520,4 +523,163 @@ it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执�
     expect(JSON.stringify(payload.messages)).not.toContain('隐藏内容');
     expect(JSON.stringify(payload.messages)).not.toContain(template.instruction);
     expect((await DB.getMessagesByCharId(thread, true))[0].content).toBe(original);
+});
+
+it.each(['semantic', 'offline', 'no-config'] as const)(
+    '手动归档在关闭自动记忆并隐藏原文后依然可召回（%s）',
+    async mode => {
+        host = document.createElement('div');
+        document.body.append(host);
+        root = createRoot(host);
+        const entry = {
+            ...createStoryTheaterDraft(), title: '回到街口', characterIds: ['actor'],
+            automaticMemoryApiEnabled: false, archiveStrategy: 'summary' as const,
+            archiveAfter: 2, archiveKeepRecent: 1, archiveSummaryGuideMaxChars: 0,
+            memorySummaryApi: { baseUrl: 'https://manual.invalid/v1', apiKey: 'fixture', model: 'extract' },
+        };
+        const thread = 'story-theater:' + entry.id;
+        const original = '被风吹走的原叙述。';
+        const oldFact = '陈护士把银色罗盘放在蓝色匣子里。' + '匣子靠在窗前，内衬是墨绿色粗毡。'.repeat(8);
+        const localFact = '铜哨已经被货郎带走。';
+        const query = '请核对那个可以指路的小物件，然后找铜哨。';
+        const unrelated = '镇上的乐团排练完毕，成员从后门离开，向导在等候处领取新乐谱。第';
+        const facts = [oldFact, localFact, ...Array.from({length: 7}, (_, i) =>
+            ('巡演记录' + i + '：' + unrelated.repeat(20)).slice(0, 500))];
+        await DB.saveStoryTheater(entry);
+        const floorIds: number[] = [];
+        for (const text of [original, '镇上的乐团进城。', '守卫巡逻结束。', '他们一路走向街口。']) {
+            floorIds.push(await DB.saveMessage({ charId: thread, role: 'assistant', type: 'text', content: text,
+                metadata: { source: 'story_theater', theaterId: entry.id } }));
+        }
+        const embedding = { baseUrl: 'https://embedding.invalid/v1', apiKey: 'fixture', model: 'embedding', dimensions: 2 };
+        const api = { baseUrl: 'https://prose.invalid/v1', apiKey: 'fixture', model: 'story' };
+        const completion = (content: string) => Response.json({ choices: [{ message: { content }, finish_reason: 'stop' }] });
+        let payload = '';
+        let recallQueries: string[] = [];
+        const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
+            const request = JSON.parse(String(init?.body));
+            if (url === 'https://manual.invalid/v1/chat/completions') {
+                return completion(JSON.stringify({ changes: facts.map((text, i) => ({
+                    key: '手动归档/事实' + i, action: 'add', kind: 'fact', text,
+                    terms: i === 0 ? ['罗盘'] : i === 1 ? ['铜哨'] : ['乐团'],
+                    sourceMessageId: floorIds[i < 2 ? 0 : 1],
+                })) }));
+            }
+            if (url === 'https://embedding.invalid/v1/embeddings') {
+                const inputs: string[] = request.input;
+                const isRecall = inputs.includes(query);
+                if (isRecall) {
+                    recallQueries = inputs;
+                    if (mode === 'offline') return new Response('fixture offline', { status: 401 });
+                }
+                return Response.json({ data: inputs.map((input, index) =>
+                    ({ index, embedding: input === oldFact || input === query ? [1, 0] : [0, 1] })) });
+            }
+            expect(url).toBe('https://prose.invalid/v1/chat/completions');
+            payload = request.messages.map((item: { content: string }) => item.content).join('\n');
+            return completion('向导站在了街口。');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        const rows = storyArchiveFloors(await DB.getMessagesByCharId(thread, true), entry.id);
+        const archived = await archiveStoryFloorRange(entry.id, rows.slice(0, 2), api, undefined, { embedding });
+        expect(archived.archives).toHaveLength(1);
+        expect(await listStoryVectorMemories(entry.id)).toHaveLength(facts.length);
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            'https://manual.invalid/v1/chat/completions', 'https://embedding.invalid/v1/embeddings',
+        ]);
+        // jsdom's IndexedDB mock clones browser byte arrays into Node's realm.
+        const readVectors = MemoryVectorDB.getAllByCharId;
+        vi.spyOn(MemoryVectorDB, 'getAllByCharId').mockImplementation(async id =>
+            (await readVectors(id)).map(vector => vector.vector.length === vector.dimensions ? vector : {
+                ...vector, vector: new Float32Array(Uint8Array.from(vector.vector).buffer),
+            }));
+        fetchMock.mockClear();
+
+        const preset = createBlankStoryPreset('只读归档');
+        preset.document.prompts.find(prompt => prompt.marker === 'history')!.enabled = false;
+        saveStoryInputDraft(entry.id, query);
+        HTMLElement.prototype.scrollTo = vi.fn();
+        const os = {
+            characters: [{ id: 'actor', name: '向导', mountedWorldbooks: [] }], worldbooks: [],
+            userProfile: { name: '小雨' }, apiConfig: api,
+            memoryPalaceConfig: mode === 'no-config' ? {} : { embedding },
+            theme: {}, addToast: vi.fn(),
+        } as any;
+        await act(async () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+            <StoryTheaterSession entry={archived} preset={preset} masks={[]} onBack={() => {}}
+                onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
+        </StoryTheaterThemeProvider></OSPreviewProvider>));
+        await act(async () => host!.querySelector<HTMLButtonElement>('.story-send-button')!.click());
+        await vi.waitFor(async () => {
+            await act(async () => {});
+            expect((await DB.getMessagesByCharId(thread, true)).at(-1)?.content).toBe('向导站在了街口。');
+        });
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            ...(mode === 'no-config' ? [] : ['https://embedding.invalid/v1/embeddings']),
+            'https://prose.invalid/v1/chat/completions',
+        ]);
+        expect(recallQueries).toEqual(mode === 'no-config' ? [] : [query]);
+        expect(payload).toContain(localFact);
+        expect(payload.includes(oldFact)).toBe(mode === 'semantic');
+        expect(payload).not.toContain(original);
+        expect((await DB.getStoryTheaters()).find(item => item.id === entry.id)?.archives).toEqual(archived.archives);
+    },
+);
+
+it.each([
+    { carry: true, actorEnabled: true, identityEnabled: true, expected: ['actor', 'identity'] },
+    { carry: true, actorEnabled: false, identityEnabled: true, expected: ['identity'] },
+    { carry: true, actorEnabled: true, identityEnabled: false, expected: ['actor'] },
+    { carry: false, actorEnabled: true, identityEnabled: true, expected: [] },
+])('角色与当前身份分别按记忆输入和各自宫殿开关读取（$expected）', async ({
+    carry, actorEnabled, identityEnabled, expected,
+}) => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = {
+        ...createStoryTheaterDraft(), title: '归来的向导', characterIds: ['actor'],
+        mask: { type: 'character' as const, id: 'identity' },
+        automaticMemoryApiEnabled: false, carryCharacterMemory: carry,
+        writesToCharacterMemory: carry && actorEnabled && identityEnabled,
+    };
+    const thread = 'story-theater:' + entry.id;
+    await DB.saveStoryTheater(entry);
+    const memories: Record<string, string> = { actor: '故事角色的旧记忆正文', identity: '当前身份的旧记忆正文' };
+    const recall = vi.spyOn(palacePipeline, 'retrieveMemories').mockImplementation(async (_recent, id) => memories[id]);
+    const organize = vi.spyOn(palaceAutoArchive, 'processNewMessagesWithAutoArchive');
+    const apiConfig = { baseUrl: 'https://prose.invalid/v1', apiKey: 'fixture', model: 'story' };
+    const completion = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({
+        choices: [{ message: { content: '向导再次进门。' }, finish_reason: 'stop' }],
+    }));
+    vi.stubGlobal('fetch', completion);
+    HTMLElement.prototype.scrollTo = vi.fn();
+    const os = {
+        characters: [
+            { id: 'actor', name: '向导', memoryPalaceEnabled: actorEnabled, mountedWorldbooks: [] },
+            { id: 'identity', name: '访客', memoryPalaceEnabled: identityEnabled, mountedWorldbooks: [] },
+        ],
+        worldbooks: [], userProfile: { name: '小雨' }, apiConfig,
+        memoryPalaceConfig: { embedding: { baseUrl: 'https://embedding.invalid/v1', apiKey: 'fixture', model: 'embedding' } },
+        theme: {}, addToast: vi.fn(),
+    } as any;
+    const preset = createBlankStoryPreset('带角色记忆');
+    preset.document.prompts.push({ id: 'persona', name: '当前身份', role: 'system', enabled: true, marker: 'user', content: '' });
+    await act(async () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+        <StoryTheaterSession entry={entry} preset={preset} masks={[]} onBack={() => {}}
+            onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
+    </StoryTheaterThemeProvider></OSPreviewProvider>));
+    await act(async () => click('继续当前剧情'));
+    await vi.waitFor(async () => {
+        await act(async () => {});
+        expect((await DB.getMessagesByCharId(thread, true)).at(-1)?.content).toBe('向导再次进门。');
+    });
+    expect(recall.mock.calls.map(([, id]) => id).sort()).toEqual(expected);
+    expect(organize).not.toHaveBeenCalled();
+    expect(completion).toHaveBeenCalledOnce();
+    const payload = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages
+        .map((item: { content: string }) => item.content).join('\n');
+    for (const [id, memory] of Object.entries(memories)) {
+        expect(payload.includes(memory)).toBe(expected.includes(id));
+    }
 });

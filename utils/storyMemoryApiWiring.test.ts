@@ -23,9 +23,6 @@ describe('per-story API uses only memory call sites', () => {
         expect(story).toContain('automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true');
         expect(session).toContain('automaticMemoryApiEnabled ? await archiveIfNeeded(latestEntry) : null');
         expect(session).toContain('if (interruption || !automaticMemoryApiEnabled) return;');
-        expect(session).toContain('entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled');
-        expect(session).toContain('entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled');
-        expect(session).toContain('automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined');
     });
     it('never sends a second failed preflight summary in the same expensive prose turn', () => {
         expect(session).toContain('const archiveErrorSeq = useRef(0)');

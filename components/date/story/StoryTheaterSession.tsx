@@ -1021,7 +1021,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const recent = await loadStoryActorContext(actor, entry.id, limit);
             let recalled = '';
             const embedding = memoryPalaceConfig.embedding;
-            if (entry.automaticMemoryApiEnabled === true && actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
+            if (actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
                 const rawRecall = await retrieveMemories(recent, actor.id, embedding, actor.activeBuffs?.[0]?.name, actor.personalityStyle || 'emotional', actor.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, actor.name);
                 recalled = buildStoryActorMemoryEnvelope(actor.name, rawRecall, userProfile.name, mask.name);
             }
@@ -1034,7 +1034,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, mask.name)}`.trim());
         }
         return blocks.join('\n\n---\n\n');
-    }, [actors, effectivePreset.document.sourceFormat, entry.id, entry.carryCharacterMemory, entry.automaticMemoryApiEnabled, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, effectivePreset.document.sourceFormat, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || !mask.characterId) return '';
@@ -1044,7 +1044,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         const recent = await loadStoryActorContext(maskCharacter, entry.id, limit);
         let recalled = '';
         const embedding = memoryPalaceConfig.embedding;
-        if (entry.automaticMemoryApiEnabled === true && maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
+        if (maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
             const rawRecall = await retrieveMemories(recent, maskCharacter.id, embedding, maskCharacter.activeBuffs?.[0]?.name, maskCharacter.personalityStyle || 'emotional', maskCharacter.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, maskCharacter.name);
             recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, mask.name);
         }
@@ -1058,7 +1058,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             headerOverride: `[你当前身份的既有记忆：${maskCharacter.name}]`,
         }, { skipTimeAwareness: true }));
         return `${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, mask.name)}`.trim();
-    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.automaticMemoryApiEnabled, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const applyActorMemoryPipeline = useCallback(async () => {
         if (!entry.writesToCharacterMemory || entry.automaticMemoryApiEnabled !== true) return;
@@ -1276,7 +1276,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             const currentNodeIds = new Set(rankableFacts.map(fact => fact.vectorNodeId));
             const vectorSource = await selectStoryVectorRecall(
                 vector, recallSignals.length ? recallSignals : [recallQuery],
-                automaticMemoryApiEnabled ? memoryPalaceConfig.embedding : undefined,
+                memoryPalaceConfig.embedding,
                 vector.factNodes.filter(node => currentNodeIds.has(node.id)),
                 storyArchiveNeedsRanking(rankableFacts, floorNumbers, sourceTimes, useArchiveTimeline, activeState.cost),
             );
