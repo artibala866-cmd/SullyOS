@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X} from '@phosphor-icons/react';
+import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X,MagnifyingGlass} from '@phosphor-icons/react';
 import type {Message,StoryTheaterArchive,StoryTheaterArchiveStrategy,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
 import {useLocalBackHandler} from '../../../hooks/useLocalBackHandler';
 import {useOS} from '../../../context/OSContext';
@@ -17,9 +17,9 @@ export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onCl
   className='inline-grid h-10 w-10 shrink-0 place-items-center rounded-full text-violet-700 hover:bg-violet-100 focus-visible:outline focus-visible:outline-violet-400 disabled:opacity-30'>{children}</button>;
 }
 
-export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy='summary',children,locked=false,onFloorsLoaded}:{
+export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy='summary',children,vectorSearch,locked=false,onFloorsLoaded}:{
  entry:StoryTheaterEntry;masks:StoryTheaterMask[];onBack:()=>void;onUpdated:(entry:StoryTheaterEntry)=>void;
- strategy?:StoryTheaterArchiveStrategy;children?:React.ReactNode;locked?:boolean;onFloorsLoaded?:(floors:Message[])=>void;
+ strategy?:StoryTheaterArchiveStrategy;children?:React.ReactNode;vectorSearch?:React.ReactNode;locked?:boolean;onFloorsLoaded?:(floors:Message[])=>void;
 }){
  const {characters,userProfile,apiConfig,memoryPalaceConfig,remoteVectorConfig,addToast}=useOS();
  const actors=characters.filter(char=>entry.characterIds.includes(char.id));
@@ -227,7 +227,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   const text=readableSummary(box).normalize('NFKC').toLowerCase();
   return searchWords.every(word=>text.includes(word));
  }):boxes;
- const archiveRows = showingArchives && <div className='divide-y divide-slate-200'>
+ const archiveRows = showingArchives && <div className='story-memory-archive-list'>
      {visibleBoxes.map(box=>{
       const index=boxes.indexOf(box);
       const checked=selected.includes(box.id),receipt=box.memoryConversions?.[charId];
@@ -235,14 +235,16 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       const lastFloor=(floorNumbers.get(box.toMessageId)??0)-1;
       const legacyBox=isVector&&!box.vectorMemoryIds;
       const timeline=children&&isVector?{...box,facts:[]}:box;
-      return <section key={box.id} className='py-2'>
-       <div className='flex items-center gap-2'>
+      return <section key={box.id} className='story-memory-archive-item py-2'>
+       <div className='story-memory-archive-heading flex items-center gap-2'>
         {!isVector&&<input type='checkbox' aria-label={'选择事件盒 '+(index+1)} checked={checked} disabled={blocked} onChange={()=>toggle(box.id)} className='accent-violet-600'/>}
         <div className='min-w-0 flex-1'>
          <h2 className='truncate text-xs font-semibold'>{legacyBox?'旧向量归档':(isVector?'向量归档 ':'事件盒 ')+(index+1)}</h2>
          <p className='truncate text-[10px] text-slate-500'>{legacyBox&&legacy.length>1?legacy.length+' 段 · 按组处理':firstFloor>=0&&lastFloor>=0?'第 '+(firstFloor+1)+'–'+(lastFloor+1)+' 楼':box.messageCount+' 条原文'}{receipt?' · 已转化':''}</p>
         </div>
         {!isVector&&<ArchiveIcon label={'重新总结事件盒 '+(index+1)} disabled={blocked} onClick={()=>void regenerate(box.id)}>{regeneratingId===box.id?<SpinnerGap size={17} className='animate-spin'/>:<ArrowClockwise size={18}/>}</ArchiveIcon>}
+       </div>
+       <div className='story-memory-archive-actions'>
         <button type='button' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)} className='min-h-11 shrink-0 rounded-lg px-2 text-xs text-violet-700 disabled:opacity-40'>重选楼层</button>
         <button type='button' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}} className='min-h-11 shrink-0 rounded-lg px-2 text-xs text-rose-700 disabled:opacity-40'>撤销归档</button>
        </div>
@@ -257,22 +259,31 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       </section>;
      })}
     </div>;
- return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>
-  <header className='story-safe-header shrink-0 border-b border-slate-200'>
-   <div className='h-14 px-3 flex items-center gap-1'>
+ return <div className='story-memory-workspace h-full w-full flex flex-col bg-stone-100 text-slate-800'>
+  <header className='story-safe-header story-memory-header shrink-0 border-b border-slate-200'>
+   <div className='story-memory-header-row h-14 px-3 flex items-center gap-1'>
     <ArchiveIcon label='返回剧情' disabled={blocked} onClick={onBack}><ArrowLeft size={20}/></ArchiveIcon>
     <div className='min-w-0 flex-1'><p className='text-[10px] text-slate-500'>{isVector?'独立向量':'剧情事件盒'}</p><h1 className='truncate text-sm font-semibold'>{entry.title}</h1></div>
     <button type='button' aria-label='手动归档楼层' disabled={blocked||!floors?.length} onClick={()=>openRange()} className='flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-violet-700 disabled:opacity-40'><Plus size={17}/>归档</button>
     <StoryAppearanceButton/>
    </div>
-   {hasTabs&&<nav aria-label='剧情记忆页面' className='mx-auto flex max-w-2xl gap-2 px-4 pb-2 text-sm'>
+   {hasTabs&&<nav aria-label='剧情记忆页面' className='story-memory-tabs mx-4 mb-3 flex max-w-2xl gap-2 p-1 text-sm'>
     <button type='button' disabled={blocked} aria-pressed={tab==='vector'} onClick={()=>switchTab('vector')} className={'min-h-10 flex-1 rounded-lg '+(tab==='vector'?'bg-violet-100 font-semibold text-violet-700':'')}>向量记忆</button>
     <button type='button' disabled={blocked} aria-pressed={tab==='archives'} onClick={()=>switchTab('archives')} className={'min-h-10 flex-1 rounded-lg '+(tab==='archives'?'bg-violet-100 font-semibold text-violet-700':'')}>归档记录</button>
    </nav>}
+   {((!showingArchives && !!vectorSearch) || (showingArchives && boxes.length > 0)) && <div className='story-memory-search-bar px-4 pb-3'>
+    <div className='mx-auto max-w-2xl'>
+     {showingArchives ? <div className='relative story-memory-search-field'>
+      <MagnifyingGlass size={18} aria-hidden className='pointer-events-none absolute left-3 top-3.5 text-slate-500' />
+      <input type='search' aria-label='搜索归档' placeholder='搜索归档或楼层' value={archiveQuery} onChange={event=>setArchiveQuery(event.target.value)}
+       className='story-memory-search-input min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-base'/>
+     </div> : vectorSearch}
+    </div>
+   </div>}
   </header>
-  <main ref={scrollRef} className='story-page-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3'>
+  <main ref={scrollRef} className='story-page-scroll story-memory-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3'>
    <div className='max-w-2xl mx-auto space-y-3'>
-    {showingArchives&&range&&<section ref={rangeSection} className='space-y-2 rounded-xl border border-violet-200 bg-white p-3' aria-label='选择归档楼层'>
+    {showingArchives&&range&&<section ref={rangeSection} className='story-memory-range space-y-2 rounded-xl border border-violet-200 bg-white p-3' aria-label='选择归档楼层'>
      <div className='flex items-center justify-between gap-2'>
       <h2 className='text-xs font-semibold'>{range.replaceId?'重选楼层':'归档楼层'} <span className='font-normal text-slate-500'>· 共 {floors?.length||0} 楼</span></h2>
       <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>changeRange(null)} className='min-h-11 px-2 text-sm text-slate-600'>取消</button>
@@ -326,8 +337,6 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      <ArchiveIcon label='导出选中' disabled={blocked} onClick={()=>void exportSelected()}><DownloadSimple size={18}/></ArchiveIcon>
      <ArchiveIcon label='转为角色记忆' disabled={blocked||!char||!chosen.length||chosen.some(box=>!dateValid(dates[box.id]))} onClick={()=>void convert()}><UserPlus size={18}/></ArchiveIcon>
     </div>}
-    {!!boxes.length&&<input type='search' aria-label='搜索归档' placeholder='搜索归档或楼层' value={archiveQuery} onChange={event=>setArchiveQuery(event.target.value)}
-      className='min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-base'/>}
     {showingArchives&&(visibleBoxes.length?archiveRows:boxes.length>0&&<p className='py-4 text-sm text-slate-600'>没有匹配的归档</p>)}
     </div>
    </div>
