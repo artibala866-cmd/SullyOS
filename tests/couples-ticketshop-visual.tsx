@@ -54,7 +54,7 @@ function App(){
     <main className="couple-main"><BondShop bond={bond} partner="周树生"
       change={async update=>{setBond(current=>update(current));}}
       generate={async()=>'{ "accept":true, "reply":"当然愿意。" }'}
-      share={async()=>{}}
+      share={async (_content, _label, update)=>{setBond(current=>update(current));}}
       notify={setMessage} busy={false} />
       {message&&<output role="status">{message}</output>}
     </main>
