@@ -7,7 +7,8 @@ import StoryArchivePanel from '../components/date/story/StoryArchivePanel';
 import { createStoryTheaterDraft, storyTheaterThreadId } from '../utils/storyTheater';
 import { STORY_THEATER_APPEARANCE_STORAGE_KEY } from '../utils/storyTheaterBackup';
 import { MemoryNodeDB } from '../utils/memoryPalace/db';
-import type { StoryArchiveFact, StoryTheaterArchive } from '../types';
+import { DB } from '../utils/db';
+import type { Message, StoryArchiveFact, StoryTheaterArchive } from '../types';
 
 // Genuine components, CSS, IndexedDB and handlers; synthetic story records only.
 const params = new URLSearchParams(location.search);
@@ -48,6 +49,15 @@ const entry = {
   archiveStrategy: mode === 'vectors' ? 'vector' as const : 'summary' as const,
   archives: mode === 'vectors' ? vectorBoxes : summaryBoxes, updatedAt: 2,
 };
+// Screenshots must represent a real story with its archived floors available.
+const storyRows = Array.from({ length: 27 }, (_, i) => ({
+  id: i + 1, charId: thread, role: i % 2 ? 'assistant' : 'user',
+  content: sentences[i % sentences.length], timestamp: 1794800000000 + i * 60000,
+  metadata: { source: 'story_theater' },
+})) as Message[];
+const originalReadMessages = DB.getMessagesByCharId.bind(DB);
+(DB as any).getMessagesByCharId = (charId: string, ...args: any[]) =>
+  charId === thread ? Promise.resolve(storyRows) : originalReadMessages(charId, ...args);
 const os = {
   characters: [{ id: 'visual-actor', name: '林屿', description: '安静', systemPrompt: '', worldview: '' }],
   userProfile: { name: '玩家', avatar: '' }, worldbooks: [],
