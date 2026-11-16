@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, CaretRight, DotsThree, MagnifyingGlass, SpinnerGap, X } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, DotsThree, MagnifyingGlass, SpinnerGap, X, Eye, EyeSlash, ArrowClockwise, ArrowLeft, PencilSimple, Trash, FileText } from '@phosphor-icons/react';
 import type { Message, StoryArchiveFact, StoryTheaterEntry, StoryTheaterMask } from '../../../types';
 import type { MemoryNode } from '../../../utils/memoryPalace/types';
 import { MemoryVectorDB } from '../../../utils/memoryPalace/db';
@@ -30,7 +30,7 @@ interface MemoryRecord {
 const PAGE_SIZE = 10;
 const EMPTY_MASKS: StoryTheaterMask[] = [];
 const searchText = (text: string) => text.normalize('NFKC').toLowerCase();
-const actionClass = 'story-memory-action min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium disabled:opacity-40';
+const actionClass = 'story-memory-action story-memory-action-icon inline-grid h-11 w-11 shrink-0 place-items-center rounded-full disabled:opacity-40';
 
 const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, onBack, onUpdated }) => {
     const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
@@ -243,14 +243,18 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         <section ref={listRef} aria-label='向量节点' className='story-memory-nodes'>
             <div className='story-memory-count mb-3 flex flex-wrap items-center justify-between gap-2'>
                 <h2 className='text-sm font-semibold'>{normalizedQuery ? '搜索结果' : '向量记忆'} · {filtered.length} 条</h2>
-                {!normalizedQuery && !!repeatedSetupIds.size && <button type='button' className='min-h-10 px-1 text-xs text-slate-600 underline'
+                {!normalizedQuery && !!repeatedSetupIds.size && <button type='button'
+                    className='story-memory-repeated-toggle inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-xs text-slate-600'
+                    title={showRepeatedSetup ? '收起已有人设' : '查看已有人设'}
+                    aria-label={showRepeatedSetup ? '收起已有人设' : '查看已有人设'}
                     aria-pressed={showRepeatedSetup} onClick={() => { setPage(0); setShowRepeatedSetup(value => !value); }}>
-                    {showRepeatedSetup ? '收起已有人设' : `查看已有人设（${repeatedSetupIds.size}）`}
+                    {showRepeatedSetup ? <EyeSlash size={18}/> : <Eye size={18}/>}
+                    <span aria-hidden='true'>{repeatedSetupIds.size}</span>
                 </button>}
             </div>
             {listError && <div role='alert' className='mb-2 flex items-center gap-2 text-sm text-rose-700'>
                 <span className='min-w-0 flex-1 break-words'>{listError}</span>
-                <button className={actionClass} onClick={() => setReload(value => value + 1)}>重试</button>
+                <button className={actionClass} aria-label='重试读取记忆' title='重试' onClick={() => setReload(value => value + 1)}><ArrowClockwise size={19}/></button>
             </div>}
             {pageCount > 1 && <nav aria-label='记忆分页' className='story-memory-pager mb-3 flex items-center justify-between gap-2 px-1 py-1'>
                 <ArchiveIcon label='上一页' disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}><CaretLeft size={16} /></ArchiveIcon>
@@ -264,7 +268,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             </nav>}
             {loading ? <div role='status' aria-label='正在读取记忆' className='grid place-items-center py-6 text-slate-500'><SpinnerGap size={24} className='animate-spin' /></div>
                 : !filtered.length && !listError ? <p className='py-3 text-sm text-slate-600'>{normalizedQuery ? '没有匹配的记忆' : '暂无剧情向量记忆'}</p>
-                : <div className='space-y-2.5'>{visibleRecords.map(item => {
+                : <div className='story-memory-record-list'>{visibleRecords.map(item => {
                     const fact = item.fact;
                     const number = fact && floorNumbers.get(fact.sourceMessageId);
                     const time = fact && storyArchiveFactTime({ ...fact, text:item.text }, sourceTimes);
@@ -289,8 +293,8 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                         }}
                         onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress}
                         onContextMenu={event => { event.preventDefault(); cancelLongPress(); openDetail(item.id); }}
-                        className='story-memory-node relative rounded-xl border border-slate-200 bg-white'>
-                        <button type='button' onClick={() => openDetail(item.id)} className='block w-full rounded-xl py-3 pl-3.5 pr-12 text-left focus-visible:outline focus-visible:outline-violet-500'>
+                        className='story-memory-node relative'>
+                        <button type='button' onClick={() => openDetail(item.id)} className='story-memory-node-open block w-full py-3 pl-1 pr-12 text-left focus-visible:outline focus-visible:outline-violet-500'>
                             <span className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs leading-5'>
                                 <strong>{time || (number ? '第 ' + number + ' 楼' : '旧记忆')}</strong>
                                 {time && number && <span className='text-slate-600'>第 {number} 楼</span>}
@@ -300,7 +304,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                             <span className='mt-1.5 block whitespace-pre-wrap break-words text-sm leading-6'>
                                 {item.text.length <= 84 ? item.text : preview + '…'}
                             </span>
-                            {item.text.length > 84 && <span className='story-memory-node-hint mt-1 block text-xs text-slate-600'>查看完整记忆</span>}
+                            
                         </button>
                         <button type='button' onClick={() => openDetail(item.id)} onPointerDown={event => event.stopPropagation()}
                             className='story-memory-node-more absolute right-1 top-1 grid size-11 place-items-center rounded-full text-slate-600'
@@ -346,17 +350,17 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                     {detailView === 'delete' && <p className='text-sm leading-6'>此条记忆及其向量将永久删除。</p>}
                     {editError && <p role='alert' className='mt-2 break-words text-sm text-rose-700'>{editError}</p>}
                 </div>
-                <footer className='flex shrink-0 flex-wrap gap-2 border-t border-slate-200 pt-3'>
+                <footer className='story-memory-detail-actions flex shrink-0 flex-wrap gap-2 border-t border-slate-200 pt-3'>
                     {detailView === 'memory' ? <>
-                        {original && <button className={actionClass} onClick={() => setDetailView('source')}>查看原楼</button>}
-                        {activeNode && <button className={actionClass} onClick={() => {
+                        {original && <button className={actionClass} aria-label='查看原楼' title='查看原楼' onClick={() => setDetailView('source')}><FileText size={20}/></button>}
+                        {activeNode && <button className={actionClass} aria-label='编辑记忆' title='编辑记忆' onClick={() => {
                             setBaseContent(activeNode.content); setDraft(activeNode.content); setEditError(''); setDetailView('edit');
-                        }}>编辑</button>}
-                        {activeNode && <button className={actionClass + ' ml-auto text-rose-700'} onClick={() => {
+                        }}><PencilSimple size={20}/></button>}
+                        {activeNode && <button className={actionClass + ' story-memory-delete-trigger ml-auto'} aria-label='删除记忆' title='删除记忆' onClick={() => {
                             setBaseContent(activeNode.content); setEditError(''); setDetailView('delete');
-                        }}>删除</button>}
+                        }}><Trash size={20}/></button>}
                     </> : <>
-                        <button className={actionClass} disabled={saving} onClick={backFromDetail}>返回记忆</button>
+                        <button className={actionClass} aria-label='返回记忆' title='返回记忆' disabled={saving} onClick={backFromDetail}><ArrowLeft size={20}/></button>
                         {detailView === 'edit' && <button className='min-h-11 flex-1 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white disabled:opacity-40'
                             disabled={saving || !draft.trim() || draft.trim() === baseContent} onClick={() => void saveEdit()}>
                             {saving ? '保存中…' : '保存并更新向量'}
