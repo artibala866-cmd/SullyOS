@@ -4,7 +4,7 @@ import { bm25Search } from './memoryPalace/bm25';
 import {
     collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState,
     formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveScene,
-    reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveFactIdentity, storyArchiveNeedsRanking,
+    readStoryRecallArchives, reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveFactIdentity, storyArchiveNeedsRanking,
     storyArchiveSourceTimes, storyRecentSceneCue, storyRelatedArchiveFacts,
 } from './storyArchiveFacts';
 import {
@@ -53,7 +53,8 @@ export async function buildStoryTheaterRecall(input: {
     readOriginalEvidence: boolean;
     embedding?: EmbeddingConfig;
 }) {
-    const { entry, rows, beforeId, floor, baseline, visibleRows, historyVisible, continuation, opening, userInput, readOriginalEvidence } = input;
+    const { rows, beforeId, floor, baseline, visibleRows, historyVisible, continuation, opening, userInput, readOriginalEvidence } = input;
+    const entry = { ...input.entry, archives: readStoryRecallArchives(input.entry.archives) };
     const vector = await loadStoryVectorRecall(entry, beforeId).catch(error => {
         console.warn('[StoryTheater] vector memory unavailable', error);
         return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>(), degraded: true };
@@ -61,7 +62,7 @@ export async function buildStoryTheaterRecall(input: {
     const facts = collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById, true);
     const floorNumbers = new Map(rows.map((row, index) => [row.id, index + 1]));
     const sourceTimes = storyArchiveSourceTimes(readOriginalEvidence ? rows : visibleRows);
-    const archiveEnd = Math.max(0, ...entry.archives.filter(box => box.toMessageId < beforeId).map(box => box.toMessageId));
+    const archiveEnd = entry.archives.reduce((end, box) => box.toMessageId < beforeId ? Math.max(end, box.toMessageId) : end, 0);
     const recentRows = archiveEnd > 0 && !historyVisible && !opening && readOriginalEvidence
         ? rows.filter(row => row.role === 'assistant' && row.id > archiveEnd && row.id < beforeId).slice(-2) : [];
     const reconciled = reconcileStoryArchiveContinuity(facts, entry.archives, beforeId,
@@ -103,7 +104,7 @@ export async function buildStoryTheaterRecall(input: {
     const relatedKeys = new Set(related.map(fact => fact.key));
     const priority = new Map(selected.semanticFactRank);
     related.forEach((fact, index) => priority.set(fact.vectorNodeId ?? storyArchiveFactIdentity(fact), index - related.length));
-    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys)
+    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys, vector.factTextById)
         .filter(fact => !reconciled.closedPlans.some(plan => plan.key === fact.key && plan.sourceMessageId === fact.sourceMessageId));
     const timeline = useTimeline
         ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys) : '';
@@ -149,9 +150,10 @@ export async function buildStoryTheaterRecall(input: {
     const injectedIds = injectedFloors.map(number => rows[number - 1]?.id);
     const sourceArchives = entry.archives.filter(box => box.toMessageId < beforeId
         && injectedIds.some(id => id !== undefined && box.fromMessageId <= id && id <= box.toMessageId));
+    const injected = new Set(injectedFloors);
     const relatedFloors = [...new Set(related.flatMap(fact => {
         const number = floorNumbers.get(fact.sourceMessageId);
-        return number === undefined ? [] : [number];
+        return number !== undefined && injected.has(number) ? [number] : [];
     }))].sort((a, b) => a - b);
     return {
         messages,

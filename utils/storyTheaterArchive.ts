@@ -16,7 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, readStoryRecallArchives, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
@@ -181,13 +181,14 @@ export async function generateStoryArchiveDelta(
     const { sources, transcript, affinity } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
     const floorNumbers = new Map([...sources].map(([id, source]) => [id, source.floorNumber]));
     const beforeId = batch[0].id;
+    const archives = readStoryRecallArchives(entry.archives);
     const [reference, vector] = await Promise.all([
         buildStoryArchiveReference(entry),
-        loadStoryVectorRecall(entry, beforeId),
+        loadStoryVectorRecall({ ...entry, archives }, beforeId),
     ]);
-    const known = collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById);
+    const known = collectStoryArchiveFacts(archives, beforeId, vector.factTextById);
     const legacy = [
-        ...entry.archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
+        ...archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
             .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 4).map(box => box.summary),
         ...vector.groups.slice(-4).map(group => group.nodes.map(node => node.content).join('')),
     ].filter(Boolean).join('\n\n').slice(0, 6000);

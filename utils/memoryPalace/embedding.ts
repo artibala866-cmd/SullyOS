@@ -27,6 +27,7 @@ export async function getEmbedding(text: string, config: EmbeddingConfig): Promi
 export interface SerialEmbeddingRun {
     completed?: Map<string, Float32Array[]>;
     onBatch?: (index: number, total: number) => void;
+    onRequest?: () => void;
 }
 
 export async function getEmbeddings(
@@ -94,7 +95,7 @@ export async function getEmbeddings(
             let batch = cached;
             if (!batch) {
                 serialRun.onBatch?.(index + 1, chunks.length);
-                const response = await callEmbeddingAPI(chunk, serialConfig);
+                const response = await callEmbeddingAPI(chunk, serialConfig, serialRun);
                 if (response.length !== chunk.length || response.some(vector =>
                     !Array.isArray(vector) || !vector.length || !vector.every(Number.isFinite))) {
                     throw new Error('Embedding 返回的向量不完整或无效，本次没有写入记忆');
@@ -141,7 +142,7 @@ function modelSupportsDimensions(model: string): boolean {
  * 实际调用 Embedding API
  */
 async function callEmbeddingAPI(
-    input: string[], config: EmbeddingConfig,
+    input: string[], config: EmbeddingConfig, serialRun?: SerialEmbeddingRun,
 ): Promise<number[][]> {
     // 自动修正常见 URL 错误
     let baseUrl = config.baseUrl.replace(/\/+$/, '');
@@ -162,6 +163,7 @@ async function callEmbeddingAPI(
         config.signal?.throwIfAborted();
         await waitForPalaceRequest(config.signal);
         config.signal?.throwIfAborted();
+        serialRun?.onRequest?.();
         const response = await fetch(url, {
             method: 'POST',
             signal: config.signal,
@@ -194,6 +196,13 @@ async function callEmbeddingAPI(
 
         // OpenAI 格式: data[].embedding[]
         // 按 index 排序确保顺序正确
+        if (serialRun && data.data.some((item: any) => item?.index !== undefined)) {
+            const indices = data.data.map((item: any) => item?.index);
+            if (indices.some((index: number) => !Number.isInteger(index) || index < 0 || index >= input.length)
+                || new Set(indices).size !== indices.length) {
+                throw new Error('Embedding 返回的向量编号重复、缺失或越界');
+            }
+        }
         const sorted = [...data.data].sort((a: any, b: any) => a.index - b.index);
         return sorted.map((item: any) => item.embedding as number[]);
 

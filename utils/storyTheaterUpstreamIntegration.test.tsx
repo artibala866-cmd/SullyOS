@@ -525,7 +525,7 @@ it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执�
     expect((await DB.getMessagesByCharId(thread, true))[0].content).toBe(original);
 });
 
-it.each(['semantic', 'offline', 'no-config'] as const)(
+it.each(['semantic', 'offline', 'no-config', 'linked-offline'] as const)(
     '手动归档在关闭自动记忆并隐藏原文后依然可召回（%s）',
     async mode => {
         host = document.createElement('div');
@@ -563,6 +563,8 @@ it.each(['semantic', 'offline', 'no-config'] as const)(
                     key: '手动归档/事实' + i, action: 'add', kind: 'fact', text,
                     terms: i === 0 ? ['罗盘'] : i === 1 ? ['铜哨'] : ['乐团'],
                     sourceMessageId: floorIds[i < 2 ? 0 : 1],
+                    ...(mode === 'linked-offline' && i === 1 ? { relatedKeys: ['手动归档/事实2'] } : {}),
+                    ...(mode === 'linked-offline' && i === 2 ? { relatedKeys: ['手动归档/事实0'] } : {}),
                 })) }));
             }
             if (url === 'https://embedding.invalid/v1/embeddings') {
@@ -570,7 +572,7 @@ it.each(['semantic', 'offline', 'no-config'] as const)(
                 const isRecall = inputs.includes(query);
                 if (isRecall) {
                     recallQueries = inputs;
-                    if (mode === 'offline') return new Response('fixture offline', { status: 401 });
+                    if (mode === 'offline' || mode === 'linked-offline') return new Response('fixture offline', { status: 401 });
                 }
                 return Response.json({ data: inputs.map((input, index) =>
                     ({ index, embedding: input === oldFact || input === query ? [1, 0] : [0, 1] })) });
@@ -621,7 +623,7 @@ it.each(['semantic', 'offline', 'no-config'] as const)(
         expect(recallQueries.at(-1)).toBe(mode === 'no-config' ? undefined : query);
         expect(recallQueries.length).toBeLessThanOrEqual(2);
         expect(payload).toContain(localFact);
-        expect(payload.includes(oldFact)).toBe(mode === 'semantic');
+        expect(payload.includes(oldFact)).toBe(mode === 'semantic' || mode === 'linked-offline');
         expect(payload).not.toContain(original);
         expect((await DB.getStoryTheaters()).find(item => item.id === entry.id)?.archives).toEqual(archived.archives);
     },

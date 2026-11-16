@@ -2204,6 +2204,9 @@ export interface StoryArchiveFact {
     kind: 'fact' | 'author';
     text: string;
     terms: string[];
+    /** Source-attested alternate names and directly connected archive keys. */
+    aliases?: string[];
+    relatedKeys?: string[];
     sourceMessageId: number;
     /** Original in-story time phrase, never derived from the message's real-world timestamp. */
     storyTime?: string;

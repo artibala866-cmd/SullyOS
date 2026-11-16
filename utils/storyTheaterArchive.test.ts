@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Message, StoryTheaterEntry } from '../types';
+import type { Message, StoryArchiveFact, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
@@ -1423,6 +1423,67 @@ describe('主动回查早期剧情', () => {
         expect(recalled.messages.map(message => message.content).join('\n')).not.toContain(boxes[11].summary);
         expect(recalled.receipt.archiveIds).toContain(boxes[0].id);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('隐藏历史时能从旧档别名跨两层找回事实，并跳过损坏、删除及未来条目', async () => {
+        const fact = (key: string, text: string, sourceMessageId: number, extra: Partial<StoryArchiveFact> = {}): StoryArchiveFact =>
+            ({ key, kind: 'fact', text, sourceMessageId, terms: [], ...extra });
+        const copied = '矿工从东井转移到白桦谷。';
+        const deleted = '已删除的蓝色入口位置。';
+        const future = '未来的白桦谷约定。';
+        const rows = [10, 20, 30, 40, 50].map(id => ({ ...messages[0], id }));
+        const box = {
+            id: 'old-links', strategy: 'vector' as const, fromMessageId: 10, toMessageId: 40, messageCount: 4,
+            createdAt: 1, vectorMemoryIds: [],
+            facts: [
+                fact('矿工转移', copied, 10),
+                fact('山道封锁', '巡守封锁了北侧马道。', 20, { relatedKeys: ['矿工转移', '删掉的地点'] }),
+                fact('指路牌', '铜牌又称「冬星」。', 30, { terms: undefined, relatedKeys: ['山道封锁', '未来约定'] }),
+                fact('删掉的地点', deleted, 30, { vectorTextState: 'deleted' }),
+                ...Array.from({ length: 40 }, (_, i) => fact('杂记' + i, '花商在河边摆上几列陶盆和一篓新采的花。'.repeat(7) + i, 40, { terms: ['人物'] })),
+            ],
+            historyFacts: [null, fact('指路牌', '不能读取的旧缓存。', 20, { vectorNodeId: 'missing-vector' })],
+        } as unknown as StoryTheaterEntry['archives'][number];
+        const result = await buildStoryTheaterRecall({
+            entry: { ...entry, archives: [box, { ...box, id: 'future', fromMessageId: 50, toMessageId: 50,
+                facts: [fact('未来约定', future, 50)] }] },
+            rows, beforeId: 50, floor: 5, baseline: '', visibleRows: [], historyVisible: false,
+            continuation: false, opening: false, userInput: '冬星还指向哪里？', readOriginalEvidence: false,
+        });
+        const payload = result.messages.map(message => message.content).join('\n');
+        expect(payload).toContain(copied);
+        expect(payload).not.toMatch(/已删除的蓝色入口|未来的白桦谷约定|不能读取的旧缓存/u);
+        expect(result.receipt.relatedFloors).toEqual([1, 2, 3]);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('Embedding 响应体挂起后中止一次请求并使用本地记忆', async () => {
+        const id = 'embedding-timeout';
+        const charId = storyTheaterThreadId(entry.id);
+        const node = { id, charId, content: '档案写明备用钥匙在铜盒。', tags: ['备用钥匙'], embedded: true,
+            room: 'living_room' as const, mood: 'neutral' as const, importance: 5, createdAt: 0, lastAccessedAt: 0, accessCount: 0 };
+        await MemoryVectorDB.save({ memoryId: id, charId, vector: [1, 0], dimensions: 2, model: 'test' });
+        let dispatched!: () => void;
+        const started = new Promise<void>(resolve => { dispatched = resolve; });
+        fetchMock.mockImplementationOnce(async () => {
+            dispatched();
+            return { ok: true, json: () => new Promise(() => {}) };
+        });
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        try {
+            const recall = selectStoryVectorRecall({ nodes: [], groups: [] }, '备用钥匙在哪',
+                { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test', dimensions: 2 }, [node], true);
+            await started;
+            await vi.advanceTimersByTimeAsync(8000);
+            const result = await recall;
+            expect(result.embeddingFailed).toBe(true);
+            expect(result.embeddingRequests).toBe(1);
+            expect(result.semanticFactRank.has(id)).toBe(true);
+            expect(fetchMock).toHaveBeenCalledOnce();
+            expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('同义向量命中可以带回同一事物的旧经过和有限的原始证据', async () => {

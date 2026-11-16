@@ -217,3 +217,11 @@ it('a revoked automatic turn cannot start embedding requests or retry them', asy
         .rejects.toMatchObject({name:'AbortError'});
     expect(fetch).not.toHaveBeenCalled();
 });
+
+it.each([[0, 0], [0, 2], [0, undefined]])('剧情批次拒绝错误编号 %s / %s，且只发送一次', async (first, second) => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({
+        data: [first, second].map(index => ({ index, embedding: [1, 0] })),
+    }));
+    await expect(getEmbeddings(['一条', '二条'], config, {})).rejects.toThrow('编号');
+    expect(fetch).toHaveBeenCalledOnce();
+});

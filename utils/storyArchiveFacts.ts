@@ -231,26 +231,94 @@ export function formatStoryArchiveScene(
     };
 }
 
-/** Match named entities and exact archive keys without needing a second model call. */
+const specificArchiveTerm = (term: string) => term.length >= 2
+    && !/^(?:事件|剧情|人物|地点|状态|计划|记录|结果|作者|关系|对话|主角|当前|之前|过去|以后|任务|东西|物品|名字|别名|这个|那个|event|story|character|location|history)$/iu.test(term);
+
+function archiveLinkLabels(values: unknown, limit: number) {
+    if (!Array.isArray(values)) return [];
+    return [...new Set(values.filter((value): value is string => typeof value === 'string')
+        .map(normalize).filter(value => value.length >= 2 && value.length <= 96))].slice(0, limit);
+}
+
+/** Read older or partially exported archives without mutating the stored copy. */
+export function readStoryRecallArchives(archives: StoryTheaterArchive[] | undefined): StoryTheaterArchive[] {
+    if (!Array.isArray(archives)) return [];
+    return archives.flatMap(box => {
+        if (!box || typeof box.id !== 'string' || !Number.isFinite(box.fromMessageId)
+            || !Number.isFinite(box.toMessageId) || box.fromMessageId > box.toMessageId
+            || (box.strategy !== 'summary' && box.strategy !== 'vector')) return [];
+        const facts = (entries: StoryArchiveFact[] | undefined) => Array.isArray(entries) ? entries.flatMap(fact => {
+            if (!fact || typeof fact.key !== 'string' || !fact.key.trim() || typeof fact.text !== 'string'
+                || (fact.kind !== 'fact' && fact.kind !== 'author')
+                || !Number.isFinite(fact.sourceMessageId) || fact.sourceMessageId < box.fromMessageId || fact.sourceMessageId > box.toMessageId) return [];
+            return [{ ...fact, terms: Array.isArray(fact.terms) ? fact.terms.filter(term => typeof term === 'string') : [],
+                aliases: archiveLinkLabels(fact.aliases, 8), relatedKeys: archiveLinkLabels(fact.relatedKeys, 6),
+                storyTime: typeof fact.storyTime === 'string' ? fact.storyTime : undefined }];
+        }) : undefined;
+        const strings = (values: string[] | undefined) => Array.isArray(values)
+            ? values.filter(value => typeof value === 'string') : undefined;
+        return [{ ...box, facts: facts(box.facts), historyFacts: facts(box.historyFacts),
+            summary: typeof box.summary === 'string' ? box.summary : undefined,
+            vectorMemoryIds: strings(box.vectorMemoryIds), affinityLog: strings(box.affinityLog) }];
+    });
+}
+
+/** Expand at most two links from verified matches. Each hop shares the recall budget. */
 export function storyRelatedArchiveFacts(
     facts: StoryArchiveFact[], query: string, semanticRank: ReadonlyMap<string, number>,
 ): StoryArchiveFact[] {
+    const candidates = facts.filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted');
     const needle = normalize(query);
-    const terms = (fact: StoryArchiveFact) => [...new Set([...fact.terms, ...fact.key.split(/[\/：:·]/u)]
-        .map(normalize).filter(term => term.length >= 2))];
-    const frequency = new Map<string, number>();
-    const tags = new Map(facts.map(fact => [fact, terms(fact)]));
-    for (const values of tags.values()) for (const term of values) frequency.set(term, (frequency.get(term) ?? 0) + 1);
-    const specific = (term: string) => (frequency.get(term) ?? 0) <= Math.max(4, facts.length * 0.12)
-        && !/^(?:事件|剧情|人物|地点|状态|计划|记录|结果|作者)$/u.test(term);
-    const score = (fact: StoryArchiveFact) => (tags.get(fact) ?? []).filter(term => specific(term) && needle.includes(term)).length;
-    const seeds = rankStoryArchiveFacts(facts.filter(fact => score(fact) > 0
+    const tags = new Map<StoryArchiveFact, string[]>();
+    const byTerm = new Map<string, Set<StoryArchiveFact>>();
+    const byKey = new Map<string, Set<StoryArchiveFact>>();
+    const inbound = new Map<string, Set<StoryArchiveFact>>();
+    const add = (index: Map<string, Set<StoryArchiveFact>>, key: string, fact: StoryArchiveFact) => {
+        const matches = index.get(key) ?? new Set<StoryArchiveFact>();
+        matches.add(fact);
+        index.set(key, matches);
+    };
+    for (const fact of candidates) {
+        // Older archives can still recognize a name explicitly annotated in archived text.
+        const namedAliases = [...fact.text.matchAll(/(?:又称|也叫|别名[为是：:]?|简称[为：:]?)[「『“"]([^」』”"\p{Cc}]{2,30})[」』”"]/gu)]
+            .slice(0, 4).map(match => match[1]);
+        const terms = [...new Set([...fact.terms, ...(fact.aliases ?? []), ...namedAliases, ...fact.key.split(/[\/：:·]/u)]
+            .map(normalize).filter(specificArchiveTerm))];
+        tags.set(fact, terms);
+        add(byKey, normalize(fact.key), fact);
+        for (const term of terms) add(byTerm, term, fact);
+        for (const key of fact.relatedKeys ?? []) add(inbound, normalize(key), fact);
+    }
+    const specific = (term: string) => (byTerm.get(term)?.size ?? 0) <= 4;
+    const seeds = rankStoryArchiveFacts(candidates.filter(fact =>
+        (tags.get(fact) ?? []).some(term => specific(term) && needle.includes(term))
         || (semanticRank.get(fact.vectorNodeId ?? '') ?? Infinity) < 2), query, semanticRank).slice(0, 3);
-    const anchors = new Set(seeds.flatMap(fact => (tags.get(fact) ?? []).filter(specific)));
-    const seedIds = new Set(seeds.map(storyArchiveFactIdentity));
-    const neighbors = facts.filter(fact => !seedIds.has(storyArchiveFactIdentity(fact))
-        && (tags.get(fact) ?? []).some(term => anchors.has(term)));
-    return [...seeds, ...rankStoryArchiveFacts(neighbors, query, semanticRank).slice(0, 3)];
+    const visited = new Set(seeds.map(storyArchiveFactIdentity));
+    const results = [...seeds];
+    let frontier = seeds;
+    for (let hop = 0; hop < 2 && frontier.length; hop++) {
+        const links = new Map<StoryArchiveFact, number>();
+        for (const fact of frontier) {
+            const addNeighbors = (neighbors: Iterable<StoryArchiveFact>, weight: number) => {
+                for (const neighbor of neighbors) {
+                    if (!visited.has(storyArchiveFactIdentity(neighbor))) links.set(neighbor, Math.max(weight, links.get(neighbor) ?? 0));
+                }
+            };
+            const key = normalize(fact.key);
+            addNeighbors(byKey.get(key) ?? [], 3);
+            for (const related of fact.relatedKeys ?? []) addNeighbors(byKey.get(normalize(related)) ?? [], 2);
+            const incoming = inbound.get(key);
+            if (incoming && incoming.size <= 6) addNeighbors(incoming, 2);
+            for (const term of tags.get(fact) ?? []) {
+                if (specific(term)) addNeighbors(byTerm.get(term) ?? [], 1);
+            }
+        }
+        frontier = rankStoryArchiveFacts([...links.keys()], query, semanticRank)
+            .sort((a, b) => links.get(b)! - links.get(a)!).slice(0, hop === 0 ? 3 : 2);
+        for (const fact of frontier) visited.add(storyArchiveFactIdentity(fact));
+        results.push(...frontier);
+    }
+    return results;
 }
 
 /** Only explicit, bounded scene statements can bridge a gap after the last archive. */
@@ -338,6 +406,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
     '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。相同事件在不同剧情时间再次发生时，用新的事件 key，并分别保留剧情时间。',
     '用户执笔身份和人物档案也是已有设定。不要记录「{{user}}全名、年龄、学历、与谁是亲属」等已列明的角色卡内容；别人首次得知身份、身份确实发生变化才记录发生了什么。不要把「剧情/进展」之类笼统的 key 用来连续覆盖不相干事件，必须用具体对象和事项。',
+    '事实可选 aliases（原文明确出现的别称，最多 4 条）、relatedKeys（存在直接因果、同一物品交接或同一未结事项的真实事实 key，最多 3 条）；不能凭空补别称或关联，不能用共现人物代替因果。没有依据就省略。',
     '每条可填 modality：已确定发生的事实省略；尚未发生的计划、愿望、未来承诺用 planned；传闻、猜测、未知真伪的信息用 unverified。不能把计划/传闻改写成既成事实；后续有原文确认发生时更新同一 key，并去掉旧 modality。',
 ].join('\n');
 
@@ -355,7 +424,8 @@ export function collectStoryArchiveFacts(
         if (fact.vectorTextState === 'deleted') return undefined;
         // Only use vector text checked against the live node or persisted archive.
         const text = fact.vectorNodeId ? vectorTexts.get(fact.vectorNodeId) : fact.text;
-        return text?.trim() ? { ...fact, text } : undefined;
+        if (!text?.trim()) return undefined;
+        return text === fact.text ? fact : { ...fact, text, aliases: undefined, relatedKeys: undefined };
     };
     for (const archive of archives.filter(item => item.toMessageId < beforeId).sort((a, b) => a.toMessageId - b.toMessageId)) {
         if (includeLastConfirmed) {
@@ -623,7 +693,12 @@ export function parseStoryArchiveChanges(
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
             && (oldInBatch.text !== text || storyArchiveModality(oldInBatch) !== storyArchiveModality(fact))) onEarlierState?.(oldInBatch);
-        facts.set(key, { ...fact, terms });
+        const aliases = kind === 'fact' ? archiveLinkLabels(change.aliases, 4)
+            .filter(alias => normalize(source.text).includes(alias)) : [];
+        const relatedKeys = kind === 'fact' ? archiveLinkLabels(change.relatedKeys, 3)
+            .filter(link => link !== normalize(key)) : [];
+        facts.set(key, { ...fact, terms, ...(aliases.length ? { aliases } : {}),
+            ...(relatedKeys.length ? { relatedKeys } : {}) });
         duplicateText.add(comparableText);
     }
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
@@ -888,10 +963,16 @@ export function selectStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
     query = '', baseline = '', timelineLabels = false, relatedKeys: ReadonlySet<string> = new Set(),
+    vectorTexts?: ReadonlyMap<string, string>,
 ): StoryArchiveFact[] {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
         .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
+        .flatMap(fact => {
+            if (!vectorTexts || !fact.vectorNodeId) return [fact];
+            const text = vectorTexts.get(fact.vectorNodeId);
+            return text ? [{ ...fact, text }] : [];
+        })
         .filter(fact => fact.kind === 'fact' && fact.vectorTextState !== 'deleted'
             && (!baseline || !storyArchiveRepeatsPreset(fact.text, fact.key, baseline)))
         .sort((a, b) => a.sourceMessageId - b.sourceMessageId);

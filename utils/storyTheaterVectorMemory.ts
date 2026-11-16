@@ -11,7 +11,7 @@ import { EMBEDDING_MAX_INPUT_CHARS, getEmbeddings } from './memoryPalace/embeddi
 import { bm25Search } from './memoryPalace/bm25';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
-import { storyArchiveModality, storyTimeFromSource } from './storyArchiveFacts';
+import { readStoryRecallArchives, storyArchiveModality, storyTimeFromSource } from './storyArchiveFacts';
 
 export class StoryVectorMemoryConflictError extends Error {}
 
@@ -78,21 +78,21 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     });
     const deleted = new Set(archives.flatMap(box => (box.facts ?? [])
         .filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.vectorNodeId)));
-    const liveNodes = all.filter(node => node.charId === storyTheaterThreadId(entry.id)
-        && !deleted.has(node.id) && !node.archived && node.content.trim());
+    const liveNodes = all.filter(node => node?.charId === storyTheaterThreadId(entry.id)
+        && !deleted.has(node.id) && !node.archived && typeof node.content === 'string' && node.content.trim());
     const byId = new Map(liveNodes.map(node => [node.id, node]));
     for (const id of visibleNodeIds) {
         const node = byId.get(id);
         if (node) factTextById.set(id, node.content);
     }
 
-    const present = new Set(all.map(node => node.id));
+    const present = new Set(all.map(node => node?.id));
     const missingIds = new Set(visibleNodeIds.filter(id => !present.has(id) && !deleted.has(id)));
     if (missingIds.size) {
         try {
             // Use the current saved archive so an older open tab cannot revive a deleted or edited fact.
             const saved = await readStoredStoryTheater(entry.id);
-            for (const box of saved?.archives ?? []) {
+            for (const box of readStoryRecallArchives(saved?.archives)) {
                 if (box.strategy !== 'vector' || box.toMessageId >= beforeId) continue;
                 for (const fact of box.facts ?? []) {
                     const id = fact.vectorNodeId;
@@ -134,6 +134,27 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     degraded ||= archives.some(box => box.toMessageId < beforeId && box.vectorMemoryIds?.some(id =>
         !deleted.has(id) && !byId.has(id) && !factTextById.has(id)));
     return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes, degraded };
+}
+
+async function requestStoryRecallEmbeddings(queries: string[], config: EmbeddingConfig, onRequest: () => void) {
+    const controller = new AbortController();
+    const abort = () => controller.abort(config.signal?.reason);
+    config.signal?.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(() => controller.abort(new Error('剧情向量召回超时')), 8000);
+    try {
+        if (config.signal?.aborted) abort();
+        controller.signal.throwIfAborted();
+        // The maintenance queue or a response body can still be pending after abort.
+        const interrupted = new Promise<never>((_resolve, reject) => controller.signal.addEventListener(
+            'abort', () => reject(controller.signal.reason), { once: true }));
+        return await Promise.race([
+            getEmbeddings(queries, { ...config, signal: controller.signal }, { onRequest }),
+            interrupted,
+        ]);
+    } finally {
+        clearTimeout(timeout);
+        config.signal?.removeEventListener('abort', abort);
+    }
 }
 
 /**
@@ -196,9 +217,7 @@ export async function selectStoryVectorRecall(
                     // Palace retrieves several meaningful message spikes with one
                     // batched embedding call, instead of diluting them into one query.
                     const recallConfig = { ...embedding, requestPurpose: embedding.requestPurpose || '剧情独立向量 · 续写召回' };
-                    const queryVectors = await getEmbeddings(queries, recallConfig, {
-                        onBatch: () => { embeddingRequests++; },
-                    });
+                    const queryVectors = await requestStoryRecallEmbeddings(queries, recallConfig, () => { embeddingRequests++; });
                     if (queryVectors.length !== queries.length) throw new Error('剧情召回向量返回不完整');
                     const compatibleVectors = allVectors.filter(vector => vector.vector.length === queryVectors[0].length);
                     if (!compatibleVectors.length) throw new Error('剧情旧向量与查询向量维度不一致');
@@ -282,7 +301,8 @@ export async function updateStoryVectorMemory(
                         if (current.content !== previous.content) throw new StoryVectorMemoryConflictError('剧情记忆已变更，草稿已保留');
                         changeOwnedStoryFact(stories, story.result, nodeId, fact => ({
                             ...fact, text, storyTime: storyTimeFromSource(text) ?? fact.storyTime,
-                            modality: storyArchiveModality({ text }), continuity: undefined, vectorTextState: 'synced',
+                            modality: storyArchiveModality({ text }), continuity: undefined,
+                            aliases: undefined, relatedKeys: undefined, vectorTextState: 'synced',
                         }));
                         for (const { node: next, vector } of entries) {
                             const floats = ensureFloat32(vector.vector);
