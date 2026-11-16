@@ -281,7 +281,6 @@ export const STORY_THEME_CSS = `
 .story-theme .story-memory-workspace input:not([type="checkbox"]), .story-theme .story-memory-workspace textarea, .story-theme .story-memory-workspace select { color: var(--story-ink); background-color: var(--story-raised); border-color: var(--story-line); }
 .story-theme .story-memory-action { border-color: var(--story-line) !important; background: var(--story-raised) !important; color: var(--story-ink); }
 .story-theme .story-memory-dialog { background: var(--story-raised) !important; color: var(--story-ink) !important; box-shadow: 0 -12px 40px rgba(0,0,0,.12); }
-.story-theme .story-memory-dialog button { color: inherit; }
 .story-theme .story-memory-dialog button.bg-violet-700 { background: var(--story-accent) !important; color: var(--story-bg) !important; }
 .story-theme .story-memory-workspace button:focus-visible, .story-theme .story-memory-workspace input:focus-visible, .story-theme .story-memory-workspace select:focus-visible, .story-theme .story-memory-workspace textarea:focus-visible { outline: 2px solid var(--story-muted); outline-offset: 2px; }
 /* Archive groups and history paging are light dividers, never nested cards. */
