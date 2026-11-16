@@ -94,6 +94,24 @@ try {
         format: 'png', fromSurface: true, captureBeyondViewport: false,
     });
     await writeFile(screenshotPath, Buffer.from(shot.data, 'base64'));
+    if (url.includes('view=vectors')) {
+        await send('Runtime.evaluate', { expression: "document.querySelector('.story-memory-scroll').scrollTop = 100000" });
+        await sleep(350);
+        const bottom = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+        await writeFile(screenshotPath.slice(0, -4) + '-bottom.png', Buffer.from(bottom.data, 'base64'));
+        if (width === 390) {
+            await send('Runtime.evaluate', {
+                expression: "document.querySelector('.story-memory-scroll').scrollTop = 0; document.querySelector('.story-memory-node button')?.click();",
+            });
+            await sleep(500);
+            const detail = await send('Runtime.evaluate', {
+                expression: "!!document.querySelector('.story-memory-dialog[open]')", returnByValue: true,
+            });
+            if (!detail.result?.value) throw new Error('Memory detail sheet failed to open from real node');
+            const detailShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+            await writeFile(screenshotPath.slice(0, -4) + '-detail.png', Buffer.from(detailShot.data, 'base64'));
+        }
+    }
     await writeFile(reportPath, JSON.stringify({
         viewport: { width, height }, fit: result.fit,
         mode: ui.mode, theme: ui.theme, cards: ui.cards, success: ui.success,
