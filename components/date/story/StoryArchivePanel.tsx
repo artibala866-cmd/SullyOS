@@ -149,13 +149,13 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const archivePreview=(box:StoryTheaterArchive)=>{
   const lines=readableLines(box);
   const renderLine=(line:string,index:number)=><div key={index} className='py-2 border-b border-slate-100 last:border-0'>
-   {line.length>105?<details><summary className='cursor-pointer leading-6 break-words'>{line.slice(0,105)}… <span className='text-slate-500'>展开此条</span></summary><p className='mt-2 leading-6 break-words whitespace-pre-wrap'>{line}</p></details>
+   {line.length>105?<details><summary aria-label='展开或收起完整记忆' className='story-memory-inline-expand cursor-pointer leading-6 break-words'><span>{line.slice(0,105)}…</span><CaretDown size={14} className='story-memory-expand-caret'/></summary><p className='mt-2 leading-6 break-words whitespace-pre-wrap'>{line}</p></details>
     :<p className='leading-6 break-words whitespace-pre-wrap'>{line}</p>}
   </div>;
   return <div className='py-2 text-xs'>
    {!!box.historyFacts?.length&&<p className='mb-2 text-[11px] text-slate-500'>按剧情楼层排列；过去的状态不是现在的状态。同楼多件事以原文为准。</p>}
    {lines.slice(0,3).map(renderLine)}
-   {lines.length>3&&<details className='mt-2'><summary className='cursor-pointer py-2 text-slate-500'>查看其余 {lines.length-3} 条</summary><div>{lines.slice(3).map((line,index)=>renderLine(line,index+3))}</div></details>}
+   {lines.length>3&&<details className='mt-2'><summary className='story-memory-inline-expand cursor-pointer py-2 text-slate-500'><span>其余 {lines.length-3} 条</span><CaretDown size={14} className='story-memory-expand-caret'/></summary><div>{lines.slice(3).map((line,index)=>renderLine(line,index+3))}</div></details>}
    {!lines.length&&<p className='text-slate-500'>暂无新剧情记忆</p>}
   </div>;
  };
