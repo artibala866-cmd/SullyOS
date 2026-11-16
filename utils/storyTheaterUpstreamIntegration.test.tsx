@@ -618,7 +618,8 @@ it.each(['semantic', 'offline', 'no-config'] as const)(
             ...(mode === 'no-config' ? [] : ['https://embedding.invalid/v1/embeddings']),
             'https://prose.invalid/v1/chat/completions',
         ]);
-        expect(recallQueries).toEqual(mode === 'no-config' ? [] : [query]);
+        expect(recallQueries.at(-1)).toBe(mode === 'no-config' ? undefined : query);
+        expect(recallQueries.length).toBeLessThanOrEqual(2);
         expect(payload).toContain(localFact);
         expect(payload.includes(oldFact)).toBe(mode === 'semantic');
         expect(payload).not.toContain(original);

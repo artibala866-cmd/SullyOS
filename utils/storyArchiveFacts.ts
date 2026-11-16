@@ -38,6 +38,7 @@ const persistentStoryRules = [
     /(?:是|成了|变成|化为|已成|身为|作为)(?:一[个只缕道位名])?(?:亡魂|魂魄|幽灵|鬼魂|鬼|魂体)(?![市差门王怪屋])/u,
     /(?:只有|唯有|只能被|再也无法|仍无法|不能|看不见|听不见|认不出|无法触碰|不可见|不可闻|不可被|不能被|没有实体|无法被|不可能看见|不可能被|不能碰到|看得见|听得见).{0,28}(?:活人|普通人|凡人|主角|鬼魂|亡魂|魂魄|灵体|实体)/u,
     /(?:活人|普通人|凡人|其他人|别人|旁人).{0,12}(?:看不见|看不到|无法看见|不能看见|不能看到|不可能看见|不可能看到|听不见|听不到|看得见|能看见|能看到|可以看见|可以看到)/u,
+    /(?:仅|只有|唯有)[\p{Script=Han}]{1,16}(?:知道|知晓|知情|获悉)|(?:其余人|其他人|旁人)(?:仍然|仍|都|均)?(?:不知道|不知情|尚未获悉)/u,
     /(?:is (?:a )?ghost|invisible to the living|returned to life)/iu,
 ];
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
@@ -155,7 +156,8 @@ export function reconcileStoryArchiveContinuity(
     const stored = past.flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])]);
     // Older, unstructured saves still carry source text. Use only bounded,
     // explicit assertions. Never send the full archived conversation again.
-    const sources = archivedRows.filter(row => past.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
+    const sourceBoxes = past.filter(box => box.strategy === 'summary' || box.facts);
+    const sources = archivedRows.filter(row => sourceBoxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
     const attached = [...stored, ...facts];
     const storedRuleSources = new Set(stored.filter(fact => storyArchiveContinuityKind(fact) === 'rule').map(fact => fact.sourceMessageId));
     const recovered = storyContinuitySources(sources, attached).filter(fact =>
@@ -205,6 +207,67 @@ export function formatStoryArchiveActiveState(
                 item.line.replace(/^(\[[^\]]+\] )?/u, prefix => prefix + (storyArchiveContinuityKind(item.fact) === 'canceled' ? '【已取消】' : '【已完成】')))] : []),
         ].join('\n'),
     };
+}
+
+/** A bounded continuation cue backed by verified archive facts, with the original floor provenance. */
+export function formatStoryArchiveScene(
+    facts: StoryArchiveFact[], floorNumbers: ReadonlyMap<number, number>, sourceTimes: ReadonlyMap<number, string>,
+) {
+    const newest = [...facts].sort((a, b) => b.sourceMessageId - a.sourceMessageId);
+    const potential = newest.filter(fact => fact.kind === 'fact' && !storyArchiveModality(fact)
+        && !storyArchiveContinuityKind(fact));
+    const latest = potential.length ? floorNumbers.get(potential[0].sourceMessageId) ?? 0 : 0;
+    const nearScene = (fact: StoryArchiveFact) => (floorNumbers.get(fact.sourceMessageId) ?? 0) >= latest - 12;
+    const scene = potential.filter(fact => nearScene(fact)
+        && /(?:场景|地点|位置|在场|去向|当前|此刻|正待|正在|抵达|来到|停在|留在|藏在|待在|等候|等着|坐在|站在|走进|身旁|at the|arrived|standing|waiting)/iu.test(fact.key + ' ' + fact.text));
+    const picked = storyArchiveFactLines((scene.length ? scene : potential).slice(0, 3),
+        floorNumbers, 420, sourceTimes).sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
+    const plan = newest.find(fact => storyArchiveModality(fact) === 'planned'
+        && nearScene(fact));
+    if (plan) picked.push(...storyArchiveFactLines([plan], floorNumbers, 190, sourceTimes));
+    return {
+        text: picked.map(item => item.line).join('\n'),
+        facts: picked.map(item => item.fact),
+    };
+}
+
+/** Match named entities and exact archive keys without needing a second model call. */
+export function storyRelatedArchiveFacts(
+    facts: StoryArchiveFact[], query: string, semanticRank: ReadonlyMap<string, number>,
+): StoryArchiveFact[] {
+    const needle = normalize(query);
+    const terms = (fact: StoryArchiveFact) => [...new Set([...fact.terms, ...fact.key.split(/[\/：:·]/u)]
+        .map(normalize).filter(term => term.length >= 2))];
+    const frequency = new Map<string, number>();
+    const tags = new Map(facts.map(fact => [fact, terms(fact)]));
+    for (const values of tags.values()) for (const term of values) frequency.set(term, (frequency.get(term) ?? 0) + 1);
+    const specific = (term: string) => (frequency.get(term) ?? 0) <= Math.max(4, facts.length * 0.12)
+        && !/^(?:事件|剧情|人物|地点|状态|计划|记录|结果|作者)$/u.test(term);
+    const score = (fact: StoryArchiveFact) => (tags.get(fact) ?? []).filter(term => specific(term) && needle.includes(term)).length;
+    const seeds = rankStoryArchiveFacts(facts.filter(fact => score(fact) > 0
+        || (semanticRank.get(fact.vectorNodeId ?? '') ?? Infinity) < 2), query, semanticRank).slice(0, 3);
+    const anchors = new Set(seeds.flatMap(fact => (tags.get(fact) ?? []).filter(specific)));
+    const seedIds = new Set(seeds.map(storyArchiveFactIdentity));
+    const neighbors = facts.filter(fact => !seedIds.has(storyArchiveFactIdentity(fact))
+        && (tags.get(fact) ?? []).some(term => anchors.has(term)));
+    return [...seeds, ...rankStoryArchiveFacts(neighbors, query, semanticRank).slice(0, 3)];
+}
+
+/** Only explicit, bounded scene statements can bridge a gap after the last archive. */
+export function storyRecentSceneCue(
+    rows: readonly { id: number; role: string; content: string }[], floorNumbers: ReadonlyMap<number, number>,
+): string {
+    for (const row of rows.slice(-2).reverse()) {
+        if (row.role !== 'assistant') continue;
+        const body = extractContent({ choices: [{ message: { content: row.content } }] }, false)
+            .replace(/<[^>]*>/gu, '');
+        for (const sentence of storySentences(body).reverse()) {
+            if (/[“”「」『』"'？?]|据说|好像|仿佛|如果|假如|曾经|以前|梦见|梦里|回忆|打算|准备|将要/u.test(sentence)) continue;
+            const clause = sentence.trim().match(/^([\p{Script=Han}]{1,12}?)(?:此刻|现在|刚刚)?(仍在|停在|站在|守在|等在|坐在|留在|抵达|来到|走进|回到|躲在|仍留在)([^，、；。！？]{2,32})(?:[，；。！？]|$)/u);
+            if (clause) return '[第 ' + floorNumbers.get(row.id) + ' 楼] ' + clause[1] + ' · ' + clause[2] + clause[3].trim();
+        }
+    }
+    return '';
 }
 
 const timeOfDay = '(?:凌晨|黎明|清晨|早晨|早上|上午|中午|下午|午后|傍晚|晚上|夜里|深夜|半夜)';
@@ -330,7 +393,7 @@ export function rankStoryArchiveFacts(
     for (const terms of matchingTerms) for (const term of terms) {
         frequency.set(term, (frequency.get(term) ?? 0) + 1);
     }
-    const bySemanticMatch = (fact: StoryArchiveFact) => semanticRank.get(fact.vectorNodeId ?? '') ?? Number.MAX_SAFE_INTEGER;
+    const bySemanticMatch = (fact: StoryArchiveFact) => semanticRank.get(fact.vectorNodeId ?? storyArchiveFactIdentity(fact)) ?? Number.MAX_SAFE_INTEGER;
     return facts.map((fact, index) => {
         const terms = matchingTerms[index];
         const distinctive = terms.reduce((score, term) => frequency.get(term)! <= Math.max(2, facts.length * 0.15)
@@ -698,6 +761,7 @@ export function formatStoryArchiveRecallTimeline(
     facts: StoryArchiveFact[], historical: StoryArchiveFact[], query: string,
     floorNumbers: ReadonlyMap<number, number>, semanticRank: ReadonlyMap<string, number>,
     sourceTimes: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>,
+    relatedKeys: ReadonlySet<string> = new Set(),
 ): string {
     const lines = storyArchiveRecallSections(facts).flatMap(({ entries, budget }) =>
         storyArchiveFactLines(rankStoryArchiveFacts(entries.filter(fact => !active?.selected.has(storyArchiveFactIdentity(fact))),
@@ -706,7 +770,7 @@ export function formatStoryArchiveRecallTimeline(
     const selectedKeys = new Set([...lines.map(item => item.fact.key), ...facts.filter(fact =>
         active?.selected.has(storyArchiveFactIdentity(fact))).map(fact => fact.key)]);
     const currentIdentities = new Set(facts.map(storyArchiveFactIdentity));
-    lines.push(...storyArchiveFactLines(historical.filter(fact => selectedKeys.has(fact.key) && !currentIdentities.has(storyArchiveFactIdentity(fact))),
+    lines.push(...storyArchiveFactLines(historical.filter(fact => (selectedKeys.has(fact.key) || relatedKeys.has(fact.key)) && !currentIdentities.has(storyArchiveFactIdentity(fact))),
         floorNumbers, Infinity, sourceTimes, 'past'));
     const timeline = lines.sort((a, b) =>
         (floorNumbers.get(a.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER)
@@ -719,7 +783,7 @@ export function formatStoryArchiveRecallTimeline(
 export function findStoryArchiveEvidence(
     rows: readonly { id: number; content: string; role?: string }[], archives: StoryTheaterArchive[], beforeId: number,
     query: string, alreadySent: string, baseline: string, floorNumbers: ReadonlyMap<number, number>,
-    closedPlans: StoryArchiveFact[] = [],
+    closedPlans: StoryArchiveFact[] = [], relatedByFloor: ReadonlyMap<number, readonly string[]> = new Map(),
 ): string {
     const known = normalize(alreadySent);
     const knownLines = known.split('\n');
@@ -730,8 +794,8 @@ export function findStoryArchiveEvidence(
         if (/^[a-z0-9]+$/u.test(span)) needles.add(span);
         else for (let i = 0; i <= span.length - 4; i++) needles.add(span.slice(i, i + 4));
     }
-    if (!needles.size) return '';
-    const boxes = archives.filter(box => box.strategy === 'vector' && box.facts && box.toMessageId < beforeId);
+    if (!needles.size && !relatedByFloor.size) return '';
+    const boxes = archives.filter(box => box.toMessageId < beforeId && (box.strategy === 'summary' || box.facts));
     if (!boxes.length) return '';
     const deletedSources = new Set(boxes.flatMap(box =>
         (box.facts ?? []).filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.sourceMessageId)));
@@ -764,6 +828,12 @@ export function findStoryArchiveEvidence(
                 const index = text.indexOf(word);
                 if (index < 0) continue;
                 score++;
+                if (offset < 0 || index < offset) offset = index;
+            }
+            for (const term of relatedByFloor.get(row.id) ?? []) {
+                const index = text.indexOf(normalize(term));
+                if (index < 0) continue;
+                score += 0.5;
                 if (offset < 0 || index < offset) offset = index;
             }
             if (!score || storyArchiveRepeatsPreset(sentence, '', baseline)) continue;
@@ -817,7 +887,7 @@ export function storyArchiveReadableLines(
 export function selectStoryArchiveTransitions(
     archives: StoryTheaterArchive[], beforeId: number,
     floorNumbers: ReadonlyMap<number, number>, sourceTimes?: ReadonlyMap<number, string>, budget = 1400,
-    query = '', baseline = '', timelineLabels = false,
+    query = '', baseline = '', timelineLabels = false, relatedKeys: ReadonlySet<string> = new Set(),
 ): StoryArchiveFact[] {
     const timeline = archives.filter(box => box.toMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
@@ -840,10 +910,11 @@ export function selectStoryArchiveTransitions(
     // Afterwards restore chronological order so the model does not confuse
     // retrieval ranking with the actual order of events.
     const normalizedQuery = normalize(query);
-    const directMatches = normalizedQuery ? earlier.filter(fact => fact.terms.some(term => {
-        const token = normalize(term);
-        return token.length >= 2 && normalizedQuery.includes(token);
-    })) : [];
+    const directMatches = earlier.filter(fact => relatedKeys.has(fact.key)
+        || (normalizedQuery && fact.terms.some(term => {
+            const token = normalize(term);
+            return token.length >= 2 && normalizedQuery.includes(token);
+        })));
     // Do not flood the current scene with unrelated old states merely because
     // they are recent. A vague continuation gets at most the most recent two.
     const priority = directMatches.length

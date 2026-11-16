@@ -9,6 +9,7 @@ import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,type StoryArchiveProgress} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
+import {readStoryRecallReceipt} from '../../../utils/storyTheaterRecall';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
 import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
 
@@ -57,6 +58,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [tab,setTab]=useState<'vector'|'archives'>('vector');
  const [archiveQuery,setArchiveQuery]=useState('');
  const hasTabs=isVector&&!!children;
+ const recallReceipt=readStoryRecallReceipt(entry.id);
  const showingArchives=!hasTabs||tab==='archives';
  const switchTab=(next:'vector'|'archives')=>{
   if(tab===next)return;
@@ -347,6 +349,15 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      <ArchiveIcon label='导出选中' disabled={blocked} onClick={()=>void exportSelected()}><DownloadSimple size={18}/></ArchiveIcon>
      <ArchiveIcon label='转为角色记忆' disabled={blocked||!char||!chosen.length||chosen.some(box=>!dateValid(dates[box.id]))} onClick={()=>void convert()}><UserPlus size={18}/></ArchiveIcon>
     </div>}
+    {showingArchives&&recallReceipt&&<details className='story-memory-archive-item py-2 text-xs text-slate-600'>
+      <summary className='cursor-pointer leading-6'>最近召回 · 第 {recallReceipt.floor} 楼</summary>
+      <div className='space-y-1 pb-2 pl-4'>
+        <p>带入楼层 · {recallReceipt.injectedFloors.join('、')||'无楼层标记'}</p>
+        {!!recallReceipt.relatedFloors?.length&&<p>关联候选 · {recallReceipt.relatedFloors.join('、')}</p>}
+        <p>可读事实 {recallReceipt.availableFacts} 条 · 旧档 {recallReceipt.archiveIds.length} 段 · Embedding {recallReceipt.embeddingRequests} 次</p>
+        {recallReceipt.fallback&&<p>部分记忆读取受限，已使用可用内容。</p>}
+      </div>
+    </details>}
     {showingArchives&&(visibleBoxes.length?archiveRows:boxes.length>0&&<p className='py-4 text-sm text-slate-600'>没有匹配的归档</p>)}
     </div>
    </div>

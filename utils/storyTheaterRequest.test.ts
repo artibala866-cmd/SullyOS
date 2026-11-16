@@ -7,6 +7,7 @@ import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import type { Message } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB } from './memoryPalace/db';
+import { readStoryRecallReceipt } from './storyTheaterRecall';
 import { createBlankStoryPreset, createStoryTheaterDraft, storyTheaterThreadId, type StoryApiMessage } from './storyTheater';
 
 const state = vi.hoisted(() => ({
@@ -411,6 +412,76 @@ describe('见面剧情实际请求', () => {
             await act(async () => root.unmount());
             state.apiConfig.model = prevModel;
             container.remove();
+            Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
+            vi.restoreAllMocks();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it.each([false, true])('直接继续从手动旧档承接，世界书实际发送状态才参与去重（%s）', async activated => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+        const entry = {
+            ...createStoryTheaterDraft(1), title: '钟楼等候', characterIds: ['actor'], selectedWorldbookIds: ['side-door'],
+            forceUserLastMessage: true, automaticMemoryApiEnabled: false,
+        };
+        const charId = storyTheaterThreadId(entry.id);
+        const preset = createBlankStoryPreset('剧情归档接续');
+        preset.document.prompts.find(prompt => prompt.marker === 'history')!.enabled = false;
+        // A constant book is transmitted even though the continuation contains no keyword.
+        const originalBook = { ...state.worldbooks[0] };
+        state.worldbooks[0].constant = activated;
+        const data = [
+            ['钟楼的旧石梯通向雾门。', '雾门/路径', ['雾门']],
+            ['侧门通向庭院。', '侧门/路径', ['侧门']],
+            ['林星正在钟楼等候小雨。', '钟楼/当前场景', ['林星', '钟楼']],
+            ['林星计划等小雨到了再查石梯。', '钟楼/待办', ['林星', '石梯']],
+        ] as const;
+        const rows: Message[] = data.map((_, index) => ({
+            id: (index + 1) * 100, charId, role: 'assistant', type: 'text', timestamp: index,
+            content: 'ARCHIVED_ORIGINAL_' + index, metadata: { source: 'story_theater', theaterArchived: true },
+        }));
+        rows.push({ id: 500, charId, role: 'assistant', type: 'text', timestamp: 500,
+            content: '林星走进渡口候船厅。UNARCHIVED_PRIVATE_SENTENCE。', metadata: { source: 'story_theater' } });
+        entry.archives = [{
+            id: 'manual-summary', strategy: 'summary', fromMessageId: 100, toMessageId: 400, messageCount: 4, createdAt: 1,
+            facts: data.map(([text, key, terms], index) => ({
+                key, kind: 'fact' as const, text, terms: [...terms], sourceMessageId: rows[index].id,
+            })),
+        }];
+        await DB.saveStoryTheater(entry);
+        vi.spyOn(DB, 'getRecentMessagesWithCount').mockResolvedValue({ messages: rows, totalCount: rows.length });
+        vi.spyOn(DB, 'getMessagesByCharId').mockResolvedValue(rows);
+        vi.spyOn(DB, 'saveStoryTheaterTurn').mockResolvedValue(600);
+        const completion = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+            choices: [{ message: { content: '候船厅响起了脚步声。' }, finish_reason: 'stop' }],
+        }));
+        vi.stubGlobal('fetch', completion);
+        const host = document.createElement('div');
+        document.body.append(host);
+        const root = createRoot(host);
+        try {
+            await act(async () => root.render(React.createElement(StoryTheaterSession, {
+                entry, preset, masks: [], onBack: vi.fn(), onEdit: vi.fn(), onEntryChange: vi.fn(), onArchiveCommitted: vi.fn(),
+            })));
+            const button = host.querySelector<HTMLButtonElement>('button[aria-label="继续当前剧情"]');
+            expect(button).toBeTruthy();
+            await act(async () => button!.click());
+            await vi.waitFor(() => expect(completion).toHaveBeenCalledOnce());
+            const messages = JSON.parse(String(completion.mock.calls[0][1]?.body)).messages as StoryApiMessage[];
+            const text = messages.map(message => message.content).join('\n');
+            expect(text.match(/侧门通向庭院。/gu)).toHaveLength(1);
+            expect(text).toContain('【最近归档的场景与后续事项】');
+            expect(text).toContain('[第 5 楼] 林星 · 走进渡口候船厅');
+            expect(text).toContain('林星计划等小雨到了再查石梯。');
+            expect(text).not.toMatch(/ARCHIVED_ORIGINAL|UNARCHIVED_PRIVATE_SENTENCE/);
+            expect(readStoryRecallReceipt(entry.id)).toMatchObject({ availableFacts: 4, embeddingRequests: 0,
+                injectedFloors: expect.arrayContaining([3, 4, 5]) });
+            expect(messages.at(-1)?.role).toBe('user');
+        } finally {
+            state.worldbooks[0] = originalBook;
+            await act(async () => root.unmount());
+            host.remove();
             Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
             vi.restoreAllMocks();
             vi.unstubAllGlobals();

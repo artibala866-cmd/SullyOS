@@ -55,7 +55,7 @@ describe('per-story API uses only memory call sites', () => {
         expect(prose).toContain('model: apiConfig.model');
         expect(prose).not.toContain('memorySummaryApi');
         expect(prose).not.toContain('resolveStoryMemoryApi');
-        expect(session).toContain('selectStoryArchiveContext(promptEntry.archives, turnBoundary)');
+        expect(session).toContain('entry: promptEntry, rows: current, beforeId: turnBoundary');
     });
     it('main API stream preference must not transparently rewrite the story-only secondary endpoint', () => {
         expect(fetchMiddleware).toContain("(config as any)?.__sullySkipStreamUpgrade !== true");

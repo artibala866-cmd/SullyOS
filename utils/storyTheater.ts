@@ -321,9 +321,15 @@ export const storyArchiveAtFloor = (archives: StoryTheaterArchive[], messageId: 
  * and the independent vector-recall pipeline. */
 export const selectStoryArchiveContext = (
     archives: StoryTheaterArchive[], beforeId: number, budget = 6000,
+    relevantArchiveIds: readonly string[] = [],
 ): StoryTheaterArchive[] => {
     const eligible = archives.filter(box => box.strategy === 'summary' && !box.facts && box.toMessageId < beforeId && !!box.summary?.trim())
         .sort((a, b) => b.toMessageId - a.toMessageId);
+    if (relevantArchiveIds.length) {
+        const rank = new Map(relevantArchiveIds.map((id, index) => [id, index]));
+        eligible.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity)
+            || b.toMessageId - a.toMessageId);
+    }
     const selected: StoryTheaterArchive[] = [];
     let used = 0;
     for (const box of eligible) {
@@ -332,7 +338,7 @@ export const selectStoryArchiveContext = (
         selected.push(box);
         used += summaryLength;
     }
-    return selected.reverse();
+    return selected.sort((a, b) => a.toMessageId - b.toMessageId);
 };
 
 /**

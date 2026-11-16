@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MemoryNode } from './memoryPalace/types';
 import { MemoryLinkDB, MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
-import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { storyTheaterThreadId } from './storyTheater';
+import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
+import { createStoryTheaterDraft, storyTheaterThreadId } from './storyTheater';
 
 const nodeAId = 'story_vector_scope_a';
 const nodeBId = 'story_vector_scope_b';
@@ -117,4 +117,42 @@ describe('剧情向量管理分区隔离', () => {
         expect(await MemoryNodeDB.getById(nodeBId)).toBeTruthy();
         expect(await MemoryVectorDB.getByMemoryId(nodeBId)).toBeTruthy();
     });
+});
+
+
+it('preserves surviving owned legacy nodes without leaking foreign, future or missing nodes', async () => {
+    const entry = { ...createStoryTheaterDraft(), id: 'entry-a' };
+    const node = makeNode(nodeAId, entry.id, '剩余的地点和事件');
+    const foreign = makeNode(nodeBId, 'entry-b', '另一篇的剧情');
+    const archives = [
+        { id: 'old', strategy: 'vector' as const, fromMessageId: 10, toMessageId: 20,
+            messageCount: 2, createdAt: 1, vectorMemoryIds: [node.id, 'removed', foreign.id] },
+        { id: 'future', strategy: 'vector' as const, fromMessageId: 30, toMessageId: 40,
+            messageCount: 2, createdAt: 2, vectorMemoryIds: ['future-node'] },
+    ];
+    const recall = await loadStoryVectorRecall({ ...entry, archives }, 25, [
+        node, foreign, makeNode('future-node', entry.id, '未来楼层'),
+    ]);
+    expect(recall.degraded).toBe(true);
+    expect((await selectStoryVectorRecall(recall, '')).text).toBe(node.content);
+});
+
+it.each([400, 200])('keeps lexical matches and sends one batched request on bad vectors (%i)', async status => {
+    const node = makeNode(nodeAId, 'entry-a', '钥匙在灰色木盒里');
+    const fetchMock = vi.fn(async () => status === 400 ? new Response('rejected', { status })
+        : Response.json({ data: [{ index: 0, embedding: [1, 0] }] }));
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(MemoryVectorDB, 'getAllByCharId').mockResolvedValue([{
+        memoryId: node.id, charId: node.charId, vector: new Float32Array([1, 0]), dimensions: 2, model: 'test',
+    }]);
+    try {
+        const recall = await selectStoryVectorRecall({ nodes: [], groups: [] }, ['灰色木盒', '钥匙'],
+            { baseUrl: 'https://vector.invalid/v1', apiKey: 'fixture', model: 'test', dimensions: 2 }, [node], true);
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect(recall).toMatchObject({ embeddingRequests: 1, embeddingFailed: true });
+        expect(recall.semanticFactRank.has(node.id)).toBe(true);
+    } finally {
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    }
 });

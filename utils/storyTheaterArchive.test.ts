@@ -4,6 +4,7 @@ import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, reconcileStoryArchiveContinuity, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { buildStoryTheaterRecall } from './storyTheaterRecall';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
@@ -1401,5 +1402,61 @@ describe('续写前核对已结束的事项和持续设定', () => {
         ]), []);
         expect(facts).toHaveLength(1);
         expect(facts[0]).toMatchObject({ continuity: 'rule', text: confirmed, sourceMessageId: 1 });
+    });
+});
+
+
+describe('主动回查早期剧情', () => {
+    it('从全部隐藏的历史按人物和物件找回早期事件盒，仍受时间边界限制', async () => {
+        const boxes = Array.from({ length: 12 }, (_, index) => ({
+            id: 'legacy-' + index, strategy: 'summary' as const, fromMessageId: index + 1,
+            toMessageId: index + 1, messageCount: 1, createdAt: index,
+            summary: index === 0 ? '红玛瑙信物是纪婆婆亲自交付的。'
+                : index === 11 ? '纪婆婆未来会公开红玛瑙的真相。' : '另一段城门故事' + index,
+        }));
+        const recalled = await buildStoryTheaterRecall({
+            entry: { ...entry, archives: boxes }, rows: [], beforeId: 12, floor: 12, baseline: '', visibleRows: [],
+            historyVisible: false, continuation: false, opening: false, userInput: '纪婆婆给过红玛瑙吗？',
+            readOriginalEvidence: true,
+        });
+        expect(recalled.messages.map(message => message.content).join('\n')).toContain(boxes[0].summary);
+        expect(recalled.messages.map(message => message.content).join('\n')).not.toContain(boxes[11].summary);
+        expect(recalled.receipt.archiveIds).toContain(boxes[0].id);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('同义向量命中可以带回同一事物的旧经过和有限的原始证据', async () => {
+        const id = 'look-behind';
+        const thread = storyTheaterThreadId(entry.id);
+        const text = '纪婆婆确认玛瑙信物目前在银盒里。';
+        const old = '玛瑙信物曾经交给叶侍卫。';
+        const node = { id, charId: thread, room: 'living_room' as const, mood: 'neutral' as const,
+            tags: ['玛瑙信物'], content: text, embedded: true, importance: 6, createdAt: 1, lastAccessedAt: 1, accessCount: 0 };
+        await MemoryNodeDB.save(node);
+        await MemoryVectorDB.save({ memoryId: id, charId: thread, vector: [1, 0], dimensions: 2, model: 'test' });
+        const rows: Message[] = [
+            { ...messages[0], id: 10, role: 'assistant', content: old + '叶侍卫给玛瑙信物系了红缎。' },
+            { ...messages[1], id: 20, role: 'assistant', content: '纪婆婆把玛瑙信物放进银盒。' },
+        ];
+        const fact = { key: '玛瑙信物/持有人', kind: 'fact' as const, terms: ['玛瑙信物'] };
+        const boxes = [{
+            id: 'old-state', strategy: 'vector' as const, fromMessageId: 10, toMessageId: 20,
+            messageCount: 2, createdAt: 1, vectorMemoryIds: [id],
+            facts: [{ ...fact, text, sourceMessageId: 20, vectorNodeId: id },
+                ...Array.from({ length: 60 }, (_, i) => ({ key: '旅程/地点' + i, kind: 'fact' as const,
+                    terms: ['旅馆'], sourceMessageId: 20, text: '路人记下旅馆旁另一条街道的景色和摊贩。'.repeat(6) + i }))],
+            historyFacts: [{ ...fact, text: old, sourceMessageId: 10 }],
+        }];
+        fetchMock.mockResolvedValue(response({ data: [{ index: 0, embedding: [1, 0] }, { index: 1, embedding: [1, 0] }] }));
+        const recalled = await buildStoryTheaterRecall({
+            entry: { ...entry, archives: boxes }, rows, beforeId: 21, floor: 3, baseline: '', visibleRows: [],
+            historyVisible: false, continuation: false, opening: false, userInput: '那个交接凭证之前经了谁的手？',
+            readOriginalEvidence: true, embedding: { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test', dimensions: 2 },
+        });
+        const payload = recalled.messages.map(message => message.content).join('\n');
+        expect(payload).toContain(text);
+        expect(payload).toContain('【旧状态】' + old);
+        expect(payload).toContain('叶侍卫给玛瑙信物系了红缎。');
+        expect(fetchMock).toHaveBeenCalledOnce();
     });
 });

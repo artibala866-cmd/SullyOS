@@ -59,14 +59,16 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     const archives = entry.archives.filter(box => box.strategy === 'vector');
     const groups: { archiveIds: string[]; nodes: MemoryNode[] }[] = [];
     const factTextById = new Map<string, string>();
-    if (!archives.length) return { nodes: [], groups, factTextById, factNodes: [] };
+    if (!archives.length) return { nodes: [], groups, factTextById, factNodes: [], degraded: false };
     const owned = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
     const legacy = archives.filter(box => !box.vectorMemoryIds);
     const visibleFacts = archives
         .filter(box => box.toMessageId < beforeId)
         .flatMap(box => (box.facts ?? []).filter(fact => fact.vectorNodeId && box.vectorMemoryIds?.includes(fact.vectorNodeId)));
     const visibleNodeIds = [...new Set(visibleFacts.map(fact => fact.vectorNodeId!))];
+    let degraded = false;
     const all = loadedNodes ?? await listStoryVectorMemories(entry.id).catch(async error => {
+        degraded = true;
         console.warn('[StoryTheater] vector partition read failed; recovering by node ID', error);
         const ids = [...new Set([...visibleNodeIds, ...archives.filter(box => box.toMessageId < beforeId)
             .flatMap(box => box.vectorMemoryIds ?? [])])];
@@ -74,7 +76,10 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         return reads.flatMap(result => result.status === 'fulfilled' && result.value?.charId === storyTheaterThreadId(entry.id)
             ? [result.value] : []);
     });
-    const liveNodes = all.filter(node => !node.archived && node.content.trim());
+    const deleted = new Set(archives.flatMap(box => (box.facts ?? [])
+        .filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.vectorNodeId)));
+    const liveNodes = all.filter(node => node.charId === storyTheaterThreadId(entry.id)
+        && !deleted.has(node.id) && !node.archived && node.content.trim());
     const byId = new Map(liveNodes.map(node => [node.id, node]));
     for (const id of visibleNodeIds) {
         const node = byId.get(id);
@@ -82,7 +87,7 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     }
 
     const present = new Set(all.map(node => node.id));
-    const missingIds = new Set(visibleNodeIds.filter(id => !present.has(id)));
+    const missingIds = new Set(visibleNodeIds.filter(id => !present.has(id) && !deleted.has(id)));
     if (missingIds.size) {
         try {
             // Use the current saved archive so an older open tab cannot revive a deleted or edited fact.
@@ -106,13 +111,12 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         groups.push({ archiveIds: ids, nodes: legacyNodes });
     }
     for (const box of archives) {
-        if (box.facts || box.toMessageId >= beforeId || !box.vectorMemoryIds?.length
-            || !box.vectorMemoryIds.every(id => byId.has(id))) continue;
+        if (box.facts || box.toMessageId >= beforeId || !box.vectorMemoryIds?.length) continue;
         const nodes = box.vectorMemoryIds.flatMap(id => {
             const node = byId.get(id);
             return node ? [node] : [];
         });
-        groups.push({ archiveIds: [box.id], nodes });
+        if (nodes.length) groups.push({ archiveIds: [box.id], nodes });
     }
     const eligibleIds = new Set(groups.flatMap(group => group.nodes.map(node => node.id)));
     const factNodes = visibleFacts.flatMap(fact => {
@@ -127,7 +131,9 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
             embedded: false, createdAt: 0, lastAccessedAt: 0, accessCount: 0,
         }];
     });
-    return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes };
+    degraded ||= archives.some(box => box.toMessageId < beforeId && box.vectorMemoryIds?.some(id =>
+        !deleted.has(id) && !byId.has(id) && !factTextById.has(id)));
+    return { nodes: liveNodes.filter(node => eligibleIds.has(node.id)), groups, factTextById, factNodes, degraded };
 }
 
 /**
@@ -144,8 +150,10 @@ export async function selectStoryVectorRecall(
     embedding?: EmbeddingConfig,
     currentFactNodes: MemoryNode[] = [],
     factContextOverflow?: boolean,
-): Promise<{ text: string; archiveIds: Set<string>; semanticFactRank: Map<string, number> }> {
+){
     const archiveIds = new Set<string>();
+    let embeddingRequests = 0;
+    let embeddingFailed = false;
     const semanticFactRank = new Map<string, number>();
     const limit = 6000;
     const separator = '\n\n';
@@ -157,7 +165,7 @@ export async function selectStoryVectorRecall(
     const needsLegacyRanking = allText.length > limit;
     const needsFactRanking = factContextOverflow ?? (currentFactNodes.reduce((size, node) => size + node.content.length + 1, 0) > limit);
     if (!needsLegacyRanking && !needsFactRanking) {
-        return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)), semanticFactRank };
+        return { text: allText, archiveIds: new Set(candidates.flatMap(group => group.archiveIds)), semanticFactRank, embeddingRequests, embeddingFailed };
     }
     const queries = [...new Set((typeof query === 'string' ? [query] : query)
         .map(text => text.trim().slice(-2000)).filter(text => text.length >= 2))].slice(-3);
@@ -171,30 +179,41 @@ export async function selectStoryVectorRecall(
 
     if (searchNodes.length && queries.length) {
         // Works without an embedding API, and is the fallback if the network is down.
-        const local = queries.flatMap(text => bm25Search(text, searchNodes, 20));
-        for (const item of local) relevance.set(item.node.id, Math.max(relevance.get(item.node.id) ?? 0, item.score));
+        const queryWeight = (index: number) => index === queries.length - 1 ? 1 : 0.65;
+        for (const [index, queryText] of queries.entries()) {
+            for (const item of bm25Search(queryText, searchNodes, 20)) {
+                const score = item.score * queryWeight(index);
+                relevance.set(item.node.id, Math.max(relevance.get(item.node.id) ?? 0, score));
+            }
+        }
 
         if (embedding?.baseUrl && embedding.apiKey && embedding.model) {
             try {
                 const charId = searchNodes[0].charId;
                 const allVectors = (await MemoryVectorDB.getAllByCharId(charId))
-                    .filter(vector => embeddedIds.has(vector.memoryId));
+                    .filter(vector => embeddedIds.has(vector.memoryId) && (!vector.model || vector.model === embedding.model));
                 if (allVectors.length) {
                     // Palace retrieves several meaningful message spikes with one
                     // batched embedding call, instead of diluting them into one query.
                     const recallConfig = { ...embedding, requestPurpose: embedding.requestPurpose || '剧情独立向量 · 续写召回' };
-                    const queryVectors = await getEmbeddings(queries, recallConfig);
+                    const queryVectors = await getEmbeddings(queries, recallConfig, {
+                        onBatch: () => { embeddingRequests++; },
+                    });
+                    if (queryVectors.length !== queries.length) throw new Error('剧情召回向量返回不完整');
+                    const compatibleVectors = allVectors.filter(vector => vector.vector.length === queryVectors[0].length);
+                    if (!compatibleVectors.length) throw new Error('剧情旧向量与查询向量维度不一致');
                     bm25Index.ensureBuilt(charId, await MemoryNodeDB.getByCharId(charId));
                     const paths = await Promise.all(queries.map((text, i) =>
                         hybridSearch(text, charId, recallConfig, 20, undefined, {
-                            queryVector: queryVectors[i], allNodes: searchNodes, allVectors,
+                            queryVector: queryVectors[i], allNodes: searchNodes,
+                            allVectors: compatibleVectors,
                         })));
                     // Hybrid scores and local BM25 are different scales; a hybrid
                     // hit takes precedence, with local lexical matches as fallback.
                     const hybridScores = new Map<string, number>();
-                    for (const matches of paths) {
+                    for (const [index, matches] of paths.entries()) {
                         for (const item of matches) {
-                            hybridScores.set(item.node.id, Math.max(hybridScores.get(item.node.id) ?? -Infinity, item.finalScore));
+                            hybridScores.set(item.node.id, Math.max(hybridScores.get(item.node.id) ?? -Infinity, item.finalScore * queryWeight(index)));
                         }
                     }
                     if (hybridScores.size) {
@@ -203,6 +222,7 @@ export async function selectStoryVectorRecall(
                     }
                 }
             } catch (error) {
+                embeddingFailed = true;
                 console.warn('[StoryTheater] semantic recall failed; using local BM25', error);
             }
         }
@@ -223,7 +243,7 @@ export async function selectStoryVectorRecall(
         text = combined;
         for (const id of group.archiveIds) archiveIds.add(id);
     }
-    return { text, archiveIds, semanticFactRank };
+    return { text, archiveIds, semanticFactRank, embeddingRequests, embeddingFailed };
 }
 
 export async function updateStoryVectorMemory(
