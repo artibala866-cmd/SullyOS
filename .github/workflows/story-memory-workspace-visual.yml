@@ -33,6 +33,14 @@ jobs:
           pnpm exec tsc --noEmit --pretty false > /tmp/story-memory-tsc.txt 2>&1 || true
           grep -E '^(components/date/story/(StoryArchivePanel|StoryVectorMemoryPanel|StoryTheaterTheme)[.]tsx|tests/story-memory-workspace-visual[.]tsx)[(]' /tmp/story-memory-tsc.txt > /tmp/story-memory-errors.txt || true
           if [ -s /tmp/story-memory-errors.txt ]; then cat /tmp/story-memory-errors.txt; exit 1; fi
+      - name: Install Chinese fonts for accurate screenshots
+        shell: bash
+        run: |
+          if ! fc-list :lang=zh family | grep -q .; then
+            timeout 90s sudo apt-get update -qq
+            timeout 120s sudo apt-get install -y -qq fonts-noto-cjk
+          fi
+          fc-list :lang=zh family | head -n 3
       - name: Screenshot actual React UI, light/dark, 320px/390px, vector/event boxes
         shell: bash
         run: |
