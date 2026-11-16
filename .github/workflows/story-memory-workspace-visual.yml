@@ -1,0 +1,67 @@
+name: Story memory workspace mobile visual
+on:
+  push:
+    branches: [remove-checkphone-vrworld-lifesim]
+    paths:
+      - components/date/story/StoryArchivePanel.tsx
+      - components/date/story/StoryVectorMemoryPanel.tsx
+      - components/date/story/StoryTheaterTheme.tsx
+      - tests/story-memory-workspace-visual.tsx
+      - story-memory-workspace-visual.html
+      - scripts/story-memory-workspace-device.mjs
+      - .github/workflows/story-memory-workspace-visual.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck UI modules
+        shell: bash
+        run: |
+          pnpm exec tsc --noEmit --pretty false > /tmp/story-memory-tsc.txt 2>&1 || true
+          grep -E '^(components/date/story/(StoryArchivePanel|StoryVectorMemoryPanel|StoryTheaterTheme)[.]tsx|tests/story-memory-workspace-visual[.]tsx)[(]' /tmp/story-memory-tsc.txt > /tmp/story-memory-errors.txt || true
+          if [ -s /tmp/story-memory-errors.txt ]; then cat /tmp/story-memory-errors.txt; exit 1; fi
+      - name: Screenshot actual React UI, light/dark, 320px/390px, vector/event boxes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/story-memory-visual
+          pnpm exec vite --host 127.0.0.1 --port 5188 --strictPort > /tmp/story-memory-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 70); do
+            curl -fsS http://127.0.0.1:5188/story-memory-workspace-visual.html >/dev/null && break
+            sleep 1
+          done
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          for width in 320 390; do
+            for theme in light dark; do
+              for view in vectors boxes; do
+                tag="$width-$theme-$view"
+                node scripts/story-memory-workspace-device.mjs \
+                  "http://127.0.0.1:5188/story-memory-workspace-visual.html?theme=$theme&view=$view" \
+                  "$width" 780 \
+                  "output/story-memory-visual/$tag.png" "output/story-memory-visual/$tag.json"
+              done
+            done
+          done
+      - name: Preserve visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-memory-workspace-real-mobile
+          path: output/story-memory-visual/*
+          retention-days: 7
+          if-no-files-found: warn
