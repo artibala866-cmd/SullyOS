@@ -225,3 +225,12 @@ it.each([[0, 0], [0, 2], [0, undefined]])('剧情批次拒绝错误编号 %s / %
     await expect(getEmbeddings(['一条', '二条'], config, {})).rejects.toThrow('编号');
     expect(fetch).toHaveBeenCalledOnce();
 });
+
+it('剧情批次兼容从 1 开始的字符串编号，仍按请求顺序归位', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ data: [
+        { index: '2', embedding: [12, 1] }, { index: '1', embedding: [11, 1] },
+    ] }));
+    const vectors = await getEmbeddings(['一条', '二条'], config, {});
+    expect(vectors.map(vector => vector[0])).toEqual([11, 12]);
+    expect(fetch).toHaveBeenCalledOnce();
+});

@@ -9,11 +9,18 @@ import { bm25Index } from './memoryPalace/bm25Index';
 import { hybridSearch } from './memoryPalace/hybridSearch';
 import { EMBEDDING_MAX_INPUT_CHARS, getEmbeddings } from './memoryPalace/embedding';
 import { bm25Search } from './memoryPalace/bm25';
+import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
 import { readStoryRecallArchives, storyArchiveModality, storyTimeFromSource } from './storyArchiveFacts';
 
 export class StoryVectorMemoryConflictError extends Error {}
+
+export function normalizeStoryEmbeddingConfig(config?: EmbeddingConfig): EmbeddingConfig | undefined {
+    if (!config) return undefined;
+    return { ...config, baseUrl: normalizeApiBaseUrl(config.baseUrl),
+        apiKey: normalizeApiCredential(config.apiKey), model: normalizeApiModel(config.model) };
+}
 
 function assertStoryPartition(entryId: string, node: MemoryNode | undefined): MemoryNode {
     if (!node) throw new Error('这条剧情记忆已经不存在了');
@@ -172,6 +179,7 @@ export async function selectStoryVectorRecall(
     currentFactNodes: MemoryNode[] = [],
     factContextOverflow?: boolean,
 ){
+    embedding = normalizeStoryEmbeddingConfig(embedding);
     const archiveIds = new Set<string>();
     let embeddingRequests = 0;
     let embeddingFailed = false;
@@ -280,7 +288,8 @@ export async function updateStoryVectorMemory(
         }
         const text = content.trim();
         if (text.length > EMBEDDING_MAX_INPUT_CHARS) throw new Error('记忆正文超过单条向量容量，旧内容已保留');
-        const config = embeddingConfig && { ...embeddingConfig, requestPurpose: '剧情独立向量 · 编辑后建索引' };
+        const normalizedEmbedding = normalizeStoryEmbeddingConfig(embeddingConfig);
+        const config = normalizedEmbedding && { ...normalizedEmbedding, requestPurpose: '剧情独立向量 · 编辑后建索引' };
         const result = await updateStoredMemoryNode(nodeId, { content: text }, config, remoteVectorConfig, async entries => {
             const db = await openDB();
             await new Promise<void>((resolve, reject) => {

@@ -54,6 +54,19 @@ describe('story summary final channel', () => {
             key: '阿岚:行程', text: '阿岚决定今天去钟楼。', sourceMessageId: 12,
         })]);
     });
+    it('accepts closed JSON with trailing commas and irregular optional fields without changing quoted text', () => {
+        const text = '她保存了「第2句, }」，铜钥匙仍在木盒。';
+        const sources = new Map([[914, { text, authorInput: false, floorNumber: 3 }]]);
+        const raw = '{"changes":[{"key":"钥匙/位置","text":' + JSON.stringify(text)
+            + ',"kind":" FACT ","action":null,"sourceMessageId":"记录 ＩＤ：９１４","quote":null,"storyTime":null,'
+            + '"terms":["铜钥匙",null,],},],}';
+        expect(parseStoryArchiveChanges(raw, sources, [])).toEqual([
+            expect.objectContaining({ text, terms: ['铜钥匙'], kind: 'fact', sourceMessageId: 914 }),
+        ]);
+        expect(() => parseStoryArchiveChanges(raw.slice(0, -1), sources, [])).toThrow('完整');
+        expect(() => parseStoryArchiveChanges('{"changes":[,]}', sources, [])).toThrow('完整');
+        expect(() => parseStoryArchiveChanges(raw.replace('９１４', '９９９'), sources, [])).toThrow('原文记录ID');
+    });
     it('recovers an incorrect record ID only if the quote has one unambiguous source', () => {
         const sources = new Map([
             [12, { text: '今天下雨。', authorInput: false }],
@@ -638,6 +651,32 @@ describe('story summary final channel', () => {
         const saved = await generateStoryArchiveDelta(entry, [row, messages[1]], api, 5, 'summary');
         expect(saved.affinityLog.join('\n')).toContain('第 5 楼 · 阿泽 · 用户对角色 · +4 · 未告知角色 · 原因：等我回家');
     });
+    it('finishes one paid summary when the gateway sends DONE without a newline or closing the stream', async () => {
+        let cancelled = false;
+        fetchMock.mockImplementationOnce(async (_url, init) => {
+            const content = structured('车站关门了。', init).choices[0].message.content;
+            const frames = 'data: ' + JSON.stringify({ choices: [{ delta: { content } }] }) + '\n\ndata: [DONE]';
+            return new Response(new ReadableStream({
+                start(controller) { controller.enqueue(new TextEncoder().encode(frames)); },
+                cancel() { cancelled = true; },
+            }), { headers: { 'Content-Type': 'text/event-stream' } });
+        });
+        const saved = await generateStoryArchiveDelta(entry, messages, api, 1, 'summary');
+        expect(saved.facts[0].text).toBe('车站关门了。');
+        expect(cancelled).toBe(true);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('keeps gateway query parameters and reports an HTML 413 as a range limit', async () => {
+        const gateway = { ...api, baseUrl: ' \u200Bhttps://llm.invalid/v1/?route=memory&mode=cheap ', model: ' test ' };
+        await generateStoryArchiveDelta(entry, messages, gateway, 1, 'summary');
+        expect(fetchMock.mock.calls[0][0]).toBe('https://llm.invalid/v1/chat/completions?route=memory&mode=cheap');
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('test');
+        fetchMock.mockResolvedValueOnce(new Response('<html>Request too large</html>', { status: 413 }));
+        await expect(generateStoryArchiveDelta(entry, messages, gateway, 1, 'summary')).rejects.toThrow('请缩小范围');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('uses only Content-Type for keyless endpoints and makes no retry on error', async () => {
         await generateStoryArchiveDelta(entry, messages, { ...api, apiKey: '' }, 1, 'summary');
         expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' });
@@ -965,6 +1004,18 @@ describe('independent vector archive', () => {
             embedding: { ...vector.embedding, baseUrl: 'https://vector.invalid/v1/embeddings' },
         })).rejects.toThrow('本次未调用总结 API');
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('can archive with an imported Embedding URL containing edge whitespace and a gateway query', async () => {
+        const floors = (await prepare()).slice(0, 2);
+        queueArchive('备用钥匙收在木盒。');
+        const saved = await archiveStoryFloorRange(entry.id, floors, api, undefined, {
+            ...vector, embedding: { ...vector.embedding, baseUrl: ' \u200Bhttps://vector.invalid/v1/?route=archive ' },
+        });
+        expect(saved.archives[0].facts).toHaveLength(1);
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            'https://llm.invalid/v1/chat/completions', 'https://vector.invalid/v1/embeddings?route=archive',
+        ]);
     });
 
     it('keeps archived floors intact if one proposed fact exceeds vector capacity', async () => {

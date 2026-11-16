@@ -487,11 +487,13 @@ function decodeArchiveChanges(raw: string): unknown {
     try {
         return JSON.parse(input);
     } catch {
-        // Some OpenAI-compatible models add a short introduction after a complete
-        // JSON object. Extract ONE balanced object, without repairing incomplete JSON.
+        // Extract one balanced object and tolerate a comma immediately before
+        // a closing bracket. Never supply missing fields or closing brackets.
         const begin = input.indexOf('{');
         if (begin < 0) throw new Error('无 JSON 对象');
         let depth = 0, quoted = false, escaped = false;
+        let segment = begin;
+        const parts: string[] = [];
         for (let i = begin; i < input.length; i++) {
             const char = input[i];
             if (quoted) {
@@ -499,8 +501,20 @@ function decodeArchiveChanges(raw: string): unknown {
                 else if (char === '\\') escaped = true;
                 else if (char === '"') quoted = false;
             } else if (char === '"') quoted = true;
-            else if (char === '{') depth++;
-            else if (char === '}' && --depth === 0) return JSON.parse(input.slice(begin, i + 1));
+            else if (char === ',') {
+                let next = i + 1;
+                while (/\s/u.test(input[next] ?? '')) next++;
+                if (input[next] === '}' || input[next] === ']') {
+                    const preceding = input.slice(segment, i).trimEnd();
+                    if (!preceding || /[\[{,]$/u.test(preceding)) throw new Error('无效的 JSON 逗号');
+                    parts.push(input.slice(segment, i));
+                    segment = i + 1;
+                }
+            } else if (char === '{') depth++;
+            else if (char === '}' && --depth === 0) {
+                parts.push(input.slice(segment, i + 1));
+                return JSON.parse(parts.join(''));
+            }
         }
         throw new Error('JSON 对象不完整');
     }
@@ -587,27 +601,25 @@ export function parseStoryArchiveChanges(
     // sentence. Do NOT reject changed states on semantic similarity.
     const facts = new Map<string, StoryArchiveFact>();
     for (const [index, change] of value.changes.entries()) {
+        const rawKind = typeof change?.kind === 'string' ? normalize(change.kind) : change?.kind;
+        const action = typeof change?.action === 'string' ? normalize(change.action) : change?.action;
         if (!change || typeof change.key !== 'string' || typeof change.text !== 'string'
-            || !['fact', 'author', undefined].includes(change.kind)
-            || !['add', 'update', undefined].includes(change.action)
-            || (change.quote !== undefined && typeof change.quote !== 'string')
-            || (change.storyTime !== undefined && typeof change.storyTime !== 'string')
-            || (change.terms !== undefined && (!Array.isArray(change.terms)
-                || !change.terms.every((term: unknown) => typeof term === 'string')))) {
+            || (rawKind != null && rawKind !== 'fact' && rawKind !== 'author')
+            || (action != null && action !== 'add' && action !== 'update')) {
             throw invalid(`第 ${index + 1} 条字段不完整`);
         }
         let key = normalize(change.key).replace(/\s+/g, '');
         let text = change.text.trim();
-        const kind: 'fact' | 'author' = change.kind ?? 'fact';
+        const kind: 'fact' | 'author' = rawKind ?? 'fact';
         let modality = kind === 'fact' && (change.modality === 'planned' || change.modality === 'unverified')
             ? change.modality as 'planned' | 'unverified' : undefined;
         if (!/^[\p{L}\p{N}\p{M}\p{P}\p{S}]{2,120}$/u.test(key) || !comparable(text)) {
             throw invalid(`第 ${index + 1} 条记忆键或正文为空/不合法`);
         }
         const quote = typeof change.quote === 'string' ? change.quote.trim() : '';
-        const sourceToken = String(change.sourceMessageId ?? '').trim();
+        const sourceToken = String(change.sourceMessageId ?? '').normalize('NFKC').trim();
         const floorRef = /^第\s*(\d+)\s*楼$/.exec(sourceToken);
-        const sourceRef = /^(?:记录ID\s*)?(\d+)$/.exec(sourceToken);
+        const sourceRef = /^(?:记录\s*ID\s*[:：]?\s*)?(\d+)$/i.exec(sourceToken);
         const providedId = Number((floorRef ?? sourceRef)?.[1]);
         const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
@@ -669,7 +681,7 @@ export function parseStoryArchiveChanges(
             if (unsupportedCode) continue;
         }
         const knownState = facts.get(key) ?? existing.get(key);
-        if (kind === 'fact' && change.action === 'add' && storyTime && knownState?.storyTime
+        if (kind === 'fact' && action === 'add' && storyTime && knownState?.storyTime
             && knownState.storyTime !== storyTime && comparable(knownState.text) === comparable(text)) {
             key += '/来源' + sourceMessageId;
         }
@@ -686,10 +698,12 @@ export function parseStoryArchiveChanges(
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         if (oldInBatch && signature(oldInBatch) === comparableText) continue;
         const sameState = previous && comparable(previous.text) === comparable(text) && storyArchiveModality(previous) === storyArchiveModality(fact);
-        if (sameState && !oldInBatch && change.action !== 'add') continue;
+        if (sameState && !oldInBatch && action !== 'add') continue;
         if (duplicateText.has(comparableText) && !oldInBatch && (!previous || sameState)) continue;
         if (!previous && kind === 'fact' && continuity !== 'rule' && storyArchiveRepeatsPreset(text, key, baseline, quotedClause ?? source.text)) continue;
-        const termCandidates: string[] = change.terms ?? key.split(/[\/：:·-]+/u);
+        const termCandidates: string[] = Array.isArray(change.terms)
+            ? change.terms.filter((term: unknown): term is string => typeof term === 'string')
+            : key.split(/[\/：:·-]+/u);
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
             && (oldInBatch.text !== text || storyArchiveModality(oldInBatch) !== storyArchiveModality(fact))) onEarlierState?.(oldInBatch);

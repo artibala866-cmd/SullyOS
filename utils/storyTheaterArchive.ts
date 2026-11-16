@@ -14,11 +14,12 @@ import { ensureFloat32 } from './memoryPalace/db';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
+import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
 import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, readStoryRecallArchives, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
-import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
+import { loadStoryVectorRecall, normalizeStoryEmbeddingConfig, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
 const storyArchiveCharacterCount = (text: string) => Array.from(text).length;
 
@@ -80,13 +81,13 @@ export function parseStoryArchiveSummary(data: any): string {
         const detail = data?.__sullyBodyReadError;
         throw new StoryArchiveIncompleteReply(`事件盒响应不完整${detail ? `（${detail}）` : ''}，原正文未归档`);
     }
-    const reason = String(choice?.finish_reason ?? choice?.finishReason ?? '').toLowerCase();
+    const reason = String(choice?.finish_reason ?? choice?.finishReason ?? '').trim().toLowerCase();
     if (['length', 'max_tokens', 'max_output_tokens'].includes(reason)) {
         throw new StoryArchiveIncompleteReply('总结达到输出上限，原文已保留。可缩小选楼范围后重试');
     }
     if (reason === 'content_filter' || reason === 'safety') throw new Error(`事件盒总结被接口拦截（${reason}），未保存`);
     if (['error', 'failed', 'cancelled', 'canceled', 'incomplete'].includes(reason)) throw new Error(`事件盒生成中断（${reason}），原正文未归档`);
-    const raw = choice?.message?.content;
+    const raw = choice?.message ? choice.message.content : choice?.text;
     const content = Array.isArray(raw)
         ? raw.filter(part => !part?.type || !/thinking|reasoning/i.test(part.type))
         : raw;
@@ -147,9 +148,17 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
     return { affinity, transcript, sources };
 }
 
+function archiveChatEndpoint(baseUrl: string): string {
+    const endpoint = new URL(baseUrl);
+    const path = endpoint.pathname.replace(/\/+$/, '');
+    if (!path.endsWith('/chat/completions')) endpoint.pathname = path + '/chat/completions';
+    endpoint.hash = '';
+    return endpoint.href;
+}
+
 async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, instruction: string, input: string, storyOnlyProvider?: boolean, strategy?: StoryTheaterArchiveStrategy) {
     const stream = !storyOnlyProvider && isGlobalStreamEnabled();
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(archiveChatEndpoint(api.baseUrl), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(api.apiKey ? { Authorization: `Bearer ${api.apiKey}` } : {}) },
         body: JSON.stringify({ model: api.model, stream, ...(stream ? { stream_options: { include_usage: true } } : {}), temperature: 0.2, messages: [
@@ -160,7 +169,10 @@ async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey
         // Consume the stream here so a completed but unclosed response cannot block prose.
         __sullySkipStreamUpgrade: true,
     } as RequestInit);
-    const data = await safeResponseJson(response, { keepInterruptedBody: true });
+    const data = await safeResponseJson(response, { keepInterruptedBody: true }).catch(error => {
+        if (response.status === 413) throw new Error('所选楼层超出总结接口容量，请缩小范围。' + describeStoryApiError(response.status, null));
+        throw error;
+    });
     if (!response.ok || data?.error) {
         const detail = describeStoryApiError(response.status, data);
         const oversized = response.status === 413 || data?.error?.code === 'context_length_exceeded'
@@ -176,6 +188,7 @@ export async function generateStoryArchiveDelta(
     sourceTimes = storyArchiveSourceTimes(batch),
     run?: StoryArchiveRun,
 ): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
+    api = { baseUrl: normalizeApiBaseUrl(api.baseUrl), apiKey: normalizeApiCredential(api.apiKey), model: normalizeApiModel(api.model) };
     assertStoryApiConfigured(api);
     if (!batch.length) throw new Error('请先选择要归档的楼层');
     const { sources, transcript, affinity } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
@@ -533,7 +546,7 @@ async function writeStoryArchiveRange(
     replaceArchiveId?: string, vector?: VectorArchiveOptions, run?: StoryArchiveRun,
 ): Promise<StoryTheaterEntry> {
     const strategy = vector ? 'vector' : 'summary';
-    const embedding = vector?.embedding;
+    const embedding = normalizeStoryEmbeddingConfig(vector?.embedding);
     if (vector) {
         if (!embedding?.baseUrl?.trim() || !embedding.apiKey?.trim() || !embedding.model?.trim()) {
             throw new Error('请先配置向量记忆的 Embedding API');

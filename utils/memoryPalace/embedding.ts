@@ -147,7 +147,12 @@ async function callEmbeddingAPI(
     // 自动修正常见 URL 错误
     let baseUrl = config.baseUrl.replace(/\/+$/, '');
     baseUrl = baseUrl.replace('ai.siliconflow.cn', 'api.siliconflow.cn');
-    const url = `${baseUrl}/embeddings`;
+    // Gateway query parameters belong after the resource path.
+    const [baseAndQuery] = baseUrl.split('#', 1);
+    const queryStart = baseAndQuery.indexOf('?');
+    const basePath = queryStart < 0 ? baseAndQuery : baseAndQuery.slice(0, queryStart);
+    const query = queryStart < 0 ? '' : baseAndQuery.slice(queryStart);
+    const url = basePath.replace(/\/+$/, '') + '/embeddings' + query;
 
     const body: Record<string, unknown> = {
         model: config.model,
@@ -197,8 +202,14 @@ async function callEmbeddingAPI(
         // OpenAI 格式: data[].embedding[]
         // 按 index 排序确保顺序正确
         if (serialRun && data.data.some((item: any) => item?.index !== undefined)) {
-            const indices = data.data.map((item: any) => item?.index);
-            if (indices.some((index: number) => !Number.isInteger(index) || index < 0 || index >= input.length)
+            const indices = data.data.map((item: any) => {
+                const index = item?.index;
+                return typeof index === 'string' && /^\d+$/u.test(index) ? Number(index) : index;
+            });
+            // Both complete 0-based and 1-based sequences give the same unambiguous order.
+            const first = indices.includes(0) ? 0 : 1;
+            if (indices.length !== input.length || indices.some((index: number) =>
+                !Number.isInteger(index) || index < first || index >= first + input.length)
                 || new Set(indices).size !== indices.length) {
                 throw new Error('Embedding 返回的向量编号重复、缺失或越界');
             }

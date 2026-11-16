@@ -113,8 +113,9 @@ export async function readRecoverableBody(body: ReadableStream<Uint8Array>, onDe
             text += chunk;
             pending += chunk;
             const boundary = pending.lastIndexOf('\n');
-            if (boundary < 0) continue;
-            const lines = pending.slice(0, boundary).split(/\r?\n/);
+            const finalMarker = /^data:\s*\[DONE\][ \t\r]*$/u.test(pending.slice(boundary + 1).trimStart());
+            if (boundary < 0 && !finalMarker) continue;
+            const lines = boundary < 0 ? [] : pending.slice(0, boundary).split(/\r?\n/);
             pending = pending.slice(boundary + 1);
             for (const line of lines) {
                 const event = line.trim();
@@ -148,6 +149,12 @@ export async function readRecoverableBody(body: ReadableStream<Uint8Array>, onDe
                     checkFinish(payload);
                     if (!finishedAt) eventData.push(payload);
                 }
+            }
+            // A proxy may send the terminal marker without a final newline and
+            // keep the connection open. All earlier complete frames are consumed.
+            if (finalMarker) {
+                void reader.cancel().catch(() => {});
+                return { text };
             }
         }
     } catch (error) {
