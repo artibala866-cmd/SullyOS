@@ -8,10 +8,11 @@ import '../apps/couplesSpace/couplesSpace.css';
 import '../apps/couplesSpace/bondTicketShop.css';
 
 const scene=new URLSearchParams(location.search).get('state')||'shop';
+const playerStock: Record<string, number> = scene === 'bag-empty' ? {} : {hug:2,photo:1,sweet:1,peace:1};
 function App(){
   const [bond,setBond]=useState<Bond>(()=>({...createBond(['qa-me','qa-them']),
     points:{me:580,shared:420,them:265},
-    bags:{me:(scene==='bag-empty'?{}:{hug:2,photo:1,sweet:1,peace:1}),
+    bags:{me:playerStock,
       them:{nickname:1,listen:1}},
     entries:[],
   }));
