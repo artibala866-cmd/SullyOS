@@ -74,7 +74,7 @@ import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, reconcileStoryArchiveContinuity, selectStoryArchiveTransitions, storyArchiveFactIdentity, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { loadStoryVectorRecall, readStoredStoryTheater, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
-import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
+import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError, isStoryAutoArchivePaused, pauseStoryAutoArchive } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
 import {
@@ -1088,12 +1088,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
     const archiveIfNeeded = useCallback(async (archiveEntry = entry): Promise<StoryTheaterEntry | null> => {
         if (archiveEntry.automaticMemoryApiEnabled !== true || archiveEntry.writesToCharacterMemory || archiveLock.current) return null;
         archiveLock.current = true;
+        let attemptedFrom: number | undefined;
         try {
             const rows = storyArchiveFloors(await DB.getMessagesByCharId(threadId, true), archiveEntry.id);
             const batch = selectStoryArchiveBatch(rows, archiveEntry.archiveAfter, archiveEntry.archiveKeepRecent ?? 5, row =>
                 row.metadata?.theaterSkipAutoArchive === true || !!storyArchiveAtFloor(archiveEntry.archives, row.id));
             if (batch.length === 0) return null;
             const first = batch[0];
+            if (isStoryAutoArchivePaused(archiveEntry.id, first.id)) return null;
+            attemptedFrom = first.id;
             const last = batch[batch.length - 1];
             let next: StoryTheaterEntry;
             if (archiveEntry.archiveStrategy === 'summary') {
@@ -1125,7 +1128,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
         } catch (error: any) {
             console.error('[StoryTheater] archive failed', error);
             archiveErrorSeq.current += 1;
-            addToast(`剧情归档失败：${error?.message || error}`, 'error');
+            if (attemptedFrom !== undefined) pauseStoryAutoArchive(archiveEntry.id, attemptedFrom);
+            addToast(attemptedFrom === undefined ? `剧情归档失败：${error?.message || error}`
+                : `自动归档已暂停，请手动归档最早未归档楼层。${error?.message || error}`, 'error');
             return null;
         } finally {
             archiveLock.current = false;

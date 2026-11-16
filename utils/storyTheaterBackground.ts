@@ -56,6 +56,24 @@ const snapshots = new Map<string, StoryGenerationSnapshot>();
 const listeners = new Map<string, Set<Listener>>();
 const allListeners = new Set<Listener>();
 
+const pausedAutoArchives = new Map<string, number>();
+const autoArchivePauseKey = (entryId: string) => 'sully_story_auto_archive_failed_' + entryId;
+
+export function isStoryAutoArchivePaused(entryId: string, firstMessageId: number): boolean {
+    try {
+        return pausedAutoArchives.get(entryId) === firstMessageId
+            || localStorage.getItem(autoArchivePauseKey(entryId)) === String(firstMessageId);
+    } catch {
+        return pausedAutoArchives.get(entryId) === firstMessageId;
+    }
+}
+
+export function pauseStoryAutoArchive(entryId: string, firstMessageId: number): void {
+    pausedAutoArchives.set(entryId, firstMessageId);
+    try { localStorage.setItem(autoArchivePauseKey(entryId), String(firstMessageId)); }
+    catch { /* The current tab still blocks repeated charges. */ }
+}
+
 function announce(snapshot: StoryGenerationSnapshot): void {
     snapshots.set(snapshot.entryId, snapshot);
     for (const listener of listeners.get(snapshot.entryId) || []) {

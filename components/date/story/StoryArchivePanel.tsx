@@ -7,7 +7,7 @@ import {resolveStoryTheaterMask,storyTheaterThreadId} from '../../../utils/story
 import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyTheaterMemoryConversion';
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
-import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,splitStoryArchiveBatches,type StoryArchiveProgress} from '../../../utils/storyTheaterArchive';
+import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,type StoryArchiveProgress} from '../../../utils/storyTheaterArchive';
 import {DB} from '../../../utils/db';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
 import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
@@ -30,7 +30,6 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [revokeTarget,setRevokeTarget]=useState<StoryTheaterArchive|null>(null);
  const running=useRef(false);
  const completedBatches=useRef(new Map<string,string>());
- const incompleteBatches=useRef(new Set<string>());
  const [rangeProgress,setRangeProgress]=useState<StoryArchiveProgress|null>(null);
  const [rangeFailure,setRangeFailure]=useState('');
  const [rangeBusy,setRangeBusy]=useState(false);
@@ -106,7 +105,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   &&firstId!==undefined&&lastId!==undefined&&firstId<=box.toMessageId&&box.fromMessageId<=lastId);
  const includesPending=!!chosenFloors.length&&last===floors?.length&&floors.at(-1)?.role==='user';
  const changeRange=(next:typeof range)=>{
-  completedBatches.current.clear();incompleteBatches.current.clear();
+  completedBatches.current.clear();
   setRangeFailure('');setRangeProgress(null);setStatus('');
   setRange(next);
  };
@@ -127,7 +126,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
    const updated=await archiveStoryFloorRange(entry.id,chosenFloors,apiConfig,range.replaceId,isVector?{
     embedding:memoryPalaceConfig.embedding,remote:remoteVectorConfig,
     fallbackApi:memoryPalaceConfig.lightLLM?.baseUrl?{...memoryPalaceConfig.lightLLM,apiKey:memoryPalaceConfig.lightLLM.apiKey??''}:undefined,
-   }:undefined,{completed:completedBatches.current,incomplete:incompleteBatches.current,onProgress:setRangeProgress});
+   }:undefined,{completed:completedBatches.current,onProgress:setRangeProgress});
    onUpdated(updated);changeRange(null);setStatus('第 '+first+'–'+last+' 楼已归档。');
    addToast('归档已保存','success');
   }catch(e:any){setRangeFailure(e?.message||'请求失败');}
@@ -135,13 +134,13 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  };
  const progressText=rangeProgress?.phase==='index'?'正在建立向量'
   :rangeProgress?.phase==='saving'?'正在保存归档'
-  :rangeProgress?'第 '+rangeProgress.index+' / '+rangeProgress.total+' 批 · '+(rangeProgress.phase==='recovering'?'正在用更短的内容重试':'正在总结')
+  :rangeProgress?'正在总结所选楼层'
   :'正在准备归档';
  const failureTitle=rangeProgress?.phase==='index'?'向量建立失败'
   :rangeProgress?.phase==='saving'?'归档保存失败'
-  :rangeProgress?'第 '+rangeProgress.index+' / '+rangeProgress.total+' 批整理失败'
+  :rangeProgress?'总结失败'
   :'归档失败';
- const failedBatch=rangeProgress&&(rangeProgress.phase==='summary'||rangeProgress.phase==='recovering')?rangeProgress:null;
+ const failedBatch=rangeProgress?.phase==='summary'?rangeProgress:null;
  const floorNumbers=useMemo(()=>new Map((floors??[]).map((row,index)=>[row.id,index+1])),[floors]);
  const sourceTimes=useMemo(()=>storyArchiveSourceTimes(floors??[]),[floors]);
  const readableLines=(box:StoryTheaterArchive)=>storyArchiveReadableLines(box,floorNumbers,sourceTimes);
@@ -297,7 +296,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
      </div>
      {range.first&&range.last&&!chosenFloors.length&&<p className='text-[11px] text-rose-600'>请输入有效的楼层范围。</p>}
      {chosenFloors.length>0&&<div className='space-y-1 text-[11px] leading-5 text-slate-500'>
-      <p>预计整理 {splitStoryArchiveBatches(chosenFloors).length} 批</p>
+      <p>一次总结请求{isVector ? ' · 向量另行批量建立' : ''}</p>
       <p className='truncate'>起 · {chosenFloors[0].content.replace(/<[^>]*>/g,'').trim()}</p>
       {chosenFloors.length>1&&<p className='truncate'>止 · {chosenFloors.at(-1)?.content.replace(/<[^>]*>/g,'').trim()}</p>}
      </div>}

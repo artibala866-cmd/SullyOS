@@ -16,7 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
-import { storyArchiveModality, collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
@@ -113,30 +113,20 @@ function storyArchiveBody(message: Message) {
     return extractContent({ choices: [{ message: { content: raw } }] });
 }
 
-function archiveRecoveryParts(content: string): string[] {
-    const size = Math.max(5000, Math.ceil(content.length / 2));
-    if (content.length <= size) return [content];
-    const before = content.slice(0, size);
-    const boundary = Math.max(...['。', '！', '？', '\n'].map(mark => before.lastIndexOf(mark))) + 1;
-    const cut = boundary >= size * 0.65 ? boundary : before.replace(/[\uD800-\uDBFF]$/u, '').length;
-    return [content.slice(0, cut), content.slice(cut)].filter(part => part.trim());
-}
-
 export type StoryArchiveProgress =
-    | { phase: 'summary' | 'recovering'; index: number; total: number; first: number; last: number }
+    | { phase: 'summary'; first: number; last: number }
     | { phase: 'index' }
     | { phase: 'saving' };
 export interface StoryArchiveRun {
     onProgress?: (progress: StoryArchiveProgress) => void;
     completed?: Map<string, string>;
-    incomplete?: Set<string>;
 }
 
-function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>, passage?: string) {
+function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>) {
     const affinity: string[] = [];
     const sources = new Map<number, { text: string; authorInput: boolean; floorNumber: number }>();
     const transcript = messages.map((message, index) => {
-        const content = passage ?? storyArchiveBody(message);
+        const content = storyArchiveBody(message);
         if (!content) throw new Error('事件盒原文缺少正文，未生成总结');
         if (!message.metadata?.theaterContinue) {
             sources.set(message.id, { text: content, authorInput: message.role === 'user', floorNumber: firstFloor + index });
@@ -154,31 +144,6 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
     return { affinity, transcript, sources };
-}
-
-/** Keep adjacent user and assistant floors together. Oversized turns get their own request. */
-export function splitStoryArchiveBatches(rows: Message[]): Message[][] {
-    const maxFloors = 12;
-    const maxSourceChars = 12000;
-    const batches: Message[][] = [];
-    let current: Message[] = [];
-    let sourceChars = 0;
-    for (let index = 0; index < rows.length; index++) {
-        const row = rows[index];
-        const next = rows[index + 1];
-        const turn = row.role === 'user' && next?.role === 'assistant' ? [row, next] : [row];
-        const size = turn.reduce((sum, message) => sum + message.content.length, 0);
-        if (current.length && (current.length + turn.length > maxFloors || sourceChars + size > maxSourceChars)) {
-            batches.push(current);
-            current = [];
-            sourceChars = 0;
-        }
-        current.push(...turn);
-        sourceChars += size;
-        index += turn.length - 1;
-    }
-    if (current.length) batches.push(current);
-    return batches;
 }
 
 async function requestArchiveCompletion(api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>, instruction: string, input: string, storyOnlyProvider?: boolean, strategy?: StoryTheaterArchiveStrategy) {
@@ -203,133 +168,63 @@ export async function generateStoryArchiveDelta(
     entry: StoryTheaterEntry, batch: Message[], api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
     firstFloor: number, strategy: StoryTheaterArchiveStrategy,
     sourceTimes = storyArchiveSourceTimes(batch),
-    embedding?: EmbeddingConfig,
     run?: StoryArchiveRun,
 ): Promise<{ summary: string; facts: StoryArchiveFact[]; historyFacts: StoryArchiveFact[]; affinityLog: string[] }> {
     if (!api.baseUrl || !api.model) throw new Error('请先配置主 API');
-    const batches = splitStoryArchiveBatches(batch);
-    if (!batches.length) throw new Error('请先选择要归档的楼层');
-    let floor = firstFloor;
-    const segments = batches.map(rows => {
-        const segment = { ...storyArchiveTranscript(rows, floor, sourceTimes), rows, first: floor };
-        floor += rows.length;
-        return segment;
-    });
-    const floorNumbers = new Map<number, number>(segments.flatMap(segment =>
-        [...segment.sources].map(([id, source]) => [id, source.floorNumber] as const)));
+    if (!batch.length) throw new Error('请先选择要归档的楼层');
+    const { sources, transcript, affinity } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
+    const floorNumbers = new Map([...sources].map(([id, source]) => [id, source.floorNumber]));
     const beforeId = batch[0].id;
     const [reference, vector] = await Promise.all([
         buildStoryArchiveReference(entry),
         loadStoryVectorRecall(entry, beforeId),
     ]);
-    const known = new Map(collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById).map(fact => [fact.key, fact]));
+    const known = collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById);
     const legacy = [
         ...entry.archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
             .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 4).map(box => box.summary),
         ...vector.groups.slice(-4).map(group => group.nodes.map(node => node.content).join('')),
     ].filter(Boolean).join('\n\n').slice(0, 6000);
-    const affinity = segments.flatMap(segment => segment.affinity);
     const affinityLog = affinity.length ? ['界面好感记录（用户→角色）：', ...affinity] : [];
     const saveMaxChars = normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars);
     if (saveMaxChars > 0 && storyArchiveCharacterCount(affinityLog.join('\n')) > saveMaxChars) {
         throw new Error('归档保存上限不足以容纳界面好感记录，本次未调用总结 API');
     }
-    const changed = new Map<string, StoryArchiveFact>();
     const historyFacts: StoryArchiveFact[] = [];
-    const collect = async (segment: ReturnType<typeof storyArchiveTranscript>, index: number, recovering = false) => {
-        const { sources, transcript } = segment;
-        if (!sources.size) return;
-        const current = [...known.values()];
-        // Like Memory Palace extraction, prioritize related existing nodes for
-        // comparison. Reuse the grouped vector/BM25 search when the references
-        // would no longer fit. New facts from earlier batches still participate.
-        const currentNodeIds = new Set(current.map(fact => fact.vectorNodeId));
-        const estimate = current.reduce((size, fact) => size + JSON.stringify({
-            key: fact.key, kind: fact.kind, text: fact.text, storyTime: fact.storyTime, modality: fact.modality, continuity: fact.continuity,
-        }).length + 1, 0);
-        const { semanticFactRank } = !recovering && estimate > 12000
-            ? await selectStoryVectorRecall({ nodes: [], groups: [] },
-                sampleSnippetsFromMessages([...sources.values()].map(source => ({ content: source.text })), 2, 600),
-                embedding ? { ...embedding, requestPurpose: '剧情独立向量 · 总结核对旧记忆' } : undefined,
-                vector.factNodes.filter(node => currentNodeIds.has(node.id)), true)
-            : { semanticFactRank: new Map<string, number>() };
+    let facts: StoryArchiveFact[] = [];
+    if (sources.size) {
+        const knownIds = new Set(known.flatMap(fact => fact.vectorNodeId ? [fact.vectorNodeId] : []));
+        // Archive references use the local index. Only the summary itself uses a model.
+        const { semanticFactRank } = await selectStoryVectorRecall({ nodes: [], groups: [] },
+            sampleSnippetsFromMessages([...sources.values()].map(source => ({ content: source.text })), 2, 600),
+            undefined, vector.factNodes.filter(node => knownIds.has(node.id)), true);
         const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality' | 'continuity'>> = [];
         let used = 0;
-        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(current, transcript, semanticFactRank)) {
-            const reference = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
-            const size = JSON.stringify(reference).length;
-            if (used + size > (recovering ? 3000 : 12000)) continue;
-            previous.push(reference);
+        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(known, transcript, semanticFactRank)) {
+            const fact = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
+            const size = JSON.stringify(fact).length + 1;
+            if (used + size > 12000) continue;
+            previous.push(fact);
             used += size;
         }
         const input = [
-            `剧情：${entry.title}（第 ${index + 1}/${segments.length} 批）`,
+            `剧情：${entry.title}`,
             '已有结构化记忆（用于核对）\n' + JSON.stringify(previous),
-            ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + (recovering ? reference.slice(0, 5000) : reference)] : []),
-            ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + (recovering ? legacy.slice(0, 2500) : legacy)] : []),
+            ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + reference] : []),
+            ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
             '本批新楼层\n' + transcript,
         ].join('\n\n');
-        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION + (recovering
-            ? '\n上次输出不完整。仅返回本段的新变化，正文简洁，直接输出完整 JSON。' : '');
+        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION;
         const key = run?.completed && JSON.stringify([api.baseUrl, api.model, strategy, instruction, input,
             [...sources].map(([id, source]) => [id, source.authorInput])]);
-        if (key && !recovering && run?.incomplete?.has(key)) {
-            throw new StoryArchiveIncompleteReply('继续处理上次未完成的批次');
-        }
         const cached = key ? run?.completed?.get(key) : undefined;
-        const history: StoryArchiveFact[] = [];
-        let facts: StoryArchiveFact[];
-        try {
-            const raw = cached ?? await requestArchiveCompletion(api, instruction, input, !!entry.memorySummaryApi, strategy);
-            facts = parseStoryArchiveChanges(raw, sources, current, reference, earlier => history.push(earlier), sourceTimes);
-            if (key && cached === undefined) run?.completed?.set(key, raw);
-        } catch (error) {
-            if (key && !recovering && error instanceof StoryArchiveIncompleteReply) run?.incomplete?.add(key);
-            throw error;
-        }
-        historyFacts.push(...history);
-        for (const fact of facts) {
-            const earlier = changed.get(fact.key);
-            // Keep changes to the same state across segments in source order.
-            if (earlier && earlier.kind === 'fact' && fact.kind === 'fact'
-                && (earlier.text !== fact.text || storyArchiveModality(earlier) !== storyArchiveModality(fact))) historyFacts.push(earlier);
-            known.set(fact.key, fact);
-            changed.set(fact.key, fact);
-        }
-    };
-    for (const [index, segment] of segments.entries()) {
-        const progress = { index: index + 1, total: segments.length, first: segment.first, last: segment.first + segment.rows.length - 1 };
-        run?.onProgress?.({ phase: 'summary', ...progress });
-        try {
-            try {
-                await collect(segment, index);
-            } catch (error) {
-                if (!(error instanceof StoryArchiveIncompleteReply)) throw error;
-                run?.onProgress?.({ phase: 'recovering', ...progress });
-                // Smaller source windows keep the original floor and record IDs.
-                // Recovery is bounded and never trusts a partial reply.
-                const parts = segment.rows.length > 1 && segment.rows.reduce((sum, row) => sum + row.content.length, 0) <= 7500
-                    ? [storyArchiveTranscript(segment.rows, segment.first, sourceTimes)]
-                    : segment.rows.flatMap((row, offset) => row.metadata?.theaterContinue ? []
-                        : archiveRecoveryParts(storyArchiveBody(row)).map(passage =>
-                            storyArchiveTranscript([row], segment.first + offset, sourceTimes, passage)));
-                if (parts.length > 6) {
-                    let middle = Math.ceil(segment.rows.length / 2);
-                    if (segment.rows[middle - 1].role === 'user' && segment.rows[middle].role === 'assistant') middle++;
-                    await collect(storyArchiveTranscript(segment.rows.slice(0, middle), segment.first, sourceTimes), index, true);
-                    await collect(storyArchiveTranscript(segment.rows.slice(middle), segment.first + middle, sourceTimes), index, true);
-                } else {
-                    for (const part of parts) await collect(part, index, true);
-                }
-            }
-        } catch (error) {
-            if (segments.length === 1) throw error;
-            const detail = error instanceof Error ? error.message : String(error);
-            throw new Error(`第 ${index + 1}/${segments.length} 批总结失败：${detail}`, { cause: error });
-        }
+        run?.onProgress?.({ phase: 'summary', first: firstFloor, last: firstFloor + batch.length - 1 });
+        const raw = cached ?? await requestArchiveCompletion(api, instruction, input, !!entry.memorySummaryApi, strategy);
+        facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes)
+            .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
+        if (key && cached === undefined) run?.completed?.set(key, raw);
     }
     historyFacts.sort((a, b) => a.sourceMessageId - b.sourceMessageId);
-    const facts = [...changed.values()].sort((a, b) => a.sourceMessageId - b.sourceMessageId);
     const summary = [
         ...(historyFacts.length ? ['【本段历史变化（非当前状态）】\n'
             + formatStoryArchiveFacts(historyFacts, floorNumbers, Infinity, true)] : []),
@@ -654,7 +549,7 @@ async function writeStoryArchiveRange(
     const initial = validate(entry, floors);
     const archiveApi = resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api);
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
-    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), embedding, run);
+    const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), run);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
     const factNodes = embedding ? delta.facts.map(fact => ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,

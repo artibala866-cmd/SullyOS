@@ -6,7 +6,7 @@ import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, reconcileStoryArchiveContinuity, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
-import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
+import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive } from './storyTheaterArchive';
 
 const api = { baseUrl: 'https://llm.invalid/v1/', apiKey: 'test', model: 'test' };
 const completion = (content: unknown, finish_reason = 'stop', reasoning_content = '思考过程') => ({ choices: [{ finish_reason, message: { content, reasoning_content } }] });
@@ -516,7 +516,7 @@ describe('story summary final channel', () => {
         expect(full.semanticFactRank.size).toBe(0);
         expect(fetchMock).not.toHaveBeenCalled(); // All facts fit: inject directly, no extra Embedding cost
     });
-    it('looks up semantically related old vector records before a later summary when references overflow', async () => {
+    it('looks up related old vector records locally before a summary when references overflow', async () => {
         const charId = storyTheaterThreadId(entry.id);
         const node = { id: 'original-permit', charId, room: 'living_room' as const, mood: 'neutral' as const,
             content: '准入凭证由第一班值班员保管，交柜台验签后方可进入。', tags: [], importance: 6,
@@ -533,18 +533,17 @@ describe('story summary final channel', () => {
             {id:'permit',strategy:'vector' as const,createdAt:1,messageCount:1,fromMessageId:1,toMessageId:1,vectorMemoryIds:[node.id],facts},
             {id:'unrelated',strategy:'summary' as const,createdAt:2,messageCount:90,fromMessageId:2,toMessageId:91,facts:distractors},
         ]};
-        const message = {...messages[0],id:200,content:'怎样才能获准进去？'};
+        const message = {...messages[0],id:200,content:'准入凭证应该交给谁验签？'};
         fetchMock.mockReset().mockImplementation(async (url,init)=>{
-            if (String(url).endsWith('/embeddings')) return response({data:[{index:0,embedding:[1,0,0]}]});
+            expect(String(url)).toMatch(/\/chat\/completions$/);
             const body=JSON.parse(String(init.body));
             expect(body.messages[1].content).toContain('旧关卡/通行规则');
             expect(body.messages[1].content).toContain(node.content);
             return response(completion('{"changes":[]}'));
         });
-        const delta = await generateStoryArchiveDelta(story,[message],api,92,'vector',new Map(),
-            {baseUrl:'https://vector.invalid/v1',apiKey:'test',model:'vector',dimensions:3});
+        const delta = await generateStoryArchiveDelta(story,[message],api,92,'vector');
         expect(delta.facts).toEqual([]);
-        expect(fetchMock.mock.calls.map(([url])=>String(url).split('/').at(-1))).toEqual(['embeddings','completions']);
+        expect(fetchMock.mock.calls.map(([url])=>String(url).split('/').at(-1))).toEqual(['completions']);
     });
 
     it('uses vector ranking when the actual prose budget fills below the old 6000-character gate', async () => {
@@ -908,6 +907,18 @@ describe('independent vector archive', () => {
         expect(fetchMock).toHaveBeenCalledTimes(4);
     });
 
+    it('reuses one paid summary on explicit Embedding retry', async () => {
+        const floors = (await prepare()).slice(0, 2);
+        const run = { completed: new Map<string, string>() };
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured('木盒已经找到。', init)));
+        fetchMock.mockResolvedValueOnce(new Response('暂时不可用', { status: 503 }));
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run)).rejects.toThrow('503');
+        expect((await fresh()).archives).toEqual([]);
+        fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
+        await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run)).resolves.toBeDefined();
+        expect(fetchMock.mock.calls.map(([url]) => url.split('/').at(-1))).toEqual(['completions', 'embeddings', 'embeddings']);
+    });
+
     it('keeps archived floors intact if one proposed fact exceeds vector capacity', async () => {
         const floors = await prepare();
         const longText = '剧情信息不可省略。'.repeat(850);
@@ -1157,64 +1168,23 @@ describe('long story archives process small consecutive requests', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
-    it('keeps complete turns together and splits earlier when source text is long', () => {
-        const rows = Array.from({ length: 6 }, (_, index): Message => ({
-            ...messages[index % 2], id: index + 10, content: '长'.repeat(3500),
-        }));
-        expect(splitStoryArchiveBatches(rows).map(batch => batch.map(row => row.id))).toEqual([[10, 11], [12, 13], [14, 15]]);
-    });
-
-    it('continues a 14-batch archive after the sixth reply is cut off, replaying only unfinished requests', async () => {
-        const rows = Array.from({ length:28 }, (_, index): Message => ({
-            ...messages[index % 2], id:index + 22, content:'原文第'+(index + 22)+'楼。'+'其余正文。'.repeat(980),
-        }));
-        const calls: number[][] = [];
-        let unavailable = true;
-        fetchMock.mockImplementation(async (_url, init) => {
-            const request = JSON.parse(String(init.body));
-            const text = (request.messages[1].content as string).split('本批新楼层\n')[1];
-            const ids = [...text.matchAll(/记录ID (\d+)\]/g)].map(match => Number(match[1]));
-            const isRecovery = request.messages[0].content.includes('上次输出不完整');
-            calls.push(ids);
-            if ((ids[0] === 32 && !isRecovery) || (ids[0] === 33 && unavailable)) {
-                return response(completion('{"changes":[{"key":"截断"'));
-            }
-            return response(completion(JSON.stringify({changes:ids.map(id => ({
-                action:'add', kind:'fact', key:'归档/事件'+id, text:'发生了第'+id+'楼的事件。',
-                terms:['事件'], sourceMessageId:id,
-            }))})));
-        });
-        const run = { completed:new Map<string,string>(), incomplete:new Set<string>(), onProgress:vi.fn() };
-        await expect(generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, undefined, run))
-            .rejects.toThrow('第 6/14 批总结失败');
-        expect(calls).toEqual([[22,23],[24,25],[26,27],[28,29],[30,31],[32,33],[32],[33]]);
-        expect(run.onProgress).toHaveBeenCalledWith({phase:'recovering', index:6, total:14, first:32, last:33});
-        unavailable = false;
-        const result = await generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, undefined, run);
-        expect(calls[8]).toEqual([33]);
-        expect(calls.slice(9).flat()).toEqual(rows.slice(12).map(row => row.id));
-        expect(result.facts.map(fact => fact.sourceMessageId)).toEqual(rows.map(row => row.id));
-    });
-
-    it('recovers an oversized individual floor in two passages without losing its source number', async () => {
-        const floor = { ...messages[1], content: '中段邀约。'.repeat(1500) + '结尾确认。'.repeat(1500) };
-        fetchMock.mockResolvedValueOnce(response(completion('{"changes":[', 'length')));
-        fetchMock.mockImplementation(async (_url, init) => {
-            const text = JSON.parse(String(init.body)).messages[1].content.split('本批新楼层\n')[1];
-            const fact = text.includes('中段邀约') ? '中段邀约' : '结尾确认';
-            return response(completion(JSON.stringify({changes:[{key:'长楼/'+fact, text:fact, quote:fact,
-                sourceMessageId:floor.id}]})));
-        });
-        const result = await generateStoryArchiveDelta(entry, [floor], api, 37, 'summary');
-        expect(fetchMock).toHaveBeenCalledTimes(3);
-        expect(result.facts.map(fact => [fact.sourceMessageId,fact.text])).toEqual([
-            [floor.id,'中段邀约'], [floor.id,'结尾确认'],
-        ]);
-        expect(result.summary).toContain('[第 37 楼] 结尾确认');
+    it.each([
+        { name: '截断 JSON', reply: completion('{"changes":[{"key":"截断"') },
+        { name: '输出截断', reply: completion('{"changes":[', 'length') },
+    ])('长篇归档遇到 $name 时只发一次，不拆楼重试，保留旧归档', async ({ reply }) => {
+        const floors = await saveLongStory();
+        const rows = floors.map(row => ({ ...row, content: row.content + '其余正文。'.repeat(980) }));
+        fetchMock.mockResolvedValue(response(reply));
+        const progress = vi.fn();
+        await expect(generateStoryArchiveDelta(entry, rows, api, 22, 'summary', undefined, { onProgress: progress })).rejects.toThrow();
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect(fixture(rows, fetchMock.mock.calls[0][1]).ids).toEqual(rows.map(row => row.id));
+        expect(progress.mock.calls).toEqual([[{ phase: 'summary', first: 22, last: 93 }]]);
+        expect((await fresh()).archives).toEqual(entry.archives);
     });
 
     it.each(['manual', 'automatic', 'regenerate', 'vector'] as const)(
-        'extracts 36 rounds in six ordered requests via %s and stores individual sourced facts', async mode => {
+        'extracts 36 rounds in one summary request via %s and stores individual sourced facts', async mode => {
             const floors = await saveLongStory();
             if (mode === 'regenerate') {
                 entry.archives.push({ id: 'long-box', strategy: 'summary', fromMessageId: floors[0].id,
@@ -1243,10 +1213,9 @@ describe('long story archives process small consecutive requests', () => {
                     : await archiveStoryFloorRange(entry.id, floors, api, undefined, mode === 'vector' ? {
                         embedding: { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test', dimensions: 3 },
                     } : undefined);
-            expect(ranges.map(ids => ids.length)).toEqual([12, 12, 12, 12, 12, 12]);
+            expect(ranges.map(ids => ids.length)).toEqual([72]);
             expect(ranges.flat()).toEqual(floors.map(row => row.id));
-            expect(inputs[1]).toContain('小林保管铜钥匙。');
-            expect(inputs[5].split('本批新楼层\n')[0]).toContain('铜钥匙/持有人');
+            expect(inputs[0]).toContain('小林保管铜钥匙。');
             const archive = 'archives' in result ? result.archives.at(-1)! : result;
             expect(archive.facts?.map(fact => [fact.sourceMessageId, fact.text])).toEqual(
                 [4, 24, 36, 50, 60, 70].map(floor => [floors[floor - 1].id, sample.get(floor)?.text]),
@@ -1257,11 +1226,11 @@ describe('long story archives process small consecutive requests', () => {
                 const facts = collectStoryArchiveFacts(reloaded.archives, Infinity, vector.factTextById);
                 expect(facts.find(fact => fact.key === '钟楼暗号/小林知情')?.text).toBe(sample.get(50)?.text);
             }
-            expect(fetchMock).toHaveBeenCalledTimes(mode === 'vector' ? 7 : 6);
+            expect(fetchMock).toHaveBeenCalledTimes(mode === 'vector' ? 2 : 1);
         },
     );
 
-    it('player simulation: 91 floors, eight cheap-model batches, A-to-B-to-C, one current state and historical provenance', async () => {
+    it('player simulation: 91 floors, one summary request, A-to-B-to-C, one current state and historical provenance', async () => {
         // This fixture normally starts with an old two-floor box. A player's
         // fresh 91-floor story must instead begin at floor one.
         for (const row of messages) await DB.deleteMessage(row.id);
@@ -1286,8 +1255,7 @@ describe('long story archives process small consecutive requests', () => {
         fetchMock.mockImplementation(async (_url, init) => {
             const input = JSON.parse(String(init.body)).messages[1].content as string;
             inputs.push(input);
-            const segment = Number(input.match(/（第 (\d+)\/8 批）/)?.[1]);
-            const eventFloors = ({ 1: [3, 7], 2: [16], 4: [42], 7: [75] } as Record<number, number[]>)[segment] ?? [];
+            const eventFloors = [3, 7, 16, 42, 75];
             const changes = eventFloors.map(eventFloor => ({
                 action: eventFloor === 3 || eventFloor === 75 ? 'add' : 'update',
                 kind: 'fact',
@@ -1306,9 +1274,9 @@ describe('long story archives process small consecutive requests', () => {
         });
         const result = await archiveStoryFloorRange(entry.id, floors.slice(0, 90), api);
         const box = result.archives.at(-1)!;
-        expect(inputs).toHaveLength(8);
-        expect(inputs[1]).toContain('铜钥匙改由阿泽保管。');
-        expect(inputs[3]).toContain('铜钥匙重新由林星保管。');
+        expect(inputs).toHaveLength(1);
+        expect(inputs[0]).toContain('林星把铜钥匙交给阿泽。');
+        expect(inputs[0]).toContain('阿泽把铜钥匙交回林星。');
         expect(box.facts?.map(fact => [fact.key, fact.sourceMessageId])).toEqual([
             ['铜钥匙/持有人', floors[41].id], ['钟楼/密门', floors[74].id],
         ]);
@@ -1333,18 +1301,14 @@ describe('long story archives process small consecutive requests', () => {
         const savedRows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
         expect(savedRows.find(row => row.id === floors[89].id)?.metadata?.theaterArchived).toBe(true);
         expect(savedRows.find(row => row.id === floors[90].id)?.metadata?.theaterArchived).toBeUndefined();
-        expect(fetchMock).toHaveBeenCalledTimes(8);
+        expect(fetchMock).toHaveBeenCalledOnce();
     });
 
-    it('stops on batch three, keeps old archive and original floors, and makes no extra requests', async () => {
+    it('stops on provider failure, keeps old archive and original floors, and makes no extra requests', async () => {
         const floors = await saveLongStory();
-        fetchMock.mockImplementation(async (_url, init) => {
-            const { input, body } = fixture(floors, init);
-            if (input.includes('（第 3/6 批）')) return new Response('服务繁忙', { status: 503 });
-            return response(body);
-        });
-        await expect(archiveStoryFloorRange(entry.id, floors, api)).rejects.toThrow('第 3/6 批总结失败');
-        expect(fetchMock).toHaveBeenCalledTimes(3);
+        fetchMock.mockResolvedValue(new Response('服务繁忙', { status: 503 }));
+        await expect(archiveStoryFloorRange(entry.id, floors, api)).rejects.toThrow('服务繁忙');
+        expect(fetchMock).toHaveBeenCalledOnce();
         expect((await fresh()).archives).toEqual(entry.archives);
         const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
         expect(rows.slice(2)).toEqual(floors);

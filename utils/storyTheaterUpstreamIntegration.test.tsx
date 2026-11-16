@@ -7,7 +7,7 @@ import { OSPreviewProvider } from '../context/OSContext';
 import { StoryTheaterThemeProvider } from '../components/date/story/StoryTheaterTheme';
 import StoryTheaterSession from '../components/date/story/StoryTheaterSession';
 import { DB } from './db';
-import { getStoryGenerationSnapshot } from './storyTheaterBackground';
+import { getStoryGenerationSnapshot, isStoryAutoArchivePaused } from './storyTheaterBackground';
 import { archiveStoryFloorRange, storyArchiveFloors } from './storyTheaterArchive';
 import { saveStoryInputDraft } from './storyTheaterInputDraft';
 import { listStoryVectorMemories } from './storyTheaterVectorMemory';
@@ -308,7 +308,7 @@ it('事件盒页面按条数归档后，可以本地撤销并用相同楼层重�
     await selectFloors();
     expect([...host!.querySelectorAll<HTMLInputElement>('input[type="number"]')].map(input => input.value))
         .toEqual(['2', '3', '2']);
-    expect(host!.textContent).toContain('预计整理 1 批');
+    expect(host!.textContent).toContain('一次总结请求');
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => click('开始整理'));
     await vi.waitFor(async () => {
@@ -682,4 +682,56 @@ it.each([
     for (const [id, memory] of Object.entries(memories)) {
         expect(payload.includes(memory)).toBe(expected.includes(id));
     }
+});
+
+it('自动归档遇到截断仅请求一次，继续游玩与重新进入不再提交同一段', async () => {
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    const entry = {
+        ...createStoryTheaterDraft(), title: '河岸', characterIds: ['actor'], archiveAfter: 3, archiveKeepRecent: 1,
+        automaticMemoryApiEnabled: true,
+        memorySummaryApi: { baseUrl: 'https://summary.invalid/v1', apiKey: 'fixture', model: 'archive' },
+    };
+    await DB.saveStoryTheater(entry);
+    const charId = 'story-theater:' + entry.id;
+    const metadata = { source: 'story_theater', theaterId: entry.id };
+    const first = await DB.saveMessage({ charId, role: 'assistant', type: 'text', content: '风吹过河面。', metadata });
+    await DB.saveMessage({ charId, role: 'assistant', type: 'text', content: '向导走到路边。', metadata });
+    const prose = '河水继续向前流。';
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async url => Response.json({
+        choices: [{ message: { content: String(url).startsWith('https://summary.invalid') ? '{"changes":[' : prose },
+            finish_reason: String(url).startsWith('https://summary.invalid') ? 'length' : 'stop' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    HTMLElement.prototype.scrollTo = vi.fn();
+    const os = {
+        characters: [{ id: 'actor', name: '向导' }], userProfile: { name: '小雨' },
+        apiConfig: { baseUrl: 'https://prose.invalid/v1', apiKey: 'fixture', model: 'prose' },
+        memoryPalaceConfig: {}, theme: {}, addToast: vi.fn(),
+    } as any;
+    const preset = createBlankStoryPreset('河岸');
+    const render = () => root!.render(<OSPreviewProvider value={os}><StoryTheaterThemeProvider>
+        <StoryTheaterSession entry={entry} preset={preset} masks={[]} onBack={() => {}}
+            onEdit={() => {}} onEntryChange={() => {}} onArchiveCommitted={() => {}} />
+    </StoryTheaterThemeProvider></OSPreviewProvider>);
+    await act(async () => render());
+    for (let turn = 1; turn <= 3; turn++) {
+        await act(async () => click('继续当前剧情'));
+        await vi.waitFor(async () => {
+            await act(async () => {});
+            expect(getStoryGenerationSnapshot(entry.id)?.phase).toBe('completed');
+            expect((await DB.getMessagesByCharId(charId, true)).filter(row => row.content === prose)).toHaveLength(turn);
+        });
+        if (turn === 1) {
+            await act(async () => root!.render(null));
+            await act(async () => render());
+        }
+    }
+    expect(isStoryAutoArchivePaused(entry.id, first)).toBe(true);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+        'https://summary.invalid/v1/chat/completions',
+        ...Array(3).fill('https://prose.invalid/v1/chat/completions'),
+    ]);
+    expect((await DB.getStoryTheaters()).find(story => story.id === entry.id)?.archives).toEqual([]);
 });
