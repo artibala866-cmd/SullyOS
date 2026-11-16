@@ -311,7 +311,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                 <ArchiveIcon label='上一页记忆' disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}><CaretLeft size={18} /></ArchiveIcon>
                 <span className='story-memory-page-progress' aria-live='polite'>{visiblePage + 1} / {pageCount}</span>
                 <ArchiveIcon label='下一页记忆' disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}><CaretRight size={18} /></ArchiveIcon>
-            </nav>
+            </nav>}
         </section>
         {record && <dialog ref={dialogRef} aria-labelledby='story-vector-detail-title'
             onCancel={event => { event.preventDefault(); backFromDetail(); }}
