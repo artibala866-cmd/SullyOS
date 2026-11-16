@@ -52,6 +52,7 @@ vi.mock('./db', () => ({ DB: {
 } }));
 import DateApp from '../apps/DateApp';
 import { DB } from './db';
+import { materializeVisionDescriptions } from './visionApi';
 import { dateLaunch } from './dateLaunch';
 import { MEETING_CONTINUE_DISPLAY_TEXT } from './meetingContinue';
 
@@ -217,4 +218,25 @@ it('离开未生成完的感知页也会取消请求，仍可进入另一种开�
     await clickText('见到他');
     expect(mocks.rows).toHaveLength(1);
     expect(mocks.rows[0].metadata.dateOpeningMode).toBe('invite');
+});
+
+
+it('leaving while preparing images aborts the vision stage and never starts text generation', async () => {
+    await enterDirect();
+    let preparationSignal: AbortSignal | undefined;
+    let resolveVision!: (rows: typeof mocks.rows) => void;
+    vi.mocked(materializeVisionDescriptions).mockImplementationOnce((_messages, _config, signal) => {
+        preparationSignal = signal;
+        return new Promise(resolve => { resolveVision = resolve; });
+    });
+    let outcome!: Promise<unknown>;
+    await act(async () => { outcome = mocks.session.onSendMessage('本轮包含图片').catch((error: unknown) => error); });
+    expect(preparationSignal?.aborted).toBe(false);
+    await clickText('退出见面');
+    expect(preparationSignal?.aborted).toBe(true);
+    await act(async () => {
+        resolveVision([]);
+        expect(await outcome).toMatchObject({ name: 'AbortError' });
+    });
+    expect(mocks.fetch).not.toHaveBeenCalled();
 });

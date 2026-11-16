@@ -745,6 +745,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
         userText: string;
         variant: 'send' | 'reroll';
         pendingMessageId?: number;
+        signal?: AbortSignal;
         useVisionDescriptions?: boolean;
     }): Promise<{ messages: ApiMessage[] }> => {
 
@@ -762,7 +763,9 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
         const conversation = [...historyMsgs, { role: 'user', content: userText }];
 
         // 向量召回挂到 char.memoryPalaceInjection，buildCoreContext 会读取
-        await injectMemoryPalace(char, allMsgs, undefined, userProfile?.name);
+        input.signal?.throwIfAborted();
+        await injectMemoryPalace(char, allMsgs, undefined, userProfile?.name, { signal: input.signal });
+        input.signal?.throwIfAborted();
         const context = (await ContextBuilder.buildCharacterContext({
             char, user: userProfile, history: conversation,
             timeOptions: { skipTimeAwareness: !isDateTimeAwarenessOn(char), conversational: true },

@@ -337,11 +337,13 @@ const DateApp: React.FC = () => {
     };
 
     const generateOpening = async (target: CharacterProfile, allMsgs: Message[], selectedOpening: 'approach' | 'invite', signal: AbortSignal, reroll = false) => {
+        const emojis = await DB.getEmojis();
+        signal.throwIfAborted();
         const { messages } = await DatePrompts.buildPeekPayload({
             char: target,
             userProfile,
             allMsgs,
-            emojis: await DB.getEmojis(),
+            emojis,
             useVisionDescriptions: apiConfig.visionApi?.enabled === true,
             openingMode: selectedOpening,
         });
@@ -371,7 +373,7 @@ const DateApp: React.FC = () => {
         try {
             const msgs = await loadCharacterContextMessages(c);
             signal.throwIfAborted();
-            const preparedMsgs = await materializeVisionDescriptions(msgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi);
+            const preparedMsgs = await materializeVisionDescriptions(msgs.filter(m => !isRejectedPrivateMessage(m)), apiConfig.visionApi, signal);
             const result = await generateOpening(c, preparedMsgs, selectedOpening, signal);
             peekBlockActionRef.current = result.action ? { charId: c.id, action: result.action, expected: c.chatBlock } : null;
             setPeekStatus(result.text);
@@ -464,6 +466,7 @@ const DateApp: React.FC = () => {
         return materializeVisionDescriptions(
             allMsgs.filter(message => message.id <= throughId && !isRejectedPrivateMessage(message)),
             apiConfig.visionApi,
+            signal,
         );
     };
 
@@ -475,13 +478,16 @@ const DateApp: React.FC = () => {
         const modelText = userMessage.metadata?.meetingContinue
             ? buildInPersonContinueInstruction(userProfile?.name, target.name)
             : userMessage.content;
+        const emojis = await DB.getEmojis();
+        signal.throwIfAborted();
         const { messages } = await DatePrompts.buildSessionPayload({
             char: { ...target },
             userProfile,
             allMsgs,
-            emojis: await DB.getEmojis(),
+            emojis,
             userText: modelText,
             pendingMessageId: userMessage.id,
+            signal,
             variant,
             useVisionDescriptions: apiConfig.visionApi?.enabled === true,
         });
