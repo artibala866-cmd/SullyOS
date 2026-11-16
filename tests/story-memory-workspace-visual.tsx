@@ -96,6 +96,7 @@ async function start() {
     const search = header?.querySelector<HTMLInputElement>('input[type=search]');
     const cards = document.querySelectorAll(mode === 'vectors' ? '.story-memory-node' : '.story-memory-archive-item');
     if (!header || !scroller || !search || cards.length < (mode === 'vectors' ? 10 : 3)) continue;
+    if (mode === 'boxes' && document.querySelector<HTMLButtonElement>('.story-memory-archive-actions button[aria-label^="重选楼层"]')?.disabled) continue;
     // Scroll the real content; the search must remain fixed above the viewport's scrolling region.
     const originalY = search.getBoundingClientRect().y;
     scroller.scrollTop = scroller.scrollHeight;
