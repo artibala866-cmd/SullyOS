@@ -78,7 +78,14 @@ try {
     }
     if (result?.state !== 'true' || result.width !== width ||
         result.height !== height || !result.fit) {
-        throw new Error('Actual device viewport or story-memory workspace failed: ' + JSON.stringify(result));
+        const debug = await send('Runtime.evaluate', {
+            expression: "({meta:document.querySelector('meta[name=viewport]')?.content,devicePixelRatio,visualViewport:{width:window.visualViewport?.width,scale:window.visualViewport?.scale},html:{client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth},body:{client:document.body.clientWidth,scroll:document.body.scrollWidth},largest:[...document.querySelectorAll('body *')].map(e=>({tag:e.tagName,cls:String(e.className||'').slice(0,70),width:Math.round(e.getBoundingClientRect().width),scroll:e.scrollWidth})).sort((a,b)=>b.width-a.width).slice(0,12)})",
+            returnByValue: true,
+        });
+        const shot = await send('Page.captureScreenshot', { format:'png', fromSurface:true, captureBeyondViewport:false });
+        await writeFile(screenshotPath, Buffer.from(shot.data, 'base64'));
+        throw new Error('Actual device viewport or story-memory workspace failed: ' + JSON.stringify(result)
+            + '; DEBUG=' + JSON.stringify(debug.result?.value));
     }
     const ui = result.report ? JSON.parse(result.report) : null;
     if (!ui?.success || ui.viewport?.width !== width)
