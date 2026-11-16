@@ -454,14 +454,19 @@ it('video playback regression: 19 real vector cards label story time, hide long 
     expect(host!.textContent).toContain('仅是计划');
     expect(host!.textContent).toContain('尚未证实');
     expect(host!.textContent).not.toContain('归档时间：');
-    expect(host!.textContent).toContain('归档范围与操作');
+    expect(host!.textContent).toContain('归档记录');
     expect(host!.textContent).toContain('查看完整记忆');
     expect([...host!.querySelectorAll('article')].map(card=>card.textContent).join('\n')).not.toContain(longText);
     const expand = [...host!.querySelectorAll('button')].find(button=>button.textContent?.includes('查看完整记忆'));
     expect(expand).toBeTruthy();
     await act(async()=>expand!.click());
     expect(host!.textContent).toContain(longText);
-    expect(host!.textContent).toContain('第 1 / 2 页');
+    expect(host!.querySelector('dialog')?.textContent).toContain(longText);
+    expect((host!.querySelector('select[aria-label="跳到记忆页"]') as HTMLSelectElement).options).toHaveLength(2);
+    await act(async () => click('查看原楼'));
+    expect(host!.querySelector('dialog')?.textContent).toContain('第2段剧情事件。');
+    await act(async () => click('返回记忆'));
+    expect(host!.querySelector('dialog')?.textContent).toContain(longText);
 });
 
 it('剧情离线规则只过滤显示与历史，在线 HTML 模板不越界执行，续写保留原文', async () => {

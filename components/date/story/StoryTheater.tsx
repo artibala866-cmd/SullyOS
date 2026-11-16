@@ -57,6 +57,11 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const [regexReady, setRegexReady] = useState(false);
     const [masks, setMasks] = useState<StoryTheaterMask[]>([]);
     const [activeEntry, setActiveEntry] = useState<StoryTheaterEntry | null>(null);
+    const readerEntryId = useRef<string | undefined>();
+    useEffect(() => {
+        if (view === 'session') readerEntryId.current = activeEntry?.id;
+        else if (view !== 'vectors' && view !== 'archives') readerEntryId.current = undefined;
+    }, [view, activeEntry?.id]);
     const [editingPreset, setEditingPreset] = useState<StoryTheaterPreset | null>(null);
     const [maskLocked, setMaskLocked] = useState(false);
     const [deletingEntry, setDeletingEntry] = useState<StoryTheaterEntry | null>(null);
@@ -511,14 +516,33 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
     />{importConflictDialog}</>;
 
-    if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
-    if (view === 'archives' && activeEntry) return <StoryArchivePanel entry={activeEntry} masks={masks} onBack={() => setView('session')} onUpdated={next => { setActiveEntry(next); setEntries(current => current.map(item => item.id === next.id ? next : item)); }} />;
-
-    if (view === 'session' && activeEntry) {
+    if ((view === 'session' || view === 'vectors' || view === 'archives') && activeEntry) {
         if (!regexReady) return <div className='h-full grid place-items-center bg-stone-100 text-slate-600' role='status'>正在读取剧情正则…</div>;
         const preset = presets.find(item => item.id === activeEntry.presetId) || BUILTIN_NIGHT_SCREENING_PRESET;
         const hasVectorArchive = !activeEntry.writesToCharacterMemory || activeEntry.archives.some(archive => archive.strategy === 'vector');
-        return <StoryTheaterSession key={activeEntry.id} entry={activeEntry} preset={preset} regexRules={regexRules} masks={masks} onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)} onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined} onEntryChange={persistEntryInSession} onArchiveCommitted={next => { setActiveEntry(current => current?.id === next.id && viewRef.current !== 'editor' ? next : current); setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt)); }} />;
+        const memoryProps = {
+            entry: activeEntry,
+            masks,
+            onBack: () => setView('session'),
+            onUpdated: (next: StoryTheaterEntry) => {
+                setActiveEntry(next);
+                setEntries(current => current.map(item => item.id === next.id ? next : item));
+            },
+        };
+        return <div className='relative h-full w-full'>
+            {(view === 'session' || readerEntryId.current === activeEntry.id) && <div className={view === 'session' ? 'h-full' : 'invisible h-full'} aria-hidden={view !== 'session'}>
+                <StoryTheaterSession key={activeEntry.id} entry={activeEntry} preset={preset} regexRules={regexRules} masks={masks}
+                    onBack={() => { setActiveEntry(null); setView('list'); }} onEdit={() => void openEntryEditor(activeEntry)}
+                    onOpenArchives={() => setView('archives')} onOpenVectorMemory={hasVectorArchive ? () => setView('vectors') : undefined}
+                    onEntryChange={persistEntryInSession} onArchiveCommitted={next => {
+                        setActiveEntry(current => current?.id === next.id && viewRef.current !== 'editor' ? next : current);
+                        setEntries(current => [next, ...current.filter(item => item.id !== next.id)].sort((a, b) => b.updatedAt - a.updatedAt));
+                    }} />
+            </div>}
+            {view !== 'session' && <div className='absolute inset-0 z-10'>
+                {view === 'vectors' ? <StoryVectorMemoryPanel {...memoryProps} /> : <StoryArchivePanel {...memoryProps} />}
+            </div>}
+        </div>;
     }
 
     return <div className='h-full w-full flex flex-col bg-stone-100 text-slate-800'>

@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, CaretRight, Check, DotsThree, PencilSimple, SpinnerGap, Trash, X } from '@phosphor-icons/react';
-import type { StoryTheaterEntry, StoryTheaterMask } from '../../../types';
+import { CaretLeft, CaretRight, DotsThree, MagnifyingGlass, SpinnerGap, X } from '@phosphor-icons/react';
+import type { Message, StoryArchiveFact, StoryTheaterEntry, StoryTheaterMask } from '../../../types';
 import type { MemoryNode } from '../../../utils/memoryPalace/types';
+import { MemoryVectorDB } from '../../../utils/memoryPalace/db';
 import { useOS } from '../../../context/OSContext';
 import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
 import { DB } from '../../../utils/db';
 import { filterStoryArchiveBaselineRepeats, storyArchiveFactTime, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
-import { storyArchiveFloors } from '../../../utils/storyTheaterArchive';
-import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks, storyTheaterThreadId } from '../../../utils/storyTheater';
+import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks } from '../../../utils/storyTheater';
+import { StoryOutput } from './StoryTheaterSession';
 
 interface Props {
     entry: StoryTheaterEntry;
@@ -18,51 +19,54 @@ interface Props {
     onUpdated: (entry: StoryTheaterEntry) => void;
 }
 
-const PAGE_SIZE = 10;
+interface MemoryRecord {
+    id: string;
+    text: string;
+    node?: MemoryNode;
+    fact?: StoryArchiveFact;
+}
 
-const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, onUpdated }) => {
+const PAGE_SIZE = 10;
+const EMPTY_MASKS: StoryTheaterMask[] = [];
+const searchText = (text: string) => text.normalize('NFKC').toLowerCase();
+const actionClass = 'min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium disabled:opacity-40';
+
+const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, onBack, onUpdated }) => {
     const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
     const [nodes, setNodes] = useState<MemoryNode[]>([]);
     const [loading, setLoading] = useState(true);
+    const [listError, setListError] = useState('');
+    const [reload, setReload] = useState(0);
     const [saving, setSaving] = useState(false);
     const [page, setPage] = useState(0);
+    const [query, setQuery] = useState('');
     const [showRepeatedSetup, setShowRepeatedSetup] = useState(false);
-    const [menuNode, setMenuNode] = useState<MemoryNode | null>(null);
-    const [editing, setEditing] = useState<MemoryNode | null>(null);
-    const [deleting, setDeleting] = useState<MemoryNode | null>(null);
+    const [floors, setFloors] = useState<Message[]>([]);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [detailView, setDetailView] = useState<'memory' | 'source' | 'edit' | 'delete'>('memory');
     const [draft, setDraft] = useState('');
-    const [floorNumbers, setFloorNumbers] = useState<Map<number, number>>(new Map());
-    const [sourceTimes, setSourceTimes] = useState<Map<number, string>>(new Map());
-    const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
-    const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const addToastRef = useRef(addToast);
+    const [editError, setEditError] = useState('');
+    const [indexState, setIndexState] = useState('');
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLElement>(null);
+    const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
 
-    useEffect(() => { addToastRef.current = addToast; }, [addToast]);
     useEffect(() => {
         let active = true;
-        setLoading(true);
         void listStoryVectorMemories(entry.id).then(rows => {
-            if (active) setNodes(rows);
-        }).catch((error: any) => {
-            if (active) addToastRef.current(error?.message || '读取剧情向量记忆失败', 'error');
-        }).finally(() => {
-            if (active) setLoading(false);
-        });
+            if (active) { setNodes(rows); setListError(''); }
+        }).catch(error => {
+            if (active) setListError(error?.message || '读取剧情向量记忆失败');
+        }).finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [entry.id, entry.updatedAt]);
-    useEffect(() => {
-        let active = true;
-        void DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true).then(rows => {
-            if (!active) return;
-            const floors = storyArchiveFloors(rows, entry.id);
-            setFloorNumbers(new Map(floors.map((row, index) => [row.id, index + 1])));
-            setSourceTimes(storyArchiveSourceTimes(floors));
-        }).catch(error => console.warn('[StoryTheater] vector archive floor labels unavailable', error));
-        return () => { active = false; };
-    }, [entry.id, entry.updatedAt]);
+    }, [entry.id, entry.updatedAt, reload]);
+
+    const floorNumbers = useMemo(() => new Map(floors.map((row, index) => [row.id, index + 1])), [floors]);
+    const floorById = useMemo(() => new Map(floors.map(row => [row.id, row])), [floors]);
+    const sourceTimes = useMemo(() => storyArchiveSourceTimes(floors), [floors]);
     const factByNodeId = useMemo(() => new Map(entry.archives.flatMap(box =>
-        (box.facts ?? []).flatMap(fact => fact.vectorNodeId
-            ? [[fact.vectorNodeId, fact] as const] : []))), [entry.archives]);
+        (box.facts ?? []).flatMap(fact => fact.vectorNodeId ? [[fact.vectorNodeId, fact] as const] : []))), [entry.archives]);
     const staticSetup = useMemo(() => {
         const mask = resolveStoryTheaterMask(entry.mask, userProfile, characters, masks);
         const books = resolveStoryTheaterWorldbooks(worldbooks ?? [], characters)
@@ -88,39 +92,77 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
         }
         return current;
     }, [entry.archives]);
-    const filteredNodes = useMemo(() => nodes.filter(node => showRepeatedSetup || !repeatedSetupIds.has(node.id)),
-        [nodes, showRepeatedSetup, repeatedSetupIds]);
-    const pageCount = Math.max(1, Math.ceil(filteredNodes.length / PAGE_SIZE));
-    useEffect(() => { if (page >= pageCount) setPage(pageCount - 1); }, [pageCount, page]);
-    useEffect(() => () => {
-        if (pressTimer.current) clearTimeout(pressTimer.current);
-    }, []);
+    const records = useMemo<MemoryRecord[]>(() => [
+        ...nodes.map(node => ({ id:node.id, node, text:node.content, fact:factByNodeId.get(node.id) })),
+        ...entry.archives.filter(box => box.strategy === 'vector').flatMap(box =>
+            (box.historyFacts ?? []).flatMap<MemoryRecord>((fact, index) => fact.vectorTextState === 'deleted' ? []
+                : [{ id:'history-' + box.id + '-' + index, text:fact.text, fact }])),
+    ].sort((a, b) => (a.fact?.sourceMessageId ?? Infinity) - (b.fact?.sourceMessageId ?? Infinity)
+        || (a.node?.createdAt ?? 0) - (b.node?.createdAt ?? 0)), [nodes, factByNodeId, entry.archives]);
 
-    const visibleNodes = useMemo(() => [...filteredNodes].sort((a, b) =>
-        (factByNodeId.get(a.id)?.sourceMessageId ?? Infinity) - (factByNodeId.get(b.id)?.sourceMessageId ?? Infinity)
-        || a.createdAt - b.createdAt).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-        [filteredNodes, page, factByNodeId]);
+    const normalizedQuery = searchText(query.trim());
+    const filtered = useMemo(() => {
+        if (!normalizedQuery) return records.filter(record => record.node && (showRepeatedSetup || !repeatedSetupIds.has(record.id)));
+        const floorQuery = normalizedQuery.match(/^(?:第\s*)?(\d+)\s*楼?$/u);
+        const words = normalizedQuery.split(/\s+/u);
+        return records.filter(record => {
+            const fact = record.fact;
+            const floor = fact && floorNumbers.get(fact.sourceMessageId);
+            if (floorQuery && floor === Number(floorQuery[1])) return true;
+            if (floorQuery && normalizedQuery.includes('楼')) return false;
+            const time = fact && storyArchiveFactTime({ ...fact, text:record.text }, sourceTimes);
+            const body = searchText([record.text, time, ...(record.node?.tags ?? []), ...(fact?.terms ?? [])].filter(Boolean).join(' '));
+            return words.every(word => body.includes(word));
+        });
+    }, [normalizedQuery, records, showRepeatedSetup, repeatedSetupIds, floorNumbers, sourceTimes]);
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const visiblePage = Math.min(page, pageCount - 1);
+    const visibleRecords = filtered.slice(visiblePage * PAGE_SIZE, (visiblePage + 1) * PAGE_SIZE);
+    useEffect(() => { if (page !== visiblePage) setPage(visiblePage); }, [page, visiblePage]);
+    const record = records.find(item => item.id === selectedId);
+    const activeNode = record?.node;
+    const original = record?.fact && floorById.get(record.fact.sourceMessageId);
+    const floor = record?.fact && floorNumbers.get(record.fact.sourceMessageId);
+
+    useEffect(() => {
+        if (!selectedId) return;
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+    }, [selectedId]);
+    useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [detailView]);
+    useEffect(() => {
+        setIndexState('');
+        if (!activeNode) return;
+        let active = true;
+        void MemoryVectorDB.getByMemoryId(activeNode.id).then(vector => {
+            if (active) setIndexState(vector?.vector.length ? '本地向量已保存' : '本地向量缺失');
+        }).catch(() => { if (active) setIndexState('向量状态暂不可读'); });
+        return () => { active = false; };
+    }, [activeNode]);
 
     const cancelLongPress = () => {
-        if (pressTimer.current) clearTimeout(pressTimer.current);
-        pressTimer.current = null;
+        if (press.current) clearTimeout(press.current.timer);
+        press.current = null;
     };
+    useEffect(() => cancelLongPress, []);
 
-    const beginLongPress = (node: MemoryNode) => {
-        cancelLongPress();
-        pressTimer.current = setTimeout(() => {
-            setMenuNode(node);
-            pressTimer.current = null;
-            if ('vibrate' in navigator) navigator.vibrate?.(12);
-        }, 520);
+    const openDetail = (id: string) => {
+        setDetailView('memory');
+        setEditError('');
+        setSelectedId(id);
     };
-
-    const openEdit = (node: MemoryNode) => {
-        setMenuNode(null);
-        setEditing(node);
-        setDraft(node.content);
+    const closeDetail = () => {
+        if (saving) return;
+        dialogRef.current?.close?.();
+        setSelectedId(null);
     };
-
+    const changePage = (next: number) => {
+        setPage(next);
+        const scroller = listRef.current?.closest('main');
+        if (scroller) scroller.scrollTop = 0;
+    };
     const refreshArchive = async () => {
         try {
             const saved = (await DB.getStoryTheaters()).find(story => story.id === entry.id);
@@ -129,101 +171,169 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = [], onBack, on
             console.warn('[StoryTheater] could not refresh edited archive', error);
         }
     };
-
     const saveEdit = async () => {
-        if (!editing || !draft.trim() || saving) return;
+        if (!activeNode || !draft.trim() || saving) return;
         setSaving(true);
+        setEditError('');
         try {
-            const updated = await updateStoryVectorMemory(entry.id, editing.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig);
+            const updated = await updateStoryVectorMemory(entry.id, activeNode.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig);
             setNodes(current => current.map(node => node.id === updated.id ? updated : node));
-            setEditing(null);
             await refreshArchive();
-            addToast('剧情记忆与向量已同步更新', 'success');
+            setDetailView('memory');
+            addToast('剧情记忆已更新', 'success');
         } catch (error: any) {
-            addToast(error?.message || '剧情记忆修改失败', 'error');
+            setEditError(error?.message || '剧情记忆修改失败');
         } finally {
             setSaving(false);
         }
     };
-
     const confirmDelete = async () => {
-        if (!deleting || saving) return;
+        if (!activeNode || saving) return;
         setSaving(true);
+        setEditError('');
         try {
-            const result = await runStoryArchiveOperation(entry.id, () => deleteStoryVectorMemory(entry.id, deleting.id, remoteVectorConfig));
-            setNodes(current => current.filter(node => node.id !== deleting.id));
-            setDeleting(null);
+            const result = await runStoryArchiveOperation(entry.id, () => deleteStoryVectorMemory(entry.id, activeNode.id, remoteVectorConfig));
+            dialogRef.current?.close?.();
+            setSelectedId(null);
+            setNodes(current => current.filter(node => node.id !== activeNode.id));
             await refreshArchive();
-            addToast(result.remoteDeleted === false ? '本地已删除；远端暂未同步，请检查网络' : '已从本剧情向量分区删除', result.remoteDeleted === false ? 'info' : 'success');
+            addToast(result.remoteDeleted === false ? '本地已删除，远端暂未同步' : '剧情记忆已删除', result.remoteDeleted === false ? 'info' : 'success');
         } catch (error: any) {
-            addToast(error?.message || '剧情记忆删除失败', 'error');
+            setEditError(error?.message || '剧情记忆删除失败');
         } finally {
             setSaving(false);
         }
     };
 
-    return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving}>
-            <section aria-label='向量节点'>
-                <div className='flex flex-wrap items-baseline justify-between gap-2 pb-3'>
-                    <div>
-                        <h2 className='text-sm font-semibold'>向量记忆 · {filteredNodes.length} 条</h2>
-                        {floorNumbers.size > 0 && <p className='mt-1 text-xs text-slate-600'>按原剧情楼层排列</p>}
-                    </div>
-                    {!!repeatedSetupIds.size && <button type='button' className='text-xs text-slate-600 underline'
-                        aria-pressed={showRepeatedSetup} onClick={() => { setPage(0); setShowRepeatedSetup(value => !value); }}>
-                        {showRepeatedSetup ? '收起已有人设' : `查看已有人设（${repeatedSetupIds.size}）`}
-                    </button>}
+    return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving} onFloorsLoaded={setFloors}>
+        <section ref={listRef} aria-label='向量节点'>
+            <div className='sticky top-0 z-10 mb-2 bg-stone-100 py-1'>
+                <div className='relative'>
+                    <MagnifyingGlass size={18} aria-hidden className='pointer-events-none absolute left-3 top-3.5 text-slate-500' />
+                    <input type='search' aria-label='搜索记忆' placeholder='搜索内容、时间或楼层'
+                        value={query} onChange={event => { setQuery(event.target.value); changePage(0); }}
+                        className='min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-base' />
                 </div>
-                {loading ? <div className='py-6 grid place-items-center text-slate-400'><SpinnerGap size={24} className='animate-spin' /></div> : !filteredNodes.length ? <p className='py-3 text-xs text-slate-500'>暂无剧情向量记忆</p> : <>
-                    <div className='space-y-2.5'>{visibleNodes.map(node => {
-                        const fact = factByNodeId.get(node.id);
-                        const floor = fact && floorNumbers.get(fact.sourceMessageId);
-                        const time = fact && storyArchiveFactTime({ ...fact, text: node.content }, sourceTimes);
-                        const modality = fact && storyArchiveModality(fact);
-                        const past = fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId;
-                        const label = repeatedSetupIds.has(node.id) ? '已有人设'
-                            : modality === 'planned' ? '仅是计划' : modality === 'unverified' ? '尚未证实'
-                            : fact?.kind === 'author' ? '写作要求' : '';
-                        const expanded = expandedNodeIds.has(node.id);
-                        const firstSentence = node.content.match(/^[^。！？\n]+[。！？]/u)?.[0];
-                        const preview = firstSentence && firstSentence.length <= 84 ? firstSentence : node.content.slice(0, 84);
-                        const canExpand = node.content.length > 84;
-                        return <article key={node.id}
-                            onPointerDown={() => beginLongPress(node)} onPointerUp={cancelLongPress}
-                            onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress}
-                            onContextMenu={event => { event.preventDefault(); cancelLongPress(); setMenuNode(node); }}
-                            className='relative rounded-xl border border-slate-200 bg-white py-3 pl-3.5 pr-11'>
-                            <div className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] leading-5'>
-                                <strong className='font-semibold'>{time || (floor ? '第 ' + floor + ' 楼' : '旧记忆')}</strong>
-                                {time && floor && <span className='text-slate-600'>第 {floor} 楼</span>}
-                                {fact?.kind === 'fact' && !time && !floor && <span className='text-slate-600'>来源楼层缺失</span>}
-                                {past && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>过去的状态</span>}
-                                {label && <span className='rounded bg-stone-100 px-1.5 text-[11px] text-slate-700'>{label}</span>}
-                            </div>
-                            <p className='mt-1.5 whitespace-pre-wrap break-words text-sm leading-6'>
-                                {!canExpand || expanded ? node.content : preview + '…'}
-                            </p>
-                            {canExpand && <button type='button' className='mt-1.5 text-xs text-slate-600 underline'
-                                aria-expanded={expanded} onPointerDown={event => event.stopPropagation()} onClick={() => setExpandedNodeIds(current => {
-                                    const next = new Set(current);
-                                    if (next.has(node.id)) next.delete(node.id);
-                                    else next.add(node.id);
-                                    return next;
-                                })}>{expanded ? '收起全文' : '查看完整记忆'}</button>}
-                            <button onClick={() => setMenuNode(node)} onPointerDown={event => event.stopPropagation()}
-                                className='absolute right-1 top-1 grid size-10 place-items-center rounded-full text-slate-600'
-                                aria-label='记忆操作'><DotsThree size={18} weight='bold' /></button>
-                        </article>;
-                    })}</div>
-                    {pageCount > 1 && <nav className='pt-6 border-t border-slate-200 flex items-center justify-between'><button disabled={page === 0} onClick={() => setPage(current => Math.max(0, current - 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretLeft size={15} /></button><span className='text-[10px] text-slate-500'>第 {page + 1} / {pageCount} 页</span><button disabled={page + 1 >= pageCount} onClick={() => setPage(current => Math.min(pageCount - 1, current + 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretRight size={15} /></button></nav>}
-                </>}
-            </section>
-
-        {menuNode && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => setMenuNode(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-center justify-between'><div><div className='text-[9px] uppercase tracking-[.2em] text-neutral-500 font-bold'>Memory action</div><h3 className='mt-1 font-semibold'>这条剧情记忆</h3></div><button onClick={() => setMenuNode(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><div className='mt-5 border-t border-slate-200'><button onClick={() => openEdit(menuNode)} className='w-full py-4 flex items-center gap-3 text-sm font-semibold'><PencilSimple size={18} className='text-neutral-500' />编辑文字并重建向量</button><button onClick={() => { setDeleting(menuNode); setMenuNode(null); }} className='w-full py-4 border-t border-slate-200 flex items-center gap-3 text-sm font-semibold text-neutral-600'><Trash size={18} />删除这条记忆</button></div></div></div>}
-
-        {editing && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setEditing(null)}><div className='story-safe-sheet story-keyboard-sheet w-full sm:max-w-lg rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-start justify-between gap-3'><div><div className='text-[9px] uppercase tracking-[.2em] text-neutral-500 font-bold'>Re-embed</div><h3 className='mt-1 font-semibold'>编辑剧情记忆</h3><p className='mt-1 text-[10px] text-slate-500'>正文变化后会沿用原 ID 重建向量，不会产生重复记忆。</p></div><button disabled={saving} onClick={() => setEditing(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><textarea autoFocus value={draft} onChange={event => setDraft(event.target.value)} className='mt-5 w-full min-h-40 resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none focus:border-neutral-400' /><div className='mt-2 flex justify-end'><ArchiveIcon label='保存并同步向量' disabled={saving || !draft.trim()} onClick={() => void saveEdit()}>{saving ? <SpinnerGap size={18} className='animate-spin' /> : <Check size={19} />}</ArchiveIcon></div></div></div>}
-
-        {deleting && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setDeleting(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='text-[9px] uppercase tracking-[.2em] text-neutral-500 font-bold'>Delete memory</div><h3 className='mt-1 text-lg font-semibold'>删除后无法恢复</h3><p className='mt-2 text-[11px] leading-5 text-slate-500'>只会删除当前剧情分区内的这一条节点、向量和关联边。</p><div className='mt-5 grid grid-cols-2 gap-3'><button disabled={saving} onClick={() => setDeleting(null)} className='h-11 rounded-2xl bg-white border border-slate-200 text-xs font-bold'>取消</button><button disabled={saving} onClick={() => void confirmDelete()} className='h-11 rounded-2xl bg-neutral-600 text-white text-xs font-bold'>{saving ? '删除中…' : '确认删除'}</button></div></div></div>}
+            </div>
+            <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
+                <h2 className='text-sm font-semibold'>{normalizedQuery ? '搜索结果' : '向量记忆'} · {filtered.length} 条</h2>
+                {!normalizedQuery && !!repeatedSetupIds.size && <button type='button' className='min-h-10 px-1 text-xs text-slate-600 underline'
+                    aria-pressed={showRepeatedSetup} onClick={() => { setPage(0); setShowRepeatedSetup(value => !value); }}>
+                    {showRepeatedSetup ? '收起已有人设' : `查看已有人设（${repeatedSetupIds.size}）`}
+                </button>}
+            </div>
+            {listError && <div role='alert' className='mb-2 flex items-center gap-2 text-sm text-rose-700'>
+                <span className='min-w-0 flex-1 break-words'>{listError}</span>
+                <button className={actionClass} onClick={() => setReload(value => value + 1)}>重试</button>
+            </div>}
+            {pageCount > 1 && <nav aria-label='记忆分页' className='mb-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-1 py-1'>
+                <ArchiveIcon label='上一页' disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}><CaretLeft size={16} /></ArchiveIcon>
+                <label className='flex items-center gap-1 text-sm'>第
+                    <select aria-label='跳到记忆页' value={visiblePage} onChange={event => changePage(Number(event.target.value))} className='min-h-10 rounded-md border border-slate-200 bg-white px-2 text-base'>
+                        {Array.from({ length:pageCount }, (_, index) => <option key={index} value={index}>{index + 1}</option>)}
+                    </select> / {pageCount} 页
+                </label>
+                <ArchiveIcon label='下一页' disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}><CaretRight size={16} /></ArchiveIcon>
+            </nav>}
+            {loading ? <div role='status' aria-label='正在读取记忆' className='grid place-items-center py-6 text-slate-500'><SpinnerGap size={24} className='animate-spin' /></div>
+                : !filtered.length && !listError ? <p className='py-3 text-sm text-slate-600'>{normalizedQuery ? '没有匹配的记忆' : '暂无剧情向量记忆'}</p>
+                : <div className='space-y-2.5'>{visibleRecords.map(item => {
+                    const fact = item.fact;
+                    const number = fact && floorNumbers.get(fact.sourceMessageId);
+                    const time = fact && storyArchiveFactTime({ ...fact, text:item.text }, sourceTimes);
+                    const modality = fact && storyArchiveModality(fact);
+                    const past = !item.node || (fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId);
+                    const label = repeatedSetupIds.has(item.id) ? '已有人设'
+                        : modality === 'planned' ? '仅是计划' : modality === 'unverified' ? '尚未证实'
+                        : fact?.kind === 'author' ? '写作要求' : '';
+                    const firstSentence = item.text.match(/^[^。！？\n]+[。！？]/u)?.[0];
+                    const preview = firstSentence && firstSentence.length <= 84 ? firstSentence : item.text.slice(0,84);
+                    return <article key={item.id}
+                        onPointerDown={event => {
+                            cancelLongPress();
+                            if (!event.isPrimary || event.button !== 0) return;
+                            press.current = { x:event.clientX, y:event.clientY, timer:setTimeout(() => {
+                                press.current = null;
+                                openDetail(item.id);
+                            }, 520) };
+                        }}
+                        onPointerMove={event => {
+                            if (press.current && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 8) cancelLongPress();
+                        }}
+                        onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress}
+                        onContextMenu={event => { event.preventDefault(); cancelLongPress(); openDetail(item.id); }}
+                        className='relative rounded-xl border border-slate-200 bg-white'>
+                        <button type='button' onClick={() => openDetail(item.id)} className='block w-full rounded-xl py-3 pl-3.5 pr-12 text-left focus-visible:outline focus-visible:outline-violet-500'>
+                            <span className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs leading-5'>
+                                <strong>{time || (number ? '第 ' + number + ' 楼' : '旧记忆')}</strong>
+                                {time && number && <span className='text-slate-600'>第 {number} 楼</span>}
+                                {past && <span className='rounded bg-stone-100 px-1.5 text-slate-700'>过去的状态</span>}
+                                {label && <span className='rounded bg-stone-100 px-1.5 text-slate-700'>{label}</span>}
+                            </span>
+                            <span className='mt-1.5 block whitespace-pre-wrap break-words text-sm leading-6'>
+                                {item.text.length <= 84 ? item.text : preview + '…'}
+                            </span>
+                            {item.text.length > 84 && <span className='mt-1 block text-xs text-slate-600 underline'>查看完整记忆</span>}
+                        </button>
+                        <button type='button' onClick={() => openDetail(item.id)} onPointerDown={event => event.stopPropagation()}
+                            className='absolute right-1 top-1 grid size-11 place-items-center rounded-full text-slate-600'
+                            aria-label='记忆操作'><DotsThree size={18} weight='bold' /></button>
+                    </article>;
+                })}</div>}
+            {pageCount > 1 && <nav aria-label='继续翻页' className='mt-3 flex justify-between gap-2'>
+                <button className={actionClass} disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}>上一页记忆</button>
+                <button className={actionClass} disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}>下一页记忆</button>
+            </nav>}
+        </section>
+        {record && <dialog ref={dialogRef} aria-labelledby='story-vector-detail-title'
+            onCancel={event => { event.preventDefault(); closeDetail(); }}
+            style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 18px)' }}
+            className='story-safe-sheet story-keyboard-sheet fixed inset-x-0 bottom-0 top-auto m-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-3xl border-0 bg-white p-4 text-slate-800 backdrop:bg-slate-950/40'>
+            <div className='flex max-h-[calc(85dvh-3rem)] flex-col overflow-hidden'>
+                <header className='flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 pb-2'>
+                    <h3 id='story-vector-detail-title' className='text-base font-semibold'>
+                        {detailView === 'edit' ? '编辑剧情记忆' : detailView === 'delete' ? '删除这条记忆'
+                            : detailView === 'source' ? '第 ' + floor + ' 楼原文' : '记忆详情'}
+                    </h3>
+                    <ArchiveIcon label='关闭记忆详情' disabled={saving} onClick={closeDetail}><X size={18} /></ArchiveIcon>
+                </header>
+                <div ref={bodyRef} className='story-page-scroll min-h-0 overflow-y-auto overscroll-contain py-3'>
+                    {detailView === 'memory' && <>
+                        <div className='mb-2 flex flex-wrap gap-x-3 text-xs text-slate-600'>
+                            {floor && <span>第 {floor} 楼</span>}
+                            {indexState && <span>{indexState}</span>}
+                        </div>
+                        <p className='whitespace-pre-wrap break-words text-base leading-7'>{record.text}</p>
+                    </>}
+                    {detailView === 'source' && original && (original.role === 'assistant'
+                        ? <StoryOutput content={original.content} affinityInputs={[]} />
+                        : <p className='whitespace-pre-wrap break-words text-base leading-7'>{original.content}</p>)}
+                    {detailView === 'edit' && <textarea autoFocus aria-label='记忆正文' value={draft} disabled={saving}
+                        onChange={event => setDraft(event.target.value)} className='min-h-36 w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-base leading-7' />}
+                    {detailView === 'delete' && <p className='text-sm leading-6'>此条记忆及其向量将永久删除。</p>}
+                    {editError && <p role='alert' className='mt-2 break-words text-sm text-rose-700'>{editError}</p>}
+                </div>
+                <footer className='flex shrink-0 flex-wrap gap-2 border-t border-slate-200 pt-3'>
+                    {detailView === 'memory' ? <>
+                        {original && <button className={actionClass} onClick={() => setDetailView('source')}>查看原楼</button>}
+                        {activeNode && <button className={actionClass} onClick={() => {
+                            setDraft(activeNode.content); setEditError(''); setDetailView('edit');
+                        }}>编辑</button>}
+                        {activeNode && <button className={actionClass + ' ml-auto text-rose-700'} onClick={() => {
+                            setEditError(''); setDetailView('delete');
+                        }}>删除</button>}
+                    </> : <>
+                        <button className={actionClass} disabled={saving} onClick={() => { setEditError(''); setDetailView('memory'); }}>返回记忆</button>
+                        {detailView === 'edit' && <button className='min-h-11 flex-1 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white disabled:opacity-40'
+                            disabled={saving || !draft.trim() || draft.trim() === activeNode?.content} onClick={() => void saveEdit()}>
+                            {saving ? '保存中…' : '保存并更新向量'}
+                        </button>}
+                        {detailView === 'delete' && <button className='min-h-11 flex-1 rounded-lg bg-rose-700 px-3 text-sm font-semibold text-white disabled:opacity-40'
+                            disabled={saving} onClick={() => void confirmDelete()}>{saving ? '删除中…' : '确认删除'}</button>}
+                    </>}
+                </footer>
+            </div>
+        </dialog>}
     </StoryArchivePanel>;
 };
 
