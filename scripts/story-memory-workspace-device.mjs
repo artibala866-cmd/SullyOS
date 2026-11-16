@@ -110,7 +110,7 @@ try {
             if (!detail.result?.value) throw new Error('Memory detail sheet failed to open from real node');
             const detailShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
             await writeFile(screenshotPath.slice(0, -4) + '-detail.png', Buffer.from(detailShot.data, 'base64'));
-            await send('Runtime.evaluate', { expression: "document.querySelector('button[aria-label=\\"关闭记忆详情\\"]')?.click()" });
+            await send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="关闭记忆详情"]')?.click()` });
             await sleep(250);
         }
         await send('Runtime.evaluate', { expression: "document.querySelector('.story-memory-tabs button[aria-pressed=false]')?.click()" });
@@ -131,7 +131,7 @@ try {
         const expanded = await send('Page.captureScreenshot', { format:'png', fromSurface:true, captureBeyondViewport:false });
         await writeFile(screenshotPath.slice(0, -4) + '-expanded.png', Buffer.from(expanded.data, 'base64'));
         await send('Runtime.evaluate', {
-            expression: "document.querySelector('.story-memory-archive-item > details > summary')?.click(); document.querySelector('.story-memory-archive-actions button[aria-label^=\\"重选楼层\\"]')?.click()",
+            expression: `document.querySelector('.story-memory-archive-item > details > summary')?.click(); document.querySelector('.story-memory-archive-actions button[aria-label^="重选楼层"]')?.click()`,
         });
         await sleep(500);
         const rangeVisible = await send('Runtime.evaluate', {
