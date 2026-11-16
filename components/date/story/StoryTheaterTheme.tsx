@@ -234,6 +234,56 @@ export const STORY_THEME_CSS = `
   border-bottom-color: var(--story-cinema-trim) !important;
   background-image: linear-gradient(90deg, transparent, var(--story-cinema-wash) 55%, transparent);
 }
+
+/* Independent story memory / event boxes. Subtle, isolated from the other story pages. */
+.story-theme .story-memory-workspace { --story-memory-shadow: 0 1px 3px rgba(0,0,0,.035); font-variant-numeric: tabular-nums; }
+.story-theme.story-theme-dark .story-memory-workspace { --story-memory-shadow: 0 1px 4px rgba(0,0,0,.16); }
+.story-theme .story-memory-header { background: var(--story-surface); }
+.story-theme .story-memory-header-row { gap: 4px; }
+.story-theme .story-memory-header-row h1 { font-size: 15px; letter-spacing: -.015em; }
+.story-theme .story-memory-header-row p { color: var(--story-muted) !important; }
+.story-theme .story-memory-header button { color: var(--story-ink); }
+.story-theme .story-memory-tabs { background: var(--story-soft); border: 1px solid var(--story-line); border-radius: 12px; gap: 4px; }
+.story-theme .story-memory-tabs button { flex: 1 1 0; min-width: 0; border-radius: 9px; background: transparent !important; color: var(--story-muted) !important; font-size: 12px; font-weight: 500; transition: background-color .15s ease, color .15s ease; }
+.story-theme .story-memory-tabs button[aria-pressed="true"] { background: var(--story-raised) !important; color: var(--story-ink) !important; box-shadow: var(--story-memory-shadow); font-weight: 600; }
+.story-theme .story-memory-search-bar { background: var(--story-surface); }
+.story-theme .story-memory-search-input { appearance: none; border: 1px solid var(--story-line) !important; background: var(--story-raised) !important; color: var(--story-ink) !important; border-radius: 11px; font-size: 14px; box-shadow: none; }
+.story-theme .story-memory-search-input::placeholder { color: var(--story-faint); opacity: 1; }
+.story-theme .story-memory-search-input:focus { border-color: var(--story-muted) !important; outline: none; }
+.story-theme .story-memory-search-field svg { color: var(--story-muted) !important; }
+.story-theme .story-memory-scroll { padding-top: 14px; padding-bottom: calc(var(--safe-bottom) + 22px); }
+.story-theme .story-memory-count h2 { color: var(--story-ink); font-size: 12px; font-weight: 600; }
+.story-theme .story-memory-count button { text-decoration: none; color: var(--story-muted) !important; }
+.story-theme .story-memory-pager { border: 1px solid var(--story-line); border-radius: 12px; background: var(--story-surface); }
+.story-theme .story-memory-pager button, .story-theme .story-memory-bottom-page button { color: var(--story-ink) !important; border-radius: 10px; }
+.story-theme .story-memory-pager button:hover:not(:disabled), .story-theme .story-memory-bottom-page button:hover:not(:disabled) { background: var(--story-soft); }
+.story-theme .story-memory-page-number { color: var(--story-muted); font-size: 12px; }
+.story-theme .story-memory-page-number select { min-width: 48px; border-color: var(--story-line) !important; border-radius: 9px; background: var(--story-raised) !important; color: var(--story-ink) !important; text-align: center; font-size: 13px; }
+.story-theme .story-memory-node { border-color: var(--story-line) !important; background: var(--story-raised) !important; box-shadow: var(--story-memory-shadow); border-radius: 13px; overflow: hidden; }
+.story-theme .story-memory-node button:first-child { color: var(--story-ink); }
+.story-theme .story-memory-node strong { font-weight: 600; }
+.story-theme .story-memory-node-more { color: var(--story-muted) !important; }
+.story-theme .story-memory-node-more:hover { background: var(--story-soft); }
+.story-theme .story-memory-node-hint { color: var(--story-muted) !important; font-size: 11px; }
+.story-theme .story-memory-bottom-page { max-width: 260px; margin-left: auto; margin-right: auto; padding: 4px 6px; border-radius: 12px; background: var(--story-surface); border: 1px solid var(--story-line); }
+.story-theme .story-memory-page-progress { font-size: 12px; color: var(--story-muted); }
+.story-theme .story-memory-archive-list { display: flex; flex-direction: column; gap: 10px; }
+.story-theme .story-memory-archive-item { padding: 12px 13px; border-radius: 13px; background: var(--story-raised); border: 1px solid var(--story-line); box-shadow: var(--story-memory-shadow); }
+.story-theme .story-memory-archive-heading { min-width: 0; }
+.story-theme .story-memory-archive-heading h2 { font-size: 13px; font-weight: 600; color: var(--story-ink); }
+.story-theme .story-memory-archive-heading p { margin-top: 3px; color: var(--story-muted) !important; font-size: 11px; }
+.story-theme .story-memory-archive-heading input[type="checkbox"] { accent-color: var(--story-ink); }
+.story-theme .story-memory-archive-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin: 8px 0 4px; }
+.story-theme .story-memory-archive-actions button { min-height: 36px; border-radius: 9px; border: 1px solid var(--story-line); background: var(--story-surface); padding: 0 12px; font-size: 12px; font-weight: 500; }
+.story-theme .story-memory-archive-item details { margin-top: 6px; }
+.story-theme .story-memory-archive-item summary { color: var(--story-muted) !important; line-height: 1.7; }
+.story-theme .story-memory-range { border-color: var(--story-line) !important; box-shadow: var(--story-memory-shadow); }
+.story-theme .story-memory-workspace input:not([type="checkbox"]), .story-theme .story-memory-workspace textarea, .story-theme .story-memory-workspace select { color: var(--story-ink); background-color: var(--story-raised); border-color: var(--story-line); }
+.story-theme .story-memory-action { border-color: var(--story-line) !important; background: var(--story-raised) !important; color: var(--story-ink); }
+.story-theme .story-memory-dialog { background: var(--story-raised) !important; color: var(--story-ink) !important; box-shadow: 0 -12px 40px rgba(0,0,0,.12); }
+.story-theme .story-memory-dialog button { color: inherit; }
+.story-theme .story-memory-dialog button.bg-violet-700 { background: var(--story-accent) !important; color: var(--story-bg) !important; }
+.story-theme .story-memory-workspace button:focus-visible, .story-theme .story-memory-workspace input:focus-visible, .story-theme .story-memory-workspace select:focus-visible, .story-theme .story-memory-workspace textarea:focus-visible { outline: 2px solid var(--story-muted); outline-offset: 2px; }
 /* Archive groups and history paging are light dividers, never nested cards. */
 .story-theme .story-archive-summary::before,
 .story-theme .story-archive-summary::after,
