@@ -35,7 +35,6 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [rangeFailure,setRangeFailure]=useState('');
  const [rangeBusy,setRangeBusy]=useState(false);
  const rangeActions=useRef<HTMLDivElement>(null);
- useEffect(()=>{if(rangeFailure)rangeActions.current?.scrollIntoView?.({block:'nearest'});},[rangeFailure]);
  const isVector=strategy==='vector';
  const allBoxes=useMemo(()=>entry.archives.filter(a=>a.strategy===strategy),[entry.archives,strategy]);
  const legacy=allBoxes.filter(box=>isVector&&!box.vectorMemoryIds);
@@ -45,6 +44,14 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [range,setRange]=useState<{first:string;last:string;replaceId?:string}|null>(null);
  const rangeSection=useRef<HTMLElement>(null);
  const scrollRef=useRef<HTMLElement>(null);
+ useLayoutEffect(()=>{
+  const scroller=scrollRef.current, actions=rangeActions.current;
+  if(!rangeFailure||!scroller||!actions)return;
+  const viewport=window.visualViewport;
+  const bottom=Math.min(scroller.getBoundingClientRect().bottom,viewport?viewport.offsetTop+viewport.height:window.innerHeight);
+  const overflow=actions.getBoundingClientRect().bottom-bottom+12;
+  if(overflow>0)scroller.scrollTop+=overflow;
+ },[rangeFailure]);
  const tabScroll=useRef({vector:0,archives:0});
  const [tab,setTab]=useState<'vector'|'archives'>('vector');
  const [archiveQuery,setArchiveQuery]=useState('');
