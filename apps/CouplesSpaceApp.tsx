@@ -12,7 +12,7 @@ import { DB } from '../utils/db';
 import { characterBlocksUser, userBlocksCharacter } from '../utils/chatBlock';
 import { extractJson } from '../utils/safeApi';
 import { processImage } from '../utils/file';
-import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readSpaces, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, replantBond, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
+import { capsuleStatus, createBond, createEntry, dayKey, daysTogether, readBond, readSpaces, deliverBondMessage, relationNames, setBondOpen, reward, spaceKey, writeBond, careForPlant, collectPlantDroplets, harvestPlant, replantBond, touchPortraitSlots, pairCoverStyles, plantCareWait, isRecentPlantWatering, PLANT_WATER_NOTICE_MS, plantStage, bondLevel, panelLevels, type Bond, type EntryKind, type Relation } from '../utils/couplesSpace';
 import { BondRecords, recordNames, type ChangeBond } from './couplesSpace/records';
 import { BondShop, bondAchievements } from './couplesSpace/shop';
 import { generateBondText, generateBondArtwork, generateBondPortrait, readPairDigest, detectBondPortraitAnchors, loadBondMilestoneSources } from '../utils/couplesGeneration';
@@ -45,6 +45,9 @@ const featureNotes: Partial<Record<Panel, string>> = {
   shop: '交换有趣的专属羁绊', achievements: '收藏共同完成的成就',
 };
 
+const canRespond = (character: CharacterProfile | undefined) =>
+  !!character && !characterBlocksUser(character.chatBlock) && !userBlocksCharacter(character.chatBlock);
+
 function Avatar({ person }: { person: { avatar: string; name: string } }) {
   const [failedAvatar, setFailedAvatar] = useState<string>();
   return <span className="couple-avatar">
@@ -72,7 +75,7 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
   const [dragging, setDragging] = useState(false);
   const dragProgress = Math.max(-1, Math.min(1, dragPx / 115));
   const shift = (step: number) => {
-    if (characters.length > 1) onSelect(characters[(activeIndex + step + characters.length) % characters.length].id);
+    if (!busy && characters.length > 1) onSelect(characters[(activeIndex + step + characters.length) % characters.length].id);
   };
   return <section className="couple-picker" aria-label="环绕星球角色选择">
     <div className="couple-picker-intro">
@@ -168,8 +171,9 @@ function OrbitCharacterPicker({ characters, selectedId, status, busy, onSelect, 
 
 export default function CouplesSpaceApp() {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, userProfile, apiConfig, addToast } = useOS();
-    const visibleCharacters = useIdentityCharacterOptions();
-  const [partnerId, setPartnerId] = useState(() => characters.some(item => item.id === activeCharacterId) ? (activeCharacterId || '') : (characters[0]?.id || ''));
+  const visibleCharacters = useIdentityCharacterOptions();
+  const [selectedPartnerId, setPartnerId] = useState(activeCharacterId ?? '');
+  const partnerId = visibleCharacters.find(item => item.id === selectedPartnerId)?.id ?? visibleCharacters[0]?.id ?? '';
   const [pickerStep, setPickerStep] = useState<'orbit' | 'actions' | 'space'>('orbit');
   const [pairs, setPairs] = useState(false);
   const [pair, setPair] = useState<string[]>([]);
@@ -228,7 +232,7 @@ export default function CouplesSpaceApp() {
   useEffect(() => {
     let active = true;
     const load = () => {
-      const revision = readRevision.current;
+      const revision = ++readRevision.current;
       void readSpaces().then(value => {
         if (active && revision === readRevision.current) setSpaces(value);
       }, () => {
@@ -268,11 +272,15 @@ export default function CouplesSpaceApp() {
     };
   }, [panel, bond?.plant.watered, bond?.plant.lastSide]);
   useEffect(() => {
-    if (characters.length && !characters.some(item => item.id === partnerId)) {
-      setPartnerId(characters[0].id);
-      setPickerStep('orbit');
-    }
-  }, [characters, partnerId]);
+    if (selectedPartnerId === partnerId) return;
+    requestRef.current?.abort();
+    setPanel(undefined);
+    setConfirmClose(false);
+    setLockedPanel(undefined);
+    setGallery(undefined);
+    setPickerStep('orbit');
+    setPartnerId(partnerId);
+  }, [partnerId, selectedPartnerId]);
   useEffect(() => {
     if (!spaces || pairs || pickerStep === 'orbit') return;
     if (pickerStep === 'space' && bond?.status !== 'open') {
@@ -285,6 +293,13 @@ export default function CouplesSpaceApp() {
       setPickerStep('space');
     }
   }, [spaces, pairs, pickerStep, bond?.status]);
+  useEffect(() => {
+    if (!spaces || !isPair || (bond && char && other)) return;
+    requestRef.current?.abort();
+    setPanel(undefined);
+    setGallery(undefined);
+    setPair([]);
+  }, [spaces, isPair, bond, char, other]);
   useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [panel, key, pairs, pickerStep]);
   useEffect(() => {
     if (confirmClose) confirmation.current?.scrollIntoView?.({ block: 'nearest' });
@@ -302,10 +317,7 @@ export default function CouplesSpaceApp() {
   };
   useLocalBackHandler(back, 25);
 
-  const persist = async (ids: string[], update: (current: Bond | undefined) => Bond | undefined) => {
-    // Ignore a focus-refresh which began before this atomic write.
-    readRevision.current++;
-    const entry = await writeBond(ids, update);
+  const cacheBond = (ids: string[], entry: Bond | undefined) => {
     readRevision.current++;
     setSpaces(current => {
       const next = { ...current };
@@ -313,6 +325,12 @@ export default function CouplesSpaceApp() {
       else delete next[spaceKey(ids)];
       return next;
     });
+  };
+  const persist = async (ids: string[], update: (current: Bond | undefined) => Bond | undefined) => {
+    // Ignore a focus-refresh which began before this atomic write.
+    readRevision.current++;
+    const entry = await writeBond(ids, update);
+    cacheBond(ids, entry);
     return entry;
   };
   const change: ChangeBond = async update => {
@@ -345,12 +363,23 @@ export default function CouplesSpaceApp() {
     requestRef.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 90_000);
     try {
-      const currentCharacter = await DB.getCharacter(char.id);
-      if (!currentCharacter || (!isPair && (characterBlocksUser(currentCharacter.chatBlock) || userBlocksCharacter(currentCharacter.chatBlock))))
-        throw new Error('角色已移除或私聊当前不可用');
-      if (controller.signal.aborted) throw new DOMException('请求已取消', 'AbortError');
-      return await generateBondText(currentCharacter, other ? { name: other.name, avatar: other.avatar, bio: '' } : userProfile,
-        apiConfig, current, instruction, controller.signal, other, timelineDate);
+      const check = async () => {
+        const [currentCharacter, liveBond, currentOther] = await Promise.all([
+          DB.getCharacter(char.id), readBond(current.members), other ? DB.getCharacter(other.id) : undefined,
+        ]);
+        if (controller.signal.aborted) throw new DOMException('请求已取消', 'AbortError');
+        if (!currentCharacter || (other && !currentOther) || (!isPair && !canRespond(currentCharacter)))
+          throw new Error('角色已移除或私聊当前不可用');
+        if (liveBond?.id !== current.id || liveBond.status !== current.status || liveBond.relation !== current.relation)
+          throw new Error('空间状态已变化，请重新进入');
+        return { currentCharacter, currentOther, liveBond };
+      };
+      const { currentCharacter, currentOther, liveBond } = await check();
+      const text = await generateBondText(currentCharacter,
+        currentOther ? { name: currentOther.name, avatar: currentOther.avatar, bio: '' } : userProfile,
+        apiConfig, liveBond, instruction, controller.signal, currentOther, timelineDate);
+      await check();
+      return text;
     } finally { clearTimeout(timer); cancel?.removeEventListener('abort', abort); requestRef.current = undefined; }
   };
   const openChat = () => {
@@ -358,49 +387,66 @@ export default function CouplesSpaceApp() {
     setActiveCharacterId(char.id);
     openApp(AppID.Chat);
   };
-  const share = async (content: string, label = '时光信箱', deliveryId?: string) => {
-    if (isPair || !char) throw new Error('他们的空间属于这两位角色');
-    const latest = await DB.getCharacter(char.id);
-    if (!latest || characterBlocksUser(latest.chatBlock)) throw new Error('当前无法发给这个角色');
-    const message = { charId: char.id, role: 'user' as const, type: 'text' as const,
-      content, metadata: { couplesSpace: { label } } };
-    if (deliveryId) await DB.saveMessageOnce(deliveryId, message);
-    else await DB.saveMessage(message);
+  const share = async (content: string, label = '时光信箱', update?: (current: Bond) => Bond | undefined) => {
+    if (isPair || !char || !bond) throw new Error('当前空间无法分享到私聊');
+    let updated: Bond | undefined;
+    const sent = await deliverBondMessage(bond, `couples-share:${crypto.randomUUID()}`, {
+      charId: char.id, role: 'user', type: 'text', content, metadata: { couplesSpace: { label } },
+    }, latest => !!latest && !characterBlocksUser(latest.chatBlock), update && (current => {
+      updated = update(current);
+      return updated;
+    }));
+    if (!sent) throw new Error('记录、空间或私聊状态已变化，消息未发出');
+    if (updated) cacheBond(bond.members, updated);
     openChat();
   };
   const bind = (direct: boolean) => void run(async () => {
     if (!char || !spaces) return;
-    if (!direct && (characterBlocksUser(char.chatBlock) || userBlocksCharacter(char.chatBlock))) throw new Error('当前私聊已拉黑，无法发送绑定申请');
+    if (!direct && !canRespond(await DB.getCharacter(char.id))) throw new Error('当前私聊已拉黑，无法发送绑定申请');
     if (direct && !window.confirm(`以「${relationNames[selectedRelation]}」关系建立和 ${char.name} 的空间？`)) return;
     const pending = await persist(members, current => {
       if (current?.status === 'open' || current?.status === 'closed') return current;
+      if (bond?.status === 'pending' && current?.id !== bond.id) throw new Error('邀请已变化，请返回重新查看');
       const next = current?.status === 'pending' ? current : { ...createBond(members, selectedRelation), ...current, id: crypto.randomUUID() };
-      return { ...next, status: direct ? 'open' : 'pending', start: dayKey() };
+      return { ...next, status: direct ? 'open' : 'pending', start: current?.status === 'pending' && !direct ? current.start : dayKey() };
     });
     if (!pending || pending.status === 'closed') return;
     if (direct || pending.status === 'open') { setPickerStep('space'); return; }
-    await DB.saveMessageOnce(`couples-invite:${pending.id}`, {
+    const sent = await deliverBondMessage(pending, `couples-invite:${pending.id}`, {
       charId: char.id, role: 'user', type: 'text',
       content: `【情侣空间邀请】我想和你建立一个${relationNames[pending.relation]}空间，你愿意吗？`, metadata: { couplesSpace: { label: '绑定邀请' } },
-    });
+    }, latest => withdrawnId.current !== pending.id && canRespond(latest));
     if (withdrawnId.current === pending.id) return;
-    let rawResponse: string;
-    try { rawResponse = await generate(`用户邀请你建立${relationNames[pending.relation]}空间。依据真实关系和角色性格独立选择接受或拒绝。仅输出 JSON {"accept":true或false,"reply":"角色给用户的自然答复"}。`, pending); }
-    catch (error) { if (withdrawnId.current === pending.id) return; throw error; }
-    if (withdrawnId.current === pending.id) return;
-    const response = extractJson(rawResponse);
-    if (typeof response?.accept !== 'boolean' || typeof response?.reply !== 'string' || !response.reply.trim()) throw new Error('没有读到明确答复，可以继续等待或重试');
-    const latest = await DB.getCharacter(char.id);
-    if (!latest || characterBlocksUser(latest.chatBlock) || userBlocksCharacter(latest.chatBlock)) throw new Error('当前私聊无法接收绑定答复');
-    const updated = await persist(members, current => withdrawnId.current !== pending.id && current?.id === pending.id && current.status === 'pending'
-      ? { ...current, status: response.accept ? 'open' : 'declined' } : current);
-    if (withdrawnId.current === pending.id || updated?.id !== pending.id || updated.status !== (response.accept ? 'open' : 'declined')) return;
-    await DB.saveMessageOnce(`couples-invite-reply:${pending.id}`, {
-      charId: char.id, role: 'assistant', type: 'text',
-      content: `【${response.accept ? '接受邀请' : '婉拒邀请'}】${response.reply.trim()}`, metadata: { couplesSpace: { label: '邀请答复' } },
+    if (!sent) throw new Error('邀请或私聊状态已变化，请返回重新查看');
+    const requestAnswer = async () => {
+      if (withdrawnId.current === pending.id) return;
+      let rawResponse: string;
+      try { rawResponse = await generate(`用户邀请你建立${relationNames[pending.relation]}空间。依据真实关系和角色性格独立选择接受或拒绝。仅输出 JSON {"accept":true或false,"reply":"角色给用户的自然答复"}。`, pending); }
+      catch (error) { if (withdrawnId.current === pending.id) return; throw error; }
+      if (withdrawnId.current === pending.id) return;
+      const response = extractJson(rawResponse);
+      if (typeof response?.accept !== 'boolean' || typeof response?.reply !== 'string' || !response.reply.trim()) throw new Error('没有读到明确答复，可以继续等待或重试');
+      const replySent = await deliverBondMessage(pending, `couples-invite-reply:${pending.id}`, {
+        charId: char.id, role: 'assistant', type: 'text',
+        content: `【${response.accept ? '接受邀请' : '婉拒邀请'}】${response.reply.trim()}`, metadata: { couplesSpace: { label: '邀请答复' } },
+      }, latest => withdrawnId.current !== pending.id && canRespond(latest),
+      current => ({ ...current, status: response.accept ? 'open' : 'declined' }));
+      if (withdrawnId.current === pending.id) return;
+      const latest = await readBond(pending.members);
+      cacheBond(pending.members, latest);
+      if (!replySent) {
+        if (latest?.id === pending.id && latest.status === 'pending')
+          throw new Error('当前私聊无法接收绑定答复，可以稍后重试');
+        return;
+      }
+      if (response.accept) setPickerStep('space');
+      openChat();
+    };
+    if (!navigator.locks) await requestAnswer();
+    else await navigator.locks.request(`sullyos:couples-invite:${pending.id}`, { ifAvailable: true }, lock => {
+      if (!lock) throw new Error('邀请正在另一个页面等待回应');
+      return requestAnswer();
     });
-    if (response.accept) setPickerStep('space');
-    openChat();
   });
   const withdrawInvite = async () => {
     if (!bond || bond.status !== 'pending' || withdrawing.current) return;
@@ -441,7 +487,8 @@ export default function CouplesSpaceApp() {
     });
   };
   const createPair = () => void run(async () => {
-    if (!pairA || !pairB || pairA === pairB) return;
+    if (!pairA || !pairB || pairA === pairB ||
+        ![pairA, pairB].every(id => visibleCharacters.some(person => person.id === id))) return;
     const ids = [pairA, pairB];
     const existingOrNew = await persist(ids, current => current ?? createBond(ids, relation));
     if (existingOrNew) setPair(existingOrNew.members);
@@ -453,7 +500,7 @@ export default function CouplesSpaceApp() {
   const shelf = spaceShelves.find(section => section.id === activeShelf) ?? spaceShelves[0];
   const visibleShelfPanels = shelf.panels.filter(id => (isPair ? pairPanels : mainPanels).includes(id));
   const goToFeature = (id: Panel) => {
-    if (!bond) return;
+    if (busy || !bond) return;
     const locked = !isPair && id !== 'achievements' && !bond.unlocks?.[id] &&
       (bond.gateMode === 'pact' || (bond.gateMode === 'level' && bondLevel(bond) < (panelLevels[id] ?? 1)));
     if (locked) setLockedPanel(id);
@@ -473,7 +520,7 @@ export default function CouplesSpaceApp() {
     <header className="couple-header">
       <button aria-label="返回" onClick={() => { if (!back()) closeApp(); }}><ArrowLeft size={20} /></button>
       <h1>{headerTitle}</h1>
-      {bond?.status === 'open' && !panel && (isPair || (!pairs && pickerStep === 'space')) ? <button aria-label="空间设置" onClick={() => setPanel('settings')}><GearSix size={21} /></button> : <span />}
+      {bond?.status === 'open' && !panel && (isPair || (!pairs && pickerStep === 'space')) ? <button aria-label="空间设置" disabled={busy} onClick={() => setPanel('settings')}><GearSix size={21} /></button> : <span />}
     </header>
     <main className="couple-main" ref={scroll}>
       {error && <p role="alert" className="couple-error">{error}</p>}
@@ -494,7 +541,7 @@ export default function CouplesSpaceApp() {
         {pairList.map(item => <div className="couple-card couple-split" key={item.id}>
           <span>{item.members.map(id => characters.find(person => person.id === id)?.name ?? '角色已删除').join(' × ')}<br />
             <small>{relationNames[item.relation]} · {item.entries.length} 条记录</small></span>
-          <button disabled={item.members.some(id => !characters.some(person => person.id === id))} onClick={() => setPair(item.members)}>进入</button>
+          <button disabled={busy || item.members.some(id => !characters.some(person => person.id === id))} onClick={() => setPair(item.members)}>进入</button>
           <button disabled={busy} onClick={() => {
             if (window.confirm('删除这个配对空间和里面的故事？')) void run(async () => { await persist(item.members, current => {
               if (current?.id !== item.id) throw new Error('配对空间已变化，请刷新后再删除');
@@ -550,7 +597,7 @@ export default function CouplesSpaceApp() {
             </div>
             <div className="couple-ios-hero-bottom">
               <div><strong>{names.me} <span>·</span> {names.them}</strong><small>{relationNames[bond.relation]} · Lv.{bondLevel(bond)} 专属牵绊</small></div>
-              {!isPair && <button type="button" onClick={() => setPickerStep('orbit')}>切换角色 <ArrowRight size={13}/></button>}
+              {!isPair && <button type="button" disabled={busy} onClick={() => { setLockedPanel(undefined); setPickerStep('orbit'); }}>切换角色 <ArrowRight size={13}/></button>}
             </div>
           </section>
           {isPair && <details className="couple-ios-pair-info">
@@ -606,7 +653,7 @@ export default function CouplesSpaceApp() {
           <section className="couple-ios-workspace">
             <nav className="couple-ios-tabs" role="tablist" aria-label="情侣空间功能">
               {spaceShelves.map(section => <button key={section.id} type="button" role="tab"
-                aria-selected={activeShelf === section.id} aria-controls="couple-ios-current-shelf"
+                disabled={busy} aria-selected={activeShelf === section.id} aria-controls="couple-ios-current-shelf"
                 onClick={() => { setActiveShelf(section.id); setLockedPanel(undefined); }}>
                 {section.title}
               </button>)}
@@ -616,7 +663,7 @@ export default function CouplesSpaceApp() {
                 <span>{shelf.english}</span><strong>{shelf.id === 'memory' ? relationship.title : shelf.id === 'care' ? relationship.care : relationship.collection}</strong>
               </div>
               {visibleShelfPanels.length > 0 && <>
-                <button className={visibleShelfPanels[0] === 'timeline' ? 'couple-ios-spotlight couple-ios-spotlight-cinema' : visibleShelfPanels[0] === 'wish' ? 'couple-ios-spotlight couple-ios-spotlight-wish' : 'couple-ios-spotlight'} type="button" onClick={() => goToFeature(visibleShelfPanels[0])}>
+                <button className={visibleShelfPanels[0] === 'timeline' ? 'couple-ios-spotlight couple-ios-spotlight-cinema' : visibleShelfPanels[0] === 'wish' ? 'couple-ios-spotlight couple-ios-spotlight-wish' : 'couple-ios-spotlight'} type="button" disabled={busy} onClick={() => goToFeature(visibleShelfPanels[0])}>
                   <span className="couple-ios-spotlight-overline">01 / {shelf.english}</span>
                   <span className="couple-ios-spotlight-bottom">
                     <span><strong>{labels[visibleShelfPanels[0]]}</strong>
@@ -627,7 +674,7 @@ export default function CouplesSpaceApp() {
                 </button>
                 <div className="couple-ios-links">
                   {visibleShelfPanels.slice(1).map((id,index) => <button type="button" key={id}
-                    className="couple-ios-link" onClick={() => goToFeature(id)}>
+                    className="couple-ios-link" disabled={busy} onClick={() => goToFeature(id)}>
                     <span className="couple-ios-link-index">{String(index+2).padStart(2,'0')}</span>
                     <span className="couple-ios-link-label"><strong>{labels[id]}</strong><small>{featureNotes[id]}</small></span>
                     <span className="couple-ios-link-trail">{featureStatus(id)} <ArrowRight size={14} weight="light"/></span>
@@ -644,7 +691,7 @@ export default function CouplesSpaceApp() {
           generateTimeline={(instruction, date) => generate(instruction, bond, date)}
           backHandler={recordBack}
           onNativeJournal={!isPair && char ? () => { setActiveCharacterId(char.id); openApp(AppID.Journal); } : undefined} />}
-        {panel === 'shop' && <BondShop bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} notify={addToast} />}
+        {panel === 'shop' && <BondShop key={bond.id} bond={bond} partner={names.them} change={change} generate={generate} share={share} busy={busy} notify={addToast} />}
         {panel === 'achievements' && <section className="couple-achievement-hall">
           <div className="couple-achievement-cover">
             <span>THE LITTLE MILESTONES</span>
@@ -797,7 +844,7 @@ export default function CouplesSpaceApp() {
               : <div className="couple-flower-empty">第一朵花，会被收藏在这里。</div>}
           </div>
         </section>}
-        {panel === 'touch' && (char ? <TouchPanel key={key} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />
+        {panel === 'touch' && (char ? <TouchPanel key={bond.id} bond={bond} char={char} apiConfig={apiConfig} busy={busy} run={run} change={change} generate={generate} upload={upload} />
           : <p className="couple-error" role="alert">原绑定角色已不存在，请返回选择仍存在的角色。</p>)}
         {panel === 'settings' && <section className="couple-settings">
           <div className="couple-settings-preview">

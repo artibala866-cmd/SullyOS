@@ -19,7 +19,7 @@ export const bondAchievements = (bond: Bond, days: number) => [
 ];
 
 export function BondShop({ bond, partner, change, generate, share, busy, notify }: {
-  bond: Bond; partner: string; change: ChangeBond; generate: Generate; share: (content: string, label: string, deliveryId?: string) => Promise<void>; busy: boolean;
+  bond: Bond; partner: string; change: ChangeBond; generate: Generate; share: (content: string, label: string, update: (current: Bond) => Bond) => Promise<void>; busy: boolean;
   notify?: (message: string) => void;
 }) {
   const [tab, setTab] = useState<keyof typeof tabs>('shop');
@@ -91,14 +91,15 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
     setTab(next); setDraft(undefined); setIssuedCardId(null); setActiveIndex(0); setBagIndex(0);
     scrollToCounter();
   };
-  const activeCard = visibleCards[Math.min(activeIndex, Math.max(visibleCards.length - 1, 0))];
+  const selectedShopIndex = Math.min(activeIndex, Math.max(visibleCards.length - 1, 0));
+  const activeCard = visibleCards[selectedShopIndex];
   const bagCards = cards.filter(card => (bond.bags[bagOwner][card.id] ?? 0) > 0);
   const selectedBagIndex = issuedCardId && bagOwner === 'me'
     ? Math.max(0, bagCards.findIndex(card => card.id === issuedCardId))
     : Math.min(bagIndex, Math.max(0, bagCards.length - 1));
   const activeBagCard = (bagOwner === 'me' && stampPreview) || bagCards[selectedBagIndex];
-  const shopMove = (delta: number) => setActiveIndex(current =>
-    Math.max(0, Math.min(visibleCards.length - 1, current + delta)));
+  const shopMove = (delta: number) => setActiveIndex(
+    Math.max(0, Math.min(visibleCards.length - 1, selectedShopIndex + delta)));
   const bagMove = (delta: number) => {
     setIssuedCardId(null);
     setBagIndex(Math.max(0, Math.min(bagCards.length - 1, selectedBagIndex + delta)));
@@ -126,44 +127,22 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
   });
 
   const playOwnedCard = (card: Card) => {
-    const note = window.prompt('出牌留言（可留空）', '');
-    if (note === null) return;
+    const input = window.prompt('出牌留言（可留空）', '');
+    if (input === null) return;
+    const note = input.trim();
     void run(async () => {
-      let playId: string | undefined;
-      await change(current => {
+      await share('【' + card.name + '】' + (note || card.effect), '我的出牌', current => {
         const currentCard = [...shopCards, ...current.cards].find(item => item.id === card.id);
-        if (!currentCard) throw new Error('卡片已删除');
-        const updated = playCard(current, currentCard, 'me', note.trim());
-        playId = updated.played.at(-1)?.id;
-        return updated;
+        if (!currentCard || JSON.stringify(currentCard) !== JSON.stringify(card))
+          throw new Error('卡片已修改或删除，请重新查看');
+        return playCard(current, currentCard, 'me', note);
       });
-      try {
-        await share('【' + card.name + '】' + (note.trim() || card.effect), '我的出牌', 'couples-play:' + playId);
-        setStampPreview(card);
-        setStampedId(card.id);
-        window.setTimeout(() => {
-          setStampedId(current => current === card.id ? null : current);
-          setStampPreview(current => current?.id === card.id ? null : current);
-        }, 1100);
-      } catch (error) {
-        let refunded = false;
-        try {
-          await change(current => {
-            if (!playId || !current.played.some(play => play.id === playId)) return current;
-            refunded = true;
-            return { ...current,
-              played: current.played.filter(play => play.id !== playId),
-              bags: { ...current.bags, me: {
-                ...current.bags.me, [card.id]: (current.bags.me[card.id] ?? 0) + 1,
-              } },
-            };
-          });
-        } catch {
-          throw new Error('消息发送失败，卡片返还状态未确认，请检查卡包后重试');
-        }
-        throw new Error(refunded ? '消息未发出，卡片已退回卡包。请检查私聊状态。' :
-          '消息发送失败，卡片状态已变化，请检查卡包');
-      }
+      setStampPreview(card);
+      setStampedId(card.id);
+      window.setTimeout(() => {
+        setStampedId(current => current === card.id ? null : current);
+        setStampPreview(current => current?.id === card.id ? null : current);
+      }, 1100);
     });
   };
 
@@ -253,14 +232,14 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
         <div className="bond-machine-housing">
           <div className="bond-machine-head">
             <div className="bond-machine-head-copy"><strong>心意兑换所</strong><span aria-hidden="true">✳</span></div>
-            <span className="bond-machine-number">{String(activeIndex+1).padStart(2,'0')}<i> / </i>{String(visibleCards.length).padStart(2,'0')}</span>
+            <span className="bond-machine-number">{String(selectedShopIndex+1).padStart(2,'0')}<i> / </i>{String(visibleCards.length).padStart(2,'0')}</span>
           </div>
           <div className="bond-machine-mouth" aria-hidden="true"><span /></div>
           <div className="bond-ticket-stack" data-motion={cardMotion} aria-live="polite">
             <article key={activeCard.id} className="bond-ticket-pass" aria-label={activeCard.name+'，'+activeCard.price+'积分'}>
               <div className="bond-ticket-paper">
                 <div className="bond-ticket-paper-firstline">
-                  <span>NO. {String(activeIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◈</span>
+                  <span>NO. {String(selectedShopIndex+1).padStart(2,'0')}</span><span aria-hidden="true">◈</span>
                 </div>
                 <div className="bond-ticket-paper-main">
                   <span className="bond-ticket-paper-icon" aria-hidden="true">{activeCard.icon||'✧'}</span>
@@ -274,7 +253,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
                 </div>
               </div>
               <div className="bond-ticket-tear-tab">
-                <span className="bond-ticket-tear-word">心意票根 <small>· {String(activeIndex+1).padStart(2,'0')}</small></span>
+                <span className="bond-ticket-tear-word">心意票根 <small>· {String(selectedShopIndex+1).padStart(2,'0')}</small></span>
                 {manage?<div className="bond-ticket-pass-actions">
                   <button type="button" disabled={working||busy}
                     onClick={()=>apply(current=>({...current,hidden:current.hidden.includes(activeCard.id)
@@ -296,15 +275,15 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
           <div className="bond-machine-lower">
             <div className="bond-machine-lower-rule" aria-hidden="true"><span /></div>
             <div className="bond-ticket-navigator">
-              <button type="button" aria-label="上一张卡券" disabled={working||busy||activeIndex<=0}
+              <button type="button" aria-label="上一张卡券" disabled={working||busy||selectedShopIndex<=0}
                 onClick={()=>shopMove(-1)}><span aria-hidden="true">‹</span></button>
-              <div className="bond-machine-dial" aria-label={'第'+(activeIndex+1)+'张，共'+visibleCards.length+'张'}>
-                <span>{String(activeIndex+1).padStart(2,'0')}</span><i>/</i><span>{String(visibleCards.length).padStart(2,'0')}</span>
+              <div className="bond-machine-dial" aria-label={'第'+(selectedShopIndex+1)+'张，共'+visibleCards.length+'张'}>
+                <span>{String(selectedShopIndex+1).padStart(2,'0')}</span><i>/</i><span>{String(visibleCards.length).padStart(2,'0')}</span>
               </div>
-              <button type="button" aria-label="下一张卡券" disabled={working||busy||activeIndex>=visibleCards.length-1}
+              <button type="button" aria-label="下一张卡券" disabled={working||busy||selectedShopIndex>=visibleCards.length-1}
                 onClick={()=>shopMove(1)}><span aria-hidden="true">›</span></button>
             </div>
-            <div className="bond-machine-footer" aria-hidden="true"><span className="bond-machine-progress" style={{width:((activeIndex+1)/Math.max(1,visibleCards.length)*100)+'%'}} /></div>
+            <div className="bond-machine-footer" aria-hidden="true"><span className="bond-machine-progress" style={{width:((selectedShopIndex+1)/Math.max(1,visibleCards.length)*100)+'%'}} /></div>
           </div>
         </div>
       </div>:<div className="bond-ticket-empty">
@@ -330,7 +309,7 @@ export function BondShop({ bond, partner, change, generate, share, busy, notify 
             <strong>{activeBagCard.name}</strong><p>{activeBagCard.effect}</p>
             <div className="bond-ticket-wallet-pass-rule" aria-hidden="true" />
             <div className="bond-ticket-wallet-pass-foot"><span>{stampedId===activeBagCard.id ? '已使用' : '库存 × '+(bond.bags[bagOwner][activeBagCard.id]??0)}</span>
-              {bagOwner==='me' && <button type="button" disabled={working || busy || stampedId===activeBagCard.id || bond.disabledCards || bond.hidden.includes(activeBagCard.id)} onClick={() => playOwnedCard(activeBagCard)}>使用卡券 ↗</button>}
+              {bagOwner==='me' && <button type="button" disabled={working || busy || stampedId===activeBagCard.id || bond.disabledCards || bond.hidden.includes(activeBagCard.id) || !cardMatchesRelation(activeBagCard, bond.relation)} onClick={() => playOwnedCard(activeBagCard)}>使用卡券 ↗</button>}
             </div>
             <div className="bond-ticket-wallet-stamp" aria-hidden="true">USED</div>
           </div>

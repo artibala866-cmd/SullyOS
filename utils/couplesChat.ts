@@ -1,11 +1,11 @@
-import { cardMatchesRelation, canRolePlay, canWaterPlant, careForPlant, harvestPlant, plantStage, createEntry, dayKey, exchangeCard, playCard, readBond, readSpaces, relationNames, reward, shopCards, writeBond, type Bond } from './couplesSpace';
+import { cardMatchesRelation, canRolePlay, canWaterPlant, careForPlant, harvestPlant, plantStage, createEntry, dayKey, exchangeCard, playCard, deliverBondMessage, readBond, readSpaces, relationNames, reward, shopCards, writeBond, type Bond } from './couplesSpace';
 import type { APIConfig, CharacterProfile, Message, UserProfile } from '../types';
 import { DB } from './db';
 import { characterBlocksUser, userBlocksCharacter } from './chatBlock';
 import { extractJson } from './safeApi';
 
 const active = (bond: Bond) => bond.disabledCards ? [] : bond.played.filter(play => play.side === 'me' &&
-  !bond.hidden.includes(play.card.id) && (play.usedTurns ?? 0) < (play.card.turns ?? 1));
+  cardMatchesRelation(play.card, bond.relation) && !bond.hidden.includes(play.card.id) && (play.usedTurns ?? 0) < (play.card.turns ?? 1));
 const roleCards = (bond: Bond) => [...shopCards, ...bond.cards].filter(card => cardMatchesRelation(card, bond.relation) && card.charUse && canRolePlay(bond, card.id) &&
   (bond.bags.them[card.id] > 0 || bond.points.them >= card.price));
 
@@ -44,14 +44,16 @@ export async function settleCouplesChat(
   lastUser: Message, reply: string, signal: AbortSignal,
   effectsDelivered: boolean,
 ) {
+  if (signal.aborted) return;
   const ids = [char.id];
   const ready = (current: Bond | undefined) => current?.id === snapshot.id && current.status === 'open';
-  const effects = effectsDelivered ? new Set(active(snapshot).map(play => play.at)) : new Set<number>();
+  const effectKey = (play: Bond['played'][number]) => play.id ?? `${play.card.id}:${play.at}`;
+  const effects = effectsDelivered ? new Set(active(snapshot).map(effectKey)) : new Set<string>();
   const updated = await writeBond(ids, current => {
-    if (!current || !ready(current) || (current.lastSceneTurn ?? 0) >= lastUser.id) return current;
+    if (signal.aborted || !current || !ready(current) || (current.lastSceneTurn ?? 0) >= lastUser.id) return current;
     const settled = {
       ...current, lastSceneTurn: lastUser.id,
-      played: current.played.map(play => play.side === 'me' && effects.has(play.at) ? { ...play, usedTurns: (play.usedTurns ?? 0) + 1 } : play),
+      played: current.played.map(play => play.side === 'me' && effects.has(effectKey(play)) ? { ...play, usedTurns: (play.usedTurns ?? 0) + 1 } : play),
     };
     return reward(reward(settled, `conversation:me:${dayKey()}`, 20), `conversation:them:${dayKey()}`, 20, 'them');
   });
@@ -76,12 +78,19 @@ export async function settleCouplesChat(
   const latest = await readBond(ids);
   if (!fresh || !latest || !ready(latest) || latest.lastSceneTurn !== lastUser.id || signal.aborted ||
     characterBlocksUser(fresh.chatBlock) || userBlocksCharacter(fresh.chatBlock)) return;
+  const writeDiary = diary && latest.diaryAuto && !hasDiary(latest);
+  const visitHollow = shouldVisitHollow && latest.hollowAuto &&
+    !latest.entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey());
+  const sameCycle = latest.plant.cycleId === updated.plant.cycleId;
+  const water = shouldCare && latest.plantAuto && sameCycle && canWaterPlant(latest.plant);
+  const harvest = shouldHarvest && latest.plantAuto && sameCycle && plantStage(latest.plant) === '开花';
+  const offeredCards = latest.autoCards ? roleCards(latest).filter(card => cards.some(previous => previous.id === card.id)) : [];
   const actions = [
-    diary && latest.diaryAuto ? `diary：写一段今天的角色日记，风格：${latest.diaryStyle || '角色原有风格'}。` : '',
-    shouldVisitHollow && latest.hollowAuto ? 'hollow：有一件确实不适合当面说的具体心事才填。' : '',
-    shouldCare && latest.plantAuto ? 'water：只有角色此刻有理由和空闲照料两人的盆栽时填 true，否则填 false。' : '',
-    shouldHarvest && latest.plantAuto ? 'harvest：只有此刻适合送花才为 true，flowerScene：写一小段亲手送出这盆已开花的盆栽的小剧场。' : '',
-    latest.autoCards && cards.length ? `card：只有当前话题适合才选一个 ID，否则留空。note：角色用自己的口吻写打出该卡的内容，表达卡片效果。可用卡：${cards.map(item => `${item.id}=${item.name}（${item.effect}）`).join('、')}。` : '',
+    writeDiary ? `diary：写一段今天的角色日记，风格：${latest.diaryStyle || '角色原有风格'}。` : '',
+    visitHollow ? 'hollow：有一件确实不适合当面说的具体心事才填。' : '',
+    water ? 'water：只有角色此刻有理由和空闲照料两人的盆栽时填 true，否则填 false。' : '',
+    harvest ? 'harvest：只有此刻适合送花才为 true，flowerScene：写一小段亲手送出这盆已开花的盆栽的小剧场。' : '',
+    offeredCards.length ? `card：只有当前话题适合才选一个 ID，否则留空。note：角色用自己的口吻写打出该卡的内容，表达卡片效果。可用卡：${offeredCards.map(item => `${item.id}=${item.name}（${item.effect}）`).join('、')}。` : '',
   ].filter(Boolean);
   if (!actions.length || signal.aborted) return;
   const { generateBondText } = await import('./couplesGeneration');
@@ -99,28 +108,30 @@ export async function settleCouplesChat(
   const note = text(result.note);
   const diaryText = text(result.diary);
   const hollow = text(result.hollow);
-  let sentCard: string | undefined;
   await writeBond(ids, current => {
-    if (!current || !ready(current) || current.lastSceneTurn !== lastUser.id || signal.aborted) return current;
+    if (!current || !ready(current) || current.lastSceneTurn !== lastUser.id || current.relation !== latest.relation || signal.aborted) return current;
     const entries = [...current.entries];
-    if (diary && current.diaryAuto && diaryText && !hasDiary(current))
+    if (writeDiary && current.diaryAuto && diaryText && !hasDiary(current))
       entries.push(createEntry('diary', '今日记事', diaryText, 'them'));
-    if (current.hollowAuto && hollow && !entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey()))
+    if (visitHollow && current.hollowAuto && hollow && !entries.some(row => row.kind === 'hollow' && row.side === 'them' && row.date === dayKey()))
       entries.push(createEntry('hollow', '未说出口的话', hollow, 'them'));
     const record = { ...current, entries };
-    const samePlant = current.plant.cycleId === updated.plant.cycleId;
-    const cared = shouldCare && samePlant && current.plantAuto && result.water === true && canWaterPlant(current.plant)
+    const samePlant = current.plant.cycleId === latest.plant.cycleId;
+    const cared = water && samePlant && current.plantAuto && result.water === true && canWaterPlant(current.plant)
       ? careForPlant(record, 'water', 'them') : record;
-    const next = shouldHarvest && samePlant && current.plantAuto && result.harvest === true &&
-      current.plant.watered === updated.plant.watered && plantStage(cared.plant) === '开花'
+    return harvest && samePlant && current.plantAuto && result.harvest === true &&
+      current.plant.watered === latest.plant.watered && plantStage(cared.plant) === '开花'
       ? harvestPlant(cared, 'them', user.name, text(result.flowerScene)) : cared;
-    const card = current.autoCards && note && cards.some(item => item.id === cardId) ? roleCards(current).find(item => item.id === cardId) : undefined;
-    if (!card) return next;
-    sentCard = card.name;
-    return playCard(next.bags.them[card.id] ? next : exchangeCard(next, card, 'them'), card, 'them', note);
   });
-  if (sentCard && !signal.aborted && ready(await readBond(ids))) await DB.saveMessageOnce(`couples-play:${snapshot.id}:${lastUser.id}`, {
-    charId: char.id, role: 'assistant', type: 'text', content: `【${sentCard}】${note}`,
+  const card = note && offeredCards.find(item => item.id === cardId);
+  if (!card || signal.aborted) return;
+  await deliverBondMessage(latest, `couples-play:${snapshot.id}:${lastUser.id}`, {
+    charId: char.id, role: 'assistant', type: 'text', content: `【${card.name}】${note}`,
     metadata: { couplesSpace: { label: '角色出牌' } },
+  }, current => !!current && !characterBlocksUser(current.chatBlock) && !userBlocksCharacter(current.chatBlock), current => {
+    if (signal.aborted || current.lastSceneTurn !== lastUser.id || current.relation !== latest.relation || !current.autoCards) return;
+    const available = roleCards(current).find(item => item.id === card.id);
+    if (!available || JSON.stringify(available) !== JSON.stringify(card)) return;
+    return playCard(current.bags.them[card.id] ? current : exchangeCard(current, card, 'them'), card, 'them', note);
   });
 }

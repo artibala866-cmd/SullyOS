@@ -4,12 +4,13 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CouplesSpaceApp from '../apps/CouplesSpaceApp';
-import { capsuleDate, capsuleStatus, careForPlant, createBond, createEntry, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
+import { capsuleDate, capsuleStatus, careForPlant, createBond, createEntry, deliverBondMessage, setBondOpen, DAY, exchangeCard, playCard, plantStage, readBond, reward, shopCards, writeBond } from './couplesSpace';
 import { couplesChatContext, pairedCouplesChatContext, settleCouplesChat } from './couplesChat';
 import { DB } from './db';
 import type { CharacterProfile } from '../types';
 
-const { openApp, setActiveCharacterId, generateBondText } = vi.hoisted(() => ({
+const { openApp, setActiveCharacterId, generateBondText, identity } = vi.hoisted(() => ({
+  identity: { boundCharacterIds: undefined as string[] | undefined },
   openApp: vi.fn(), setActiveCharacterId: vi.fn(), generateBondText: vi.fn(),
 }));
 vi.mock('../context/OSContext', () => ({
@@ -17,7 +18,7 @@ vi.mock('../context/OSContext', () => ({
     activeCharacterId: 'partner-a', characters: [
       { id: 'partner-a', name: '知夏', avatar: '' },
       { id: 'partner-b', name: '晓白', avatar: '' },
-    ], userProfile: { name: '小满', avatar: '', bio: '' },
+    ], userProfile: { name: '小满', avatar: '', bio: '', boundCharacterIds: identity.boundCharacterIds },
     openApp, setActiveCharacterId, apiConfig: {}, closeApp: vi.fn(), addToast: vi.fn(),
   }),
 }));
@@ -56,6 +57,7 @@ beforeEach(async () => {
   root = createRoot(element);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   HTMLElement.prototype.scrollTo = vi.fn();
+  identity.boundCharacterIds = undefined;
   generateBondText.mockReset();
   openApp.mockClear();
   await DB.saveCharacter({ id: 'partner-a', name: '知夏', avatar: '' } as CharacterProfile);
@@ -69,6 +71,84 @@ afterEach(async () => {
 });
 
 describe('情侣空间', () => {
+  it('binds the visible orbit character when the active private chat is filtered out', async () => {
+    identity.boundCharacterIds = ['partner-b'];
+    await writeBond(['partner-a'], () => ({ ...createBond(['partner-a']), status: 'open' }));
+    await render();
+    expect(element.querySelector('.couple-orbit-core')?.getAttribute('aria-label')).toContain('晓白');
+    await click('选择此角色');
+    await click('直接建立羁绊');
+    await waitFor(() => expect(element.querySelector('.couple-ios-hero-bottom')?.textContent).toContain('晓白'));
+    expect((await readBond(['partner-b']))?.status).toBe('open');
+  });
+
+  it('commits only the matching invite reply across competing transactions', async () => {
+    const bond = await writeBond(['partner-a'], () => ({ ...createBond(['partner-a']), status: 'pending' }));
+    const deliveryId = `couples-invite-reply:${bond.id}`;
+    const answer = (status: 'open' | 'declined', content: string) => deliverBondMessage(bond, deliveryId, {
+      charId: 'partner-a', role: 'assistant', type: 'text', content,
+    }, Boolean, current => ({ ...current, status }));
+    const [accepted, declined] = await Promise.all([answer('open', '接受竞争邀请'), answer('declined', '拒绝竞争邀请')]);
+    expect(Boolean(accepted)).not.toBe(Boolean(declined));
+    const result = await readBond(['partner-a']);
+    const messages = (await DB.getRecentMessagesByCharId('partner-a', 30)).filter(item => item.metadata?.deliveryId === deliveryId);
+    expect(messages.map(row => row.content)).toEqual([result.status === 'open' ? '接受竞争邀请' : '拒绝竞争邀请']);
+  });
+
+  it('rolls back a card debit if the accompanying message transaction aborts', async () => {
+    const card = shopCards[0];
+    const bond = await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open', bags: { me: { [card.id]: 1 }, them: {} },
+    }));
+    const deliveryId = `couples-test-card:${bond.id}`;
+    const add = IDBObjectStore.prototype.add;
+    const abort = vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (this: IDBObjectStore, ...args) {
+      const request = add.apply(this, args);
+      if (args[0]?.metadata?.deliveryId === deliveryId)
+        request.addEventListener('success', () => this.transaction.abort());
+      return request;
+    });
+    try {
+      await expect(deliverBondMessage(bond, deliveryId, {
+        charId: 'partner-a', role: 'user', type: 'text', content: '事务失败时不能扣卡',
+      }, Boolean, current => playCard(current, card, 'me'))).rejects.toThrow();
+    } finally {
+      abort.mockRestore();
+    }
+    expect((await readBond(['partner-a'])).bags.me[card.id]).toBe(1);
+    expect((await readBond(['partner-a'])).played).toEqual([]);
+    expect((await DB.getRecentMessagesByCharId('partner-a', 30)).some(row => row.metadata?.deliveryId === deliveryId)).toBe(false);
+  });
+
+  it('does not share a letter from a stale panel after the space is closed elsewhere', async () => {
+    const letter = createEntry('mail', '跨页关闭验证', '这一封不得投递');
+    await writeBond(['partner-a'], () => ({ ...createBond(['partner-a']), status: 'open', entries: [letter] }));
+    await render();
+    await click('进入专属空间');
+    await click('时光信箱');
+    await click(letter.title);
+    await writeBond(['partner-a'], current => setBondOpen(current!, false));
+    await click('分享到私聊');
+    await waitFor(() => expect(element.textContent).toContain('消息未发出'));
+    expect(openApp).not.toHaveBeenCalled();
+    expect((await DB.getRecentMessagesByCharId('partner-a', 30)).some(row => row.content.includes(letter.body))).toBe(false);
+  });
+
+  it('ignores unsolicited hollow output when the option is switched on during another request', async () => {
+    const bond = await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open', diaryAuto: true,
+    }));
+    generateBondText.mockImplementationOnce(async () => {
+      await writeBond(['partner-a'], current => ({ ...current!, hollowAuto: true }));
+      return JSON.stringify({ diary: '今天的日记', hollow: '未经这次请求许可的树洞' });
+    });
+    const char = (await DB.getCharacter('partner-a'))!;
+    await settleCouplesChat(char, { name: '小满', avatar: '', bio: '' }, {} as Parameters<typeof settleCouplesChat>[2],
+      bond, { id: 800, charId: char.id, timestamp: Date.now(), type: 'text', role: 'user', content: '今天好吗' },
+      '今天还不错', new AbortController().signal, false);
+    expect((await readBond(['partner-a'])).entries.map(item => item.kind)).toEqual(['diary']);
+  });
+
   it('starts locked, binds directly, and reopens with the same partner’s data', async () => {
     await render();
     await click('选择此角色');

@@ -328,7 +328,7 @@ export type Generate = (instruction: string) => Promise<string>;
 
 export function BondRecords({ kind, bond, names, change, generate, share, busy, notify, avatarMe, avatarThem, charId, onNativeJournal, generateTimeline, backHandler }: {
   kind: EntryKind; bond: Bond; names: Record<Side, string>; change: ChangeBond;
-  generate: (instruction: string, signal?: AbortSignal) => Promise<string>; share?: (content: string, label?: string) => Promise<void>; busy: boolean;
+  generate: (instruction: string, signal?: AbortSignal) => Promise<string>; share?: (content: string, label: string, verify: (current: Bond) => Bond | undefined) => Promise<void>; busy: boolean;
   notify?: (message: string) => void;
   avatarMe?: string; avatarThem?: string; charId?: string; onNativeJournal?: () => void;
   generateTimeline?: (instruction: string, date: string) => Promise<string>; backHandler?: React.MutableRefObject<(() => boolean) | undefined>;
@@ -815,7 +815,8 @@ export function BondRecords({ kind, bond, names, change, generate, share, busy, 
               } else if (kind === 'mail') deliverMail(item.id);
               else void run(async () => save({ ...item, reply: await generate(`请以角色身份回复这份${recordNames[kind]}。\n标题：${item.title}\n内容：${item.body}`) }, item));
             }}>{item.reply ? '重写回信' : item.mailMode === 'postman' ? '回答并揭晓' : '回信'}</button>}
-            {(kind === 'mail' || kind === 'capsule') && share && (item.mailMode !== 'postman' || item.reply) && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind]))}>分享到私聊</button>}
+            {(kind === 'mail' || kind === 'capsule') && share && (item.mailMode !== 'postman' || item.reply) && <button disabled={working} onClick={() => void run(() => share(`【${recordNames[kind]}】${item.title}\n${item.body}${item.reply ? `\n回信：${item.reply}` : ''}`, recordNames[kind], current =>
+              current.entries.some(row => row.id === item.id && JSON.stringify(row) === JSON.stringify(item)) ? current : undefined))}>分享到私聊</button>}
             <button disabled={working} onClick={() => {
               if (window.confirm('删除这条记录？')) void run(async () => {
                  await change(current => ({ ...current, entries: current.entries.filter(row => row.id !== item.id) }));

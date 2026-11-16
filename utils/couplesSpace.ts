@@ -1,4 +1,5 @@
 import { DB } from './db';
+import type { Message } from '../types';
 import { getLocalDateKey } from './localDate';
 
 export type Relation = 'love' | 'family' | 'friend';
@@ -92,6 +93,30 @@ export async function writeBond(members: string[], update: (bond: Bond | undefin
   });
   return spaces[key];
 }
+/** Check the live space and, when needed, commit its transition and chat delivery together. */
+export async function deliverBondMessage(
+  bond: Bond, deliveryId: string, message: Omit<Message, 'id' | 'timestamp'>,
+  allowCharacter: NonNullable<Parameters<typeof DB.saveMessageOnce>[2]>['allowCharacter'],
+  update?: (current: Bond) => Bond | undefined,
+) {
+  const key = spaceKey(bond.members);
+  return DB.saveMessageOnce(deliveryId, message, {
+    allowCharacter,
+    asset: {
+      id: KEY,
+      prepare: raw => {
+        const spaces = raw as Spaces | null;
+        const current = spaces?.[key];
+        if (current?.id !== bond.id || current.status !== bond.status) return false;
+        if (!update) return true;
+        const next = update(current);
+        if (!next) return false;
+        return next === current ? true : { data: { ...spaces, [key]: next } };
+      },
+    },
+  });
+}
+
 /** Change the binding generation so that old requests cannot write into a restored space. */
 export function setBondOpen(bond: Bond, open: boolean): Bond {
   if (bond.members.length !== 1 || bond.status !== (open ? 'closed' : 'open')) return bond;
@@ -234,7 +259,7 @@ export function exchangeCard(bond: Bond, card: Card, side: Side): Bond {
 }
 
 export function playCard(bond: Bond, card: Card, side: Side, note?: string, now = Date.now()): Bond {
-  if (bond.disabledCards || bond.hidden.includes(card.id) || !bond.bags[side][card.id] ||
+  if (!cardMatchesRelation(card, bond.relation) || bond.disabledCards || bond.hidden.includes(card.id) || !bond.bags[side][card.id] ||
       (side === 'them' && (!card.charUse || !canRolePlay(bond, card.id, now)))) throw new Error('这张卡当前不可打出');
   return {
     ...bond, bags: { ...bond.bags, [side]: { ...bond.bags[side], [card.id]: bond.bags[side][card.id] - 1 } },

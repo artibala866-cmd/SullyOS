@@ -1833,31 +1833,56 @@ export const DB = {
     });
   },
 
-  /** One persisted message per logical delivery, including retries after a tab closes. */
-  saveMessageOnce: async (deliveryId: string, msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+  /** Save once per delivery. With effects, a rejected guard returns 0 and nothing is written. */
+  saveMessageOnce: async (deliveryId: string, msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }, effects?: {
+    allowCharacter: (character: CharacterProfile | undefined) => boolean;
+    asset: { id: string; prepare: (raw: unknown) => false | true | { data: unknown } };
+  }): Promise<number> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const tx = db.transaction(effects ? [STORE_MESSAGES, STORE_ASSETS, STORE_CHARACTERS] : [STORE_MESSAGES, STORE_ASSETS], 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
       let savedId = 0;
       let inserted = false;
-      const indexed = store.indexNames.contains('charId_deliveryId');
-      const cursorRequest = store.index(indexed ? 'charId_deliveryId' : 'charId').openCursor(
-        IDBKeyRange.only(indexed ? [msg.charId, deliveryId] : msg.charId), 'prev',
-      );
-      cursorRequest.onsuccess = () => {
-        const cursor = cursorRequest.result;
-        if (cursor) {
-          if (cursor.value.metadata?.deliveryId === deliveryId) { savedId = cursor.value.id; return; }
-          cursor.continue(); return;
-        }
-        const request = store.add({ ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } });
-        request.onsuccess = () => {
-          savedId = request.result as number;
-          inserted = true;
-          clearStaleMemoryMirror(tx, msg.charId, savedId);
+      const enqueueMessage = () => {
+        const indexed = store.indexNames.contains('charId_deliveryId');
+        const cursorRequest = store.index(indexed ? 'charId_deliveryId' : 'charId').openCursor(
+          IDBKeyRange.only(indexed ? [msg.charId, deliveryId] : msg.charId), 'prev',
+        );
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (cursor) {
+            if (cursor.value.metadata?.deliveryId === deliveryId) { savedId = cursor.value.id; return; }
+            cursor.continue(); return;
+          }
+          const request = store.add({ ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } });
+          request.onsuccess = () => {
+            savedId = request.result as number;
+            inserted = true;
+            clearStaleMemoryMirror(tx, msg.charId, savedId);
+          };
         };
       };
+      if (!effects) enqueueMessage();
+      else {
+        const character = tx.objectStore(STORE_CHARACTERS).get(msg.charId);
+        character.onsuccess = () => {
+          const assets = tx.objectStore(STORE_ASSETS);
+          const asset = assets.get(effects.asset.id);
+          asset.onsuccess = () => {
+            try {
+              if (!effects.allowCharacter(character.result)) return;
+              const effect = effects.asset.prepare(asset.result?.data ?? null);
+              if (effect === false) return;
+              if (effect !== true) assets.put({ id: effects.asset.id, data: effect.data });
+              enqueueMessage();
+            } catch (error) {
+              tx.abort();
+              reject(error);
+            }
+          };
+        };
+      }
       tx.oncomplete = () => {
         if (inserted) {
           try {
