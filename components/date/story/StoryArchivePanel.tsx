@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X,MagnifyingGlass} from '@phosphor-icons/react';
+import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X,MagnifyingGlass,ListNumbers,ArrowUUpLeft,CaretDown,ClockCounterClockwise} from '@phosphor-icons/react';
 import type {Message,StoryTheaterArchive,StoryTheaterArchiveStrategy,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
 import {useLocalBackHandler} from '../../../hooks/useLocalBackHandler';
 import {useOS} from '../../../context/OSContext';
@@ -14,7 +14,7 @@ import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/
 
 export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onClick:()=>void;disabled?:boolean;children:React.ReactNode}){
  return <button type='button' aria-label={label} title={label} disabled={disabled} onClick={onClick}
-  className='inline-grid h-10 w-10 shrink-0 place-items-center rounded-full text-violet-700 hover:bg-violet-100 focus-visible:outline focus-visible:outline-violet-400 disabled:opacity-30'>{children}</button>;
+  className='story-memory-icon-button inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-violet-700 hover:bg-violet-100 focus-visible:outline focus-visible:outline-violet-400 disabled:opacity-30'>{children}</button>;
 }
 
 export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy='summary',children,vectorSearch,locked=false,onFloorsLoaded}:{
@@ -242,14 +242,14 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
          <h2 className='truncate text-xs font-semibold'>{legacyBox?'旧向量归档':(isVector?'向量归档 ':'事件盒 ')+(index+1)}</h2>
          <p className='truncate text-[10px] text-slate-500'>{legacyBox&&legacy.length>1?legacy.length+' 段 · 按组处理':firstFloor>=0&&lastFloor>=0?'第 '+(firstFloor+1)+'–'+(lastFloor+1)+' 楼':box.messageCount+' 条原文'}{receipt?' · 已转化':''}</p>
         </div>
-        {!isVector&&<ArchiveIcon label={'重新总结事件盒 '+(index+1)} disabled={blocked} onClick={()=>void regenerate(box.id)}>{regeneratingId===box.id?<SpinnerGap size={17} className='animate-spin'/>:<ArrowClockwise size={18}/>}</ArchiveIcon>}
+        <div className='story-memory-archive-actions'>
+         {!isVector&&<ArchiveIcon label={'重新总结事件盒 '+(index+1)} disabled={blocked} onClick={()=>void regenerate(box.id)}>{regeneratingId===box.id?<SpinnerGap size={17} className='animate-spin'/>:<ArrowClockwise size={19}/>}</ArchiveIcon>}
+         <ArchiveIcon label={'重选楼层 · '+(index+1)} disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)}><ListNumbers size={19}/></ArchiveIcon>
+         <ArchiveIcon label={'撤销归档 · '+(index+1)} disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}}><ArrowUUpLeft size={19}/></ArchiveIcon>
+        </div>
        </div>
-       <div className='story-memory-archive-actions'>
-        <button type='button' disabled={blocked||!floors?.length} onClick={()=>openRange(box.id)} className='min-h-11 shrink-0 rounded-lg px-2 text-xs text-violet-700 disabled:opacity-40'>重选楼层</button>
-        <button type='button' disabled={blocked} onClick={()=>{setRevokeTarget(box);setRange(null);setError('');setStatus('');}} className='min-h-11 shrink-0 rounded-lg px-2 text-xs text-rose-700 disabled:opacity-40'>撤销归档</button>
-       </div>
-       {!isVector&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>剧情记忆 · 按楼层整理</summary>{archivePreview(box)}</details>}
-       {isVector&&!!((!children&&box.facts?.length)||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='cursor-pointer py-1 text-slate-500'>{children?'过去的变化':'剧情时间线'} · {readableLines(timeline).length} 条（点开查看）</summary>{archivePreview(timeline)}</details>}
+       {!isVector&&<details className='pl-5 text-xs'><summary className='story-memory-expand-summary cursor-pointer py-1 text-slate-500'><span>剧情记忆 · 按楼层整理</span><CaretDown size={14} className='story-memory-expand-caret'/></summary>{archivePreview(box)}</details>}
+       {isVector&&!!((!children&&box.facts?.length)||box.historyFacts?.length)&&<details className='pl-5 text-xs'><summary className='story-memory-expand-summary cursor-pointer py-1 text-slate-500'><span>{children?'过去的变化':'剧情时间线'} · {readableLines(timeline).length} 条</span><CaretDown size={14} className='story-memory-expand-caret'/></summary>{archivePreview(timeline)}</details>}
        {revokeTarget?.id===box.id&&<div className='mt-1 flex items-center gap-1 rounded-lg border border-rose-200 px-2' role='group' aria-label='确认撤销归档'>
         <p className='min-w-0 flex-1 text-[11px] text-slate-600'>{legacyBox&&legacy.length>1?'撤销整组旧向量，恢复原文？':'撤销这段归档，恢复原文？'}</p>
         <ArchiveIcon label='确认撤销' disabled={blocked} onClick={()=>void revoke()}><Check size={18}/></ArchiveIcon>
@@ -262,12 +262,12 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  return <div className='story-memory-workspace h-full w-full flex flex-col bg-stone-100 text-slate-800'>
   <header className='story-safe-header story-memory-header shrink-0 border-b border-slate-200'>
    <div className='story-memory-header-row h-14 px-3 flex items-center gap-1'>
-    <ArchiveIcon label='返回剧情' disabled={blocked} onClick={onBack}><ArrowLeft size={20}/></ArchiveIcon>
+    <ArchiveIcon label='返回剧情' disabled={blocked} onClick={onBack}><ArrowLeft size={21}/></ArchiveIcon>
     <div className='min-w-0 flex-1'><p className='text-[10px] text-slate-500'>{isVector?'独立向量':'剧情事件盒'}</p><h1 className='truncate text-sm font-semibold'>{entry.title}</h1></div>
-    <button type='button' aria-label='手动归档楼层' disabled={blocked||!floors?.length} onClick={()=>openRange()} className='flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-violet-700 disabled:opacity-40'><Plus size={17}/>归档</button>
+    <button type='button' aria-label='手动归档楼层' disabled={blocked||!floors?.length} onClick={()=>openRange()} title='归档楼层' className='story-memory-header-create inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-violet-700 disabled:opacity-40'><Plus size={21}/></button>
     <StoryAppearanceButton/>
    </div>
-   {hasTabs&&<nav aria-label='剧情记忆页面' className='story-memory-tabs mx-4 mb-3 flex max-w-2xl gap-2 p-1 text-sm'>
+   {hasTabs&&<nav aria-label='剧情记忆页面' className='story-memory-tabs mx-4 flex max-w-2xl gap-2 text-sm'>
     <button type='button' disabled={blocked} aria-pressed={tab==='vector'} onClick={()=>switchTab('vector')} className={'min-h-10 flex-1 rounded-lg '+(tab==='vector'?'bg-violet-100 font-semibold text-violet-700':'')}>向量记忆</button>
     <button type='button' disabled={blocked} aria-pressed={tab==='archives'} onClick={()=>switchTab('archives')} className={'min-h-10 flex-1 rounded-lg '+(tab==='archives'?'bg-violet-100 font-semibold text-violet-700':'')}>归档记录</button>
    </nav>}
@@ -286,10 +286,10 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
     {showingArchives&&range&&<section ref={rangeSection} className='story-memory-range space-y-2 rounded-xl border border-violet-200 bg-white p-3' aria-label='选择归档楼层'>
      <div className='flex items-center justify-between gap-2'>
       <h2 className='text-xs font-semibold'>{range.replaceId?'重选楼层':'归档楼层'} <span className='font-normal text-slate-500'>· 共 {floors?.length||0} 楼</span></h2>
-      <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>changeRange(null)} className='min-h-11 px-2 text-sm text-slate-600'>取消</button>
+      <button type='button' aria-label='取消选楼' disabled={blocked} onClick={()=>changeRange(null)} title='取消选楼' className='story-memory-range-cancel inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-600'><X size={18}/></button>
      </div>
      {!range.replaceId&&recentRange&&<button type='button' disabled={blocked} onClick={()=>changeRange(recentRange)}
-      className='min-h-11 rounded-lg bg-violet-50 px-3 text-sm font-medium text-violet-700'>最近未归档 · {recentRange.first}–{recentRange.last} 楼</button>}
+      className='story-memory-recent-range inline-flex min-h-11 items-center gap-2 px-2 text-sm font-medium text-violet-700'><ClockCounterClockwise size={17}/>第 {recentRange.first}–{recentRange.last} 楼 · 最近未归档</button>}
      <div className='grid grid-cols-3 gap-2 text-xs'>
       <label>起始楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.first} disabled={blocked} onChange={e=>changeRange({...range,first:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
       <label>结束楼<input type='number' inputMode='numeric' min={1} max={floors?.length} value={range.last} disabled={blocked} onChange={e=>changeRange({...range,last:e.target.value})} className='mt-1 min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-base'/></label>
@@ -324,7 +324,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
     {status&&<p role='status' className='text-xs leading-5 text-violet-700'>{status}</p>}
     <div hidden={hasTabs&&showingArchives}>{children}</div>
     <div hidden={!showingArchives} className='space-y-3'>
-    {!boxes.length&&<p className='py-3 text-center text-xs text-slate-500'>{floors===null?'正在读取楼层…':'暂无归档，点右上角＋选择楼层'}</p>}
+    {!boxes.length&&<p className='py-3 text-center text-xs text-slate-500'>{floors===null?'正在读取楼层…':'暂无归档，点击右上角添加楼层'}</p>}
     {!isVector&&boxes.length>1&&<div className='flex items-center gap-1'>
      <p className='flex-1 text-[11px] text-slate-500'>共 {boxes.length} 个{selected.length>0?' · 选中 '+selected.length+' 个':''}</p>
      <ArchiveIcon label={selected.length?'取消全选':'全选'} disabled={blocked} onClick={()=>setSelected(selected.length?[]:boxes.map(box=>box.id))}>{selected.length?<Square size={17}/>:<Checks size={17}/>}</ArchiveIcon>
