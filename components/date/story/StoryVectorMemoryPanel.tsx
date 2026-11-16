@@ -30,7 +30,7 @@ interface MemoryRecord {
 const PAGE_SIZE = 10;
 const EMPTY_MASKS: StoryTheaterMask[] = [];
 const searchText = (text: string) => text.normalize('NFKC').toLowerCase();
-const actionClass = 'min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium disabled:opacity-40';
+const actionClass = 'story-memory-action min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium disabled:opacity-40';
 
 const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, onBack, onUpdated }) => {
     const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
@@ -233,17 +233,15 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         }
     };
 
-    return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving} onFloorsLoaded={setFloors}>
-        <section ref={listRef} aria-label='向量节点'>
-            <div className='sticky top-0 z-10 mb-2 bg-stone-100 py-1'>
-                <div className='relative'>
-                    <MagnifyingGlass size={18} aria-hidden className='pointer-events-none absolute left-3 top-3.5 text-slate-500' />
-                    <input type='search' aria-label='搜索记忆' placeholder='搜索内容、时间或楼层'
-                        value={query} onChange={event => { setQuery(event.target.value); changePage(0); }}
-                        className='min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-base' />
-                </div>
-            </div>
-            <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
+    return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving} onFloorsLoaded={setFloors}
+        vectorSearch={<div className='relative story-memory-search-field'>
+            <MagnifyingGlass size={18} aria-hidden className='pointer-events-none absolute left-3 top-3.5 text-slate-500' />
+            <input type='search' aria-label='搜索记忆' placeholder='搜索内容、时间或楼层'
+                value={query} onChange={event => { setQuery(event.target.value); changePage(0); }}
+                className='story-memory-search-input min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-base' />
+        </div>}>
+        <section ref={listRef} aria-label='向量节点' className='story-memory-nodes'>
+            <div className='story-memory-count mb-3 flex flex-wrap items-center justify-between gap-2'>
                 <h2 className='text-sm font-semibold'>{normalizedQuery ? '搜索结果' : '向量记忆'} · {filtered.length} 条</h2>
                 {!normalizedQuery && !!repeatedSetupIds.size && <button type='button' className='min-h-10 px-1 text-xs text-slate-600 underline'
                     aria-pressed={showRepeatedSetup} onClick={() => { setPage(0); setShowRepeatedSetup(value => !value); }}>
@@ -254,12 +252,13 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                 <span className='min-w-0 flex-1 break-words'>{listError}</span>
                 <button className={actionClass} onClick={() => setReload(value => value + 1)}>重试</button>
             </div>}
-            {pageCount > 1 && <nav aria-label='记忆分页' className='mb-3 flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-1 py-1'>
+            {pageCount > 1 && <nav aria-label='记忆分页' className='story-memory-pager mb-3 flex items-center justify-between gap-2 px-1 py-1'>
                 <ArchiveIcon label='上一页' disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}><CaretLeft size={16} /></ArchiveIcon>
-                <label className='flex items-center gap-1 text-sm'>第
+                <label className='story-memory-page-number flex items-center gap-2 text-sm'>
                     <select aria-label='跳到记忆页' value={visiblePage} onChange={event => changePage(Number(event.target.value))} className='min-h-10 rounded-md border border-slate-200 bg-white px-2 text-base'>
                         {Array.from({ length:pageCount }, (_, index) => <option key={index} value={index}>{index + 1}</option>)}
-                    </select> / {pageCount} 页
+                    </select>
+                    <span aria-hidden='true'>/ {pageCount}</span>
                 </label>
                 <ArchiveIcon label='下一页' disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}><CaretRight size={16} /></ArchiveIcon>
             </nav>}
@@ -290,7 +289,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                         }}
                         onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress}
                         onContextMenu={event => { event.preventDefault(); cancelLongPress(); openDetail(item.id); }}
-                        className='relative rounded-xl border border-slate-200 bg-white'>
+                        className='story-memory-node relative rounded-xl border border-slate-200 bg-white'>
                         <button type='button' onClick={() => openDetail(item.id)} className='block w-full rounded-xl py-3 pl-3.5 pr-12 text-left focus-visible:outline focus-visible:outline-violet-500'>
                             <span className='flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs leading-5'>
                                 <strong>{time || (number ? '第 ' + number + ' 楼' : '旧记忆')}</strong>
@@ -301,17 +300,18 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                             <span className='mt-1.5 block whitespace-pre-wrap break-words text-sm leading-6'>
                                 {item.text.length <= 84 ? item.text : preview + '…'}
                             </span>
-                            {item.text.length > 84 && <span className='mt-1 block text-xs text-slate-600 underline'>查看完整记忆</span>}
+                            {item.text.length > 84 && <span className='story-memory-node-hint mt-1 block text-xs text-slate-600'>查看完整记忆</span>}
                         </button>
                         <button type='button' onClick={() => openDetail(item.id)} onPointerDown={event => event.stopPropagation()}
-                            className='absolute right-1 top-1 grid size-11 place-items-center rounded-full text-slate-600'
+                            className='story-memory-node-more absolute right-1 top-1 grid size-11 place-items-center rounded-full text-slate-600'
                             aria-label='记忆操作'><DotsThree size={18} weight='bold' /></button>
                     </article>;
                 })}</div>}
-            {pageCount > 1 && <nav aria-label='继续翻页' className='mt-3 flex justify-between gap-2'>
-                <button className={actionClass} disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}>上一页记忆</button>
-                <button className={actionClass} disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}>下一页记忆</button>
-            </nav>}
+            {pageCount > 1 && <nav aria-label='继续翻页' className='story-memory-bottom-page mt-3 flex items-center justify-between gap-2'>
+                <ArchiveIcon label='上一页记忆' disabled={visiblePage === 0} onClick={() => changePage(visiblePage - 1)}><CaretLeft size={18} /></ArchiveIcon>
+                <span className='story-memory-page-progress' aria-live='polite'>{visiblePage + 1} / {pageCount}</span>
+                <ArchiveIcon label='下一页记忆' disabled={visiblePage + 1 >= pageCount} onClick={() => changePage(visiblePage + 1)}><CaretRight size={18} /></ArchiveIcon>
+            </nav>
         </section>
         {record && <dialog ref={dialogRef} aria-labelledby='story-vector-detail-title'
             onCancel={event => { event.preventDefault(); backFromDetail(); }}
@@ -321,7 +321,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                 if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) backFromDetail();
             }}
             style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 18px)' }}
-            className='story-safe-sheet story-keyboard-sheet fixed inset-x-0 bottom-0 top-auto m-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-3xl border-0 bg-white p-4 text-slate-800 backdrop:bg-slate-950/40'>
+            className='story-memory-dialog story-safe-sheet story-keyboard-sheet fixed inset-x-0 bottom-0 top-auto m-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-3xl border-0 bg-white p-4 text-slate-800 backdrop:bg-slate-950/40'>
             <div className='flex max-h-[calc(85dvh-3rem)] flex-col overflow-hidden'>
                 <header className='flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 pb-2'>
                     <h3 id='story-vector-detail-title' className='text-base font-semibold'>
