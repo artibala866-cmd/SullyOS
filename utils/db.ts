@@ -1833,7 +1833,7 @@ export const DB = {
     });
   },
 
-  /** Save once per delivery. With effects, a rejected guard returns 0 and nothing is written. */
+  /** Save once per delivery. A guarded state change runs only with a newly inserted message. */
   saveMessageOnce: async (deliveryId: string, msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }, effects?: {
     allowCharacter: (character: CharacterProfile | undefined) => boolean;
     asset: { id: string; prepare: (raw: unknown) => false | true | { data: unknown } };
@@ -1844,7 +1844,7 @@ export const DB = {
       const store = tx.objectStore(STORE_MESSAGES);
       let savedId = 0;
       let inserted = false;
-      const enqueueMessage = () => {
+      const enqueueMessage = (beforeInsert?: () => void) => {
         const indexed = store.indexNames.contains('charId_deliveryId');
         const cursorRequest = store.index(indexed ? 'charId_deliveryId' : 'charId').openCursor(
           IDBKeyRange.only(indexed ? [msg.charId, deliveryId] : msg.charId), 'prev',
@@ -1852,9 +1852,13 @@ export const DB = {
         cursorRequest.onsuccess = () => {
           const cursor = cursorRequest.result;
           if (cursor) {
-            if (cursor.value.metadata?.deliveryId === deliveryId) { savedId = cursor.value.id; return; }
+            if (cursor.value.metadata?.deliveryId === deliveryId) {
+              if (!beforeInsert) savedId = cursor.value.id;
+              return;
+            }
             cursor.continue(); return;
           }
+          beforeInsert?.();
           const request = store.add({ ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } });
           request.onsuccess = () => {
             savedId = request.result as number;
@@ -1874,8 +1878,9 @@ export const DB = {
               if (!effects.allowCharacter(character.result)) return;
               const effect = effects.asset.prepare(asset.result?.data ?? null);
               if (effect === false) return;
-              if (effect !== true) assets.put({ id: effects.asset.id, data: effect.data });
-              enqueueMessage();
+              enqueueMessage(effect === true ? undefined : () => {
+                assets.put({ id: effects.asset.id, data: effect.data });
+              });
             } catch (error) {
               tx.abort();
               reject(error);

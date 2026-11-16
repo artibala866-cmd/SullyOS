@@ -95,6 +95,20 @@ describe('情侣空间', () => {
     expect(messages.map(row => row.content)).toEqual([result.status === 'open' ? '接受竞争邀请' : '拒绝竞争邀请']);
   });
 
+  it('never debits the same card delivery twice even when the space stays open', async () => {
+    const card = shopCards[0];
+    const bond = await writeBond(['partner-a'], () => ({
+      ...createBond(['partner-a']), status: 'open', bags: { me: { [card.id]: 2 }, them: {} },
+    }));
+    const send = () => deliverBondMessage(bond, `couples-test-duplicate:${bond.id}`, {
+      charId: 'partner-a', role: 'user', type: 'text', content: '两次投递只有一次扣卡',
+    }, Boolean, current => playCard(current, card, 'me'));
+    const deliveries = await Promise.all([send(), send()]);
+    expect(deliveries.filter(Boolean)).toHaveLength(1);
+    expect((await readBond(['partner-a'])).bags.me[card.id]).toBe(1);
+    expect((await readBond(['partner-a'])).played).toHaveLength(1);
+  });
+
   it('rolls back a card debit if the accompanying message transaction aborts', async () => {
     const card = shopCards[0];
     const bond = await writeBond(['partner-a'], () => ({
