@@ -73,7 +73,7 @@ import { incrementDigestRound, runCognitiveDigestion } from '../../../utils/memo
 import StoryQuickPresetPanel from './StoryQuickPresetPanel';
 import { StoryAppearanceButton } from './StoryTheaterTheme';
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, selectStoryArchiveTransitions, storyArchiveNeedsRanking, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
-import { loadStoryVectorRecall, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
+import { loadStoryVectorRecall, readStoredStoryTheater, selectStoryVectorRecall } from '../../../utils/storyTheaterVectorMemory';
 import { getStoryGenerationSnapshot, isStoryGenerationRunning, startStoryBackgroundGeneration, subscribeStoryGeneration, retryUnsavedStoryReply, StoryReplySaveError } from '../../../utils/storyTheaterBackground';
 import { readStoryCompletion, type StoryCompletion } from '../../../utils/storyTheaterCompletionIntegrity';
 import { shareOrDownloadFile } from '../../../utils/shareExport';
@@ -1201,11 +1201,13 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
 
             // 归档不能只放在成功生成之后：一旦会话已经碰到上游上下文上限，正文永远生成
             // 不出来，后置归档也就永远没有机会执行。重试已有 user 楼层时先归档，窗口可自愈。
-            const automaticMemoryApiEnabled = entry.automaticMemoryApiEnabled === true;
+            const storedEntry = await readStoredStoryTheater(entry.id);
+            const latestEntry = storedEntry && storedEntry.updatedAt >= entry.updatedAt ? storedEntry : entry;
+            const automaticMemoryApiEnabled = latestEntry.automaticMemoryApiEnabled === true;
             if (automaticMemoryApiEnabled && !entry.writesToCharacterMemory) reportStage('正在检查旧剧情归档…');
             const previousArchiveErrors = archiveErrorSeq.current;
-            const archiveBeforeProse = automaticMemoryApiEnabled ? await archiveIfNeeded() : null;
-            const promptEntry = archiveBeforeProse || entry;
+            const archiveBeforeProse = automaticMemoryApiEnabled ? await archiveIfNeeded(latestEntry) : null;
+            const promptEntry = archiveBeforeProse || latestEntry;
             const failedArchiveBeforeProse = archiveErrorSeq.current !== previousArchiveErrors;
 
             const current = (await DB.getMessagesByCharId(threadId, true))
@@ -1255,7 +1257,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 console.warn('[StoryTheater] vector memory unavailable', error);
                 return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>() };
             });
-            const facts = collectStoryArchiveFacts(promptEntry.archives, turnBoundary, vector.factTextById);
+            const facts = collectStoryArchiveFacts(promptEntry.archives, turnBoundary, vector.factTextById, true);
             const floorNumbers = new Map(current.map((message, index) => [message.id, index + 1]));
             const sourceTimes = storyArchiveSourceTimes(current);
             const knownSetup = [

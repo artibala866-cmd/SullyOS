@@ -3,12 +3,12 @@ import { CaretLeft, CaretRight, DotsThree, MagnifyingGlass, SpinnerGap, X } from
 import type { Message, StoryArchiveFact, StoryTheaterEntry, StoryTheaterMask } from '../../../types';
 import type { MemoryNode } from '../../../utils/memoryPalace/types';
 import { MemoryVectorDB } from '../../../utils/memoryPalace/db';
+import { useLocalBackHandler } from '../../../hooks/useLocalBackHandler';
 import { useOS } from '../../../context/OSContext';
-import { deleteStoryVectorMemory, listStoryVectorMemories, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
+import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, readStoredStoryTheater, StoryVectorMemoryConflictError, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
-import { DB } from '../../../utils/db';
-import { filterStoryArchiveBaselineRepeats, storyArchiveFactTime, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, storyArchiveFactIdentity, storyArchiveFactTime, storyArchiveModality, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks } from '../../../utils/storyTheater';
 import { StoryOutput } from './StoryTheaterSession';
 
@@ -24,6 +24,7 @@ interface MemoryRecord {
     text: string;
     node?: MemoryNode;
     fact?: StoryArchiveFact;
+    fallback?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -34,6 +35,7 @@ const actionClass = 'min-h-11 rounded-lg border border-slate-200 bg-white px-3 t
 const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, onBack, onUpdated }) => {
     const { memoryPalaceConfig, remoteVectorConfig, addToast, userProfile, characters, worldbooks } = useOS();
     const [nodes, setNodes] = useState<MemoryNode[]>([]);
+    const [fallbackText, setFallbackText] = useState<ReadonlyMap<string, string>>(new Map());
     const [loading, setLoading] = useState(true);
     const [listError, setListError] = useState('');
     const [reload, setReload] = useState(0);
@@ -45,6 +47,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [detailView, setDetailView] = useState<'memory' | 'source' | 'edit' | 'delete'>('memory');
     const [draft, setDraft] = useState('');
+    const [baseContent, setBaseContent] = useState('');
     const [editError, setEditError] = useState('');
     const [indexState, setIndexState] = useState('');
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -54,19 +57,25 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
 
     useEffect(() => {
         let active = true;
-        void listStoryVectorMemories(entry.id).then(rows => {
-            if (active) { setNodes(rows); setListError(''); }
+        void listStoryVectorMemories(entry.id).then(async rows => {
+            const recall = await loadStoryVectorRecall(entry, Infinity, rows);
+            if (active) {
+                setNodes(rows.filter(node => !node.archived));
+                setFallbackText(recall.factTextById);
+                setListError('');
+            }
         }).catch(error => {
             if (active) setListError(error?.message || '读取剧情向量记忆失败');
         }).finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
-    }, [entry.id, entry.updatedAt, reload]);
+    }, [entry, reload]);
 
     const floorNumbers = useMemo(() => new Map(floors.map((row, index) => [row.id, index + 1])), [floors]);
     const floorById = useMemo(() => new Map(floors.map(row => [row.id, row])), [floors]);
     const sourceTimes = useMemo(() => storyArchiveSourceTimes(floors), [floors]);
-    const factByNodeId = useMemo(() => new Map(entry.archives.flatMap(box =>
-        (box.facts ?? []).flatMap(fact => fact.vectorNodeId ? [[fact.vectorNodeId, fact] as const] : []))), [entry.archives]);
+    const vectorArchives = useMemo(() => entry.archives.filter(box => box.strategy === 'vector'), [entry.archives]);
+    const factByNodeId = useMemo(() => new Map(vectorArchives.flatMap(box =>
+        (box.facts ?? []).flatMap(fact => fact.vectorNodeId ? [[fact.vectorNodeId, fact] as const] : []))), [vectorArchives]);
     const staticSetup = useMemo(() => {
         const mask = resolveStoryTheaterMask(entry.mask, userProfile, characters, masks);
         const books = resolveStoryTheaterWorldbooks(worldbooks ?? [], characters)
@@ -77,32 +86,36 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             ...books.map(book => book.content),
         ].filter(Boolean).join('\n');
     }, [entry, userProfile, characters, worldbooks, masks]);
+    const records = useMemo<MemoryRecord[]>(() => {
+        const liveIds = new Set(nodes.map(node => node.id));
+        return [
+            ...nodes.flatMap<MemoryRecord>(node => {
+                const fact = factByNodeId.get(node.id);
+                return fact?.vectorTextState === 'deleted' ? [] : [{ id:node.id, node, text:node.content, fact }];
+            }),
+            ...[...factByNodeId].flatMap<MemoryRecord>(([id, fact]) => {
+                const text = fallbackText.get(id);
+                return liveIds.has(id) || !text || fact.vectorTextState === 'deleted' ? [] : [{ id, text, fact, fallback:true }];
+            }),
+            ...vectorArchives.flatMap(box =>
+                (box.historyFacts ?? []).flatMap<MemoryRecord>((fact, index) => fact.vectorTextState === 'deleted' ? []
+                    : [{ id:'history-' + box.id + '-' + index, text:fact.text, fact }])),
+        ].sort((a, b) => (a.fact?.sourceMessageId ?? Infinity) - (b.fact?.sourceMessageId ?? Infinity)
+            || (a.node?.createdAt ?? 0) - (b.node?.createdAt ?? 0));
+    }, [nodes, factByNodeId, vectorArchives, fallbackText]);
+    const currentIdentities = useMemo(() => new Set(collectStoryArchiveFacts(vectorArchives, Infinity, fallbackText, true)
+        .map(storyArchiveFactIdentity)), [vectorArchives, fallbackText]);
     const repeatedSetupIds = useMemo(() => {
-        const facts = nodes.flatMap(node => {
-            const fact = factByNodeId.get(node.id);
-            return fact ? [{ ...fact, text: node.content }] : [];
-        });
-        const visible = new Set(filterStoryArchiveBaselineRepeats(facts, entry.archives, staticSetup).map(fact => fact.vectorNodeId));
+        const facts = records.flatMap(({ id, fact, text }) => fact && (fact.vectorNodeId === id) ? [{ ...fact, text }] : []);
+        const visible = new Set(filterStoryArchiveBaselineRepeats(facts, vectorArchives, staticSetup).map(fact => fact.vectorNodeId));
         return new Set(facts.flatMap(fact => fact.vectorNodeId && !visible.has(fact.vectorNodeId) ? [fact.vectorNodeId] : []));
-    }, [nodes, factByNodeId, entry.archives, staticSetup]);
-    const currentByKey = useMemo(() => {
-        const current = new Map<string, number>();
-        for (const box of entry.archives) for (const fact of box.facts ?? []) {
-            current.set(fact.key, Math.max(current.get(fact.key) ?? -Infinity, fact.sourceMessageId));
-        }
-        return current;
-    }, [entry.archives]);
-    const records = useMemo<MemoryRecord[]>(() => [
-        ...nodes.map(node => ({ id:node.id, node, text:node.content, fact:factByNodeId.get(node.id) })),
-        ...entry.archives.filter(box => box.strategy === 'vector').flatMap(box =>
-            (box.historyFacts ?? []).flatMap<MemoryRecord>((fact, index) => fact.vectorTextState === 'deleted' ? []
-                : [{ id:'history-' + box.id + '-' + index, text:fact.text, fact }])),
-    ].sort((a, b) => (a.fact?.sourceMessageId ?? Infinity) - (b.fact?.sourceMessageId ?? Infinity)
-        || (a.node?.createdAt ?? 0) - (b.node?.createdAt ?? 0)), [nodes, factByNodeId, entry.archives]);
+    }, [records, vectorArchives, staticSetup]);
 
     const normalizedQuery = searchText(query.trim());
     const filtered = useMemo(() => {
-        if (!normalizedQuery) return records.filter(record => record.node && (showRepeatedSetup || !repeatedSetupIds.has(record.id)));
+        if (!normalizedQuery) return records.filter(({ node, fallback, fact, id, text }) =>
+            (node || fallback || (fact && currentIdentities.has(storyArchiveFactIdentity({ ...fact, text }))))
+            && (showRepeatedSetup || !repeatedSetupIds.has(id)));
         const floorQuery = normalizedQuery.match(/^(?:第\s*)?(\d+)\s*楼?$/u);
         const words = normalizedQuery.split(/\s+/u);
         return records.filter(record => {
@@ -114,7 +127,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             const body = searchText([record.text, time, ...(record.node?.tags ?? []), ...(fact?.terms ?? [])].filter(Boolean).join(' '));
             return words.every(word => body.includes(word));
         });
-    }, [normalizedQuery, records, showRepeatedSetup, repeatedSetupIds, floorNumbers, sourceTimes]);
+    }, [normalizedQuery, records, showRepeatedSetup, repeatedSetupIds, floorNumbers, sourceTimes, currentIdentities]);
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const visiblePage = Math.min(page, pageCount - 1);
     const visibleRecords = filtered.slice(visiblePage * PAGE_SIZE, (visiblePage + 1) * PAGE_SIZE);
@@ -158,6 +171,13 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         dialogRef.current?.close?.();
         setSelectedId(null);
     };
+    const backFromDetail = () => {
+        if (saving) return;
+        if (detailView === 'memory') closeDetail();
+        else { setEditError(''); setDetailView('memory'); }
+    };
+    useLocalBackHandler(() => { backFromDetail(); return true; }, 60, !!record);
+
     const changePage = (next: number) => {
         setPage(next);
         const scroller = listRef.current?.closest('main');
@@ -165,7 +185,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     };
     const refreshArchive = async () => {
         try {
-            const saved = (await DB.getStoryTheaters()).find(story => story.id === entry.id);
+            const saved = await readStoredStoryTheater(entry.id);
             if (saved) onUpdated(saved);
         } catch (error) {
             console.warn('[StoryTheater] could not refresh edited archive', error);
@@ -176,13 +196,17 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         setSaving(true);
         setEditError('');
         try {
-            const updated = await updateStoryVectorMemory(entry.id, activeNode.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig);
+            const updated = await updateStoryVectorMemory(entry.id, activeNode.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig, baseContent);
             setNodes(current => current.map(node => node.id === updated.id ? updated : node));
             await refreshArchive();
             setDetailView('memory');
             addToast('剧情记忆已更新', 'success');
         } catch (error: any) {
             setEditError(error?.message || '剧情记忆修改失败');
+            if (error instanceof StoryVectorMemoryConflictError) {
+                await refreshArchive();
+                setReload(value => value + 1);
+            }
         } finally {
             setSaving(false);
         }
@@ -192,7 +216,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         setSaving(true);
         setEditError('');
         try {
-            const result = await runStoryArchiveOperation(entry.id, () => deleteStoryVectorMemory(entry.id, activeNode.id, remoteVectorConfig));
+            const result = await runStoryArchiveOperation(entry.id, () => deleteStoryVectorMemory(entry.id, activeNode.id, remoteVectorConfig, baseContent));
             dialogRef.current?.close?.();
             setSelectedId(null);
             setNodes(current => current.filter(node => node.id !== activeNode.id));
@@ -200,6 +224,10 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             addToast(result.remoteDeleted === false ? '本地已删除，远端暂未同步' : '剧情记忆已删除', result.remoteDeleted === false ? 'info' : 'success');
         } catch (error: any) {
             setEditError(error?.message || '剧情记忆删除失败');
+            if (error instanceof StoryVectorMemoryConflictError) {
+                await refreshArchive();
+                setReload(value => value + 1);
+            }
         } finally {
             setSaving(false);
         }
@@ -242,7 +270,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                     const number = fact && floorNumbers.get(fact.sourceMessageId);
                     const time = fact && storyArchiveFactTime({ ...fact, text:item.text }, sourceTimes);
                     const modality = fact && storyArchiveModality(fact);
-                    const past = !item.node || (fact && (currentByKey.get(fact.key) ?? 0) > fact.sourceMessageId);
+                    const past = fact && !currentIdentities.has(storyArchiveFactIdentity({ ...fact, text:item.text }));
                     const label = repeatedSetupIds.has(item.id) ? '已有人设'
                         : modality === 'planned' ? '仅是计划' : modality === 'unverified' ? '尚未证实'
                         : fact?.kind === 'author' ? '写作要求' : '';
@@ -286,7 +314,12 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
             </nav>}
         </section>
         {record && <dialog ref={dialogRef} aria-labelledby='story-vector-detail-title'
-            onCancel={event => { event.preventDefault(); closeDetail(); }}
+            onCancel={event => { event.preventDefault(); backFromDetail(); }}
+            onClick={event => {
+                if (event.target !== event.currentTarget) return;
+                const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+                if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) backFromDetail();
+            }}
             style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 18px)' }}
             className='story-safe-sheet story-keyboard-sheet fixed inset-x-0 bottom-0 top-auto m-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-hidden rounded-t-3xl border-0 bg-white p-4 text-slate-800 backdrop:bg-slate-950/40'>
             <div className='flex max-h-[calc(85dvh-3rem)] flex-col overflow-hidden'>
@@ -301,7 +334,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                     {detailView === 'memory' && <>
                         <div className='mb-2 flex flex-wrap gap-x-3 text-xs text-slate-600'>
                             {floor && <span>第 {floor} 楼</span>}
-                            {indexState && <span>{indexState}</span>}
+                            {(record.fallback || indexState) && <span>{record.fallback ? '仅有文字备份' : indexState}</span>}
                         </div>
                         <p className='whitespace-pre-wrap break-words text-base leading-7'>{record.text}</p>
                     </>}
@@ -317,15 +350,15 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                     {detailView === 'memory' ? <>
                         {original && <button className={actionClass} onClick={() => setDetailView('source')}>查看原楼</button>}
                         {activeNode && <button className={actionClass} onClick={() => {
-                            setDraft(activeNode.content); setEditError(''); setDetailView('edit');
+                            setBaseContent(activeNode.content); setDraft(activeNode.content); setEditError(''); setDetailView('edit');
                         }}>编辑</button>}
                         {activeNode && <button className={actionClass + ' ml-auto text-rose-700'} onClick={() => {
-                            setEditError(''); setDetailView('delete');
+                            setBaseContent(activeNode.content); setEditError(''); setDetailView('delete');
                         }}>删除</button>}
                     </> : <>
-                        <button className={actionClass} disabled={saving} onClick={() => { setEditError(''); setDetailView('memory'); }}>返回记忆</button>
+                        <button className={actionClass} disabled={saving} onClick={backFromDetail}>返回记忆</button>
                         {detailView === 'edit' && <button className='min-h-11 flex-1 rounded-lg bg-violet-700 px-3 text-sm font-semibold text-white disabled:opacity-40'
-                            disabled={saving || !draft.trim() || draft.trim() === activeNode?.content} onClick={() => void saveEdit()}>
+                            disabled={saving || !draft.trim() || draft.trim() === baseContent} onClick={() => void saveEdit()}>
                             {saving ? '保存中…' : '保存并更新向量'}
                         </button>}
                         {detailView === 'delete' && <button className='min-h-11 flex-1 rounded-lg bg-rose-700 px-3 text-sm font-semibold text-white disabled:opacity-40'

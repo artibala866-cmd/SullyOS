@@ -1,6 +1,7 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X} from '@phosphor-icons/react';
 import type {Message,StoryTheaterArchive,StoryTheaterArchiveStrategy,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
+import {useLocalBackHandler} from '../../../hooks/useLocalBackHandler';
 import {useOS} from '../../../context/OSContext';
 import {resolveStoryTheaterMask,storyTheaterThreadId} from '../../../utils/storyTheater';
 import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyTheaterMemoryConversion';
@@ -47,6 +48,16 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   tabScroll.current[tab]=scrollRef.current?.scrollTop??0;
   setTab(next);
  };
+ useLocalBackHandler(()=>{
+  // The appearance sheet has its own return handler.
+  if(document.getElementById('story-appearance-title'))return false;
+  if(blocked)return true;
+  if(revokeTarget)setRevokeTarget(null);
+  else if(range&&showingArchives)setRange(null);
+  else if(hasTabs&&tab==='archives')switchTab('vector');
+  else onBack();
+  return true;
+ },25);
  useLayoutEffect(()=>{
   if(scrollRef.current)scrollRef.current.scrollTop=tabScroll.current[tab];
  },[tab]);

@@ -3,7 +3,7 @@ import type { Message, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
 import { archiveStoryFloorRange, archiveStoryVectorRangeInGeneration, commitStoryArchiveBatch, generateStoryArchiveDelta, parseStoryArchiveSummary, regenerateStoryArchiveSummary, revokeStoryArchive, splitStoryArchiveBatches } from './storyTheaterArchive';
@@ -244,6 +244,42 @@ describe('story summary final channel', () => {
         expect(storyArchiveNeedsRanking(facts,new Map(),new Map())).toBe(false);
         expect(formatStoryArchiveProseContext(facts,'')).toContain('记录0。');
         expect(formatStoryArchiveProseContext(facts,'')).toContain('记录12。');
+    });
+
+    it('only treats a rumor as resolved when the actual assertion confirms it', () => {
+        expect(storyArchiveModality({ text: '泵房的水位尺确认正常，之前传闻因刻度图拿错。' })).toBeUndefined();
+        expect(storyArchiveModality({ text: '泵房的水位尺还没有确认正常，之前传闻因刻度图拿错。' })).toBe('unverified');
+        expect(storyArchiveModality({ text: '据说水位尺确认正常，之前传闻因刻度图拿错。' })).toBe('unverified');
+        expect(storyArchiveModality({ text: '据说巡检员已经证实水位尺正常。' })).toBe('unverified');
+        expect(storyArchiveModality({ text: '巡检员尚未最终证实水位尺正常。' })).toBe('unverified');
+        expect(storyArchiveModality({ text: '先前传闻水位尺出错，巡检员最终证实水位尺正常。' })).toBeUndefined();
+        expect(storyArchiveModality({ text: '计划明早检查水位尺。' })).toBe('planned');
+    });
+
+    it('keeps the last confirmed fact beside an uncertain update in the same archive', () => {
+        const confirmed = { key:'钥匙/持有人', kind:'fact' as const, text:'叶澄保管钥匙。', terms:['钥匙'], sourceMessageId:1 };
+        const rumored = { ...confirmed, text:'听说钥匙已经交给站务员。', sourceMessageId:2 };
+        const archive = { id:'vector', strategy:'vector' as const, fromMessageId:1, toMessageId:2,
+            createdAt:1, messageCount:2, facts:[rumored], historyFacts:[confirmed] };
+        const floors = new Map([[1,1],[2,2]]);
+        const facts = collectStoryArchiveFacts([archive], Infinity, new Map(), true);
+        expect(facts).toEqual([confirmed, rumored]);
+        const timeline = formatStoryArchiveRecallTimeline(facts, [confirmed], '', floors, new Map(), new Map());
+        expect(timeline).toBe('[第 1 楼] 【已发生】叶澄保管钥匙。\n[第 2 楼] 【尚未核实的说法】听说钥匙已经交给站务员。');
+        const deleted = { ...archive, facts:[{ ...rumored, vectorTextState:'deleted' as const }] };
+        expect(collectStoryArchiveFacts([deleted], Infinity, new Map(), true)).toEqual([]);
+        expect(collectStoryArchiveFacts([archive], 2, new Map(), true)).toEqual([]);
+    });
+
+    it('caps a single oversized fact and excludes hidden reasoning from raw fallback evidence', () => {
+        const long = { key:'剧情/旧记录', kind:'fact' as const, text:'城门。'.repeat(2000), terms:['城门'], sourceMessageId:1 };
+        const context = formatStoryArchiveRecallTimeline([long], [], '城门', new Map([[1,1]]), new Map(), new Map());
+        expect(context).toHaveLength(3200);
+        expect(context.endsWith('…')).toBe(true);
+        const archive = { id:'vector', strategy:'vector' as const, fromMessageId:1, toMessageId:1, createdAt:1,
+            messageCount:1, facts:[long] };
+        const row = { id:1, role:'assistant', content:'<think>入口暗号在楼梯下面。</think>守门人打开了城门。' };
+        expect(findStoryArchiveEvidence([row], [archive], 2, '入口暗号在哪里', '', '', new Map([[1,1]]))).toBe('');
     });
 
     it('can repeatedly rank synced text locally before a real vector node exists', async () => {
@@ -1049,6 +1085,12 @@ describe('consecutive automatic archives', () => {
 
         queueEmbedding();
         await updateStoryVectorMemory(entry.id, id, '阿岚把铜钥匙放在书桌。', embedding);
+        expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
+        const calls = fetchMock.mock.calls.length;
+        await expect(updateStoryVectorMemory(entry.id, id, '过期草稿。', embedding, undefined, '阿岚保管铜钥匙。'))
+            .rejects.toThrow('已在别处修改');
+        await expect(deleteStoryVectorMemory(entry.id, id, undefined, '阿岚保管铜钥匙。')).rejects.toThrow('已在别处修改');
+        expect(fetchMock).toHaveBeenCalledTimes(calls);
         expect((await readFacts()).map(fact => fact.text)).toEqual(['阿岚把铜钥匙放在书桌。']);
         const edited = (await MemoryNodeDB.getById(id))!;
         // A missing local node still sends the user's latest edit from the archive.

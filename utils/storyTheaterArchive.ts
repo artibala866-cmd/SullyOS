@@ -16,7 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { storyArchiveModality, collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveSourceTimes, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
@@ -255,7 +255,7 @@ export async function generateStoryArchiveDelta(
                 // Earlier states belong to a historical lane, not current facts
                 // or duplicate embedding nodes.
                 if (earlier && earlier.kind === 'fact' && fact.kind === 'fact'
-                    && earlier.text !== fact.text) historyFacts.push(earlier);
+                    && (earlier.text !== fact.text || storyArchiveModality(earlier) !== storyArchiveModality(fact))) historyFacts.push(earlier);
                 known.set(fact.key, fact);
                 changed.set(fact.key, fact);
             }

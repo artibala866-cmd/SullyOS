@@ -11,7 +11,9 @@ import { EMBEDDING_MAX_INPUT_CHARS, getEmbeddings } from './memoryPalace/embeddi
 import { bm25Search } from './memoryPalace/bm25';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
-import { storyTimeFromSource } from './storyArchiveFacts';
+import { storyArchiveModality, storyTimeFromSource } from './storyArchiveFacts';
+
+export class StoryVectorMemoryConflictError extends Error {}
 
 function assertStoryPartition(entryId: string, node: MemoryNode | undefined): MemoryNode {
     if (!node) throw new Error('这条剧情记忆已经不存在了');
@@ -29,7 +31,7 @@ export async function listStoryVectorMemories(entryId: string): Promise<MemoryNo
         .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-async function readStoryVectorArchive(entryId: string): Promise<StoryTheaterEntry | undefined> {
+export async function readStoredStoryTheater(entryId: string): Promise<StoryTheaterEntry | undefined> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const request = db.transaction('story_theaters', 'readonly').objectStore('story_theaters').get(entryId);
@@ -53,7 +55,7 @@ function changeOwnedStoryFact(
 }
 
 /** Read visible nodes and use the synced archive text if its node is unavailable. */
-export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: number) {
+export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: number, loadedNodes?: MemoryNode[]) {
     const archives = entry.archives.filter(box => box.strategy === 'vector');
     const groups: { archiveIds: string[]; nodes: MemoryNode[] }[] = [];
     const factTextById = new Map<string, string>();
@@ -64,7 +66,7 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
         .filter(box => box.toMessageId < beforeId)
         .flatMap(box => (box.facts ?? []).filter(fact => fact.vectorNodeId && box.vectorMemoryIds?.includes(fact.vectorNodeId)));
     const visibleNodeIds = [...new Set(visibleFacts.map(fact => fact.vectorNodeId!))];
-    const all = await listStoryVectorMemories(entry.id).catch(async error => {
+    const all = loadedNodes ?? await listStoryVectorMemories(entry.id).catch(async error => {
         console.warn('[StoryTheater] vector partition read failed; recovering by node ID', error);
         const ids = [...new Set([...visibleNodeIds, ...archives.filter(box => box.toMessageId < beforeId)
             .flatMap(box => box.vectorMemoryIds ?? [])])];
@@ -84,7 +86,7 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     if (missingIds.size) {
         try {
             // Use the current saved archive so an older open tab cannot revive a deleted or edited fact.
-            const saved = await readStoryVectorArchive(entry.id);
+            const saved = await readStoredStoryTheater(entry.id);
             for (const box of saved?.archives ?? []) {
                 if (box.strategy !== 'vector' || box.toMessageId >= beforeId) continue;
                 for (const fact of box.facts ?? []) {
@@ -230,9 +232,13 @@ export async function updateStoryVectorMemory(
     content: string,
     embeddingConfig?: EmbeddingConfig,
     remoteVectorConfig?: RemoteVectorConfig,
+    expectedContent?: string,
 ): Promise<MemoryNode> {
     return runStoryArchiveOperation(entryId, async () => {
         const previous = assertStoryPartition(entryId, await MemoryNodeDB.getById(nodeId));
+        if (expectedContent !== undefined && previous.content !== expectedContent) {
+            throw new StoryVectorMemoryConflictError('这条记忆已在别处修改，草稿已保留');
+        }
         const text = content.trim();
         if (text.length > EMBEDDING_MAX_INPUT_CHARS) throw new Error('记忆正文超过单条向量容量，旧内容已保留');
         const config = embeddingConfig && { ...embeddingConfig, requestPurpose: '剧情独立向量 · 编辑后建索引' };
@@ -253,8 +259,11 @@ export async function updateStoryVectorMemory(
                     if (--pending) return;
                     try {
                         const current = assertStoryPartition(entryId, node.result as MemoryNode | undefined);
-                        if (current.content !== previous.content) throw new Error('剧情记忆已变更，请重新打开后编辑');
-                        changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text, storyTime: storyTimeFromSource(text), vectorTextState: 'synced' }));
+                        if (current.content !== previous.content) throw new StoryVectorMemoryConflictError('剧情记忆已变更，草稿已保留');
+                        changeOwnedStoryFact(stories, story.result, nodeId, fact => ({
+                            ...fact, text, storyTime: storyTimeFromSource(text) ?? fact.storyTime,
+                            modality: storyArchiveModality({ text }), vectorTextState: 'synced',
+                        }));
                         for (const { node: next, vector } of entries) {
                             const floats = ensureFloat32(vector.vector);
                             nodes.put(next);
@@ -276,6 +285,7 @@ export async function deleteStoryVectorMemory(
     entryId: string,
     nodeId: string,
     remoteVectorConfig?: RemoteVectorConfig,
+    expectedContent?: string,
 ): Promise<{ remoteDeleted: boolean | null }> {
     // Deleting text, embedding and links in separate transactions can leave a
     // half-deleted memory when the browser quota or a tab fails mid-operation.
@@ -296,7 +306,10 @@ export async function deleteStoryVectorMemory(
         const finish = () => {
             if (--pending) return;
             try {
-                assertStoryPartition(entryId, read.result as MemoryNode | undefined);
+                const node = assertStoryPartition(entryId, read.result as MemoryNode | undefined);
+                if (expectedContent !== undefined && node.content !== expectedContent) {
+                    throw new StoryVectorMemoryConflictError('这条记忆已在别处修改，请重新打开后确认');
+                }
                 changeOwnedStoryFact(stories, story.result, nodeId, fact => ({ ...fact, text: '', vectorTextState: 'deleted' }));
                 vectors.delete(nodeId);
                 nodes.delete(nodeId);

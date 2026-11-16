@@ -8,8 +8,9 @@ describe('剧情首次进入与正则排版稳定性', () => {
         expect(source).toContain('const initialReadingReady = useMemo(() => {');
         expect(source).toContain('regexDisplay?.rules !== activeRegexRules');
         expect(source).toContain('regexDisplay.results.get(key)');
-        expect(source).toContain('!messages.length || !initialReadingPendingRef.current || !initialReadingReady');
-        expect(source).toContain('if (!initialReadingGestureRef.current) scrollReadingToLatest();');
+        expect(source).toContain('initialReadingDisplayed || (historyLoaded && initialReadingReady)');
+        expect(source).toContain('!readingContentReady || !initialReadingPendingRef.current');
+        expect(source).toContain('if (messages.length && !initialReadingGestureRef.current) scrollReadingToLatest();');
     });
 
     it('初次加载期间用户主动滑动时不抢回最新楼层', () => {
@@ -23,6 +24,7 @@ describe('剧情首次进入与正则排版稳定性', () => {
     it('正则先完成整批结果，再一次提交以避免历史楼层逐批闪动', () => {
         expect(source).toContain('if (offset + 24 >= pending.length) commit();');
         expect(source).toContain('if (!pending.length && reuse && previous?.results.size !== results.size) commit();');
-        expect(source).toContain("return { text: '', cards: [], matches: 0 };");
+        expect(source).toContain("PENDING_STORY_REGEX_RESULT: StoryRegexResult = { text: '', cards: [], matches: 0 }");
+        expect(source).toContain("return PENDING_STORY_REGEX_RESULT;");
     });
 });

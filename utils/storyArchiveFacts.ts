@@ -1,4 +1,5 @@
 import type { StoryArchiveFact, StoryTheaterArchive } from '../types';
+import { extractContent } from './safeApi';
 
 const normalize = (text: string) => text.normalize('NFKC').trim().toLowerCase();
 const comparable = (text: string) => normalize(text).replace(/[\p{P}\p{Z}\s]/gu, '');
@@ -11,8 +12,20 @@ export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'moda
     'planned' | 'unverified' | undefined {
     if (fact.modality) return fact.modality;
     const text = fact.text;
-    if (/(?:据说|传闻|听说|怀疑|猜测|尚未证实|未经证实|无人证实|尚未核实|未确认|可能存在)/u.test(text)
-        && !/(?:最终证实|已经证实|查明真相|明确证实|证据表明)/u.test(text)) return 'unverified';
+    const hearsay = /(?:据说|传闻|听说|怀疑|猜测|尚未证实|未经证实|无人证实|尚未核实|未确认|没(?:有)?确认|有待确认|可能存在)/u;
+    const negativeVerification = /(?:尚未|还没(?:有)?|没有|未能|尚待)(?:最终|已经|明确)?(?:确认|证实|核实|查明)/u;
+    if (hearsay.test(text) || negativeVerification.test(text)) {
+        // A report can mention a verification inside the rumor itself. A
+        // separate affirmative clause is needed to mark that report resolved.
+        const resolved = text.split(/[，,；;。！？\n]/u).some(clause =>
+            /(?:最终证实|已经证实|查明真相|明确证实|证据表明)/u.test(clause)
+            && !hearsay.test(clause) && !negativeVerification.test(clause));
+        const assertion = text.replace(/[，,；;。]\s*(?:此前|先前|之前|原先|当时)的?(?:传闻|猜测)(?:[^。！？\n]*)[。！？]?$/u, '');
+        const confirmed = /(?:确认(?:了|为|属实|正常|无误|安全|有效)|核实(?:了|为|属实|无误)|查明|证实)/u;
+        const explainsPriorRumor = assertion !== text && confirmed.test(assertion)
+            && !hearsay.test(assertion) && !negativeVerification.test(assertion);
+        if (!resolved && !explainsPriorRumor) return 'unverified';
+    }
     const intends = /(?:打算|计划|准备于|准备在|决定.{0,55}(?:后|前|以后|之后|明天|下周|改天)|承诺.{0,35}(?:以后|明天|今后|将来|下周)|将要|拟于)/u.test(text);
     if (intends && !/(?:计划已经完成|计划已完成|打算已取消|放弃计划|取消计划|终于做到了|最终完成|随后已经前往|后来已经前往)/u.test(text)) return 'planned';
     return undefined;
@@ -89,20 +102,44 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '每条可填 modality：已确定发生的事实省略；尚未发生的计划、愿望、未来承诺用 planned；传闻、猜测、未知真伪的信息用 unverified。不能把计划/传闻改写成既成事实；后续有原文确认发生时更新同一 key，并去掉旧 modality。',
 ].join('\n');
 
+export function storyArchiveFactIdentity(fact: StoryArchiveFact): string {
+    return JSON.stringify([fact.key, fact.sourceMessageId, fact.kind, fact.text, storyArchiveModality(fact)]);
+}
+
 export function collectStoryArchiveFacts(
     archives: StoryTheaterArchive[], beforeId: number, vectorTexts: ReadonlyMap<string, string>,
+    includeLastConfirmed = false,
 ): StoryArchiveFact[] {
     const current = new Map<string, StoryArchiveFact>();
+    const confirmed = new Map<string, StoryArchiveFact>();
+    const resolve = (fact: StoryArchiveFact) => {
+        if (fact.vectorTextState === 'deleted') return undefined;
+        // Only use vector text checked against the live node or persisted archive.
+        const text = fact.vectorNodeId ? vectorTexts.get(fact.vectorNodeId) : fact.text;
+        return text?.trim() ? { ...fact, text } : undefined;
+    };
     for (const archive of archives.filter(item => item.toMessageId < beforeId).sort((a, b) => a.toMessageId - b.toMessageId)) {
+        if (includeLastConfirmed) {
+            for (const fact of [...(archive.historyFacts ?? []), ...(archive.facts ?? [])]) {
+                if (fact.kind !== 'fact') continue;
+                if (fact.vectorTextState === 'deleted') {
+                    confirmed.delete(fact.key);
+                    continue;
+                }
+                const resolved = resolve(fact);
+                if (resolved && !storyArchiveModality(resolved)
+                    && resolved.sourceMessageId >= (confirmed.get(resolved.key)?.sourceMessageId ?? -Infinity)) {
+                    confirmed.set(resolved.key, resolved);
+                }
+            }
+        }
         for (const fact of archive.facts ?? []) current.set(fact.key, fact);
     }
     return [...current.values()].flatMap(fact => {
-        if (fact.vectorTextState === 'deleted') return [];
-        // The vector loader checks the latest persisted archive before falling
-        // back to its synced copy. Never use an old tab's copy directly: that
-        // could revive a fact explicitly deleted in a newer tab.
-        const text = fact.vectorNodeId ? vectorTexts.get(fact.vectorNodeId) : fact.text;
-        return text?.trim() ? [{ ...fact, text }] : [];
+        const resolved = resolve(fact);
+        if (!resolved) return [];
+        const previous = includeLastConfirmed && storyArchiveModality(resolved) ? confirmed.get(resolved.key) : undefined;
+        return previous ? [previous, resolved] : [resolved];
     });
 }
 
@@ -331,14 +368,14 @@ export function parseStoryArchiveChanges(
         const oldInBatch = facts.get(key);
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
         if (oldInBatch && signature(oldInBatch) === comparableText) continue;
-        const sameState = previous && comparable(previous.text) === comparable(text) && previous.modality === modality;
+        const sameState = previous && comparable(previous.text) === comparable(text) && storyArchiveModality(previous) === storyArchiveModality(fact);
         if (sameState && !oldInBatch && change.action !== 'add') continue;
         if (duplicateText.has(comparableText) && !oldInBatch && (!previous || sameState)) continue;
         if (!previous && kind === 'fact' && storyArchiveRepeatsPreset(text, key, baseline, quotedClause ?? source.text)) continue;
         const termCandidates: string[] = change.terms ?? key.split(/[\/：:·-]+/u);
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
-            && oldInBatch.text !== text) onEarlierState?.(oldInBatch);
+            && (oldInBatch.text !== text || storyArchiveModality(oldInBatch) !== storyArchiveModality(fact))) onEarlierState?.(oldInBatch);
         facts.set(key, { ...fact, terms });
         duplicateText.add(comparableText);
     }
@@ -367,6 +404,12 @@ export function parseStoryArchiveChanges(
     return [...facts.values()];
 }
 
+function clipStoryMemoryText(text: string, limit: number): string {
+    if (limit <= 0) return '';
+    if (text.length <= limit) return text;
+    return text.slice(0, limit - 1).replace(/[\uD800-\uDBFF]$/u, '').trimEnd() + '…';
+}
+
 function storyArchiveFactLines(
     facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
     sourceTimes?: ReadonlyMap<number, string>, timelineStatus?: 'current' | 'past',
@@ -386,9 +429,11 @@ function storyArchiveFactLines(
         const qualifier = fact.kind === 'author' ? '用户协助指令：'
             : modality === 'planned' ? '【尚未发生的计划】' : modality === 'unverified' ? '【尚未核实的说法】' : '';
         const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '') + status + qualifier + fact.text;
-        if (used + line.length + 1 > budget && selected.length) continue;
-        selected.push({ fact, line });
-        used += line.length + 1;
+        if (used + line.length >= budget && selected.length) continue;
+        const withinBudget = clipStoryMemoryText(line, budget - used);
+        if (!withinBudget) break;
+        selected.push({ fact, line: withinBudget });
+        used += withinBudget.length + 1;
     }
     return selected;
 }
@@ -462,7 +507,9 @@ export function formatStoryArchiveRecallTimeline(
     const lines = storyArchiveRecallSections(facts).flatMap(({ entries, budget }) =>
         storyArchiveFactLines(rankStoryArchiveFacts(entries, query, semanticRank, sourceTimes),
             floorNumbers, budget, sourceTimes, 'current'));
-    lines.push(...storyArchiveFactLines(historical, floorNumbers, Infinity, sourceTimes, 'past'));
+    const currentIdentities = new Set(facts.map(storyArchiveFactIdentity));
+    lines.push(...storyArchiveFactLines(historical.filter(fact => !currentIdentities.has(storyArchiveFactIdentity(fact))),
+        floorNumbers, Infinity, sourceTimes, 'past'));
     return lines.sort((a, b) =>
         (floorNumbers.get(a.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER)
         - (floorNumbers.get(b.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER),
@@ -491,7 +538,8 @@ export function findStoryArchiveEvidence(
     const hits: { id: number; excerpt: string; score: number }[] = [];
     for (const row of rows) {
         if (deletedSources.has(row.id) || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
-        for (const sentence of storySentences(row.content)) {
+        const content = extractContent({ choices: [{ message: { content: row.content } }] }, false);
+        for (const sentence of storySentences(content)) {
             const text = normalize(sentence);
             if (known.includes(text) || /[？?]$/u.test(text)
                 || (row.role === 'user' && /^(?:请|问|核对|看看|检查|告诉|确认|向.{1,12}确认)/u.test(text))) continue;
