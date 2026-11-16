@@ -498,8 +498,11 @@ export const STORY_THEME_CSS = `
 }
 .story-theme .story-memory-expand-summary { list-style: none; }
 .story-theme .story-memory-expand-summary::-webkit-details-marker { display: none; }
+.story-theme .story-memory-inline-expand { display: inline-flex; align-items: baseline; gap: 7px; list-style: none; }
+.story-theme .story-memory-inline-expand::-webkit-details-marker { display: none; }
+.story-theme .story-memory-inline-expand .story-memory-expand-caret { flex: 0 0 auto; }
 .story-theme .story-memory-expand-caret { transition: transform 140ms ease; }
-.story-theme .story-memory-archive-item details[open] > .story-memory-expand-summary .story-memory-expand-caret { transform: rotate(180deg); }
+.story-theme .story-memory-archive-item details[open] > summary .story-memory-expand-caret { transform: rotate(180deg); }
 .story-theme .story-memory-archive-item > details > div { padding-left: 10px; border-left: 1px solid var(--memory-hairline); }
 .story-theme .story-memory-range {
   border: 0 !important;
