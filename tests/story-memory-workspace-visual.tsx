@@ -97,13 +97,26 @@ async function start() {
       Array.from(buttons).every(button => !!button.querySelector('svg') && !button.textContent?.trim()));
     const headBottom = header.getBoundingClientRect().bottom;
     const scrollerTop = scroller.getBoundingClientRect().top;
-    const horizontalFit = document.documentElement.scrollWidth <= innerWidth;
-    const success = bottomIcons && Math.abs(afterY - originalY) <= 1 &&
-      headBottom <= scrollerTop + 2 && horizontalFit;
+    const horizontalFit = document.documentElement.scrollWidth <= innerWidth && scroller.scrollWidth <= scroller.clientWidth + 1;
+    const transparent = (value: string) => value === 'rgba(0, 0, 0, 0)' || value === 'transparent';
+    const cardStyle = getComputedStyle(cards[0]);
+    const noWhiteCards = transparent(cardStyle.backgroundColor) && cardStyle.boxShadow === 'none'
+      && parseFloat(cardStyle.borderTopWidth) === 0 && parseFloat(cardStyle.borderLeftWidth) === 0;
+    const searchStyle = getComputedStyle(search);
+    const flatSearch = transparent(searchStyle.backgroundColor) && parseFloat(searchStyle.borderTopWidth) === 0
+      && parseFloat(searchStyle.borderBottomWidth) >= 1;
+    const headerButton = header.querySelector<HTMLButtonElement>('button[aria-label="手动归档楼层"]');
+    const headerIcon = !!headerButton?.querySelector('svg') && !headerButton?.textContent?.trim();
+    const archiveActions = Array.from(document.querySelectorAll<HTMLButtonElement>('.story-memory-archive-actions button'));
+    const archiveIcons = mode !== 'boxes' || (archiveActions.length >= 6 &&
+      archiveActions.every(button => !!button.querySelector('svg') && !button.textContent?.trim()));
+    const success = bottomIcons && noWhiteCards && flatSearch && headerIcon && archiveIcons &&
+      Math.abs(afterY - originalY) <= 1 && headBottom <= scrollerTop + 2 && horizontalFit;
     scroller.scrollTop = 0;
     report({ success, mode, theme: dark ? 'dark' : 'light',
       viewport: { width: innerWidth, height: innerHeight }, cards: cards.length,
-      bottomIcons, searchStationary: Math.abs(afterY - originalY) <= 1,
+      bottomIcons, noWhiteCards, flatSearch, headerIcon, archiveIcons,
+      searchStationary: Math.abs(afterY - originalY) <= 1,
       headerAboveScroll: headBottom <= scrollerTop + 2, horizontalFit });
     return;
   }
