@@ -110,7 +110,36 @@ try {
             if (!detail.result?.value) throw new Error('Memory detail sheet failed to open from real node');
             const detailShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
             await writeFile(screenshotPath.slice(0, -4) + '-detail.png', Buffer.from(detailShot.data, 'base64'));
+            await send('Runtime.evaluate', { expression: "document.querySelector('button[aria-label=\\"关闭记忆详情\\"]')?.click()" });
+            await sleep(250);
         }
+        await send('Runtime.evaluate', { expression: "document.querySelector('.story-memory-tabs button[aria-pressed=false]')?.click()" });
+        await sleep(400);
+        const archived = await send('Runtime.evaluate', {
+            expression: "({active:document.querySelector('.story-memory-tabs button[aria-pressed=true]')?.textContent,rows:document.querySelectorAll('.story-memory-archive-item').length})",
+            returnByValue: true,
+        });
+        if (archived.result?.value?.rows !== 2 || !archived.result.value.active.includes('归档'))
+            throw new Error('Vector archive tab layout did not render: ' + JSON.stringify(archived.result?.value));
+        const tabShot = await send('Page.captureScreenshot', { format:'png', fromSurface:true, captureBeyondViewport:false });
+        await writeFile(screenshotPath.slice(0, -4) + '-archives.png', Buffer.from(tabShot.data, 'base64'));
+    } else if (width === 390) {
+        await send('Runtime.evaluate', {
+            expression: "document.querySelector('.story-memory-archive-item > details > summary')?.click()",
+        });
+        await sleep(300);
+        const expanded = await send('Page.captureScreenshot', { format:'png', fromSurface:true, captureBeyondViewport:false });
+        await writeFile(screenshotPath.slice(0, -4) + '-expanded.png', Buffer.from(expanded.data, 'base64'));
+        await send('Runtime.evaluate', {
+            expression: "document.querySelector('.story-memory-archive-item > details > summary')?.click(); document.querySelector('.story-memory-archive-actions button[aria-label^=\\"重选楼层\\"]')?.click()",
+        });
+        await sleep(500);
+        const rangeVisible = await send('Runtime.evaluate', {
+            expression: "!!document.querySelector('.story-memory-range')", returnByValue: true,
+        });
+        if (!rangeVisible.result?.value) throw new Error('Real archive range UI did not open');
+        const rangeShot = await send('Page.captureScreenshot', { format:'png', fromSurface:true, captureBeyondViewport:false });
+        await writeFile(screenshotPath.slice(0, -4) + '-range.png', Buffer.from(rangeShot.data, 'base64'));
     }
     await writeFile(reportPath, JSON.stringify({
         viewport: { width, height }, fit: result.fit,
