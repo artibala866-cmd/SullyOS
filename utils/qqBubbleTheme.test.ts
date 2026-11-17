@@ -56,7 +56,7 @@ describe('built-in QQ bubble visual layout', () => {
     const item = read('components/chat/MessageItem.tsx');
     expect(item).toContain('Boolean(translationEnabled && hasBilingual && langBContent)');
     expect(item).toContain('data-bilingual-translation="true"');
-    expect(item).toContain('sully-chat-bilingual-translation mt-2 pt-2 border-t');
+    expect(item).toContain("borderTop: '1px solid rgba(127, 127, 127, 0.18)'");
     expect(item).not.toContain('qqTextMessage && !isUser && showExpandedTranslation');
     expect(item).not.toContain('showTranslateButton');
     expect(item).not.toContain('sully-chat-translate-action relative');
