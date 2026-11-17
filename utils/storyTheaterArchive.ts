@@ -220,7 +220,7 @@ export async function generateStoryArchiveDelta(
             undefined, vector.factNodes.filter(node => knownIds.has(node.id)), true);
         const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality' | 'continuity'>> = [];
         let used = 0;
-        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(known, transcript, semanticFactRank)) {
+        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(known.filter(fact => fact.authorScope !== 'turn'), transcript, semanticFactRank)) {
             const fact = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
             const size = JSON.stringify(fact).length + 1;
             if (used + size > 12000) continue;
@@ -583,9 +583,10 @@ async function writeStoryArchiveRange(
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
     const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), run);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
-    const factNodes = embedding ? delta.facts.map(fact => ({
+    const archivedFacts = embedding ? delta.facts.map(fact => fact.kind === 'author' ? fact : ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,
-    })) : undefined;
+    })) : delta.facts;
+    const factNodes = archivedFacts.flatMap(fact => fact.vectorNodeId ? [{ ...fact, vectorNodeId: fact.vectorNodeId }] : []);
     const revisionKey = (snapshot: StoryTheaterEntry, boxes: StoryTheaterArchive[]) =>
         JSON.stringify(boxes.map(box => sourceKey(snapshot, box)));
     const commit = (vectors?: VectorEntry[]) => archiveEdit(entryId, strategy, (fresh, currentFloors) => {
@@ -599,12 +600,12 @@ async function writeStoryArchiveRange(
             ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
             messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
             ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id), summary: undefined } : { summary: delta.summary }),
-            facts: factNodes ?? delta.facts, historyFacts: delta.historyFacts, affinityLog: delta.affinityLog,
+            facts: archivedFacts, historyFacts: delta.historyFacts, affinityLog: delta.affinityLog,
         };
         return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
     }, vector?.remote);
 
-    if (!embedding || !factNodes?.length) {
+    if (!embedding || !factNodes.length) {
         run?.onProgress?.({ phase: 'saving' });
         return embedding ? commit([]) : commit();
     }

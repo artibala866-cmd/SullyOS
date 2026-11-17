@@ -44,6 +44,38 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('story summary final channel', () => {
+    it('preserves clear writing instructions verbatim when the model omits them, without turning dialogue into directives', () => {
+        const persistent = '不替小雨说话，也不要代写她的决定。\n除非她先揭开面罩，否则不要让旁人认出她。';
+        const temporary = '本轮只用第三人称叙述。';
+        const source = new Map([
+            [4, { text: '【作者指令】' + persistent + '\n\n【正文】守门人立在门外。\nOOC: ' + temporary, authorInput: true }],
+            [5, { text: '【作者指令】退回到起点。', authorInput: false }],
+        ]);
+        const model = JSON.stringify({ changes: [{ key:'写作/不代写', kind:'author', text:'不要代写。', sourceMessageId:4 }] });
+        const facts = parseStoryArchiveChanges(model, source, []);
+        expect(facts.map(fact => [fact.text, fact.authorScope])).toEqual([[persistent, undefined], [temporary, 'turn']]);
+        expect(formatStoryArchiveProseContext(facts, '')).toContain(persistent);
+        expect(formatStoryArchiveProseContext(facts, '')).not.toContain(temporary);
+    });
+
+    it('recovers a missing older instruction from the archived user floor, without replaying deleted, future or turn-only rules', async () => {
+        const rows: Message[] = [
+            { ...messages[0], id: 1, content: '作者要求：一直保留小雨的知情边界。\nOOC: 本轮只用第三人称旁白。' },
+            { ...messages[0], id: 2, content: '作者要求：已删除的叙述限制。' },
+            { ...messages[0], id: 3, content: '作者要求：仍未归档的旁白限制。' },
+        ];
+        const archived = { ...entry.archives[0], fromMessageId: 1, toMessageId: 2, facts: [
+            { kind: 'author' as const, key: 'deleted', text: '', terms: [], sourceMessageId: 2, vectorTextState: 'deleted' as const },
+        ] };
+        const recalled = await buildStoryTheaterRecall({ entry: { ...entry, archives: [archived] }, rows, beforeId: 3,
+            floor: 3, baseline: '', visibleRows: [], historyVisible: false, continuation: true, opening: false,
+            userInput: '', readOriginalEvidence: true });
+        const body = recalled.messages.map(message => message.content).join('\n');
+        expect(body).toContain('一直保留小雨的知情边界。');
+        expect(body).not.toMatch(/本轮只用|已删除的叙述|仍未归档/u);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('accepts a fenced completion with string source ID, punctuation key and whitespace-only quote differences', () => {
         const sources = new Map([[12, { text: '阿岚对小雨说：\n今天去钟楼。', authorInput: false }]]);
         const raw = '```json\n' + JSON.stringify({ changes: [{
@@ -792,7 +824,8 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('逐楼检查');
+        expect(body.messages[0].content).toContain('复核长楼层的后半段及最后一楼');
+        expect(body.messages[0].content).toContain('按事项需要使用完整的一句或数句');
         expect(body.messages[0].content).toContain('只是重复提及、没有变化，直接略过');
         expect(body.messages[1].content).toContain('第 3 楼');
         expect(body.messages[1].content).toContain('备用钥匙');
@@ -915,6 +948,30 @@ describe('independent vector archive', () => {
         await DB.saveMessage(third);
         return read();
     };
+
+    it.each([35, 210])('saves an author instruction from a long floor with one summary and zero embedding calls (%s)', async lines => {
+        await prepare();
+        const longInstruction = Array.from({ length: lines }, (_, index) =>
+            '约束 ' + index + '：独立保留视角、动机、行动条件和对应的例外。').join('\n') + '\n最后这一条：入夜前不能说出雾港的真名。';
+        const first = await DB.saveMessage({ charId: partition(), role: 'user', type: 'text',
+            content: '作者要求：\n' + longInstruction, metadata: { source:'story_theater', theaterId:entry.id } });
+        await DB.saveMessage({ charId: partition(), role:'assistant', type:'text', content:'渡工递来一盏灯。',
+            metadata: { source:'story_theater', theaterId:entry.id } });
+        const rows = await read();
+        fetchMock.mockResolvedValueOnce(response(completion('{"changes":[]}')));
+        const saved = await archiveStoryFloorRange(entry.id, rows.filter(row => row.id >= first), api, undefined, vector);
+        expect((await fresh()).archives[0].facts).toEqual([expect.objectContaining({ kind:'author', text:longInstruction })]);
+        expect(saved.archives[0].vectorMemoryIds).toEqual([]);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content).toContain(longInstruction);
+        expect(fetchMock).toHaveBeenCalledOnce();
+        if (lines === 35) {
+            const recall = await buildStoryTheaterRecall({ entry:saved, rows, beforeId:Infinity, floor:6,
+                baseline:'', visibleRows:[], historyVisible:false, continuation:true, opening:false,
+                userInput:'', readOriginalEvidence:true, embedding:vector.embedding });
+            expect(recall.messages.map(message => message.content).join('\n')).toContain(longInstruction);
+            expect(fetchMock).toHaveBeenCalledOnce();
+        }
+    });
 
     it('replaces the vector and restores released floors, then deletes it with no request on undo', async () => {
         const floors = await prepare();
