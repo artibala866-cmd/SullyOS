@@ -13,13 +13,13 @@ export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'moda
     if (fact.modality) return fact.modality;
     if (fact.continuity === 'completed' || fact.continuity === 'canceled') return undefined;
     const text = fact.text;
-    const hearsay = /(?:据说|传闻|听说|怀疑|猜测|尚未证实|未经证实|无人证实|尚未核实|未确认|没(?:有)?确认|有待确认|可能存在)/u;
-    const negativeVerification = /(?:尚未|还没(?:有)?|没有|未能|尚待)(?:最终|已经|明确)?(?:确认|证实|核实|查明)/u;
+    const hearsay = /(?:据说|传闻|听说|怀疑|猜测|尚未证实|未经证实|无人证实|尚未核实|未经验证|未确认|没(?:有)?确认|有待确认|可能存在)/u;
+    const negativeVerification = /(?:尚未|还没(?:有)?|没有|未能|尚待)(?:最终|已经|明确)?(?:确认|证实|核实|查明|验证)/u;
     if (hearsay.test(text) || negativeVerification.test(text)) {
         // A report can mention a verification inside the rumor itself. A
         // separate affirmative clause is needed to mark that report resolved.
         const resolved = text.split(/[，,；;。！？\n]/u).some(clause =>
-            /(?:最终证实|已经证实|查明真相|明确证实|证据表明)/u.test(clause)
+            /(?:最终证实|已经证实|查明真相|明确证实|证据表明|(?:最终|已经|明确)验证)/u.test(clause)
             && !hearsay.test(clause) && !negativeVerification.test(clause));
         const assertion = text.replace(/[，,；;。]\s*(?:此前|先前|之前|原先|当时)的?(?:传闻|猜测)(?:[^。！？\n]*)[。！？]?$/u, '');
         const confirmed = /(?:确认(?:了|为|属实|正常|无误|安全|有效)|核实(?:了|为|属实|无误)|查明|证实)/u;
@@ -679,6 +679,7 @@ export function parseStoryArchiveChanges(
     // Only skip a new fact that repeats a whole existing role/worldbook
     // sentence. Do NOT reject changed states on semantic similarity.
     const facts = new Map<string, StoryArchiveFact>();
+    let skippedOldSource = false;
     for (const [index, change] of value.changes.entries()) {
         const rawKind = typeof change?.kind === 'string' ? normalize(change.kind) : change?.kind;
         const action = typeof change?.action === 'string' ? normalize(change.action) : change?.action;
@@ -703,6 +704,16 @@ export function parseStoryArchiveChanges(
         const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
         const candidates = quote ? [...sources.entries()].filter(([, source]) => quoteExistsIn(source.text, quote)) : [];
+        if (!direct && candidates.length !== 1 && sourceRef) {
+            const prior = known.filter(fact => fact.sourceMessageId === providedId && fact.kind === kind);
+            if (prior.some(fact => comparable(fact.text) === comparable(text))) continue;
+            if (action === 'add' && prior.length) {
+                // A paraphrase can cite an old record even when other changes are correctly sourced.
+                // Never accept that record as new evidence or mistake its ID for a floor number.
+                skippedOldSource = true;
+                continue;
+            }
+        }
         // Original records, not model-written quote strings, are the evidence.
         // A model may return an ordinal floor number rather than a database ID.
         // Match those only against the current batch's actual floor mapping.
@@ -713,12 +724,7 @@ export function parseStoryArchiveChanges(
             : direct ? [providedId, direct] as const
             : floorRef && floor ? floor
             : floorRef || sourceRef ? floor : undefined;
-        if (!selected) {
-            const echoedReference = sourceRef && known.some(fact => fact.sourceMessageId === providedId
-                && fact.kind === kind && comparable(fact.text) === comparable(text));
-            if (echoedReference) continue;
-            throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
-        }
+        if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
         // An umbrella key causes unrelated scenes to overwrite each other and
         // creates huge fake "state transitions" (the exact video symptom).
@@ -758,7 +764,7 @@ export function parseStoryArchiveChanges(
                 ? storyArchiveModality({ text: evidence }) : undefined;
             modality = evidenceModality ?? modality;
             const closing = storyArchiveClosingOutcome(text);
-            if (closing && (pastStoryPlan.test(text) || continuityHint === closing)
+            if (closing && (!modality || pastStoryPlan.test(text) || continuityHint === closing)
                 && storyArchiveClosingOutcome(evidence) === closing && modality !== 'unverified') {
                 modality = undefined;
                 continuityHint = closing;
@@ -832,6 +838,7 @@ export function parseStoryArchiveChanges(
             ...(relatedKeys.length ? { relatedKeys } : {}), ...(entities.length ? { entities } : {}) });
         if (!authorScope) duplicateText.add(comparableText);
     }
+    if (skippedOldSource && !facts.size) throw invalid('模型只引用了旧归档，没有提取到本批记录');
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
     // unambiguous assertions qualify; plans, quotes and multi-value comparisons
     // stay in the original floors for contextual retrieval.

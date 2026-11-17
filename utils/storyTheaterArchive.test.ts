@@ -140,6 +140,27 @@ describe('story summary final channel', () => {
         expect(() => parseStoryArchiveChanges(JSON.stringify({ changes:[{ ...old, text:'代替玩家做决定。' },fresh] }),
             sources, [old])).toThrow('原文记录ID');
     });
+
+    it('discards a renamed old event cited by the model and keeps other changes with valid current evidence', () => {
+        const old: StoryArchiveFact = { key: '银钥/交付', kind: 'fact', text: '闻霜已在第三天清晨把银钥交给青灯。',
+            terms: ['银钥'], sourceMessageId: 1001, continuity: 'completed' };
+        const echo = { action: 'add', key: '闻霜/送钥匙', kind: 'fact',
+            text: '第三天清晨，闻霜把银钥交给青灯。', sourceMessageId: '1001' };
+        const fresh = { action: 'add', key: '柳巡/收件', kind: 'fact',
+            text: '柳巡已签收回执。', sourceMessageId: 1002 };
+        const rumor = { action: 'add', key: '账册/位置', kind: 'fact', text: '账册或许在井里，尚未验证。', sourceMessageId: 1003 };
+        const sources = new Map([
+            [1002, { text: fresh.text, authorInput: false, floorNumber: 1001 }],
+            [1003, { text: rumor.text, authorInput: false, floorNumber: 1002 }],
+        ]);
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes: [echo, fresh, rumor] }), sources, [old])).toEqual([
+            expect.objectContaining({ key: fresh.key, sourceMessageId: 1002, continuity: 'completed' }),
+            expect.objectContaining({ key: rumor.key, sourceMessageId: 1003, modality: 'unverified' }),
+        ]);
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [echo] }), sources, [old])).toThrow('只引用了旧归档');
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [{ ...echo, sourceMessageId: 999 }, fresh] }),
+            sources, [old])).toThrow('原文记录ID');
+    });
     it('resolves visible floor numbers back to actual records if a cheap model confuses them', () => {
         const sources = new Map([[914, { text: '阿岚把钥匙交给小雨。', authorInput: false, floorNumber: 3 }]]);
         const make = (sourceMessageId: number | string) => JSON.stringify({ changes: [{
