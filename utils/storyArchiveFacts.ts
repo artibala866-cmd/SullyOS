@@ -1004,7 +1004,25 @@ export function parseStoryArchiveChanges(
         facts.set(fact.key, { ...fact, storyTime: sourceTimes?.get(fact.sourceMessageId) });
     }
     for (const [sourceMessageId, source] of sources) {
-        if (source.authorInput) continue;
+        if (source.authorInput) {
+            // Explicit one-reply writing limits are safe to preserve locally
+            // when the model omits them. They never enter later prompts.
+            const subjects = /天气|场景|段落|对白|时间|环境|动作|旁白|独白|人称|视角|字数|正文/gu;
+            const hasTurnNote = [...facts.values()].filter(fact => fact.sourceMessageId === sourceMessageId && fact.authorScope === 'turn');
+            for (const sentence of storySentences(source.text).slice(0, 24)) {
+                const clause = sentence.trim();
+                if (!authorTurnStart.test(clause) || clause.length > 65 || /[“”「」『』"'<>？?]/u.test(clause)) continue;
+                const names = clause.match(subjects);
+                if (!names?.length || hasTurnNote.some(fact => names.some(name => fact.text.includes(name)))) continue;
+                const text = clause.replace(/^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[，： ]*/u, '');
+                if (!text.trim()) continue;
+                const key = '场外当轮/补录/' + sourceMessageId + '/' + hasTurnNote.length;
+                const recovered: StoryArchiveFact = { key, kind: 'author', authorScope: 'turn', text, terms: names, sourceMessageId };
+                facts.set(key, recovered);
+                hasTurnNote.push(recovered);
+            }
+            continue;
+        }
         const clean = source.text.trim();
         if (!clean || clean.length > 280 || uncertainStoryOutcome.test(clean)
             || /[“”「」『』"'<>？?]|(?:曾经|没(?:有)?取消|并未取消)/u.test(clean)) continue;

@@ -92,7 +92,8 @@ describe('story summary final channel', () => {
             { key: '写作/验章', kind: 'author', text: author, authorScope: 'turn', terms: ['灰色骑缝章'], sourceMessageId: 39 },
             { key: old.key, action: 'update', kind: 'fact', text: cancellation, sourceMessageId: 42 },
         ] }), sources, [old]);
-        expect(changes).toHaveLength(3);
+        expect(changes).toHaveLength(4);
+        expect(changes.find(fact => fact.authorScope === 'turn')).toMatchObject({ sourceMessageId: 39, text: '只用一句旁白。' });
         expect(changes.find(fact => fact.key === '写作/验章')).toMatchObject({ text: author.split('，此规则')[0] + '。' });
         expect(changes.find(fact => fact.key === '写作/验章')?.authorScope).toBeUndefined();
         expect(changes.find(fact => fact.sourceMessageId === 30)).toMatchObject({ modality: 'planned',
