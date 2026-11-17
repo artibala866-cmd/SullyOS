@@ -52,12 +52,14 @@ describe('built-in QQ bubble visual layout', () => {
     expect(QQ_BUBBLE_CSS).not.toContain('.sully-chat-input');
     expect(QQ_BUBBLE_CSS).not.toContain('pointer-events:none!important;z-index:2');
   });
-  it('renders under-bubble translation with full multiline content and original toggle', () => {
+  it('renders source and translation inside one bubble without a page-flip control', () => {
     const item = read('components/chat/MessageItem.tsx');
-    expect(item).toContain('showExpandedTranslation && !wechatTextMessage && !qqTextMessage');
-    expect(item).toContain('qqTextMessage && !isUser && showExpandedTranslation');
-    expect(item).toContain('className="sully-qq-translation"');
-    expect(item).toContain('qqTextMessage ? \'sully-qq-translate-action\'');
+    expect(item).toContain('Boolean(translationEnabled && hasBilingual && langBContent)');
+    expect(item).toContain('data-bilingual-translation="true"');
+    expect(item).toContain('sully-chat-bilingual-translation mt-2 pt-2 border-t');
+    expect(item).not.toContain('qqTextMessage && !isUser && showExpandedTranslation');
+    expect(item).not.toContain('showTranslateButton');
+    expect(item).not.toContain('sully-chat-translate-action relative');
     expect(QQ_BUBBLE_CSS).toContain('white-space:pre-wrap');
     expect(QQ_BUBBLE_CSS).toContain('max-height:none!important');
   });
