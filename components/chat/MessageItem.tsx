@@ -3435,7 +3435,7 @@ const MessageItem = React.memo(({
             <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} ${qqTextMessage ? 'sully-qq-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
                 {showExpandedTranslation && (
-                    <div data-bilingual-translation="true" className="sully-chat-bilingual-translation mt-2 pt-2 border-t border-current/15">
+                    <div data-bilingual-translation="true" className="sully-chat-bilingual-translation mt-2 pt-2" style={{ borderTop: '1px solid rgba(127, 127, 127, 0.18)' }}>
                         {renderContent(langBContent)}
                     </div>
                 )}
