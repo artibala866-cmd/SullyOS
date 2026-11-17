@@ -199,6 +199,8 @@ describe('story summary final channel', () => {
             expect(parseStoryArchiveChanges(make(ref), sources, [])[0]?.sourceMessageId).toBe(914);
         }
         expect(() => parseStoryArchiveChanges(make('第4楼'), sources, [])).toThrow('原文记录ID');
+        expect(parseStoryArchiveChanges(make('recordID_914'), sources, [])[0]?.sourceMessageId).toBe(914);
+        expect(() => parseStoryArchiveChanges(make('recordID_3').replace(/,"quote":"[^"]*"/u, ''), sources, [])).toThrow('原文记录ID');
     });
     it('anchors explicit in-story time without manufacturing real dates or changing floor order', () => {
         const original = new Map([[111, { text: '第一天傍晚，小林保管铜钥匙。', authorInput: false }]]);

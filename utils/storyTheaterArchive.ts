@@ -259,8 +259,8 @@ export async function generateStoryArchiveDelta(
             ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + reference] : []),
             ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
             '本批新楼层\n' + transcript,
-            ...(authorChecks.length ? ['整理以上完整范围。先把新剧情的起因、经过、结果和例外归入事项，再整理每项新场外要求（重点核对记录ID '
-                + authorChecks.join('、') + '，区分当轮与长期）。将两类变化一起放入 changes 数组。'] : []),
+            ...(authorChecks.length ? ['提交 changes 前同时核对两类记录：fact 要串起本批首、中、尾的剧情因果和结果；author 要整理用户的各项新要求（重点核对记录ID '
+                + authorChecks.join('、') + '，分清当轮与长期）。'] : []),
         ].join('\n\n');
         const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION + (saveMaxChars > 0
             ? '\n本剧情设置的归档保存上限为 ' + saveMaxChars + ' 字符，须为楼层标签及附加好感记录留出空间。' : '');

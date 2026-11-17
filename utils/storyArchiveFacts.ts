@@ -482,7 +482,7 @@ export function storyArchiveFactTime(
 
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
-    '只返回一个 JSON 对象，格式见末尾示例。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
+    '只返回一个 JSON 对象，顶层为 changes 数组。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
     '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，优先写完整经过和最终状态；有数次明确的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
     '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批以100～1500字为篇幅参考，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
     'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
@@ -490,8 +490,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
     '事项跨楼时 sourceMessageId 指向确认当前状态或结果的本批记录ID。quote 可选，仅摘该楼的逐字证据。storyTime 只记录原文剧情时间，不能用聊天时间或把回忆的时间套成现在。界面好感由程序另存。',
     '可选检索字段：aliases 仅填原文明示的别名，relatedKeys 仅填直接相关的事项 key，entities 填原文专名和类别 person/place/object/organization/event/code，可带原文明示的 aliases。不猜人设和关系。',
-    '逐项核对本批首、中、尾的剧情，再核对用户的每项场外要求。把两类新增或更新都写进同一 changes 数组。如下仅演示结构与分段，实际归档使用本批自己的内容和记录ID：',
-    '{"changes":[{"action":"add","key":"药箱/送达","kind":"fact","text":"小周为履行承诺送药。山路被雨冲断后，他绕北渡口，傍晚由阿禾验封签收。封条损坏时仍须暂停交接。","terms":["药箱","小周","阿禾","北渡口"],"sourceMessageId":9112,"continuity":"completed"},{"action":"add","key":"场外/地点名称","kind":"author","text":"采用旧城的地名，地图正式更换时除外。","terms":["旧城"],"sourceMessageId":9101},{"action":"add","key":"场外/信件内容","kind":"author","text":"这次略去信件内容。","terms":[],"sourceMessageId":9101,"authorScope":"turn"}]}',
+    '动笔前，先从用户楼层列出各项新场外要求，再把本批剧情的首、中、尾串成事项，核对因果、结案和例外。把 fact 和 author 一起写进 changes；不能因为其中一类已写完就漏掉另一类。输出必须以 {"changes":[ 开始，随后写入各项，再闭合数组和对象。',
 ].join('\n');
 
 export function storyArchiveFactIdentity(fact: StoryArchiveFact): string {
@@ -732,8 +731,8 @@ export function parseStoryArchiveChanges(
         const quote = typeof change.quote === 'string' ? change.quote.trim() : '';
         const sourceToken = String(change.sourceMessageId ?? '').normalize('NFKC').trim();
         const floorRef = /^第\s*(\d+)\s*楼$/.exec(sourceToken);
-        const sourceRef = /^(?:记录\s*ID\s*[:：]?\s*)?(\d+)$/i.exec(sourceToken);
-        const providedId = Number((floorRef ?? sourceRef)?.[1]);
+        const sourceRef = /^(?:(记录\s*ID|record[\s_-]*id|sourceMessageId)[\s:_#-]*)?(\d+)$/i.exec(sourceToken);
+        const providedId = Number(floorRef?.[1] ?? sourceRef?.[2]);
         const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
         const candidates = quote ? [...sources.entries()].filter(([, source]) => quoteExistsIn(source.text, quote)) : [];
@@ -755,8 +754,7 @@ export function parseStoryArchiveChanges(
         // trust the valid direct source ID instead.
         const selected = candidates.length === 1 ? candidates[0]
             : direct ? [providedId, direct] as const
-            : floorRef && floor ? floor
-            : floorRef || sourceRef ? floor : undefined;
+            : floorRef || (sourceRef && !sourceRef[1]) ? floor : undefined;
         if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
         // An umbrella key causes unrelated scenes to overwrite each other and
