@@ -707,8 +707,8 @@ export function parseStoryArchiveChanges(
         if (!direct && candidates.length !== 1 && sourceRef) {
             const prior = known.filter(fact => fact.sourceMessageId === providedId && fact.kind === kind);
             if (prior.some(fact => comparable(fact.text) === comparable(text))) continue;
-            if (action === 'add' && prior.length) {
-                // A paraphrase can cite an old record even when other changes are correctly sourced.
+            if (action && prior.length) {
+                // A proposed addition or update can cite an old record even when other changes are correctly sourced.
                 // Never accept that record as new evidence or mistake its ID for a floor number.
                 skippedOldSource = true;
                 continue;

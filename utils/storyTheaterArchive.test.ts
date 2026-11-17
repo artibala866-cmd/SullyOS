@@ -157,6 +157,8 @@ describe('story summary final channel', () => {
             expect.objectContaining({ key: fresh.key, sourceMessageId: 1002, continuity: 'completed' }),
             expect.objectContaining({ key: rumor.key, sourceMessageId: 1003, modality: 'unverified' }),
         ]);
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes: [{ ...echo, action: 'update', key: old.key }, fresh] }),
+            sources, [old])).toEqual([expect.objectContaining({ key: fresh.key, sourceMessageId: 1002 })]);
         expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [echo] }), sources, [old])).toThrow('只引用了旧归档');
         expect(() => parseStoryArchiveChanges(JSON.stringify({ changes: [{ ...echo, sourceMessageId: 999 }, fresh] }),
             sources, [old])).toThrow('原文记录ID');
