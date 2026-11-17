@@ -47,6 +47,43 @@ quoteSection.innerHTML='<div class="sully-chat-root sully-chat-qq">'+renderToSta
  })
 )+'</div>';
 root.appendChild(quoteSection);
+// Verify all private-chat bubble skins with the actual MessageItem renderer.
+const bilingualStyles = [
+  { name: 'regular', props: {} },
+  { name: 'qq', props: { qqBubble: true } },
+  { name: 'wechat', props: { wechatBubble: true, bubbleVariant: 'wechat' as const } },
+  { name: 'facebook', props: { blackWhiteFacebook: true } },
+] as const;
+const bilingualChecks = bilingualStyles.map(({ name, props }) => {
+  const section = document.createElement('section');
+  section.dataset.qqScene = 'bilingual-' + name;
+  section.style.cssText = 'width:360px;max-width:100%;margin:12px auto 24px;';
+  section.innerHTML = '<div class="sully-chat-root ' + (name === 'qq' ? 'sully-chat-qq' : '') + '">'
+    + renderToStaticMarkup(React.createElement(MessageItem, {
+      msg: { id: 9940, charId: 'bilingual-smoke', role: 'assistant' as const,
+        type: 'text' as const, timestamp: Date.now(),
+        content: '안녕 ㅎㅎ%%BILINGUAL%%你好（笑）' },
+      activeTheme: PRESET_THEMES.forest, charAvatar: '/sully/head.png',
+      charName: '示例角色', userAvatar: '/sully/head.png',
+      isFirstInGroup: true, isLastInGroup: true, translationEnabled: true,
+      onLongPress: () => {}, onReply: () => {}, selectionMode: false,
+      isSelected: false, onToggleSelect: () => {}, showTimestamp: 'never', ...props,
+    })) + '</div>';
+  root.appendChild(section);
+  const bubble = section.querySelector<HTMLElement>('.sully-bubble-ai');
+  const source = bubble?.querySelector<HTMLElement>('.sully-facebook-bubble-text > div:first-child');
+  const translation = bubble?.querySelector<HTMLElement>('[data-bilingual-translation="true"]');
+  const translatedBox = translation?.getBoundingClientRect();
+  const sourceBox = source?.getBoundingClientRect();
+  return !!bubble && !!source && !!translation && !!sourceBox && !!translatedBox
+    && source.textContent?.includes('안녕') === true
+    && translation.textContent?.includes('你好') === true
+    && translatedBox.top >= sourceBox.bottom - 2
+    && getComputedStyle(translation).borderTopWidth !== '0px'
+    && bubble.scrollWidth <= bubble.clientWidth + 2
+    && !section.querySelector('.sully-chat-translate-action, .sully-qq-translation, .sully-wechat-translation-card');
+});
+const bilingualOK = bilingualChecks.every(Boolean);
 // Real Chromium geometry is checked, not only DOM existence, before screenshot approval.
 const transferCard = root.querySelector<HTMLElement>('[data-qq-scene="transfer"] .sully-chat-transfer-card');
 const transferBox = transferCard?.getBoundingClientRect();
@@ -64,6 +101,7 @@ const checks = {
   transfer: has('.sully-qq-transfer-message .sully-chat-transfer-card'),
   transferGeometryOK,
   quoteVisible,
+  bilingualOK,
   image: has('.sully-qq-image-message .chat-image-thumbnail'),
   scoped: sections.every(section => !!section.querySelector('.sully-chat-qq')),
 };
