@@ -104,6 +104,15 @@ describe('story summary final channel', () => {
             terms: ['铜钥匙', '持有人'],
         })]);
     });
+    it('preserves the completed record when the source explicitly starts a new round of the same task', () => {
+        const existing: StoryArchiveFact[] = [{ key:'信/交付', kind:'fact', text:'阿岚已经把信交给小林。', terms:[],
+            sourceMessageId:5, continuity:'completed' }];
+        const newPlan = '阿岚明天打算再送一封信给小林。';
+        const change = { action:'update', key:'信/交付', kind:'fact', text:newPlan, modality:'planned', sourceMessageId:6 };
+        const facts = parseStoryArchiveChanges(JSON.stringify({ changes:[change] }),
+            new Map([[6,{ text:newPlan, authorInput:false }]]), existing);
+        expect(facts[0]).toMatchObject({ key:'信/交付/来源6', text:newPlan, modality:'planned' });
+    });
     it('resolves visible floor numbers back to actual records if a cheap model confuses them', () => {
         const sources = new Map([[914, { text: '阿岚把钥匙交给小雨。', authorInput: false, floorNumber: 3 }]]);
         const make = (sourceMessageId: number | string) => JSON.stringify({ changes: [{
@@ -792,8 +801,9 @@ describe('manual event box floor selection', () => {
         await addFloor('范围之外的正文');
         const updated = await archiveStoryFloorRange(entry.id, [third, fourth], api);
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-        expect(body.messages[0].content).toContain('逐楼检查');
-        expect(body.messages[0].content).toContain('只是重复提及、没有变化，直接略过');
+        expect(body.messages[0].content).toContain('六项用于检查覆盖');
+        expect(body.messages[0].content).toContain('无需输出六个标题');
+        expect(body.messages[0].content).toContain('已完成或取消的事只作为过去结果保留');
         expect(body.messages[1].content).toContain('第 3 楼');
         expect(body.messages[1].content).toContain('备用钥匙');
         expect(body.messages[1].content).not.toContain('范围之外');
@@ -1158,6 +1168,55 @@ describe('consecutive automatic archives', () => {
         expect(collectStoryArchiveFacts(updated.archives, transfer.id, new Map()).map(fact => fact.text)).toEqual([original.content]);
         expect(updated.archives[0]).toEqual(entry.archives[0]);
         expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('carries the previous archive into one request, keeps an event together, and separates distinct author directions with colliding keys', async () => {
+        const previousDirection = await append('OOC: 禁止替玩家回答。', 'user');
+        const oldResult = await append('阿岚已经把信交给小林。');
+        const previous = {
+            id:'prior', strategy:'summary' as const, fromMessageId:previousDirection.id, toMessageId:oldResult.id,
+            messageCount:2, createdAt:1, facts:[
+                { key:'场外/代写', kind:'author' as const, text:'禁止替玩家回答。', terms:[], sourceMessageId:previousDirection.id },
+                { key:'信/交付', kind:'fact' as const, text:oldResult.content, terms:['信'], sourceMessageId:oldResult.id, continuity:'completed' as const },
+            ],
+        };
+        await DB.saveStoryTheater({ ...entry, archives:[...entry.archives, previous] });
+        const nextDirection = await append('OOC: 禁止替玩家回答。用第三人称。身份须由玩家亲口说出才可确认。只限本轮省略天气。', 'user');
+        const nextResult = await append('他们提起之前送到的信。阿岚原本打算走正门，因为正门锁死，最后从暗门送到了铜匣。');
+        const summary = '阿岚原计划经正门，因门锁死改走暗门，最后把铜匣送达。';
+        const direction = (text: string, authorScope?: string) => ({
+            action:'add', key:'作者/要求', kind:'author', sourceMessageId:nextDirection.id, text, authorScope,
+        });
+        queue([
+            direction('禁止替玩家回答。'), direction('使用第三人称。'),
+            direction('仅在玩家亲口说出后，旁人才能确认其身份。'), direction('只限本轮省略天气。','turn'),
+            { action:'add', key:'信/交付', kind:'fact', text:'阿岚计划交信给小林。', sourceMessageId:nextResult.id,
+                modality:'planned', quote:'他们提起之前送到的信。' },
+            { action:'add', key:'铜匣/交付', kind:'fact', text:summary, sourceMessageId:nextResult.id,
+                continuity:'completed', quote:'阿岚原本打算走正门，因为正门锁死，最后从暗门送到了铜匣。' },
+        ]);
+        queueEmbedding();
+        const result = await archiveStoryFloorRange(entry.id, [nextDirection, nextResult], api, undefined, { embedding });
+        const request = JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content as string;
+        const priorSection = request.split('上一次已保存归档')[1].split('更早结构化记忆')[0];
+        expect(priorSection).toContain('禁止替玩家回答。');
+        expect(priorSection).toContain('"continuity":"completed"');
+        expect(request.split('本批新楼层')[1]).toContain('有明确场外标记');
+        const saved = result.archives.at(-1)!;
+        expect(saved.facts?.map(fact => fact.text)).toEqual([
+            '使用第三人称。', '仅在玩家亲口说出后，旁人才能确认其身份。', '只限本轮省略天气。', summary,
+        ]);
+        expect(saved.facts?.at(-1)?.continuity).toBe('completed');
+        expect(storyArchiveModality(saved.facts!.at(-1)!)).toBeUndefined();
+        expect(JSON.parse(fetchMock.mock.calls[1][1].body).input).toEqual([
+            '使用第三人称。', '仅在玩家亲口说出后，旁人才能确认其身份。', summary,
+        ]);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(result.archives.find(box => box.id === previous.id)).toEqual(previous);
+        const recollected = collectStoryArchiveFacts(result.archives, Infinity, (await loadStoryVectorRecall(result, Infinity)).factTextById);
+        const payload = formatStoryArchiveProseContext(recollected, '铜匣');
+        expect(payload).toContain(summary);
+        expect(payload).not.toContain('只限本轮省略天气。');
     });
 
     it('rejects nonexistent source IDs and actor dialogue mislabeled as author corrections before saving', async () => {

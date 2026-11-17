@@ -17,7 +17,7 @@ import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
 
-import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, readStoryRecallArchives, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, readStoryRecallArchives, storyArchiveContinuityKind, storyArchiveFactIdentity, storyArchiveModality, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
 import { loadStoryVectorRecall, normalizeStoryEmbeddingConfig, selectStoryVectorRecall } from './storyTheaterVectorMemory';
 
@@ -133,8 +133,9 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
         if (!message.metadata?.theaterContinue) {
             sources.set(message.id, { text: content, authorInput: message.role === 'user', floorNumber: firstFloor + index });
         }
+        const markedAuthor = message.role === 'user' && /^\s*(?:[【[（(]\s*)?(?:OOC|场外|作者(?:指令|要求|备注|纠正)|写作要求)\s*[:：】\]）)]/imu.test(content);
         const speaker = message.role === 'assistant' ? '剧场正文'
-            : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : '用户推进';
+            : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : markedAuthor ? '用户推进（有明确场外标记）' : '用户推进';
         const floor = '第 ' + (firstFloor + index) + ' 楼';
         const affinityRows = storyArchiveAffinity(message);
         affinity.push(...affinityRows.map(row => floor + ' · ' + row));
@@ -200,10 +201,25 @@ export async function generateStoryArchiveDelta(
         loadStoryVectorRecall({ ...entry, archives }, beforeId),
     ]);
     const known = collectStoryArchiveFacts(archives, beforeId, vector.factTextById);
+    const lastArchive = archives.filter(box => box.toMessageId < beforeId).sort((a, b) => b.toMessageId - a.toMessageId)[0];
+    const lastFacts = lastArchive?.facts ? collectStoryArchiveFacts([lastArchive], beforeId, vector.factTextById) : [];
+    const lastFactIds = new Set(lastFacts.map(storyArchiveFactIdentity));
+    const archiveReferenceFact = (fact: StoryArchiveFact) => ({
+        key: fact.key, kind: fact.kind, text: fact.text, sourceMessageId: fact.sourceMessageId,
+        storyTime: fact.storyTime, modality: fact.kind === 'fact' ? storyArchiveModality(fact) : undefined,
+        continuity: fact.kind === 'fact' ? storyArchiveContinuityKind(fact) : undefined, authorScope: fact.authorScope,
+    });
+    const lastSummary = lastArchive?.facts ? JSON.stringify({
+        归档记录: lastFacts.map(archiveReferenceFact),
+        旧状态: (lastArchive.historyFacts ?? []).filter(fact => fact.vectorTextState !== 'deleted' && !fact.vectorNodeId).map(archiveReferenceFact),
+        界面好感记录: lastArchive.affinityLog,
+    }) : lastArchive?.summary || vector.groups.find(group => group.archiveIds.includes(lastArchive?.id ?? ''))
+        ?.nodes.map(node => node.content).join('\n');
     const legacy = [
-        ...archives.filter(box => !box.facts && box.toMessageId < beforeId && box.summary)
+        ...archives.filter(box => box.id !== lastArchive?.id && !box.facts && box.toMessageId < beforeId && box.summary)
             .sort((a, b) => b.toMessageId - a.toMessageId).slice(0, 4).map(box => box.summary),
-        ...vector.groups.slice(-4).map(group => group.nodes.map(node => node.content).join('')),
+        ...vector.groups.filter(group => !group.archiveIds.includes(lastArchive?.id ?? '')).slice(-4)
+            .map(group => group.nodes.map(node => node.content).join('')),
     ].filter(Boolean).join('\n\n').slice(0, 6000);
     const affinityLog = affinity.length ? ['界面好感记录（用户→角色）：', ...affinity] : [];
     const saveMaxChars = normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars);
@@ -218,10 +234,11 @@ export async function generateStoryArchiveDelta(
         const { semanticFactRank } = await selectStoryVectorRecall({ nodes: [], groups: [] },
             sampleSnippetsFromMessages([...sources.values()].map(source => ({ content: source.text })), 2, 600),
             undefined, vector.factNodes.filter(node => knownIds.has(node.id)), true);
-        const previous: Array<Pick<StoryArchiveFact, 'key' | 'kind' | 'text' | 'storyTime' | 'modality' | 'continuity'>> = [];
+        const previous: ReturnType<typeof archiveReferenceFact>[] = [];
         let used = 0;
-        for (const { key, kind, text, storyTime, modality, continuity } of rankStoryArchiveFacts(known, transcript, semanticFactRank)) {
-            const fact = { key, kind, text, ...(storyTime ? { storyTime } : {}), ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
+        for (const item of rankStoryArchiveFacts(known.filter(fact => fact.authorScope !== 'turn'
+            && !lastFactIds.has(storyArchiveFactIdentity(fact))), transcript, semanticFactRank)) {
+            const fact = archiveReferenceFact(item);
             const size = JSON.stringify(fact).length + 1;
             if (used + size > 12000) continue;
             previous.push(fact);
@@ -229,12 +246,14 @@ export async function generateStoryArchiveDelta(
         }
         const input = [
             `剧情：${entry.title}`,
-            '已有结构化记忆（用于核对）\n' + JSON.stringify(previous),
+            '上一次已保存归档（只作对照，包含本段记录和结案结果）\n' + (lastSummary || '暂无'),
+            '更早结构化记忆（用于核对）\n' + JSON.stringify(previous),
             ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + reference] : []),
             ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
             '本批新楼层\n' + transcript,
         ].join('\n\n');
-        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION;
+        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION + (saveMaxChars > 0
+            ? '\n本剧情设置的归档保存上限为 ' + saveMaxChars + ' 字符，须为楼层标签及附加好感记录留出空间。' : '');
         const key = run?.completed && JSON.stringify([api.baseUrl, api.model, strategy, instruction, input,
             [...sources].map(([id, source]) => [id, source.authorInput])]);
         const cached = key ? run?.completed?.get(key) : undefined;
@@ -583,9 +602,10 @@ async function writeStoryArchiveRange(
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
     const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), run);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
-    const factNodes = embedding ? delta.facts.map(fact => ({
+    const archivedFacts = embedding ? delta.facts.map(fact => fact.authorScope === 'turn' ? fact : ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,
-    })) : undefined;
+    })) : delta.facts;
+    const factNodes = archivedFacts.flatMap(fact => fact.vectorNodeId ? [{ ...fact, vectorNodeId: fact.vectorNodeId }] : []);
     const revisionKey = (snapshot: StoryTheaterEntry, boxes: StoryTheaterArchive[]) =>
         JSON.stringify(boxes.map(box => sourceKey(snapshot, box)));
     const commit = (vectors?: VectorEntry[]) => archiveEdit(entryId, strategy, (fresh, currentFloors) => {
@@ -599,12 +619,12 @@ async function writeStoryArchiveRange(
             ...previous, id: boxId, strategy, fromMessageId: first, toMessageId: last,
             messageCount: batch.length, createdAt: previous?.createdAt ?? Date.now(),
             ...(vectors ? { vectorMemoryIds: vectors.map(item => item.node.id), summary: undefined } : { summary: delta.summary }),
-            facts: factNodes ?? delta.facts, historyFacts: delta.historyFacts, affinityLog: delta.affinityLog,
+            facts: archivedFacts, historyFacts: delta.historyFacts, affinityLog: delta.affinityLog,
         };
         return { archives: [...others, box].sort((a, b) => a.fromMessageId - b.fromMessageId), removed, added: box, vectors };
     }, vector?.remote);
 
-    if (!embedding || !factNodes?.length) {
+    if (!embedding || !factNodes.length) {
         run?.onProgress?.({ phase: 'saving' });
         return embedding ? commit([]) : commit();
     }

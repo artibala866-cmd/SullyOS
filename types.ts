@@ -2208,6 +2208,8 @@ export interface StoryArchiveEntity {
 export interface StoryArchiveFact {
     key: string;
     kind: 'fact' | 'author';
+    /** A writing instruction that applied only to its original reply. */
+    authorScope?: 'turn';
     text: string;
     terms: string[];
     /** Source-attested alternate names and directly connected archive keys. */
