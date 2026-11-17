@@ -44,7 +44,7 @@ const persistentStoryRules = [
 ];
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
-const explicitStoryDelivery = /(?:已签收|签收完毕|交接完成|送达|交付完毕)/u;
+const explicitStoryDelivery = /(?:已签收|签收完毕|签收并|签收后|交接完成|送达|交付完毕|(?:亲手|当场|最终|随后)交付)/u;
 const partialStoryCompletion = /(?:只(?:完成|做完|办妥)|完成(?:了)?(?:一部分|一半|部分|第[一二三四五六七八九十0-9]+步)|完成度)/u;
 const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|计划)|本来(?:打算|计划)|最初(?:打算|计划))/u;
 
@@ -483,7 +483,7 @@ export function storyArchiveFactTime(
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
     '只返回一个 JSON 对象，顶层为 changes 数组。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
-    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，优先写完整经过和最终状态；有数次明确的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
+    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，在一段里写全原因、阻碍、行动、结案与后续限制；不要另写一条重复其结果。有数次需要分别追踪的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
     '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批以100～1500字为篇幅参考，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
     'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
     '新增用 add；同一事项更新、明确纠正或结案用 update，沿用旧 key。不同事项和不同场外要求用不同 key。新的同类行动须有原文依据另建 key。原先已有的剧情或场外要求仅重复、换词提起时略过。已完成或取消的事只作为过去结果保留，不能重新写成待办。',
@@ -663,6 +663,7 @@ function storyArchiveCodes(text: string) {
 export class StoryArchiveIncompleteReply extends Error {}
 
 const authorTurnStart = /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u;
+const explicitTurnAuthorStart = /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?=[\p{Script=Han}，：])/u;
 const persistentAuthorStart = /^(?:此后|以后|往后|从此|长期|后续(?:正文|续写|回复))/u;
 
 function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; authorScope?: unknown }>(change: T): T[] {
@@ -673,8 +674,9 @@ function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; auth
     for (const boundary of text.matchAll(/[，,。；;]\s*/gu)) {
         const first = text.slice(0, boundary.index).trimEnd();
         const second = text.slice(boundary.index! + boundary[0].length);
-        const turnFirst = authorTurnStart.test(first) && persistentAuthorStart.test(second);
-        const persistentFirst = persistentAuthorStart.test(first) && authorTurnStart.test(second);
+        const turnAtSentenceStart = boundary[0].startsWith('。') && explicitTurnAuthorStart.test(second);
+        const turnFirst = explicitTurnAuthorStart.test(first) && persistentAuthorStart.test(second);
+        const persistentFirst = persistentAuthorStart.test(first) && (authorTurnStart.test(second) || turnAtSentenceStart);
         if (turnFirst || persistentFirst) return [
             { ...change, text: (turnFirst ? second : first).replace(/[。！？]$/u, '') + '。', authorScope: undefined },
             { ...change, text: (turnFirst ? first : second).replace(/[。！？]$/u, '') + '。', authorScope: 'turn' },

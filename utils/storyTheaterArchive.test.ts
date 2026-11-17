@@ -154,6 +154,16 @@ describe('story summary final channel', () => {
         ]);
     });
 
+    it('keeps a long-term instruction when a trailing one-turn sentence starts with its subject', () => {
+        const text = '后续正文采用第三人称。除非玩家先回答，否则不描写他人的反应。本轮天气描述被略去。';
+        const changes = [{ action: 'add', kind: 'author', key: '写作/视角', sourceMessageId: 31, authorScope: 'turn', text }];
+        const parsed = parseStoryArchiveChanges(JSON.stringify({ changes }), new Map([[31, { text, authorInput: true }]]), []);
+        expect(parsed.map(fact => [fact.text, fact.authorScope])).toEqual([
+            ['后续正文采用第三人称。除非玩家先回答，否则不描写他人的反应。', undefined],
+            ['本轮天气描述被略去。', 'turn'],
+        ]);
+    });
+
     it('ignores an exact already-saved item echoed with its old source without dropping new memory', () => {
         const old: StoryArchiveFact = { key:'写作/代写', kind:'author', text:'不替玩家做决定。', terms:[], sourceMessageId:2 };
         const text = '旁人只有在青灯亲口告知后，才知晓灰港真名。';
