@@ -113,6 +113,33 @@ describe('story summary final channel', () => {
             new Map([[6,{ text:newPlan, authorInput:false }]]), existing);
         expect(facts[0]).toMatchObject({ key:'信/交付/来源6', text:newPlan, modality:'planned' });
     });
+
+    it('keeps a complete segment as a closed outcome even when the model omits continuity', () => {
+        const text = '阿潭原本打算从桥上送回执，因桥板损坏改走暗道，柳巡已签收。如果封条破损，暗道不能通行。';
+        const condition = '阿潭原本打算从桥上送回执，假如暗门能打开，柳巡届时才可能签收。';
+        const rows = new Map([
+            [9, { text, authorInput:false }], [10, { text:condition, authorInput:false }],
+        ]);
+        const changes = [text, condition].map((body, index) => ({ key:'回执/' + index, kind:'fact', text:body,
+            sourceMessageId:9 + index, modality:'planned' }));
+        const facts = parseStoryArchiveChanges(JSON.stringify({ changes }), rows, []);
+        expect(facts[0]).toMatchObject({ text, continuity:'completed' });
+        expect(storyArchiveModality(facts[0])).toBeUndefined();
+        expect(storyArchiveModality(facts[1])).toBe('planned');
+    });
+
+    it('ignores an exact already-saved item echoed with its old source without dropping new memory', () => {
+        const old: StoryArchiveFact = { key:'写作/代写', kind:'author', text:'不替玩家做决定。', terms:[], sourceMessageId:2 };
+        const text = '旁人只有在青灯亲口告知后，才知晓灰港真名。';
+        const fresh = { key:'写作/知情', kind:'author', text, sourceMessageId:19 };
+        const sources = new Map([[19,{ text, authorInput:true, floorNumber:7 }]]);
+        const changes = [old,fresh];
+        expect(parseStoryArchiveChanges(JSON.stringify({ changes }), sources, [old])).toEqual([
+            expect.objectContaining(fresh),
+        ]);
+        expect(() => parseStoryArchiveChanges(JSON.stringify({ changes:[{ ...old, text:'代替玩家做决定。' },fresh] }),
+            sources, [old])).toThrow('原文记录ID');
+    });
     it('resolves visible floor numbers back to actual records if a cheap model confuses them', () => {
         const sources = new Map([[914, { text: '阿岚把钥匙交给小雨。', authorInput: false, floorNumber: 3 }]]);
         const make = (sourceMessageId: number | string) => JSON.stringify({ changes: [{
@@ -208,6 +235,21 @@ describe('story summary final channel', () => {
         expect(facts.find(fact=>fact.text.includes('74851'))).toMatchObject({sourceMessageId:1,storyTime:'第一天上午'});
         expect(facts.filter(fact=>fact.sourceMessageId===3)).toHaveLength(1);
         expect(facts.some(fact=>fact.sourceMessageId===4)).toBe(false);
+    });
+
+    it('retains a grouped segment with a confirmed earlier code and rejects an invented or ambiguous one', () => {
+        const sources = new Map([
+            [1, { text: '回执编号为 DL-74。桥板被风浪撞坏。', authorInput: false }],
+            [2, { text: '早期另一张回执作废，回执编号为 DC-12。', authorInput: false }],
+            [3, { text: '阿潭改走暗道，柳巡已签收。水手不知道暗道的位置。', authorInput: false }],
+        ]);
+        const text = '桥板损坏后，阿潭改走暗道交给柳巡，柳巡已签收，回执编号为 DL-74。';
+        const change = { key: '柳巡/交接', kind: 'fact', text, sourceMessageId: 3, continuity: 'completed' };
+        const parse = (body: typeof change) => parseStoryArchiveChanges(JSON.stringify({ changes: [body] }), sources, []);
+        expect(parse(change).some(fact => fact.key === change.key)).toBe(false);
+        sources.delete(2);
+        expect(parse(change)).toEqual([expect.objectContaining({ text, sourceMessageId: 3, continuity: 'completed' })]);
+        expect(parse({ ...change, text: text.replace('DL-74', 'DL-75') }).some(fact => fact.key === change.key)).toBe(false);
     });
 
     it('recovers an omitted condition on Continue even when the recent prose already mentions its subject', () => {
@@ -1217,6 +1259,27 @@ describe('consecutive automatic archives', () => {
         const payload = formatStoryArchiveProseContext(recollected, '铜匣');
         expect(payload).toContain(summary);
         expect(payload).not.toContain('只限本轮省略天气。');
+    });
+
+    it('points out mixed unmarked writing requests in the one summary request and keeps fictional quoted commands as source dialogue', async () => {
+        const mixed = await append('我推开栅栏。接下来的正文不要让巡检员知道真名，除非青灯亲口告诉巡检员。', 'user');
+        const ordinary = await append('我走到门边，听见巡检员说：“以后不要让他走。”', 'user');
+        const ending = await append('巡检员只看见门口的灯。');
+        const turn = await append('这一轮只略过天气。', 'user');
+        const saved = await append('月亮挂在檐外。');
+        queue([{ action:'add', kind:'author', key:'场外/知情限定', text:'巡检员须经青灯亲口告知才知道真名。',
+            sourceMessageId:mixed.id }, { action:'add', kind:'author', key:'场外/节奏', text:'仅在本轮回复略过天气。', sourceMessageId:turn.id }]);
+        const result = await archiveStoryFloorRange(entry.id, [mixed, ordinary, ending, turn, saved], api);
+        const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+        const lines = request.messages[1].content.split('\n');
+        expect(lines.find((line: string) => line.endsWith('记录ID ' + mixed.id + ']'))).toContain('可能夹有写作要求');
+        expect(lines.find((line: string) => line.endsWith('记录ID ' + turn.id + ']'))).toContain('可能夹有写作要求');
+        expect(lines.find((line: string) => line.endsWith('记录ID ' + ordinary.id + ']'))).not.toContain('可能夹有写作要求');
+        expect(result.archives.at(-1)?.facts).toEqual([
+            expect.objectContaining({ text:'巡检员须经青灯亲口告知才知道真名。' }),
+            expect.objectContaining({ text:'仅在本轮回复略过天气。', authorScope:'turn' }),
+        ]);
+        expect(fetchMock).toHaveBeenCalledOnce();
     });
 
     it('rejects nonexistent source IDs and actor dialogue mislabeled as author corrections before saving', async () => {

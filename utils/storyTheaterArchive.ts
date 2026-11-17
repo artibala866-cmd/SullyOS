@@ -124,6 +124,9 @@ export interface StoryArchiveRun {
     indexedBatches?: Map<string, Float32Array[]>;
 }
 
+const markedArchiveAuthor = /^\s*(?:[【[（(]\s*)?(?:OOC|场外|作者(?:指令|要求|备注|纠正)|写作要求)\s*[:：】\]）)]/imu;
+const archiveWritingCue = /(?:^|[。！？\n])\s*(?:(?:以后|接下来|往后|本轮|这一轮|这轮)(?:的正文|的回复|续写)?[^。！？\n]{0,12}(?:叙述|人称|旁白|视角|代写|略过|省略|提到天气|不要让)|(?:有个|另有|补充一条)写作要求|(?:记得|请)?(?:别|不要|不必|无需|禁止)(?:替我(?:开口|说话|回答|决定)|代写(?:我|玩家|用户))|(?:视角只跟着|不要把.{0,24}(?:心里想的|内心独白).{0,16}写成))/u;
+
 function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>) {
     const affinity: string[] = [];
     const sources = new Map<number, { text: string; authorInput: boolean; floorNumber: number }>();
@@ -133,9 +136,11 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
         if (!message.metadata?.theaterContinue) {
             sources.set(message.id, { text: content, authorInput: message.role === 'user', floorNumber: firstFloor + index });
         }
-        const markedAuthor = message.role === 'user' && /^\s*(?:[【[（(]\s*)?(?:OOC|场外|作者(?:指令|要求|备注|纠正)|写作要求)\s*[:：】\]）)]/imu.test(content);
+        const markedAuthor = message.role === 'user' && markedArchiveAuthor.test(content);
+        const possibleAuthor = message.role === 'user' && archiveWritingCue.test(content);
         const speaker = message.role === 'assistant' ? '剧场正文'
-            : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : markedAuthor ? '用户推进（有明确场外标记）' : '用户推进';
+            : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : markedAuthor ? '用户推进（有明确场外标记）'
+                : possibleAuthor ? '用户推进（可能夹有写作要求，分别核对）' : '用户推进';
         const floor = '第 ' + (firstFloor + index) + ' 楼';
         const affinityRows = storyArchiveAffinity(message);
         affinity.push(...affinityRows.map(row => floor + ' · ' + row));

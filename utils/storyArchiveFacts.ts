@@ -44,6 +44,20 @@ const persistentStoryRules = [
 ];
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
+const explicitStoryDelivery = /(?:已签收|签收完毕|交接完成|送达|交付完毕)/u;
+const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|计划)|本来(?:打算|计划)|最初(?:打算|计划))/u;
+
+function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | undefined {
+    for (const sentence of storySentences(text).reverse()) {
+        const clauses = sentence.split(/[，,；;]/u);
+        const last = clauses.reverse().find(clause => canceledStoryAction.test(clause) || explicitStoryDelivery.test(clause)
+            || /(?:完成|办妥|做完|送到了?|交给了|换好了?|交付了|取回了|拆除了)/u.test(clause));
+        if (!last) continue;
+        if (/(?:如果|假如|要是|假设|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见|[？?])/u.test(sentence)
+            || storyArchiveModality({ text: last }) || /(?:未|没有|还没|无需|不必|差点|尝试|打算|正在|只完成一部分)/u.test(last)) return;
+        return canceledStoryAction.test(last) ? 'canceled' : 'completed';
+    }
+}
 
 export function storyArchiveContinuityKind(
     fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'modality' | 'continuity' | 'authorScope'>,
@@ -462,23 +476,16 @@ export function storyArchiveFactTime(
 }
 
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
-    '任务：将本批新楼层整理成供续写读取的少量独立记忆段。先完整核对「上一次已保存归档」和「更早结构化记忆」，分清已有内容、新增、明确变更及已办结事项。已有档案用于对照状态，所有新条目仍须有本批楼层的证据。',
-    '只输出 JSON 对象 {"changes":[]}。每条包含 action、key、kind、text、terms、sourceMessageId；quote 为可选原文摘录。',
-    'action 只能是 add 或 update。新增事项用 add；同一事项有新进展、纠正、完成或取消，用 update 并沿用旧 key。重复回顾、换个说法重述、重复场外要求均不另记。已完成或取消的事只作为过去结果保留，不能重列为待办。原文明确开启新一轮同类行动时，按新的事项记录并保留时间和缘由。只有确无变化时才返回空数组。',
-    'key 是稳定的「对象/属性或事项」，同一物件的持有人、同一条承诺的状态、同一角色的知情状态各有一个 key；不要把新值、楼号或句子写进 key。若同一 key 在本批楼层变化多次，按发生顺序输出多条 change（逐条提供真实楼层记录 ID），系统会保留中间经过和最后状态。',
-    'continuity 可选：身份、不可见/不可听等感知规则、能力限制、持续有效的剧情设定用 rule。把主体、限制、适用对象和例外写完整。反复确认的剧情规则只保留最后有效的状态。明确完成或取消的待办用 completed 或 canceled，沿用原事项 key；text 写清行动、对象、收件人或地点及结果。同楼完成多件事时，各用自己的事项 key。仅打算、尝试、传闻或角色误以为已完成时不标为结果。',
-    '以一个可单独追问或延续的事项为一段。把同一件事的起因、关键经过、结果和影响结果的条件、例外、失败、人物知情范围写在一起，读者只看这段也能理解。仅在事项各自独立、会分别更新时分段。不要按楼层、句子、字段或固定字数拆段。用自己的话精简整理，原话只用于必要的专名、编号或关键措辞。terms 填明确的人名、地点、物品名供检索。',
-    '六项用于检查覆盖：①关键事件与因果；②有后效的时间、地点与场景变化；③人物关系、秘密、误会与知情变化；④有依据的好感或心理变化及起因；⑤新增设定、限制和精确细节；⑥未决事项、条件、结案状态和用户协助指令。按事项把有关信息写在同一段，无变化的项目无需占位。同一事实只写一次。无需输出六个标题。整批摘要以100～1500字为篇幅参考，先省去修饰、重复和无后效过程，重点的前因后果、条件和例外须写全。',
-    '逐条核对每个用户楼层里的场外纠错、设定、人物行为限制和写作要求，包括与剧情同楼、没有标注 OOC 的要求。用 kind:author 概括具体要求及其适用对象、条件、例外和期限。彼此有关的限制合成一段，不同要求用不同 key。已有内容重复不重存，明确修改某一项时沿用该项 key，保留它仍有效的条件。角色说的话、普通剧情推进和引用中的指令都属于剧情材料。只适用于当轮的要求保留履历，标 authorScope:"turn"，后续不可当成长效要求。',
-    'sourceMessageId 必须填写【本批新楼层】中对应的记录ID（不是第几楼、不是旧记忆的ID）。同一事项跨楼时以确认最终结果或当前状态的楼层为来源。quote 可选，只引用该楼层的逐字证据，无法逐字引用就省略。区分事实、计划、猜测、内心与各角色知情范围，不补写原文没有的信息，不抄写界面好感记录。',
-    '每条变化可带 storyTime：仅填写原文明确出现的剧情内时间原话（例如「第二天清晨」「三日后」「2026年5月2日」）。没写时间就省略，不能把真实聊天时间、楼层序号或未发生的计划当成已经发生的日期；楼层前的剧情时间标注可来自相邻的独立时间标题。正文同楼出现多个时点时，为每个事件引用对应的原文句子；传闻、回忆或计划里另提的时间不得套给同楼其他事件。',
-    '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
-    '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。相同事件在不同剧情时间再次发生时，用新的事件 key，并分别保留剧情时间。',
-    '用户执笔身份和人物档案也是已有设定。不要记录「{{user}}全名、年龄、学历、与谁是亲属」等已列明的角色卡内容；别人首次得知身份、身份确实发生变化才记录发生了什么。不要把「剧情/进展」之类笼统的 key 用来连续覆盖不相干事件，必须用具体对象和事项。',
-    '事实可选 aliases（原文明确出现的别称，最多 4 条）、relatedKeys（存在直接因果、同一物品交接或同一未结事项的真实事实 key，最多 3 条）；不能凭空补别称或关联，不能用共现人物代替因果。没有依据就省略。',
-    '事实可选 entities：从该来源楼层列出与此事实直接有关的具体人名、地点、物品、组织、事件名或编号，格式 {"name":"原文专名","type":"person|place|object|organization|event|code","aliases":[]}。别名和专名都须出现在该楼层。普通关键词留在 terms。藉由物品去向、身份变化、承诺条件、未解决线索找到旧事时，请将这些要素一并写清。',
-    '每条可填 modality：已确定发生的事实省略；尚未发生的计划、愿望、未来承诺用 planned；传闻、猜测、未知真伪的信息用 unverified。不能把计划/传闻改写成既成事实；后续有原文确认发生时更新同一 key，并去掉旧 modality。',
-    '输出前核对本批首尾楼层、每项场外要求、每个新结果，以及是否把已完成的事误列为计划。只输出 JSON。',
+    '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
+    '只返回 JSON 对象，顶层只有 changes 数组。每条字段为 action、key、kind、text、terms、sourceMessageId，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回空数组。',
+    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，优先写完整经过和最终状态；有数次明确的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
+    '六项用于检查覆盖：关键事件与因果、重要时地变化、关系和谁知情、心理或态度转变、新设定与精确细节、未决事项和场外要求。无需输出六个标题。整批以100～1500字为篇幅参考，压缩修饰和重复，保留影响结果的条件、否定和例外。',
+    'kind 为 fact 或 author。用户同一楼可能既推进剧情又要求修改写法，即使没有 OOC 也检查。场外要求要写清限制、对象、条件和例外，单独用 author。只限当轮标 authorScope:"turn"。引号内角色命令和用户角色在剧情中的行动仍为剧情材料。terms 记录利于查找的人名、地点、物品和编号。',
+    '新增用 add；同一事项更新、明确纠正或结案用 update，沿用旧 key。不同事项和不同场外要求用不同 key。新的同类行动须有原文依据另建 key。原先已有的剧情或场外要求仅重复、换词提起时略过。已完成或取消的事只作为过去结果保留，不能重新写成待办。',
+    '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
+    '事项跨楼时 sourceMessageId 指向确认当前状态或结果的本批记录ID。quote 可选，仅摘该楼的逐字证据。storyTime 只记录原文剧情时间，不能用聊天时间或把回忆的时间套成现在。界面好感由程序另存。',
+    '可选检索字段：aliases 仅填原文明示的别名，relatedKeys 仅填直接相关的事项 key，entities 填原文专名和类别 person/place/object/organization/event/code，可带原文明示的 aliases。不猜人设和关系。',
+    '提交前检查本批首尾楼层：有没有漏掉新的场外要求、结果或条件？已写过的要求和已完成事项有没有重复？返回所有新增/更新段落。',
 ].join('\n');
 
 export function storyArchiveFactIdentity(fact: StoryArchiveFact): string {
@@ -665,6 +672,7 @@ export function parseStoryArchiveChanges(
         throw new StoryArchiveIncompleteReply('模型没有返回 changes 数组');
     }
     const existing = new Map(known.map(fact => [fact.key, fact]));
+    const batchCodes = [...sources].flatMap(([id, source]) => storyArchiveCodes(source.text).map(code => ({ ...code, id })));
     const signature = (fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'storyTime' | 'modality' | 'authorScope'>) =>
         JSON.stringify([fact.kind, comparable(fact.text), fact.storyTime ?? '', fact.modality ?? '', fact.authorScope ?? '']);
     const duplicateText = new Set(known.filter(fact => fact.authorScope !== 'turn').map(signature));
@@ -705,7 +713,12 @@ export function parseStoryArchiveChanges(
             : direct ? [providedId, direct] as const
             : floorRef && floor ? floor
             : floorRef || sourceRef ? floor : undefined;
-        if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
+        if (!selected) {
+            const echoedReference = sourceRef && known.some(fact => fact.sourceMessageId === providedId
+                && fact.kind === kind && comparable(fact.text) === comparable(text));
+            if (echoedReference) continue;
+            throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
+        }
         const [sourceMessageId, source] = selected;
         // An umbrella key causes unrelated scenes to overwrite each other and
         // creates huge fake "state transitions" (the exact video symptom).
@@ -716,7 +729,7 @@ export function parseStoryArchiveChanges(
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
         const authorScope = kind === 'author' && (change.authorScope === 'turn'
-            || /^(?:仅限|只限|只在)?(?:本轮|这一次|这次|这一轮|仅本次)(?:回复|续写)?(?:只|请|要|用|别|不|，|：)/u.test(text)) ? 'turn' as const : undefined;
+            || /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u.test(text)) ? 'turn' as const : undefined;
         if (authorScope) key = '场外当轮/' + sourceMessageId + '/' + index;
         if (kind === 'author' && !authorScope) {
             const previous = facts.get(key) ?? existing.get(key);
@@ -738,16 +751,17 @@ export function parseStoryArchiveChanges(
             ? (quotedClause && storyTimeFromSource(quotedClause)) || verifiedTime
                 || unambiguousOpeningTime(source.text) || sourceTimes?.get(sourceMessageId)
             : undefined;
+        let continuityHint = change.continuity;
         if (kind === 'fact') {
             const evidence = quotedClause ?? source.text;
             const evidenceModality = quotedClause || storySentences(source.text).length === 1
                 ? storyArchiveModality({ text: evidence }) : undefined;
             modality = evidenceModality ?? modality;
-            // A complete segment may describe an earlier plan before its result.
-            // Ground the terminal state in the cited source rather than that preamble.
-            if (change.continuity === 'completed' || change.continuity === 'canceled') {
-                const finalClause = evidence.split(/[，,；;。！？\n]/u).filter(clause => clause.trim()).at(-1);
-                if (finalClause && storyArchiveContinuityKind({ kind: 'fact', text: finalClause }) === change.continuity) modality = undefined;
+            const closing = storyArchiveClosingOutcome(text);
+            if (closing && (pastStoryPlan.test(text) || continuityHint === closing)
+                && storyArchiveClosingOutcome(evidence) === closing && modality !== 'unverified') {
+                modality = undefined;
+                continuityHint = closing;
             }
             const codeClaims = storyArchiveCodes(text);
             let unsupportedCode = false;
@@ -756,12 +770,15 @@ export function parseStoryArchiveChanges(
                 const sourceCodes = citedCodes.length ? citedCodes
                     : storyArchiveCodes(source.text).filter(code => code.label === claim.label);
                 const values = [...new Set(sourceCodes.map(code => code.value))];
+                const earlierValues = values.length ? [] : [...new Set(batchCodes
+                    .filter(code => code.id < sourceMessageId && code.label === claim.label).map(code => code.value))];
                 if (values.length === 1 && values[0] !== claim.value) {
                     const sourceCode = sourceCodes[0];
                     text = text.includes(claim.phrase)
                         ? text.replace(claim.phrase, sourceCode.phrase)
                         : text.normalize('NFKC').replace(claim.phrase, sourceCode.phrase);
-                } else if (!source.text.normalize('NFKC').toUpperCase().match(/[A-Z0-9-]+/g)?.includes(claim.value)) {
+                } else if (!source.text.normalize('NFKC').toUpperCase().match(/[A-Z0-9-]+/g)?.includes(claim.value)
+                    && !(earlierValues.length === 1 && earlierValues[0] === claim.value)) {
                     unsupportedCode = true;
                     break;
                 }
@@ -787,7 +804,7 @@ export function parseStoryArchiveChanges(
         const previous = existing.get(key);
         if (previous && previous.kind !== kind) throw invalid(`第 ${index + 1} 条改变了已有记忆类型`);
         const continuity = kind === 'fact' && !modality
-            ? storyArchiveContinuityKind({ kind, text, continuity: change.continuity })
+            ? storyArchiveContinuityKind({ kind, text, continuity: continuityHint })
                 ?? (previous?.continuity === 'rule' ? 'rule' : undefined)
             : undefined;
         const fact = { key, kind, text, sourceMessageId, ...(authorScope ? { authorScope } : {}), ...(storyTime ? { storyTime } : {}),
