@@ -1113,9 +1113,6 @@ const MessageItem = React.memo(({
     isThinkingSelected,
     onToggleThinkingSelect,
     translationEnabled,
-    translationExpanded,
-    isShowingTarget,
-    onTranslateToggle,
     voiceData,
     voiceLoading,
     isVoicePlaying,
@@ -3343,12 +3340,9 @@ const MessageItem = React.memo(({
     const langAContent = hasBilingual ? stripJunk(rawContent.substring(0, bilingualIdx)) : stripJunk(rawContent);
     const langBContent = hasBilingual ? stripJunk(rawContent.substring(bilingualIdx + '%%BILINGUAL%%'.length)) : '';
 
-    // Display: 默认点击切换；可选“直接展开”时，上方原文 + 下方译文同时显示。
-    const showExpandedTranslation = Boolean(translationEnabled && translationExpanded && hasBilingual && langBContent);
-    const displayContent = showExpandedTranslation
-        ? langAContent
-        : (isShowingTarget && langBContent) ? langBContent : langAContent;
-    const showTranslateButton = translationEnabled && !showExpandedTranslation && hasBilingual && langBContent;
+    // 统一双语展示：原文在上、译文在下，所有气泡样式都在气泡内直接显示。
+    const showExpandedTranslation = Boolean(translationEnabled && hasBilingual && langBContent);
+    const displayContent = langAContent;
 
     // Check if raw content has a <语音> tag (voice-only message that hasn't been TTS'd yet).
     // 未闭合的开标签也算 (历史坏数据: 语音块曾被 chunkText 切碎, 开标签落单) —
@@ -3440,39 +3434,12 @@ const MessageItem = React.memo(({
             {displayContent && !isForeignVoiceMsg && (
             <div className={`sully-facebook-bubble-text ${wechatTextMessage ? 'sully-wechat-bubble-text' : ''} ${qqTextMessage ? 'sully-qq-bubble-text' : ''} relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text`} style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
-                {showExpandedTranslation && !wechatTextMessage && !qqTextMessage && (
-                    <div className="sully-facebook-translation mt-2.5 pt-2 border-t border-current/15">
-                        <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻译</div>
+                {showExpandedTranslation && (
+                    <div data-bilingual-translation="true" className="sully-chat-bilingual-translation mt-2 pt-2 border-t border-current/15">
                         {renderContent(langBContent)}
                     </div>
                 )}
             </div>
-            )}
-
-            {/* Layer 5: 双语「翻译/原文」切换 —— 气泡内右下角，细分隔线压层级，小灰字克制易找 */}
-            {showTranslateButton && displayContent && !isForeignVoiceMsg && (
-                <div
-                    className={`sully-chat-translate-action relative z-10 mt-2 pt-1.5 flex justify-end ${wechatTextMessage ? 'sully-wechat-translate-action' : ''} ${qqTextMessage ? 'sully-qq-translate-action' : ''}`}
-                    style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}
-                >
-                    <button
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onTranslateToggle?.(m.id); }}
-                        className="flex items-center gap-1 text-[10px] font-medium transition-opacity active:opacity-80 select-none"
-                        style={{ color: styleConfig.textColor, opacity: 0.45 }}
-                    >
-                        {isShowingTarget ? (
-                            <>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M7.793 2.232a.75.75 0 0 1-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 0 1 0 10.75H10.75a.75.75 0 0 1 0-1.5h2.875a3.875 3.875 0 0 0 0-7.75H3.622l4.146 3.957a.75.75 0 0 1-1.036 1.085l-5.5-5.25a.75.75 0 0 1 0-1.085l5.5-5.25a.75.75 0 0 1 1.06.025Z" clipRule="evenodd" /></svg>
-                                <span>原文</span>
-                            </>
-                        ) : (
-                            <>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M7.75 2.75a.75.75 0 0 0-1.5 0v1.258a32.987 32.987 0 0 0-3.599.278.75.75 0 1 0 .198 1.487A31.545 31.545 0 0 1 8.7 5.545 19.381 19.381 0 0 1 7.257 9.04a19.391 19.391 0 0 1-1.727-2.29.75.75 0 1 0-1.29.77 20.9 20.9 0 0 0 2.023 2.684 19.549 19.549 0 0 1-3.158 2.57.75.75 0 1 0 .86 1.229A21.056 21.056 0 0 0 7.5 11.03c1.1.95 2.3 1.79 3.593 2.49a.75.75 0 1 0 .69-1.331A19.545 19.545 0 0 1 8.46 9.89a20.893 20.893 0 0 0 1.91-4.644h2.38a.75.75 0 0 0 0-1.5h-3v-1a.75.75 0 0 0-.75-.75Z" /><path d="M12.75 10a.75.75 0 0 1 .692.462l2.5 6a.75.75 0 1 1-1.384.576l-.532-1.278h-3.052l-.532 1.278a.75.75 0 1 1-1.384-.576l2.5-6A.75.75 0 0 1 12.75 10Zm-1.018 4.26h2.036L12.75 11.6l-1.018 2.66Z" /></svg>
-                                <span>翻译</span>
-                            </>
-                        )}
-                    </button>
-                </div>
             )}
 
             {/* Layer 6: Voice Bar */}
@@ -3657,21 +3624,6 @@ const MessageItem = React.memo(({
                 );
             })()}
         </div>
-        {qqTextMessage && !isUser && showExpandedTranslation && !isForeignVoiceMsg && (
-            <div className="sully-qq-translation">{renderContent(langBContent)}</div>
-        )}
-        {wechatTextMessage && !isUser && showExpandedTranslation && !isForeignVoiceMsg && (
-            <div className="sully-wechat-translation-card">
-                <div className="sully-wechat-translation-body">{renderContent(langBContent)}</div>
-                <div className="sully-wechat-translation-foot">
-                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none">
-                        <circle cx="8" cy="8" r="7" fill="#c8c8c8" />
-                        <path d="m4.6 8 2.2 2.2 4.5-4.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span>由宝宝狗提供翻译支持</span>
-                </div>
-            </div>
-        )}
         {blackWhiteFacebook && !isUser && m.replyTo && (
             <div className="sully-facebook-reply" title={`${m.replyTo.name}：${replyPreview}`}>
                 <span className="sully-facebook-reply-name">{m.replyTo.name}：</span>
