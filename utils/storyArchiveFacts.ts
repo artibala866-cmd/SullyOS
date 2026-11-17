@@ -650,11 +650,11 @@ export function filterStoryArchiveBaselineRepeats(
 }
 
 // Explicit labelled codes are checkable without guessing what a model meant.
-const archivedCodePattern = /(回执(?:编号|号码|号)|登记(?:编号|号码|号)|门禁(?:密码|口令)|校验码|识别码|序列号|通行码|档案编号)\s*(?:是|为|改为|[:：])?\s*([A-Z0-9][A-Z0-9-]{2,23})(?![A-Z0-9-])/giu;
+const archivedCodePattern = /(回执(?:编号|号码|号)|登记(?:编号|号码|号|(?=\s*为))|门禁(?:密码|口令)|校验码|识别码|序列号|通行码|档案编号)\s*(?:是|为|改为|[:：])?\s*([A-Z0-9][A-Z0-9-]{2,23})(?![A-Z0-9-])/giu;
 function storyArchiveCodes(text: string) {
     return [...text.normalize('NFKC').matchAll(archivedCodePattern)].map(match => ({
         phrase: match[0],
-        label: match[1].replace(/^回执(?:号码|号)$/u, '回执编号').replace(/^登记(?:号码|号)$/u, '登记编号')
+        label: match[1].replace(/^回执(?:号码|号)$/u, '回执编号').replace(/^登记(?:号码|号)?$/u, '登记编号')
             .replace(/^门禁口令$/u, '门禁密码'),
         value: match[2].toUpperCase(),
     })).filter(code => /[0-9]/u.test(code.value));

@@ -298,6 +298,15 @@ describe('story summary final channel', () => {
         expect(facts.some(fact=>fact.sourceMessageId===4)).toBe(false);
     });
 
+    it('does not add a second memory for a code already covered by a condensed event segment', () => {
+        const source = '阿潭在北亭亲手交付南渡回执，柳巡签收；登记编号为 R-319。';
+        const text = '阿潭绕道后将南渡回执交给柳巡，柳巡签收并登记为 R-319。';
+        const changes = [{ action: 'add', key: '南渡回执/交付', kind: 'fact', sourceMessageId: 18, text }];
+        const facts = parseStoryArchiveChanges(JSON.stringify({ changes }),
+            new Map([[18, { text: source, authorInput: false }]]), []);
+        expect(facts.map(fact => fact.text)).toEqual([text]);
+    });
+
     it('retains a grouped segment with a confirmed earlier code and rejects an invented or ambiguous one', () => {
         const sources = new Map([
             [1, { text: '回执编号为 DL-74。桥板被风浪撞坏。', authorInput: false }],
