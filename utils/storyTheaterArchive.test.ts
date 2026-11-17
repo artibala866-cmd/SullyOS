@@ -100,6 +100,20 @@ describe('story summary final channel', () => {
         expect(changes.find(fact => fact.sourceMessageId === 42)).toMatchObject({ key: 'delivery_status/来源42', continuity: 'canceled' });
     });
 
+    it('keeps valid changes when a duplicated old paragraph has no source and locally verifies the fresh cancellation', () => {
+        const old: StoryArchiveFact = { key: 'delivery_status', kind: 'fact', sourceMessageId: 18, terms: ['南渡回执'],
+            text: '南渡回执由阿潭亲手交付，柳巡签收。', continuity: 'completed' };
+        const caution = '长期保留青灯独白的知情限制。';
+        const source = '柳巡取消了去西渡取备用封条的约定，原因是潮水倒灌。';
+        const changes = parseStoryArchiveChanges(JSON.stringify({ changes: [
+            { key: '场外/独白', kind: 'author', action: 'add', text: caution, sourceMessageId: 39 },
+            { key: old.key, action: 'update', kind: 'fact', text: old.text + '柳巡取消了备用封条约定。' },
+        ] }), new Map([[39, { text: caution, authorInput: true }], [42, { text: source, authorInput: false }]]), [old]);
+        expect(changes.map(fact => fact.sourceMessageId)).toEqual([39, 42]);
+        expect(changes[1]).toMatchObject({ continuity: 'canceled', text: source });
+        expect(changes.some(fact => fact.key === old.key)).toBe(false);
+    });
+
     it('accepts a fenced completion with string source ID, punctuation key and whitespace-only quote differences', () => {
         const sources = new Map([[12, { text: '阿岚对小雨说：\n今天去钟楼。', authorInput: false }]]);
         const raw = '```json\n' + JSON.stringify({ changes: [{

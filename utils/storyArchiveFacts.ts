@@ -790,6 +790,17 @@ export function parseStoryArchiveChanges(
         const selected = candidates.length === 1 ? candidates[0]
             : direct ? [providedId, direct] as const
             : floorRef || (sourceRef && !sourceRef[1]) ? floor : undefined;
+        if (!selected && !sourceToken && action === 'update') {
+            const previous = existing.get(key);
+            // A provider may echo a settled paragraph and append an undated
+            // claim without any source. Only discard this known recap; later
+            // source-backed recovery can still recognize a fresh outcome.
+            const priorText = previous?.kind === kind ? comparable(previous.text) : '';
+            if (priorText && comparable(text).startsWith(priorText)) {
+                if (comparable(text) !== priorText) skippedOldSource = true;
+                continue;
+            }
+        }
         if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
         // An umbrella key causes unrelated scenes to overwrite each other and
