@@ -128,6 +128,21 @@ describe('story summary final channel', () => {
         expect(storyArchiveModality(facts[1])).toBe('planned');
     });
 
+    it('keeps a later exception without treating partial progress as an outcome', () => {
+        const finished = '阿潭原本打算走桥，正门受阻后转走暗道，柳巡已签收回执，如果封条破损就要停止通行。';
+        const partial = '阿潭原本打算完成检修，眼下完成了第一步，闸机仍卡着。';
+        const oneTurn = '略去天气描写（仅限本次续写）。';
+        const user = { text: oneTurn, authorInput: true };
+        const changes = [finished, partial, oneTurn].map((text, i) => ({ key: '事项/' + i, text,
+            kind: i === 2 ? 'author' : 'fact', sourceMessageId: i + 1, ...(i < 2 ? { modality: 'planned' } : {}) }));
+        const parsed = parseStoryArchiveChanges(JSON.stringify({ changes }), new Map([
+            [1, { text: finished, authorInput: false }], [2, { text: partial, authorInput: false }], [3, user],
+        ]), []);
+        expect(parsed[0]).toMatchObject({ text: finished, continuity: 'completed' });
+        expect(parsed[1]).toMatchObject({ text: partial, modality: 'planned' });
+        expect(parsed[2]).toMatchObject({ text: oneTurn, authorScope: 'turn' });
+    });
+
     it('ignores an exact already-saved item echoed with its old source without dropping new memory', () => {
         const old: StoryArchiveFact = { key:'写作/代写', kind:'author', text:'不替玩家做决定。', terms:[], sourceMessageId:2 };
         const text = '旁人只有在青灯亲口告知后，才知晓灰港真名。';
@@ -1318,6 +1333,28 @@ describe('consecutive automatic archives', () => {
         expect(payload).not.toContain('只限本轮省略天气。');
     });
 
+    it('keeps the confirmed outcome beside a newer rumor when summarizing the next range', async () => {
+        const delivery = await append('阿岚把信交给小林，小林已签收。');
+        const rumor = await append('听说那封信还没送到。');
+        const done = { key: '信/交付', kind: 'fact' as const, text: delivery.content, terms: ['信'],
+            sourceMessageId: delivery.id, continuity: 'completed' as const };
+        const uncertain = { key: done.key, kind: done.kind, text: rumor.content, terms: done.terms,
+            sourceMessageId: rumor.id, modality: 'unverified' as const };
+        const prior = { id: 'settled', strategy: 'summary' as const, fromMessageId: delivery.id,
+            toMessageId: rumor.id, messageCount: 2, createdAt: 1, facts: [uncertain], historyFacts: [done] };
+        await DB.saveStoryTheater({ ...entry, archives: [...entry.archives, prior] });
+        const recap = await append('两人提起此前送信的打算。');
+        queue([{ action: 'add', key: done.key, kind: 'fact', text: '阿岚打算送信给小林。',
+            modality: 'planned', sourceMessageId: recap.id }]);
+        const result = await archiveStoryFloorRange(entry.id, [recap], api);
+        const request = JSON.parse(fetchMock.mock.calls[0][1].body).messages[1].content as string;
+        const previous = request.split('上一次已保存归档')[1].split('更早结构化记忆')[0];
+        expect(previous).toContain(delivery.content);
+        expect(previous).toContain(rumor.content);
+        expect(result.archives.at(-1)?.facts).toEqual([]);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
     it('points out mixed unmarked writing requests in the one summary request and keeps fictional quoted commands as source dialogue', async () => {
         const mixed = await append('我推开栅栏。接下来的正文不要让巡检员知道真名，除非青灯亲口告诉巡检员。', 'user');
         const ordinary = await append('我走到门边，听见巡检员说：“以后不要让他走。”', 'user');
@@ -1659,6 +1696,32 @@ describe('主动回查早期剧情', () => {
             expect(payload).not.toContain(rows[0].content);
             expect(result.receipt.injectedFloors).toEqual([1]);
         }
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps long author conditions and unresolved details whole on hidden-history continuation', async () => {
+        const authorText = '用第三人称写北门的每次交涉。' + '涉及通行时逐一保留人物已知的线索和相互矛盾的证词。'.repeat(35)
+            + '唯一例外：青灯独白不得向柳巡公开。';
+        const planText = '阿潭打算从北门取回信件。' + '等待港口放行后，再用先前留存的纸面证据比对封条。'.repeat(26)
+            + '若印痕与原卷不同，暂缓交接。';
+        const rows = [10, 11, 12].map(id => ({ ...messages[0], id, role: id === 10 ? 'user' as const : 'assistant' as const,
+            content: '隐藏并且不发送的原文。' }));
+        const facts: StoryArchiveFact[] = [
+            { key: '场外/视角', kind: 'author', sourceMessageId: 10, text: authorText, terms: [] },
+            { key: '北门/取信', kind: 'fact', modality: 'planned', sourceMessageId: 11, text: planText, terms: ['北门'] },
+            { key: '场外/天气', kind: 'author', authorScope: 'turn', sourceMessageId: 10, text: '本轮不写天气。', terms: [] },
+        ];
+        const box = { id: 'long-author', strategy: 'summary' as const, fromMessageId: 10, toMessageId: 12,
+            createdAt: 1, messageCount: 3, facts };
+        const result = await buildStoryTheaterRecall({
+            entry: { ...entry, archives: [box] }, rows, beforeId: 13, floor: 4, baseline: '', visibleRows: [],
+            historyVisible: false, continuation: true, opening: false, userInput: '', readOriginalEvidence: false,
+        });
+        const payload = result.messages.map(message => message.content).join('\n');
+        expect(payload).toContain(authorText);
+        expect(payload).toContain(planText);
+        expect(payload).not.toContain('本轮不写天气。');
+        expect(payload).not.toContain(rows[0].content);
         expect(fetchMock).not.toHaveBeenCalled();
     });
 

@@ -205,9 +205,9 @@ export async function generateStoryArchiveDelta(
         buildStoryArchiveReference(entry),
         loadStoryVectorRecall({ ...entry, archives }, beforeId),
     ]);
-    const known = collectStoryArchiveFacts(archives, beforeId, vector.factTextById);
+    const known = collectStoryArchiveFacts(archives, beforeId, vector.factTextById, true);
     const lastArchive = archives.filter(box => box.toMessageId < beforeId).sort((a, b) => b.toMessageId - a.toMessageId)[0];
-    const lastFacts = lastArchive?.facts ? collectStoryArchiveFacts([lastArchive], beforeId, vector.factTextById) : [];
+    const lastFacts = lastArchive?.facts ? collectStoryArchiveFacts([lastArchive], beforeId, vector.factTextById, true) : [];
     const lastFactIds = new Set(lastFacts.map(storyArchiveFactIdentity));
     const archiveReferenceFact = (fact: StoryArchiveFact) => ({
         key: fact.key, kind: fact.kind, text: fact.text, sourceMessageId: fact.sourceMessageId,
@@ -216,7 +216,8 @@ export async function generateStoryArchiveDelta(
     });
     const lastSummary = lastArchive?.facts ? JSON.stringify({
         归档记录: lastFacts.map(archiveReferenceFact),
-        旧状态: (lastArchive.historyFacts ?? []).filter(fact => fact.vectorTextState !== 'deleted' && !fact.vectorNodeId).map(archiveReferenceFact),
+        旧状态: (lastArchive.historyFacts ?? []).filter(fact => fact.vectorTextState !== 'deleted' && !fact.vectorNodeId
+            && !lastFactIds.has(storyArchiveFactIdentity(fact))).map(archiveReferenceFact),
         界面好感记录: lastArchive.affinityLog,
     }) : lastArchive?.summary || vector.groups.find(group => group.archiveIds.includes(lastArchive?.id ?? ''))
         ?.nodes.map(node => node.content).join('\n');

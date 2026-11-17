@@ -45,16 +45,21 @@ const persistentStoryRules = [
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
 const explicitStoryDelivery = /(?:已签收|签收完毕|交接完成|送达|交付完毕)/u;
+const partialStoryCompletion = /(?:只(?:完成|做完|办妥)|完成(?:了)?(?:一部分|一半|部分|第[一二三四五六七八九十0-9]+步)|完成度)/u;
 const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|计划)|本来(?:打算|计划)|最初(?:打算|计划))/u;
 
 function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | undefined {
     for (const sentence of storySentences(text).reverse()) {
         const clauses = sentence.split(/[，,；;]/u);
-        const last = clauses.reverse().find(clause => canceledStoryAction.test(clause) || explicitStoryDelivery.test(clause)
-            || /(?:完成|办妥|做完|送到了?|交给了|换好了?|交付了|取回了|拆除了)/u.test(clause));
-        if (!last) continue;
-        if (/(?:如果|假如|要是|假设|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见|[？?])/u.test(sentence)
-            || storyArchiveModality({ text: last }) || /(?:未|没有|还没|无需|不必|差点|尝试|打算|正在|只完成一部分)/u.test(last)) return;
+        const closingFromEnd = [...clauses].reverse().findIndex(clause => canceledStoryAction.test(clause)
+            || explicitStoryDelivery.test(clause) || /(?:完成|办妥|做完|送到了?|交给了|换好了?|交付了|取回了|拆除了)/u.test(clause));
+        if (closingFromEnd < 0) continue;
+        const closing = clauses.length - 1 - closingFromEnd;
+        const last = clauses[closing];
+        if (/[？?]/u.test(sentence)
+            || /(?:如果|假如|要是|假设|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见)/u.test(clauses.slice(0, closing + 1).join('，'))
+            || storyArchiveModality({ text: last })
+            || /(?:未|没有|还没|无需|不必|差点|尝试|打算|正在)/u.test(last) || partialStoryCompletion.test(last)) return;
         return canceledStoryAction.test(last) ? 'canceled' : 'completed';
     }
 }
@@ -66,7 +71,7 @@ export function storyArchiveContinuityKind(
     if (storyArchiveModality(fact)) return;
     if (fact.kind === 'author') return persistentStoryRules.some(pattern => pattern.test(fact.text)) ? 'rule' : undefined;
     if (fact.continuity === 'rule' || fact.continuity === 'completed' || fact.continuity === 'canceled') return fact.continuity;
-    if (unresolvedStoryClaim.test(fact.text)) return;
+    if (unresolvedStoryClaim.test(fact.text) || partialStoryCompletion.test(fact.text)) return;
     if (persistentStoryRules.some(pattern => pattern.test(fact.text))) return 'rule';
     if (canceledStoryAction.test(fact.text)) return 'canceled';
     if (completedStoryAction.test(fact.text)) return 'completed';
@@ -479,8 +484,8 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
     '只返回 JSON 对象，顶层只有 changes 数组。每条字段为 action、key、kind、text、terms、sourceMessageId，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回空数组。',
     '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，优先写完整经过和最终状态；有数次明确的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
-    '六项用于检查覆盖：关键事件与因果、重要时地变化、关系和谁知情、心理或态度转变、新设定与精确细节、未决事项和场外要求。无需输出六个标题。整批以100～1500字为篇幅参考，压缩修饰和重复，保留影响结果的条件、否定和例外。',
-    'kind 为 fact 或 author。用户同一楼可能既推进剧情又要求修改写法，即使没有 OOC 也检查。场外要求要写清限制、对象、条件和例外，单独用 author。只限当轮标 authorScope:"turn"。引号内角色命令和用户角色在剧情中的行动仍为剧情材料。terms 记录利于查找的人名、地点、物品和编号。',
+    '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批以100～1500字为篇幅参考，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
+    'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
     '新增用 add；同一事项更新、明确纠正或结案用 update，沿用旧 key。不同事项和不同场外要求用不同 key。新的同类行动须有原文依据另建 key。原先已有的剧情或场外要求仅重复、换词提起时略过。已完成或取消的事只作为过去结果保留，不能重新写成待办。',
     '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
     '事项跨楼时 sourceMessageId 指向确认当前状态或结果的本批记录ID。quote 可选，仅摘该楼的逐字证据。storyTime 只记录原文剧情时间，不能用聊天时间或把回忆的时间套成现在。界面好感由程序另存。',
@@ -672,6 +677,10 @@ export function parseStoryArchiveChanges(
         throw new StoryArchiveIncompleteReply('模型没有返回 changes 数组');
     }
     const existing = new Map(known.map(fact => [fact.key, fact]));
+    const confirmedOutcomes = new Map(known.filter(fact => {
+        const outcome = storyArchiveContinuityKind(fact);
+        return outcome === 'completed' || outcome === 'canceled';
+    }).map(fact => [fact.key, fact]));
     const batchCodes = [...sources].flatMap(([id, source]) => storyArchiveCodes(source.text).map(code => ({ ...code, id })));
     const signature = (fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'storyTime' | 'modality' | 'authorScope'>) =>
         JSON.stringify([fact.kind, comparable(fact.text), fact.storyTime ?? '', fact.modality ?? '', fact.authorScope ?? '']);
@@ -735,7 +744,8 @@ export function parseStoryArchiveChanges(
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
         const authorScope = kind === 'author' && (change.authorScope === 'turn'
-            || /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u.test(text)) ? 'turn' as const : undefined;
+            || /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u.test(text)
+            || /(?:[（(]|[，；、]\s*)?(?:仅限|只限|仅适用于|只适用于)(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[）)。！\s]*$/u.test(text)) ? 'turn' as const : undefined;
         if (authorScope) key = '场外当轮/' + sourceMessageId + '/' + index;
         if (kind === 'author' && !authorScope) {
             const previous = facts.get(key) ?? existing.get(key);
@@ -793,8 +803,10 @@ export function parseStoryArchiveChanges(
         }
         const knownState = facts.get(key) ?? existing.get(key);
         const oldOutcome = knownState && storyArchiveContinuityKind(knownState);
+        const latestConfirmedOutcome = knownState && storyArchiveModality(knownState) === 'unverified'
+            ? confirmedOutcomes.get(key) : undefined;
         if (kind === 'fact' && storyArchiveModality({ text, modality }) === 'planned'
-            && (oldOutcome === 'completed' || oldOutcome === 'canceled')) {
+            && (oldOutcome === 'completed' || oldOutcome === 'canceled' || latestConfirmedOutcome)) {
             const evidence = quotedClause ?? source.text;
             const restarted = /(?:重新|再次|再一次|又一次|另一次|另约|再约|又打算|又准备|(?:下次|明天|次日|改天|下周)[^，。！？]{0,10}再)/u.test(evidence);
             if (restarted || (storyTime && knownState?.storyTime && storyTime !== knownState.storyTime && action === 'add')) {
@@ -966,16 +978,30 @@ function selectStoryArchiveRecallLines(
         if (budget !== 3200) borrowed += Math.max(0, cost - budget);
         return { title, entries, budget, priority, cost };
     });
-    return sections.map(({ title, entries, budget, priority, cost }) => {
+    // Keep conditions and exceptions together in smaller sections. Unused
+    // reserved space can come from the confirmed-facts budget within the
+    // same overall limit. Count what was actually used before filling facts.
+    const confirmed = sections[0];
+    let shared = Math.max(0, Math.min(reserveRemaining, confirmed.budget - confirmed.cost - (active?.cost ?? 0) - borrowed));
+    const selectSection = ({ title, entries, budget, priority, cost }: typeof confirmed) => {
         const rankable = entries.filter(fact => {
             const id = storyArchiveFactIdentity(fact);
             return !reserved.has(id) && !active?.selected.has(id);
         });
-        const space = budget - cost - (budget === 3200 ? (active?.cost ?? 0) + borrowed : 0);
-        const lines = storyArchiveFactLines(rankStoryArchiveFacts(rankable, query, semanticRank, sourceTimes),
-            floorNumbers, space, sourceTimes, timelineStatus);
+        const isConfirmed = budget === confirmed.budget;
+        const space = Math.max(0, budget - cost - (isConfirmed ? (active?.cost ?? 0) + borrowed : 0));
+        const ranked = rankStoryArchiveFacts(rankable, query, semanticRank, sourceTimes);
+        const lines = storyArchiveFactLines(ranked, floorNumbers, space + (isConfirmed ? 0 : shared),
+            sourceTimes, timelineStatus, !isConfirmed);
+        if (!isConfirmed) {
+            const extra = Math.max(0, lines.reduce((size, item) => size + item.line.length + 1, 0) - space);
+            shared = Math.max(0, shared - extra);
+            borrowed += extra;
+        }
         return { title, lines: [...priority, ...lines] };
-    });
+    };
+    const other = sections.slice(1).reverse().map(selectSection).reverse();
+    return [selectSection(confirmed), ...other];
 }
 
 export function storyArchiveNeedsRanking(
