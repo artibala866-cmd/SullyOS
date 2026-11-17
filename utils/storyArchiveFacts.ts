@@ -44,6 +44,7 @@ const persistentStoryRules = [
 ];
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
+const uncertainStoryOutcome = /(?:如果|假如|要是|假设|(?:^|[，。；：])若|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见|(?:想(?:要)?|拟|考虑|打算|将要|希望|试图)(?:取消|撤销|做完|办妥|完成|交付|签收))/u;
 const specificStoryCancellation = /(?:取消(?:了)?[^，。；;]{2,38}(?:约定|行动|之约)|(?:约定|行动|之约)[^，。；;]{0,12}(?:已取消|取消了|作罢))/u;
 const explicitStoryDelivery = /(?:已签收|签收完毕|签收并|签收后|交接完成|送达|交付完毕|(?:亲手|当场|最终|随后)交付)/u;
 const partialStoryCompletion = /(?:只(?:完成|做完|办妥)|完成(?:了)?(?:一部分|一半|部分|第[一二三四五六七八九十0-9]+步)|完成度)/u;
@@ -58,7 +59,7 @@ function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | un
         const closing = clauses.length - 1 - closingFromEnd;
         const last = clauses[closing];
         if (/[？?]/u.test(sentence)
-            || /(?:如果|假如|要是|假设|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见)/u.test(clauses.slice(0, closing + 1).join('，'))
+            || uncertainStoryOutcome.test(clauses.slice(0, closing + 1).join('，'))
             || storyArchiveModality({ text: last })
             || /(?:未|没有|还没|无需|不必|差点|尝试|打算|正在)/u.test(last) || partialStoryCompletion.test(last)) return;
         return canceledStoryAction.test(last) || specificStoryCancellation.test(last) ? 'canceled' : 'completed';
@@ -994,7 +995,8 @@ export function parseStoryArchiveChanges(
     for (const [sourceMessageId, source] of sources) {
         if (source.authorInput) continue;
         const clean = source.text.trim();
-        if (!clean || clean.length > 280 || /[“”「」『』"'<>？?]|(?:假如|要是|据说|听说|传闻|梦见|曾经|可能|没(?:有)?取消|并未取消)/u.test(clean)) continue;
+        if (!clean || clean.length > 280 || uncertainStoryOutcome.test(clean)
+            || /[“”「」『』"'<>？?]|(?:曾经|没(?:有)?取消|并未取消)/u.test(clean)) continue;
         const represented = [...facts.values()].filter(fact => fact.sourceMessageId === sourceMessageId && fact.kind === 'fact');
         // Only add exact, bounded state evidence where the model omitted it.
         const cancel = storySentences(clean).find(sentence =>

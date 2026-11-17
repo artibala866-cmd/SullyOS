@@ -85,6 +85,8 @@ describe('story summary final channel', () => {
             [39, { text: '场外：从此密封文书须验灰色骑缝章，青灯递交时免验。本轮只用一句旁白。', authorInput: true }],
             [42, { text: '柳巡取消了去西渡取备用封条的约定，原因是潮水倒灌。', authorInput: false }],
             [43, { text: '如果取消去西渡的约定，他便留在这里。', authorInput: false }],
+            [44, { text: '柳巡想取消前往西渡取备用封条的约定。', authorInput: false }],
+            [45, { text: '如果只完成了拆掉外壳这一项；弹簧仍卡着，闸机便没有修好。', authorInput: false }],
         ]);
         const changes = parseStoryArchiveChanges(JSON.stringify({ changes: [
             { key: '写作/验章', kind: 'author', text: author, authorScope: 'turn', terms: ['灰色骑缝章'], sourceMessageId: 39 },
