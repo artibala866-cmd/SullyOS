@@ -41,15 +41,21 @@ const bilingualChecks = bilingualStyles.map(({ name, props }) => {
   const translation = bubble?.querySelector<HTMLElement>('[data-bilingual-translation="true"]');
   const translatedBox = translation?.getBoundingClientRect();
   const sourceBox = source?.getBoundingClientRect();
-  return !!bubble && !!source && !!translation && !!sourceBox && !!translatedBox
-    && source.textContent?.includes('안녕') === true
-    && translation.textContent?.includes('你好') === true
-    && translatedBox.top >= sourceBox.bottom - 2
-    && getComputedStyle(translation).borderTopWidth !== '0px'
-    && bubble.scrollWidth <= bubble.clientWidth + 2
-    && !section.querySelector('.sully-chat-translate-action, .sully-qq-translation, .sully-wechat-translation-card');
+  const flags = {
+    name, bubble: !!bubble, source: !!source, translation: !!translation,
+    sourceText: source?.textContent?.includes('안녕') === true,
+    targetText: translation?.textContent?.includes('你好') === true,
+    insideBubble: !!bubble && !!translation && bubble.contains(translation),
+    geometry: !!sourceBox && !!translatedBox && translatedBox.top >= sourceBox.bottom - 2,
+    divider: !!translation && getComputedStyle(translation).borderTopWidth !== '0px',
+    overflow: !!bubble && bubble.scrollWidth <= bubble.clientWidth + 2,
+    noFlip: !section.querySelector('.sully-chat-translate-action, .sully-qq-translation, .sully-wechat-translation-card'),
+  };
+  section.dataset.bilingualDebug = JSON.stringify(flags);
+  return Object.values(flags).slice(1).every(Boolean);
 });
 const bilingualOK = bilingualChecks.every(Boolean);
+const bilingualBreakdown = Array.from(root.querySelectorAll<HTMLElement>('[data-bilingual-debug]')).map(el => JSON.parse(el.dataset.bilingualDebug || '{}'));
 for (const scene of scenes) {
   const { markup, css } = renderChatDecorationSample(
     { format: 'sullyos-chat-decoration', version: 1, name: 'QQ浏览器视觉测试', parts: { bubbles: PRESET_THEMES.forest } },
@@ -102,6 +108,7 @@ const checks = {
   transferGeometryOK,
   quoteVisible,
   bilingualOK,
+  bilingualBreakdown,
   image: has('.sully-qq-image-message .chat-image-thumbnail'),
   scoped: sections.every(section => !!section.querySelector('.sully-chat-qq')),
 };
