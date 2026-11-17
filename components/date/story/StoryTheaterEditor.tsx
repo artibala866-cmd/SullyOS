@@ -637,9 +637,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <label><span className='block mb-2 text-[10px] text-slate-500'>累计多少层后归档</span><input type='number' min={2} max={200} value={draft.archiveAfter} onChange={event => update('archiveAfter', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                         <label><span className='block mb-2 text-[10px] text-slate-500'>至少保留最近几层</span><input type='number' min={1} max={Math.max(1, Number(draft.archiveAfter) - 1)} value={draft.archiveKeepRecent ?? 5} onChange={event => update('archiveKeepRecent', Number(event.target.value))} className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' /></label>
                     </div>
+                    <div className='flex items-center justify-between gap-3'>
+                        <span className='text-sm font-semibold'>剧情召回重排 · 可能计费</span>
+                        <Toggle value={!!draft.archiveRecallRerank} onChange={value => update('archiveRecallRerank', value)} />
+                    </div>
                     <label className='block'>
-                        <span className='block mb-2 text-[10px] text-slate-500'>归档保存上限（字符，0 为不限）</span>
-                        <input type='number' aria-label='归档保存上限' min={0} step={100}
+                        <span className='block mb-2 text-[10px] text-slate-500'>归档保存上限（字符）</span>
+                        <input type='number' aria-label='归档保存上限' min={1} max={STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
                             value={draft.archiveSummaryGuideMaxChars ?? STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
                             onChange={event => update('archiveSummaryGuideMaxChars', normalizeStoryArchiveGuideMaxChars(event.target.value === '' ? 0 : Number(event.target.value)))}
                             className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />

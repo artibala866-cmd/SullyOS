@@ -44,6 +44,7 @@ const persistentStoryRules = [
 ];
 const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|交|修|归还|打开|关闭|找|付|销毁)|总算|终于|成功|完成了?|办妥|做完|送达|送到了?|交给了|换好了?|更换了|修好了?|锁上了|寄出了?|交付了|结清了?|关上了|取回了|解开了|拆除了|封上了|还清了|送过了|搞定|不必再|无需再|\bcompleted\b|\bfinished\b)/iu;
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
+const specificStoryCancellation = /(?:取消(?:了)?[^，。；;]{2,38}(?:约定|行动|之约)|(?:约定|行动|之约)[^，。；;]{0,12}(?:已取消|取消了|作罢))/u;
 const explicitStoryDelivery = /(?:已签收|签收完毕|签收并|签收后|交接完成|送达|交付完毕|(?:亲手|当场|最终|随后)交付)/u;
 const partialStoryCompletion = /(?:只(?:完成|做完|办妥)|完成(?:了)?(?:一部分|一半|部分|第[一二三四五六七八九十0-9]+步)|完成度)/u;
 const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|计划)|本来(?:打算|计划)|最初(?:打算|计划))/u;
@@ -51,7 +52,7 @@ const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|
 function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | undefined {
     for (const sentence of storySentences(text).reverse()) {
         const clauses = sentence.split(/[，,；;]/u);
-        const closingFromEnd = [...clauses].reverse().findIndex(clause => canceledStoryAction.test(clause)
+        const closingFromEnd = [...clauses].reverse().findIndex(clause => canceledStoryAction.test(clause) || specificStoryCancellation.test(clause)
             || explicitStoryDelivery.test(clause) || /(?:完成|办妥|做完|送到了?|交给了|换好了?|交付了|取回了|拆除了)/u.test(clause));
         if (closingFromEnd < 0) continue;
         const closing = clauses.length - 1 - closingFromEnd;
@@ -60,7 +61,7 @@ function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | un
             || /(?:如果|假如|要是|假设|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见)/u.test(clauses.slice(0, closing + 1).join('，'))
             || storyArchiveModality({ text: last })
             || /(?:未|没有|还没|无需|不必|差点|尝试|打算|正在)/u.test(last) || partialStoryCompletion.test(last)) return;
-        return canceledStoryAction.test(last) ? 'canceled' : 'completed';
+        return canceledStoryAction.test(last) || specificStoryCancellation.test(last) ? 'canceled' : 'completed';
     }
 }
 
@@ -174,12 +175,13 @@ export function reconcileStoryArchiveContinuity(
     archivedRows: readonly { id: number; content: string; role?: string }[],
     visibleRows: readonly { id: number; content: string; role?: string }[],
 ): { facts: StoryArchiveFact[]; active: StoryArchiveFact[]; closedPlans: StoryArchiveFact[] } {
-    const past = archives.filter(box => box.toMessageId < beforeId);
-    const stored = past.flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])]);
+    const past = archives.filter(box => box.fromMessageId < beforeId && (box.facts || box.toMessageId < beforeId));
+    const stored = past.flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
+        .filter(fact => fact.sourceMessageId < beforeId);
     // Older, unstructured saves still carry source text. Use only bounded,
     // explicit assertions. Never send the full archived conversation again.
     const sourceBoxes = past.filter(box => box.strategy === 'summary' || box.facts);
-    const sources = archivedRows.filter(row => sourceBoxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
+    const sources = archivedRows.filter(row => row.id < beforeId && sourceBoxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId));
     const attached = [...stored, ...facts];
     const storedRuleSources = new Set(stored.filter(fact => storyArchiveContinuityKind(fact) === 'rule').map(fact => fact.sourceMessageId));
     const recovered = storyContinuitySources(sources, attached).filter(fact =>
@@ -323,10 +325,15 @@ export function selectExplicitStoryFacts(
         }
     }
     const byName = [...matchedNames].sort(([a, aFacts], [b, bFacts]) => aFacts.length - bFacts.length || b.length - a.length);
-    for (const [, matching] of byName) {
-        if (result.size >= 8) break;
-        const ordered = rankStoryArchiveFacts(matching, text, rank);
-        if (ordered[0]) add(ordered[0]);
+    const rankedByName = byName.map(([, matching]) => rankStoryArchiveFacts(matching, text, rank));
+    // Give every named target its first slot before filling up to three distinct
+    // records per target. Shared names must not collapse independent facets.
+    for (let pass = 0; pass < 3 && result.size < 8; pass++) {
+        for (const ordered of rankedByName) {
+            if (result.size >= 8) break;
+            const next = ordered.find(fact => !result.has(storyArchiveFactIdentity(fact)));
+            if (next) add(next);
+        }
     }
     return [...result.values()].slice(0, 8);
 }
@@ -483,8 +490,8 @@ export function storyArchiveFactTime(
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
     '只返回一个 JSON 对象，顶层为 changes 数组。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
-    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，在一段里写全原因、阻碍、行动、结案与后续限制；不要另写一条重复其结果。有数次需要分别追踪的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
-    '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批以100～1500字为篇幅参考，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
+    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，在一段里写全原因、阻碍、行动、结案与后续限制；不要另写一条重复其结果。省略末尾站位、最后动作和开场位置，只保留有后效的场景变化。有数次需要分别追踪的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
+    '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批正文须控制在100～1500字符（含标点与换行），没有足够信息时不编造凑字，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
     'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
     '新增用 add；同一事项更新、明确纠正或结案用 update，沿用旧 key。不同事项和不同场外要求用不同 key。新的同类行动须有原文依据另建 key。原先已有的剧情或场外要求仅重复、换词提起时略过。已完成或取消的事只作为过去结果保留，不能重新写成待办。',
     '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
@@ -510,9 +517,11 @@ export function collectStoryArchiveFacts(
         if (!text?.trim()) return undefined;
         return text === fact.text ? fact : { ...fact, text, aliases: undefined, entities: undefined, relatedKeys: undefined };
     };
-    for (const archive of archives.filter(item => item.toMessageId < beforeId).sort((a, b) => a.toMessageId - b.toMessageId)) {
+    for (const archive of archives.filter(item => item.fromMessageId < beforeId).sort((a, b) => a.toMessageId - b.toMessageId)) {
+        const visible = [...(archive.historyFacts ?? []), ...(archive.facts ?? [])]
+            .filter(fact => fact.sourceMessageId < beforeId);
         if (includeLastConfirmed) {
-            for (const fact of [...(archive.historyFacts ?? []), ...(archive.facts ?? [])]) {
+            for (const fact of visible) {
                 if (fact.kind !== 'fact') continue;
                 if (fact.vectorTextState === 'deleted') {
                     confirmed.delete(fact.key);
@@ -525,7 +534,10 @@ export function collectStoryArchiveFacts(
                 }
             }
         }
-        for (const fact of archive.facts ?? []) current.set(fact.key, fact);
+        const active = archive.toMessageId < beforeId ? archive.facts ?? [] : visible;
+        for (const fact of active) {
+            if (!current.has(fact.key) || current.get(fact.key)!.sourceMessageId <= fact.sourceMessageId) current.set(fact.key, fact);
+        }
     }
     return [...current.values()].flatMap(fact => {
         const resolved = resolve(fact);
@@ -660,6 +672,25 @@ function storyArchiveCodes(text: string) {
     })).filter(code => /[0-9]/u.test(code.value));
 }
 
+/** Backfill only explicit aliases and codes backed by this record or its source. */
+export function backfillStoryArchiveFactTags(fact: StoryArchiveFact, source = ''): StoryArchiveFact {
+    if (fact.kind !== 'fact' || fact.vectorTextState === 'deleted') return fact;
+    const labels = storyArchiveSearchTerms(fact);
+    const aliases = new Set(fact.aliases ?? []);
+    for (const match of (fact.text + '\n' + source).matchAll(/([^\n，,。！？；;「」『』“”]{2,32}?)(?:又称|也叫|别名[为是：:]?|简称[为：:]?)\s*[「『“"]([^」』”"\n]{2,30})[」』”"]/gu)) {
+        const subject = normalize(match[1]);
+        if (labels.some(label => subject.endsWith(label))) aliases.add(normalize(match[2]));
+    }
+    const entities = [...(fact.entities ?? [])];
+    for (const { value } of storyArchiveCodes(fact.text)) {
+        if (!entities.some(entity => normalize(entity.name) === normalize(value))) entities.push({ name: value, type: 'code' });
+    }
+    const retainedAliases = [...aliases].slice(0, 8);
+    const retainedEntities = entities.slice(0, 10);
+    if (retainedAliases.length === (fact.aliases?.length ?? 0) && retainedEntities.length === (fact.entities?.length ?? 0)) return fact;
+    return { ...fact, aliases: retainedAliases, entities: retainedEntities };
+}
+
 export class StoryArchiveIncompleteReply extends Error {}
 
 const authorTurnStart = /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u;
@@ -688,6 +719,7 @@ function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; auth
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
+    priorHistory: readonly StoryArchiveFact[] = [],
 ): StoryArchiveFact[] {
     const invalid = (detail: string) => new Error(`增量归档格式或来源无效（${detail}），原文和旧归档已保留`);
     let value: unknown;
@@ -739,7 +771,7 @@ export function parseStoryArchiveChanges(
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
         const candidates = quote ? [...sources.entries()].filter(([, source]) => quoteExistsIn(source.text, quote)) : [];
         if (!direct && candidates.length !== 1 && sourceRef) {
-            const prior = known.filter(fact => fact.sourceMessageId === providedId && fact.kind === kind);
+            const prior = [...known, ...priorHistory].filter(fact => fact.sourceMessageId === providedId && fact.kind === kind);
             if (prior.some(fact => comparable(fact.text) === comparable(text))) continue;
             if (action && prior.length) {
                 // A proposed addition or update can cite an old record even when other changes are correctly sourced.
@@ -767,7 +799,14 @@ export function parseStoryArchiveChanges(
         if (kind === 'author' && !source.authorInput) {
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
-        const authorScope = kind === 'author' && (change.authorScope === 'turn'
+        const sourceIsPersistent = kind === 'author' && /(?:^|[。；：，\n])\s*(?:从此|此后|往后|长期|以后|接下来的正文)/u.test(source.text);
+        const persistentSummary = persistentAuthorStart.test(text) ||
+            (sourceIsPersistent && !explicitTurnAuthorStart.test(text) && Array.isArray(change.terms) && change.terms.some((term: unknown) =>
+                typeof term === 'string' && term.length >= 3 && source.text.includes(term) && text.includes(term)));
+        if (kind === 'author' && persistentSummary && sourceIsPersistent) {
+            text = text.replace(/[，,；;。]\s*此(?:项|条)?(?:规则|要求|限制)(?:仅|只)适用于本批(?:剧情)?[。！\s]*$/u, '。');
+        }
+        const authorScope = kind === 'author' && !persistentSummary && (change.authorScope === 'turn'
             || authorTurnStart.test(text)
             || /(?:[（(]|[，；、]\s*)?(?:仅限|只限|仅适用于|只适用于)(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[）)。！\s]*$/u.test(text)) ? 'turn' as const : undefined;
         if (authorScope) key = '场外当轮/' + sourceMessageId + '/' + index;
@@ -836,6 +875,12 @@ export function parseStoryArchiveChanges(
         const oldOutcome = knownState && storyArchiveContinuityKind(knownState);
         const latestConfirmedOutcome = knownState && storyArchiveModality(knownState) === 'unverified'
             ? confirmedOutcomes.get(key) : undefined;
+        const terminal = kind === 'fact' && storyArchiveContinuityKind({ kind, text, modality, continuity: continuityHint });
+        if ((terminal === 'completed' || terminal === 'canceled') && oldOutcome && oldOutcome !== terminal
+            && (oldOutcome === 'completed' || oldOutcome === 'canceled')
+            && !/(?:更正|纠正|此前误|其实|实际并未)/u.test(source.text)) {
+            key += '/来源' + sourceMessageId;
+        }
         if (kind === 'fact' && continuityHint === 'rule'
             && (oldOutcome === 'completed' || oldOutcome === 'canceled' || latestConfirmedOutcome)) {
             // A new rule may affect future occurrences, but it cannot replace
@@ -875,10 +920,7 @@ export function parseStoryArchiveChanges(
         const comparableText = signature(fact);
         const oldInBatch = facts.get(key);
         if (oldInBatch && oldInBatch.sourceMessageId > sourceMessageId) continue;
-        if (oldInBatch && signature(oldInBatch) === comparableText) continue;
         const sameState = previous && comparable(previous.text) === comparable(text) && storyArchiveModality(previous) === storyArchiveModality(fact);
-        if (sameState && !oldInBatch && action !== 'add') continue;
-        if (duplicateText.has(duplicateKey(fact)) && !oldInBatch && (!previous || sameState)) continue;
         if (!previous && kind === 'fact' && continuity !== 'rule' && storyArchiveRepeatsPreset(text, key, baseline, quotedClause ?? source.text)) continue;
         const termCandidates: string[] = Array.isArray(change.terms)
             ? change.terms.filter((term: unknown): term is string => typeof term === 'string')
@@ -886,16 +928,38 @@ export function parseStoryArchiveChanges(
         const terms = [...new Set<string>(termCandidates.map(term => normalize(term)).filter(term => term.length >= 2))];
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
             && (oldInBatch.text !== text || storyArchiveModality(oldInBatch) !== storyArchiveModality(fact))) onEarlierState?.(oldInBatch);
-        const aliases = kind === 'fact' ? archiveLinkLabels(change.aliases, 4)
+        let aliases = kind === 'fact' ? archiveLinkLabels(change.aliases, 4)
             .filter(alias => normalize(source.text).includes(alias)) : [];
-        const relatedKeys = kind === 'fact' ? archiveLinkLabels(change.relatedKeys, 3)
+        let relatedKeys = kind === 'fact' ? archiveLinkLabels(change.relatedKeys, 3)
             .filter(link => link !== normalize(key)) : [];
-        const entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(source.text)) : [];
-        facts.set(key, { ...fact, terms, ...(aliases.length ? { aliases } : {}),
+        let entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(source.text)) : [];
+        const state = oldInBatch ?? previous;
+        const sameEntry = state && (signature(state) === comparableText || (!oldInBatch && sameState));
+        let metadataChanged = false;
+        if (sameEntry && state.kind === 'fact') {
+            const oldAliases = state.aliases ?? [], oldLinks = state.relatedKeys ?? [], oldEntities = state.entities ?? [];
+            const byName = new Map(oldEntities.map(entity => [normalize(entity.name), entity]));
+            for (const entity of entities) {
+                const prior = byName.get(normalize(entity.name));
+                byName.set(normalize(entity.name), prior
+                    ? { ...prior, aliases: [...new Set([...(prior.aliases ?? []), ...(entity.aliases ?? [])])].slice(0, 4) }
+                    : entity);
+            }
+            aliases = [...new Set([...oldAliases, ...aliases])].slice(0, 8);
+            relatedKeys = [...new Set([...oldLinks, ...relatedKeys])].slice(0, 6);
+            entities = [...byName.values()].slice(0, 10);
+            metadataChanged = aliases.length !== oldAliases.length || relatedKeys.length !== oldLinks.length
+                || entities.length !== oldEntities.length || entities.some((entity, i) => (entity.aliases?.length ?? 0) > (oldEntities[i]?.aliases?.length ?? 0));
+            if (metadataChanged) terms.push(...state.terms.filter(term => !terms.includes(term)));
+        }
+        if (!metadataChanged && (oldInBatch && signature(oldInBatch) === comparableText
+            || sameState && !oldInBatch && action !== 'add'
+            || duplicateText.has(duplicateKey(fact)) && !oldInBatch && (!previous || sameState))) continue;
+        if (metadataChanged && oldInBatch && oldInBatch.sourceMessageId < sourceMessageId) onEarlierState?.(oldInBatch);
+        facts.set(key, { ...fact, ...(metadataChanged && state ? { storyTime: state.storyTime, continuity: state.continuity } : {}), terms, ...(aliases.length ? { aliases } : {}),
             ...(relatedKeys.length ? { relatedKeys } : {}), ...(entities.length ? { entities } : {}) });
         duplicateText.add(duplicateKey(fact));
     }
-    if (skippedOldSource && !facts.size) throw invalid('模型只引用了旧归档，没有提取到本批记录');
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
     // unambiguous assertions qualify; plans, quotes and multi-value comparisons
     // stay in the original floors for contextual retrieval.
@@ -927,6 +991,73 @@ export function parseStoryArchiveChanges(
         if (fact.continuity !== 'rule' || recordedRules.has(fact.sourceMessageId)) continue;
         facts.set(fact.key, { ...fact, storyTime: sourceTimes?.get(fact.sourceMessageId) });
     }
+    for (const [sourceMessageId, source] of sources) {
+        if (source.authorInput) continue;
+        const clean = source.text.trim();
+        if (!clean || clean.length > 280 || /[“”「」『』"'<>？?]|(?:假如|要是|据说|听说|传闻|梦见|曾经|可能|没(?:有)?取消|并未取消)/u.test(clean)) continue;
+        const represented = [...facts.values()].filter(fact => fact.sourceMessageId === sourceMessageId && fact.kind === 'fact');
+        // Only add exact, bounded state evidence where the model omitted it.
+        const cancel = storySentences(clean).find(sentence =>
+            specificStoryCancellation.test(sentence)
+            && !/(?:打算|如果|未能|没有|并未|想要|将要|希望)/u.test(sentence));
+        const pending = /(?:仍|尚|还|没有|未).{0,10}(?:没有修好|卡住|卡着|未修好|未完成|修好|完工|解决)/u.test(clean);
+        const partial = clean.match(/^(?:[^。！？]{2,55}(?:原计划|原本打算)[^。！？]{2,48}[。！])?[^。！？]{0,22}只完成(?:了)?([^；;，,。！？]{2,44})[；;，,]([^。！？]{4,95})/u);
+        if (cancel && !represented.some(fact => storyArchiveContinuityKind(fact) === 'canceled')) {
+            const key = '取消事项/来源' + sourceMessageId;
+            const detail = cancel.trim().replace(/[。！]$/u, '');
+            if (![...known, ...facts.values()].some(fact => comparable(fact.text).includes(comparable(detail)))) {
+                facts.set(key, { key, kind: 'fact', text: detail + '。', terms: [], sourceMessageId,
+                    storyTime: storyTimeFromSource(cancel) ?? sourceTimes?.get(sourceMessageId), continuity: 'canceled' });
+            }
+        }
+        if (partial && pending && !represented.some(fact => storyArchiveModality(fact) === 'planned'
+            && /(?:只完成|已拆|只拆|仍|尚|还|未|没)/u.test(fact.text))) {
+            const key = '部分进展/来源' + sourceMessageId;
+            const goal = partial[0].match(/^[^。！？]+[。！？]/u)?.[0] ?? '';
+            const done = partial[1].replace(/这一项$/u, '').trim();
+            facts.set(key, { key, kind: 'fact', text: goal + '已做：' + done + '。尚未完成：' + partial[2] + '。',
+                terms: [], sourceMessageId, storyTime: sourceTimes?.get(sourceMessageId), modality: 'planned' });
+        }
+    }
+    // Merge a closing record only with directly linked causal evidence for the
+    // same object/action. An unambiguous route reference can supply the link.
+    // Keep the earlier record for rerolling a floor before the outcome.
+    for (const [key, outcome] of facts) {
+        const status = storyArchiveContinuityKind(outcome);
+        if (outcome.kind !== 'fact' || (status !== 'completed' && status !== 'canceled')) continue;
+        const routeMentioned = /(?:绕路|绕道|改走|改道)/u.test(outcome.text);
+        const routeCandidates = routeMentioned ? [...facts].filter(([, fact]) => fact.sourceMessageId < outcome.sourceMessageId
+            && /(?:改走|改道|绕路|绕道)/u.test(fact.text)) : [];
+        const links = [...new Set([...(outcome.relatedKeys ?? []), ...(routeCandidates.length === 1 ? [routeCandidates[0][0]] : [])])];
+        for (const link of links) {
+            const earlier = facts.get(link);
+            if (!earlier || earlier.kind !== 'fact' || earlier.sourceMessageId >= outcome.sourceMessageId
+                || storyArchiveModality(earlier) ||
+                !/(?:因为|由于|因.{1,32}(?:改|受阻|没|无法)|改走|绕道|受阻|失败|不得不)/u.test(earlier.text)) continue;
+            const outcomeObjects = new Set(storyActionSignatures(outcome.text).map(action => action.verb + '/' + action.object));
+            const namedObjects = new Set((outcome.entities ?? []).filter(entity => entity.type === 'event' || entity.type === 'object')
+                .map(entity => normalize(entity.name)));
+            const sharedObject = storyActionSignatures(earlier.text).some(action => outcomeObjects.has(action.verb + '/' + action.object))
+                || (earlier.entities ?? []).some(entity => namedObjects.has(normalize(entity.name)))
+                || earlier.terms.some(term => /(?:回执|凭证|文书|信件|账册|文件|钥匙|契约|封条|约定|包裹|门锁|闸机|证件)$/u.test(term)
+                    && normalize(earlier.text).includes(term) && normalize(outcome.text).includes(term));
+            if (!sharedObject || storyArchiveContinuityKind(earlier) === 'rule') continue;
+            const combined = [...new Map([...storySentences(earlier.text), ...storySentences(outcome.text)]
+                .map(sentence => [comparable(sentence), sentence])).values()]
+                .map(sentence => /[。！？.!?]$/u.test(sentence) ? sentence : sentence + '。').join('');
+            if (!combined || combined.length > 1500) continue;
+            facts.delete(link);
+            onEarlierState?.({ ...earlier, mergedIntoKey: key });
+            facts.set(key, {
+                ...outcome, text: combined,
+                terms: [...new Set([...earlier.terms, ...outcome.terms])],
+                aliases: [...new Set([...(earlier.aliases ?? []), ...(outcome.aliases ?? [])])].slice(0, 8),
+                entities: readArchiveEntities([...(outcome.entities ?? []), ...(earlier.entities ?? [])]),
+            });
+            break;
+        }
+    }
+    if (skippedOldSource && !facts.size) throw invalid('模型只引用了旧归档，没有提取到本批记录');
     return [...facts.values()];
 }
 
@@ -967,11 +1098,11 @@ function storyArchiveFactLines(
 /** Relevant facts are chosen first; the selected facts can then be sent in source order. */
 export function formatStoryArchiveFacts(
     facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
-    chronological = false, sourceTimes?: ReadonlyMap<number, string>,
+    chronological = false, sourceTimes?: ReadonlyMap<number, string>, onSelected?: (fact: StoryArchiveFact, complete: boolean) => void,
 ): string {
     const selected = storyArchiveFactLines(facts, floorNumbers, budget, sourceTimes);
     if (chronological) selected.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
-    return selected.map(item => item.line).join('\n');
+    return selected.map(item => { onSelected?.(item.fact, item.line.endsWith(item.fact.text)); return item.line; }).join('\n');
 }
 
 function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
@@ -1064,9 +1195,13 @@ export function formatStoryArchiveProseContext(
     floorNumbers?: ReadonlyMap<number, number>,
     semanticRank: ReadonlyMap<string, number> = new Map(),
     sourceTimes?: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>, explicit: readonly StoryArchiveFact[] = [],
+    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void,
 ): string {
     const sections = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit).map(({ title, lines }) => {
-        const text = lines.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId).map(item => item.line).join('\n');
+        const text = lines.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId).map(item => {
+            onSelected?.(item.fact, item.line.endsWith(item.fact.text));
+            return item.line;
+        }).join('\n');
         return text ? '【' + title + '】\n' + text : '';
     });
     return [active?.text, ...sections].filter(Boolean).join('\n\n');
@@ -1079,6 +1214,7 @@ export function formatStoryArchiveRecallTimeline(
     sourceTimes: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>,
     relatedKeys: ReadonlySet<string> = new Set(), explicit: readonly StoryArchiveFact[] = [],
     explicitFloors: ReadonlySet<number> = new Set(),
+    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void,
 ): string {
     const lines = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit, 'current')
         .flatMap(section => section.lines);
@@ -1091,7 +1227,10 @@ export function formatStoryArchiveRecallTimeline(
     const timeline = lines.sort((a, b) =>
         (floorNumbers.get(a.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER)
         - (floorNumbers.get(b.fact.sourceMessageId) ?? Number.MAX_SAFE_INTEGER),
-    ).map(item => item.line).join('\n');
+    ).map(item => {
+        onSelected?.(item.fact, item.line.endsWith(item.fact.text));
+        return item.line;
+    }).join('\n');
     return [active?.text, timeline].filter(Boolean).join('\n\n');
 }
 
@@ -1116,7 +1255,7 @@ export function findStoryArchiveEvidence(
     if (shortTarget !== searchText.trim() && /^\p{Script=Han}{2,3}$/u.test(shortTarget) && specificArchiveTerm(shortTarget)
         && !/^(?:继续|接着|后来|之前|然后|以后|过去|怎样|什么|如何|记得|知道|有人|结果)$/u.test(shortTarget)) needles.add(shortTarget);
     if (!needles.size && !relatedByFloor.size && !explicitFloors.size) return '';
-    const boxes = archives.filter(box => box.toMessageId < beforeId && (box.strategy === 'summary' || box.facts));
+    const boxes = archives.filter(box => box.fromMessageId < beforeId && (box.facts || (box.strategy === 'summary' && box.toMessageId < beforeId)));
     if (!boxes.length) return '';
     const deletedSources = new Set(boxes.flatMap(box =>
         (box.facts ?? []).filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.sourceMessageId)));
@@ -1124,7 +1263,7 @@ export function findStoryArchiveEvidence(
         (box.facts ?? []).filter(fact => fact.authorScope === 'turn').map(fact => fact.sourceMessageId)));
     const hits: { id: number; index: number; excerpt: string; score: number; explicit: boolean }[] = [];
     for (const row of rows) {
-        if (deletedSources.has(row.id) || (row.role === 'user' && turnScopedSources.has(row.id))
+        if (row.id >= beforeId || deletedSources.has(row.id) || (row.role === 'user' && turnScopedSources.has(row.id))
             || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
         const content = extractContent({ choices: [{ message: { content: row.content } }] }, false);
         for (const [index, sentence] of storySentences(content).entries()) {
@@ -1202,7 +1341,7 @@ export function storyArchiveReadableLines(
 ): string[] {
     if (!archive.facts && !archive.historyFacts) return archive.summary ? [archive.summary] : [];
     const ordered = [
-        ...(archive.historyFacts ?? []).map(fact => ({ fact, phase: '历史' })),
+        ...(archive.historyFacts ?? []).filter(fact => !fact.mergedIntoKey).map(fact => ({ fact, phase: '历史' })),
         ...(archive.facts ?? []).map(fact => ({ fact, phase: '本段' })),
     ].sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
     const seen = new Set<string>();
@@ -1227,9 +1366,10 @@ export function selectStoryArchiveTransitions(
     query = '', baseline = '', timelineLabels = false, relatedKeys: ReadonlySet<string> = new Set(),
     vectorTexts?: ReadonlyMap<string, string>, explicitFloors: ReadonlySet<number> = new Set(),
 ): StoryArchiveFact[] {
-    const timeline = archives.filter(box => box.toMessageId < beforeId)
+    const timeline = archives.filter(box => box.fromMessageId < beforeId)
         .sort((a, b) => a.toMessageId - b.toMessageId)
         .flatMap(box => [...(box.historyFacts ?? []), ...(box.facts ?? [])])
+        .filter(fact => fact.sourceMessageId < beforeId)
         .flatMap(fact => {
             if (!vectorTexts || !fact.vectorNodeId) return [fact];
             const text = vectorTexts.get(fact.vectorNodeId);

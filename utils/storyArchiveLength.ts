@@ -1,12 +1,12 @@
 /** Default for the author-editable story archive save ceiling. */
-export const STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS = 0;
+export const STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS = 1500;
 
-/** A value of 0 (also the default) means unlimited; explicit saved values are preserved. */
+/** Old unlimited or larger settings use the current archive ceiling. Smaller author limits still apply. */
 export function normalizeStoryArchiveGuideMaxChars(value: unknown): number {
     if (value === undefined || value === null || value === '') return STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS;
     const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isSafeInteger(parsed) || parsed < 0) return STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS;
-    return parsed;
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) return STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS;
+    return Math.min(parsed, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS);
 }
 
 /** Split for embedding transport without discarding even one code point or cutting surrogate pairs. */

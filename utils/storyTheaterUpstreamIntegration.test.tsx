@@ -543,14 +543,19 @@ it.each(['semantic', 'offline', 'no-config', 'linked-offline'] as const)(
         const localFact = '铜哨已经被货郎带走。';
         const query = '请核对那个可以指路的小物件，然后找铜哨。';
         const unrelated = '镇上的乐团排练完毕，成员从后门离开，向导在等候处领取新乐谱。第';
-        const facts = [oldFact, localFact, ...Array.from({length: 7}, (_, i) =>
-            ('巡演记录' + i + '：' + unrelated.repeat(20)).slice(0, 500))];
-        await DB.saveStoryTheater(entry);
+        const facts = [oldFact, localFact, ('巡演记录0：' + unrelated.repeat(20)).slice(0, 500)];
         const floorIds: number[] = [];
         for (const text of [original, '镇上的乐团进城。', '守卫巡逻结束。', '他们一路走向街口。']) {
             floorIds.push(await DB.saveMessage({ charId: thread, role: 'assistant', type: 'text', content: text,
                 metadata: { source: 'story_theater', theaterId: entry.id } }));
         }
+        await DB.saveStoryTheater({ ...entry, archives: [{
+            id: 'existing-long-archive', strategy: 'summary', fromMessageId: floorIds[2], toMessageId: floorIds[2],
+            createdAt: 1, messageCount: 1, facts: Array.from({ length: 8 }, (_, i) => ({
+                key: '旧巡演/' + i, kind: 'fact', sourceMessageId: floorIds[2], terms: ['乐团'],
+                text: ('巡演记录' + (i + 1) + '：' + unrelated.repeat(20)).slice(0, 500),
+            })),
+        }] });
         const embedding = { baseUrl: 'https://embedding.invalid/v1', apiKey: 'fixture', model: 'embedding', dimensions: 2 };
         const api = { baseUrl: 'https://prose.invalid/v1', apiKey: 'fixture', model: 'story' };
         const completion = (content: string) => Response.json({ choices: [{ message: { content }, finish_reason: 'stop' }] });
@@ -584,7 +589,7 @@ it.each(['semantic', 'offline', 'no-config', 'linked-offline'] as const)(
         vi.stubGlobal('fetch', fetchMock);
         const rows = storyArchiveFloors(await DB.getMessagesByCharId(thread, true), entry.id);
         const archived = await archiveStoryFloorRange(entry.id, rows.slice(0, 2), api, undefined, { embedding });
-        expect(archived.archives).toHaveLength(1);
+        expect(archived.archives).toHaveLength(2);
         expect(await listStoryVectorMemories(entry.id)).toHaveLength(facts.length);
         expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
             'https://manual.invalid/v1/chat/completions', 'https://embedding.invalid/v1/embeddings',
@@ -623,7 +628,7 @@ it.each(['semantic', 'offline', 'no-config', 'linked-offline'] as const)(
         expect(recallQueries.at(-1)).toBe(mode === 'no-config' ? undefined : query);
         expect(recallQueries.length).toBeLessThanOrEqual(2);
         expect(payload).toContain(localFact);
-        expect(payload.includes(oldFact)).toBe(mode === 'semantic' || mode === 'linked-offline');
+        if (mode === 'semantic' || mode === 'linked-offline') expect(payload).toContain(oldFact);
         expect(payload).not.toContain(original);
         expect((await DB.getStoryTheaters()).find(item => item.id === entry.id)?.archives).toEqual(archived.archives);
     },

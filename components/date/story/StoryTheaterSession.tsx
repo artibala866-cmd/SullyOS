@@ -1353,6 +1353,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
                 historyVisible: sendsHistory, continuation: isContinueTurn, opening: assistantOpening, userInput: modelText,
                 readOriginalEvidence: !activeRegexRules.some(rule => storyRegexApplies(rule, 'history')),
                 embedding: memoryPalaceConfig.embedding,
+                rerank: promptEntry.archiveRecallRerank === true && memoryPalaceConfig.rerank?.enabled ? memoryPalaceConfig.rerank : undefined,
             });
             payload.splice(payload.indexOf(memorySlot), 1, ...recall.messages);
             if (effectivePreset.document.sourceFormat === 'sillytavern' && effectivePreset.document.squashSystemMessages) {
@@ -1453,7 +1454,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, regexRules = EMPT
             setSending(false);
             setRerollingId(null);
         }
-    }, [canStart, activeRegexRules, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, promptIdentityName, regexContext, saveCentralAndMirrors, selectedBooks, threadId]);
+    }, [canStart, activeRegexRules, actors, addToast, affinityDrafts, affinityEnabled, apiConfig, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, input, loadMessages, mask, memoryPalaceConfig.embedding, memoryPalaceConfig.rerank, promptIdentityName, regexContext, saveCentralAndMirrors, selectedBooks, threadId]);
 
     const generationBusy = sending || backgroundTask?.phase === 'running';
     // The live draft is a temporary reading-floor preview, never a DB message.

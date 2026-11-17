@@ -2224,6 +2224,8 @@ export interface StoryArchiveFact {
     /** A persistent story-world rule, or the confirmed outcome of a tracked task. */
     continuity?: 'rule' | 'completed' | 'canceled';
     vectorNodeId?: string;
+    /** Earlier source kept for reroll before the combined segment reached its result. */
+    mergedIntoKey?: string;
     /** Distinguishes a current archive copy from an explicitly deleted vector fact. */
     vectorTextState?: 'synced' | 'deleted';
 }
@@ -2299,6 +2301,7 @@ export interface StoryTheaterEntry {
     archiveStrategy: StoryTheaterArchiveStrategy;
     /** Suggested event-box maximum (Unicode characters); 0 means unlimited. Never clips model output. */
     archiveSummaryGuideMaxChars?: number;
+    archiveRecallRerank?: boolean;
     archives: StoryTheaterArchive[];
     /** Explicit consent to additional online memory calls during this story. */
     automaticMemoryApiEnabled?: boolean;

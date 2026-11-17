@@ -1,9 +1,10 @@
 import type { StoryArchiveFact, StoryTheaterEntry } from '../types';
-import type { EmbeddingConfig, MemoryNode, RemoteVectorConfig } from './memoryPalace/types';
+import type { EmbeddingConfig, MemoryNode, MemoryVector, RemoteVectorConfig } from './memoryPalace/types';
 import { ensureFloat32, MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
-import { openDB } from './db';
+import { DB, openDB } from './db';
+import { extractContent } from './safeApi';
 import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
-import { updateStoredMemoryNode } from './memoryPalace/vectorStore';
+import { updateStoredMemoryNode, vectorizeAndStore } from './memoryPalace/vectorStore';
 import { deleteVector as deleteRemoteVector } from './memoryPalace/supabaseVector';
 import { bm25Index } from './memoryPalace/bm25Index';
 import { hybridSearch } from './memoryPalace/hybridSearch';
@@ -12,7 +13,7 @@ import { bm25Search } from './memoryPalace/bm25';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { runStoryArchiveOperation } from './storyTheaterBackground';
 import { storyTheaterThreadId } from './storyTheater';
-import { readStoryRecallArchives, storyArchiveModality, storyTimeFromSource } from './storyArchiveFacts';
+import { backfillStoryArchiveFactTags, readStoryRecallArchives, storyArchiveModality, storyArchiveSearchTerms, storyTimeFromSource } from './storyArchiveFacts';
 
 export class StoryVectorMemoryConflictError extends Error {}
 
@@ -70,8 +71,9 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
     const owned = new Set(archives.flatMap(box => box.vectorMemoryIds ?? []));
     const legacy = archives.filter(box => !box.vectorMemoryIds);
     const visibleFacts = archives
-        .filter(box => box.toMessageId < beforeId)
-        .flatMap(box => (box.facts ?? []).filter(fact => fact.vectorNodeId && box.vectorMemoryIds?.includes(fact.vectorNodeId)));
+        .filter(box => box.fromMessageId < beforeId)
+        .flatMap(box => (box.facts ?? []).filter(fact => fact.sourceMessageId < beforeId
+            && fact.vectorNodeId && box.vectorMemoryIds?.includes(fact.vectorNodeId)));
     const visibleNodeIds = [...new Set(visibleFacts.map(fact => fact.vectorNodeId!))];
     let degraded = false;
     const all = loadedNodes ?? await listStoryVectorMemories(entry.id).catch(async error => {
@@ -100,10 +102,10 @@ export async function loadStoryVectorRecall(entry: StoryTheaterEntry, beforeId: 
             // Use the current saved archive so an older open tab cannot revive a deleted or edited fact.
             const saved = await readStoredStoryTheater(entry.id);
             for (const box of readStoryRecallArchives(saved?.archives)) {
-                if (box.strategy !== 'vector' || box.toMessageId >= beforeId) continue;
+                if (box.strategy !== 'vector' || box.fromMessageId >= beforeId) continue;
                 for (const fact of box.facts ?? []) {
                     const id = fact.vectorNodeId;
-                    if (id && missingIds.has(id) && box.vectorMemoryIds?.includes(id)
+                    if (id && fact.sourceMessageId < beforeId && missingIds.has(id) && box.vectorMemoryIds?.includes(id)
                         && fact.vectorTextState === 'synced' && fact.text.trim()) factTextById.set(id, fact.text);
                 }
             }
@@ -327,6 +329,113 @@ export async function updateStoryVectorMemory(
             notifyMemoryNodesChanged(storyTheaterThreadId(entryId));
         });
         return assertStoryPartition(entryId, result.node);
+    });
+}
+
+export async function backfillStoryArchiveTags(entryId: string): Promise<number> {
+    return runStoryArchiveOperation(entryId, async () => {
+        const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entryId), true);
+        const sources = new Map(rows.filter(row => row.metadata?.theaterId === entryId && !row.metadata?.theaterContinue)
+            .map(row => [row.id, extractContent({ choices: [{ message: { content: row.content } }] })]));
+        const db = await openDB();
+        return new Promise<number>((resolve, reject) => {
+            const tx = db.transaction('story_theaters', 'readwrite');
+            const stories = tx.objectStore('story_theaters');
+            const read = stories.get(entryId);
+            let count = 0;
+            tx.oncomplete = () => resolve(count);
+            tx.onabort = () => reject(tx.error ?? new Error('标签补全未保存'));
+            read.onsuccess = () => {
+                const entry = read.result as StoryTheaterEntry | undefined;
+                if (!entry) return;
+                const apply = (fact: StoryArchiveFact) => {
+                    const next = backfillStoryArchiveFactTags(fact, sources.get(fact.sourceMessageId));
+                    if (next !== fact) count++;
+                    return next;
+                };
+                const archives = entry.archives.map(box => ({
+                    ...box, facts: box.facts?.map(apply), historyFacts: box.historyFacts?.map(apply),
+                }));
+                if (count) stories.put({ ...entry, archives, updatedAt: Date.now() });
+            };
+        });
+    });
+}
+
+export function storyVectorIndexNeedsRepair(vector: MemoryVector | undefined, config?: EmbeddingConfig): boolean {
+    return !vector?.vector.length || !!config
+        && (!!vector.model && vector.model !== config.model || vector.vector.length !== config.dimensions);
+}
+
+function findOwnedStoryFact(entry: StoryTheaterEntry | undefined, nodeId: string): StoryArchiveFact | undefined {
+    return entry?.archives.find(box => box.strategy === 'vector' && box.vectorMemoryIds?.includes(nodeId))
+        ?.facts?.find(fact => fact.vectorNodeId === nodeId);
+}
+
+export async function rebuildStoryVectorIndex(
+    entryId: string, nodeId: string, expectedContent: string,
+    embeddingConfig?: EmbeddingConfig, remote?: RemoteVectorConfig,
+): Promise<boolean> {
+    return runStoryArchiveOperation(entryId, async () => {
+        const config = normalizeStoryEmbeddingConfig(embeddingConfig);
+        if (!config?.baseUrl || !config.apiKey || !config.model) throw new Error('请先配置 Embedding API');
+        const [saved, previous, vector] = await Promise.all([
+            readStoredStoryTheater(entryId), MemoryNodeDB.getById(nodeId), MemoryVectorDB.getByMemoryId(nodeId),
+        ]);
+        const fact = findOwnedStoryFact(saved, nodeId);
+        const thread = storyTheaterThreadId(entryId);
+        if (!saved || fact?.vectorTextState === 'deleted' || (previous && (previous.charId !== thread || previous.archived))
+            || (!previous && fact?.vectorTextState !== 'synced') || (previous?.content ?? fact?.text) !== expectedContent) {
+            throw new StoryVectorMemoryConflictError('记忆已变更，请重新打开后补建向量');
+        }
+        if (previous && !storyVectorIndexNeedsRepair(vector, config)) return false;
+        if (!expectedContent.trim() || expectedContent.length > EMBEDDING_MAX_INPUT_CHARS) {
+            throw new Error('这条正文超出单条向量容量');
+        }
+        const node: MemoryNode = previous ?? {
+            id: nodeId, charId: thread, content: expectedContent, tags: ['剧情', ...storyArchiveSearchTerms(fact!)],
+            room: 'living_room', importance: 6, mood: 'neutral', embedded: false,
+            createdAt: fact!.sourceMessageId, lastAccessedAt: Date.now(), accessCount: 0,
+        };
+        await vectorizeAndStore([node], { ...config, allowSingleInputFallback: false, requestPurpose: '剧情独立向量 · 补建索引' }, remote, {
+            skipDedup: true,
+            commit: async entries => {
+                const db = await openDB();
+                await new Promise<void>((resolve, reject) => {
+                    const tx = db.transaction(['story_theaters', 'memory_nodes', 'memory_vectors'], 'readwrite');
+                    const nodeStore = tx.objectStore('memory_nodes');
+                    const story = tx.objectStore('story_theaters').get(entryId);
+                    const savedNode = nodeStore.get(nodeId);
+                    let pending = 2, conflict = false;
+                    tx.oncomplete = () => resolve();
+                    tx.onabort = () => reject(conflict
+                        ? new StoryVectorMemoryConflictError('记忆已变更，补建结果未保存') : tx.error ?? new Error('向量补建未保存'));
+                    const finish = () => {
+                        if (--pending) return;
+                        const currentNode = savedNode.result as MemoryNode | undefined;
+                        const currentFact = findOwnedStoryFact(story.result, nodeId);
+                        if (!story.result || (fact && (!currentFact || currentFact.vectorTextState === 'deleted'))
+                            || (previous ? !currentNode || currentNode.charId !== thread || currentNode.archived || currentNode.content !== expectedContent
+                                : !!currentNode || currentFact?.vectorTextState !== 'synced' || currentFact.text !== expectedContent)) {
+                            conflict = true;
+                            tx.abort();
+                            return;
+                        }
+                        for (const { node: next, vector: fresh } of entries) {
+                            const floats = ensureFloat32(fresh.vector);
+                            nodeStore.put({ ...(currentNode ?? next), embedded: true });
+                            tx.objectStore('memory_vectors').put({ ...fresh,
+                                vector: new Uint8Array(floats.buffer.slice(floats.byteOffset, floats.byteOffset + floats.byteLength)) });
+                        }
+                    };
+                    story.onsuccess = finish;
+                    savedNode.onsuccess = finish;
+                });
+                bm25Index.onNodesSaved(entries.map(item => item.node));
+                notifyMemoryNodesChanged(thread);
+            },
+        });
+        return true;
     });
 }
 

@@ -1,6 +1,7 @@
-import type { Message, StoryTheaterEntry } from '../types';
+import type { Message, StoryArchiveFact, StoryTheaterEntry } from '../types';
 import type { EmbeddingConfig, MemoryNode } from './memoryPalace/types';
 import { bm25Search } from './memoryPalace/bm25';
+import { rerankDocuments, type RerankApiConfig } from './memoryPalace/rerank';
 import {
     collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState,
     formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveScene,
@@ -23,22 +24,38 @@ export interface StoryRecallReceipt {
     archiveIds: string[];
     embeddingRequests: number;
     fallback: boolean;
+    rerank?: 'used' | 'failed';
+    routes?: number;
+    facts?: { floor?: number; title: string; status: 'injected' | 'partial' | 'budget' | 'filtered' | 'turn' }[];
 }
 
 const receiptKey = (entryId: string) => 'sully_story_recall:' + entryId;
 
-export function readStoryRecallReceipt(entryId: string): StoryRecallReceipt | undefined {
+export function readStoryRecallHistory(entryId: string): StoryRecallReceipt[] {
     try {
-        const receipt = JSON.parse(localStorage.getItem(receiptKey(entryId)) || 'null') as StoryRecallReceipt | null;
-        return receipt && Number.isFinite(receipt.floor) && Array.isArray(receipt.injectedFloors)
-            && Array.isArray(receipt.archiveIds) ? receipt : undefined;
-    }
-    catch { return undefined; }
+        const stored: unknown = JSON.parse(localStorage.getItem(receiptKey(entryId)) || 'null');
+        const items = Array.isArray(stored) ? stored : [stored];
+        return items.filter((receipt): receipt is StoryRecallReceipt => !!receipt
+            && Number.isFinite(receipt.floor) && Array.isArray(receipt.injectedFloors)
+            && Array.isArray(receipt.archiveIds)).slice(0, 8);
+    } catch { return []; }
+}
+
+export function readStoryRecallReceipt(entryId: string): StoryRecallReceipt | undefined {
+    return readStoryRecallHistory(entryId)[0];
 }
 
 export function recordStoryRecallReceipt(entryId: string, receipt: StoryRecallReceipt): void {
-    try { localStorage.setItem(receiptKey(entryId), JSON.stringify(receipt)); }
+    try { localStorage.setItem(receiptKey(entryId), JSON.stringify([receipt, ...readStoryRecallHistory(entryId)].slice(0, 8))); }
     catch { /* Diagnostics must not block the story request. */ }
+}
+
+function storyRecallFocus(userInput: string, prior: readonly string[]): string[] {
+    const input = userInput.trim();
+    if (!input) return [];
+    const routes = input.split(/[？?；;\n]+/u).map(value => value.trim()).filter(value => value.length >= 2);
+    const pointsBack = /(?:那(?:个|件|条|封|位)|此事|这(?:件|条|封)|前面|刚才|之前那个|其后|后来呢)/u.test(input);
+    return [...new Set([...(pointsBack ? prior.slice(-1) : []), ...(routes.length > 1 ? routes.slice(0, 2) : []), input])].slice(-3);
 }
 
 export async function buildStoryTheaterRecall(input: {
@@ -54,6 +71,7 @@ export async function buildStoryTheaterRecall(input: {
     userInput: string;
     readOriginalEvidence: boolean;
     embedding?: EmbeddingConfig;
+    rerank?: RerankApiConfig & { topN?: number };
 }) {
     const { rows, beforeId, floor, baseline, visibleRows, historyVisible, continuation, opening, userInput, readOriginalEvidence } = input;
     const entry = { ...input.entry, archives: readStoryRecallArchives(input.entry.archives) };
@@ -81,10 +99,10 @@ export async function buildStoryTheaterRecall(input: {
     ].sort((a, b) => b.end - a.end)[0]?.text.slice(-420) ?? '';
     const recentScene = storyRecentSceneCue(recentRows, floorNumbers);
     const clip = (text: string) => text.length <= 1800 ? text : text.slice(0, 900) + '\n' + text.slice(-900);
-    const signals = [
-        ...(historyVisible ? visibleRows.slice(continuation ? -3 : -2).map(row => clip(row.content)) : [scene.text || legacyScene, recentScene]),
-        ...(!continuation && !opening ? [clip(userInput)] : []),
-    ].map(text => text.trim()).filter(Boolean);
+    const priorSignals = (historyVisible ? visibleRows.slice(continuation ? -3 : -2).map(row => clip(row.content))
+        : [scene.text || legacyScene, recentScene]).map(text => text.trim()).filter(Boolean);
+    const focus = continuation || opening ? [] : storyRecallFocus(clip(userInput), priorSignals);
+    const signals = [...new Set([...priorSignals, ...focus])];
     const query = signals.join('\n');
     const active = formatStoryArchiveActiveState(reconciled.active, query, floorNumbers, sourceTimes);
     if (recentScene) {
@@ -96,7 +114,7 @@ export async function buildStoryTheaterRecall(input: {
         active.cost += scene.text.length + 30;
         for (const fact of scene.facts) active.selected.add(storyArchiveFactIdentity(fact));
     }
-    const useTimeline = entry.archives.some(box => box.strategy === 'vector' && box.facts && box.toMessageId < beforeId);
+    const useTimeline = entry.archives.some(box => box.strategy === 'vector' && box.facts && box.fromMessageId < beforeId);
     const rankable = visibleFacts.filter(fact => !active.selected.has(storyArchiveFactIdentity(fact)));
     const liveNodes = new Map(vector.factNodes.map(node => [node.id, node]));
     const candidates: MemoryNode[] = rankable.map(fact => liveNodes.get(fact.vectorNodeId ?? '') ?? {
@@ -104,8 +122,33 @@ export async function buildStoryTheaterRecall(input: {
         tags: storyArchiveSearchTerms(fact), room: 'living_room', mood: 'neutral', importance: 6,
         embedded: false, createdAt: 0, lastAccessedAt: 0, accessCount: 0,
     });
-    const selected = await selectStoryVectorRecall(vector, signals, input.embedding, candidates,
-        storyArchiveNeedsRanking(rankable, floorNumbers, sourceTimes, useTimeline, active.cost));
+    const competing = storyArchiveNeedsRanking(rankable, floorNumbers, sourceTimes, useTimeline, active.cost);
+    const selected = await selectStoryVectorRecall(vector, signals, input.embedding, candidates, competing);
+    let rerank: StoryRecallReceipt['rerank'];
+    if (competing && input.rerank?.baseUrl && input.rerank.apiKey && input.rerank.model && focus.length) {
+        const pool = new Map<string, MemoryNode>();
+        for (const signal of focus) {
+            for (const hit of bm25Search(signal, candidates, 12)) pool.set(hit.node.id, hit.node);
+        }
+        for (const node of [...candidates].filter(node => selected.semanticFactRank.has(node.id))
+            .sort((a, b) => selected.semanticFactRank.get(a.id)! - selected.semanticFactRank.get(b.id)!).slice(0, 12)) {
+            pool.set(node.id, node);
+        }
+        const nodes = [...pool.values()].slice(0, 25);
+        if (nodes.length >= 2) {
+            try {
+                const signal = AbortSignal.timeout(5000);
+                const interrupted = new Promise<never>((_, reject) =>
+                    signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+                const results = await Promise.race([interrupted, rerankDocuments({ ...input.rerank, signal },
+                    focus.at(-1)!, nodes.map(node => node.content.slice(0, 1600)), Math.min(8, Math.max(1, input.rerank.topN || 5)))]);
+                const ordered = [...new Set(results.map(result => nodes[result.index]?.id).filter((id): id is string => !!id))];
+                if (!ordered.length) throw new Error('剧情重排未返回有效候选');
+                ordered.forEach((id, index) => selected.semanticFactRank.set(id, index - ordered.length));
+                rerank = 'used';
+            } catch { rerank = 'failed'; }
+        }
+    }
     const explicitQuery = continuation || opening ? '' : userInput;
     const explicitFloors = storyArchiveQueryFloors(explicitQuery);
     const explicit = selectExplicitStoryFacts(visibleFacts, explicitQuery, floorNumbers, selected.semanticFactRank);
@@ -116,10 +159,15 @@ export async function buildStoryTheaterRecall(input: {
     related.forEach((fact, index) => priority.set(fact.vectorNodeId ?? storyArchiveFactIdentity(fact), index - related.length));
     const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys, vector.factTextById, explicitFloors)
         .filter(fact => !reconciled.closedPlans.some(plan => plan.key === fact.key && plan.sourceMessageId === fact.sourceMessageId));
+    const sent = new Map([...active.selected].map(id => [id, true]));
+    const mark = (fact: StoryArchiveFact, complete: boolean) => {
+        const id = storyArchiveFactIdentity(fact);
+        sent.set(id, complete || sent.get(id) || false);
+    };
     const timeline = useTimeline
-        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys, explicit, explicitFloors) : '';
-    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active, explicit);
-    const previous = useTimeline ? '' : formatStoryArchiveFacts(past, floorNumbers, Infinity, true, sourceTimes);
+        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys, explicit, explicitFloors, mark) : '';
+    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active, explicit, mark);
+    const previous = useTimeline ? '' : formatStoryArchiveFacts(past, floorNumbers, Infinity, true, sourceTimes, mark);
     const legacyCandidates: MemoryNode[] = entry.archives.flatMap<MemoryNode>(box =>
         box.strategy === 'summary' && !box.facts && box.toMessageId < beforeId && box.summary?.trim() ? [{
             id: box.id, content: box.summary, charId: storyTheaterThreadId(entry.id), tags: [],
@@ -158,19 +206,29 @@ export async function buildStoryTheaterRecall(input: {
     const injectedFloors = [...new Set([...messages.map(message => message.content).join('\n').matchAll(/^\[第 (\d+) 楼/gmu)]
         .map(match => Number(match[1])))].sort((a, b) => a - b);
     const injectedIds = injectedFloors.map(number => rows[number - 1]?.id);
-    const sourceArchives = entry.archives.filter(box => box.toMessageId < beforeId
+    const sourceArchives = entry.archives.filter(box => box.fromMessageId < beforeId
         && injectedIds.some(id => id !== undefined && box.fromMessageId <= id && id <= box.toMessageId));
     const injected = new Set(injectedFloors);
     const relatedFloors = [...new Set(related.flatMap(fact => {
         const number = floorNumbers.get(fact.sourceMessageId);
         return number !== undefined && injected.has(number) ? [number] : [];
     }))].sort((a, b) => a - b);
+    const eligible = new Set([...visibleFacts, ...past].map(storyArchiveFactIdentity));
+    const trace = [...new Map([...explicit, ...related, ...reconciled.active, ...visibleFacts, ...past, ...facts]
+        .map(fact => [storyArchiveFactIdentity(fact), fact])).entries()].slice(0, 120)
+        .map(([id, fact]): NonNullable<StoryRecallReceipt['facts']>[number] => ({
+            floor: floorNumbers.get(fact.sourceMessageId),
+            title: fact.text.replace(/\s+/g, ' ').slice(0, 72),
+            status: sent.get(id) ? 'injected' : sent.has(id) ? 'partial' : fact.authorScope === 'turn' ? 'turn'
+                : eligible.has(id) ? 'budget' : 'filtered',
+        }));
     return {
         messages,
         receipt: {
             floor, availableFacts: facts.length, injectedFloors, relatedFloors,
             missedFloors: [...explicitFloors].filter(number => !injected.has(number)),
             archiveIds: [...new Set([...sourceArchives.map(box => box.id), ...boxes.map(box => box.id), ...selected.archiveIds])],
+            facts: trace, routes: focus.length, rerank,
             embeddingRequests: selected.embeddingRequests, fallback: selected.embeddingFailed || vector.degraded,
         },
     };

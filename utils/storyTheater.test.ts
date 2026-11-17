@@ -57,13 +57,12 @@ import {
 } from './storyTheater';
 
 describe('事件盒归档保存上限', () => {
-    it('新旧剧情默认不限制，明确设置的上限保持不变，非法数据回退到不限', () => {
-        expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(0);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: undefined }).archiveSummaryGuideMaxChars).toBe(0);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 0 }).archiveSummaryGuideMaxChars).toBe(0);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 9000 }).archiveSummaryGuideMaxChars).toBe(9000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 3000 }).archiveSummaryGuideMaxChars).toBe(3000);
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: -1 }).archiveSummaryGuideMaxChars).toBe(0);
+    it('新旧剧情沿用1500字符上限，保留更小的手动上限', () => {
+        expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(1500);
+        for (const limit of [undefined, 0, 9000, 3000, -1]) {
+            expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: limit }).archiveSummaryGuideMaxChars).toBe(1500);
+        }
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 1200 }).archiveSummaryGuideMaxChars).toBe(1200);
     });
     it('向量篇幅较长时完整分段，汉字和emoji都不丢失', () => {
         const source = '他离开了。'.repeat(1300) + '✨🚗' + '回来的约定'.repeat(400);

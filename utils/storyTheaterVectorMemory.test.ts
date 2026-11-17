@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DB } from './db';
 import type { MemoryNode } from './memoryPalace/types';
 import { MemoryLinkDB, MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
-import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
+import { backfillStoryArchiveTags, rebuildStoryVectorIndex, deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
 import { createStoryTheaterDraft, storyTheaterThreadId } from './storyTheater';
 
 const nodeAId = 'story_vector_scope_a';
@@ -155,4 +156,32 @@ it.each([400, 200])('keeps lexical matches and sends one batched request on bad 
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     }
+});
+
+
+it('backfills a sourced old alias locally and repairs a missing owned vector with one request', async () => {
+    const entry = { ...createStoryTheaterDraft(), id: 'story-repair', title: '剧情索引维护' };
+    const thread = storyTheaterThreadId(entry.id);
+    const id = await DB.saveMessage({ charId: thread, role: 'assistant', type: 'text', content: '铜钥匙也叫「绿牙」。', timestamp: 1,
+        metadata: { theaterId: entry.id, source: 'story_theater' } });
+    const fact = { key: '铜钥匙/位置', kind: 'fact' as const, text: '铜钥匙在库房。', terms: ['铜钥匙'], sourceMessageId: id,
+        vectorTextState: 'synced' as const, vectorNodeId: nodeAId };
+    await DB.saveStoryTheater({ ...entry, archives: [{ id: 'old', strategy: 'vector', createdAt: 1,
+        fromMessageId: id, toMessageId: id, messageCount: 1, facts: [fact], vectorMemoryIds: [nodeAId] }] });
+    const network = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }),
+        { headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', network);
+    try {
+        expect(await backfillStoryArchiveTags(entry.id)).toBe(1);
+        expect(await backfillStoryArchiveTags(entry.id)).toBe(0);
+        expect(network).not.toHaveBeenCalled();
+        const config = { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'v2', dimensions: 2 };
+        expect(await rebuildStoryVectorIndex(entry.id, nodeAId, fact.text, config)).toBe(true);
+        expect(await rebuildStoryVectorIndex(entry.id, nodeAId, fact.text, config)).toBe(false);
+        expect(network).toHaveBeenCalledTimes(1);
+        expect(await MemoryNodeDB.getById(nodeAId)).toMatchObject({ content: fact.text, tags: expect.arrayContaining(['剧情', '铜钥匙', '绿牙']) });
+        expect(await MemoryVectorDB.getByMemoryId(nodeAId)).toMatchObject({ model: 'v2', dimensions: 2 });
+        expect(await DB.getStoryTheaters()).toEqual(expect.arrayContaining([expect.objectContaining({ id: entry.id, archives:
+            [expect.objectContaining({ facts: [expect.objectContaining({ aliases: ['绿牙'] })] })] })]));
+    } finally { vi.unstubAllGlobals(); }
 });

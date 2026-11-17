@@ -5,7 +5,7 @@ import type { MemoryNode } from '../../../utils/memoryPalace/types';
 import { MemoryVectorDB } from '../../../utils/memoryPalace/db';
 import { useLocalBackHandler } from '../../../hooks/useLocalBackHandler';
 import { useOS } from '../../../context/OSContext';
-import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, readStoredStoryTheater, StoryVectorMemoryConflictError, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
+import { deleteStoryVectorMemory, listStoryVectorMemories, loadStoryVectorRecall, normalizeStoryEmbeddingConfig, readStoredStoryTheater, rebuildStoryVectorIndex, storyVectorIndexNeedsRepair, StoryVectorMemoryConflictError, updateStoryVectorMemory } from '../../../utils/storyTheaterVectorMemory';
 import StoryArchivePanel, { ArchiveIcon } from './StoryArchivePanel';
 import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground';
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, readStoryRecallArchives, storyArchiveFactIdentity, storyArchiveFactTime, storyArchiveModality, storyArchiveSearchTerms, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
@@ -52,6 +52,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     const [baseContent, setBaseContent] = useState('');
     const [editError, setEditError] = useState('');
     const [indexState, setIndexState] = useState('');
+    const [repairable, setRepairable] = useState(false);
     const dialogRef = useRef<HTMLDialogElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLElement>(null);
@@ -155,13 +156,19 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [detailView]);
     useEffect(() => {
         setIndexState('');
+        setRepairable(false);
+        if (record?.fallback) { setRepairable(true); return; }
         if (!activeNode) return;
         let active = true;
+        const config = normalizeStoryEmbeddingConfig(memoryPalaceConfig.embedding);
         void MemoryVectorDB.getByMemoryId(activeNode.id).then(vector => {
-            if (active) setIndexState(vector?.vector.length ? '本地向量已保存' : '本地向量缺失');
+            if (!active) return;
+            const repair = storyVectorIndexNeedsRepair(vector, config);
+            setRepairable(repair);
+            setIndexState(!vector?.vector.length ? '本地向量缺失' : repair ? '向量模型或维度已变更' : '本地向量已保存');
         }).catch(() => { if (active) setIndexState('向量状态暂不可读'); });
         return () => { active = false; };
-    }, [activeNode]);
+    }, [activeNode, record?.fallback, memoryPalaceConfig.embedding, reload]);
 
     const cancelLongPress = () => {
         if (press.current) clearTimeout(press.current.timer);
@@ -239,6 +246,19 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
         } finally {
             setSaving(false);
         }
+    };
+
+    const repairIndex = async () => {
+        if (!record || saving) return;
+        setSaving(true);
+        setEditError('');
+        try {
+            const repaired = await rebuildStoryVectorIndex(entry.id, record.id, record.text, memoryPalaceConfig.embedding, remoteVectorConfig);
+            setReload(value => value + 1);
+            addToast(repaired ? '向量已补建' : '向量索引已存在', 'success');
+        } catch (error) {
+            setEditError(error instanceof Error ? error.message : '向量补建失败');
+        } finally { setSaving(false); }
     };
 
     return <StoryArchivePanel entry={entry} masks={masks} onBack={onBack} onUpdated={onUpdated} strategy='vector' locked={saving} onFloorsLoaded={setFloors}
@@ -369,6 +389,8 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
                 <footer className='story-memory-detail-actions flex shrink-0 flex-wrap gap-2 border-t border-slate-200 pt-3'>
                     {detailView === 'memory' ? <>
                         {original && <button className={actionClass} aria-label='查看原楼' title='查看原楼' onClick={() => setDetailView('source')}><FileText size={20}/></button>}
+                        {repairable && <button className={actionClass} aria-label='补建向量（1 次请求）' title='补建向量（1 次请求）'
+                            disabled={saving} onClick={() => void repairIndex()}><ArrowClockwise size={20}/></button>}
                         {activeNode && <button className={actionClass} aria-label='编辑记忆' title='编辑记忆' onClick={() => {
                             setBaseContent(activeNode.content); setDraft(activeNode.content); setEditError(''); setDetailView('edit');
                         }}><PencilSimple size={20}/></button>}

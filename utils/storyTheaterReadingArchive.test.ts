@@ -64,6 +64,11 @@ describe('剧情分页与归档上下文边界', () => {
             .not.toContain('角色必须遵守对话设定');
     });
 
+    it('跳过超出剩余预算的旧档，继续保留后方更短的完整事件盒', () => {
+        const archives = [box(1, '短'.repeat(200)), box(2, '长'.repeat(800)), box(3, '近'.repeat(500))];
+        expect(selectStoryArchiveContext(archives, Infinity, 1000).map(item => item.id)).toEqual(['box-1', 'box-3']);
+    });
+
     it('预算不足只留最近盒且不剪断摘要，未来档案不越过当前续写位置', () => {
         const archives = [
             box(1, '旧'.repeat(1700)),

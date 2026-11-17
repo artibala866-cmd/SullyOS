@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X,MagnifyingGlass,ListNumbers,ArrowUUpLeft,CaretDown,ClockCounterClockwise} from '@phosphor-icons/react';
+import {ArrowClockwise,ArrowLeft,Check,Checks,Square,DownloadSimple,Plus,Selection,SpinnerGap,UserPlus,X,MagnifyingGlass,ListNumbers,ArrowUUpLeft,CaretDown,ClockCounterClockwise,TagSimple} from '@phosphor-icons/react';
 import type {Message,StoryTheaterArchive,StoryTheaterArchiveStrategy,StoryTheaterEntry,StoryTheaterMask} from '../../../types';
 import {useLocalBackHandler} from '../../../hooks/useLocalBackHandler';
 import {useOS} from '../../../context/OSContext';
@@ -8,10 +8,11 @@ import {convertStoryArchiveToMemory,storyMemoryDate} from '../../../utils/storyT
 import {shareOrDownloadFile} from '../../../utils/shareExport';
 import {StoryAppearanceButton} from './StoryTheaterTheme';
 import {archiveStoryFloorRange,regenerateStoryArchiveSummary,revokeStoryArchive,storyArchiveFloors,storyArchiveReplacementSet,type StoryArchiveProgress} from '../../../utils/storyTheaterArchive';
+import {backfillStoryArchiveTags,readStoredStoryTheater} from '../../../utils/storyTheaterVectorMemory';
 import {DB} from '../../../utils/db';
-import {readStoryRecallReceipt} from '../../../utils/storyTheaterRecall';
+import {readStoryRecallHistory} from '../../../utils/storyTheaterRecall';
 import {runStoryArchiveOperation} from '../../../utils/storyTheaterBackground';
-import {storyArchiveReadableLines,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
+import {storyArchiveReadableLines,storyArchiveSearchTerms,storyArchiveSourceTimes} from '../../../utils/storyArchiveFacts';
 
 export function ArchiveIcon({label,onClick,disabled,children}:{label:string;onClick:()=>void;disabled?:boolean;children:React.ReactNode}){
  return <button type='button' aria-label={label} title={label} disabled={disabled} onClick={onClick}
@@ -58,7 +59,9 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
  const [tab,setTab]=useState<'vector'|'archives'>('vector');
  const [archiveQuery,setArchiveQuery]=useState('');
  const hasTabs=isVector&&!!children;
- const recallReceipt=readStoryRecallReceipt(entry.id);
+ const recallHistory=readStoryRecallHistory(entry.id);
+ const [recallRun,setRecallRun]=useState(0);
+ const recallReceipt=recallHistory[recallRun] ?? recallHistory[0];
  const showingArchives=!hasTabs||tab==='archives';
  const switchTab=(next:'vector'|'archives')=>{
   if(tab===next)return;
@@ -234,7 +237,7 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
   const first=floorNumbers.get(box.fromMessageId),last=floorNumbers.get(box.toMessageId);
   if(floorMatch&&first&&last&&Number(floorMatch[1])>=first&&Number(floorMatch[1])<=last)return true;
   if(floorMatch&&archiveSearch.includes('楼'))return false;
-  const text=readableSummary(box).normalize('NFKC').toLowerCase();
+  const text=[readableSummary(box),...(box.facts??[]).filter(fact=>fact.vectorTextState!=='deleted').flatMap(storyArchiveSearchTerms)].join(' ').normalize('NFKC').toLowerCase();
   return searchWords.every(word=>text.includes(word));
  }):boxes;
  const archiveRows = showingArchives && <div className='story-memory-archive-list'>
@@ -269,11 +272,27 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
       </section>;
      })}
     </div>;
+ const backfillTags=async()=>{
+  if(blocked)return;
+  setBusy(true);
+  try{
+   const count=await backfillStoryArchiveTags(entry.id);
+   if(count){
+    const saved=await readStoredStoryTheater(entry.id);
+    if(saved)onUpdated(saved);
+   }
+   addToast(count?'已补全 '+count+' 条记忆标签':'没有可补全的标签','success');
+  }catch(error){
+   addToast(error instanceof Error?error.message:'标签补全失败','error');
+  }finally{setBusy(false);}
+ };
  return <div className='story-memory-workspace h-full w-full flex flex-col bg-stone-100 text-slate-800'>
   <header className='story-safe-header story-memory-header shrink-0 border-b border-slate-200'>
    <div className='story-memory-header-row h-14 px-3 flex items-center gap-1'>
     <ArchiveIcon label='返回剧情' disabled={blocked} onClick={onBack}><ArrowLeft size={21}/></ArchiveIcon>
     <div className='min-w-0 flex-1'><p className='text-[10px] text-slate-500'>{isVector?'独立向量':'剧情事件盒'}</p><h1 className='truncate text-sm font-semibold'>{entry.title}</h1></div>
+    {!!entry.archives.some(box=>box.facts?.length||box.historyFacts?.length)
+      &&<ArchiveIcon label='补全旧档标签' disabled={blocked} onClick={()=>void backfillTags()}><TagSimple size={18}/></ArchiveIcon>}
     <button type='button' aria-label='手动归档楼层' disabled={blocked||!floors?.length} onClick={()=>openRange()} title='归档楼层' className='story-memory-header-create inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-violet-700 disabled:opacity-40'><Plus size={21}/></button>
     <StoryAppearanceButton/>
    </div>
@@ -352,11 +371,24 @@ export default function StoryArchivePanel({entry,masks,onBack,onUpdated,strategy
     {showingArchives&&recallReceipt&&<details className='story-memory-archive-item py-2 text-xs text-slate-600'>
       <summary className='cursor-pointer leading-6'>最近召回 · 第 {recallReceipt.floor} 楼</summary>
       <div className='space-y-1 pb-2 pl-4'>
+        {recallHistory.length>1&&<select aria-label='召回记录' value={recallRun} onChange={event=>setRecallRun(Number(event.target.value))} className='max-w-full bg-transparent py-1'>
+          {recallHistory.map((receipt,index)=><option key={index} value={index}>第 {receipt.floor} 楼{index===0?' · 最新':''}</option>)}
+        </select>}
         <p>带入楼层 · {recallReceipt.injectedFloors.join('、')||'无楼层标记'}</p>
         {!!recallReceipt.relatedFloors?.length&&<p>关联候选 · {recallReceipt.relatedFloors.join('、')}</p>}
         {!!recallReceipt.missedFloors?.length&&<p>归档未带入 · {recallReceipt.missedFloors.join('、')} 楼</p>}
         <p>可读事实 {recallReceipt.availableFacts} 条 · 旧档 {recallReceipt.archiveIds.length} 段 · Embedding {recallReceipt.embeddingRequests} 次</p>
+        {recallReceipt.rerank&&<p>{recallReceipt.rerank==='used'?'已重排':'重排失败 · 使用本地结果'}</p>}
         {recallReceipt.fallback&&<p>部分记忆读取受限，已使用可用内容。</p>}
+        {!!recallReceipt.facts?.length&&<details>
+          <summary className='py-1'>逐条结果 · {recallReceipt.facts.length} 条</summary>
+          <ul className='max-h-64 space-y-1 overflow-y-auto break-words'>
+            {recallReceipt.facts.map((fact,index)=><li key={index}>
+              {fact.floor?'第 '+fact.floor+' 楼 · ':''}
+              {({injected:'已带入',partial:'仅带入部分',budget:'预算或排序未选',filtered:'已结案或与设定重复',turn:'仅限当轮'})[fact.status]} · {fact.title}
+            </li>)}
+          </ul>
+        </details>}
       </div>
     </details>}
     {showingArchives&&(visibleBoxes.length?archiveRows:boxes.length>0&&<p className='py-4 text-sm text-slate-600'>没有匹配的归档</p>)}

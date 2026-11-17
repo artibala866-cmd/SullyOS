@@ -253,6 +253,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     archiveKeepRecent: 5,
     archiveStrategy: 'summary',
     archiveSummaryGuideMaxChars: STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS,
+    archiveRecallRerank: false,
     archives: [],
     selectedWorldbookIds: [],
     forceUserLastMessage: false,
@@ -290,6 +291,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
         archiveSummaryGuideMaxChars: normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars),
+        archiveRecallRerank: entry.archiveRecallRerank === true,
         archives: Array.isArray(entry.archives) ? entry.archives : [],
         automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true,
         memorySummaryApi: normalizeStoryMemoryApi(entry.memorySummaryApi),
@@ -334,7 +336,8 @@ export const selectStoryArchiveContext = (
     let used = 0;
     for (const box of eligible) {
         const summaryLength = box.summary?.length ?? 0;
-        if (selected.length >= 8 || (selected.length > 0 && used + summaryLength > budget)) break;
+        if (selected.length >= 8) break;
+        if (selected.length > 0 && used + summaryLength > budget) continue;
         selected.push(box);
         used += summaryLength;
     }

@@ -3,7 +3,7 @@ import type { Message, StoryArchiveFact, StoryTheaterEntry } from '../types';
 import { DB } from './db';
 import { MemoryNodeDB, MemoryVectorDB } from './memoryPalace/db';
 import { deleteStoryVectorMemory, loadStoryVectorRecall, selectStoryVectorRecall, updateStoryVectorMemory } from './storyTheaterVectorMemory';
-import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, reconcileStoryArchiveContinuity, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveTransitions, reconcileStoryArchiveContinuity, storyArchiveModality, parseStoryArchiveChanges, rankStoryArchiveFacts, selectExplicitStoryFacts, storyArchiveFactTime, storyArchiveNeedsRanking, storyArchiveSourceTimes, storyArchiveReadableLines, storyArchiveRepeatsPreset, storyTimeFromSource } from './storyArchiveFacts';
 import { buildStoryTheaterRecall } from './storyTheaterRecall';
 import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
 import { createStoryTheaterDraft, selectStoryArchiveBatch, storyTheaterThreadId } from './storyTheater';
@@ -44,6 +44,60 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('story summary final channel', () => {
+    it('keeps metadata-only updates and ranks more than one aspect of a shared name', () => {
+        const previous: StoryArchiveFact = { key: '钥匙/位置', kind: 'fact', text: '铜钥匙放在库房。', terms: ['铜钥匙'], sourceMessageId: 10,
+            aliases: ['旧钥匙'] };
+        const text = '铜钥匙放在库房，绰号「绿牙」。';
+        const returned = parseStoryArchiveChanges(JSON.stringify({ changes: [{ ...previous, action: 'update',
+            sourceMessageId: 11, aliases: ['绿牙'], entities: [{ name: '铜钥匙', type: 'object', aliases: ['绿牙'] }] }] }),
+            new Map([[11, { text, authorInput: false }]]), [previous]);
+        expect(returned).toMatchObject([{ text: previous.text, aliases: ['旧钥匙', '绿牙'],
+            entities: [{ name: '铜钥匙', type: 'object', aliases: ['绿牙'] }] }]);
+        const creation = { ...previous, key: '钥匙/制作者', text: '林星做了铜钥匙。', sourceMessageId: 8 };
+        expect(selectExplicitStoryFacts([creation, returned[0]], '铜钥匙是谁做的，现在在哪？', new Map(), new Map()))
+            .toEqual(expect.arrayContaining([creation, returned[0]]));
+    });
+
+    it('merges a linked delivery into one complete segment and keeps a reroll-safe earlier record', () => {
+        const route = '阿潭因正门桥板断裂改走北门暗道，回执全程未湿。';
+        const delivery = '阿潭最终亲手交付南渡回执，柳巡已签收。若蜡封破损，双方暂停交接。';
+        const earlier: StoryArchiveFact[] = [];
+        const cards = parseStoryArchiveChanges(JSON.stringify({ changes: [
+            { action: 'add', key: 'delivery_route', text: route, kind: 'fact', terms: ['回执'], sourceMessageId: 8 },
+            { action: 'add', key: 'delivery_outcome', text: delivery, kind: 'fact', continuity: 'completed',
+                terms: ['南渡回执'], sourceMessageId: 18, relatedKeys: ['delivery_route'] },
+        ] }), new Map([[8, { text: route, authorInput: false }], [18, { text: delivery, authorInput: false }]]), [],
+        '', fact => earlier.push(fact));
+        expect(cards).toEqual([expect.objectContaining({ text: route + delivery, sourceMessageId: 18 })]);
+        const archived = { id: 'one-delivery', strategy: 'summary' as const, fromMessageId: 8, toMessageId: 18,
+            messageCount: 2, createdAt: 1, facts: cards, historyFacts: earlier };
+        expect(collectStoryArchiveFacts([archived], 18, new Map()).map(item => item.text)).toEqual([route]);
+        expect(collectStoryArchiveFacts([archived], 19, new Map()).map(item => item.text)).toEqual([route + delivery]);
+    });
+
+    it('corrects wrong model scope, recovers partial work and preserves an unrelated prior delivery', () => {
+        const old: StoryArchiveFact = { key: 'delivery_status', kind: 'fact', sourceMessageId: 18, terms: ['南渡回执'],
+            text: '南渡回执由阿潭亲手交付，柳巡签收。', continuity: 'completed' };
+        const author = '遇密封文书时，柳巡须验灰色骑缝章方可阅读；青灯递交时可免验，此规则仅适用于本批剧情。';
+        const cancellation = '柳巡取消前往西渡取备用封条的约定，因潮水倒灌。';
+        const sources = new Map([
+            [30, { text: '阿潭原计划修北门闸机。今天只完成了拆掉外壳这一项；弹簧仍卡着，闸机没有修好。', authorInput: false }],
+            [39, { text: '场外：从此密封文书须验灰色骑缝章，青灯递交时免验。本轮只用一句旁白。', authorInput: true }],
+            [42, { text: '柳巡取消了去西渡取备用封条的约定，原因是潮水倒灌。', authorInput: false }],
+            [43, { text: '如果取消去西渡的约定，他便留在这里。', authorInput: false }],
+        ]);
+        const changes = parseStoryArchiveChanges(JSON.stringify({ changes: [
+            { key: '写作/验章', kind: 'author', text: author, authorScope: 'turn', terms: ['灰色骑缝章'], sourceMessageId: 39 },
+            { key: old.key, action: 'update', kind: 'fact', text: cancellation, sourceMessageId: 42 },
+        ] }), sources, [old]);
+        expect(changes).toHaveLength(3);
+        expect(changes.find(fact => fact.key === '写作/验章')).toMatchObject({ text: author.split('，此规则')[0] + '。' });
+        expect(changes.find(fact => fact.key === '写作/验章')?.authorScope).toBeUndefined();
+        expect(changes.find(fact => fact.sourceMessageId === 30)).toMatchObject({ modality: 'planned',
+            text: expect.stringMatching(/已做：拆掉外壳.*闸机没有修好/u) });
+        expect(changes.find(fact => fact.sourceMessageId === 42)).toMatchObject({ key: 'delivery_status/来源42', continuity: 'canceled' });
+    });
+
     it('accepts a fenced completion with string source ID, punctuation key and whitespace-only quote differences', () => {
         const sources = new Map([[12, { text: '阿岚对小雨说：\n今天去钟楼。', authorInput: false }]]);
         const raw = '```json\n' + JSON.stringify({ changes: [{
@@ -434,7 +488,7 @@ describe('story summary final channel', () => {
         expect(timeline).toBe('[第 1 楼] 【已发生】叶澄保管钥匙。\n[第 2 楼] 【尚未核实的说法】听说钥匙已经交给站务员。');
         const deleted = { ...archive, facts:[{ ...rumored, vectorTextState:'deleted' as const }] };
         expect(collectStoryArchiveFacts([deleted], Infinity, new Map(), true)).toEqual([]);
-        expect(collectStoryArchiveFacts([archive], 2, new Map(), true)).toEqual([]);
+        expect(collectStoryArchiveFacts([archive], 2, new Map(), true)).toEqual([confirmed]);
     });
 
     it('caps a single oversized fact and excludes hidden reasoning from raw fallback evidence', () => {
@@ -457,7 +511,7 @@ describe('story summary final channel', () => {
                 vectorNodeId:id,vectorTextState:'synced' as const}]};
         const snapshot={...entry,archives:[box]};
         await DB.saveStoryTheater(snapshot);
-        expect((await loadStoryVectorRecall(snapshot,messages[1].id)).factNodes).toHaveLength(0);
+        expect((await loadStoryVectorRecall(snapshot,messages[1].id)).factNodes).toHaveLength(1);
         for (let turn=0;turn<3;turn++) {
             const recall=await loadStoryVectorRecall(snapshot,Infinity);
             expect(recall.factNodes).toEqual([expect.objectContaining({id,content:text,embedded:false})]);
@@ -783,16 +837,18 @@ describe('story summary final channel', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
     it('uses the configured save ceiling without truncation or another model request', async () => {
-        expect(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS).toBe(0);
-        expect(normalizeStoryArchiveGuideMaxChars(undefined)).toBe(0);
-        const longFact = '具体信息。'.repeat(1500);
+        expect(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS).toBe(1500);
+        expect(normalizeStoryArchiveGuideMaxChars(undefined)).toBe(1500);
+        const longFact = '具体信息。'.repeat(250);
         fetchMock.mockImplementation(async (_url, init) => response(structured(longFact, init)));
         const saved = await generateStoryArchiveDelta(entry, messages, api, 1, 'summary');
         expect(saved.summary).toBe('[第 1 楼] ' + longFact);
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('max_tokens');
         await expect(generateStoryArchiveDelta({ ...entry, archiveSummaryGuideMaxChars: 1200 },
             messages, api, 1, 'summary')).rejects.toThrow('1200');
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        fetchMock.mockImplementationOnce(async (_url, init) => response(structured(longFact + '正文'.repeat(140), init)));
+        await expect(generateStoryArchiveDelta(entry, messages, api, 1, 'summary')).rejects.toThrow('1500');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
     });
     it('checks guaranteed affinity receipts before calling and preserves them on success', async () => {
         const row = { ...messages[0], metadata: { ...messages[0].metadata,
@@ -1202,7 +1258,7 @@ describe('independent vector archive', () => {
         const longText = '剧情信息不可省略。'.repeat(850);
         fetchMock.mockImplementationOnce(async (_url, init) => response(structured(longText, init)));
         await expect(archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector))
-            .rejects.toThrow('单条剧情事实超过向量容量');
+            .rejects.toThrow('1500 字符保存上限');
         expect((await fresh()).archives).toEqual([]);
         expect((await read()).map(row => row.content)).toEqual(floors.map(row => row.content));
         expect(fetchMock).toHaveBeenCalledOnce();
@@ -1953,4 +2009,26 @@ describe('主动回查早期剧情', () => {
         expect(payload).toContain('叶侍卫给玛瑙信物系了红缎。');
         expect(fetchMock).toHaveBeenCalledOnce();
     });
+});
+
+
+it('records same-floor omitted facts individually and uses explicitly enabled rerank once', async () => {
+    const id = messages[1].id;
+    const facts: StoryArchiveFact[] = Array.from({ length: 27 }, (_, i) => ({
+        key: '档案/' + i, kind: 'fact', text: '回执在档案馆。' + '旧线索待查。'.repeat(33) + i, terms: ['回执', '档案馆'], sourceMessageId: id,
+    }));
+    const rerank = { baseUrl: 'https://rank.invalid/v1', apiKey: 'test', model: 'rank' };
+    fetchMock.mockResolvedValueOnce(response({ results: [{ index: 1, relevance_score: 0.9 }] }));
+    const result = await buildStoryTheaterRecall({
+        entry: { ...entry, archives: [{ ...entry.archives[0], facts }] }, rows: messages, beforeId: id + 1,
+        floor: 3, baseline: '', visibleRows: [], historyVisible: false, continuation: false, opening: false,
+        userInput: '回执放在哪？谁知道档案馆？', readOriginalEvidence: false, rerank,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://rank.invalid/v1/rerank');
+    expect(result.receipt).toMatchObject({ rerank: 'used', routes: 3, embeddingRequests: 0 });
+    expect(result.receipt.facts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ floor: 2, status: 'injected' }),
+        expect.objectContaining({ floor: 2, status: 'budget' }),
+    ]));
 });

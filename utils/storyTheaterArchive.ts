@@ -218,7 +218,7 @@ export async function generateStoryArchiveDelta(
     });
     const lastSummary = lastArchive?.facts ? JSON.stringify({
         归档记录: lastFacts.map(archiveReferenceFact),
-        旧状态: (lastArchive.historyFacts ?? []).filter(fact => fact.vectorTextState !== 'deleted' && !fact.vectorNodeId
+        旧状态: (lastArchive.historyFacts ?? []).filter(fact => fact.vectorTextState !== 'deleted' && !fact.vectorNodeId && !fact.mergedIntoKey
             && !lastFactIds.has(storyArchiveFactIdentity(fact))).map(archiveReferenceFact),
         界面好感记录: lastArchive.affinityLog,
     }) : lastArchive?.summary || vector.groups.find(group => group.archiveIds.includes(lastArchive?.id ?? ''))
@@ -272,18 +272,21 @@ export async function generateStoryArchiveDelta(
         }
         run?.onProgress?.({ phase: 'summary', first: firstFloor, last: firstFloor + batch.length - 1, requesting: cached === undefined });
         const raw = cached ?? await requestArchiveCompletion(api, instruction, input, !!entry.memorySummaryApi, strategy);
-        facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes)
+        const priorHistory = archives.flatMap(box => box.historyFacts ?? [])
+            .filter(fact => fact.sourceMessageId < beforeId && fact.vectorTextState !== 'deleted');
+        facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes, priorHistory)
             .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
         if (key && cached === undefined) run?.completed?.set(key, raw);
     }
     historyFacts.sort((a, b) => a.sourceMessageId - b.sourceMessageId);
+    const displayedHistory = historyFacts.filter(fact => !fact.mergedIntoKey);
     const summary = [
-        ...(historyFacts.length ? ['【本段历史变化（非当前状态）】\n'
-            + formatStoryArchiveFacts(historyFacts, floorNumbers, Infinity, true)] : []),
+        ...(displayedHistory.length ? ['【本段历史变化（非当前状态）】\n'
+            + formatStoryArchiveFacts(displayedHistory, floorNumbers, Infinity, true)] : []),
         formatStoryArchiveFacts(facts, floorNumbers, Infinity, true),
         affinityLog.join('\n'),
     ].filter(Boolean).join('\n\n') || '本批无新增或变化';
-    if (saveMaxChars > 0 && (facts.length || affinityLog.length) && storyArchiveCharacterCount(summary) > saveMaxChars) {
+    if (storyArchiveCharacterCount(summary) > saveMaxChars) {
         throw new Error(`增量归档超过本剧情设置的 ${saveMaxChars} 字符保存上限；原文和旧归档已保留`);
     }
     return { facts, historyFacts, summary, affinityLog };
