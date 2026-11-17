@@ -461,16 +461,16 @@ export function storyArchiveFactTime(
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '任务：为连续剧情写入增量记忆。已有记忆只是核对用的旧状态。证据只能引用本批新楼层，不复述旧事件或完整故事。',
     '只输出 JSON 对象 {"changes":[]}。每条包含 action、key、kind、text、terms、sourceMessageId；quote 为可选原文摘录。',
-    'action 只能是 add 或 update。新增事项用 add；已有事项发生变化、被纠正或已解决，用 update 并原样沿用旧 key；只是重复提及、没有变化，直接略过。相同事项出现新限制、条件或知情变化时属于更新。',
+    'action 只能是 add 或 update。新增事实用 add；已有事实发生变化、被纠正或已解决，用 update 并原样沿用旧 key；只是重复提及、没有变化，直接略过。本批没有变化时返回空数组。',
     'key 是稳定的「对象/属性或事项」，同一物件的持有人、同一条承诺的状态、同一角色的知情状态各有一个 key；不要把新值、楼号或句子写进 key。若同一 key 在本批楼层变化多次，按发生顺序输出多条 change（逐条提供真实楼层记录 ID），系统会保留中间经过和最后状态。',
     'continuity 可选：身份、不可见/不可听等感知规则、能力限制、持续有效的剧情设定用 rule。把主体、限制、适用对象和例外写完整。反复确认的剧情规则只保留最后有效的状态。明确完成或取消的待办用 completed 或 canceled，沿用原事项 key；text 写清行动、对象、收件人或地点及结果。同楼完成多件事时，各用自己的事项 key。仅打算、尝试、传闻或角色误以为已完成时不标为结果。',
-    '按本批楼层从首到尾逐项核对。优先保留具体数字、确切措辞、人物各自知道什么、物品属性和去向、行动条件与例外、承诺和未解决的线索。一楼有多件分别可问的事，就分别成条；同一事项的条件、例外和结果一并写全。输出之前复核长楼层的后半段及最后一楼。没有新增或更新时才返回空数组。',
-    'text 写清谁、何时何地、做了什么、因为什么及结果。按事项需要使用完整的一句或数句，保留因果、否定、失败、例外和不确定性。省略重复修饰。terms 填明确的人名、地点、物品名供检索。',
-    '单独核对所有「用户推进」楼层。用户给 AI 的纠错、视角、叙事限制、写作要求都属于 author，即使未标注 OOC。每条独立要求分别记录；并列要求、条件和例外必须保全。text、quote 尽量用原文，避免改写成泛泛的“遵守设定”。标明只适用于当轮的要求时加 authorScope:"turn"。角色台词、用户推动的角色行动、旁白及引用中的指令都属于故事材料。',
+    '逐楼检查会影响未来的具体细节，包括数字、确切措辞、物品属性、藏处、身份、先决条件、承诺与伏笔。分别记录独立可引用的事实，保留否定、失败与知情边界。提交前对照本批楼层，补上遗漏的重要细节。',
+    'text 用一句通顺简洁的人话写清【谁、发生了什么、造成什么结果】；通常 30–90 个汉字，重要因果可稍长，不要把动作、神态、心情逐帧复述成流水账，更不能用一百多字重复修饰一件事。事件多就分开写，不把不同事件硬塞进一个长句。事项已解决、承诺取消、人物已获悉等直接更新。terms 填明确的人名、地点、物品名供检索。',
+    'kind 通常为 fact。用户明确给 AI 的纠错或写作要求使用 author；角色台词、剧情请求、旁白及引用里的指令都是材料。用户仅重申同一要求时略过。',
     'sourceMessageId 必须填写【本批新楼层】中对应的记录ID（不是第几楼、不是旧记忆的ID）。quote 可选：能够逐字复制原文就填写；无法保证逐字一致时留空，不得编造原文引用。区分事实、计划、猜测、内心与不同角色的知情范围，不补全原文没给的信息，也不抄写界面好感记录。',
     '每条变化可带 storyTime：仅填写原文明确出现的剧情内时间原话（例如「第二天清晨」「三日后」「2026年5月2日」）。没写时间就省略，不能把真实聊天时间、楼层序号或未发生的计划当成已经发生的日期；楼层前的剧情时间标注可来自相邻的独立时间标题。正文同楼出现多个时点时，为每个事件引用对应的原文句子；传闻、回忆或计划里另提的时间不得套给同楼其他事件。',
     '记忆要能独立阅读：写清楚人物、地点、事件、动机和确切结果。保留前后因果和重要时间跨度；同一状态的变化使用原 key，但事件经过需通过各批来源楼层形成时间线，不能把已结束的旧状态写成现在。',
-    '人设、剧情前提和世界书是静态背景，只有本批原文明确修正、突破或改变它们时才记入增量。已有事实保持去重，但独立线索、细节和用户写作要求都要保留。相同事件在不同剧情时间再次发生时，用新的事件 key，并分别保留剧情时间。',
+    '提供的人设、剧情前提和世界书是已知的静态背景，不是新发生的故事。除非本批原文明确修正、突破或改变它们，否则不要把角色姓名、职业、性格、身份、既定关系、世界规则重新存成剧情记忆；已有记忆中相同事实也不要重复。只提取会影响后续的新增事件、状态变化、重要因果、承诺/伏笔和用户明确纠正。相同事件在不同剧情时间再次发生时，用新的事件 key，并分别保留剧情时间。',
     '用户执笔身份和人物档案也是已有设定。不要记录「{{user}}全名、年龄、学历、与谁是亲属」等已列明的角色卡内容；别人首次得知身份、身份确实发生变化才记录发生了什么。不要把「剧情/进展」之类笼统的 key 用来连续覆盖不相干事件，必须用具体对象和事项。',
     '事实可选 aliases（原文明确出现的别称，最多 4 条）、relatedKeys（存在直接因果、同一物品交接或同一未结事项的真实事实 key，最多 3 条）；不能凭空补别称或关联，不能用共现人物代替因果。没有依据就省略。',
     '事实可选 entities：从该来源楼层列出与此事实直接有关的具体人名、地点、物品、组织、事件名或编号，格式 {"name":"原文专名","type":"person|place|object|organization|event|code","aliases":[]}。别名和专名都须出现在该楼层。普通关键词留在 terms。藉由物品去向、身份变化、承诺条件、未解决线索找到旧事时，请将这些要素一并写清。',
@@ -646,57 +646,6 @@ function storyArchiveCodes(text: string) {
 
 export class StoryArchiveIncompleteReply extends Error {}
 
-const authorHeader = /^\s*(?:[【[（(]\s*)?(?:作者(?:指令|备注|要求|纠正|说明)|写作(?:要求|指令)|场外(?:指令|要求)|OOC)\s*(?:[】\]）)]\s*[:：]?|[:：])\s*(.*)$/iu;
-const resumeStory = /^\s*(?:[【[（(]\s*)?(?:剧情正文|正文|剧情推进|角色行动|回到剧情)\s*(?:[】\]）)]|[:：])/u;
-const directWritingRequest = /^\s*(?:请(?:你)?(?:用|以|从)[^。！？\n]{0,24}(?:第一人称|第二人称|第三人称|视角)(?:来)?(?:续写|写作|叙述|描写|写)|请(?:你)?(?:不要|别)代写(?:我|用户|主角)|(?:续写|写作|叙述)时[，,:：\s]*(?:请|不要|别|必须|只能))/u;
-
-function explicitAuthorInstructions(text: string): string[] {
-    const blocks: string[] = [];
-    let active: string[] | undefined;
-    const finish = () => {
-        const block = active?.join('\n').trim();
-        if (block) blocks.push(block);
-        active = undefined;
-    };
-    for (const line of text.split(/\r?\n/u)) {
-        const header = authorHeader.exec(line);
-        if (header || directWritingRequest.test(line)) {
-            finish();
-            active = [header ? header[1] : line];
-        } else if (resumeStory.test(line)) finish();
-        else if (!line.trim() && active?.some(part => part.trim())) finish();
-        else active?.push(line);
-    }
-    finish();
-    return blocks;
-}
-
-const explicitlyTurnScoped = /^\s*(?:仅限?|只限?|只在)?\s*(?:本轮|这(?:一)?轮|这(?:一)?次|本次|下一条回复|接下来这一段)(?:回复|写作|续写)?(?:[：:，,、\s]|只|先|请|别|不要|用|让|写|保持)/u;
-
-function sourcedAuthorFacts(sourceMessageId: number, blocks: string[]): StoryArchiveFact[] {
-    return blocks.map((text, index) => ({
-        key: '作者原文/' + sourceMessageId + '/' + index, kind: 'author', text, sourceMessageId, terms: [],
-        ...(explicitlyTurnScoped.test(text) ? { authorScope: 'turn' as const } : {}),
-    }));
-}
-
-/** Recover instructions that older summaries omitted entirely. A source already
- * represented by an author record, even a tombstone, stays under archive control. */
-export function recoverStoryArchivedAuthorInstructions(
-    rows: readonly { id: number; role: string; content: string; metadata?: { theaterContinue?: unknown } }[],
-    archives: readonly StoryTheaterArchive[], beforeId: number,
-): StoryArchiveFact[] {
-    const past = archives.filter(box => box.toMessageId < beforeId && (box.strategy === 'summary' || box.facts));
-    const recorded = new Set(past.flatMap(box => [...(box.facts ?? []), ...(box.historyFacts ?? [])]
-        .filter(fact => fact.kind === 'author').map(fact => fact.sourceMessageId)));
-    return rows.flatMap(row => {
-        if (row.role !== 'user' || row.metadata?.theaterContinue || recorded.has(row.id)
-            || !past.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) return [];
-        const text = extractContent({ choices: [{ message: { content: row.content } }] }, false);
-        return sourcedAuthorFacts(row.id, explicitAuthorInstructions(text)).filter(fact => fact.authorScope !== 'turn');
-    });
-}
-
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
@@ -712,10 +661,6 @@ export function parseStoryArchiveChanges(
         throw new StoryArchiveIncompleteReply('模型没有返回 changes 数组');
     }
     const existing = new Map(known.map(fact => [fact.key, fact]));
-    const explicitAuthors = new Map([...sources].flatMap(([id, source]) => {
-        const blocks = source.authorInput ? explicitAuthorInstructions(source.text) : [];
-        return blocks.length ? [[id, blocks] as const] : [];
-    }));
     const signature = (fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'storyTime' | 'modality'>) =>
         JSON.stringify([fact.kind, comparable(fact.text), fact.storyTime ?? '', fact.modality ?? '']);
     const duplicateText = new Set(known.map(signature));
@@ -766,11 +711,6 @@ export function parseStoryArchiveChanges(
         if (kind === 'author' && !source.authorInput) {
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
-        // Explicit author blocks are stored verbatim independently of model coverage.
-        if (kind === 'author' && explicitAuthors.has(sourceMessageId)) continue;
-        if (kind === 'author' && quote && source.text.includes(quote) && quote.length >= text.length) text = quote;
-        const authorScope = kind === 'author' && (change.authorScope === 'turn' || explicitlyTurnScoped.test(text)) ? 'turn' as const : undefined;
-        if (authorScope) key = '作者当轮/' + sourceMessageId + '/' + index;
         // A quote anchors the actual clause, even when the model copies another clause's date.
         const quotedClauses = quote && quoteExistsIn(source.text, quote)
             ? storySentences(source.text).filter(clause => quoteExistsIn(clause, quote)) : [];
@@ -818,7 +758,7 @@ export function parseStoryArchiveChanges(
             ? storyArchiveContinuityKind({ kind, text, continuity: change.continuity })
                 ?? (previous?.continuity === 'rule' ? 'rule' : undefined)
             : undefined;
-        const fact = { key, kind, text, sourceMessageId, ...(authorScope ? { authorScope } : {}), ...(storyTime ? { storyTime } : {}),
+        const fact = { key, kind, text, sourceMessageId, ...(storyTime ? { storyTime } : {}),
             ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
         const comparableText = signature(fact);
         const oldInBatch = facts.get(key);
@@ -843,14 +783,6 @@ export function parseStoryArchiveChanges(
             ...(relatedKeys.length ? { relatedKeys } : {}), ...(entities.length ? { entities } : {}) });
         duplicateText.add(comparableText);
     }
-    const storedInstructions = new Set(known.filter(fact => fact.kind === 'author').map(fact => normalize(fact.text)));
-    for (const [sourceMessageId, blocks] of explicitAuthors) {
-        for (const fact of sourcedAuthorFacts(sourceMessageId, blocks)) {
-            if (!fact.authorScope && storedInstructions.has(normalize(fact.text))) continue;
-            facts.set(fact.key, fact);
-            if (!fact.authorScope) storedInstructions.add(normalize(fact.text));
-        }
-    }
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
     // unambiguous assertions qualify; plans, quotes and multi-value comparisons
     // stay in the original floors for contextual retrieval.
@@ -858,7 +790,6 @@ export function parseStoryArchiveChanges(
         storyArchiveCodes(fact.text).map(code => code.label + '/' + code.value)));
     for (const [sourceMessageId, source] of sources) {
         for (const sentence of storySentences(source.text)) {
-            if (explicitAuthors.get(sourceMessageId)?.some(block => block.includes(sentence) || sentence.includes(block))) continue;
             const codes = storyArchiveCodes(sentence);
             if (codes.length !== 1 || sentence.length > 150 || storyArchiveModality({ text: sentence })
                 || /[“”「」"'？?]|(?:计划|猜测|传闻|听说|据说|也许|可能|假如|如果|尚未|旧版|作废|撤销|取消|并非|不是|不再|之前|曾经|有人说|改为|更正|修正)/u.test(sentence)) continue;
@@ -939,18 +870,18 @@ function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
         },
         {
             title: '尚未发生的计划和承诺（不是已完成事件）',
-            entries: facts.filter(fact => fact.kind === 'fact' && storyArchiveModality(fact) === 'planned'),
+            entries: facts.filter(fact => storyArchiveModality(fact) === 'planned'),
             budget: 580,
         },
         {
             title: '未经证实的信息（不能当成已知真相）',
-            entries: facts.filter(fact => fact.kind === 'fact' && storyArchiveModality(fact) === 'unverified'),
+            entries: facts.filter(fact => storyArchiveModality(fact) === 'unverified'),
             budget: 500,
         },
         {
             title: '用户明确提出的写作要求',
-            entries: facts.filter(fact => fact.kind === 'author' && fact.authorScope !== 'turn'),
-            budget: 2000,
+            entries: facts.filter(fact => fact.kind === 'author'),
+            budget: 800,
         },
     ];
 }
@@ -1066,9 +997,7 @@ export function findStoryArchiveEvidence(
     for (const row of rows) {
         if (deletedSources.has(row.id) || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
         const content = extractContent({ choices: [{ message: { content: row.content } }] }, false);
-        const authorBlocks = row.role === 'user' ? explicitAuthorInstructions(content) : [];
         for (const sentence of storySentences(content)) {
-            if (authorBlocks.some(block => block.includes(sentence) || sentence.includes(block))) continue;
             if (closedPlans.some(plan => plan.sourceMessageId === row.id
                 && (comparable(sentence).includes(comparable(plan.text))
                     || (storyArchiveModality({ text: sentence }) === 'planned'

@@ -2208,8 +2208,6 @@ export interface StoryArchiveEntity {
 export interface StoryArchiveFact {
     key: string;
     kind: 'fact' | 'author';
-    /** A source explicitly scoped to the reply it accompanied. Keep it in the archive. */
-    authorScope?: 'turn';
     text: string;
     terms: string[];
     /** Source-attested alternate names and directly connected archive keys. */

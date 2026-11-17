@@ -4,7 +4,7 @@ import { bm25Search } from './memoryPalace/bm25';
 import {
     collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, findStoryArchiveEvidence, formatStoryArchiveActiveState,
     formatStoryArchiveFacts, formatStoryArchiveProseContext, formatStoryArchiveRecallTimeline, formatStoryArchiveScene,
-    readStoryRecallArchives, reconcileStoryArchiveContinuity, recoverStoryArchivedAuthorInstructions, selectExplicitStoryFacts, selectStoryArchiveTransitions,
+    readStoryRecallArchives, reconcileStoryArchiveContinuity, selectExplicitStoryFacts, selectStoryArchiveTransitions,
     storyArchiveFactIdentity, storyArchiveNeedsRanking, storyArchiveQueryFloors, storyArchiveSearchTerms,
     storyArchiveSourceTimes, storyRecentSceneCue, storyRelatedArchiveFacts,
 } from './storyArchiveFacts';
@@ -62,14 +62,6 @@ export async function buildStoryTheaterRecall(input: {
         return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>(), degraded: true };
     });
     const facts = collectStoryArchiveFacts(entry.archives, beforeId, vector.factTextById, true);
-    if (readOriginalEvidence && !opening) {
-        const savedAuthorText = new Set(facts.filter(fact => fact.kind === 'author').map(fact => fact.text));
-        for (const fact of recoverStoryArchivedAuthorInstructions(rows, entry.archives, beforeId)) {
-            if (savedAuthorText.has(fact.text)) continue;
-            facts.push(fact);
-            savedAuthorText.add(fact.text);
-        }
-    }
     const floorNumbers = new Map(rows.map((row, index) => [row.id, index + 1]));
     const sourceTimes = storyArchiveSourceTimes(readOriginalEvidence ? rows : visibleRows);
     const archiveEnd = entry.archives.reduce((end, box) => box.toMessageId < beforeId ? Math.max(end, box.toMessageId) : end, 0);
