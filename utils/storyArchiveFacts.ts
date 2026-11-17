@@ -836,6 +836,20 @@ export function parseStoryArchiveChanges(
         const oldOutcome = knownState && storyArchiveContinuityKind(knownState);
         const latestConfirmedOutcome = knownState && storyArchiveModality(knownState) === 'unverified'
             ? confirmedOutcomes.get(key) : undefined;
+        if (kind === 'fact' && continuityHint === 'rule'
+            && (oldOutcome === 'completed' || oldOutcome === 'canceled' || latestConfirmedOutcome)) {
+            // A new rule may affect future occurrences, but it cannot replace
+            // a settled occurrence. Guard this key collision with current evidence.
+            const oldText = normalize((latestConfirmedOutcome ?? knownState)?.text ?? '');
+            const sourceText = normalize(source.text);
+            const hasNewTerm = Array.isArray(change.terms) && change.terms.some((term: unknown) => {
+                if (typeof term !== 'string') return false;
+                const word = normalize(term);
+                return word.length >= 2 && sourceText.includes(word) && !oldText.includes(word);
+            });
+            if (!hasNewTerm && !sourceText.includes(normalize(text))) continue;
+            key += '/规则/来源' + sourceMessageId;
+        }
         if (kind === 'fact' && storyArchiveModality({ text, modality }) === 'planned'
             && (oldOutcome === 'completed' || oldOutcome === 'canceled' || latestConfirmedOutcome)) {
             const evidence = quotedClause ?? source.text;

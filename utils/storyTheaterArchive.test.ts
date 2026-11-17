@@ -164,6 +164,19 @@ describe('story summary final channel', () => {
         ]);
     });
 
+    it('protects a settled archive when the model reuses its key for a different writing rule', () => {
+        const known: StoryArchiveFact = { key: '回执/交付', kind: 'fact', text: '柳巡已签收回执。',
+            terms: ['柳巡', '回执'], continuity: 'completed', sourceMessageId: 18 };
+        const rule = '以后密封文书要验灰色骑缝章。';
+        const change = { action: 'add', key: known.key, kind: 'fact', continuity: 'rule', text: rule,
+            terms: ['密封文书', '灰色骑缝章'], sourceMessageId: 40 };
+        const sources = new Map([[40, { text: '门旁很安静。', authorInput: false }],
+            [41, { text: rule, authorInput: false }]]);
+        const parsed = parseStoryArchiveChanges(JSON.stringify({ changes: [change, { ...change, sourceMessageId: 41 }] }),
+            sources, [known]);
+        expect(parsed).toEqual([expect.objectContaining({ key: '回执/交付/规则/来源41', text: rule, continuity: 'rule' })]);
+    });
+
     it('ignores an exact already-saved item echoed with its old source without dropping new memory', () => {
         const old: StoryArchiveFact = { key:'写作/代写', kind:'author', text:'不替玩家做决定。', terms:[], sourceMessageId:2 };
         const text = '旁人只有在青灯亲口告知后，才知晓灰港真名。';
