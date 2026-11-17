@@ -294,6 +294,18 @@ function archiveRows(rows: Message[], entryId: string, archive: StoryTheaterArch
     return messages;
 }
 
+function requireMemoryForReplacement(
+    delta: Awaited<ReturnType<typeof generateStoryArchiveDelta>>, previous: StoryTheaterArchive[], run?: StoryArchiveRun,
+) {
+    if (delta.facts.length || delta.historyFacts.length) return;
+    const hasMemory = previous.some(box =>
+        [...(box.facts ?? []), ...(box.historyFacts ?? [])].some(fact => fact && fact.vectorTextState !== 'deleted')
+        || (!box.facts && (!!box.vectorMemoryIds?.length || !!box.summary?.trim() && box.summary.trim() !== '本批无新增或变化')));
+    if (!hasMemory) return;
+    run?.completed?.clear();
+    throw new StoryArchiveIncompleteReply('模型本次没有提取到剧情记忆，旧归档和原文已保留');
+}
+
 const sourceKey = (entry: StoryTheaterEntry, archive: StoryTheaterArchive) => JSON.stringify([
     entry.title, archive.id, archive.strategy, archive.summary, archive.fromMessageId, archive.toMessageId, archive.messageCount, archive.vectorMemoryIds, archive.facts, archive.historyFacts, archive.affinityLog,
 ]);
@@ -385,6 +397,7 @@ export async function regenerateStoryArchiveSummary(entryId: string, archiveId: 
         const firstFloor = floors.findIndex(row => row.id === archive.fromMessageId) + 1;
         const archiveApi = resolveStoryMemoryApi(entry, api);
         const delta = await generateStoryArchiveDelta(entry, messages, archiveApi, firstFloor, 'summary', storyArchiveSourceTimes(floors));
+        requireMemoryForReplacement(delta, [archive]);
         const db = await openDB();
         return await new Promise<StoryTheaterEntry>((resolve, reject) => {
             const tx = db.transaction(['story_theaters', 'messages'], 'readwrite');
@@ -606,6 +619,7 @@ async function writeStoryArchiveRange(
     const archiveApi = resolveStoryMemoryApi(entry, vector?.fallbackApi ?? api);
     const firstFloor = floors.findIndex(row => row.id === first) + 1;
     const delta = await generateStoryArchiveDelta({ ...entry, archives: initial.others }, initial.batch, archiveApi, firstFloor, strategy, storyArchiveSourceTimes(floors), run);
+    requireMemoryForReplacement(delta, initial.removed, run);
     const boxId = initial.previous?.id ?? makeStoryTheaterId();
     const archivedFacts = embedding ? delta.facts.map(fact => fact.authorScope === 'turn' ? fact : ({
         ...fact, vectorNodeId: makeStoryTheaterId(), vectorTextState: 'synced' as const,

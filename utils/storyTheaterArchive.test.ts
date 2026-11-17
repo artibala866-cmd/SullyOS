@@ -263,6 +263,14 @@ describe('story summary final channel', () => {
         expect(excerpt).toBe('[第 1 楼] 旧闸左灯双闪时，救生艇必须停在退水石阶外。');
     });
 
+    it('can recover two related details on the same archived floor without including the rest of the floor', () => {
+        const rows = [{ id: 1, content: '阿潭用北门暗道护送回执到西库。远处酒馆换了掌柜。北门暗道只在封条完好时通行。' }];
+        const archives = [{ id: 'old', strategy: 'vector' as const, createdAt: 1, fromMessageId: 1, toMessageId: 1,
+            messageCount: 1, vectorMemoryIds: [], facts: [] }];
+        const excerpt = findStoryArchiveEvidence(rows, archives, 2, '北门暗道怎么走？', '', '', new Map([[1, 1]]));
+        expect(excerpt).toBe('[第 1 楼] 阿潭用北门暗道护送回执到西库。 … 北门暗道只在封条完好时通行。');
+    });
+
     it('does not retrieve unrelated generic questions or duplicate a fact already sent from that floor', () => {
         const rows = [
             {id:1, role:'assistant',content:'第二天上午，巡堤员已完成南堤巡查。'},
@@ -788,6 +796,14 @@ describe('story archive regeneration', () => {
         await expect(regenerate()).resolves.toMatchObject({ archives: [{ summary: expect.stringContaining(fixtureSummary) }] });
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+
+    it('does not replace meaningful memory when the model returns a valid but empty result', async () => {
+        fetchMock.mockResolvedValueOnce(response(completion('{"changes":[]}')));
+        await expect(regenerate()).rejects.toThrow('旧归档和原文已保留');
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect((await fresh()).archives).toEqual(entry.archives);
+        expect(await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true)).toEqual(messages);
+    });
     it('allows recovery of an empty summary but refuses incomplete source before making a request', async () => {
         entry.archives[0].summary = '';
         await DB.saveStoryTheater(entry);
@@ -1009,6 +1025,24 @@ describe('independent vector archive', () => {
         fetchMock.mockResolvedValueOnce(response({ data: [{ index: 0, embedding: [1, 0, 0] }] }));
         await expect(archiveStoryFloorRange(entry.id, floors, api, undefined, vector, run)).resolves.toBeDefined();
         expect(fetchMock.mock.calls.map(([url]) => url.split('/').at(-1))).toEqual(['completions', 'embeddings', 'embeddings']);
+    });
+
+    it('preserves the indexed vector and floor flags when a replacement returns an empty summary', async () => {
+        const floors = (await prepare()).slice(0, 2);
+        queueArchive('小雨还拿着备用钥匙。');
+        const initial = await archiveStoryFloorRange(entry.id, floors, api, undefined, vector);
+        const box = initial.archives[0];
+        const archivedRows = await read();
+        const run = { completed: new Map<string, string>() };
+        fetchMock.mockClear();
+        fetchMock.mockResolvedValueOnce(response(completion('{"changes":[]}')));
+        await expect(archiveStoryFloorRange(entry.id, floors, api, box.id, vector, run))
+            .rejects.toThrow('旧归档和原文已保留');
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect(run.completed.size).toBe(0);
+        expect((await fresh()).archives).toEqual([box]);
+        expect((await MemoryVectorDB.getAllByCharId(partition())).map(item => item.memoryId)).toEqual(box.vectorMemoryIds);
+        expect(await read()).toEqual(archivedRows);
     });
 
     it.each(['malformed', 'provider'])('stops after the first bad Embedding batch (%s), reusing successful work', async kind => {
@@ -1580,6 +1614,31 @@ describe('续写前核对已结束的事项和持续设定', () => {
 
 
 describe('主动回查早期剧情', () => {
+    it('keeps a named long segment intact even when its latest scene preview would cut off the exception', async () => {
+        const segment = '阿潭抵达北门暗道时，原先通往西库的桥板已断。' +
+            '他沿着石壁查看街口、封条、风浪和水位，等水手转身才带着回执进门。'.repeat(16) +
+            '但封条一旦破损，此路随即封闭，柳巡也不得放行。';
+        const rows = [{ ...messages[0], id: 10, role: 'assistant' as const, content: '未发给模型的原文。' }];
+        const fact: StoryArchiveFact = { key: '北门暗道/通行', kind: 'fact', sourceMessageId: 10,
+            text: segment, terms: ['阿潭', '北门暗道'] };
+        const box = { id: 'long-archive', strategy: 'vector' as const, fromMessageId: 10, toMessageId: 10,
+            createdAt: 1, messageCount: 1, vectorMemoryIds: [], facts: [fact] };
+        const recall = (continuation: boolean) => buildStoryTheaterRecall({
+            entry: { ...entry, archives: [box] }, rows, beforeId: 11, floor: 2, baseline: '', visibleRows: [],
+            historyVisible: false, continuation, opening: false, userInput: continuation ? '' : '北门暗道有什么限制？',
+            readOriginalEvidence: false,
+        });
+        for (const continuation of [false, true]) {
+            const result = await recall(continuation);
+            const payload = result.messages.map(message => message.content).join('\n');
+            expect(payload).toContain(segment);
+            expect(payload.split(segment)).toHaveLength(2);
+            expect(payload).not.toContain(rows[0].content);
+            expect(result.receipt.injectedFloors).toEqual([1]);
+        }
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('从全部隐藏的历史按人物和物件找回早期事件盒，仍受时间边界限制', async () => {
         const boxes = Array.from({ length: 12 }, (_, index) => ({
             id: 'legacy-' + index, strategy: 'summary' as const, fromMessageId: index + 1,

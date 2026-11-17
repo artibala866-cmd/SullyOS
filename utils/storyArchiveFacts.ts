@@ -210,9 +210,9 @@ export function formatStoryArchiveActiveState(
     // confirmed-facts budget. An unrelated flashback cannot displace them.
     const rules = active.filter(fact => storyArchiveContinuityKind(fact) === 'rule');
     const outcomes = active.filter(fact => storyArchiveContinuityKind(fact) !== 'rule');
-    const pickedRules = storyArchiveFactLines(rankStoryArchiveFacts(rules, query), floorNumbers, 1000, sourceTimes);
+    const pickedRules = storyArchiveFactLines(rankStoryArchiveFacts(rules, query), floorNumbers, 1000, sourceTimes, undefined, true);
     const used = pickedRules.reduce((total, item) => total + item.line.length + 1, 0);
-    const pickedOutcomes = storyArchiveFactLines(rankStoryArchiveFacts(outcomes, query), floorNumbers, 1350 - used, sourceTimes)
+    const pickedOutcomes = storyArchiveFactLines(rankStoryArchiveFacts(outcomes, query), floorNumbers, 1350 - used, sourceTimes, undefined, true)
         .sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
     const picked = [...pickedRules, ...pickedOutcomes];
     return {
@@ -238,10 +238,10 @@ export function formatStoryArchiveScene(
     const scene = potential.filter(fact => nearScene(fact)
         && /(?:场景|地点|位置|在场|去向|当前|此刻|正待|正在|抵达|来到|停在|留在|藏在|待在|等候|等着|坐在|站在|走进|身旁|at the|arrived|standing|waiting)/iu.test(fact.key + ' ' + fact.text));
     const picked = storyArchiveFactLines((scene.length ? scene : potential).slice(0, 3),
-        floorNumbers, 420, sourceTimes).sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
+        floorNumbers, 420, sourceTimes, undefined, true).sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
     const plan = newest.find(fact => storyArchiveModality(fact) === 'planned'
         && nearScene(fact));
-    if (plan) picked.push(...storyArchiveFactLines([plan], floorNumbers, 190, sourceTimes));
+    if (plan) picked.push(...storyArchiveFactLines([plan], floorNumbers, 190, sourceTimes, undefined, true));
     return {
         text: picked.map(item => item.line).join('\n'),
         facts: picked.map(item => item.fact),
@@ -874,7 +874,7 @@ function clipStoryMemoryText(text: string, limit: number): string {
 
 function storyArchiveFactLines(
     facts: StoryArchiveFact[], floorNumbers?: ReadonlyMap<number, number>, budget = Infinity,
-    sourceTimes?: ReadonlyMap<number, string>, timelineStatus?: 'current' | 'past',
+    sourceTimes?: ReadonlyMap<number, string>, timelineStatus?: 'current' | 'past', requireFullLine = false,
 ) {
     let used = 0;
     const selected: { fact: StoryArchiveFact; line: string }[] = [];
@@ -891,7 +891,7 @@ function storyArchiveFactLines(
         const qualifier = fact.kind === 'author' ? '用户协助指令：'
             : modality === 'planned' ? '【尚未发生的计划】' : modality === 'unverified' ? '【尚未核实的说法】' : '';
         const line = (annotation.length ? '[' + annotation.join(' · ') + '] ' : '') + status + qualifier + fact.text;
-        if (used + line.length >= budget && selected.length) continue;
+        if (used + line.length > budget && (requireFullLine || selected.length)) continue;
         const withinBudget = clipStoryMemoryText(line, budget - used);
         if (!withinBudget) break;
         selected.push({ fact, line: withinBudget });
@@ -945,12 +945,12 @@ function selectStoryArchiveRecallLines(
     const available = new Set(facts.map(storyArchiveFactIdentity));
     const targets = explicit.filter(fact => available.has(storyArchiveFactIdentity(fact))
         && !active?.selected.has(storyArchiveFactIdentity(fact)));
-    const reserveBudget = Math.min(1600, Math.max(0, 3200 - (active?.cost ?? 0)));
-    const perTarget = Math.min(235, Math.floor(reserveBudget / Math.max(1, targets.length)) - 1);
+    let reserveRemaining = Math.min(1600, Math.max(0, 3200 - (active?.cost ?? 0)));
     for (const fact of targets) {
-        const item = storyArchiveFactLines([fact], floorNumbers, perTarget, sourceTimes, timelineStatus)[0];
+        const item = storyArchiveFactLines([fact], floorNumbers, reserveRemaining - 1, sourceTimes, timelineStatus, true)[0];
         if (!item) continue;
         reserved.set(storyArchiveFactIdentity(fact), item);
+        reserveRemaining -= item.line.length + 1;
     }
     let borrowed = 0;
     const sections = storyArchiveRecallSections(facts).map(({ title, entries, budget }) => {
@@ -1044,12 +1044,12 @@ export function findStoryArchiveEvidence(
         (box.facts ?? []).filter(fact => fact.vectorTextState === 'deleted').map(fact => fact.sourceMessageId)));
     const turnScopedSources = new Set(boxes.flatMap(box =>
         (box.facts ?? []).filter(fact => fact.authorScope === 'turn').map(fact => fact.sourceMessageId)));
-    const hits: { id: number; excerpt: string; score: number; explicit: boolean }[] = [];
+    const hits: { id: number; index: number; excerpt: string; score: number; explicit: boolean }[] = [];
     for (const row of rows) {
         if (deletedSources.has(row.id) || (row.role === 'user' && turnScopedSources.has(row.id))
             || !boxes.some(box => box.fromMessageId <= row.id && row.id <= box.toMessageId)) continue;
         const content = extractContent({ choices: [{ message: { content: row.content } }] }, false);
-        for (const sentence of storySentences(content)) {
+        for (const [index, sentence] of storySentences(content).entries()) {
             if (closedPlans.some(plan => plan.sourceMessageId === row.id
                 && (comparable(sentence).includes(comparable(plan.text))
                     || (storyArchiveModality({ text: sentence }) === 'planned'
@@ -1087,18 +1087,30 @@ export function findStoryArchiveEvidence(
             const start = Math.max(0, offset - 32);
             const excerpt = (start ? '…' : '') + sentence.slice(start, start + 128).trim()
                 + (sentence.length > start + 128 ? '…' : '');
-            hits.push({ id: row.id, excerpt, score, explicit });
+            hits.push({ id: row.id, index, excerpt, score, explicit });
         }
     }
     const seen = new Set<string>();
-    const usedFloors = new Set<number>();
-    return hits.sort((a, b) => Number(b.explicit) - Number(a.explicit) || b.score - a.score || b.id - a.id).filter(hit => {
-        if (seen.has(hit.excerpt) || usedFloors.has(hit.id)) return false;
+    const firstByFloor = new Map<number, typeof hits>();
+    const extra: typeof hits = [];
+    const limit = explicitFloors.size || [...needles].some(term => term.length < 4) ? 4 : 2;
+    hits.sort((a, b) => Number(b.explicit) - Number(a.explicit) || b.score - a.score || b.id - a.id);
+    for (const hit of hits) {
+        if (seen.has(hit.excerpt)) continue;
         seen.add(hit.excerpt);
-        usedFloors.add(hit.id);
-        return true;
-    }).slice(0, explicitFloors.size || [...needles].some(term => term.length < 4) ? 4 : 2).sort((a, b) => a.id - b.id)
-        .map(hit => `[第 ${floorNumbers.get(hit.id)} 楼] ${hit.excerpt}`).join('\n');
+        if (firstByFloor.has(hit.id)) extra.push(hit);
+        else if (firstByFloor.size < limit) firstByFloor.set(hit.id, [hit]);
+    }
+    let spare = limit - firstByFloor.size;
+    for (const hit of extra) {
+        if (spare <= 0) break;
+        const floorHits = firstByFloor.get(hit.id);
+        if (!floorHits || floorHits.length >= 2) continue;
+        floorHits.push(hit);
+        spare--;
+    }
+    return [...firstByFloor].sort(([a], [b]) => a - b).map(([id, excerpts]) =>
+        `[第 ${floorNumbers.get(id)} 楼] ${excerpts.sort((a, b) => a.index - b.index).map(hit => hit.excerpt).join(' … ')}`).join('\n');
 }
 
 /** One readable timeline for a single archive. Old events and end-of-segment
