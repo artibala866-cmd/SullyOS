@@ -129,6 +129,7 @@ const archiveWritingCue = /(?:^|[。！？\n])\s*(?:(?:以后|接下来|往后|�
 
 function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceTimes: ReadonlyMap<number, string>) {
     const affinity: string[] = [];
+    const authorChecks: number[] = [];
     const sources = new Map<number, { text: string; authorInput: boolean; floorNumber: number }>();
     const transcript = messages.map((message, index) => {
         const content = storyArchiveBody(message);
@@ -138,6 +139,7 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
         }
         const markedAuthor = message.role === 'user' && markedArchiveAuthor.test(content);
         const possibleAuthor = message.role === 'user' && archiveWritingCue.test(content);
+        if (!message.metadata?.theaterContinue && (markedAuthor || possibleAuthor)) authorChecks.push(message.id);
         const speaker = message.role === 'assistant' ? '剧场正文'
             : message.metadata?.theaterContinue ? '续写操作，无新增用户行动' : markedAuthor ? '用户推进（有明确场外标记）'
                 : possibleAuthor ? '用户推进（可能夹有写作要求，分别核对）' : '用户推进';
@@ -151,7 +153,7 @@ function storyArchiveTranscript(messages: Message[], firstFloor: number, sourceT
                 + ' · 记录ID ' + message.id + ']\n' + content
             + (affinityRows.length ? '\n界面好感记录：\n' + affinityRows.join('\n') : '');
     }).join('\n\n');
-    return { affinity, transcript, sources };
+    return { affinity, transcript, sources, authorChecks };
 }
 
 function archiveChatEndpoint(baseUrl: string): string {
@@ -197,7 +199,7 @@ export async function generateStoryArchiveDelta(
     api = { baseUrl: normalizeApiBaseUrl(api.baseUrl), apiKey: normalizeApiCredential(api.apiKey), model: normalizeApiModel(api.model) };
     assertStoryApiConfigured(api);
     if (!batch.length) throw new Error('请先选择要归档的楼层');
-    const { sources, transcript, affinity } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
+    const { sources, transcript, affinity, authorChecks } = storyArchiveTranscript(batch, firstFloor, sourceTimes);
     const floorNumbers = new Map([...sources].map(([id, source]) => [id, source.floorNumber]));
     const beforeId = batch[0].id;
     const archives = readStoryRecallArchives(entry.archives);
@@ -257,6 +259,8 @@ export async function generateStoryArchiveDelta(
             ...(reference ? ['现有剧情设定与人设/世界书（仅用于判断已有设定，不是新事件证据）\n' + reference] : []),
             ...(legacy ? ['旧版归档（用于识别重提的旧事）\n' + legacy] : []),
             '本批新楼层\n' + transcript,
+            ...(authorChecks.length ? ['整理以上完整范围。先把新剧情的起因、经过、结果和例外归入事项，再整理每项新场外要求（重点核对记录ID '
+                + authorChecks.join('、') + '，区分当轮与长期）。将两类变化一起放入 changes 数组。'] : []),
         ].join('\n\n');
         const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION + (saveMaxChars > 0
             ? '\n本剧情设置的归档保存上限为 ' + saveMaxChars + ' 字符，须为楼层标签及附加好感记录留出空间。' : '');

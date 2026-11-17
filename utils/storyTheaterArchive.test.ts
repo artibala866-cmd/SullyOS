@@ -143,6 +143,17 @@ describe('story summary final channel', () => {
         expect(parsed[2]).toMatchObject({ text: oneTurn, authorScope: 'turn' });
     });
 
+    it('separates explicit scopes when a model returns the same mixed author summary twice', () => {
+        const text = '本轮只略去天气，后续正文一律用第三人称，不替玩家回答；玩家亲口回答以后才可写其他人物的反应。';
+        const author = { action: 'add', kind: 'author', key: '场外/视角', sourceMessageId: 31, text };
+        const output = [{ ...author }, { ...author, key: '场外/天气', authorScope: 'turn' }];
+        const parsed = parseStoryArchiveChanges(JSON.stringify({ changes: output }), new Map([[31, { text, authorInput: true }]]), []);
+        expect(parsed.map(fact => [fact.text, fact.authorScope])).toEqual([
+            ['后续正文一律用第三人称，不替玩家回答；玩家亲口回答以后才可写其他人物的反应。', undefined],
+            ['本轮只略去天气。', 'turn'],
+        ]);
+    });
+
     it('ignores an exact already-saved item echoed with its old source without dropping new memory', () => {
         const old: StoryArchiveFact = { key:'写作/代写', kind:'author', text:'不替玩家做决定。', terms:[], sourceMessageId:2 };
         const text = '旁人只有在青灯亲口告知后，才知晓灰港真名。';
@@ -1369,6 +1380,8 @@ describe('consecutive automatic archives', () => {
         expect(lines.find((line: string) => line.endsWith('记录ID ' + mixed.id + ']'))).toContain('可能夹有写作要求');
         expect(lines.find((line: string) => line.endsWith('记录ID ' + turn.id + ']'))).toContain('可能夹有写作要求');
         expect(lines.find((line: string) => line.endsWith('记录ID ' + ordinary.id + ']'))).not.toContain('可能夹有写作要求');
+        expect(lines.at(-1)).toContain('记录ID ' + mixed.id + '、' + turn.id);
+        expect(lines.at(-1)).not.toContain(ordinary.content);
         expect(result.archives.at(-1)?.facts).toEqual([
             expect.objectContaining({ text:'巡检员须经青灯亲口告知才知道真名。' }),
             expect.objectContaining({ text:'仅在本轮回复略过天气。', authorScope:'turn' }),

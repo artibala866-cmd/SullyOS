@@ -482,7 +482,7 @@ export function storyArchiveFactTime(
 
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
-    '只返回 JSON 对象，顶层只有 changes 数组。每条字段为 action、key、kind、text、terms、sourceMessageId，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回空数组。',
+    '只返回一个 JSON 对象，格式见末尾示例。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
     '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，优先写完整经过和最终状态；有数次明确的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
     '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批以100～1500字为篇幅参考，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
     'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
@@ -490,7 +490,8 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
     '事项跨楼时 sourceMessageId 指向确认当前状态或结果的本批记录ID。quote 可选，仅摘该楼的逐字证据。storyTime 只记录原文剧情时间，不能用聊天时间或把回忆的时间套成现在。界面好感由程序另存。',
     '可选检索字段：aliases 仅填原文明示的别名，relatedKeys 仅填直接相关的事项 key，entities 填原文专名和类别 person/place/object/organization/event/code，可带原文明示的 aliases。不猜人设和关系。',
-    '提交前检查本批首尾楼层：有没有漏掉新的场外要求、结果或条件？已写过的要求和已完成事项有没有重复？返回所有新增/更新段落。',
+    '逐项核对本批首、中、尾的剧情，再核对用户的每项场外要求。把两类新增或更新都写进同一 changes 数组。如下仅演示结构与分段，实际归档使用本批自己的内容和记录ID：',
+    '{"changes":[{"action":"add","key":"药箱/送达","kind":"fact","text":"小周为履行承诺送药。山路被雨冲断后，他绕北渡口，傍晚由阿禾验封签收。封条损坏时仍须暂停交接。","terms":["药箱","小周","阿禾","北渡口"],"sourceMessageId":9112,"continuity":"completed"},{"action":"add","key":"场外/地点名称","kind":"author","text":"采用旧城的地名，地图正式更换时除外。","terms":["旧城"],"sourceMessageId":9101},{"action":"add","key":"场外/信件内容","kind":"author","text":"这次略去信件内容。","terms":[],"sourceMessageId":9101,"authorScope":"turn"}]}',
 ].join('\n');
 
 export function storyArchiveFactIdentity(fact: StoryArchiveFact): string {
@@ -662,6 +663,27 @@ function storyArchiveCodes(text: string) {
 
 export class StoryArchiveIncompleteReply extends Error {}
 
+const authorTurnStart = /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u;
+const persistentAuthorStart = /^(?:此后|以后|往后|从此|长期|后续(?:正文|续写|回复))/u;
+
+function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; authorScope?: unknown }>(change: T): T[] {
+    if (typeof change?.kind !== 'string' || normalize(change.kind) !== 'author' || typeof change.text !== 'string') return [change];
+    const text = change.text.trim();
+    // Only split model-written summaries when both scopes are explicit. A
+    // comma inside an exception or a plain conditional is kept with its rule.
+    for (const boundary of text.matchAll(/[，,。；;]\s*/gu)) {
+        const first = text.slice(0, boundary.index).trimEnd();
+        const second = text.slice(boundary.index! + boundary[0].length);
+        const turnFirst = authorTurnStart.test(first) && persistentAuthorStart.test(second);
+        const persistentFirst = persistentAuthorStart.test(first) && authorTurnStart.test(second);
+        if (turnFirst || persistentFirst) return [
+            { ...change, text: (turnFirst ? second : first).replace(/[。！？]$/u, '') + '。', authorScope: undefined },
+            { ...change, text: (turnFirst ? first : second).replace(/[。！？]$/u, '') + '。', authorScope: 'turn' },
+        ];
+    }
+    return [change];
+}
+
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
@@ -684,12 +706,14 @@ export function parseStoryArchiveChanges(
     const batchCodes = [...sources].flatMap(([id, source]) => storyArchiveCodes(source.text).map(code => ({ ...code, id })));
     const signature = (fact: Pick<StoryArchiveFact, 'kind' | 'text' | 'storyTime' | 'modality' | 'authorScope'>) =>
         JSON.stringify([fact.kind, comparable(fact.text), fact.storyTime ?? '', fact.modality ?? '', fact.authorScope ?? '']);
-    const duplicateText = new Set(known.filter(fact => fact.authorScope !== 'turn').map(signature));
+    const duplicateKey = (fact: Parameters<typeof signature>[0] & { sourceMessageId: number }) =>
+        signature(fact) + (fact.authorScope === 'turn' ? '/' + fact.sourceMessageId : '');
+    const duplicateText = new Set(known.map(duplicateKey));
     // Only skip a new fact that repeats a whole existing role/worldbook
     // sentence. Do NOT reject changed states on semantic similarity.
     const facts = new Map<string, StoryArchiveFact>();
     let skippedOldSource = false;
-    for (const [index, change] of value.changes.entries()) {
+    for (const [index, change] of value.changes.flatMap(splitStoryAuthorScopes).entries()) {
         const rawKind = typeof change?.kind === 'string' ? normalize(change.kind) : change?.kind;
         const action = typeof change?.action === 'string' ? normalize(change.action) : change?.action;
         if (!change || typeof change.key !== 'string' || typeof change.text !== 'string'
@@ -744,7 +768,7 @@ export function parseStoryArchiveChanges(
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
         const authorScope = kind === 'author' && (change.authorScope === 'turn'
-            || /^(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?(?:只|仅|请|要|用|别|不|略|省|，|：)/u.test(text)
+            || authorTurnStart.test(text)
             || /(?:[（(]|[，；、]\s*)?(?:仅限|只限|仅适用于|只适用于)(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[）)。！\s]*$/u.test(text)) ? 'turn' as const : undefined;
         if (authorScope) key = '场外当轮/' + sourceMessageId + '/' + index;
         if (kind === 'author' && !authorScope) {
@@ -833,7 +857,7 @@ export function parseStoryArchiveChanges(
         if (oldInBatch && signature(oldInBatch) === comparableText) continue;
         const sameState = previous && comparable(previous.text) === comparable(text) && storyArchiveModality(previous) === storyArchiveModality(fact);
         if (sameState && !oldInBatch && action !== 'add') continue;
-        if (duplicateText.has(comparableText) && !oldInBatch && (!previous || sameState)) continue;
+        if (duplicateText.has(duplicateKey(fact)) && !oldInBatch && (!previous || sameState)) continue;
         if (!previous && kind === 'fact' && continuity !== 'rule' && storyArchiveRepeatsPreset(text, key, baseline, quotedClause ?? source.text)) continue;
         const termCandidates: string[] = Array.isArray(change.terms)
             ? change.terms.filter((term: unknown): term is string => typeof term === 'string')
@@ -848,7 +872,7 @@ export function parseStoryArchiveChanges(
         const entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(source.text)) : [];
         facts.set(key, { ...fact, terms, ...(aliases.length ? { aliases } : {}),
             ...(relatedKeys.length ? { relatedKeys } : {}), ...(entities.length ? { entities } : {}) });
-        if (!authorScope) duplicateText.add(comparableText);
+        duplicateText.add(duplicateKey(fact));
     }
     if (skippedOldSource && !facts.size) throw invalid('模型只引用了旧归档，没有提取到本批记录');
     // Preserve a missed exact detail as a sourced one-line fact. Only single,
