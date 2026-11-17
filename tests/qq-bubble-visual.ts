@@ -35,7 +35,7 @@ const bilingualChecks = bilingualStyles.map(({ name, props }) => {
       onLongPress: () => {}, onReply: () => {}, selectionMode: false,
       isSelected: false, onToggleSelect: () => {}, showTimestamp: 'never', ...props,
     })) + '</div>';
-  root.appendChild(section);
+  root.insertBefore(section, sections[0] ?? null);
   const bubble = section.querySelector<HTMLElement>('.sully-bubble-ai');
   const source = bubble?.querySelector<HTMLElement>('.sully-facebook-bubble-text > div:first-child');
   const translation = bubble?.querySelector<HTMLElement>('[data-bilingual-translation="true"]');
