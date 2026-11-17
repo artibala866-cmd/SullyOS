@@ -793,8 +793,15 @@ export function parseStoryArchiveChanges(
             : undefined;
         let continuityHint = change.continuity;
         if (kind === 'fact') {
-            const evidence = quotedClause ?? source.text;
-            const evidenceModality = quotedClause || storySentences(source.text).length === 1
+            // When a floor first states a new event and then recalls an old
+            // plan, an exact summary of the opening clause uses that clause.
+            // The old plan's wording must not reclassify today's event.
+            const openingClause = source.text.split(/[，,；;。]/u, 1)[0];
+            const recallsEarlier = /(?:提起|回顾|说起|聊起|谈起|重提)[^。！？]{0,40}(?:此前|之前|早先|原先|原本|过去|原计划|当时)/u
+                .test(source.text.slice(openingClause.length));
+            const exactOpening = recallsEarlier && comparable(openingClause) === comparable(text) ? openingClause : undefined;
+            const evidence = quotedClause ?? exactOpening ?? source.text;
+            const evidenceModality = quotedClause || exactOpening || storySentences(source.text).length === 1
                 ? storyArchiveModality({ text: evidence }) : undefined;
             modality = evidenceModality ?? modality;
             const closing = storyArchiveClosingOutcome(text);

@@ -298,6 +298,16 @@ describe('story summary final channel', () => {
         expect(facts.some(fact=>fact.sourceMessageId===4)).toBe(false);
     });
 
+    it('does not classify a newly happened action as a plan due to a later recap on the same floor', () => {
+        const text = '柳巡把已签收的南渡回执收进案头窄匣。';
+        const source = '柳巡把已签收的南渡回执收进案头窄匣，两人提起阿潭早先打算从正门送来回执。';
+        const changes = [{ action: 'add', key: '南渡回执/收纳', kind: 'fact', sourceMessageId: 22, text }];
+        const [fact] = parseStoryArchiveChanges(JSON.stringify({ changes }),
+            new Map([[22, { text: source, authorInput: false }]]), []);
+        expect(fact.text).toBe(text);
+        expect(storyArchiveModality(fact)).toBeUndefined();
+    });
+
     it('does not add a second memory for a code already covered by a condensed event segment', () => {
         const source = '阿潭在北亭亲手交付南渡回执，柳巡签收；登记编号为 R-319。';
         const text = '阿潭绕道后将南渡回执交给柳巡，柳巡签收并登记为 R-319。';
