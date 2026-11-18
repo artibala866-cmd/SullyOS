@@ -109,17 +109,25 @@ const audit = (section: HTMLElement, label: string) => {
     if(rows[i].getBoundingClientRect().top < rows[i-1].getBoundingClientRect().bottom-1) overlap = true;
   }
   const bounds=section.getBoundingClientRect();
-  const bubbleOut = bubbles.some(el => {
+  // The WeChat bubble's 6px tail is intentionally outside the element's
+  // content box. scrollWidth on the bubble includes this pseudo-element;
+  // check REAL text overflow separately so the tail isn't a false positive.
+  const badBubbles = bubbles.map((el, index) => {
     const r=el.getBoundingClientRect();
-    return r.width < 10 || r.left < bounds.left - 2 || r.right > bounds.right + 2
-      || el.scrollWidth > el.clientWidth + 3;
-  });
+    const text=el.querySelector<HTMLElement>('.sully-facebook-bubble-text');
+    const badBounds=r.width < 10 || r.left < bounds.left - 2 || r.right > bounds.right + 2;
+    const badText=!!text && text.scrollWidth > text.clientWidth + 3;
+    return { index, badBounds, badText, width:r.width, left:r.left, right:r.right,
+      textScroll:text?.scrollWidth, textClient:text?.clientWidth,
+      bubbleScroll:el.scrollWidth, bubbleClient:el.clientWidth };
+  }).filter(item => item.badBounds || item.badText);
+  const bubbleOut = badBubbles.length > 0;
   const translations = Array.from(section.querySelectorAll<HTMLElement>('[data-bilingual-translation="true"]'));
   const translationBad=translations.some(el => {
     const bubble=el.closest('.sully-bubble-ai');
     return !bubble || !bubble.contains(el) || el.getBoundingClientRect().width < 10;
   });
-  return {label, overlap, bubbleOut, translationBad, rows:rows.length, bubbles:bubbles.length, translations:translations.length, pass: !overlap && !bubbleOut && !translationBad && bubbles.length > 0};
+  return {label, overlap, bubbleOut, badBubbles, translationBad, rows:rows.length, bubbles:bubbles.length, translations:translations.length, pass: !overlap && !bubbleOut && !translationBad && bubbles.length > 0};
 };
 for(const theme of themes) {
   const section=document.createElement('section');
