@@ -85,8 +85,10 @@ const common = (theme: Theme, msg: Message, index: number, all: Message[]) => ({
   charName: '示例角色',
   isFirstInGroup: index === 0 || all[index - 1].role !== msg.role,
   isLastInGroup: index === all.length - 1 || all[index + 1].role !== msg.role,
-  avatarMode: 'every_message' as const,
-  showTimestamp: 'never' as const,
+  // Match ChatApp's real defaults: built-in compact styles show every
+  // avatar and no per-bubble clock; ordinary chat groups avatar + timestamp.
+  avatarMode: (theme.id === 'regular' ? 'grouped' : 'every_message') as 'grouped' | 'every_message',
+  showTimestamp: (theme.id === 'regular' ? 'always' : 'never') as 'always' | 'never',
   translationEnabled: true,
   suppressEntranceAnimation: true,
   onLongPress: (_m: Message) => {},
