@@ -35,6 +35,21 @@ const baseInput = (): BuildChatPayloadInput => ({
 const joinMessages = (messages: Array<{ content: any }>): string =>
     messages.map(m => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n');
 
+it('honors the selected Korean/Chinese language pair rather than hardcoding Japanese examples', async () => {
+    const payload = await buildChatRequestPayload({
+        ...baseInput(),
+        translationConfig: { enabled: true, sourceLang: '한국어', targetLang: '中文' },
+    });
+    expect(payload.flags.bilingualActive).toBe(true);
+    expect(payload.systemPrompt).toContain('<原文>한국어内容</原文>');
+    expect(payload.systemPrompt).toContain('<译文>中文内容</译文>');
+    expect(payload.systemPrompt).not.toContain('こんにちは');
+    expect(joinMessages(payload.fullMessages)).toContain('绝对不能省略');
+    const off = await buildChatRequestPayload({ ...baseInput() });
+    expect(off.flags.bilingualActive).toBe(false);
+    expect(joinMessages(off.fullMessages)).not.toContain('双语输出模式 - 必须严格遵守');
+});
+
 it.each([false,true])('adds home phone background only to this request (worker=%s) and retains normal chat history', async timelyByWorker => {
     const input={...baseInput(),timelyByWorker};
     const background='【家园手机聊天】你们在客厅里用手机聊天。';
