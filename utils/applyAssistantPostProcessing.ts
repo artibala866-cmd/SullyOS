@@ -938,7 +938,11 @@ export async function applyAssistantPostProcessing(
         const translations = new Map<string, string>();
         const mode = ctx.translationMode;
         if (mode?.enabled && mode.sourceLang && mode.targetLang && mode.sourceLang !== mode.targetLang) {
-            const unmatched = content.replace(/<翻译>\s*<原文>[\s\S]*?<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/g, '\n');
+            // Empty <译文> is still a missing translation, not a valid pair.
+            const unmatched = content.replace(
+                /<翻译>\s*<原文>([\s\S]*?)<\/原文>\s*<译文>([\s\S]*?)<\/译文>\s*<\/翻译>/g,
+                (_match, original: string, target: string) => target.trim() ? '\n' : `\n${original}\n`,
+            );
             const sources: string[] = [];
             for (const part of ChatParser.splitResponse(unmatched)) {
                 if (part.type !== 'text') continue;
@@ -1027,10 +1031,12 @@ export async function applyAssistantPostProcessing(
                     s.replace(/\[\[SEND_EMOJI:\s*(.*?)\]\]/g, (_m, n) => { inlineEmojis.push(String(n).trim()); return ''; });
                 const originalText = ChatParser.sanitize(stripInlineEmoji(tagMatch[1]).trim());
                 const translatedText = ChatParser.sanitize(stripInlineEmoji(tagMatch[2]).trim());
-                if (originalText || translatedText) {
-                    const biContent = originalText && translatedText
-                        ? `${originalText}\n%%BILINGUAL%%\n${translatedText}`
-                        : (originalText || translatedText);
+                const recovered = originalText ? translations.get(eligibleTranslationSource(originalText)) : undefined;
+                const finalTranslation = translatedText || recovered || '';
+                if (originalText || finalTranslation) {
+                    const biContent = originalText && finalTranslation
+                        ? `${originalText}\n%%BILINGUAL%%\n${finalTranslation}`
+                        : (originalText || finalTranslation);
                     const replyData = globalMsgIndex === 0 ? aiReplyTarget : undefined;
                     await replyStep(async () => typingPause(Math.min(Math.max(biContent.length * 30, 400), 2000)));
                     await replyStep(async () => persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: biContent, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, biContent) } as any));
