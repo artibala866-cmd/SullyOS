@@ -16,6 +16,8 @@ on:
       - 'utils/chatRequestPayload.test.ts'
       - 'tests/qq-bubble-visual.html'
       - 'tests/qq-bubble-visual.ts'
+      - 'tests/chat-bubble-matrix.html'
+      - 'tests/chat-bubble-matrix.ts'
       - '.github/workflows/qq-bubble-visual-regression.yml'
   workflow_dispatch:
 permissions:
@@ -88,6 +90,53 @@ jobs:
             "http://127.0.0.1:5173/tests/qq-bubble-visual.html"
           test -s qq-bubble-real-components.png
           echo "Actual MessageItem-based QQ visual screenshot generated."
+      - name: Inspect multi-theme chat layouts at 320px and 390px in real Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bubble-matrix-shots
+          pnpm exec vite --host 127.0.0.1 --port 5173 --strictPort >/tmp/bubble-matrix-vite.log 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5173/tests/chat-bubble-matrix.html >/dev/null; then break; fi
+            sleep 1
+          done
+          chrome="${{ steps.chrome.outputs.chrome-path }}"
+          for size in 320 390; do
+            for scene in conversation bilingual long media; do
+              address="http://127.0.0.1:5173/tests/chat-bubble-matrix.html?scene=${scene}&size=${size}"
+              "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+                --window-size=450,3100 --force-device-scale-factor=1 \
+                --virtual-time-budget=5000 --dump-dom "$address" > /tmp/bubble-matrix-dom.html 2>/tmp/bubble-matrix-chrome.log || true
+              if ! grep -q 'data-matrix-ready="true"' /tmp/bubble-matrix-dom.html; then
+                echo "FAIL: ${scene} at ${size}px"
+                grep -o '<output id="matrix-report"[^<]*' /tmp/bubble-matrix-dom.html | head -c 6000 || true
+                tail -50 /tmp/bubble-matrix-vite.log || true
+                exit 1
+              fi
+              "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+                --hide-scrollbars --window-size=450,3100 --force-device-scale-factor=1 \
+                --virtual-time-budget=5000 \
+                --screenshot="$GITHUB_WORKSPACE/bubble-matrix-shots/${scene}-${size}.png" "$address"
+              test -s "bubble-matrix-shots/${scene}-${size}.png"
+              echo "PASS ${scene} ${size}px"
+            done
+          done
+          # Dark appearance is a separate regression because built-in QQ has a
+          # prefers-color-scheme dark override.
+          "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
+            --force-dark-mode --hide-scrollbars --window-size=450,3100 \
+            --force-device-scale-factor=1 --virtual-time-budget=5000 \
+            --screenshot="$GITHUB_WORKSPACE/bubble-matrix-shots/bilingual-390-dark.png" \
+            "http://127.0.0.1:5173/tests/chat-bubble-matrix.html?scene=bilingual&size=390"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chat-bubble-multi-scenario-mobile-screenshots
+          path: bubble-matrix-shots/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:
