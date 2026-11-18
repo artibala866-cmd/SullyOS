@@ -65,7 +65,7 @@ describe('private chat translation repair with the real storage pipeline', () =>
             choices: [{ message: { content: '你好' } }],
         });
         await applyAssistantPostProcessing('<翻译><原文>안녕</原文><译文></译文></翻译>', makeCtx(id));
-        expect(await textsFor(id)).toEqual(['안녕\\n%%BILINGUAL%%\\n你好']);
+        expect(await textsFor(id)).toEqual(['안녕\n%%BILINGUAL%%\n你好']);
         expect(apiSpy).toHaveBeenCalledTimes(1);
     }, 15000);
 
