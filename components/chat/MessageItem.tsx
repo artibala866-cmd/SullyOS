@@ -3672,6 +3672,9 @@ const MessageItem = React.memo(({
            prev.onMediaLoad === next.onMediaLoad &&
            prev.selectionMode === next.selectionMode &&
            prev.isSelected === next.isSelected &&
+           prev.isThinkingSelected === next.isThinkingSelected &&
+           prev.thinkingChainOptions?.styleId === next.thinkingChainOptions?.styleId &&
+           prev.thinkingChainOptions?.customColors === next.thinkingChainOptions?.customColors &&
            prev.translationEnabled === next.translationEnabled &&
            prev.translationExpanded === next.translationExpanded &&
            prev.isShowingTarget === next.isShowingTarget &&
