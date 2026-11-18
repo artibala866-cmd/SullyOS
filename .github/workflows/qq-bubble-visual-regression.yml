@@ -109,17 +109,17 @@ jobs:
               "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
                 --window-size=450,3100 --force-device-scale-factor=1 \
                 --virtual-time-budget=5000 --dump-dom "$address" > /tmp/bubble-matrix-dom.html 2>/tmp/bubble-matrix-chrome.log || true
-              if ! grep -q 'data-matrix-ready="true"' /tmp/bubble-matrix-dom.html; then
-                echo "FAIL: ${scene} at ${size}px"
-                grep -o '<output id="matrix-report"[^<]*' /tmp/bubble-matrix-dom.html | head -c 6000 || true
-                tail -50 /tmp/bubble-matrix-vite.log || true
-                exit 1
-              fi
               "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
                 --hide-scrollbars --window-size=450,3100 --force-device-scale-factor=1 \
                 --virtual-time-budget=5000 \
                 --screenshot="$GITHUB_WORKSPACE/bubble-matrix-shots/${scene}-${size}.png" "$address"
               test -s "bubble-matrix-shots/${scene}-${size}.png"
+              if ! grep -q 'data-matrix-ready="true"' /tmp/bubble-matrix-dom.html; then
+                echo "FAIL: ${scene} at ${size}px — screenshot captured for inspection"
+                grep -o '<output id="matrix-report"[^<]*' /tmp/bubble-matrix-dom.html | head -c 6000 || true
+                tail -50 /tmp/bubble-matrix-vite.log || true
+                exit 1
+              fi
               echo "PASS ${scene} ${size}px"
             done
           done
