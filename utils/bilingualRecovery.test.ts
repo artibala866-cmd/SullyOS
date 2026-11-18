@@ -28,6 +28,13 @@ describe('translation recovery across models', () => {
             .toBe('<翻译><原文>뭐해?</原文><译文>干嘛呢？</译文></翻译>');
     });
 
+    it('accepts complete English XML translation tags', () => {
+        expect(normalizeLabeledBilingualOutput('<bilingual><original>안녕</original><translated>你好</translated></bilingual>', korean))
+            .toBe('<翻译><原文>안녕</原文><译文>你好</译文></翻译>');
+        expect(normalizeLabeledBilingualOutput('<original>잘자</original><translation>晚安</translation>', korean))
+            .toBe('<翻译><原文>잘자</原文><译文>晚安</译文></翻译>');
+    });
+
     it('accepts JSON formatted pairs instead of exposing JSON to users', () => {
         expect(normalizeLabeledBilingualOutput('{"original":"안녕","translation":"你好"}', korean))
             .toBe('<翻译><原文>안녕</原文><译文>你好</译文></翻译>');
