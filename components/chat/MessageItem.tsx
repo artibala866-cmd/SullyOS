@@ -3635,6 +3635,20 @@ const MessageItem = React.memo(({
 }, (prev, next) => {
     return prev.msg.id === next.msg.id &&
            prev.msg.content === next.msg.content &&
+           // The message id and text stay the same when a saved reply is
+           // recalled, quoted or given a thinking-chain/voice preview later.
+           // Without these comparisons React.memo retains a stale bubble.
+           prev.msg.type === next.msg.type &&
+           prev.msg.role === next.msg.role &&
+           prev.msg.replyTo?.id === next.msg.replyTo?.id &&
+           prev.msg.replyTo?.name === next.msg.replyTo?.name &&
+           prev.msg.replyTo?.content === next.msg.replyTo?.content &&
+           prev.msg.metadata?.recalledAt === next.msg.metadata?.recalledAt &&
+           prev.msg.metadata?.recalledOriginalContent === next.msg.metadata?.recalledOriginalContent &&
+           prev.msg.metadata?.recalledOriginalType === next.msg.metadata?.recalledOriginalType &&
+           prev.msg.metadata?.thinkingChain === next.msg.metadata?.thinkingChain &&
+           prev.msg.metadata?.duration === next.msg.metadata?.duration &&
+           prev.msg.metadata?.voiceDuration === next.msg.metadata?.voiceDuration &&
            prev.alchemyResult === next.alchemyResult &&
            // 可交互卡片的状态活在 metadata 里（生活记录卡确认/否决、转账卡收退款）。
            // 这里不深比整个 metadata（可能含大对象），只盯这几个会改变渲染的状态位——
