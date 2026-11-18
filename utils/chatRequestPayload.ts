@@ -438,16 +438,8 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
 - <翻译>标签外不要写聊天正文；表情、引用和私聊撤回等机器指令（如 [[MESSAGE_RECALL:上一条原语言消息完整文字]]）可以独立放在标签外，不要把指令本身当聊天正文
 - 表情包命令 [[SEND_EMOJI: ...]] 放在所有<翻译>标签外面
 - 引用命令 [[QUOTE: ...]] 也放在所有<翻译>标签外面；引用内容请原样照抄用户说过的原文（不要翻译、不要包<翻译>标签）
-
-示例（${sourceLang}→${targetLang}）：
-<翻译>
-<原文>こんにちは！</原文>
-<译文>你好！</译文>
-</翻译>
-<翻译>
-<原文>今日は何する？</原文>
-<译文>今天做什么？</译文>
-</翻译>`;
+- <原文>必须是角色真正说出的${sourceLang}，<译文>必须是这句话在${targetLang}中的忠实译文，语气和意思一一对应；绝不增加原文没有的辱骂、表白、事实或情绪。
+- 严禁用示例中的日语/中文等固定语言替换当前选择的语言；禁止输出“原文：/译文：”字样、JSON、翻译解释或多余说明。`;
     }
 
     // Private chat only: the model may request a genuine recall mutation.
