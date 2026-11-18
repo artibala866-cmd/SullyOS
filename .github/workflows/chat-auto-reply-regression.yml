@@ -32,6 +32,7 @@ on:
       - 'utils/realPersonReplyTurn.test.ts'
       - 'utils/chatPrompts.ts'
       - 'utils/chatRequestPayload.ts'
+      - 'utils/chatRequestPayload.test.ts'
       - 'utils/bilingualRecovery.ts'
       - 'utils/bilingualRecovery.test.ts'
       - 'utils/chatBilingualRecovery.integration.test.ts'
