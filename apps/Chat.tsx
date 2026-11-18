@@ -20,6 +20,7 @@ import CharacterPhone from '../components/chat/CharacterPhone';
 import { readCharacterAvatarLibrary, CHARACTER_AVATAR_CHANGED } from '../utils/characterAvatarLibrary';
 import { readCharacterPhoneSelfProfile } from '../utils/characterPhoneSelfProfile';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
+import { ChatHistoryReloadGate } from '../utils/chatHistoryReloadGate';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
@@ -326,7 +327,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 最新图片在移动端异步解码后会把消息列表继续向下撑开。记录这一条，等真实高度
     // 确定后再补一次贴底；用户一旦主动向上翻，就清掉它，绝不抢滚动位置。
     const pendingMediaAutoScrollIdRef = useRef<number | null>(null);
-    const scrollThrottleRef = useRef(0);
+    // Only follow the bottom while the reader is actually at the bottom.
+    // A smooth scroll on every streamed token used to fight layout changes and flicker.
+    const autoScrollPinnedRef = useRef(true);
+    const chatHistoryReloadGateRef = useRef(new ChatHistoryReloadGate());
     const visibleCountRef = useRef(30);
     const pendingFavoriteJumpRef = useRef<{ charId: string; messageId: number } | null>(null);
     const historyWindowRangeRef = useRef<ChatHistoryWindowRange | null>(null);
@@ -589,6 +593,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // chat-gen-reply-arrived bump lastMsgTimestamp，切回该角色时自然取回。
     const setMessagesFromGen = useCallback((msgs: Message[]) => {
         if (msgs.some(m => m.charId && m.charId !== activeCharIdRef.current)) return;
+        // A direct post-processing update wins over any DB read that started earlier.
+        chatHistoryReloadGateRef.current.invalidate();
         setMessages(msgs);
     }, []);
 
@@ -1224,11 +1230,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         if (!activeCharacterId) return;
 
         const charIdAtStart = activeCharacterId;
+        const reloadTicket = chatHistoryReloadGateRef.current.begin();
+        const isCurrentReload = () => activeCharIdRef.current === charIdAtStart
+            && chatHistoryReloadGateRef.current.isCurrent(reloadTicket);
         // 倒序游标先过滤展示范围再取最近 N 条。缓冲只用于判断是否还有历史，
         // 不能靠固定缓冲抵消见面/通话记录：它们可能连续几百条，挤掉真正的私聊。
         const fetchLimit = requestedVisibleCount >= 100000 ? requestedVisibleCount : requestedVisibleCount + 16;
         const accept = (message: Message) => isVisibleChatMessage(message, !!charRef.current?.hideSystemLogs);
         const applyResult = (recent: Message[], totalCount: number) => {
+            if (!isCurrentReload()) return;
             // 用 ref 取当前 char（避免闭包过期）
             const currentChar = charRef.current;
             // 不在视觉层过滤 hideBeforeMessageId —— 用户能往上滚回看，
@@ -1247,19 +1257,19 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
             // Guard against stale async results: if the user switched characters
             // while the DB query was in flight, discard this result.
-            if (activeCharIdRef.current !== charIdAtStart) return;
+            if (!isCurrentReload()) return;
             applyResult(recent, totalCount);
         } catch (e) {
             // DB read failed — retry once after a short delay
-            if (activeCharIdRef.current !== charIdAtStart) return;
+            if (!isCurrentReload()) return;
             await new Promise(r => setTimeout(r, 200));
-            if (activeCharIdRef.current !== charIdAtStart) return;
+            if (!isCurrentReload()) return;
             try {
                 const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
-                if (activeCharIdRef.current !== charIdAtStart) return;
+                if (!isCurrentReload()) return;
                 applyResult(recent, totalCount);
             } catch (retryError) {
-                if (activeCharIdRef.current !== charIdAtStart) return;
+                if (!isCurrentReload()) return;
                 console.warn('[Chat] Failed to load message history after retry', retryError);
                 setHistoryLoadError(true);
             }
@@ -1306,9 +1316,10 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
 
     useEffect(() => {
         if (activeCharacterId) {
-            // Update ref BEFORE any async work so stale reloadMessages calls
-            // from a previous character can detect the switch and bail out.
+            // Invalidate pending reads before clearing old conversation UI.
             activeCharIdRef.current = activeCharacterId;
+            chatHistoryReloadGateRef.current.invalidate();
+            autoScrollPinnedRef.current = true;
 
             // Clear messages immediately to prevent showing stale chat from previous character
             setMessages([]);
@@ -1353,7 +1364,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
             visibleCountRef.current = 30;
             setHistoryLoadError(false);
             lastMsgIdRef.current = null;
-            scrollThrottleRef.current = 0;
+
             setLastTokenUsage(null);
             setReplyTarget(null);
             setSelectionMode(false);
@@ -1502,15 +1513,17 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     };
 
     useLayoutEffect(() => {
-        if (!scrollRef.current || selectionMode) return;
-        const currentLastId = messages.length > 0 ? messages[messages.length - 1].id : null;
-        // Only auto-scroll when a new message is appended (ID changes),
-        // not when loading older history or updating existing messages in-place.
-        // windowed 模式下用户在翻旧消息，不要被新消息打断滚走。
+        const scroller = scrollRef.current;
+        if (!scroller || selectionMode) return;
+        const lastMessage = messages.length ? messages[messages.length - 1] : null;
+        const currentLastId = lastMessage?.id ?? null;
+        // New messages scroll only when pinned to the bottom, except for a
+        // newly sent user message. Do not yank the viewport away from older text.
         if (currentLastId !== lastMsgIdRef.current) {
-            if (windowedFocusMsgId === null) {
+            if (windowedFocusMsgId === null && (autoScrollPinnedRef.current || lastMessage?.role === 'user')) {
                 pendingMediaAutoScrollIdRef.current = currentLastId;
-                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                scroller.scrollTop = scroller.scrollHeight;
+                autoScrollPinnedRef.current = true;
             } else {
                 pendingMediaAutoScrollIdRef.current = null;
             }
@@ -1559,6 +1572,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         const scroller = scrollRef.current;
         if (!scroller) return;
         const distanceFromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+        autoScrollPinnedRef.current = distanceFromBottom <= 96;
         if (distanceFromBottom > 96) pendingMediaAutoScrollIdRef.current = null;
 
         if (historyWindowScrollEnabledRef.current && historyWindowRangeRef.current) {
@@ -1577,14 +1591,13 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
         });
     }, [windowedFocusMsgId]);
 
-    useEffect(() => {
-        if (isTyping && scrollRef.current && !selectionMode && windowedFocusMsgId === null) {
-            const now = Date.now();
-            if (now - scrollThrottleRef.current > 150) {
-                scrollThrottleRef.current = now;
-                scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-            }
-        }
+    // Streaming text changes size many times per second. Keep the viewport in
+    // place before paint, never restart a smooth scroll animation for every token.
+    useLayoutEffect(() => {
+        const scroller = scrollRef.current;
+        if (!scroller || selectionMode || windowedFocusMsgId !== null || !autoScrollPinnedRef.current) return;
+        if (!(isTyping || streamingBubbles.length > 0 || streamingThinking)) return;
+        scroller.scrollTop = scroller.scrollHeight;
     }, [messages, isTyping, streamingBubbles, streamingThinking, inboxStatus, recallStatus, searchStatus, diaryStatus, selectionMode, windowedFocusMsgId]);
 
     // 白框提示音：当 char 新发的消息成为会话最后一条时播放一次（用户自己/历史/翻旧消息都不响）。
@@ -3961,14 +3974,15 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
     // 进聊天首帧、切角色、翻历史（老消息 id 更小）都不播，避免满屏一起闪。
     const animSeenMaxIdRef = useRef<number | null>(null);
     const [animatingIds, setAnimatingIds] = useState<Set<number>>(() => new Set());
-    // 切角色 / 首次进入：清基线，下一轮 detect 只记录不播
-    useEffect(() => {
+    // Both phases run before paint: a newly added bubble must never flash
+    // fully opaque for one frame and only then start its entry fade.
+    useLayoutEffect(() => {
         animSeenMaxIdRef.current = null;
         streamPreviewHandoverIdsRef.current.clear();
         setAnimatingIds(new Set());
     }, [activeCharacterId]);
-    // 检测新增：id 超过基线的才淡入；首帧只记基线不播
-    useEffect(() => {
+    // Detect new IDs in the layout phase, before the new bubbles paint.
+    useLayoutEffect(() => {
         if (displayMessages.length === 0) return;
         let maxId = -Infinity;
         for (const m of displayMessages) if (typeof m.id === 'number' && m.id > maxId) maxId = m.id;
@@ -4779,12 +4793,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                         && !(pushMessageId && (nextMessage?.metadata as any)?.activeMsg2?.messageId === pushMessageId);
                     return (
                         <div
-                            key={m.id || i}
+                            key={m.id}
                             id={`chat-msg-${m.id}`}
                             className={[
                                 flashMsgId === m.id ? 'ring-2 ring-neutral-300 bg-neutral-50/40 rounded-2xl mx-2' : '',
                                 animatingIds.has(m.id) && !suppressEntranceAnimation ? 'animate-fade-in' : '',
-                                'transition-all duration-300',
+                                // Never transition auto dimensions while text or group spacing changes.
                             ].filter(Boolean).join(' ')}
                             onAnimationEnd={(e) => {
                                 if (e.target !== e.currentTarget) return;
@@ -4846,7 +4860,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={isOpening || qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
-                            suppressEntranceAnimation={suppressEntranceAnimation}
+                            suppressEntranceAnimation
+                            // Only the outer keyed row owns the single entry animation.
                             onMcdSendCart={handleMcdSendCart}
                             onMcdCandidate={handleMcdCandidate}
                             onResolveTransfer={handleResolveTransfer}
@@ -4893,7 +4908,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                 {streamingBubbles.length > 0 && !selectionMode && (
                     <>
                         {streamingBubbles.map((bubble, i) => (
-                            <div key={`stream-preview-${i}`} data-stream-preview={i} className="transition-all duration-300">
+                            <div key={`stream-preview-${i}`} data-stream-preview={i}>
                                 <MessageItem
                                     msg={{
                                         id: -(i + 1),
@@ -4925,6 +4940,8 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     messageSpacing={osTheme.chatMessageSpacing}
                                     showTimestamp={qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
                                     thinkingChainOptions={thinkingChainOptions}
+                                    // A preview changes on every incoming token: no replayed fade-in.
+                                    suppressEntranceAnimation
                                 />
                             </div>
                         ))}
