@@ -2049,6 +2049,8 @@ export const useChatAI = ({
                 contextMsgs,
                 fullMessages,
                 initialData: data,
+                // Translation recovery is authorized only while the per-character switch is on.
+                translationMode: translationConfig?.enabled ? translationConfig : undefined,
                 historyMsgCount,
                 mcdInheritMeta,
                 xhsCaches,
