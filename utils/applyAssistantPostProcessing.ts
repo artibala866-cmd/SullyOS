@@ -803,6 +803,9 @@ export async function applyAssistantPostProcessing(
     const photo = parseImageDirective(piggyback.cleaned);
     piggyback.cleaned = photo.text;
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${piggyback.cleaned}` : piggyback.cleaned;
+    // Recover explicit plain-language/JSON pairs before the normal sanitizer
+    // treats a leading "Original:" / "原文:" as a speaker-name prefix.
+    if (ctx.translationMode?.enabled) aiContent = normalizeLabeledBilingualOutput(aiContent, ctx.translationMode);
     aiContent = normalizeAiContent(aiContent);
     // 先于 lead-in / 二轮渲染消费：否则控制标签会作为普通气泡短暂闪给用户看。
     aiContent = await replyStep(async () => consumeScheduleChanges(aiContent, utteranceAt));
