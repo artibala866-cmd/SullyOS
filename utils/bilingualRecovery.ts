@@ -30,6 +30,18 @@ export function normalizeLabeledBilingualOutput(raw: string, mode: BilingualMode
             }
         } catch { /* A normal conversational message can look JSON-like. */ }
     }
+    // A number of OpenAI-compatible models return English XML tag names even
+    // though the prompt asked for Chinese names. Convert only complete pairs.
+    const englishPair = /<(?:bilingual|translation)>\s*<(original|source)>([\s\S]*?)<\/\1>\s*<(translated|target|translation)>([\s\S]*?)<\/\3>\s*<\/(?:bilingual|translation)>|<(original|source)>([\s\S]*?)<\/\5>\s*<(translated|target|translation)>([\s\S]*?)<\/\7>/gi;
+    const fromEnglishXml = raw.replace(englishPair, (_match, _a, first, _b, second, _c, third, _d, fourth) => {
+        const source = (first ?? third ?? '').trim();
+        const target = (second ?? fourth ?? '').trim();
+        return source && target
+            ? `<翻译><原文>${source}</原文><译文>${target}</译文></翻译>`
+            : _match;
+    });
+    if (fromEnglishXml !== raw) return fromEnglishXml;
+
     // Do not overwrite already formatted messages or accidentally normalize
     // quotations of XML tags inside a normal chat message.
     if (/<\/?(?:翻译|原文|译文|翻譯|譯文)\s*>/.test(raw)) return raw;
