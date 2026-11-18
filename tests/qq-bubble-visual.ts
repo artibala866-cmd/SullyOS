@@ -6,6 +6,8 @@ import { renderChatDecorationSample } from '../components/chat/ChatDecorationSam
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import MessageItem from '../components/chat/MessageItem';
 import baseChatCss from '../components/chat/chatPreview.generated.css?inline';
 import { QQ_BUBBLE_CSS } from '../utils/qqBubbleTheme';
@@ -93,6 +95,54 @@ const consecutiveSizing = bilingualStyles.map(({ name, rootClass, theme, props }
   return { name, widths, stable: widths.every(width => width > 0 && Math.abs(width - widths[0]) <= 2) && height > 15 && noReplay };
 });
 const consecutiveSizingOK = consecutiveSizing.every(item => item.stable);
+// Live React rerenders: simulate 1 -> 2 -> 3 message arrivals, not only static
+// screenshots. Existing keyed bubbles must remain the exact same DOM nodes,
+// with identical dimensions and no new mount/width transition on each arrival.
+const liveCountChecks = bilingualStyles.map(({ name, rootClass, theme, props }) => {
+  const host = document.createElement('section');
+  host.style.cssText = 'width:360px;position:absolute;left:0;top:-100000px;visibility:hidden;';
+  root.appendChild(host);
+  const reactRoot = createRoot(host);
+  let firstNode: HTMLElement | null = null;
+  const sizes: Array<{width:number;height:number}> = [];
+  let sameNode = true;
+  let noAnimatedRelayout = true;
+  for (let count = 1; count <= 3; count++) {
+    flushSync(() => reactRoot.render(React.createElement('div',
+      { className: 'sully-chat-root ' + rootClass },
+      ...Array.from({length:count}, (_unused,index) =>
+        React.createElement('div', { key: 'stable-' + index, 'data-live-bubble': index },
+          React.createElement(MessageItem, {
+            msg: { id: 9990 + index, charId: 'live-bubble-smoke', role: 'assistant' as const,
+              type: 'text' as const, timestamp: 1790386860000,
+              content: '안녕 ㅎㅎ%%BILINGUAL%%你好（笑）' },
+            activeTheme: theme, charAvatar: '/sully/head.png',
+            charName: '示例角色', userAvatar: '/sully/head.png',
+            isFirstInGroup: index === 0, isLastInGroup: index === count - 1,
+            translationEnabled: true, suppressEntranceAnimation: true,
+            onLongPress: () => {}, onReply: () => {}, selectionMode: false,
+            isSelected: false, onToggleSelect: () => {}, showTimestamp: 'never', ...props,
+          })
+        )
+      )
+    )));
+    const first = host.querySelector<HTMLElement>('[data-live-bubble="0"] .sully-bubble-ai');
+    const row = host.querySelector<HTMLElement>('[data-live-bubble="0"]');
+    if (!first) { sameNode = false; continue; }
+    if (firstNode && firstNode !== first) sameNode = false;
+    firstNode = first;
+    sizes.push({ width: first.getBoundingClientRect().width, height: first.getBoundingClientRect().height });
+    noAnimatedRelayout &&= !first.classList.contains('animate-fade-in')
+      && (!!row && getComputedStyle(row).transitionDuration.split(',').every(duration => parseFloat(duration) === 0));
+  }
+  flushSync(() => reactRoot.unmount());
+  host.remove();
+  const [first] = sizes;
+  return { name, sameNode, sizes, stable: sameNode && noAnimatedRelayout && sizes.length === 3
+    && !!first && sizes.every(size => Math.abs(size.width - first.width) < 2 && Math.abs(size.height - first.height) < 2) };
+});
+const liveCountOK = liveCountChecks.every(item => item.stable);
+
 const bilingualOK = bilingualChecks.every(Boolean);
 const bilingualBreakdown = Array.from(root.querySelectorAll<HTMLElement>('[data-bilingual-debug]')).map(el => JSON.parse(el.dataset.bilingualDebug || '{}'));
 for (const scene of scenes) {
@@ -150,6 +200,8 @@ const checks = {
   bilingualBreakdown,
   consecutiveSizingOK,
   consecutiveSizing,
+  liveCountOK,
+  liveCountChecks,
   image: has('.sully-qq-image-message .chat-image-thumbnail'),
   scoped: sections.every(section => !!section.querySelector('.sully-chat-qq')),
 };
