@@ -8,6 +8,12 @@ on:
       - 'components/chat/ChatDecorationSample.tsx'
       - 'utils/qqBubbleTheme.ts'
       - 'utils/qqBubbleTheme.test.ts'
+      - 'utils/bilingualRecovery.ts'
+      - 'utils/bilingualRecovery.test.ts'
+      - 'utils/chatBilingualRecovery.integration.test.ts'
+      - 'utils/applyAssistantPostProcessing.ts'
+      - 'utils/chatRequestPayload.ts'
+      - 'utils/chatRequestPayload.test.ts'
       - 'tests/qq-bubble-visual.html'
       - 'tests/qq-bubble-visual.ts'
       - '.github/workflows/qq-bubble-visual-regression.yml'
@@ -32,7 +38,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Run QQ theme, quote, translation, and media regression tests
-        run: pnpm exec vitest run utils/qqBubbleTheme.test.ts
+        run: pnpm exec vitest run utils/qqBubbleTheme.test.ts utils/bilingualRecovery.test.ts utils/chatBilingualRecovery.integration.test.ts utils/chatRequestPayload.test.ts
       - name: Build real chat decoration sample CSS
         run: pnpm run build:chat-preview
       - uses: browser-actions/setup-chrome@v1
