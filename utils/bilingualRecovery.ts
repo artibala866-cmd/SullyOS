@@ -48,7 +48,7 @@ export function normalizeLabeledBilingualOutput(raw: string, mode: BilingualMode
 
 /** Only plain speech is eligible; internal commands, quotes and voice cards are not translation material. */
 export function eligibleTranslationSource(text: string): string {
-    if (!text || /%%BILINGUAL%%|<\/?(?:翻译|原文|译文|语音|語音|字幕)\b|\[html\]/i.test(text)) return '';
+    if (!text || /%%BILINGUAL%%|<\/?(?:翻译|原文|译文|语音|語音|字幕)(?:\s|>|$)|\[html\]/i.test(text)) return '';
     const candidate = text
         .replace(/\[\[(?:QU[OA]TE|引用)[:：][\s\S]*?\]\]/gi, '')
         .replace(/\[(?:QU[OA]TE|引用)[:：][^\]]*\]/gi, '')
