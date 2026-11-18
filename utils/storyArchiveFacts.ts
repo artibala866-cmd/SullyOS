@@ -27,8 +27,11 @@ export function storyArchiveModality(fact: Pick<StoryArchiveFact, 'text' | 'moda
             && !hearsay.test(assertion) && !negativeVerification.test(assertion);
         if (!resolved && !explainsPriorRumor) return 'unverified';
     }
+    // A past route plan followed by an actual reroute is history, not an
+    // outstanding intention. Future/planned reroutes still stay planned.
+    const rerouted = /(?:原计划|原本打算|原先打算|最初计划)[^。！？]*[，,；;](?:遂|于是|因此|因而|最终|随后|后来)(?:改走|改道|绕道)/u.test(text);
     const intends = /(?:打算|计划|准备于|准备在|决定.{0,55}(?:后|前|以后|之后|明天|下周|改天)|承诺.{0,35}(?:以后|明天|今后|将来|下周)|将要|拟于)/u.test(text);
-    if ((intends || /(?:^|[：:，,。])\s*(?:待办|下一步|接下来要|尚需|还需要|约好要|答应要)/u.test(text)) && !/(?:计划已经完成|计划已完成|打算已取消|放弃计划|取消计划|终于做到了|最终完成|随后已经前往|后来已经前往)/u.test(text)) return 'planned';
+    if (!rerouted && (intends || /(?:^|[：:，,。])\s*(?:待办|下一步|接下来要|尚需|还需要|约好要|答应要)/u.test(text)) && !/(?:计划已经完成|计划已完成|打算已取消|放弃计划|取消计划|终于做到了|最终完成|随后已经前往|后来已经前往)/u.test(text)) return 'planned';
     return undefined;
 }
 
@@ -46,18 +49,24 @@ const completedStoryAction = /(?:已经|已然|早已|已(?=送|换|寄|提交|�
 const canceledStoryAction = /(?:已经取消|已取消|正式取消|取消了|撤销了|已撤销|作罢|决定放弃|\bcancelled\b|\bcanceled\b)/iu;
 const uncertainStoryOutcome = /(?:如果|假如|要是|假设|(?:^|[，。；：])若|据说|听说|传闻|怀疑|猜测|预计|也许|可能|梦见|(?:想(?:要)?|拟|考虑|打算|将要|希望|试图)(?:取消|撤销|做完|办妥|完成|交付|签收))/u;
 const specificStoryCancellation = /(?:取消(?:了)?[^，。；;]{2,38}(?:约定|行动|之约)|(?:约定|行动|之约)[^，。；;]{0,12}(?:已取消|取消了|作罢))/u;
-const explicitStoryDelivery = /(?:已签收|签收完毕|签收并|签收后|交接完成|送达|交付完毕|(?:亲手|当场|最终|随后)交付)/u;
+const explicitStoryDelivery = /(?:已签收|签收完毕|签收并|签收后|交接完成|送达|交付完毕|(?:亲手|当场|最终|随后)交付|(?:亲手|当场|最终|随后)(?:将|把)[^，。！？]{1,45}(?:交付|交给))/u;
 const partialStoryCompletion = /(?:只(?:完成|做完|办妥)|完成(?:了)?(?:一部分|一半|部分|第[一二三四五六七八九十0-9]+步)|完成度)/u;
 const pastStoryPlan = /(?:原计划|原本(?:打算|计划|要)|原先(?:打算|计划)|本来(?:打算|计划)|最初(?:打算|计划))/u;
+
+const unfinishedStoryAction = /(?:尚未|还未|还没|没有|未能|并未|未)(?:彻底|全部|完全)?(?:完成|修好|修复|办妥|取消|交付|送达)/u;
 
 function storyArchiveClosingOutcome(text: string): 'completed' | 'canceled' | undefined {
     for (const sentence of storySentences(text).reverse()) {
         const clauses = sentence.split(/[，,；;]/u);
         const closingFromEnd = [...clauses].reverse().findIndex(clause => canceledStoryAction.test(clause) || specificStoryCancellation.test(clause)
             || explicitStoryDelivery.test(clause) || /(?:完成|办妥|做完|送到了?|交给了|换好了?|交付了|取回了|拆除了)/u.test(clause));
-        if (closingFromEnd < 0) continue;
+        if (closingFromEnd < 0) {
+            if (unfinishedStoryAction.test(sentence)) return;
+            continue;
+        }
         const closing = clauses.length - 1 - closingFromEnd;
         const last = clauses[closing];
+        if (unfinishedStoryAction.test(clauses.slice(closing + 1).join('，'))) return;
         if (/[？?]/u.test(sentence)
             || uncertainStoryOutcome.test(clauses.slice(0, closing + 1).join('，'))
             || storyArchiveModality({ text: last })
@@ -350,7 +359,9 @@ export function readStoryRecallArchives(archives: StoryTheaterArchive[] | undefi
             if (!fact || typeof fact.key !== 'string' || !fact.key.trim() || typeof fact.text !== 'string'
                 || (fact.kind !== 'fact' && fact.kind !== 'author')
                 || !Number.isFinite(fact.sourceMessageId) || fact.sourceMessageId < box.fromMessageId || fact.sourceMessageId > box.toMessageId) return [];
-            return [{ ...fact, terms: Array.isArray(fact.terms) ? fact.terms.filter(term => typeof term === 'string') : [],
+            return [{ ...fact, sourceMessageIds: Array.isArray(fact.sourceMessageIds)
+                ? [...new Set(fact.sourceMessageIds.filter(id => Number.isSafeInteger(id) && id >= box.fromMessageId && id <= fact.sourceMessageId))] : undefined,
+                terms: Array.isArray(fact.terms) ? fact.terms.filter(term => typeof term === 'string') : [],
                 aliases: archiveLinkLabels(fact.aliases, 8), relatedKeys: archiveLinkLabels(fact.relatedKeys, 6),
                 entities: readArchiveEntities(fact.entities),
                 storyTime: typeof fact.storyTime === 'string' ? fact.storyTime : undefined }];
@@ -489,16 +500,20 @@ export function storyArchiveFactTime(
 }
 
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
-    '你负责整理剧情记忆。从【本批新楼层】从首到尾提取会影响续写的新内容。上一次已保存归档、更早结构化记忆和人设仅供核对，不得作为新增来源。每条新记忆只能引用本批实际记录ID。',
-    '只返回一个 JSON 对象，顶层为 changes 数组。每条变化填写 action、key、kind、text、terms 及 sourceMessageId，sourceMessageId 填记录ID后面的纯数字，可加 quote、storyTime、modality、continuity、authorScope、aliases、relatedKeys、entities。逐楼核对后确无变化才返回 {"changes":[]}。',
-    '把同一事项跨楼的起因、受阻过程、最终结果和例外写成一个能独立读懂的 text。通行条件和知情边界随其关联的事件一起记。同一事项从计划走到结案，在一段里写全原因、阻碍、行动、结案与后续限制；不要另写一条重复其结果。省略末尾站位、最后动作和开场位置，只保留有后效的场景变化。有数次需要分别追踪的状态变化才逐条记录。独立任务才另起一条。别按楼层或字数机械拆分，用自己的话整理。',
-    '六项用于检查覆盖：关键事件及因果与受阻；有后效的剧情时间、地点及转场；关系、秘密、误会及各人知情范围；有原文依据的心理或态度变化与起因；设定、能力限制、归属、数量、编号等精确细节；未决事项、结案和用户场外要求。按事项组织正文，无需输出六个标题。整批正文须控制在100～1500字符（含标点与换行），没有足够信息时不编造凑字，先压缩修饰、重复及无后效的过程，保留重要事实、否定、条件和例外。',
-    'kind 为 fact 或 author。逐个检查用户楼层，即使没有 OOC 或与剧情混写，也要找出每项明确的场外要求并写清限制、对象、条件和例外。同一要求的多项条件写在同一 author 段。将只限当轮的要求与长期要求分别记录，只限当轮标 authorScope:"turn"。用户修改旧要求时保留仍生效的条件。引号内角色命令和角色在剧情中的行动属于剧情。terms 写人名、地点、物品和编号。',
-    '新增用 add；同一事项更新、明确纠正或结案用 update，沿用旧 key。不同事项和不同场外要求用不同 key。新的同类行动须有原文依据另建 key。原先已有的剧情或场外要求仅重复、换词提起时略过。已完成或取消的事只作为过去结果保留，不能重新写成待办。',
-    '明确已办完用 continuity:"completed"，已取消用 "canceled"，持续身份或限制用 "rule"。当前还没做的事用 modality:"planned"，未经确认的传闻用 "unverified"。区分谁知情、发生了什么和只设想了什么。一个事项结案时，早先的计划只写在经过里，不再加 planned。原文未确认就不要补全。',
-    '事项跨楼时 sourceMessageId 指向确认当前状态或结果的本批记录ID。quote 可选，仅摘该楼的逐字证据。storyTime 只记录原文剧情时间，不能用聊天时间或把回忆的时间套成现在。界面好感由程序另存。',
-    '可选检索字段：aliases 仅填原文明示的别名，relatedKeys 仅填直接相关的事项 key，entities 填原文专名和类别 person/place/object/organization/event/code，可带原文明示的 aliases。不猜人设和关系。',
-    '动笔前，先从用户楼层列出各项新场外要求，再把本批剧情的首、中、尾串成事项，核对因果、结案和例外。把 fact 和 author 一起写进 changes；不能因为其中一类已写完就漏掉另一类。输出必须以 {"changes":[ 开始，随后写入各项，再闭合数组和对象。',
+    '将本批选中的剧情整理成少量、能独立读懂的记忆段。所有新内容以【本批新楼层】为证据。先读取上一次归档，再对照较早记忆，保留新增、纠正和真实进展。',
+    '第一步整理剧情。以独立事项分段，将起因、关键行动、受阻与转折、结果、条件和例外写在一起。同一事件跨多楼也合成一段。分别更新的事项才分开；已完成或取消的事只作为过去结果保留，保留经过和结案，不能改写为待办。只记录会影响后续的内容，省略末尾站位、最后动作和开场位置。',
+    '第二步逐个核对每条用户输入。场外纠错、补充设定、人物行为限制和写作要求用自己的话归纳，写清对象、每项条件、例外和期限。即使没有OOC、即使与剧情混写，也要整理。角色在剧情里说的话、用户扮演的行动及引用示例不属于场外要求。',
+    '第三步检查六项覆盖：事件因果和失败；有后效的时间地点与转场；人物关系、秘密、误会、谁知道什么；有依据的心理或态度变化与起因；身份、规则、能力限制、归属、金额、数量和编号等精确细节；未决事项、完成或取消状态，以及每项场外要求。六项用于检查覆盖，无需输出六个标题，不为缺项编造内容。',
+    '同一次响应返回一个JSON对象，包含changes（剧情记忆段）和instructions（场外要求段）两个数组。输出次序为先instructions后changes，确保用户要求和剧情都整理完。无此类新增或变化时对应数组为空。',
+    '每段字段：key为具体且稳定的对象/事项，text为整理后的完整段落，sourceMessageId为本批来源记录ID的纯数字，action为add或update。剧情段kind为fact，场外段kind为author。terms可填人名、地点、物件、编号。先写清text，再补检索字段。',
+    '同一事项有进展或明确纠正才用update并沿用旧key。独立事项各用独立key，不用“剧情/进展”等笼统名称。同一项在本批多次变化且中间状态有后效时，才按顺序各记一次。回顾旧事、换词重述和重复要求略过。明确开启新一轮同类行动时另建key。',
+    'sourceMessageId指向确认本段最新状态或结果的本批记录。跨楼合段可用sourceMessageIds列出本段实际参考的所有本批记录ID，最后一项为sourceMessageId。quote可选，只能填该来源楼的逐字证据，无法逐字引用就省略。',
+    '准确分清已发生、仅打算、传闻、内心和各人知情。明确完成填continuity:"completed"，明确取消填"canceled"，持续身份或限制填"rule"。尚未做的计划填modality:"planned"，未证实说法填"unverified"。已结案段中的原计划属于经过，不再标planned；另一条传闻不能改变已确认事件。',
+    '长期场外要求保留全部有效条件。只限当轮的要求另段并标authorScope:"turn"，不要将同楼长期要求一起标成turn。修改某一要求时保留其余仍有效的条件。场外要求不能写成角色已经实施的行为。',
+    'storyTime仅填原文明确的剧情时间，不能用聊天日期、楼层或回忆中的时间替代现在。界面好感数值由程序另存。原有角色卡、世界书和前提用于区分已有设定，不重复当成新剧情。',
+    'aliases仅用原文明示别名。entities仅列有证据的专名，格式为{"name":"专名","type":"person|place|object|organization|event|code","aliases":[]}。relatedKeys仅填有直接因果、同物交接或同一未决事项的key。没依据的可选字段直接省略。',
+    '整批最终正文100～1500字符（含标点与换行）。先删重复、修饰、无后效过程，再精简句子；保留关键主体、否定、因果、条件、例外和状态。素材少时不编造凑字。不能用全文摘抄或逐楼流水账代替总结。',
+    '提交前对照上一档和本批首、中、尾：每项新场外要求及其条件是否入instructions？每个新事项、结案与变化是否入changes？同件事是否被拆成重复段？如果发现遗漏，在这次响应里补齐再闭合JSON。只输出JSON。',
 ].join('\n');
 
 export function storyArchiveFactIdentity(fact: StoryArchiveFact): string {
@@ -708,7 +723,8 @@ function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; auth
         const second = text.slice(boundary.index! + boundary[0].length);
         const turnAtSentenceStart = boundary[0].startsWith('。') && explicitTurnAuthorStart.test(second);
         const turnFirst = explicitTurnAuthorStart.test(first) && persistentAuthorStart.test(second);
-        const persistentFirst = persistentAuthorStart.test(first) && (authorTurnStart.test(second) || turnAtSentenceStart);
+        const persistentFirst = !explicitTurnAuthorStart.test(first)
+            && (authorTurnStart.test(second) || turnAtSentenceStart);
         if (turnFirst || persistentFirst) return [
             { ...change, text: (turnFirst ? second : first).replace(/[。！？]$/u, '') + '。', authorScope: undefined },
             { ...change, text: (turnFirst ? first : second).replace(/[。！？]$/u, '') + '。', authorScope: 'turn' },
@@ -732,6 +748,12 @@ export function parseStoryArchiveChanges(
     if (!value || typeof value !== 'object' || !('changes' in value) || !Array.isArray(value.changes)) {
         throw new StoryArchiveIncompleteReply('模型没有返回 changes 数组');
     }
+    if ('instructions' in value && !Array.isArray(value.instructions)) {
+        throw new StoryArchiveIncompleteReply('场外要求必须是 instructions 数组');
+    }
+    const instructions = 'instructions' in value && Array.isArray(value.instructions) ? value.instructions : [];
+    const changes = [...value.changes, ...instructions.map(change =>
+        change && typeof change === 'object' ? { ...change, kind: 'author' } : change)];
     const existing = new Map(known.map(fact => [fact.key, fact]));
     const confirmedOutcomes = new Map(known.filter(fact => {
         const outcome = storyArchiveContinuityKind(fact);
@@ -747,7 +769,7 @@ export function parseStoryArchiveChanges(
     // sentence. Do NOT reject changed states on semantic similarity.
     const facts = new Map<string, StoryArchiveFact>();
     let skippedOldSource = false;
-    for (const [index, change] of value.changes.flatMap(splitStoryAuthorScopes).entries()) {
+    for (const [index, change] of changes.flatMap(splitStoryAuthorScopes).entries()) {
         const rawKind = typeof change?.kind === 'string' ? normalize(change.kind) : change?.kind;
         const action = typeof change?.action === 'string' ? normalize(change.action) : change?.action;
         if (!change || typeof change.key !== 'string' || typeof change.text !== 'string'
@@ -771,7 +793,8 @@ export function parseStoryArchiveChanges(
         const direct = !floorRef && Number.isSafeInteger(providedId) ? sources.get(providedId) : undefined;
         const floor = [...sources.entries()].find(([, source]) => source.floorNumber === providedId);
         const candidates = quote ? [...sources.entries()].filter(([, source]) => quoteExistsIn(source.text, quote)) : [];
-        if (!direct && candidates.length !== 1 && sourceRef) {
+        if (!direct && candidates.length !== 1 && sourceRef
+            && !(Array.isArray(change.sourceMessageIds) && change.sourceMessageIds.some((id: unknown) => sources.has(Number(id))))) {
             const prior = [...known, ...priorHistory].filter(fact => fact.sourceMessageId === providedId && fact.kind === kind);
             if (prior.some(fact => comparable(fact.text) === comparable(text))) continue;
             if (action && prior.length) {
@@ -787,9 +810,17 @@ export function parseStoryArchiveChanges(
         // A uniquely matching verbatim quote is stronger evidence than an ID
         // guessed by a smaller model. When the quote is paraphrased or omitted,
         // trust the valid direct source ID instead.
-        const selected = candidates.length === 1 ? candidates[0]
+        const providedSources = Array.isArray(change.sourceMessageIds)
+            ? [...new Set<number>(change.sourceMessageIds.map((id: unknown) => Number(id))
+                .filter((id: number) => Number.isSafeInteger(id) && sources.has(id)))].sort((a, b) => a - b) : [];
+        const lastProvided = providedSources.at(-1);
+        const anchored = candidates.length === 1 ? candidates[0]
             : direct ? [providedId, direct] as const
             : floorRef || (sourceRef && !sourceRef[1]) ? floor : undefined;
+        // A multi-floor paragraph is current only after its last contributing
+        // floor, even when its quote anchors a detail from an earlier floor.
+        const selected = lastProvided !== undefined && (!anchored || lastProvided > anchored[0])
+            ? [lastProvided, sources.get(lastProvided)!] as const : anchored;
         if (!selected && !sourceToken && action === 'update') {
             const previous = existing.get(key);
             // A provider may echo a settled paragraph and append an undated
@@ -803,24 +834,53 @@ export function parseStoryArchiveChanges(
         }
         if (!selected) throw invalid(`第 ${index + 1} 条没有有效的原文记录ID`);
         const [sourceMessageId, source] = selected;
+        const sourceMessageIds = [...new Set([...providedSources.filter(id => id <= sourceMessageId), sourceMessageId])];
+        const sourceEvidence = sourceMessageIds.map(id => sources.get(id)!.text).join('\n');
         // An umbrella key causes unrelated scenes to overwrite each other and
         // creates huge fake "state transitions" (the exact video symptom).
         if (/^(?:剧情|故事|事件|情节|主线|进度)[\/：:](?:进展|发展|事件|经历|内容|动态|记录|状态)$/u.test(key)) {
             key = '独立事件/来源' + sourceMessageId + '/' + index;
         }
         if (kind === 'author' && !source.authorInput) {
+            // Some providers duplicate an assistant-sourced plot paragraph in
+            // both arrays. Keep its already-returned fact, never promote it to
+            // a user direction and never discard the rest of the valid batch.
+            const plotCopy = changes.some(other => other && (other.kind == null || other.kind === 'fact')
+                && typeof other.text === 'string' && comparable(other.text) === comparable(text)
+                && (Number(other.sourceMessageId) === sourceMessageId
+                    || Array.isArray(other.sourceMessageIds) && other.sourceMessageIds.map(Number).includes(sourceMessageId)));
+            if (plotCopy) continue;
             throw invalid(`第 ${index + 1} 条作者指令不是用户输入`);
         }
-        const sourceIsPersistent = kind === 'author' && /(?:^|[。；：，\n])\s*(?:从此|此后|往后|长期|以后|接下来的正文)/u.test(source.text);
-        const persistentSummary = persistentAuthorStart.test(text) ||
-            (sourceIsPersistent && !explicitTurnAuthorStart.test(text) && Array.isArray(change.terms) && change.terms.some((term: unknown) =>
-                typeof term === 'string' && term.length >= 3 && source.text.includes(term) && text.includes(term)));
+        const persistentClauses = kind === 'author' ? storySentences(source.text).map(sentence => sentence.trim()
+            .replace(/^(?:OOC|场外|作者备注)[:：]\s*/iu, ''))
+            .filter(sentence => !explicitTurnAuthorStart.test(sentence)
+                && /(?:从此|此后|往后|长期|以后|接下来的正文|永远|始终|一律)/u.test(sentence)) : [];
+        const sourceIsPersistent = persistentClauses.length > 0;
+        // Scope is verified from the actual enduring clause, not optional
+        // model-written terms or the scope of a different note on this floor.
+        const persistentEvidence = persistentClauses.some(sentence => {
+            const evidence = comparable(sentence), body = comparable(text);
+            for (let i = 0; i <= body.length - 4; i++) if (evidence.includes(body.slice(i, i + 4))) return true;
+            return false;
+        });
+        const persistentSummary = persistentAuthorStart.test(text)
+            || (!explicitTurnAuthorStart.test(text) && persistentEvidence);
         if (kind === 'author' && persistentSummary && sourceIsPersistent) {
             text = text.replace(/[，,；;。]\s*此(?:项|条)?(?:规则|要求|限制)(?:仅|只)适用于本批(?:剧情)?[。！\s]*$/u, '。');
         }
-        const authorScope = kind === 'author' && !persistentSummary && (change.authorScope === 'turn'
+        // Verify an otherwise identical scope against the user's words. A
+        // model-written “以后” must not make “本轮” persist into future play.
+        const authorCore = (value: string) => comparable(value.replace(/^(?:(?:OOC|场外|作者备注)[:：]\s*)?/iu, '')
+            .replace(/^(?:(?:仅限|只限|仅在|只在)?(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?|此后|以后|往后|从此|长期|后续(?:正文|续写|回复))[，：\s]*(?:只|仅)?/u, ''));
+        const groundedTurn = kind === 'author' && storySentences(source.text).map(sentence => sentence.trim()
+            .replace(/^(?:OOC|场外|作者备注)[:：]\s*/iu, ''))
+            .find(sentence => explicitTurnAuthorStart.test(sentence) && authorCore(sentence).length >= 3
+                && authorCore(sentence) === authorCore(text));
+        if (groundedTurn && !explicitTurnAuthorStart.test(text)) text = groundedTurn;
+        const authorScope = kind === 'author' && (!!groundedTurn || !persistentSummary && (change.authorScope === 'turn'
             || authorTurnStart.test(text)
-            || /(?:[（(]|[，；、]\s*)?(?:仅限|只限|仅适用于|只适用于)(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[）)。！\s]*$/u.test(text)) ? 'turn' as const : undefined;
+            || /(?:[（(]|[，；、]\s*)?(?:仅限|只限|仅适用于|只适用于)(?:本轮|这一次|这次|这一轮|本次)(?:回复|续写)?[）)。！\s]*$/u.test(text))) ? 'turn' as const : undefined;
         if (authorScope) key = '场外当轮/' + sourceMessageId + '/' + index;
         if (kind === 'author' && !authorScope) {
             const previous = facts.get(key) ?? existing.get(key);
@@ -829,6 +889,14 @@ export function parseStoryArchiveChanges(
             const generic = /^(?:场外|作者|用户|写作)(?:[/:]?(?:指令|要求|协助指令|协助要求|备注|纠错|说明))?$/u.test(key);
             if (previous?.kind === 'author' && comparable(previous.text) !== comparable(text)
                 && (action !== 'update' || generic)) key = '场外要求/' + sourceMessageId + '/' + index;
+        }
+        const collision = facts.get(key) ?? existing.get(key);
+        if (kind === 'fact' && action === 'add' && collision?.kind === 'fact'
+            && comparable(collision.text) !== comparable(text)) {
+            const generic = /^(?:人物|事件|剧情|故事|主线|记录|事项)[/：:]?(?:进展|状态|内容|记录|结果|变化|事件)?$/u.test(key);
+            if (generic || collision.sourceMessageId === sourceMessageId) {
+                key += '/独立事项' + sourceMessageId + '/' + index;
+            }
         }
         // A quote anchors the actual clause, even when the model copies another clause's date.
         const quotedClauses = quote && quoteExistsIn(source.text, quote)
@@ -851,15 +919,26 @@ export function parseStoryArchiveChanges(
             const recallsEarlier = /(?:提起|回顾|说起|聊起|谈起|重提)[^。！？]{0,40}(?:此前|之前|早先|原先|原本|过去|原计划|当时)/u
                 .test(source.text.slice(openingClause.length));
             const exactOpening = recallsEarlier && comparable(openingClause) === comparable(text) ? openingClause : undefined;
-            const evidence = quotedClause ?? exactOpening ?? source.text;
-            const evidenceModality = quotedClause || exactOpening || storySentences(source.text).length === 1
+            const exactSummarySentence = storySentences(source.text).find(sentence => comparable(sentence) === comparable(text));
+            const evidence = quotedClause ?? exactOpening ?? exactSummarySentence ?? source.text;
+            const groundedClause = quotedClause || exactOpening || exactSummarySentence;
+            const evidenceModality = groundedClause || storySentences(source.text).length === 1
                 ? storyArchiveModality({ text: evidence }) : undefined;
-            modality = evidenceModality ?? modality;
+            modality = groundedClause ? evidenceModality : evidenceModality ?? modality;
             const closing = storyArchiveClosingOutcome(text);
             if (closing && (!modality || pastStoryPlan.test(text) || continuityHint === closing)
                 && storyArchiveClosingOutcome(evidence) === closing && modality !== 'unverified') {
                 modality = undefined;
                 continuityHint = closing;
+            }
+            if ((continuityHint === 'completed' || continuityHint === 'canceled')
+                && storyArchiveClosingOutcome(text) !== continuityHint
+                && (partialStoryCompletion.test(text)
+                    || unfinishedStoryAction.test(text))) {
+                // A model's terminal flag cannot close the still-unfinished
+                // task described by its own paragraph.
+                continuityHint = undefined;
+                modality = storyArchiveModality({ text });
             }
             const codeClaims = storyArchiveCodes(text);
             let unsupportedCode = false;
@@ -927,7 +1006,7 @@ export function parseStoryArchiveChanges(
             ? storyArchiveContinuityKind({ kind, text, continuity: continuityHint })
                 ?? (previous?.continuity === 'rule' ? 'rule' : undefined)
             : undefined;
-        const fact = { key, kind, text, sourceMessageId, ...(authorScope ? { authorScope } : {}), ...(storyTime ? { storyTime } : {}),
+        const fact = { key, kind, text, sourceMessageId, ...(sourceMessageIds.length > 1 ? { sourceMessageIds } : {}), ...(authorScope ? { authorScope } : {}), ...(storyTime ? { storyTime } : {}),
             ...(modality ? { modality } : {}), ...(continuity ? { continuity } : {}) };
         const comparableText = signature(fact);
         const oldInBatch = facts.get(key);
@@ -941,11 +1020,14 @@ export function parseStoryArchiveChanges(
         if (oldInBatch && oldInBatch.kind === 'fact' && kind === 'fact'
             && (oldInBatch.text !== text || storyArchiveModality(oldInBatch) !== storyArchiveModality(fact))) onEarlierState?.(oldInBatch);
         let aliases = kind === 'fact' ? archiveLinkLabels(change.aliases, 4)
-            .filter(alias => normalize(source.text).includes(alias)) : [];
+            .filter(alias => normalize(sourceEvidence).includes(alias)) : [];
         let relatedKeys = kind === 'fact' ? archiveLinkLabels(change.relatedKeys, 3)
             .filter(link => link !== normalize(key)) : [];
-        let entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(source.text)) : [];
+        let entities = kind === 'fact' ? readArchiveEntities(change.entities, normalize(sourceEvidence)) : [];
         const state = oldInBatch ?? previous;
+        if (state?.kind === 'fact' && action === 'update') {
+            aliases = [...new Set([...(state.aliases ?? []), ...aliases])].slice(0, 8);
+        }
         const sameEntry = state && (signature(state) === comparableText || (!oldInBatch && sameState));
         let metadataChanged = false;
         if (sameEntry && state.kind === 'fact') {
@@ -960,7 +1042,8 @@ export function parseStoryArchiveChanges(
             aliases = [...new Set([...oldAliases, ...aliases])].slice(0, 8);
             relatedKeys = [...new Set([...oldLinks, ...relatedKeys])].slice(0, 6);
             entities = [...byName.values()].slice(0, 10);
-            metadataChanged = aliases.length !== oldAliases.length || relatedKeys.length !== oldLinks.length
+            metadataChanged = terms.some(term => !state.terms.includes(term))
+                || aliases.length !== oldAliases.length || relatedKeys.length !== oldLinks.length
                 || entities.length !== oldEntities.length || entities.some((entity, i) => (entity.aliases?.length ?? 0) > (oldEntities[i]?.aliases?.length ?? 0));
             if (metadataChanged) terms.push(...state.terms.filter(term => !terms.includes(term)));
         }
@@ -1081,6 +1164,8 @@ export function parseStoryArchiveChanges(
             onEarlierState?.({ ...earlier, mergedIntoKey: key });
             facts.set(key, {
                 ...outcome, text: combined,
+                sourceMessageIds: [...new Set([...(earlier.sourceMessageIds ?? [earlier.sourceMessageId]),
+                    ...(outcome.sourceMessageIds ?? [outcome.sourceMessageId])])].sort((a, b) => a - b),
                 terms: [...new Set([...earlier.terms, ...outcome.terms])],
                 aliases: [...new Set([...(earlier.aliases ?? []), ...(outcome.aliases ?? [])])].slice(0, 8),
                 entities: readArchiveEntities([...(outcome.entities ?? []), ...(earlier.entities ?? [])]),

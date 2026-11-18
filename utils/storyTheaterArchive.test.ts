@@ -2049,3 +2049,37 @@ it('records same-floor omitted facts individually and uses explicitly enabled re
         expect.objectContaining({ floor: 2, status: 'budget' }),
     ]));
 });
+
+describe('one-response plot and author memory channels', () => {
+    it('saves both channels atomically and recalls them with automatic summarization disabled', async () => {
+        const authorText = '以后信件验章后才能阅读，青灯亲手递交的除外。';
+        const plotText = '青灯已把密封信件交给柳巡，柳巡签收。';
+        const rows: Message[] = [];
+        for (const [role, content] of [['user', '场外：' + authorText], ['assistant', plotText]] as const) {
+            const row = { charId: storyTheaterThreadId(entry.id), role, type: 'text' as const, content,
+                timestamp: 20, metadata: { source: 'story_theater', theaterId: entry.id } };
+            rows.push({ ...row, id: await DB.saveMessage(row) });
+        }
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({
+            instructions: [{ key: '写作/文书', action: 'add', text: authorText, sourceMessageIds: [rows[0].id] }],
+            changes: [{ key: '信件/交付', kind: 'fact', action: 'add', text: plotText, sourceMessageIds: [rows[1].id] }],
+        }))));
+        const saved = await archiveStoryFloorRange(entry.id, rows, api);
+        expect(fetchMock).toHaveBeenCalledOnce();
+        const box = saved.archives.at(-1)!;
+        expect(box.facts).toEqual(expect.arrayContaining([
+            expect.objectContaining({ kind: 'author', text: authorText }),
+            expect.objectContaining({ kind: 'fact', text: plotText }),
+        ]));
+        const loaded = await fresh();
+        const recalled = await buildStoryTheaterRecall({
+            entry: { ...loaded, automaticMemoryApiEnabled: false }, rows: [], beforeId: rows[1].id + 1, floor: 5,
+            baseline: '', visibleRows: [], historyVisible: false, continuation: false, opening: false,
+            userInput: '柳巡能直接读青灯的信吗？', readOriginalEvidence: false,
+        });
+        const payload = recalled.messages.map(message => message.content).join('\n');
+        expect(payload).toContain(authorText);
+        expect(payload).toContain(plotText);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+});

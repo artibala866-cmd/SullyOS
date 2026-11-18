@@ -2217,6 +2217,8 @@ export interface StoryArchiveFact {
     entities?: StoryArchiveEntity[];
     relatedKeys?: string[];
     sourceMessageId: number;
+    /** Evidence floors contributing to a combined segment, ending at sourceMessageId. */
+    sourceMessageIds?: number[];
     /** Original in-story time phrase, never derived from the message's real-world timestamp. */
     storyTime?: string;
     /** Distinguishes a planned future action or unverified report from confirmed story events. */

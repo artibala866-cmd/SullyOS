@@ -349,7 +349,8 @@ export async function backfillStoryArchiveTags(entryId: string): Promise<number>
                 const entry = read.result as StoryTheaterEntry | undefined;
                 if (!entry) return;
                 const apply = (fact: StoryArchiveFact) => {
-                    const next = backfillStoryArchiveFactTags(fact, sources.get(fact.sourceMessageId));
+                    const next = backfillStoryArchiveFactTags(fact, (fact.sourceMessageIds ?? [fact.sourceMessageId])
+                        .map(id => sources.get(id) ?? '').join('\n'));
                     if (next !== fact) count++;
                     return next;
                 };
