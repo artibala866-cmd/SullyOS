@@ -94,7 +94,7 @@ describe('story summary final channel', () => {
         ] }), sources, [old]);
         expect(changes).toHaveLength(4);
         expect(changes.find(fact => fact.authorScope === 'turn')).toMatchObject({ sourceMessageId: 39, text: '只用一句旁白。' });
-        expect(changes.find(fact => fact.key === '写作/验章')).toMatchObject({ text: author.split('，此规则')[0] + '。' });
+        expect(changes.find(fact => fact.key === '写作/验章')).toMatchObject({ text: '从此密封文书须验灰色骑缝章，青灯递交时免验。' });
         expect(changes.find(fact => fact.key === '写作/验章')?.authorScope).toBeUndefined();
         expect(changes.find(fact => fact.sourceMessageId === 30)).toMatchObject({ modality: 'planned',
             text: expect.stringMatching(/已做：拆掉外壳.*闸机没有修好/u) });
@@ -1500,7 +1500,7 @@ describe('consecutive automatic archives', () => {
         expect(lines.at(-1)).toContain('记录ID ' + mixed.id + '、' + turn.id);
         expect(lines.at(-1)).not.toContain(ordinary.content);
         expect(result.archives.at(-1)?.facts).toEqual([
-            expect.objectContaining({ text:'巡检员须经青灯亲口告知才知道真名。' }),
+            expect.objectContaining({ text:'接下来的正文不要让巡检员知道真名，除非青灯亲口告诉巡检员。' }),
             expect.objectContaining({ text:'仅在本轮回复略过天气。', authorScope:'turn' }),
         ]);
         expect(fetchMock).toHaveBeenCalledOnce();

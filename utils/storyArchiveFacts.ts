@@ -502,7 +502,7 @@ export function storyArchiveFactTime(
 export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '将本批选中的剧情整理成少量、能独立读懂的记忆段。所有新内容以【本批新楼层】为证据。先读取上一次归档，再对照较早记忆，保留新增、纠正和真实进展。',
     '第一步整理剧情。以独立事项分段，将起因、关键行动、受阻与转折、结果、条件和例外写在一起。同一事件跨多楼也合成一段。分别更新的事项才分开；已完成或取消的事只作为过去结果保留，保留经过和结案，不能改写为待办。只记录会影响后续的内容，省略末尾站位、最后动作和开场位置。',
-    '第二步逐个核对每条用户输入。场外纠错、补充设定、人物行为限制和写作要求用自己的话归纳，写清对象、每项条件、例外和期限。即使没有OOC、即使与剧情混写，也要整理。角色在剧情里说的话、用户扮演的行动及引用示例不属于场外要求。',
+    '第二步逐个核对每条用户输入。场外纠错、补充设定、人物行为限制和写作要求用自己的话归纳，写清对象、每项条件、例外和期限，必要的条件原句可以保留，不能改变触发动作或扩大授权。即使没有OOC、即使与剧情混写，也要整理。角色在剧情里说的话、用户扮演的行动及引用示例不属于场外要求。',
     '第三步检查六项覆盖：事件因果和失败；有后效的时间地点与转场；人物关系、秘密、误会、谁知道什么；有依据的心理或态度变化与起因；身份、规则、能力限制、归属、金额、数量和编号等精确细节；未决事项、完成或取消状态，以及每项场外要求。六项用于检查覆盖，无需输出六个标题，不为缺项编造内容。',
     '同一次响应返回一个JSON对象，包含changes（剧情记忆段）和instructions（场外要求段）两个数组。输出次序为先instructions后changes，确保用户要求和剧情都整理完。无此类新增或变化时对应数组为空。',
     '每段字段：key为具体且稳定的对象/事项，text为整理后的完整段落，sourceMessageId为本批来源记录ID的纯数字，action为add或update。剧情段kind为fact，场外段kind为author。terms可填人名、地点、物件、编号。先写清text，再补检索字段。',
@@ -753,7 +753,7 @@ export function parseStoryArchiveChanges(
     }
     const instructions = 'instructions' in value && Array.isArray(value.instructions) ? value.instructions : [];
     const changes = [...value.changes, ...instructions.map(change =>
-        change && typeof change === 'object' ? { ...change, kind: 'author' } : change)];
+        change && typeof change === 'object' ? { ...change, kind: 'author', action: change.action ?? 'add' } : change)];
     const existing = new Map(known.map(fact => [fact.key, fact]));
     const confirmedOutcomes = new Map(known.filter(fact => {
         const outcome = storyArchiveContinuityKind(fact);
@@ -859,13 +859,25 @@ export function parseStoryArchiveChanges(
         const sourceIsPersistent = persistentClauses.length > 0;
         // Scope is verified from the actual enduring clause, not optional
         // model-written terms or the scope of a different note on this floor.
-        const persistentEvidence = persistentClauses.some(sentence => {
+        const matchingPersistentClauses = persistentClauses.filter(sentence => {
             const evidence = comparable(sentence), body = comparable(text);
             for (let i = 0; i <= body.length - 4; i++) if (evidence.includes(body.slice(i, i + 4))) return true;
             return false;
         });
         const persistentSummary = persistentAuthorStart.test(text)
-            || (!explicitTurnAuthorStart.test(text) && persistentEvidence);
+            || (!explicitTurnAuthorStart.test(text) && matchingPersistentClauses.length > 0);
+        const conditionSource = matchingPersistentClauses.length === 1 ? matchingPersistentClauses[0] : '';
+        if (persistentSummary && !explicitTurnAuthorStart.test(text)
+            && /^(?:从此|此后|往后|长期|以后|接下来的正文|另有一条写作要求|补充一条写作要求)/u.test(conditionSource)
+            && /(?:除非|只有|唯有|必须|须经|须先|才可|才能|免验|除外|例外)/u.test(conditionSource)) {
+            // These are authoritative writing constraints, not plot prose.
+            // Preserve the user's complete conditional clause so a paraphrase
+            // cannot turn “verified” into “present”, lose an exception, or
+            // broaden a permission. Never copy the rest of the story floor.
+            const scoped = splitStoryAuthorScopes({ kind: 'author', text: conditionSource });
+            const persistent = scoped.filter(rule => !('authorScope' in rule && rule.authorScope === 'turn'));
+            if (persistent.length === 1) text = persistent[0].text.replace(/^(?:另有一条|补充一条)写作要求[:：]\s*/u, '');
+        }
         if (kind === 'author' && persistentSummary && sourceIsPersistent) {
             text = text.replace(/[，,；;。]\s*此(?:项|条)?(?:规则|要求|限制)(?:仅|只)适用于本批(?:剧情)?[。！\s]*$/u, '。');
         }

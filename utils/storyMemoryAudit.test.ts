@@ -117,9 +117,11 @@ test('lasting directions do not depend on optional keyword fields or a model sco
  for(const [text,source] of clauses){
   const facts=parseStoryArchiveChanges(JSON.stringify({changes:[],instructions:[{key:'写作/规则',text,
    sourceMessageId:21,authorScope:'turn'}]}),new Map([[21,{text:source,authorInput:true}]]),[]);
-  const saved=facts.find(f=>f.text===text)!;
-  expect(saved.authorScope).toBeUndefined();
-  expect(formatStoryArchiveProseContext(facts,'继续')).toContain(text);
+  const saved=facts.find(f=>f.kind==='author' && f.authorScope!=='turn')!;
+  expect(saved).toBeDefined();
+  const recalled=formatStoryArchiveProseContext(facts,'继续');
+  expect(recalled).toContain(saved.text);
+  expect(saved.text).toMatch(/除非青灯主动说出|青灯递交的免验/u);
  }
 });
 
@@ -146,7 +148,19 @@ test('a paraphrased lasting rule is separated from a trailing one-turn note desp
  const facts=parseStoryArchiveChanges(JSON.stringify({changes:[],instructions:[{key:'文书/规则',text,sourceMessageId:39,authorScope:'turn'}]}),
  new Map([[39,{text:source,authorInput:true}]]),[]);
  const recalled=formatStoryArchiveProseContext(facts,'继续');
- expect(recalled).toContain('亲自递交的文书可免验');
+ expect(recalled).toContain('青灯递交的免验');
  expect(recalled).not.toContain('一句旁白');
  expect(facts.some(f=>f.authorScope==='turn'&&f.text.includes('一句旁白'))).toBe(true);
+});
+
+test('a paraphrase cannot weaken a prerequisite or discard the user\'s exact exception', () => {
+ const source='场外：从此遇到密封文书时，柳巡只有验过灰色骑缝章才能读正文，但青灯亲自递交的文书可以免验。本轮只用一句旁白。';
+ const facts=parseStoryArchiveChanges(JSON.stringify({changes:[],instructions:[{key:'文书/查验',sourceMessageId:39,
+ text:'柳巡仅在文书加盖灰色骑缝章时才可读正文，青灯递交的免验。',authorScope:'turn'}]}),
+ new Map([[39,{text:source,authorInput:true}]]),[]);
+ const recalled=formatStoryArchiveProseContext(facts,'继续');
+ expect(recalled).toContain('只有验过灰色骑缝章才能读正文');
+ expect(recalled).toContain('但青灯亲自递交的文书可以免验');
+ expect(recalled).not.toContain('一句旁白');
+ expect(recalled).not.toContain('加盖灰色骑缝章');
 });
