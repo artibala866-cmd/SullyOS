@@ -46,7 +46,17 @@ jobs:
         with:
           chrome-version: stable
       - name: Install CJK fonts for faithful mobile screenshots
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+        shell: bash
+        run: |
+          # Unbounded apt update can stall before the actual Chromium assertions.
+          # Prefer an existing CJK font and bound the optional package download.
+          if fc-list :lang=zh | grep -qi 'noto sans cjk'; then
+            echo "Noto CJK is already available."
+          else
+            timeout --kill-after=5s 40s sudo apt-get update -qq || true
+            timeout --kill-after=5s 55s sudo apt-get install -y --no-install-recommends fonts-noto-cjk || true
+          fi
+          echo "Font used for Chinese: $(fc-match -f '%{family}' ':lang=zh' | head -1)"
       - name: Render real private chat components in Chromium at mobile width
         shell: bash
         run: |
