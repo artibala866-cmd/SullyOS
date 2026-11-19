@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { createStaticCache, type StaticManifest } from './staticCache';
 
@@ -64,6 +64,83 @@ describe('static resource cache', () => {
     expect(await (await f.engine.handle(new Request('https://example.com/SullyOS/'))!).text()).toContain('<html>one');
     expect(await f.text(f.main)).toBe('console.log(1)');
   });
+  it('retries a same-length damaged network script before serving it', async () => {
+    const f = await fixture();
+    f.hooks.respond = request => request.cache === 'reload' ? undefined : new Response('same');
+    expect(await f.text(f.lazy)).toBe('lazy');
+    expect(f.requestModes).toEqual(['default', 'reload']);
+    await f.settle();
+    f.offline();
+    expect(await f.text(f.lazy)).toBe('lazy');
+  });
+
+  it('replaces a damaged shell script without removing the offline entry', async () => {
+    const f = await fixture();
+    await f.engine.install();
+    const shell = [...f.storage.stores].find(([name]) => name.endsWith('-shell-one'))![1];
+    await shell.put(BASE + f.main, new Response('truncated'));
+    f.requestModes.length = 0;
+    expect(await f.text(f.main)).toBe('console.log(1)');
+    expect(f.requestModes).toEqual(['reload']);
+    await f.settle();
+    expect((await f.engine.stats()).offlineReady).toBe(true);
+    f.offline();
+    expect(await f.text(f.main)).toBe('console.log(1)');
+  });
+
+  it('keeps a sound copy of the same script in an older cache when repairing a corrupted one', async () => {
+    const f = await fixture();
+    await f.text(f.lazy);
+    await f.settle();
+    const runtime = [...f.storage.stores].find(([name]) => name.endsWith('-runtime'))!;
+    const older = await f.storage.open(runtime[0].replace(/runtime$/, 'shell-older'));
+    await older.put(BASE + f.lazy, (await runtime[1].match(BASE + f.lazy))!);
+    await runtime[1].put(BASE + f.lazy, new Response('bad!'));
+    f.offline();
+    expect(await f.text(f.lazy)).toBe('lazy');
+    expect(await runtime[1].match(BASE + f.lazy)).toBeUndefined();
+    expect(await (await older.match(BASE + f.lazy))!.text()).toBe('lazy');
+  });
+
+  it('rejects invalid script bytes after one retry and keeps them out of storage', async () => {
+    const f = await fixture();
+    f.hooks.respond = () => new Response('bad!');
+    const response = await f.engine.handle(new Request(BASE + f.lazy))!;
+    expect(response.status).toBe(502);
+    expect(await response.text()).toBe('');
+    expect(f.requestModes).toEqual(['default', 'reload']);
+    await f.settle();
+    expect((await f.engine.stats()).runtimeEntries).toBe(0);
+  });
+
+  it('cancels a stalled script body and retries with a fresh HTTP response', async () => {
+    const f = await fixture();
+    vi.useFakeTimers();
+    try {
+      const cancel = vi.fn();
+      f.hooks.respond = request => request.cache === 'reload' ? undefined : new Response(new ReadableStream({
+        start(controller) { controller.enqueue(new TextEncoder().encode('la')); },
+        cancel,
+      }));
+      const responseText = f.text(f.lazy);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await responseText).toBe('lazy');
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(f.requestModes).toEqual(['default', 'reload']);
+      await f.settle();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('retries a damaged HTTP-cached startup script during shell installation', async () => {
+    const f = await fixture();
+    f.hooks.respond = request => request.url === BASE + f.main && request.cache !== 'reload'
+      ? new Response('truncated') : undefined;
+    await f.engine.install();
+    expect(f.requestModes).toEqual(['default', 'reload', 'no-cache']);
+    f.offline();
+    expect(await f.text(f.main)).toBe('console.log(1)');
+  });
+
   it('does not intercept APIs, private requests, ranges or neighbouring projects', async () => {
     const { engine } = await fixture();
     for (const request of [

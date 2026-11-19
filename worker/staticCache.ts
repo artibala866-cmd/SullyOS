@@ -14,6 +14,7 @@ interface CacheDependencies {
 }
 
 const MAX_FILE_BYTES = 16 * 1024 * 1024;
+const SCRIPT_TIMEOUT_MS = 20_000;
 const MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 // A resource used after this long is refreshed in the background: external ones are downloaded
 // again, local ones only have their last-use time renewed.
@@ -41,6 +42,8 @@ export function createStaticCache(deps: CacheDependencies) {
   const shellName = `${prefix}shell-${manifest.buildId}`;
   const runtimeName = `${prefix}runtime`;
   const now = deps.now || Date.now;
+  const isBuildScript = (entry?: StaticEntry): entry is StaticEntry =>
+    Boolean(entry && entry.url.endsWith('.js') && immutablePath(entry.url));
   const entries = new Map(manifest.entries.map(entry => [new URL(entry.url, scope).href, entry]));
   const shellPaths = new Set(manifest.shell.map(path => new URL(path, scope).href));
   let writeQueue: Promise<unknown> = Promise.resolve();
@@ -72,36 +75,85 @@ export function createStaticCache(deps: CacheDependencies) {
     return references.length > 0 && references.every(match => entries.has(absolute(match[0])));
   };
 
-  /** Consumes `response`; callers pass a copy they do not need afterwards. */
-  async function cacheable(response: Response, entry?: StaticEntry): Promise<Response | undefined> {
-    if (response.status !== 200 || response.type === 'opaque' || response.redirected ||
-      /\b(no-store|private)\b/i.test(response.headers.get('Cache-Control') || '') ||
-      response.headers.get('Vary') === '*' || (entry && entry.bytes > MAX_FILE_BYTES)) {
-      void response.body?.cancel().catch(() => {});
-      return;
-    }
+  async function readBody(response: Response, limit: number, signal?: AbortSignal) {
     const reader = response.body?.getReader();
     if (!reader) return;
+    const cancel = () => { void reader.cancel().catch(() => {}); };
+    signal?.addEventListener('abort', cancel, { once: true });
     const chunks: Uint8Array[] = [];
     let size = 0;
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_FILE_BYTES) { void reader.cancel().catch(() => {}); return; }
-      chunks.push(value);
+    try {
+      while (!signal?.aborted) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > limit) { cancel(); return; }
+        chunks.push(value);
+      }
+      if (signal?.aborted) { cancel(); return; }
+    } finally {
+      signal?.removeEventListener('abort', cancel);
+      reader.releaseLock();
     }
     const body = new Uint8Array(size);
     let offset = 0;
     for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
-    if (entry && (size !== entry.bytes || await deps.digest(body.buffer) !== entry.revision) &&
-      !(entry.url === 'index.html' && sameBuildPage(new TextDecoder().decode(body)))) return;
+    return body;
+  }
+
+  function withBody(response: Response, body: Uint8Array<ArrayBuffer>) {
     const headers = new Headers(response.headers);
     headers.delete('Content-Encoding');
-    headers.set('Content-Length', String(size));
-    headers.set(SIZE_HEADER, String(size));
-    headers.set(SAVED_HEADER, String(now()));
+    headers.set('Content-Length', String(body.byteLength));
     return new Response(body, { headers });
+  }
+
+  const canStore = (response: Response) => response.status === 200 && response.type !== 'opaque' &&
+    !response.redirected && !/\b(no-store|private)\b/i.test(response.headers.get('Cache-Control') || '') &&
+    response.headers.get('Vary') !== '*';
+
+  function stamp(response: Response, bytes: number) {
+    response.headers.set(SIZE_HEADER, String(bytes));
+    response.headers.set(SAVED_HEADER, String(now()));
+    return response;
+  }
+
+  /** Consumes `response`; callers pass a copy they do not need afterwards. */
+  async function cacheable(response: Response, entry?: StaticEntry) {
+    if (!canStore(response) || (entry && entry.bytes > MAX_FILE_BYTES)) {
+      void response.body?.cancel().catch(() => {});
+      return;
+    }
+    const body = await readBody(response, MAX_FILE_BYTES);
+    if (!body) return;
+    if (entry && (body.byteLength !== entry.bytes || await deps.digest(body.buffer) !== entry.revision) &&
+      !(entry.url === 'index.html' && sameBuildPage(new TextDecoder().decode(body)))) return;
+    return stamp(withBody(response, body), body.byteLength);
+  }
+
+  // A cached response can be damaged too. Bound reads before handing a script to the
+  // module loader, while leaving other assets on their existing streaming path.
+  async function verifyScript(response: Response, entry: StaticEntry, signal: AbortSignal) {
+    if (response.status !== 200) { void response.body?.cancel().catch(() => {}); return; }
+    try {
+      const body = await readBody(response, entry.bytes, signal);
+      if (body?.byteLength === entry.bytes && await deps.digest(body.buffer) === entry.revision && !signal.aborted) {
+        return withBody(response, body);
+      }
+    } catch { /* Truncated bodies can reject while being read. */ }
+  }
+
+  async function withScriptTimeout<T>(operation: (signal: AbortSignal) => Promise<T>, requestSignal?: AbortSignal) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (requestSignal?.aborted) abort();
+    else requestSignal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, SCRIPT_TIMEOUT_MS);
+    try { return await operation(controller.signal); }
+    finally {
+      clearTimeout(timer);
+      requestSignal?.removeEventListener('abort', abort);
+    }
   }
 
   // Sizes and last-use times of the optional cache, read once per worker start so that writes
@@ -119,6 +171,33 @@ export function createStaticCache(deps: CacheDependencies) {
     }
     return items;
   })().catch(error => { runtimeIndex = undefined; throw error; });
+
+  async function findVerifiedScript(entry: StaticEntry, preferred: string, shell: boolean, signal?: AbortSignal) {
+    const key = keyFor(entry);
+    let damaged = false;
+    const check = async (name: string) => {
+      if (signal?.aborted) return;
+      const candidate = await safeMatch(name, key);
+      if (!candidate || (!shell && now() - Number(candidate.headers.get(SAVED_HEADER)) > MAX_AGE)) return;
+      const response = await withScriptTimeout(timeout => verifyScript(candidate, entry, timeout), signal);
+      if (response) return { response, name, damaged };
+      if (signal?.aborted) return;
+      damaged = true;
+      await serial(async () => {
+        if (name === runtimeName) runtimeIndex = undefined;
+        await (await caches.open(name)).delete(key);
+      }).catch(() => {});
+    };
+    const direct = await check(preferred);
+    if (direct) return direct;
+    const names = await caches.keys().catch(() => []);
+    for (const name of names.reverse()) {
+      if (name === preferred || !name.startsWith(prefix)) continue;
+      const fallback = await check(name);
+      if (fallback) return fallback;
+    }
+    return { damaged, response: undefined, name: undefined };
+  }
 
   async function prune(cache: Cache) {
     const items = await indexOf(cache);
@@ -172,6 +251,31 @@ export function createStaticCache(deps: CacheDependencies) {
   const missing = (response: Response) => response.status === 404 || response.status === 410 ||
     (response.ok && /^text\/html\b/i.test(response.headers.get('Content-Type') || ''));
 
+  async function fetchScript(request: Request, entry: StaticEntry) {
+    const attempt = (next: Request) => withScriptTimeout(async signal => {
+      let response: Response;
+      try { response = await deps.fetch(new Request(next, { signal })); }
+      catch (error) {
+        if (signal.aborted && !next.signal.aborted) return;
+        throw error;
+      }
+      if (!response.ok) return { response, verified: false, storable: false };
+      if (missing(response)) {
+        void response.body?.cancel().catch(() => {});
+        return { response: new Response(null, { status: 404 }), verified: false, storable: false };
+      }
+      const storable = entry.bytes <= MAX_FILE_BYTES && canStore(response);
+      const verified = await verifyScript(response, entry, signal);
+      if (verified) return { response: verified, verified: true, storable };
+    }, next.signal);
+
+    let result = await attempt(request);
+    if ((!result || missing(result.response)) && request.cache !== 'reload' && !request.signal.aborted) {
+      result = await attempt(new Request(request, { cache: 'reload' }));
+    }
+    return result;
+  }
+
   async function install() {
     try {
       const cache = await caches.open(shellName);
@@ -179,7 +283,20 @@ export function createStaticCache(deps: CacheDependencies) {
       async function prepare(path: string) {
         const entry = entries.get(absolute(path));
         if (!entry) throw new Error(`Missing shell entry: ${path}`);
-        const old = await findOwned(keyFor(entry));
+        const key = keyFor(entry);
+        if (isBuildScript(entry)) {
+          const cached = await findVerifiedScript(entry, shellName, true);
+          if (cached.response) {
+            await cache.put(key, stamp(cached.response, entry.bytes));
+            return;
+          }
+          const request = new Request(absolute(path), { cache: cached.damaged ? 'reload' : 'default' });
+          const result = await fetchScript(request, entry);
+          if (!result?.verified || !result.storable) throw new Error(`Resource changed during deployment: ${path}`);
+          await cache.put(key, stamp(result.response, entry.bytes));
+          return;
+        }
+        const old = await findOwned(key);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 20000);
         try {
@@ -250,6 +367,29 @@ export function createStaticCache(deps: CacheDependencies) {
           if (fresh.ok || fresh.type === 'opaqueredirect') return fresh;
         } catch { /* cached copy */ }
       }
+      if (isBuildScript(entry)) {
+        const cached = await findVerifiedScript(entry, shell ? shellName : runtimeName, Boolean(shell), request.signal);
+        if (cached.response) {
+          if (shell && cached.name !== shellName) {
+            const copy = stamp(cached.response.clone(), entry.bytes);
+            waitUntil(caches.open(shellName).then(cache => cache.put(key, copy)).catch(() => {}));
+          } else if (!shell && cached.name === runtimeName &&
+            now() - Number(cached.response.headers.get(SAVED_HEADER)) > REFRESH_MS && !refreshing.has(key)) {
+            refreshing.add(key);
+            waitUntil(touch(key).finally(() => refreshing.delete(key)));
+          }
+          return cached.response;
+        }
+        const result = await fetchScript(cached.damaged ? new Request(request, { cache: 'reload' }) : request, entry);
+        if (!result) return new Response(null, { status: 502, statusText: 'Invalid build script' });
+        if (missing(result.response)) waitUntil(markShellStale());
+        if (result.verified && result.storable) {
+          const copy = stamp(result.response.clone(), entry.bytes);
+          const write = shell ? caches.open(shellName).then(cache => cache.put(key, copy)) : store(key, copy);
+          waitUntil(write.catch(() => {}));
+        }
+        return result.response;
+      }
       const stored = await safeMatch(shell ? shellName : runtimeName, key);
       let hit = stored;
       if (!hit && (shell || hashed)) {
@@ -291,8 +431,10 @@ export function createStaticCache(deps: CacheDependencies) {
       }
     }
     const index = entries.get(absolute('index.html'));
+    const ready = index && await safeMatch(shellName, keyFor(index));
+    const scripts = manifest.shell.map(path => entries.get(absolute(path))).filter(isBuildScript);
     return { buildId: manifest.buildId, appVersion: manifest.appVersion, shellBytes, runtimeBytes, runtimeEntries,
-      offlineReady: Boolean(index && await safeMatch(shellName, keyFor(index))) };
+      offlineReady: Boolean(ready && (await Promise.all(scripts.map(entry => safeMatch(shellName, keyFor(entry))))).every(Boolean)) };
   }
 
   const clearRuntime = () => serial(() => { runtimeIndex = undefined; return caches.delete(runtimeName); });
