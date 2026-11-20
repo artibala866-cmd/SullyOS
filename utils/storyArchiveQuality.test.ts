@@ -51,6 +51,11 @@ describe('recording: do not backfill literary ghost mentions as rules', () => {
         expect(parseStoryArchiveChanges('{"changes":[]}',new Map([[32,{text:qualified,authorInput:false}]]),[]))
             .toEqual([expect.objectContaining({text:qualified,continuity:'rule'})]);
     });
+    it.each(['幸芳白已经死了三天。','John is a ghost, invisible to the living.',
+        'John is a ghost, only Alice can see him.', 'John returned to life yesterday.'])('retains existing identity evidence including English and time qualifiers: %s', text => {
+        expect(parseStoryArchiveChanges('{"changes":[]}',new Map([[31,{text,authorInput:false}]]),[]))
+            .toEqual([expect.objectContaining({text,continuity:'rule'})]);
+    });
     it('does not remove a model-summarized emotional change', () => {
         const text='幸芳白陪幸福返回旧居；两人在旧居的情感联系比在新房时更深。';
         const parsed=parseStoryArchiveChanges(JSON.stringify({changes:[{key:'旧居/感受',text,sourceMessageId:31}]}),

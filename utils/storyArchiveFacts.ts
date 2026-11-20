@@ -51,8 +51,8 @@ const persistentStoryRules = [
 
 function canRecoverStoryRule(text: string): boolean {
     const clauses = text.split(/[，,；;]/u).map(clause => clause.trim()).filter(Boolean);
-    const assertion = /(?:不能|无法|不可|不得|必须|只能|只有|唯有|可以|能够|看不见|看不到|听不见|听不到|看得见|听得见|认不出|没有实体|知情|不知道|知晓|除外|例外)/u;
-    const identity = /^.{1,32}(?:已经死亡|已经死了|早已死亡|早已死了|已死|已经去世|早已去世|并非活人|不是活人|复活|还阳|恢复实体|重新活过来|变回活人|(?:是|成了|变成|化为|已成)(?:一[个只缕道位名])?(?:[^，,；;。！？\n]{1,24}的)?(?:亡魂|魂魄|幽灵|鬼魂|鬼|魂体))[。！.!]?$/u;
+    const assertion = /(?:不能|无法|不可|不得|必须|只能|只有|唯有|可以|能够|看不见|看不到|听不见|听不到|看得见|听得见|认不出|没有实体|知情|不知道|知晓|除外|例外)|\b(?:cannot|can't|must|only|can|invisible|inaudible|except|unable|unaware)\b/iu;
+    const identity = /(?:已经死亡|已经死了|早已死亡|早已死了|已死|已经去世|早已去世|并非活人|不是活人|复活|还阳|恢复实体|重新活过来|变回活人|(?:是|成了|变成|化为|已成)(?:一[个只缕道位名])?(?:[^，,；;。！？\n]{1,24}的)?(?:亡魂|魂魄|幽灵|鬼魂|鬼|魂体))|\b(?:is (?:a )?ghost|returned to life)\b/iu;
     return clauses.length > 0 && !hasUnresolvedStoryNarration(text)
         && clauses.every(clause => assertion.test(clause) || identity.test(clause));
 }
