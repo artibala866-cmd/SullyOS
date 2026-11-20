@@ -37,6 +37,8 @@ test('visibility assertions do not cross a clause boundary into unrelated action
  expect(storyArchiveContinuityKind({kind:'fact',text:'旁人收起雨伞，他听不见窗外的雨声。'})).toBeUndefined();
  expect(storyArchiveContinuityKind({kind:'fact',text:'普通人看不见幸芳白。'})).toBe('rule');
  expect(storyArchiveContinuityKind({kind:'fact',text:'幸芳白无法触碰活人。'})).toBe('rule');
+ expect(storyArchiveContinuityKind({kind:'fact',text:'幸芳白只能被活人触碰。'})).toBe('rule');
+ expect(storyArchiveContinuityKind({kind:'fact',text:'屋内只有妹妹是活人。'})).toBe('rule');
 });
 
 test('independent returned facts sharing one add key remain current together', () => {
