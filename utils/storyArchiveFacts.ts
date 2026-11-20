@@ -1,3 +1,4 @@
+import { STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS } from './storyArchiveLength';
 import type { StoryArchiveEntity, StoryArchiveFact, StoryTheaterArchive } from '../types';
 import { extractContent } from './safeApi';
 
@@ -225,15 +226,15 @@ export function reconcileStoryArchiveContinuity(
 
 export function formatStoryArchiveActiveState(
     active: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number>,
-    sourceTimes: ReadonlyMap<number, string>,
+    sourceTimes: ReadonlyMap<number, string>, budget = 1350,
 ) {
     // Reserve space for durable constraints and resolved work inside the usual
     // confirmed-facts budget. An unrelated flashback cannot displace them.
     const rules = active.filter(fact => storyArchiveContinuityKind(fact) === 'rule');
     const outcomes = active.filter(fact => storyArchiveContinuityKind(fact) !== 'rule');
-    const pickedRules = storyArchiveFactLines(rankStoryArchiveFacts(rules, query), floorNumbers, 1000, sourceTimes, undefined, true);
+    const pickedRules = storyArchiveFactLines(rankStoryArchiveFacts(rules, query), floorNumbers, Math.floor(budget * 0.74), sourceTimes, undefined, true);
     const used = pickedRules.reduce((total, item) => total + item.line.length + 1, 0);
-    const pickedOutcomes = storyArchiveFactLines(rankStoryArchiveFacts(outcomes, query), floorNumbers, 1350 - used, sourceTimes, undefined, true)
+    const pickedOutcomes = storyArchiveFactLines(rankStoryArchiveFacts(outcomes, query), floorNumbers, budget - used, sourceTimes, undefined, true)
         .sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId);
     const picked = [...pickedRules, ...pickedOutcomes];
     return {
@@ -318,17 +319,23 @@ export function storyArchiveQueryFloors(query: string): Set<number> {
 
 /** Give each specific query target a route into the prompt before general ranking. */
 export function selectExplicitStoryFacts(
-    facts: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number>, rank: ReadonlyMap<string, number>,
+    facts: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number>, rank: ReadonlyMap<string, number>, limit = 8,
 ): StoryArchiveFact[] {
     const text = normalize(query);
     if (!text) return [];
     const floors = storyArchiveQueryFloors(text);
     const matchedNames = new Map<string, StoryArchiveFact[]>();
+    const matchedFloors = new Map<number, StoryArchiveFact[]>();
     const result = new Map<string, StoryArchiveFact>();
     const add = (fact: StoryArchiveFact) => result.set(storyArchiveFactIdentity(fact), fact);
     for (const fact of facts) {
         if (fact.kind !== 'fact' || fact.vectorTextState === 'deleted') continue;
-        if (floors.has(floorNumbers.get(fact.sourceMessageId) ?? -1)) add(fact);
+        const floor = floorNumbers.get(fact.sourceMessageId);
+        if (floor !== undefined && floors.has(floor)) {
+            const matching = matchedFloors.get(floor) ?? [];
+            matching.push(fact);
+            matchedFloors.set(floor, matching);
+        }
         for (const term of storyArchiveSearchTerms(fact)) {
             const index = text.indexOf(term);
             if (index < 0 || (/^[a-z0-9-]+$/u.test(term)
@@ -338,18 +345,29 @@ export function selectExplicitStoryFacts(
             matchedNames.set(term, matching);
         }
     }
+    const rankedFloors = [...floors].flatMap(floor => {
+        const matches = matchedFloors.get(floor);
+        return matches ? [rankStoryArchiveFacts(matches, text, rank)] : [];
+    });
+    for (const [first] of rankedFloors) add(first);
     const byName = [...matchedNames].sort(([a, aFacts], [b, bFacts]) => aFacts.length - bFacts.length || b.length - a.length);
     const rankedByName = byName.map(([, matching]) => rankStoryArchiveFacts(matching, text, rank));
     // Give every named target its first slot before filling up to three distinct
     // records per target. Shared names must not collapse independent facets.
-    for (let pass = 0; pass < 3 && result.size < 8; pass++) {
+    for (let pass = 0; pass < 3 && result.size < limit; pass++) {
         for (const ordered of rankedByName) {
-            if (result.size >= 8) break;
+            if (result.size >= limit) break;
             const next = ordered.find(fact => !result.has(storyArchiveFactIdentity(fact)));
             if (next) add(next);
         }
     }
-    return [...result.values()].slice(0, 8);
+    if (result.size < limit) {
+        for (const fact of rankStoryArchiveFacts(rankedFloors.flat(), text, rank)) {
+            if (result.size >= limit) break;
+            add(fact);
+        }
+    }
+    return [...result.values()].slice(0, limit);
 }
 
 /** Read older or partially exported archives without mutating the stored copy. */
@@ -1239,87 +1257,82 @@ export function formatStoryArchiveFacts(
 }
 
 function storyArchiveRecallSections(facts: StoryArchiveFact[]) {
-    return [
-        {
-            title: '已确认的剧情事实（仅表示已经发生，不要求再次发生）',
-            entries: facts.filter(fact => fact.kind === 'fact' && !storyArchiveModality(fact)),
-            budget: 3200,
-        },
-        {
-            title: '尚未发生的计划和承诺（不是已完成事件）',
-            entries: facts.filter(fact => fact.kind === 'fact' && storyArchiveModality(fact) === 'planned'),
-            budget: 580,
-        },
-        {
-            title: '未经证实的信息（不能当成已知真相）',
-            entries: facts.filter(fact => fact.kind === 'fact' && storyArchiveModality(fact) === 'unverified'),
-            budget: 500,
-        },
-        {
-            title: '用户明确提出的写作要求',
-            entries: facts.filter(fact => fact.kind === 'author' && fact.authorScope !== 'turn'),
-            budget: 800,
-        },
+    const sections = [
+        { title: '已确认的剧情事实（仅表示已经发生，不要求再次发生）', share: 0, entries: [] as StoryArchiveFact[] },
+        { title: '尚未发生的计划和承诺（不是已完成事件）', share: 0.12, entries: [] as StoryArchiveFact[] },
+        { title: '未经证实的信息（不能当成已知真相）', share: 0.10, entries: [] as StoryArchiveFact[] },
+        { title: '用户明确提出的写作要求', share: 0.16, entries: [] as StoryArchiveFact[] },
     ];
+    for (const fact of facts) {
+        if (fact.kind === 'author') {
+            if (fact.authorScope !== 'turn') sections[3].entries.push(fact);
+        } else {
+            const modality = storyArchiveModality(fact);
+            sections[modality === 'planned' ? 1 : modality === 'unverified' ? 2 : 0].entries.push(fact);
+        }
+    }
+    return sections;
 }
 
 function selectStoryArchiveRecallLines(
     facts: StoryArchiveFact[], query: string, floorNumbers: ReadonlyMap<number, number> | undefined,
     semanticRank: ReadonlyMap<string, number>, sourceTimes: ReadonlyMap<number, string> | undefined,
     active: ReturnType<typeof formatStoryArchiveActiveState> | undefined, explicit: readonly StoryArchiveFact[],
-    timelineStatus?: 'current',
+    budget: number, timelineStatus?: 'current',
 ) {
-    const reserved = new Map<string, { fact: StoryArchiveFact; line: string }>();
-    const available = new Set(facts.map(storyArchiveFactIdentity));
-    const targets = explicit.filter(fact => available.has(storyArchiveFactIdentity(fact))
-        && !active?.selected.has(storyArchiveFactIdentity(fact)));
-    let reserveRemaining = Math.min(1600, Math.max(0, 3200 - (active?.cost ?? 0)));
-    for (const fact of targets) {
-        const item = storyArchiveFactLines([fact], floorNumbers, reserveRemaining - 1, sourceTimes, timelineStatus, true)[0];
-        if (!item) continue;
-        reserved.set(storyArchiveFactIdentity(fact), item);
-        reserveRemaining -= item.line.length + 1;
-    }
-    let borrowed = 0;
-    const sections = storyArchiveRecallSections(facts).map(({ title, entries, budget }) => {
-        const priority = entries.flatMap(fact => reserved.get(storyArchiveFactIdentity(fact)) ?? []);
-        const cost = priority.reduce((size, item) => size + item.line.length + 1, 0);
-        if (budget !== 3200) borrowed += Math.max(0, cost - budget);
-        return { title, entries, budget, priority, cost };
-    });
-    // Keep conditions and exceptions together in smaller sections. Unused
-    // reserved space can come from the confirmed-facts budget within the
-    // same overall limit. Count what was actually used before filling facts.
-    const confirmed = sections[0];
-    let shared = Math.max(0, Math.min(reserveRemaining, confirmed.budget - confirmed.cost - (active?.cost ?? 0) - borrowed));
-    const selectSection = ({ title, entries, budget, priority, cost }: typeof confirmed) => {
-        const rankable = entries.filter(fact => {
-            const id = storyArchiveFactIdentity(fact);
-            return !reserved.has(id) && !active?.selected.has(id);
-        });
-        const isConfirmed = budget === confirmed.budget;
-        const space = Math.max(0, budget - cost - (isConfirmed ? (active?.cost ?? 0) + borrowed : 0));
-        const ranked = rankStoryArchiveFacts(rankable, query, semanticRank, sourceTimes);
-        const lines = storyArchiveFactLines(ranked, floorNumbers, space + (isConfirmed ? 0 : shared),
-            sourceTimes, timelineStatus, !isConfirmed);
-        if (!isConfirmed) {
-            const extra = Math.max(0, lines.reduce((size, item) => size + item.line.length + 1, 0) - space);
-            shared = Math.max(0, shared - extra);
-            borrowed += extra;
+    const available = Math.max(0, budget - (active?.cost ?? 0));
+    const sections = storyArchiveRecallSections(facts);
+    const lines = new Map<string, { fact: StoryArchiveFact; line: string }>();
+    for (const section of sections) {
+        for (const item of storyArchiveFactLines(section.entries, floorNumbers, Infinity, sourceTimes, timelineStatus)) {
+            lines.set(storyArchiveFactIdentity(item.fact), item);
         }
-        return { title, lines: [...priority, ...lines] };
+    }
+    const picked = new Map<string, { fact: StoryArchiveFact; line: string }>();
+    let remaining = available;
+    const take = (ordered: readonly StoryArchiveFact[], allowance: number) => {
+        for (const fact of ordered) {
+            const id = storyArchiveFactIdentity(fact);
+            const item = lines.get(id);
+            if (!item || picked.has(id) || active?.selected.has(id)) continue;
+            const size = item.line.length + 1;
+            if (size > remaining || size > allowance) continue;
+            picked.set(id, item);
+            remaining -= size;
+            allowance -= size;
+        }
     };
-    const other = sections.slice(1).reverse().map(selectSection).reverse();
-    return [selectSection(confirmed), ...other];
+    // Reserve room for long-term directions and open items while giving
+    // named targets first choice. Afterwards every unused slot is shared.
+    take(explicit, Math.floor(available * 0.55));
+    const categoryBudget = remaining;
+    for (const section of sections.slice(1).reverse()) {
+        take(rankStoryArchiveFacts(section.entries, query, semanticRank, sourceTimes),
+            Math.floor(categoryBudget * section.share));
+    }
+    const rest = sections.flatMap(section => section.entries).filter(fact => {
+        const id = storyArchiveFactIdentity(fact);
+        return !picked.has(id) && !active?.selected.has(id);
+    });
+    take([...explicit, ...rankStoryArchiveFacts(rest, query, semanticRank, sourceTimes)], remaining);
+    return sections.map(({ title, entries }) => ({
+        title,
+        lines: entries.flatMap(fact => {
+            const item = picked.get(storyArchiveFactIdentity(fact));
+            if (!item) return [];
+            picked.delete(storyArchiveFactIdentity(fact));
+            return [item];
+        }),
+    }));
 }
 
 export function storyArchiveNeedsRanking(
     facts: StoryArchiveFact[], floorNumbers: ReadonlyMap<number, number>, sourceTimes: ReadonlyMap<number, string>,
-    timeline = false, activeCost = 0,
+    timeline = false, activeCost = 0, budget = STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS,
 ): boolean {
-    return storyArchiveRecallSections(facts).some(({ entries, budget }) =>
-        entries.length > 1 && storyArchiveFactLines(entries, floorNumbers, Infinity, sourceTimes, timeline ? 'current' : undefined)
-            .reduce((size, item) => size + item.line.length + 1, 0) > budget - (budget === 3200 ? activeCost : 0));
+    const entries = facts.filter(fact => fact.authorScope !== 'turn');
+    return entries.length > 1 && storyArchiveFactLines(entries, floorNumbers, Infinity, sourceTimes, timeline ? 'current' : undefined)
+        .reduce((size, item) => size + item.line.length + 1, activeCost) > budget;
 }
 
 /** Select relevant facts within each section's budget, then send them in floor order. */
@@ -1328,9 +1341,9 @@ export function formatStoryArchiveProseContext(
     floorNumbers?: ReadonlyMap<number, number>,
     semanticRank: ReadonlyMap<string, number> = new Map(),
     sourceTimes?: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>, explicit: readonly StoryArchiveFact[] = [],
-    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void,
+    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void, budget = STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS,
 ): string {
-    const sections = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit).map(({ title, lines }) => {
+    const sections = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit, budget).map(({ title, lines }) => {
         const text = lines.sort((a, b) => a.fact.sourceMessageId - b.fact.sourceMessageId).map(item => {
             onSelected?.(item.fact, item.line.endsWith(item.fact.text));
             return item.line;
@@ -1347,9 +1360,9 @@ export function formatStoryArchiveRecallTimeline(
     sourceTimes: ReadonlyMap<number, string>, active?: ReturnType<typeof formatStoryArchiveActiveState>,
     relatedKeys: ReadonlySet<string> = new Set(), explicit: readonly StoryArchiveFact[] = [],
     explicitFloors: ReadonlySet<number> = new Set(),
-    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void,
+    onSelected?: (fact: StoryArchiveFact, complete: boolean) => void, budget = STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS,
 ): string {
-    const lines = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit, 'current')
+    const lines = selectStoryArchiveRecallLines(facts, query, floorNumbers, semanticRank, sourceTimes, active, explicit, budget, 'current')
         .flatMap(section => section.lines);
     const selectedKeys = new Set([...lines.map(item => item.fact.key), ...facts.filter(fact =>
         active?.selected.has(storyArchiveFactIdentity(fact))).map(fact => fact.key)]);

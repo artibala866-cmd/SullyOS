@@ -1,5 +1,11 @@
 /** Default for the author-editable story archive save ceiling. */
 export const STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS = 1500;
+export const STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS = 12000;
+
+export function normalizeStoryArchiveRecallMaxChars(value: unknown): number {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+        ? value : STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS;
+}
 
 /** Missing or invalid settings use the default ceiling. */
 export function normalizeStoryArchiveGuideMaxChars(value: unknown): number {

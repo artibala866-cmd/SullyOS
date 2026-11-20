@@ -78,10 +78,17 @@ describe('原作者见面剧情记忆模式移植',()=>{
             });
             expect(input.value).toBe(value);
         }
+        const recall = node.querySelector<HTMLInputElement>('[aria-label="每轮记忆段读取预算"]')!;
+        expect(recall.value).toBe('12000');
+        await act(async () => {
+            setValue.call(recall, '24000');
+            recall.dispatchEvent(new Event('input', { bubbles: true }));
+        });
         await act(async () => click('保存并进入'));
-        expect(save).toHaveBeenCalledWith(expect.objectContaining({ archiveSummaryGuideMaxChars: 9000 }));
+        expect(save).toHaveBeenCalledWith(expect.objectContaining({ archiveSummaryGuideMaxChars: 9000, archiveRecallMaxChars: 24000 }));
         const saved = (await DB.getStoryTheaters()).find(entry => entry.id === save.mock.calls[0][0].id);
         expect(saved?.archiveSummaryGuideMaxChars).toBe(9000);
+        expect(saved?.archiveRecallMaxChars).toBe(24000);
     });
     it('适配不破坏糯米机已有的保存失败提示',async()=>{
         const node=await openEditor(async()=>{throw Error('磁盘写入失败');});
@@ -554,7 +561,7 @@ it.each(['semantic', 'offline', 'no-config', 'linked-offline'] as const)(
         const entry = {
             ...createStoryTheaterDraft(), title: '回到街口', characterIds: ['actor'],
             automaticMemoryApiEnabled: false, archiveStrategy: 'summary' as const,
-            archiveAfter: 2, archiveKeepRecent: 1, archiveSummaryGuideMaxChars: 0,
+            archiveAfter: 2, archiveKeepRecent: 1, archiveSummaryGuideMaxChars: 0, archiveRecallMaxChars: 3200,
             memorySummaryApi: { baseUrl: 'https://manual.invalid/v1', apiKey: 'fixture', model: 'extract' },
         };
         const thread = 'story-theater:' + entry.id;

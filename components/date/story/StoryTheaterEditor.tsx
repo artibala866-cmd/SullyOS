@@ -4,7 +4,7 @@ import TokenImg from '../../os/TokenImg';
 import StoryTavernImportReport from './StoryTavernImportReport';
 import type { APIConfig, ApiPreset, CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, TavernOpeningGreeting, UserProfile, Worldbook } from '../../../types';
 import { normalizeStoryMemoryApi, storyMemoryApiFromPreset, storyMemoryApiSharesGateway, storyMemoryApiValidationError } from '../../../utils/storyMemoryApi';
-import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from '../../../utils/storyArchiveLength';
+import { normalizeStoryArchiveGuideMaxChars, normalizeStoryArchiveRecallMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS, STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS } from '../../../utils/storyArchiveLength';
 import { normalizeApiPresets } from '../../../utils/apiConfigNormalize';
 import { findActivePresetId } from '../../../utils/apiPresetSwitch';
 import { adaptTavernOpeningGreeting } from '../../../utils/tavernOpeningGreeting';
@@ -419,13 +419,19 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             setSaveError('归档保存上限请输入正整数。');
             return;
         }
+        const recallLimit = draft.archiveRecallMaxChars;
+        if (recallLimit !== undefined && (!Number.isSafeInteger(recallLimit) || recallLimit < 1)) {
+            setSaveError('每轮记忆段读取预算请输入正整数。');
+            return;
+        }
         setSaveError('');
         saveLock.current = true;
         setSaving(true);
         const archiveAfter = Math.max(2, Math.min(200, Number(draft.archiveAfter) || 40));
         const archiveKeepRecent = Math.max(1, Math.min(archiveAfter - 1, Number(draft.archiveKeepRecent) || 5));
         const archiveSummaryGuideMaxChars = normalizeStoryArchiveGuideMaxChars(draft.archiveSummaryGuideMaxChars);
-        try { await onSave({ ...draft, title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, archiveSummaryGuideMaxChars, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
+        const archiveRecallMaxChars = normalizeStoryArchiveRecallMaxChars(recallLimit);
+        try { await onSave({ ...draft, archiveRecallMaxChars, title: draft.title.trim(), premise: draft.premise.trim(), carryCharacterMemory: draft.writesToCharacterMemory || draft.carryCharacterMemory, archiveAfter, archiveKeepRecent, archiveSummaryGuideMaxChars, presetId: preset?.id || presets[0]?.id, updatedAt: Date.now() }); }
         catch (error) { setSaveError(error instanceof Error ? `剧情未保存：${error.message}` : '剧情未保存，请检查本地存储后重试'); }
         finally { saveLock.current = false; setSaving(false); }
     };
@@ -651,6 +657,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                         <input type='number' aria-label='归档保存上限' min={1} placeholder={String(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS)}
                             value={draft.archiveSummaryGuideMaxChars ?? ''}
                             onChange={event => update('archiveSummaryGuideMaxChars', event.target.value === '' ? undefined : event.target.valueAsNumber)}
+                            className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
+                    </label>
+                    <label className='block'>
+                        <span className='block mb-2 text-[10px] text-slate-500'>每轮记忆段读取预算（字符）</span>
+                        <input type='number' aria-label='每轮记忆段读取预算' min={1} placeholder={String(STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS)}
+                            value={draft.archiveRecallMaxChars ?? ''}
+                            onChange={event => update('archiveRecallMaxChars', event.target.value === '' ? undefined : event.target.valueAsNumber)}
                             className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
                     </label>
                 </div>}

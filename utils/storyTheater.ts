@@ -19,7 +19,7 @@ import type {
 import nightScreeningV627 from '../assets/presets/night-screening-v6.14.sully.json';
 import { normalizeStoryOutputTokens, STORY_DEFAULT_OUTPUT_TOKENS } from './storyOutputLimits';
 import { normalizeStoryMemoryApi } from './storyMemoryApi';
-import { normalizeStoryArchiveGuideMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS } from './storyArchiveLength';
+import { normalizeStoryArchiveGuideMaxChars, normalizeStoryArchiveRecallMaxChars, STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS, STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS } from './storyArchiveLength';
 import {
     type WorldbookScanMessage,
 } from './worldbook';
@@ -253,6 +253,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     archiveKeepRecent: 5,
     archiveStrategy: 'summary',
     archiveSummaryGuideMaxChars: STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS,
+    archiveRecallMaxChars: STORY_ARCHIVE_DEFAULT_RECALL_MAX_CHARS,
     archiveRecallRerank: false,
     archives: [],
     selectedWorldbookIds: [],
@@ -291,6 +292,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         archiveKeepRecent,
         archiveStrategy: entry.archiveStrategy === 'vector' ? 'vector' : 'summary',
         archiveSummaryGuideMaxChars: normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars),
+        archiveRecallMaxChars: normalizeStoryArchiveRecallMaxChars(entry.archiveRecallMaxChars),
         archiveRecallRerank: entry.archiveRecallRerank === true,
         archives: Array.isArray(entry.archives) ? entry.archives : [],
         automaticMemoryApiEnabled: entry.automaticMemoryApiEnabled === true,

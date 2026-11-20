@@ -2303,6 +2303,8 @@ export interface StoryTheaterEntry {
     archiveStrategy: StoryTheaterArchiveStrategy;
     /** Archive save ceiling in Unicode characters. Missing or invalid values use the default. */
     archiveSummaryGuideMaxChars?: number;
+    /** Per-turn character budget for structured archive recall. */
+    archiveRecallMaxChars?: number;
     archiveRecallRerank?: boolean;
     archives: StoryTheaterArchive[];
     /** Explicit consent to additional online memory calls during this story. */

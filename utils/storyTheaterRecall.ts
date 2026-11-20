@@ -14,6 +14,7 @@ import {
     type StoryApiMessage,
 } from './storyTheater';
 import { loadStoryVectorRecall, selectStoryVectorRecall } from './storyTheaterVectorMemory';
+import { normalizeStoryArchiveRecallMaxChars } from './storyArchiveLength';
 
 export interface StoryRecallReceipt {
     floor: number;
@@ -75,6 +76,7 @@ export async function buildStoryTheaterRecall(input: {
 }) {
     const { rows, beforeId, floor, baseline, visibleRows, historyVisible, continuation, opening, userInput, readOriginalEvidence } = input;
     const entry = { ...input.entry, archives: readStoryRecallArchives(input.entry.archives) };
+    const recallBudget = normalizeStoryArchiveRecallMaxChars(entry.archiveRecallMaxChars);
     const vector = await loadStoryVectorRecall(entry, beforeId).catch(error => {
         console.warn('[StoryTheater] vector memory unavailable', error);
         return { nodes: [], groups: [], factNodes: [], factTextById: new Map<string, string>(), degraded: true };
@@ -104,16 +106,24 @@ export async function buildStoryTheaterRecall(input: {
     const focus = continuation || opening ? [] : storyRecallFocus(clip(userInput), priorSignals);
     const signals = [...new Set([...priorSignals, ...focus])];
     const query = signals.join('\n');
-    const active = formatStoryArchiveActiveState(reconciled.active, query, floorNumbers, sourceTimes);
-    if (recentScene) {
-        active.text = ['【较新的场景线索】\n' + recentScene, active.text].filter(Boolean).join('\n\n');
-        active.cost += recentScene.length + 25;
+    const activeBudget = Math.floor(recallBudget / 4);
+    const active = formatStoryArchiveActiveState(reconciled.active, query, floorNumbers, sourceTimes, activeBudget);
+    const recentText = recentScene ? '【较新的场景线索】\n' + recentScene : '';
+    const sceneText = scene.text ? '【最近归档的场景与后续事项】\n' + scene.text : '';
+    if (active.text.length > activeBudget) {
+        active.text = '';
+        active.selected.clear();
     }
-    if (scene.text) {
-        active.text = [active.text, '【最近归档的场景与后续事项】\n' + scene.text].filter(Boolean).join('\n\n');
-        active.cost += scene.text.length + 30;
-        for (const fact of scene.facts) active.selected.add(storyArchiveFactIdentity(fact));
+    for (const text of [recentText, sceneText]) {
+        if (!text) continue;
+        const combined = [active.text, text].filter(Boolean).join('\n\n');
+        if (combined.length > activeBudget) continue;
+        active.text = combined;
+        if (text === sceneText) {
+            for (const fact of scene.facts) active.selected.add(storyArchiveFactIdentity(fact));
+        }
     }
+    active.cost = active.text ? active.text.length + 2 : 0;
     const useTimeline = entry.archives.some(box => box.strategy === 'vector' && box.facts && box.fromMessageId < beforeId);
     const rankable = visibleFacts.filter(fact => !active.selected.has(storyArchiveFactIdentity(fact)));
     const liveNodes = new Map(vector.factNodes.map(node => [node.id, node]));
@@ -122,7 +132,10 @@ export async function buildStoryTheaterRecall(input: {
         tags: storyArchiveSearchTerms(fact), room: 'living_room', mood: 'neutral', importance: 6,
         embedded: false, createdAt: 0, lastAccessedAt: 0, accessCount: 0,
     });
-    const competing = storyArchiveNeedsRanking(rankable, floorNumbers, sourceTimes, useTimeline, active.cost);
+    const explicitQuery = continuation || opening ? '' : userInput;
+    const explicitFloors = storyArchiveQueryFloors(explicitQuery);
+    const historyBudget = Math.floor(recallBudget * 0.14);
+    const competing = storyArchiveNeedsRanking(rankable, floorNumbers, sourceTimes, useTimeline, active.cost, recallBudget);
     const selected = await selectStoryVectorRecall(vector, signals, input.embedding, candidates, competing);
     let rerank: StoryRecallReceipt['rerank'];
     if (competing && input.rerank?.baseUrl && input.rerank.apiKey && input.rerank.model && focus.length) {
@@ -149,24 +162,28 @@ export async function buildStoryTheaterRecall(input: {
             } catch { rerank = 'failed'; }
         }
     }
-    const explicitQuery = continuation || opening ? '' : userInput;
-    const explicitFloors = storyArchiveQueryFloors(explicitQuery);
-    const explicit = selectExplicitStoryFacts(visibleFacts, explicitQuery, floorNumbers, selected.semanticFactRank);
+    const explicit = selectExplicitStoryFacts(visibleFacts, explicitQuery, floorNumbers, selected.semanticFactRank,
+        Math.max(8, Math.ceil(recallBudget / 800)));
     const graphRank = selected.embeddingRequests > 0 && !selected.embeddingFailed ? selected.semanticFactRank : new Map<string, number>();
     const related = storyRelatedArchiveFacts(visibleFacts, continuation ? query : userInput, graphRank);
     const relatedKeys = new Set(related.map(fact => fact.key));
     const priority = new Map(selected.semanticFactRank);
     related.forEach((fact, index) => priority.set(fact.vectorNodeId ?? storyArchiveFactIdentity(fact), index - related.length));
-    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, 700, query, baseline, useTimeline, relatedKeys, vector.factTextById, explicitFloors)
+    const past = selectStoryArchiveTransitions(entry.archives, beforeId, floorNumbers, sourceTimes, historyBudget, query, baseline, useTimeline, relatedKeys, vector.factTextById, explicitFloors)
         .filter(fact => !reconciled.closedPlans.some(plan => plan.key === fact.key && plan.sourceMessageId === fact.sourceMessageId));
+    const pastText = formatStoryArchiveFacts(past, floorNumbers, Infinity, true, sourceTimes);
+    // The timeline adds one historical label per record. Leave those labels
+    // and the separator room within the same budget as the current records.
+    const pastCost = pastText ? pastText.length + (useTimeline ? past.length * '【旧状态】'.length : 0) + 2 : 0;
+    const currentBudget = Math.max(0, recallBudget - pastCost);
     const sent = new Map([...active.selected].map(id => [id, true]));
     const mark = (fact: StoryArchiveFact, complete: boolean) => {
         const id = storyArchiveFactIdentity(fact);
         sent.set(id, complete || sent.get(id) || false);
     };
     const timeline = useTimeline
-        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys, explicit, explicitFloors, mark) : '';
-    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active, explicit, mark);
+        ? formatStoryArchiveRecallTimeline(visibleFacts, past, query, floorNumbers, priority, sourceTimes, active, relatedKeys, explicit, explicitFloors, mark, currentBudget) : '';
+    const current = useTimeline ? '' : formatStoryArchiveProseContext(visibleFacts, query, floorNumbers, priority, sourceTimes, active, explicit, mark, currentBudget);
     const previous = useTimeline ? '' : formatStoryArchiveFacts(past, floorNumbers, Infinity, true, sourceTimes, mark);
     const legacyCandidates: MemoryNode[] = entry.archives.flatMap<MemoryNode>(box =>
         box.strategy === 'summary' && !box.facts && box.toMessageId < beforeId && box.summary?.trim() ? [{

@@ -508,11 +508,12 @@ describe('story summary final channel', () => {
         expect(collectStoryArchiveFacts([archive], 2, new Map(), true)).toEqual([confirmed]);
     });
 
-    it('caps a single oversized fact and excludes hidden reasoning from raw fallback evidence', () => {
+    it('keeps whole facts within the per-turn budget and excludes hidden reasoning from raw fallback evidence', () => {
         const long = { key:'剧情/旧记录', kind:'fact' as const, text:'城门。'.repeat(2000), terms:['城门'], sourceMessageId:1 };
-        const context = formatStoryArchiveRecallTimeline([long], [], '城门', new Map([[1,1]]), new Map(), new Map());
-        expect(context).toHaveLength(3200);
-        expect(context.endsWith('…')).toBe(true);
+        const render = (budget: number) => formatStoryArchiveRecallTimeline([long], [], '城门',
+            new Map([[1,1]]), new Map(), new Map(), undefined, undefined, [long], undefined, undefined, budget);
+        expect(render(3200)).toBe('');
+        expect(render(7500)).toBe('[第 1 楼] 【已发生】' + long.text);
         const archive = { id:'vector', strategy:'vector' as const, fromMessageId:1, toMessageId:1, createdAt:1,
             messageCount:1, facts:[long] };
         const row = { id:1, role:'assistant', content:'<think>入口暗号在楼梯下面。</think>守门人打开了城门。' };
@@ -794,7 +795,7 @@ describe('story summary final channel', () => {
             sourceMessageId: index + 1, vectorNodeId: node.id, terms: [] }));
         const query = '怎样才能获准进去？';
         const floorNumbers = new Map(facts.map(fact => [fact.sourceMessageId, fact.sourceMessageId]));
-        expect(storyArchiveNeedsRanking(facts, floorNumbers, new Map())).toBe(true);
+        expect(storyArchiveNeedsRanking(facts, floorNumbers, new Map(), false, 0, 3200)).toBe(true);
         expect(nodes.reduce((count, node) => count + node.content.length, 0)).toBeLessThan(6000);
         await MemoryNodeDB.save(important);
         await MemoryVectorDB.save({ memoryId: important.id, charId, vector: [1, 0, 0], dimensions: 3, model: 'vector' });
@@ -807,7 +808,7 @@ describe('story summary final channel', () => {
         for (let turn=0;turn<3;turn++) {
             const recalled=await selectStoryVectorRecall({nodes:[],groups:[]},signals,
                 {baseUrl:'https://vector.invalid/v1',apiKey:'test',model:'vector',dimensions:3},
-                nodes,storyArchiveNeedsRanking(facts,floorNumbers,new Map()));
+                nodes,storyArchiveNeedsRanking(facts,floorNumbers,new Map(),false,0,3200));
             expect(recalled.semanticFactRank.has(important.id)).toBe(true);
             expect(formatStoryArchiveProseContext(facts,query,floorNumbers,recalled.semanticFactRank)).toContain(text);
         }
@@ -1857,6 +1858,29 @@ describe('续写前核对已结束的事项和持续设定', () => {
 
 
 describe('主动回查早期剧情', () => {
+    it.each(['summary', 'vector'] as const)('uses the configured budget for complete long-story %s recall', async strategy => {
+        const names = ['霜灯', '铜河', '白塔', '空匣'];
+        const facts: StoryArchiveFact[] = names.map((name, i) => ({
+            key: name + '/交接', kind: 'fact', sourceMessageId: i + 1, terms: [name],
+            text: name + '的交接记录。' + '雨季里收件人每次都要复查水位、印记和路线记录。'.repeat(100) + '只有青灯本人到场才可破例。',
+        }));
+        const rows = Array.from({ length: 200 }, (_, i) => ({ ...messages[1], id: i + 1, content: '隐藏原文' }));
+        const archive = { id: 'long-story', strategy, fromMessageId: 1, toMessageId: 199, createdAt: 1, messageCount: 199, facts };
+        const recall = (archiveRecallMaxChars: number) => buildStoryTheaterRecall({
+            entry: { ...entry, archiveRecallMaxChars, archives: [archive] },
+            rows, beforeId: 200, floor: 200, baseline: '', visibleRows: [], historyVisible: false,
+            continuation: false, opening: false, readOriginalEvidence: false,
+            userInput: '霜灯、铜河、白塔和空匣的交接都有何例外？',
+        });
+        const brief = await recall(3200);
+        expect(brief.receipt.facts?.filter(fact => fact.status === 'injected')).toHaveLength(1);
+        expect(brief.receipt.facts?.filter(fact => fact.status === 'budget')).toHaveLength(3);
+        const expanded = await recall(12000);
+        expect(expanded.receipt.injectedFloors).toEqual([1, 2, 3, 4]);
+        for (const fact of facts) expect(expanded.messages.map(message => message.content).join('\n')).toContain(fact.text);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('keeps a named long segment intact even when its latest scene preview would cut off the exception', async () => {
         const segment = '阿潭抵达北门暗道时，原先通往西库的桥板已断。' +
             '他沿着石壁查看街口、封条、风浪和水位，等水手转身才带着回执进门。'.repeat(16) +
@@ -2069,7 +2093,7 @@ describe('主动回查早期剧情', () => {
         }];
         fetchMock.mockResolvedValue(response({ data: [{ index: 0, embedding: [1, 0] }, { index: 1, embedding: [1, 0] }] }));
         const recalled = await buildStoryTheaterRecall({
-            entry: { ...entry, archives: boxes }, rows, beforeId: 21, floor: 3, baseline: '', visibleRows: [],
+            entry: { ...entry, archives: boxes, archiveRecallMaxChars: 5080 }, rows, beforeId: 21, floor: 3, baseline: '', visibleRows: [],
             historyVisible: false, continuation: false, opening: false, userInput: '那个交接凭证之前经了谁的手？',
             readOriginalEvidence: true, embedding: { baseUrl: 'https://vector.invalid/v1', apiKey: 'test', model: 'test', dimensions: 2 },
         });
@@ -2090,7 +2114,7 @@ it('records same-floor omitted facts individually and uses explicitly enabled re
     const rerank = { baseUrl: 'https://rank.invalid/v1', apiKey: 'test', model: 'rank' };
     fetchMock.mockResolvedValueOnce(response({ results: [{ index: 1, relevance_score: 0.9 }] }));
     const result = await buildStoryTheaterRecall({
-        entry: { ...entry, archives: [{ ...entry.archives[0], facts }] }, rows: messages, beforeId: id + 1,
+        entry: { ...entry, archiveRecallMaxChars: 3600, archives: [{ ...entry.archives[0], facts }] }, rows: messages, beforeId: id + 1,
         floor: 3, baseline: '', visibleRows: [], historyVisible: false, continuation: false, opening: false,
         userInput: '回执放在哪？谁知道档案馆？', readOriginalEvidence: false, rerank,
     });
