@@ -1,6 +1,43 @@
 import { test, expect } from 'vitest';
 import type { StoryArchiveFact } from '../types';
-import { collectStoryArchiveFacts, formatStoryArchiveProseContext, parseStoryArchiveChanges } from './storyArchiveFacts';
+import { collectStoryArchiveFacts, formatStoryArchiveProseContext, parseStoryArchiveChanges, reconcileStoryArchiveContinuity, storyArchiveContinuityKind } from './storyArchiveFacts';
+
+const screenshotNarrative = '从茶几边缘到你膝头只有两步的距离，活人迈过去不用一秒，一只怕冻着妹妹的鬼魂走过去，却要在心里把深浅盘算上好几个来回。';
+
+test('distance and a later mention of the living never become a persistent supernatural rule', () => {
+ expect(storyArchiveContinuityKind({kind:'fact',text:screenshotNarrative})).toBeUndefined();
+ const sources=new Map([[15,{text:screenshotNarrative,authorInput:false}]]);
+ expect(parseStoryArchiveChanges('{"changes":[],"instructions":[]}',sources,[])).toEqual([]);
+ const fact={key:'靠近/妹妹',kind:'fact' as const,text:screenshotNarrative,terms:[],sourceMessageId:15};
+ const parsed=parseStoryArchiveChanges(JSON.stringify({changes:[fact]}),sources,[]);
+ expect(parsed).toHaveLength(1);
+ expect(parsed[0].continuity).toBeUndefined();
+ const state=reconcileStoryArchiveContinuity([],[],20,[],[{id:15,role:'assistant',content:screenshotNarrative}]);
+ expect(state.active).toEqual([]);
+});
+
+test('recovered repeated rule sentences create one memory while separate rules remain intact', () => {
+ const rule='幸芳白是鬼魂，普通人看不见他，只有戴戒指的人可以看见他。';
+ const other='只有妹妹能听见幸芳白的声音。';
+ const sources=new Map([[15,{text:rule+'\n'+rule+'\n'+other,authorInput:false}]]);
+ const facts=parseStoryArchiveChanges('{"changes":[]}',sources,[]);
+ expect(facts.map(f=>f.text)).toEqual([rule,other]);
+ expect(facts.every(f=>f.continuity==='rule')).toBe(true);
+});
+
+test('local recovery does not duplicate a model-summarized exact rule', () => {
+ const text='幸芳白是鬼魂，普通人看不见他。';
+ const sources=new Map([[15,{text:text+'\n'+text,authorInput:false}]]);
+ const facts=parseStoryArchiveChanges(JSON.stringify({changes:[{key:'幸芳白/身份',kind:'fact',text,sourceMessageId:15}]}),sources,[]);
+ expect(facts).toHaveLength(1);
+ expect(facts[0]).toMatchObject({text,continuity:'rule'});
+});
+
+test('visibility assertions do not cross a clause boundary into unrelated action', () => {
+ expect(storyArchiveContinuityKind({kind:'fact',text:'旁人收起雨伞，他听不见窗外的雨声。'})).toBeUndefined();
+ expect(storyArchiveContinuityKind({kind:'fact',text:'普通人看不见幸芳白。'})).toBe('rule');
+ expect(storyArchiveContinuityKind({kind:'fact',text:'幸芳白无法触碰活人。'})).toBe('rule');
+});
 
 test('independent returned facts sharing one add key remain current together', () => {
  const sources = new Map([[10,{text:'柳巡只知道化名。青灯保管钥匙。',authorInput:false}]]);

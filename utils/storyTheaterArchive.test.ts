@@ -1770,6 +1770,42 @@ describe('long story archives process small consecutive requests', () => {
 
 
 describe('续写前核对已结束的事项和持续设定', () => {
+    it('向量归档只存整理后的事件和去重后的真实限制，不夹带截图中的文学原句', async () => {
+        const narrative = '从茶几边缘到你膝头只有两步的距离，活人迈过去不用一秒，一只怕冻着妹妹的鬼魂走过去，却要在心里把深浅盘算上好几个来回。';
+        const rule = '幸芳白是鬼魂，普通人看不见他，只有妹妹能听见他的声音。';
+        const summary = '幸芳白担心自己的靠近会冻着妹妹，因此在接近妹妹前反复犹豫。';
+        const content = rule + '\n' + rule + '\n' + narrative;
+        const row = { ...messages[1], content, id: await DB.saveMessage({
+            charId:storyTheaterThreadId(entry.id),role:'assistant',type:'text',timestamp:10,
+            content,metadata: {source:'story_theater',theaterId:entry.id},
+        }) };
+        const clean = {...entry, archives:[]};
+        await DB.saveStoryTheater(clean);
+        fetchMock.mockImplementationOnce(async (_url, init) => {
+            const payload=JSON.parse(String(init.body));
+            expect(payload.messages[0].content).toContain('不能直接拿文学原句充当text');
+            expect(payload.messages[1].content).toContain(narrative);
+            return response(completion(JSON.stringify({changes:[
+                {key:'幸芳白/靠近妹妹',kind:'fact',text:summary,sourceMessageId:row.id},
+                {key:'幸芳白/动作',kind:'fact',text:summary,sourceMessageId:row.id},
+            ]})));
+        }).mockImplementationOnce(async (_url, init) => {
+            const input=JSON.parse(String(init.body)).input;
+            expect(input).toEqual([summary,rule]);
+            return response({data: input.map((_:string,index:number)=>({index,embedding:[1,index+1,0]}))});
+        });
+        const updated=await archiveStoryVectorRangeInGeneration(clean.id,[row],api,{
+            embedding:{baseUrl:'https://embedding.invalid/v1',apiKey:'test',model:'vector',dimensions:3},
+        });
+        expect(updated.archives[0].facts?.map(f=>f.text)).toEqual([summary,rule]);
+        expect(updated.archives[0].vectorMemoryIds).toHaveLength(2);
+        const saved=await MemoryNodeDB.getByCharId(storyTheaterThreadId(entry.id));
+        expect(saved.map(n=>n.content)).toEqual(expect.arrayContaining([summary,rule]));
+        expect(saved).toHaveLength(2);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect((await DB.getMessageById(row.id))?.content).toBe(content);
+    });
+
     it('不把出发、计划一半做完和未来记录当成全部结案', () => {
         const plan = { key: '王姨/拜访', kind: 'fact' as const, modality: 'planned' as const, sourceMessageId: 1,
             text: '小雨打算给王姨送橘子和换门锁。', terms: [] };
