@@ -24,9 +24,13 @@ const sentences = [
   '窗外落雨，之前误解的事情终于有了新的解释。',
   '她记得他在桥边答应过，不会擅自改变约好的计划。',
 ];
+// Seed an old technical tag in every vector screenshot run, alongside real
+// names and a code. The production component must filter only the bad tag.
+const videoTags = mode === 'vectors';
+if (videoTags) sentences[0] = '幸福和 John 核对编号 A_B，幸芳白保管旧居协议。';
 const facts: StoryArchiveFact[] = nodeIds.map((node, i) => ({
   key: 'visual-fact-' + i, kind: 'fact', text: sentences[i % sentences.length],
-  terms: ['信件', '车站', '冬夜'], sourceMessageId: i + 1,
+  terms: videoTags && i === 0 ? ['strict_forbidden_words_and_terms','幸福','John','A_B'] : ['信件', '车站', '冬夜'], sourceMessageId: i + 1,
   storyTime: '2026-11-' + String(12 + (i % 4)).padStart(2, '0') + ' 晚间',
   vectorNodeId: node, vectorTextState: 'synced',
 }));

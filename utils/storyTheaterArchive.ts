@@ -16,6 +16,7 @@ import { notifyMemoryNodesChanged } from './memoryPalace/nodeChanges';
 import { deleteVector } from './memoryPalace/supabaseVector';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { normalizeStoryArchiveGuideMaxChars } from './storyArchiveLength';
+import { storyArchiveSummaryIssue } from './storyArchiveQuality';
 
 import { collectStoryArchiveFacts, formatStoryArchiveFacts, parseStoryArchiveChanges, rankStoryArchiveFacts, readStoryRecallArchives, storyArchiveContinuityKind, storyArchiveFactIdentity, storyArchiveModality, storyArchiveSourceTimes, StoryArchiveIncompleteReply, STORY_INCREMENTAL_ARCHIVE_INSTRUCTION } from './storyArchiveFacts';
 import { sampleSnippetsFromMessages } from './memoryPalace/relatedMemories';
@@ -280,6 +281,16 @@ export async function generateStoryArchiveDelta(
         const maxMergedFactChars = strategy === 'vector' ? EMBEDDING_MAX_INPUT_CHARS : Infinity;
         facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes, priorHistory, maxMergedFactChars)
             .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
+        const names = [...reference.matchAll(/【(?:用户执笔身份：)?([^】]{1,64})】/gu)].map(match => match[1]);
+        for (const fact of [...facts, ...historyFacts]) {
+            const evidence = (fact.sourceMessageIds ?? [fact.sourceMessageId]).map(id => sources.get(id)?.text ?? '');
+            if (!evidence.some(source => source.trim())) continue; // Existing history has no new source to judge.
+            const issue = storyArchiveSummaryIssue(fact, evidence, names);
+            if (issue) {
+                if (key) run?.completed?.delete(key);
+                throw new StoryArchiveIncompleteReply(`${issue}（第 ${floorNumbers.get(fact.sourceMessageId) ?? firstFloor} 楼），原文和旧归档已保留，请重试整理`);
+            }
+        }
         if (key && cached === undefined) run?.completed?.set(key, raw);
     }
     historyFacts.sort((a, b) => a.sourceMessageId - b.sourceMessageId);

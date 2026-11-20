@@ -319,6 +319,9 @@ describe('见面剧情实际请求', () => {
         const entry = {
             ...createStoryTheaterDraft(1), title: '旧城的亡魂', characterIds: ['actor'],
             forceUserLastMessage: true, automaticMemoryApiEnabled: false,
+            // This case exercises a small budget explicitly; the long-story
+            // default is independently configurable and must not be reduced.
+            archiveRecallMaxChars: 4000,
         };
         const preset = createBlankStoryPreset('只读归档', 1);
         preset.document.prompts = [{ id: 'disabled-history', name: '旧正文', role: 'system', marker: 'history', enabled: false, content: '' }];

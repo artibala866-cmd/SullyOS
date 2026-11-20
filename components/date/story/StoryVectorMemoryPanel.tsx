@@ -11,6 +11,7 @@ import { runStoryArchiveOperation } from '../../../utils/storyTheaterBackground'
 import { collectStoryArchiveFacts, filterStoryArchiveBaselineRepeats, readStoryRecallArchives, storyArchiveFactIdentity, storyArchiveFactTime, storyArchiveModality, storyArchiveSearchTerms, storyArchiveSourceTimes } from '../../../utils/storyArchiveFacts';
 import { resolveStoryTheaterMask, resolveStoryTheaterWorldbooks } from '../../../utils/storyTheater';
 import { StoryOutput } from './StoryTheaterSession';
+import { storyArchiveKeywordTags } from '../../../utils/storyArchiveQuality';
 
 interface Props {
     entry: StoryTheaterEntry;
@@ -140,8 +141,8 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, masks = EMPTY_MASKS, o
     const visibleRecords = filtered.slice(visiblePage * PAGE_SIZE, (visiblePage + 1) * PAGE_SIZE);
     useEffect(() => { if (page !== visiblePage) setPage(visiblePage); }, [page, visiblePage]);
     const record = records.find(item => item.id === selectedId);
-    const detailTags = [...new Set([...(record?.fact?.terms ?? record?.node?.tags ?? []), ...(record?.fact?.aliases ?? [])])]
-        .filter(tag => tag !== '剧情');
+    const detailTags = storyArchiveKeywordTags(
+        [...(record?.fact?.terms ?? record?.node?.tags ?? []), ...(record?.fact?.aliases ?? [])], record?.text ?? '');
     const activeNode = record?.node;
     const original = record?.fact && floorById.get(record.fact.sourceMessageId);
     const floor = record?.fact && floorNumbers.get(record.fact.sourceMessageId);

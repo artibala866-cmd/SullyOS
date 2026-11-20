@@ -9,6 +9,9 @@ on:
       - tests/story-memory-workspace-visual.tsx
       - story-memory-workspace-visual.html
       - scripts/story-memory-workspace-device.mjs
+      - utils/storyArchiveFacts.ts
+      - utils/storyArchiveQuality.ts
+      - utils/storyArchiveQuality.test.ts
       - .github/workflows/story-memory-workspace-visual.yml
   workflow_dispatch:
 permissions:
@@ -27,11 +30,16 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify summary quality, keyword fallback, source preservation and recall
+        run: pnpm exec vitest run utils/storyArchiveQuality.test.ts utils/storyMemoryAudit.test.ts utils/storyTheaterArchive.test.ts utils/storyTheaterRequest.test.ts
       - name: Typecheck UI modules
         shell: bash
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: |
           pnpm exec tsc --noEmit --pretty false > /tmp/story-memory-tsc.txt 2>&1 || true
-          grep -E '^(components/date/story/(StoryArchivePanel|StoryVectorMemoryPanel|StoryTheaterTheme)[.]tsx|tests/story-memory-workspace-visual[.]tsx)[(]' /tmp/story-memory-tsc.txt > /tmp/story-memory-errors.txt || true
+          if grep -Eq 'FATAL ERROR|heap out of memory' /tmp/story-memory-tsc.txt; then tail -n 30 /tmp/story-memory-tsc.txt; exit 1; fi
+          grep -E '^(components/date/story/(StoryArchivePanel|StoryVectorMemoryPanel|StoryTheaterTheme)[.]tsx|tests/story-memory-workspace-visual[.]tsx|utils/(storyArchive(Facts|Quality)([.]test)?|storyTheaterArchive([.]test)?|storyMemoryAudit[.]test|storyTheaterRequest[.]test)[.]ts)[(]' /tmp/story-memory-tsc.txt > /tmp/story-memory-errors.txt || true
           if [ -s /tmp/story-memory-errors.txt ]; then cat /tmp/story-memory-errors.txt; exit 1; fi
       - name: Install Chinese fonts for accurate screenshots
         shell: bash

@@ -99,20 +99,25 @@ try {
         await sleep(350);
         const bottom = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
         await writeFile(screenshotPath.slice(0, -4) + '-bottom.png', Buffer.from(bottom.data, 'base64'));
-        if (width === 390) {
-            await send('Runtime.evaluate', {
-                expression: "document.querySelector('.story-memory-scroll').scrollTop = 0; document.querySelector('.story-memory-node button')?.click();",
-            });
-            await sleep(500);
-            const detail = await send('Runtime.evaluate', {
-                expression: "!!document.querySelector('.story-memory-dialog[open]')", returnByValue: true,
-            });
-            if (!detail.result?.value) throw new Error('Memory detail sheet failed to open from real node');
-            const detailShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
-            await writeFile(screenshotPath.slice(0, -4) + '-detail.png', Buffer.from(detailShot.data, 'base64'));
-            await send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="关闭记忆详情"]')?.click()` });
-            await sleep(250);
+        await send('Runtime.evaluate', {
+            expression: "document.querySelector('.story-memory-scroll').scrollTop = 0; document.querySelector('.story-memory-node button')?.click();",
+        });
+        await sleep(500);
+        const detail = await send('Runtime.evaluate', {
+            expression: "!!document.querySelector('.story-memory-dialog[open]')", returnByValue: true,
+        });
+        if (!detail.result?.value) throw new Error('Memory detail sheet failed to open from real node');
+        const tags = await send('Runtime.evaluate', {
+            expression: "document.querySelector('.story-memory-dialog[open]')?.textContent?.toLowerCase()", returnByValue: true,
+        });
+        const text = tags.result?.value ?? '';
+        if (text.includes('strict_forbidden_words_and_terms') || !text.includes('幸福') || !text.includes('john') || !text.includes('a_b')) {
+            throw new Error('Legacy identifier tags leaked, or real names/codes disappeared');
         }
+        const detailShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+        await writeFile(screenshotPath.slice(0, -4) + '-detail.png', Buffer.from(detailShot.data, 'base64'));
+        await send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="关闭记忆详情"]')?.click()` });
+        await sleep(250);
         await send('Runtime.evaluate', { expression: "document.querySelector('.story-memory-tabs button[aria-pressed=false]')?.click()" });
         await sleep(400);
         const archived = await send('Runtime.evaluate', {

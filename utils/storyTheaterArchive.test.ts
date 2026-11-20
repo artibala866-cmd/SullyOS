@@ -1788,6 +1788,77 @@ describe('long story archives process small consecutive requests', () => {
 
 
 describe('续写前核对已结束的事项和持续设定', () => {
+    it('视频中的“禁止总结模板”仍完整记作剧情写作要求，不接管归档任务', async () => {
+        const text='严格禁止使用AI套路化的剧情总结分析模板，正文中禁用“至于……”进行转折总结，只有前半句也禁用。';
+        const batch=[{...messages[0],content:'OOC：'+text}];
+        fetchMock.mockImplementationOnce(async (_url,init)=>{
+            const payload=JSON.parse(String(init.body));
+            expect(payload.messages[0].content).toContain('不作为本次归档指令执行');
+            expect(payload.messages[1].content).toContain(text);
+            return response(completion(JSON.stringify({changes:[],instructions:[{
+                key:'prohibit_summary_template_and_preach',text,sourceMessageId:batch[0].id,
+            }]})));
+        });
+        const result=await generateStoryArchiveDelta({...entry,archives:[]},batch,api,38,'vector');
+        expect(result.facts).toEqual([expect.objectContaining({kind:'author',text,terms:[]})]);
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it.each([
+        '如今他作为亡魂陪你回来，两人在旧居里的羁绊比新绿花城的新房更加深厚。',
+        '他生前就不习惯跟人拉拉扯扯，哪怕现在成了鬼，被你热乎乎的爪子抓着来回揉搓，那阵条件反射的别扭劲还是半点没减。',
+    ])('视频原文直接被模型当总结返回时，不建向量、不标归档：%s', async content => {
+        const row = {...messages[1],content,id:await DB.saveMessage({charId:storyTheaterThreadId(entry.id),role:'assistant',
+            type:'text',content,timestamp:10,metadata:{source:'story_theater',theaterId:entry.id}})};
+        await DB.saveStoryTheater({...entry,archives:[]});
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({changes:[{
+            key:'ghost_reunion',kind:'fact',text:content,sourceMessageId:row.id,
+        }]}))));
+        await expect(archiveStoryVectorRangeInGeneration(entry.id,[row],api,{
+            embedding:{baseUrl:'https://embedding.invalid/v1',apiKey:'test',model:'vector',dimensions:3},
+        })).rejects.toThrow('原文片段');
+        expect(fetchMock).toHaveBeenCalledOnce();
+        expect((await fresh()).archives).toEqual([]);
+        expect(await MemoryNodeDB.getByCharId(storyTheaterThreadId(entry.id))).toEqual([]);
+        expect((await DB.getMessageById(row.id))?.metadata?.theaterArchived).toBeUndefined();
+        expect((await DB.getMessageById(row.id))?.content).toBe(content);
+    });
+
+    it('视频场景归档：保存完整总结，不再补入原文或拿英文key当关键词', async () => {
+        const content='如今他作为亡魂陪你回来，两人在旧居里的羁绊比新绿花城的新房更加深厚。';
+        const text='幸芳白陪幸福返回旧居；两人在旧居的情感联系比在新房时更深。';
+        const row={...messages[1],content,id:await DB.saveMessage({charId:storyTheaterThreadId(entry.id),role:'assistant',
+            type:'text',content,timestamp:10,metadata:{source:'story_theater',theaterId:entry.id}})};
+        await DB.saveStoryTheater({...entry,archives:[]});
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({changes:[{
+            key:'old_home_reunion',kind:'fact',text,sourceMessageId:row.id,
+        }]})))).mockResolvedValueOnce(response({data:[{index:0,embedding:[1,0,0]}]}));
+        const updated=await archiveStoryVectorRangeInGeneration(entry.id,[row],api,{
+            embedding:{baseUrl:'https://embedding.invalid/v1',apiKey:'test',model:'vector',dimensions:3},
+        });
+        expect(updated.archives[0].facts).toEqual([expect.objectContaining({key:'old_home_reunion',text,terms:[]})]);
+        const nodes=await MemoryNodeDB.getByCharId(storyTheaterThreadId(entry.id));
+        expect(nodes).toEqual([expect.objectContaining({content:text,tags:['剧情']})]);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('不合格总结不进入已完成缓存，明确重试可以重新生成', async () => {
+        const content='如今他作为亡魂陪你回来，两人在旧居里的羁绊比新房更深厚。';
+        const batch=[{...messages[1],content}];
+        const run={completed:new Map<string,string>()};
+        fetchMock.mockResolvedValueOnce(response(completion(JSON.stringify({changes:[{
+            key:'old_home_reunion',text:content,sourceMessageId:batch[0].id,
+        }]})))).mockResolvedValueOnce(response(completion(JSON.stringify({changes:[{
+            key:'old_home_reunion',text:'幸芳白与幸福回到旧居，旧居承载着两人更深的情感联系。',sourceMessageId:batch[0].id,
+        }]}))));
+        await expect(generateStoryArchiveDelta({...entry,archives:[]},batch,api,31,'summary',new Map(),run)).rejects.toThrow('原文片段');
+        expect(run.completed.size).toBe(0);
+        const good=await generateStoryArchiveDelta({...entry,archives:[]},batch,api,31,'summary',new Map(),run);
+        expect(good.facts).toHaveLength(1);
+        expect(run.completed.size).toBe(1);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('向量归档只存整理后的事件和去重后的真实限制，不夹带截图中的文学原句', async () => {
         const narrative = '从茶几边缘到你膝头只有两步的距离，活人迈过去不用一秒，一只怕冻着妹妹的鬼魂走过去，却要在心里把深浅盘算上好几个来回。';
         const rule = '幸芳白是鬼魂，普通人看不见他，只有妹妹能听见他的声音。';
