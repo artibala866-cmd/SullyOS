@@ -517,7 +517,7 @@ export const STORY_INCREMENTAL_ARCHIVE_INSTRUCTION = [
     '长期场外要求保留全部有效条件。只限当轮的要求另段并标authorScope:"turn"，不要将同楼长期要求一起标成turn。修改某一要求时保留其余仍有效的条件。场外要求不能写成角色已经实施的行为。',
     'storyTime仅填原文明确的剧情时间，不能用聊天日期、楼层或回忆中的时间替代现在。界面好感数值由程序另存。原有角色卡、世界书和前提用于区分已有设定，不重复当成新剧情。',
     'aliases仅用原文明示别名。entities仅列有证据的专名，格式为{"name":"专名","type":"person|place|object|organization|event|code","aliases":[]}。relatedKeys仅填有直接因果、同物交接或同一未决事项的key。没依据的可选字段直接省略。',
-    '整批最终正文100～1500字符（含标点与换行）。先删重复、修饰、无后效过程，再精简句子；保留关键主体、否定、因果、条件、例外和状态。素材少时不编造凑字。不能用全文摘抄或逐楼流水账代替总结。',
+    '先删重复、修饰、无后效过程，再精简句子；保留关键主体、否定、因果、条件、例外和状态。素材少时不编造凑字。不能用全文摘抄或逐楼流水账代替总结。',
     '提交前对照上一档和本批首、中、尾：每项新场外要求及其条件是否入instructions？每个新事项、结案与变化是否入changes？同件事是否被拆成重复段？如果发现遗漏，在这次响应里补齐再闭合JSON。只输出JSON。',
 ].join('\n');
 
@@ -741,7 +741,7 @@ function splitStoryAuthorScopes<T extends { kind?: unknown; text?: unknown; auth
 export function parseStoryArchiveChanges(
     raw: string, sources: ReadonlyMap<number, { text: string; authorInput: boolean; floorNumber?: number }>, known: StoryArchiveFact[], baseline = '',
     onEarlierState?: (fact: StoryArchiveFact) => void, sourceTimes?: ReadonlyMap<number, string>,
-    priorHistory: readonly StoryArchiveFact[] = [],
+    priorHistory: readonly StoryArchiveFact[] = [], maxMergedFactChars = Infinity,
 ): StoryArchiveFact[] {
     const invalid = (detail: string) => new Error(`增量归档格式或来源无效（${detail}），原文和旧归档已保留`);
     let value: unknown;
@@ -1176,7 +1176,7 @@ export function parseStoryArchiveChanges(
             const combined = [...new Map([...storySentences(earlier.text), ...storySentences(outcome.text)]
                 .map(sentence => [comparable(sentence), sentence])).values()]
                 .map(sentence => /[。！？.!?]$/u.test(sentence) ? sentence : sentence + '。').join('');
-            if (!combined || combined.length > 1500) continue;
+            if (!combined || combined.length > maxMergedFactChars) continue;
             facts.delete(link);
             onEarlierState?.({ ...earlier, mergedIntoKey: key });
             facts.set(key, {

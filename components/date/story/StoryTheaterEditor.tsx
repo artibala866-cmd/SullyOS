@@ -414,6 +414,11 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
             const issue = storyMemoryApiValidationError(normalizeStoryMemoryApi(draft.memorySummaryApi)!);
             if (issue) { setSaveError(''); setMemoryApiError(issue + '；本剧情没有保存，主 API 保持不变'); return; }
         }
+        const archiveLimit = draft.archiveSummaryGuideMaxChars;
+        if (archiveLimit !== undefined && (!Number.isSafeInteger(archiveLimit) || archiveLimit < 1)) {
+            setSaveError('归档保存上限请输入正整数。');
+            return;
+        }
         setSaveError('');
         saveLock.current = true;
         setSaving(true);
@@ -643,9 +648,9 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, worldbooks =
                     </div>
                     <label className='block'>
                         <span className='block mb-2 text-[10px] text-slate-500'>归档保存上限（字符）</span>
-                        <input type='number' aria-label='归档保存上限' min={1} max={STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
-                            value={draft.archiveSummaryGuideMaxChars ?? STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS}
-                            onChange={event => update('archiveSummaryGuideMaxChars', normalizeStoryArchiveGuideMaxChars(event.target.value === '' ? 0 : Number(event.target.value)))}
+                        <input type='number' aria-label='归档保存上限' min={1} placeholder={String(STORY_ARCHIVE_DEFAULT_GUIDE_MAX_CHARS)}
+                            value={draft.archiveSummaryGuideMaxChars ?? ''}
+                            onChange={event => update('archiveSummaryGuideMaxChars', event.target.value === '' ? undefined : event.target.valueAsNumber)}
                             className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm' />
                     </label>
                 </div>}

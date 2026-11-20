@@ -231,7 +231,7 @@ export async function generateStoryArchiveDelta(
     ].filter(Boolean).join('\n\n').slice(0, 6000);
     const affinityLog = affinity.length ? ['界面好感记录（用户→角色）：', ...affinity] : [];
     const saveMaxChars = normalizeStoryArchiveGuideMaxChars(entry.archiveSummaryGuideMaxChars);
-    if (saveMaxChars > 0 && storyArchiveCharacterCount(affinityLog.join('\n')) > saveMaxChars) {
+    if (storyArchiveCharacterCount(affinityLog.join('\n')) > saveMaxChars) {
         throw new Error('归档保存上限不足以容纳界面好感记录，本次未调用总结 API');
     }
     const historyFacts: StoryArchiveFact[] = [];
@@ -264,8 +264,9 @@ export async function generateStoryArchiveDelta(
                 + '。逐项检查用户要求的条件和例外，并将剧情首中尾按事项归纳。',
             ...(authorChecks.length ? ['写作要求重点记录ID ' + authorChecks.join('、') + '。长期与当轮要求分段存入instructions，剧情新增和更新存入changes。'] : []),
         ].join('\n\n');
-        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION + (saveMaxChars > 0
-            ? '\n本剧情设置的归档保存上限为 ' + saveMaxChars + ' 字符，须为楼层标签及附加好感记录留出空间。' : '');
+        const instruction = STORY_INCREMENTAL_ARCHIVE_INSTRUCTION
+            + `\n整批归档最多 ${saveMaxChars} 字符（含标点、换行、楼层标签与附加好感记录），正文须为这些附加内容留出空间。`
+            + (strategy === 'vector' ? `\n每个需要向量化的记忆段须符合单段向量容量（${EMBEDDING_MAX_INPUT_CHARS} 个 UTF-16 码元）。` : '');
         const key = run?.completed && JSON.stringify([api.baseUrl, api.model, strategy, instruction, input,
             [...sources].map(([id, source]) => [id, source.authorInput])]);
         const cached = key ? run?.completed?.get(key) : undefined;
@@ -276,7 +277,8 @@ export async function generateStoryArchiveDelta(
         const raw = cached ?? await requestArchiveCompletion(api, instruction, input, !!entry.memorySummaryApi, strategy);
         const priorHistory = archives.flatMap(box => box.historyFacts ?? [])
             .filter(fact => fact.sourceMessageId < beforeId && fact.vectorTextState !== 'deleted');
-        facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes, priorHistory)
+        const maxMergedFactChars = strategy === 'vector' ? EMBEDDING_MAX_INPUT_CHARS : Infinity;
+        facts = parseStoryArchiveChanges(raw, sources, known, reference, earlier => historyFacts.push(earlier), sourceTimes, priorHistory, maxMergedFactChars)
             .sort((a, b) => a.sourceMessageId - b.sourceMessageId);
         if (key && cached === undefined) run?.completed?.set(key, raw);
     }

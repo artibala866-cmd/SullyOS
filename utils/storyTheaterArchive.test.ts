@@ -1270,12 +1270,29 @@ describe('independent vector archive', () => {
         ]);
     });
 
+    it('reloads a custom ceiling and saves a vector archive above 1500 characters', async () => {
+        const floors = await prepare();
+        await DB.saveStoryTheater({ ...await fresh(), archiveSummaryGuideMaxChars: 9000 });
+        const longText = '剧情信息不可省略。'.repeat(300);
+        queueArchive(longText);
+        const saved = await archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector);
+
+        const instruction = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
+        expect(instruction).toContain('整批归档最多 9000 字符');
+        expect(instruction).not.toContain('1500');
+        expect((await fresh()).archiveSummaryGuideMaxChars).toBe(9000);
+        expect(saved.archives[0].facts?.[0].text).toBe(longText);
+        expect((await MemoryNodeDB.getById(saved.archives[0].vectorMemoryIds![0]))?.content).toBe(longText);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('keeps archived floors intact if one proposed fact exceeds vector capacity', async () => {
         const floors = await prepare();
+        await DB.saveStoryTheater({ ...await fresh(), archiveSummaryGuideMaxChars: 9000 });
         const longText = '剧情信息不可省略。'.repeat(850);
         fetchMock.mockImplementationOnce(async (_url, init) => response(structured(longText, init)));
         await expect(archiveStoryFloorRange(entry.id, floors.slice(0, 2), api, undefined, vector))
-            .rejects.toThrow('1500 字符保存上限');
+            .rejects.toThrow('单条剧情事实超过向量容量');
         expect((await fresh()).archives).toEqual([]);
         expect((await read()).map(row => row.content)).toEqual(floors.map(row => row.content));
         expect(fetchMock).toHaveBeenCalledOnce();

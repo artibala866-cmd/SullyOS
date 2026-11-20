@@ -57,12 +57,14 @@ import {
 } from './storyTheater';
 
 describe('事件盒归档保存上限', () => {
-    it('新旧剧情沿用1500字符上限，保留更小的手动上限', () => {
+    it('缺失或无效设置使用1500，保留有效的自定义上限', () => {
         expect(createStoryTheaterDraft().archiveSummaryGuideMaxChars).toBe(1500);
-        for (const limit of [undefined, 0, 9000, 3000, -1]) {
+        for (const limit of [undefined, 0, -1, 1.5, Infinity]) {
             expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: limit }).archiveSummaryGuideMaxChars).toBe(1500);
         }
-        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: 1200 }).archiveSummaryGuideMaxChars).toBe(1200);
+        for (const limit of [1, 1200, 3000, 9000, 1000000]) {
+            expect(normalizeStoryTheater({ ...createStoryTheaterDraft(), archiveSummaryGuideMaxChars: limit }).archiveSummaryGuideMaxChars).toBe(limit);
+        }
     });
     it('向量篇幅较长时完整分段，汉字和emoji都不丢失', () => {
         const source = '他离开了。'.repeat(1300) + '✨🚗' + '回来的约定'.repeat(400);

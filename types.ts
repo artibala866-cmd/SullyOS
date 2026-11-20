@@ -2301,7 +2301,7 @@ export interface StoryTheaterEntry {
     /** 归档时至少留在会话里的最近楼层数；旧数据默认 5。 */
     archiveKeepRecent?: number;
     archiveStrategy: StoryTheaterArchiveStrategy;
-    /** Suggested event-box maximum (Unicode characters); 0 means unlimited. Never clips model output. */
+    /** Archive save ceiling in Unicode characters. Missing or invalid values use the default. */
     archiveSummaryGuideMaxChars?: number;
     archiveRecallRerank?: boolean;
     archives: StoryTheaterArchive[];

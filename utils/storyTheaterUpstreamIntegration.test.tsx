@@ -63,6 +63,26 @@ describe('原作者见面剧情记忆模式移植',()=>{
         expect(node.textContent).toContain('事件盒');
         expect(node.textContent).toContain('自动记忆输出');
     });
+    it('归档上限可以清空后逐位输入，并保存大于1500的值', async () => {
+        const save = vi.fn(async entry => DB.saveStoryTheater(entry));
+        const node = await openEditor(save);
+        await act(async () => click('虚构剧场'));
+        const input = node.querySelector<HTMLInputElement>('[aria-label="归档保存上限"]')!;
+        expect(input.value).toBe('1500');
+        expect(input.hasAttribute('max')).toBe(false);
+        const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+        for (const value of ['', '9', '90', '900', '9000']) {
+            await act(async () => {
+                setValue.call(input, value);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            expect(input.value).toBe(value);
+        }
+        await act(async () => click('保存并进入'));
+        expect(save).toHaveBeenCalledWith(expect.objectContaining({ archiveSummaryGuideMaxChars: 9000 }));
+        const saved = (await DB.getStoryTheaters()).find(entry => entry.id === save.mock.calls[0][0].id);
+        expect(saved?.archiveSummaryGuideMaxChars).toBe(9000);
+    });
     it('适配不破坏糯米机已有的保存失败提示',async()=>{
         const node=await openEditor(async()=>{throw Error('磁盘写入失败');});
         await act(async()=>click('保存并进入'));
