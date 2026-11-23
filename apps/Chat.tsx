@@ -4833,8 +4833,11 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             activeTheme={activeTheme}
                             friendRainWhitebox={friendRainWhitebox}
                             charAvatar={selectedAvatar}
+                            charAvatarFallback={char.avatar}
                             charName={char.name}
                             userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
+                            userAvatarFallback={userProfile.avatar}
+                            avatarVisibility={mergedFineTune.chatAvatarVisibility || 'both'}
                             isLatestMessage={!nextMessage}
                             onMediaLoad={handleMessageMediaLoad}
                             moduleAlign={mergedFineTune.chatModuleAlign || 'center'}
@@ -4856,7 +4859,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             onPlayVoice={onPlayVoiceStable}
                             avatarShape={osTheme.chatAvatarShape}
                             avatarSize={osTheme.chatAvatarSize}
-                            avatarMode={qqBubble || ((wechatBubble || blackWhiteFacebook) && m.type === 'text') ? 'every_message' : osTheme.chatAvatarMode}
+                            avatarMode={blackWhiteFacebook || qqBubble || (wechatBubble && m.type === 'text') ? 'every_message' : osTheme.chatAvatarMode}
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={isOpening || qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
@@ -4925,9 +4928,12 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                             qqBubble={qqBubble}
                                     activeTheme={activeTheme}
                             friendRainWhitebox={friendRainWhitebox}
-                                    charAvatar={char.avatar}
+                                    charAvatar={selectedAvatar}
+                                    charAvatarFallback={char.avatar}
                                     charName={char.name}
                                     userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
+                                    userAvatarFallback={userProfile.avatar}
+                                    avatarVisibility={mergedFineTune.chatAvatarVisibility || 'both'}
                                     onLongPress={() => {}}
                                     onReply={() => {}}
                                     selectionMode={false}
@@ -4935,7 +4941,7 @@ const Chat: React.FC<{homePhone?:HomePhoneChatProps}> = ({homePhone}) => {
                                     onToggleSelect={() => {}}
                                     avatarShape={osTheme.chatAvatarShape}
                                     avatarSize={osTheme.chatAvatarSize}
-                                    avatarMode={qqBubble || wechatBubble || blackWhiteFacebook ? 'every_message' : osTheme.chatAvatarMode}
+                                    avatarMode={blackWhiteFacebook || qqBubble || wechatBubble ? 'every_message' : osTheme.chatAvatarMode}
                                     bubbleVariant={osTheme.chatBubbleStyle}
                                     messageSpacing={osTheme.chatMessageSpacing}
                                     showTimestamp={qqBubble || blackWhiteFacebook ? 'never' : osTheme.chatShowTimestamp}
