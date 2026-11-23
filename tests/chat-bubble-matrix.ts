@@ -82,7 +82,7 @@ const scenarios: Record<string, Message[]> = {
 const messages = scenarios[scene] || scenarios.conversation;
 const auditAvatarSource = scene === 'broken-avatar' ? '/__sully_missing_avatar_primary__.png' : BEAUTY_PREVIEW_AVATAR;
 const reports: Array<Record<string, unknown>> = [];
-const common = (theme: Theme, msg: Message, index: number, all: Message[]) => ({
+const common = (theme: Theme, msg: Message, index: number, all: Message[], avatarVisibility: 'both' | 'hide_ai' | 'hide_user' | 'hide_both' = 'both') => ({
   msg,
   activeTheme: theme.theme,
   ...theme.extra,
@@ -90,7 +90,7 @@ const common = (theme: Theme, msg: Message, index: number, all: Message[]) => ({
   charAvatarFallback: BEAUTY_PREVIEW_AVATAR,
   userAvatar: auditAvatarSource,
   userAvatarFallback: BEAUTY_PREVIEW_AVATAR,
-  avatarVisibility: 'both' as const,
+  avatarVisibility,
   charName: '示例角色',
   isFirstInGroup: index === 0 || all[index - 1].role !== msg.role,
   isLastInGroup: index === all.length - 1 || all[index + 1].role !== msg.role,
@@ -106,9 +106,9 @@ const common = (theme: Theme, msg: Message, index: number, all: Message[]) => ({
   isSelected: false,
   onToggleSelect: (_id: number) => {},
 });
-const view = (theme: Theme, all: Message[]) => React.createElement('div', {className: 'sully-chat-root ' + theme.cls + ' matrix-chat'},
+const view = (theme: Theme, all: Message[], avatarVisibility: 'both' | 'hide_ai' | 'hide_user' | 'hide_both' = 'both') => React.createElement('div', {className: 'sully-chat-root ' + theme.cls + ' matrix-chat'},
   ...all.map((msg, i) => React.createElement('div', {key: msg.id, 'data-qa-id': msg.id},
-    React.createElement(MessageItem, common(theme, msg, i, all))
+    React.createElement(MessageItem, common(theme, msg, i, all, avatarVisibility))
   ))
 );
 const audit = (section: HTMLElement, label: string) => {
@@ -207,14 +207,38 @@ for(const theme of themes) {
     React.createElement(MessageItem, {...common(theme,recalled,0,[recalled]),onViewRecalled:(_m:Message)=>{}})
   )));
   const recalledChanged=!!host.querySelector('[role="status"]') && !host.querySelector('.sully-bubble-ai');
-  reports.push({label:theme.id+'-dynamic',sameNode,widths,heights,quote,thinkingChanged,recalledChanged,
+  const sides = [make(20,'assistant','角色头像应显示。'), make(21,'user','用户头像按设置隐藏。')];
+  flushSync(()=>reactRoot.render(view(theme,sides,'hide_user')));
+  const hideUserOK = !!host.querySelector('.sully-chat-message-ai .sully-chat-avatar-content')
+    && !host.querySelector('.sully-chat-message-user .sully-chat-avatar-content');
+  flushSync(()=>reactRoot.render(view(theme,sides,'hide_ai')));
+  const hideAiOK = !!host.querySelector('.sully-chat-message-user .sully-chat-avatar-content')
+    && !host.querySelector('.sully-chat-message-ai .sully-chat-avatar-content');
+  reports.push({label:theme.id+'-dynamic',sameNode,widths,heights,quote,thinkingChanged,recalledChanged,hideUserOK,hideAiOK,
     pass:sameNode&&widths.length===3&&widths.every(w=>w>0&&Math.abs(w-widths[0])<2)
-      &&heights.every(h=>Math.abs(h-heights[0])<2)&&quote&&thinkingChanged&&recalledChanged});
+      &&heights.every(h=>Math.abs(h-heights[0])<2)&&quote&&thinkingChanged&&recalledChanged&&hideUserOK&&hideAiOK});
   flushSync(()=>reactRoot.unmount());
   host.remove();
 }
+// In the broken-avatar scene both the primary and fallback URL are intentionally
+// invalid. Wait for real Chromium image errors to fire, then ensure the initials
+// fallback remains rendered instead of a blank/broken img icon.
+let brokenAvatarFallbackOK = true;
+if (scene === 'broken-avatar') {
+  const deadline = Date.now() + 3500;
+  while (Date.now() < deadline) {
+    const avatarImgs = Array.from(root.querySelectorAll<HTMLImageElement>('.sully-chat-avatar-content img'));
+    if (avatarImgs.length > 0 && avatarImgs.every(img => img.complete && img.naturalWidth === 0)) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  const wraps = Array.from(root.querySelectorAll<HTMLElement>('.sully-chat-avatar-wrap'));
+  brokenAvatarFallbackOK = wraps.length > 0 && wraps.every(wrap =>
+    !!wrap.querySelector('.sully-chat-avatar-content .sully-chat-avatar-fallback')
+  );
+  reports.push({label:'broken-avatar-fallback',wraps:wraps.length,brokenAvatarFallbackOK,pass:brokenAvatarFallbackOK});
+}
 const status=document.createElement('output');
 status.id='matrix-report';status.hidden=true;
-status.textContent=JSON.stringify({scene,size,reports});
+status.textContent=JSON.stringify({scene,size,reports,brokenAvatarFallbackOK});
 root.prepend(status);
 root.dataset.matrixReady=reports.every(r=>r.pass) ? 'true' : 'false';
