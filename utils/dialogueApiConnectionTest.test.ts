@@ -15,7 +15,7 @@ const completion = (content: string, finishReason: string | null = 'stop') =>
     jsonResponse({ choices: [{ message: { content }, finish_reason: finishReason }] });
 
 describe('设置里的原版模型测试', () => {
-    it('只发一次真实回复请求，不重试；保持原来的 Hi / 5 tokens / stream', async () => {
+    it('只发一次真实回复请求，不重试；不向服务端设置回复 Token 上限', async () => {
         const fetchMock = vi.fn().mockResolvedValue(completion('Hello!'));
         const result = await testDialogueApiConnection(config, mockFetch(fetchMock));
         expect(result).toContain('✅ 连接成功');
@@ -28,7 +28,6 @@ describe('设置里的原版模型测试', () => {
         expect(JSON.parse(options.body)).toEqual({
             model: 'test-model',
             messages: [{ role: 'user', content: 'Hi' }],
-            max_tokens: 5,
             stream: false,
         });
     });
@@ -73,10 +72,10 @@ describe('设置里的原版模型测试', () => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 
-    it('输出达到 5 tokens 上限，不误称模型完整回复', async () => {
+    it('服务端返回长度上限时，不误称模型完整回复', async () => {
         const fetchMock = vi.fn().mockResolvedValue(completion('He', 'length'));
         const result = await testDialogueApiConnection(config, mockFetch(fetchMock));
-        expect(result).toContain('❌ 模型回复被 5 tokens 上限截断');
+        expect(result).toContain('❌ 模型回复被服务端输出长度上限截断');
     });
 
     it('仅有思考内容不等于模型正常出字', async () => {
