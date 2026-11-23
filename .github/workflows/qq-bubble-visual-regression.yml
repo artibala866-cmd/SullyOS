@@ -4,6 +4,9 @@ on:
     branches: [remove-checkphone-vrworld-lifesim]
     paths:
       - 'components/chat/MessageItem.tsx'
+      - 'components/chat/ChatMessageAvatar.tsx'
+      - 'utils/blackWhiteFacebookTheme.ts'
+      - 'utils/blackWhiteFacebookTheme.test.ts'
       - 'components/chat/ChatConstants.ts'
       - 'components/chat/ChatDecorationSample.tsx'
       - 'utils/qqBubbleTheme.ts'
@@ -40,7 +43,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Run QQ theme, quote, translation, and media regression tests
-        run: pnpm exec vitest run utils/qqBubbleTheme.test.ts utils/bilingualRecovery.test.ts utils/chatBilingualRecovery.integration.test.ts utils/chatRequestPayload.test.ts
+        run: pnpm exec vitest run utils/blackWhiteFacebookTheme.test.ts utils/qqBubbleTheme.test.ts utils/bilingualRecovery.test.ts utils/chatBilingualRecovery.integration.test.ts utils/chatRequestPayload.test.ts
       - name: Build real chat decoration sample CSS
         run: pnpm run build:chat-preview
       - uses: browser-actions/setup-chrome@v1
@@ -104,14 +107,14 @@ jobs:
           done
           chrome="${{ steps.chrome.outputs.chrome-path }}"
           for size in 320 390; do
-            for scene in conversation bilingual long media; do
+            for scene in conversation bilingual long media broken-avatar; do
               address="http://127.0.0.1:5173/tests/chat-bubble-matrix.html?scene=${scene}&size=${size}"
               "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
                 --window-size=450,3100 --force-device-scale-factor=1 \
-                --virtual-time-budget=5000 --dump-dom "$address" > /tmp/bubble-matrix-dom.html 2>/tmp/bubble-matrix-chrome.log || true
+                --virtual-time-budget=8500 --dump-dom "$address" > /tmp/bubble-matrix-dom.html 2>/tmp/bubble-matrix-chrome.log || true
               "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu \
                 --hide-scrollbars --window-size=450,3100 --force-device-scale-factor=1 \
-                --virtual-time-budget=5000 \
+                --virtual-time-budget=8500 \
                 --screenshot="$GITHUB_WORKSPACE/bubble-matrix-shots/${scene}-${size}.png" "$address"
               test -s "bubble-matrix-shots/${scene}-${size}.png"
               if ! grep -q 'data-matrix-ready="true"' /tmp/bubble-matrix-dom.html; then
