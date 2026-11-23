@@ -45,7 +45,7 @@ const ChatMessageAvatar: React.FC<Props> = ({ src, fallbackSrc, label, shapeClas
                     aria-hidden="true"
                     loading="eager"
                     decoding="async"
-                    className={`sully-chat-message-avatar-img absolute inset-0 block w-full h-full ${shapeClass} object-cover shadow-sm ring-1 ring-black/5 relative z-0`}
+                    className={`sully-chat-message-avatar-img absolute inset-0 block w-full h-full ${shapeClass} object-cover shadow-sm ring-1 ring-black/5 z-0`}
                     onError={() => setFailedSources(current =>
                         current.includes(activeSource) ? current : [...current, activeSource]
                     )}
