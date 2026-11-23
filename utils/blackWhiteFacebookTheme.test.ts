@@ -41,7 +41,7 @@ describe('black-white private-chat Facebook-style theme', () => {
   });
   it('keeps incoming messages readable and quoted text untruncated', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-weight: 400 !important');
-    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 70% !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: min(76%, calc(100% - 39px)) !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('white-space: pre-wrap');
     expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('text-overflow: ellipsis');
   });
@@ -52,11 +52,32 @@ describe('black-white private-chat Facebook-style theme', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('border-radius: 14px !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('width: 29px !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: min(76%, calc(100% - 39px)) !important');
-    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: 70% !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('max-width: min(76%, calc(100% - 39px)) !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('font-size: 11px;');
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('margin: 13px 0 14px;');
     expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('background: #fff !important');
     expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('.sully-chat-monochrome .sully-chat-message {');
+  });
+  it('shows both participant avatars at one fixed size across text and media messages', () => {
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-chat-message-user .sully-chat-message-avatar-slot');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('right: 9px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('width: 29px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).toContain('height: 29px !important');
+    expect(BLACK_WHITE_FACEBOOK_CSS).not.toContain('.sully-chat-message-user.sully-facebook-text-message .sully-chat-message-avatar-slot,');
+    const item = readFileSync(new URL('../components/chat/MessageItem.tsx', import.meta.url), 'utf8');
+    const avatar = readFileSync(new URL('../components/chat/ChatMessageAvatar.tsx', import.meta.url), 'utf8');
+    const chat = readFileSync(new URL('../apps/Chat.tsx', import.meta.url), 'utf8');
+    expect(item).toContain('const avatarSizePx = blackWhiteFacebook ? 29');
+    expect(item).toContain("avatarVisibility = 'both'");
+    expect(item).toContain('avatarVisibleForSide');
+    expect(item).toContain('<ChatMessageAvatar');
+    expect(avatar).toContain('fallbackSrc');
+    expect(avatar).toContain('onError=');
+    expect(avatar).toContain('loading="eager"');
+    expect(chat).toContain("avatarMode={blackWhiteFacebook || qqBubble || (wechatBubble && m.type === 'text') ? 'every_message' : osTheme.chatAvatarMode}");
+    expect(chat).toContain("avatarVisibility={mergedFineTune.chatAvatarVisibility || 'both'}");
+    expect(chat).toContain('charAvatarFallback={char.avatar}');
+    expect(chat).toContain('userAvatarFallback={userProfile.avatar}');
   });
   it('scopes outgoing, incoming, quote and time spacing', () => {
     expect(BLACK_WHITE_FACEBOOK_CSS).toContain('.sully-chat-monochrome .sully-facebook-reply');
