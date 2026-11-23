@@ -1,4 +1,4 @@
-import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
+import { avatarDecorationImageStyle } from '../../utils/anniversaryGifts';
 
 
 
@@ -17,6 +17,7 @@ import { buildReplySnapshotContent } from '../../utils/applyAssistantPostProcess
 import { stripLeakedSourceTags } from '../../utils/sanitize';
 import ChatBlockDeliveryStatus from './ChatBlockDeliveryStatus';
 import TokenImg from '../os/TokenImg';
+import ChatMessageAvatar from './ChatMessageAvatar';
 import ChatImage from './ChatImage';
 import UserVoiceBubble from './UserVoiceBubble';
 import McdCard from './McdCard';
@@ -1030,6 +1031,11 @@ interface MessageItemProps {
     wechatBubble?: boolean;
     /** Compact QQ text bubble layout, private-chat only. */
     qqBubble?: boolean;
+    /** Character/user base avatars used when a saved per-chat photo no longer loads. */
+    charAvatarFallback?: string;
+    userAvatarFallback?: string;
+    /** Respect the user's chat appearance visibility setting in both avatar placements. */
+    avatarVisibility?: 'both' | 'hide_ai' | 'hide_user' | 'hide_both';
     charAvatar: string;
     charName: string;
     userAvatar: string;
@@ -1100,8 +1106,11 @@ const MessageItem = React.memo(({
     wechatBubble = false,
     qqBubble = false,
     charAvatar,
+    charAvatarFallback,
     charName,
     userAvatar,
+    userAvatarFallback,
+    avatarVisibility = 'both',
     isLatestMessage = false,
     onMediaLoad,
     onLongPress,
@@ -1142,14 +1151,17 @@ const MessageItem = React.memo(({
     const qqVoiceMessage = qqBubble && m.type === 'text' && !isUser && (!!voiceData?.url || !!voiceLoading || /<[语語]音[^>]*>/.test(m.content));
     const spacingClass = messageSpacing === 'compact' ? (isLastInGroup ? 'mb-3' : 'mb-0.5') : messageSpacing === 'spacious' ? (isLastInGroup ? 'mb-8' : 'mb-2.5') : (isLastInGroup ? 'mb-6' : 'mb-1.5');
     const marginBottom = spacingClass;
-    const avatarSizeClass = avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
+    // Black-white has one fixed avatar scale across text, image, voice and transfer messages.
+    const avatarSizeClass = blackWhiteFacebook ? 'w-7 h-7' : avatarSize === 'small' ? 'w-7 h-7' : avatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
     const avatarRadiusClass = avatarShape === 'square' ? 'rounded-sm' : avatarShape === 'rounded' ? 'rounded-xl' : 'rounded-full';
-    const avatarSizePx = avatarSize === 'small' ? 28 : avatarSize === 'large' ? 48 : 36;
-    // Source whitebox 「请求添加好友」 displays the real avatar at the START of a turn,
-    // not its end. This affects only this bundle; other themes keep their existing behavior.
-    const shouldShowAvatar = friendRainWhitebox
+    const avatarSizePx = blackWhiteFacebook ? 29 : avatarSize === 'small' ? 28 : avatarSize === 'large' ? 48 : 36;
+    const avatarVisibleForSide = isUser
+        ? avatarVisibility === 'both' || avatarVisibility === 'hide_ai'
+        : avatarVisibility === 'both' || avatarVisibility === 'hide_user';
+    // Source whitebox 「请求添加好友」 displays the real avatar at the START of a turn.
+    const shouldShowAvatar = avatarVisibleForSide && (friendRainWhitebox
         ? isFirstInGroup
-        : avatarMode === 'every_message' || isLastInGroup;
+        : avatarMode === 'every_message' || isLastInGroup);
     // 头像绝对定位在气泡底部尖角处，bottom 恒为 0。
     // 时间戳改用绝对定位浮层（见下方渲染处），不再占据行内高度，
     // 于是气泡列底恒等于气泡尖角——头像贴 bottom-0 就始终对齐：
@@ -1392,20 +1404,19 @@ const MessageItem = React.memo(({
     // Removed mb-5 from here, handled via absolute positioning in parent
     const renderAvatar = (
         src: string,
-        options?: { visible?: boolean; className?: string },
+        options?: { visible?: boolean; className?: string; fallbackSrc?: string; fallbackLabel?: string },
     ) => {
-        const visible = options?.visible ?? shouldShowAvatar;
+        // Above-group placement may request visibility, but never overrides a hidden side.
+        const visible = avatarVisibleForSide && (options?.visible ?? shouldShowAvatar);
         return (
             <div className={`${visible ? 'sully-chat-avatar-wrap' : ''} relative ${avatarSizeClass} z-0 ${options?.className || ''}`}>
                 {visible && (
                     <>
-                        <TokenImg
-                            value={src}
-                            style={isAnniversaryFrame(styleConfig.avatarDecoration) ? { borderRadius: "50%" } : undefined}
-                            className={`sully-chat-message-avatar-img w-full h-full ${avatarRadiusClass} object-cover shadow-sm ring-1 ring-black/5 relative z-0`}
-                            alt="avatar"
-                            loading="lazy"
-                            decoding="async"
+                        <ChatMessageAvatar
+                            src={src}
+                            fallbackSrc={options?.fallbackSrc || (isUser ? userAvatarFallback : charAvatarFallback)}
+                            label={options?.fallbackLabel || (isUser ? '我' : charName)}
+                            shapeClass={avatarRadiusClass}
                         />
                         {styleConfig.avatarDecoration && (
                             <TokenImg
@@ -1756,6 +1767,8 @@ const MessageItem = React.memo(({
                         {renderAvatar(isUser ? userAvatar : charAvatar, {
                             visible: true,
                             className: 'sully-chat-turn-avatar',
+                            fallbackSrc: isUser ? userAvatarFallback : charAvatarFallback,
+                            fallbackLabel: isUser ? '我' : charName,
                         })}
                     </div>
                 )}
@@ -3666,8 +3679,11 @@ const MessageItem = React.memo(({
            prev.wechatBubble === next.wechatBubble &&
            prev.qqBubble === next.qqBubble &&
            prev.charAvatar === next.charAvatar &&
+           prev.charAvatarFallback === next.charAvatarFallback &&
            prev.charName === next.charName &&
            prev.userAvatar === next.userAvatar &&
+           prev.userAvatarFallback === next.userAvatarFallback &&
+           prev.avatarVisibility === next.avatarVisibility &&
            prev.isLatestMessage === next.isLatestMessage &&
            prev.onMediaLoad === next.onMediaLoad &&
            prev.selectionMode === next.selectionMode &&
