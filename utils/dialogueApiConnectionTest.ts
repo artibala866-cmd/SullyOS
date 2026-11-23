@@ -71,7 +71,6 @@ export async function testDialogueApiConnection(
             body: JSON.stringify({
                 model,
                 messages: [{ role: 'user', content: 'Hi' }],
-                max_tokens: 5,
                 stream: config.stream,
             }),
         });
@@ -95,12 +94,12 @@ export async function testDialogueApiConnection(
         if (choice.finish_reason === 'content_filter') return '❌ 模型回复被内容审核拦截';
         if (choice.message?.refusal) return '❌ 模型拒绝了测试请求';
         if (data.__sullyRawStreamTerminal === false) return '❌ 流式回复没有正常结束，可能已生成但传输中断';
-        if (choice.finish_reason === 'length') return '❌ 模型回复被 5 tokens 上限截断，未完成测试';
+        if (choice.finish_reason === 'length') return '❌ 模型回复被服务端输出长度上限截断，未完成测试';
 
         const reply = extractContent(data, false);
         if (!reply) {
             if (choice.message?.reasoning_content || choice.message?.reasoning) {
-                return '❌ 模型只返回了推理内容，没有回复正文（5 tokens 可能不够）';
+                return '❌ 模型只返回了推理内容，没有回复正文';
             }
             return '❌ 模型没有返回有效回复正文';
         }
