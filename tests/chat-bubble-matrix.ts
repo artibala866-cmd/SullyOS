@@ -220,22 +220,22 @@ for(const theme of themes) {
   flushSync(()=>reactRoot.unmount());
   host.remove();
 }
-// In the broken-avatar scene both the primary and fallback URL are intentionally
-// invalid. Wait for real Chromium image errors to fire, then ensure the initials
-// fallback remains rendered instead of a blank/broken img icon.
+// In the broken-avatar scene, primary URLs are intentionally invalid while
+// the saved profile avatar remains valid. Wait for onError -> fallback-source retry.
 let brokenAvatarFallbackOK = true;
 if (scene === 'broken-avatar') {
   const deadline = Date.now() + 3500;
   while (Date.now() < deadline) {
     const avatarImgs = Array.from(root.querySelectorAll<HTMLImageElement>('.sully-chat-avatar-content img'));
-    if (avatarImgs.length > 0 && avatarImgs.every(img => img.complete && img.naturalWidth === 0)) break;
+    if (avatarImgs.length > 0 && avatarImgs.every(img => img.complete && img.naturalWidth > 0)) break;
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   const wraps = Array.from(root.querySelectorAll<HTMLElement>('.sully-chat-avatar-wrap'));
+  const recoveredImages = Array.from(root.querySelectorAll<HTMLImageElement>('.sully-chat-avatar-content img'));
   brokenAvatarFallbackOK = wraps.length > 0 && wraps.every(wrap =>
     !!wrap.querySelector('.sully-chat-avatar-content .sully-chat-avatar-fallback')
-  );
-  reports.push({label:'broken-avatar-fallback',wraps:wraps.length,brokenAvatarFallbackOK,pass:brokenAvatarFallbackOK});
+  ) && recoveredImages.length === wraps.length && recoveredImages.every(img => img.complete && img.naturalWidth > 0);
+  reports.push({label:'broken-avatar-fallback',wraps:wraps.length,recoveredImages:recoveredImages.length,brokenAvatarFallbackOK,pass:brokenAvatarFallbackOK});
 }
 const status=document.createElement('output');
 status.id='matrix-report';status.hidden=true;
