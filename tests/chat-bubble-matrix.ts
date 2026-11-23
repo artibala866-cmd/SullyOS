@@ -73,15 +73,24 @@ const scenarios: Record<string, Message[]> = {
     make(4, 'user', '图片和文字消息交错也要保持稳定。'),
     make(5, 'assistant', '这条引用会显示完整内容，不应重叠。', { replyTo: { id: 4, name: '我', content: '图片和文字消息交错也要保持稳定。' } }),
   ],
+  'broken-avatar': [
+    make(1, 'assistant', '首选头像故意使用失效图片，应该回退到角色资料头像。'),
+    make(2, 'user', '用户侧头像同样需要有备用图片。'),
+    make(3, 'assistant', '回退失败时也要显示姓名首字，不允许出现空白头像。'),
+  ],
 };
 const messages = scenarios[scene] || scenarios.conversation;
+const auditAvatarSource = scene === 'broken-avatar' ? '/__sully_missing_avatar_primary__.png' : BEAUTY_PREVIEW_AVATAR;
 const reports: Array<Record<string, unknown>> = [];
 const common = (theme: Theme, msg: Message, index: number, all: Message[]) => ({
   msg,
   activeTheme: theme.theme,
   ...theme.extra,
-  charAvatar: BEAUTY_PREVIEW_AVATAR,
-  userAvatar: BEAUTY_PREVIEW_AVATAR,
+  charAvatar: auditAvatarSource,
+  charAvatarFallback: BEAUTY_PREVIEW_AVATAR,
+  userAvatar: auditAvatarSource,
+  userAvatarFallback: BEAUTY_PREVIEW_AVATAR,
+  avatarVisibility: 'both' as const,
   charName: '示例角色',
   isFirstInGroup: index === 0 || all[index - 1].role !== msg.role,
   isLastInGroup: index === all.length - 1 || all[index + 1].role !== msg.role,
@@ -106,6 +115,23 @@ const audit = (section: HTMLElement, label: string) => {
   const host = section.querySelector<HTMLElement>('.matrix-chat');
   const rows = Array.from(host?.querySelectorAll<HTMLElement>('[data-qa-id]') || []);
   const bubbles = Array.from(host?.querySelectorAll<HTMLElement>('.sully-bubble-ai, .sully-bubble-user') || []);
+  const messageRows = Array.from(host?.querySelectorAll<HTMLElement>('.sully-chat-message') || []);
+  const aiRows = messageRows.filter(row => row.classList.contains('sully-chat-message-ai'));
+  const userRows = messageRows.filter(row => row.classList.contains('sully-chat-message-user'));
+  const avatarFor = (row: HTMLElement) => row.querySelector<HTMLElement>('.sully-chat-message-avatar-slot .sully-chat-avatar-wrap');
+  const aiAvatars = aiRows.map(avatarFor).filter((el): el is HTMLElement => !!el);
+  const userAvatars = userRows.map(avatarFor).filter((el): el is HTMLElement => !!el);
+  const allAvatars = [...aiAvatars, ...userAvatars];
+  const avatarSizes = allAvatars.map(el => {
+    const rect = el.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  const avatarFallbacksPresent = allAvatars.every(el => !!el.querySelector('.sully-chat-avatar-content .sully-chat-avatar-fallback'));
+  const avatarSidesPresent = aiRows.length > 0 && userRows.length > 0 && aiAvatars.length > 0 && userAvatars.length > 0;
+  const blackWhiteAvatarBad = label === 'monochrome' && (
+    !avatarSidesPresent || !avatarFallbacksPresent
+    || avatarSizes.some(size => Math.abs(size.width - 29) > 1 || Math.abs(size.height - 29) > 1)
+  );
   let overlap = false;
   for(let i=1;i<rows.length;i++) {
     if(rows[i].getBoundingClientRect().top < rows[i-1].getBoundingClientRect().bottom-1) overlap = true;
@@ -129,7 +155,10 @@ const audit = (section: HTMLElement, label: string) => {
     const bubble=el.closest('.sully-bubble-ai');
     return !bubble || !bubble.contains(el) || el.getBoundingClientRect().width < 10;
   });
-  return {label, overlap, bubbleOut, badBubbles, translationBad, rows:rows.length, bubbles:bubbles.length, translations:translations.length, pass: !overlap && !bubbleOut && !translationBad && bubbles.length > 0};
+  return {label, overlap, bubbleOut, badBubbles, translationBad, aiAvatars:aiAvatars.length, userAvatars:userAvatars.length,
+    avatarSizes, avatarFallbacksPresent, blackWhiteAvatarBad,
+    rows:rows.length, bubbles:bubbles.length, translations:translations.length,
+    pass: !overlap && !bubbleOut && !translationBad && !blackWhiteAvatarBad && bubbles.length > 0};
 };
 for(const theme of themes) {
   const section=document.createElement('section');
