@@ -44,7 +44,7 @@ function parseRegistry(raw: string): UserSaveRegistry {
             (deletions.characters !== undefined && !validDeletionList(deletions.characters)) ||
             (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)) ||
             (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)) ||
-            (deletions.stores !== undefined && !validSharedStoreDeletionMap(deletions.stores)))
+            (deletions.stores !== undefined && !validSharedStoreDeletionMap(deletions.stores)))))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
 }
