@@ -23,6 +23,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
+import { clearSharedIdentityDeletions, isSharedIdentityDeleted, markSharedIdentityDeletions, worldbooksMountedInOtherUserSaves } from '../utils/userSaves';
 import { LAUNCHER_WIDGET_SLOTS, withLauncherWidgetChange, type LauncherWidgetSlot } from '../utils/launcherWidgetSlots';
 import { isRetiredDecorationAssetId, stripRetiredDesktopDecorations, stripRetiredDecorationPreset } from '../utils/retiredDesktopDecorations';
 import { createToastSequencer } from '../utils/toastSequencer';
@@ -1809,7 +1810,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         let finalChars = dbChars;
 
         // A failed read is not an empty installation: never overwrite the saved Sully with defaults.
-        if (charactersReadSucceeded && !finalChars.some(c => c.id === sullyV2.id)) {
+        if (charactersReadSucceeded && !finalChars.some(c => c.id === sullyV2.id) && !isSharedIdentityDeleted('characters', sullyV2.id)) {
             await DB.saveCharacter(sullyV2);
             finalChars = [...finalChars, sullyV2];
         } else {
@@ -1903,10 +1904,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           } else {
             setActiveCharacterId(finalChars[0].id);
           }
-        } else if (charactersReadSucceeded) {
+        } else if (charactersReadSucceeded && !isSharedIdentityDeleted('characters', initialCharacter.id)) {
           await DB.saveCharacter(initialCharacter);
           setCharacters([initialCharacter]);
           setActiveCharacterId(initialCharacter.id);
+        } else if (charactersReadSucceeded) {
+          setCharacters([]);
+          setActiveCharacterId('');
         } else {
           addToast('角色资料读取未完成，未写入默认角色。请重新打开应用重试，无需清理数据。', 'error');
         }
@@ -3275,9 +3279,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       contextRangePolicyVersion: CONTEXT_RANGE_POLICY_VERSION,
       emotionConfig: { enabled: false },
     };
+    await DB.saveCharacter(newChar);
+    clearSharedIdentityDeletions({ characters: [newChar.id] });
     setCharacters(prev => [...prev, newChar]);
     setActiveCharacterId(newChar.id);
-    await DB.saveCharacter(newChar);
     return newChar;
   };
   const importStoryOpeningDocuments: typeof DB.importStoryOpeningDocuments = async (id, documents, userName = userProfile.name) => {
@@ -3355,9 +3360,33 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
     }
 
-    // Commit deletion before removing the in-memory identity. A failed commit
-    // must not let the next import mistake this still-saved role for a new one.
-    await DB.deleteCharacter(id);
+    // Publish deletion before the local cascade so another identity's old copy
+    // cannot reappear on the next switch.
+    const charactersBeforeDelete = target ? characters : await DB.getAllCharacters();
+    const deletingCharacter = target || charactersBeforeDelete.find(char => char.id === id);
+    const booksBeforeDelete = await DB.getAllWorldbooks();
+    const mountedElsewhere = new Set(charactersBeforeDelete
+      .filter(char => char.id !== id)
+      .flatMap(char => (char.mountedWorldbooks || []).map(book => book.id)));
+    const importedBookCandidates = (deletingCharacter?.mountedWorldbooks || [])
+      .filter(mounted => !mountedElsewhere.has(mounted.id))
+      .filter(mounted => {
+        const book = booksBeforeDelete.find(item => item.id === mounted.id);
+        return !!book && (!!book.cardImportKey || book.sourceUid !== undefined);
+      })
+      .map(book => book.id);
+    const otherSaveMounts = await worldbooksMountedInOtherUserSaves(id, importedBookCandidates);
+    const importedBooksRemovedWithCharacter = importedBookCandidates.filter(bookId => !otherSaveMounts.has(bookId));
+    const rollbackSharedDeletions = markSharedIdentityDeletions({
+      characters: [id],
+      worldbooks: importedBooksRemovedWithCharacter,
+    });
+    try {
+      await DB.deleteCharacter(id);
+    } catch (error) {
+      rollbackSharedDeletions();
+      throw error;
+    }
     // The deletion transaction also scrubs shared groups and imported books.
     // Refresh their React mirrors so the deleted role cannot reappear from
     // stale in-memory references or be used in another App before reload.
@@ -3471,12 +3500,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // Worldbook Methods
   const addWorldbook = async (wb: Worldbook) => {
-      setWorldbooks(prev => [...prev, wb]);
       await DB.saveWorldbook(wb);
+      clearSharedIdentityDeletions({ worldbooks: [wb.id] });
+      setWorldbooks(prev => [...prev.filter(book => book.id !== wb.id), wb]);
   };
 
   const importWorldbooks = async (books: Worldbook[]) => {
       const result = await DB.importWorldbooksSmartAtomic(books);
+      clearSharedIdentityDeletions({ worldbooks: books.map(book => book.id) });
       // Only commit React state after the durable DB transaction completed.
       setWorldbooks(result.library);
       if (result.characters.length) {
@@ -3503,7 +3534,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const updateWorldbooks = (ids: string[], updates: Partial<Worldbook>) => mutateWorldbooks(ids, updates);
-  const deleteWorldbooks = (ids: string[]) => mutateWorldbooks(ids, null);
+  const deleteWorldbooks = async (ids: string[]) => {
+      const rollback = markSharedIdentityDeletions({ worldbooks: ids });
+      try {
+          await mutateWorldbooks(ids, null);
+      } catch (error) {
+          rollback();
+          throw error;
+      }
+  };
   const updateWorldbook = (id: string, updates: Partial<Worldbook>) => updateWorldbooks([id], updates);
   const deleteWorldbook = async (id: string) => {
       await deleteWorldbooks([id]);

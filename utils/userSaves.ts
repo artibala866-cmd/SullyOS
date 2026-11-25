@@ -1,8 +1,88 @@
-import type { CharacterProfile, UserProfile } from '../types';
+import type { CharacterProfile, UserProfile, Worldbook } from '../types';
 import { openDB } from './db';
+import { toMountedWorldbook } from './worldbook';
 import { characterImageProfileKey } from './characterImageProfile';
 import { DECORATION_DELETED_STORE, parseDecorationDeletedIds } from './decorationTombstones';
 import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
+
+export type SharedBaseResource = 'characters' | 'worldbooks';
+export type SharedBaseDeletionPatch = Partial<Record<SharedBaseResource, string[]>>;
+
+/** Publish a global deletion before the local DB mutation so stale copies cannot return. */
+export function markSharedIdentityDeletions(patch: SharedBaseDeletionPatch): () => void {
+    const registry = readUserSaves();
+    const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
+    const added: SharedBaseDeletionPatch = {};
+    const next = { ...(registry.sharedDeletions || {}) };
+    for (const resource of ['characters', 'worldbooks'] as const) {
+        const requested = [...new Set((patch[resource] || []).filter(id => typeof id === 'string' && id.length > 0))];
+        const existing = new Set(next[resource] || []);
+        const fresh = requested.filter(id => !existing.has(id));
+        if (!fresh.length) continue;
+        added[resource] = fresh;
+        next[resource] = [...existing, ...fresh];
+    }
+    if (!Object.keys(added).length) return () => {};
+    writeUserSaves({ ...registry, sharedDeletions: next }, raw);
+    return () => clearSharedIdentityDeletions(added);
+}
+
+/** An explicit add/re-import with the same stable ID creates the base resource again. */
+export function clearSharedIdentityDeletions(patch: SharedBaseDeletionPatch): void {
+    const registry = readUserSaves();
+    const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
+    const next = { ...(registry.sharedDeletions || {}) };
+    let changed = false;
+    for (const resource of ['characters', 'worldbooks'] as const) {
+        const remove = new Set(patch[resource] || []);
+        if (!remove.size) continue;
+        const current = next[resource] || [];
+        const remaining = current.filter(id => !remove.has(id));
+        if (remaining.length !== current.length) {
+            next[resource] = remaining;
+            changed = true;
+        }
+    }
+    if (changed) writeUserSaves({ ...registry, sharedDeletions: next }, raw);
+}
+
+export function isSharedIdentityDeleted(resource: SharedBaseResource, id: string): boolean {
+    return (readUserSaves().sharedDeletions?.[resource] || []).includes(id);
+}
+
+/** Do not cascade-delete an imported book if another identity still mounts it. */
+export async function worldbooksMountedInOtherUserSaves(characterId: string, candidateIds: string[]): Promise<Set<string>> {
+    const candidates = new Set(candidateIds);
+    if (!candidates.size) return new Set();
+    const registry = readUserSaves();
+    const revision = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
+    const source = await openDB();
+    const opened: IDBDatabase[] = [];
+    const found = new Set<string>();
+    try {
+        for (const save of registry.saves) {
+            if (save.id === USER_SAVE_ID) continue;
+            const db = await openTarget(source, save.id, false);
+            opened.push(db);
+            const characters = await all(db, 'characters') as CharacterProfile[];
+            for (const char of characters) {
+                if (char.id === characterId) continue;
+                for (const mounted of char.mountedWorldbooks || []) {
+                    if (candidates.has(mounted.id)) found.add(mounted.id);
+                }
+            }
+        }
+        if (nativeLocalStorage?.getItem(USER_SAVES_KEY) !== revision) return candidates;
+        return found;
+    } catch (error) {
+        // If an inactive save cannot be inspected, retain the candidate rather
+        // than destroy a library entry that might still be mounted there.
+        console.warn('[userSaves] Could not verify other-identity worldbook mounts; retaining candidates', error);
+        return candidates;
+    } finally {
+        for (const db of opened) db.close();
+    }
+}
 
 /** Explicit base-data allowlist. New character fields are private until audited;
  * never copy an unknown future relationship/history field into a fresh save. */
@@ -214,6 +294,7 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
     if (switching || saveOperation) throw new Error(`正在${saveOperation || '切换身份'}，请稍候`);
     switching = true;
     let target: IDBDatabase | undefined;
+    const otherDatabases: IDBDatabase[] = [];
     let preparedNew = false;
     const copiedImageProfiles = new Map<string, string>();
     let targetStorage: Storage | undefined;
@@ -228,11 +309,69 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
             if (!/^[a-f0-9-]{36}$/.test(targetId) || [...registry.saves, ...(registry.deletedSaves ?? [])].some(s => s.id === targetId)) throw new Error('身份编号无效');
             if (!create.name.trim() || create.name.trim().length > 40) throw new Error('身份名称请填写 1～40 个字');
         } else if (!registry.saves.some(s => s.id === targetId)) throw new Error('找不到这个身份');
+
         const source = await openDB();
-        const storeNames = SHARED_STORES.filter(name => source.objectStoreNames.contains(name));
-        const [characters, assets, ...resources] = await Promise.all([all(source, 'characters'), all(source, 'assets'), ...storeNames.map(async name => sharedStoreRows(name, await all(source,name)))]);
-        const bases = characters.map(baseCharacter);
+        // Character profiles and worldbooks are shared base records. Interaction
+        // stores such as messages, memory nodes and story progress stay isolated.
+        const storeNames = SHARED_STORES.filter(name => name !== 'worldbooks' && source.objectStoreNames.contains(name));
+        const [assets, ...resources] = await Promise.all([
+            all(source, 'assets'),
+            ...storeNames.map(async name => sharedStoreRows(name, await all(source, name))),
+        ]);
         const sharedAssets = assets.filter(row => isSharedAsset(row.id));
+
+        target = await openTarget(source, targetId, !!create);
+        preparedNew = !!create;
+        const identityDatabases = [source, target];
+        for (const save of registry.saves) {
+            if (save.id === USER_SAVE_ID || save.id === targetId) continue;
+            const other = await openTarget(source, save.id, false);
+            otherDatabases.push(other);
+            identityDatabases.push(other);
+        }
+
+        // Build the union from every live identity. The active save wins a
+        // same-ID edit; records that exist only in another identity are additions.
+        const snapshots = await Promise.all(identityDatabases.map(async db => ({
+            db,
+            characters: await all(db, 'characters') as CharacterProfile[],
+            worldbooks: await all(db, 'worldbooks') as Worldbook[],
+        })));
+        const sourceSnapshot = snapshots[0];
+        const deletedCharacters = new Set(registry.sharedDeletions?.characters || []);
+        const deletedWorldbooks = new Set(registry.sharedDeletions?.worldbooks || []);
+
+        const characterById = new Map<string, CharacterProfile>();
+        for (const snapshot of snapshots.slice(1)) {
+            for (const char of snapshot.characters) if (!characterById.has(char.id)) characterById.set(char.id, char);
+        }
+        for (const char of sourceSnapshot.characters) characterById.set(char.id, char);
+        for (const id of deletedCharacters) characterById.delete(id);
+
+        const worldbookById = new Map<string, Worldbook>();
+        for (const snapshot of snapshots.slice(1)) {
+            for (const book of snapshot.worldbooks) {
+                const existing = worldbookById.get(book.id);
+                if (!existing || (book.updatedAt || 0) > (existing.updatedAt || 0)) worldbookById.set(book.id, book);
+            }
+        }
+        // The currently active identity is authoritative for same-ID edits.
+        for (const book of sourceSnapshot.worldbooks) worldbookById.set(book.id, book);
+        for (const id of deletedWorldbooks) worldbookById.delete(id);
+        const sharedBooks = Array.from(worldbookById.values());
+        const resolvedMountedBooks = new Map(sharedBooks.map(book => [book.id, toMountedWorldbook(book)]));
+
+        const bases = Array.from(characterById.values()).map(char => {
+            const base = baseCharacter(char);
+            if (Array.isArray(base.mountedWorldbooks)) {
+                base.mountedWorldbooks = base.mountedWorldbooks
+                    .filter(book => !deletedWorldbooks.has(book.id))
+                    .map(book => resolvedMountedBooks.get(book.id) || book);
+            }
+            return base;
+        });
+        const baseIds = new Set(bases.map(char => char.id));
+
         const sourceStorage = createSaveStorage(nativeLocalStorage, USER_SAVE_ID);
         targetStorage = createSaveStorage(nativeLocalStorage, targetId);
         const targetPreferences = targetStorage;
@@ -244,58 +383,82 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         const roleImageValues = imageProfiles.map(entry => entry.value);
         await repairSharedAppearanceBlobs(source, sharedAssets, roleImageValues);
         const newProfile = create ? freshUserProfile(create.name) : undefined;
-        const blobs = await referencedBlobs(source, [...bases, ...sharedAssets, ...resources, ...sharedAppearancePreferences(), ...roleImageValues]);
-        target = await openTarget(source, targetId, !!create);
-        preparedNew = !!create;
+        const blobInputs = [...bases, ...sharedBooks, ...sharedAssets, ...resources, ...sharedAppearancePreferences(), ...roleImageValues];
+        const blobRowsById = new Map<string, any>();
+        for (const snapshot of snapshots.slice(1)) {
+            for (const row of await referencedBlobs(snapshot.db, blobInputs)) {
+                if (!blobRowsById.has(row.id)) blobRowsById.set(row.id, row);
+            }
+        }
+        for (const row of await referencedBlobs(source, blobInputs)) blobRowsById.set(row.id, row);
+        const blobs = Array.from(blobRowsById.values());
+
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
-        const previous = await all(target, 'characters');
+
+        // Write the common character/worldbook base into every saved DB. The
+        // character merge updates only the shared whitelist; each DB keeps its
+        // own memories, impression, chat history, phone state and interactions.
+        // Deleted character rows are retained privately but hidden globally;
+        // deleted worldbooks are purged because they carry no private state.
+        await Promise.all(snapshots.map(snapshot => new Promise<void>((resolve, reject) => {
+            const tx = snapshot.db.transaction(['characters', 'worldbooks'], 'readwrite');
+            const chars = tx.objectStore('characters');
+            const previousById = new Map(snapshot.characters.map(char => [char.id, char]));
+            for (const previous of snapshot.characters) {
+                if (deletedCharacters.has(previous.id)) continue;
+                if (!baseIds.has(previous.id)) chars.delete(previous.id);
+            }
+            for (const base of bases) chars.put(mergeCharacterBase(base, previousById.get(base.id)));
+            const books = tx.objectStore('worldbooks');
+            books.clear();
+            for (const book of sharedBooks) books.put(book);
+            tx.oncomplete = () => resolve();
+            tx.onerror = tx.onabort = () => reject(tx.error || new Error('身份共享人设/世界书同步失败'));
+        })));
+
         const previousAssets = await all(target, 'assets');
         const mergedSharedAssets = mergeSharedAppearanceAssets(sharedAssets, previousAssets);
         await new Promise<void>((resolve, reject) => {
-            const tx = target!.transaction(['characters', 'assets', 'blob_assets', 'user_profile', ...storeNames], 'readwrite');
-            // Keep target-only character records. A restored or late-edited identity may
-            // have a different roster; erasing it here also erases its memories,
-            // relationship state and per-character data without user consent.
-            const chars = tx.objectStore('characters');
-            const byId = new Map(previous.map(char => [char.id, char]));
-            for (const char of bases) chars.put(mergeCharacterBase(char, byId.get(char.id)));
+            const tx = target!.transaction(['assets', 'blob_assets', 'user_profile', ...storeNames], 'readwrite');
             for (let i = 0; i < storeNames.length; i++) {
-                // Merge shared libraries by primary key. Clearing first silently discards
-                // target-only worldbooks, presets and other source resources.
                 const store = tx.objectStore(storeNames[i]);
                 for (const row of resources[i]) store.put(row);
             }
             const assetStore = tx.objectStore('assets');
-            // Never clear target-only decorations or their provenance. A background
-            // made in another identity must remain usable on return.
             for (const row of mergedSharedAssets) assetStore.put(row);
             for (const row of blobs) tx.objectStore('blob_assets').put(row);
             if (newProfile) tx.objectStore('user_profile').put({ ...newProfile, id: 'me' });
-            tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('身份存档保存失败'));
+            tx.oncomplete = () => resolve();
+            tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('身份存档保存失败'));
         });
-        // Check for a concurrent tab again after the asynchronous preparation.
+
         if (nativeLocalStorage.getItem(USER_SAVES_KEY) !== revision) throw new Error('身份列表已在其他页面变化，请重试');
-        const next: UserSaveRegistry = { ...registry, activeId: targetId, saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves };
+        const next: UserSaveRegistry = {
+            ...registry,
+            activeId: targetId,
+            saves: create ? [...registry.saves, { id: targetId, name: create.name.trim() }] : registry.saves,
+        };
         if (options?.deleteCurrent) {
             next.saves = next.saves.filter(save => save.id !== USER_SAVE_ID);
-            next.deletedSaves = [...(registry.deletedSaves ?? []), {...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now(), purgePending: true}];
+            next.deletedSaves = [...(registry.deletedSaves ?? []), { ...registry.saves.find(save => save.id === USER_SAVE_ID)!, deletedAt: Date.now(), purgePending: true }];
         }
-        for (const {key, value} of imageProfiles) {
+        for (const { key, value } of imageProfiles) {
             if (targetPreferences.getItem(key) !== null) continue;
             targetPreferences.setItem(key, value);
             copiedImageProfiles.set(key, value);
         }
         writeUserSaves(next, revision);
-        target.close(); target = undefined;
+        target.close();
+        target = undefined;
+        for (const db of otherDatabases) db.close();
         returnToProfileAfterUserSaveSwitch(targetId);
         window.location.reload();
     } catch (error) {
         target?.close();
+        for (const db of otherDatabases) db.close();
         for (const [key, value] of copiedImageProfiles) {
             if (targetStorage?.getItem(key) === value) targetStorage.removeItem(key);
         }
-        // An unlisted fresh database has no user gameplay; remove failed preparation
-        // so repeated quota errors cannot accumulate invisible copies of assets.
         if (preparedNew && !readUserSaves().saves.some(save => save.id === targetId)) indexedDB.deleteDatabase(scopedDatabaseName('AetherOS_Data', targetId));
         switching = false;
         throw error;

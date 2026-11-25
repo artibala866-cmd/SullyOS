@@ -678,7 +678,11 @@ export const DB = {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const request = db.transaction(STORE_CHARACTERS, 'readonly').objectStore(STORE_CHARACTERS).get(id);
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const character = request.result as CharacterProfile | undefined;
+        const deleted = new Set(readUserSaves().sharedDeletions?.characters || []);
+        resolve(character && !deleted.has(character.id) ? character : undefined);
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -719,12 +723,16 @@ export const DB = {
       const transaction = db.transaction(STORE_CHARACTERS, 'readonly');
       const store = transaction.objectStore(STORE_CHARACTERS);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const deleted = new Set(readUserSaves().sharedDeletions?.characters || []);
+        resolve((request.result || []).filter((character: CharacterProfile) => !deleted.has(character.id)));
+      };
       request.onerror = () => reject(request.error);
     });
   },
 
   saveCharacter: async (character: CharacterProfile): Promise<void> => {
+    if ((readUserSaves().sharedDeletions?.characters || []).includes(character.id)) return;
     const db = await openDB();
     const cleanCharacter = { ...character };
     delete (cleanCharacter as any).proactiveConfig;
@@ -3810,7 +3818,10 @@ export const DB = {
           const transaction = db.transaction(STORE_WORLDBOOKS, 'readonly');
           const store = transaction.objectStore(STORE_WORLDBOOKS);
           const request = store.getAll();
-          request.onsuccess = () => resolve(request.result || []);
+          request.onsuccess = () => {
+              const deleted = new Set(readUserSaves().sharedDeletions?.worldbooks || []);
+              resolve((request.result || []).filter((book: Worldbook) => !deleted.has(book.id)));
+          };
           request.onerror = () => reject(request.error);
       });
   },
@@ -3972,14 +3983,22 @@ export const DB = {
 
   saveWorldbook: async (book: Worldbook): Promise<void> => {
       const db = await openDB();
-      const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
-      transaction.objectStore(STORE_WORLDBOOKS).put(book);
+      await new Promise<void>((resolve, reject) => {
+          const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
+          transaction.objectStore(STORE_WORLDBOOKS).put(book);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error('世界书保存失败'));
+      });
   },
 
   deleteWorldbook: async (id: string): Promise<void> => {
       const db = await openDB();
-      const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
-      transaction.objectStore(STORE_WORLDBOOKS).delete(id);
+      await new Promise<void>((resolve, reject) => {
+          const transaction = db.transaction(STORE_WORLDBOOKS, 'readwrite');
+          transaction.objectStore(STORE_WORLDBOOKS).delete(id);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error('世界书删除失败'));
+      });
   },
 
   // Read current records and update the library + mounted caches atomically.

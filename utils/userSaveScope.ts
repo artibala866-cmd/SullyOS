@@ -3,7 +3,17 @@
 export const USER_SAVES_KEY = 'sully:user-saves:v1';
 export const DEFAULT_USER_SAVE = 'original';
 export interface UserSave { id: string; name: string; restored?: boolean }
-export interface UserSaveRegistry { activeId: string; saves: UserSave[]; deletedSaves?: (UserSave & { deletedAt: number; purgePending?: true })[] }
+export interface SharedIdentityDeletions {
+    characters?: string[];
+    worldbooks?: string[];
+}
+export interface UserSaveRegistry {
+    activeId: string;
+    saves: UserSave[];
+    deletedSaves?: (UserSave & { deletedAt: number; purgePending?: true })[];
+    /** A deletion in one identity must not be undone by an older copy in another. */
+    sharedDeletions?: SharedIdentityDeletions;
+}
 export const nativeLocalStorage = typeof window === 'undefined' ? undefined : window.localStorage;
 export const nativeSessionStorage = typeof window === 'undefined' ? undefined : window.sessionStorage;
 const RETURN_KEY = 'sully:user-save-return-profile:v1';
@@ -15,12 +25,19 @@ export function isUserSaveIndexKey(key: string): boolean {
 function parseRegistry(raw: string): UserSaveRegistry {
     const value = JSON.parse(raw) as UserSaveRegistry;
     const validSave = (s: UserSave) => s && typeof s.name === 'string' && /^(original|[a-f0-9-]{36})$/.test(s.id);
+    const deletions = value?.sharedDeletions;
+    const validDeletionList = (items: unknown) => Array.isArray(items) &&
+        items.every(id => typeof id === 'string' && id.length > 0) &&
+        new Set(items).size === items.length;
     if (!value || !Array.isArray(value.saves) || !value.saves.length ||
         !value.saves.every(validSave) || new Set(value.saves.map(s => s.id)).size !== value.saves.length ||
         !value.saves.some(s => s.id === value.activeId) ||
         (value.deletedSaves !== undefined && (!Array.isArray(value.deletedSaves) ||
             !value.deletedSaves.every(s => validSave(s) && Number.isFinite(s.deletedAt) && !value.saves.some(live => live.id === s.id)) ||
-            new Set(value.deletedSaves.map(s => s.id)).size !== value.deletedSaves.length)))
+            new Set(value.deletedSaves.map(s => s.id)).size !== value.deletedSaves.length)) ||
+        (deletions !== undefined && (!deletions || typeof deletions !== 'object' || Array.isArray(deletions) ||
+            (deletions.characters !== undefined && !validDeletionList(deletions.characters)) ||
+            (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)))))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
 }

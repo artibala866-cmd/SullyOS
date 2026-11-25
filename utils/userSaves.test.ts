@@ -256,51 +256,106 @@ describe('user 身份存档隔离', () => {
         expect((await rows(source, 'messages'))[0].content).toBe('旧私聊');
         target.close(); source.close();
     });
-    it('keeps target-only roles, worlds and private histories after a mismatched A/B/A/B roster', async () => {
+    it('syncs added and edited character/worldbook base across identities but keeps interactions private', async () => {
         const { openDB } = await import('./db');
         const original = await openDB();
-        const sourceChar = { id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',memories:[{summary:'A身份的私密记忆'}],
-            linkGreetings:[{id:'opening-a',title:'原生开场',content:'原始开场内容'}],
-            spriteConfigLandscape:{scale:1.4,offsetX:4,offsetY:-10} };
-        await write(original,{characters:[sourceChar],worldbooks:[{id:'world-a',name:'原世界书'}]});
+        const sourceChar = {
+            id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',
+            memories:[{summary:'A身份的私密记忆'}],
+            linkGreetings:[{id:'opening-a',title:'原生开场',content:'原生开场内容'}],
+        };
+        const sourceBook = {id:'world-a',title:'原世界书',content:'A版本',category:'原分类',createdAt:1,updatedAt:1};
+        await write(original,{characters:[sourceChar],worldbooks:[sourceBook]});
         await (await import('./userSaves')).activateUserSave(SECOND,{name:'B身份'});
         const fresh = await open('AetherOS_Data__user_'+SECOND);
         const [created] = await rows(fresh,'characters');
         expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
-        expect(created.spriteConfigLandscape).toEqual(sourceChar.spriteConfigLandscape);
         expect(created.memories).toEqual([]);
         fresh.close();original.close();
 
-        // B -> A completes; a delayed B-tab write or recovered older data then
-        // makes B's roster diverge from A. B's private state must survive A -> B.
-        vi.resetModules();
-        await (await import('./userSaves')).activateUserSave('original');
-        const target = await open('AetherOS_Data__user_'+SECOND);
-        await write(target,{
-            characters:[{id:'b',name:'B独有角色',avatar:'',description:'B的卡片',systemPrompt:'角色B人设',
-                memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}}],
+        const b = await open('AetherOS_Data__user_'+SECOND);
+        await write(b,{
+            characters:[
+                {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'}},
+                {id:'b',name:'B新增角色',avatar:'',description:'B的卡片',systemPrompt:'B新增人设',
+                    memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}},
+            ],
+            worldbooks:[
+                {...sourceBook,title:'B修改后的世界书',content:'B版本',updatedAt:2},
+                {id:'world-b',title:'B新增世界书',content:'B的设定',category:'B分类',createdAt:2,updatedAt:2},
+            ],
             messages:[{id:99,charId:'b',content:'B独有私聊'}],
             memory_nodes:[{id:'memory-b',charId:'b',content:'B独有宫殿记忆'}],
-            worldbooks:[{id:'world-b',name:'B独有世界书'}],
         });
-        target.close();
+        b.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        const a = await open('AetherOS_Data');
+        const rolesA = await rows(a,'characters');
+        expect(rolesA.map(role=>role.id).sort()).toEqual(['a','b']);
+        expect(rolesA.find(role=>role.id==='a')).toMatchObject({
+            name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'A身份的私密记忆'}],
+        });
+        expect(rolesA.find(role=>role.id==='b')).toMatchObject({systemPrompt:'B新增人设',memories:[]});
+        const booksA = await rows(a,'worldbooks');
+        expect(booksA.map(book=>book.id).sort()).toEqual(['world-a','world-b']);
+        expect(booksA.find(book=>book.id==='world-a')?.content).toBe('B版本');
+        expect((await rows(a,'messages')).some(row=>row.charId==='b')).toBe(false);
+        expect((await rows(a,'memory_nodes')).some(row=>row.id==='memory-b')).toBe(false);
+        a.close();
 
         vi.resetModules();
         await (await import('./userSaves')).activateUserSave(SECOND);
-        const restored = await open('AetherOS_Data__user_'+SECOND);
-        const roles = await rows(restored,'characters');
-        expect(roles.map(role=>role.id).sort()).toEqual(['a','b']);
-        expect(roles.find(role=>role.id==='b')).toMatchObject({
-            memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}
+        const bAgain = await open('AetherOS_Data__user_'+SECOND);
+        const rolesB = await rows(bAgain,'characters');
+        expect(rolesB.map(role=>role.id).sort()).toEqual(['a','b']);
+        expect(rolesB.find(role=>role.id==='a')).toMatchObject({
+            name:'B修改后的甲',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
         });
-        expect((await rows(restored,'messages')).find(row=>row.charId==='b')?.content).toBe('B独有私聊');
-        expect((await rows(restored,'memory_nodes')).find(row=>row.charId==='b')?.content).toBe('B独有宫殿记忆');
-        expect((await rows(restored,'worldbooks')).map(row=>row.id).sort()).toEqual(['world-a','world-b']);
-        restored.close();
-        const a = await open('AetherOS_Data');
-        expect((await rows(a,'characters')).map(row=>row.id)).toEqual(['a']);
-        expect((await rows(a,'messages')).find(row=>row.charId==='b')).toBeUndefined();
-        a.close();
+        expect(rolesB.find(role=>role.id==='b')).toMatchObject({
+            memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']},
+        });
+        expect((await rows(bAgain,'messages')).find(row=>row.charId==='b')?.content).toBe('B独有私聊');
+        expect((await rows(bAgain,'memory_nodes')).find(row=>row.id==='memory-b')?.content).toBe('B独有宫殿记忆');
+        bAgain.close();
+    });
+    it('propagates character and worldbook deletions without losing other identity chat history', async () => {
+        const {openDB}=await import('./db');
+        const original=await openDB();
+        const role={id:'shared-delete-role',name:'待删除角色',avatar:'',description:'',systemPrompt:'角色设定',
+            memories:[{summary:'A私密记忆'}],mountedWorldbooks:[]};
+        const book={id:'shared-delete-book',title:'待删除世界书',content:'设定',category:'测试',createdAt:1,updatedAt:1};
+        await write(original,{characters:[role],worldbooks:[book]});
+        await (await import('./userSaves')).activateUserSave(SECOND,{name:'B身份'});
+        const b=await open('AetherOS_Data__user_'+SECOND);
+        await write(b,{
+            characters:[{...role,memories:[{summary:'B私密记忆'}],impression:{text:'B的互动印象'}}],
+            messages:[{id:188,charId:role.id,content:'B身份的旧聊天'}],
+        });
+        b.close();original.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        const {DB}=await import('./db');
+        const {markSharedIdentityDeletions}=await import('./userSaves');
+        markSharedIdentityDeletions({characters:[role.id],worldbooks:[book.id]});
+        await DB.deleteCharacter(role.id);
+        await DB.mutateWorldbooks([book.id],null);
+        expect(await DB.getCharacter(role.id)).toBeUndefined();
+        expect((await DB.getAllWorldbooks()).some(row=>row.id===book.id)).toBe(false);
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        const bAfter=await open('AetherOS_Data__user_'+SECOND);
+        expect((await rows(bAfter,'characters')).find(row=>row.id===role.id)?.memories).toEqual([{summary:'B私密记忆'}]);
+        expect((await rows(bAfter,'worldbooks')).some(row=>row.id===book.id)).toBe(false);
+        expect((await rows(bAfter,'messages')).find(row=>row.charId===role.id)?.content).toBe('B身份的旧聊天');
+        const {DB:activeDB}=await import('./db');
+        expect(await activeDB.getCharacter(role.id)).toBeUndefined();
+        expect((await activeDB.getAllCharacters()).some(row=>row.id===role.id)).toBe(false);
+        expect((await activeDB.getAllWorldbooks()).some(row=>row.id===book.id)).toBe(false);
+        bAfter.close();
     });
     it('merging common edits preserves target-specific memories and relationship/runtime data', async () => {
         const { baseCharacter, mergeCharacterBase } = await import('./userSaves');

@@ -141,4 +141,21 @@ it('updates indexes when switching to an older restored identity without losing 
  expect(restored.transaction('messages').objectStore('messages').indexNames.contains('charId_type')).toBe(true);
  expect((await rows(restored,'messages'))[0].content).toBe('B聊天');
  restored.close();db.close();
+ it('round-trips shared deletion markers and does not restore deleted base cards/books',async()=>{
+  const {db,registry}=await seed();
+  const scope=await import('./userSaveScope');
+  scope.writeUserSaves({...registry,sharedDeletions:{characters:['only-b'],worldbooks:['only-w']}},localStorage.getItem(key));
+  const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
+  const backup=await createAllUserSaveBackup();
+  const zip=await JSZip.loadAsync(await backup.arrayBuffer());
+  const manifest=JSON.parse(await zip.file('user-saves.json')!.async('string'));
+  expect(manifest.sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w']});
+  const restored=(await prepareUserSaveRestore(backup))!;
+  await restored.restore();
+  expect(scope.readUserSaves().sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w']});
+  expect((await rows(db,'characters')).some(row=>row.id==='only-b')).toBe(false);
+  expect((await rows(db,'worldbooks')).some(row=>row.id==='only-w')).toBe(false);
+  db.close();
+ });
+
 });

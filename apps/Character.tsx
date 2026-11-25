@@ -15,6 +15,7 @@ import { SlidersHorizontal, SpeakerHigh, Books, BookOpen } from '@phosphor-icons
 import Modal from '../components/os/Modal';
 import { processImage, processImageToBlob } from '../utils/file';
 import { DB } from '../utils/db';
+import { clearSharedIdentityDeletions } from '../utils/userSaves';
 import { ContextBuilder } from '../utils/context';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
@@ -1337,6 +1338,10 @@ ${isInitialGeneration ? `
           }
           const result = await DB.importCharacterCardsSmartAtomic(imports);
           databaseCommitted = true;
+          clearSharedIdentityDeletions({
+              characters: [...result.createdIds, ...result.updatedIds, ...imports.map(item => item.character.id)],
+              worldbooks: imports.flatMap(item => item.worldbooks.map(book => book.id)),
+          });
           // Confirm committed roles really exist before claiming success.
           const saved = await Promise.all(imports.map(item =>
               DB.getCharacter(item.expectedTargetId || item.character.id)));
