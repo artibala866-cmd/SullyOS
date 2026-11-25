@@ -48,7 +48,8 @@ describe('user 身份存档隔离', () => {
             chibiStudio:{userChibi:{img:'blobref:private-body'}},vrState:{enabled:true,chibi:{img:'blobref:private-vr'},activity:'旧活动'}};
         await write(source, {user_profile:[originalProfile],worldbooks:[{id:'w',name:'基础世界书'}],
             characters:[{id:'c',name:'基础角色',avatar:'blobref:card-face',systemPrompt:'人设',memories:[{summary:'A记忆'}],
-                phoneState:{records:['A手机']},socialProfile:{handle:'A生成账号'},savedDateState:{scene:'A剧情'},activeMsg2Config:{enabled:true},
+                phoneState:{records:['A手机']},socialProfile:{handle:'A生成账号'},savedDateState:{scene:'A剧情'},
+                activeMsg2Config:{enabled:true,instantChatEnabled:true,maxTokens:700,dailySendCap:4,tasks:[{taskUuid:'A-private-queued-message'}],lastSyncedAt:123},
                 home3D:{version:1,activeRoomId:'r',rooms:[],records:['A生活'],petLife:{events:['A宠物']},romanticPairs:[['u','c']]}}],
             assets:[{id:'wallpaper',data:'blobref:decoration'},{id:'private-runtime',data:'A私密'}],
             blob_assets:['private-face','private-chat-face','private-ref','private-body','private-vr','card-face','decoration'].map(id=>({id,blob:id}))});
@@ -58,7 +59,10 @@ describe('user 身份存档隔离', () => {
         for(const name of privateStores) {expect(await rows(target,name),name).toEqual([]);expect((await rows(source,name))[0].privateSentinel,name).toBe('A-private');}
         expect((await rows(target,'blob_assets')).map(r=>r.id).sort()).toEqual(['card-face','decoration']);
         const [char]=await rows(target,'characters');
-        for(const key of ['phoneState','socialProfile','savedDateState','activeMsg2Config'])expect(char[key],key).toBeUndefined();
+        for(const key of ['phoneState','socialProfile','savedDateState'])expect(char[key],key).toBeUndefined();
+        expect(char.activeMsg2Config).toMatchObject({enabled:true,instantChatEnabled:true,maxTokens:700,dailySendCap:4});
+        expect(char.activeMsg2Config.tasks).toBeUndefined();
+        expect(char.activeMsg2Config.lastSyncedAt).toBeUndefined();
         expect(char.home3D.records).toBeUndefined();expect(char.home3D.petLife).toBeUndefined();expect(char.home3D.romanticPairs).toBeUndefined();
         const bProfile={id:'me',name:'B改名',bio:'B设定',avatar:'blobref:b-face',perCharAvatars:{c:'blobref:b-chat-face'},boundCharacterIds:['b-role'],imageAppearance:'B外貌',imageReference:'blobref:b-ref',imageLockEnabled:true};
         await write(target,{user_profile:[bProfile]});source.close();target.close();
