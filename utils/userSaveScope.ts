@@ -44,11 +44,16 @@ function parseRegistry(raw: string): UserSaveRegistry {
             (deletions.characters !== undefined && !validDeletionList(deletions.characters)) ||
             (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)) ||
             (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)) ||
-            (deletions.stores !== undefined && (!deletions.stores || typeof deletions.stores !== 'object' || Array.isArray(deletions.stores) ||
-                Object.entries(deletions.stores).some(([name, ids]) => !/^[a-z0-9_]+$/.test(name) || !Array.isArray(ids) ||
-                    ids.some(token => !validSharedStoreTombstoneKey(name, token)) || new Set(ids).size !== ids.length))))))
+            (deletions.stores !== undefined && !validSharedStoreDeletionMap(deletions.stores)))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
+}
+function validSharedStoreDeletionMap(stores: unknown): boolean {
+    if (!stores || typeof stores !== 'object' || Array.isArray(stores)) return false;
+    return Object.entries(stores as Record<string, unknown>).every(([name, ids]) => {
+        if (!/^[a-z0-9_]+$/.test(name) || !Array.isArray(ids)) return false;
+        return ids.every(token => validSharedStoreTombstoneKey(name, token)) && new Set(ids).size === ids.length;
+    });
 }
 function validEncodedSharedKey(token: unknown): token is string {
     if (typeof token !== 'string') return false;
