@@ -281,7 +281,7 @@ describe('user 身份存档隔离', () => {
         expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
         expect(created.companionTouchSettings).toEqual(sourceChar.companionTouchSettings);
         expect(created.homeDefinition).toEqual(sourceChar.homeDefinition);
-        expect(created.xhsEnabled).toBe(true); expect(created.socialProfile).toEqual(sourceChar.socialProfile);
+        expect(created.xhsEnabled).toBeUndefined(); expect(created.socialProfile).toBeUndefined();
         expect(created.lifeRecordEnabled).toBe(true); expect(created.lifeRecordPeriodEnabled).toBe(false);
         expect(created.lifeRecordMedEnabled).toBe(true); expect(created.lifeRecordExpenseEnabled).toBe(false); expect(created.lifeRecordExerciseEnabled).toBe(true);
         expect(created.contextFollowsMemoryPalaceHwm).toBe(true);
@@ -324,7 +324,7 @@ describe('user 身份存档隔离', () => {
         expect(mergedA).toMatchObject({
             name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'A身份的私密记忆'}],
             companionTouchSettings:{enabledZones:['hand']},homeDefinition:{kind:'virtual',notes:'B修改后的共同家园设定'},
-            xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
+            xhsEnabled:true,socialProfile:{handle:'角色账号',bio:'角色主页'},
             lifeRecordEnabled:false,lifeRecordPeriodEnabled:true,lifeRecordMedEnabled:false,lifeRecordExpenseEnabled:true,lifeRecordExerciseEnabled:false,
             contextFollowsMemoryPalaceHwm:false,scheduleStyle:'lifestyle',scheduleFeatureEnabled:false,
             emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
@@ -345,6 +345,7 @@ describe('user 身份存档隔离', () => {
         expect(rolesB.map(role=>role.id).sort()).toEqual(['a','b']);
         expect(rolesB.find(role=>role.id==='a')).toMatchObject({
             name:'B修改后的甲',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+            xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
             emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
             activeMsg2Config:{enabled:false,maxTokens:300,dailySendCap:2,tasks:[{taskUuid:'B-private-task'}],lastSyncedAt:200},
         });
