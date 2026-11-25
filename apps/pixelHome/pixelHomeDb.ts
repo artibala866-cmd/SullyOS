@@ -11,6 +11,7 @@ import type { MemoryRoom } from '../../utils/memoryPalace/types';
 import { ROOM_SLOTS, DEFAULT_ROOM_COLORS, ALL_ROOMS } from './roomTemplates';
 import type { PlacedFurniture } from './types';
 import { openDB } from '../../utils/db';
+import { markSharedStoreIdentityDeletions, clearSharedStoreIdentityDeletions, readUserSaves } from '../../utils/userSaveScope';
 
 // ─── DB 常量 ─────────────────────────────────────────
 // pixel_home_* 两个 store 由 utils/db.ts 的 AetherOS_Data upgradeneeded 统一创建,
@@ -28,8 +29,8 @@ export const PixelAssetDB = {
     const tx = db.transaction(STORE_ASSETS, 'readwrite');
     tx.objectStore(STORE_ASSETS).put(asset);
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => { clearSharedStoreIdentityDeletions(STORE_ASSETS, [asset.id]); resolve(); };
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('像素资产保存失败'));
     });
   },
 
@@ -39,8 +40,8 @@ export const PixelAssetDB = {
     const store = tx.objectStore(STORE_ASSETS);
     for (const a of assets) store.put(a);
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => { clearSharedStoreIdentityDeletions(STORE_ASSETS, assets.map(asset => asset.id)); resolve(); };
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('像素资产批量保存失败'));
     });
   },
 
@@ -49,7 +50,10 @@ export const PixelAssetDB = {
     const tx = db.transaction(STORE_ASSETS, 'readonly');
     const req = tx.objectStore(STORE_ASSETS).getAll();
     return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result || []);
+      req.onsuccess = () => {
+        const deleted = new Set(readUserSaves().sharedDeletions?.stores?.[STORE_ASSETS] || []);
+        resolve((req.result || []).filter(asset => !deleted.has(JSON.stringify(asset.id))));
+      };
       req.onerror = () => reject(req.error);
     });
   },
@@ -59,19 +63,24 @@ export const PixelAssetDB = {
     const tx = db.transaction(STORE_ASSETS, 'readonly');
     const req = tx.objectStore(STORE_ASSETS).get(id);
     return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => resolve(
+        readUserSaves().sharedDeletions?.stores?.[STORE_ASSETS]?.includes(JSON.stringify(id)) ? undefined : req.result
+      );
       req.onerror = () => reject(req.error);
     });
   },
 
   async delete(id: string): Promise<void> {
-    const db = await openDB();
-    const tx = db.transaction(STORE_ASSETS, 'readwrite');
-    tx.objectStore(STORE_ASSETS).delete(id);
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    const rollback = markSharedStoreIdentityDeletions(STORE_ASSETS, [id]);
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_ASSETS, 'readwrite');
+      tx.objectStore(STORE_ASSETS).delete(id);
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = tx.onabort = () => reject(tx.error || new Error('像素资产删除失败'));
+      });
+    } catch (error) { rollback(); throw error; }
   },
 };
 
@@ -83,8 +92,8 @@ export const PixelLayoutDB = {
     const tx = db.transaction(STORE_LAYOUTS, 'readwrite');
     tx.objectStore(STORE_LAYOUTS).put(layout);
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => { clearSharedStoreIdentityDeletions(STORE_LAYOUTS, [[layout.charId, layout.roomId]]); resolve(); };
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('像素房间布局保存失败'));
     });
   },
 
@@ -93,7 +102,9 @@ export const PixelLayoutDB = {
     const tx = db.transaction(STORE_LAYOUTS, 'readonly');
     const req = tx.objectStore(STORE_LAYOUTS).get([charId, roomId]);
     return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => resolve(
+        readUserSaves().sharedDeletions?.stores?.[STORE_LAYOUTS]?.includes(JSON.stringify([charId, roomId])) ? undefined : req.result
+      );
       req.onerror = () => reject(req.error);
     });
   },
@@ -104,7 +115,10 @@ export const PixelLayoutDB = {
     const idx = tx.objectStore(STORE_LAYOUTS).index('charId');
     const req = idx.getAll(charId);
     return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result || []);
+      req.onsuccess = () => {
+        const deleted = new Set(readUserSaves().sharedDeletions?.stores?.[STORE_LAYOUTS] || []);
+        resolve((req.result || []).filter(layout => !deleted.has(JSON.stringify([layout.charId, layout.roomId])));
+      };
       req.onerror = () => reject(req.error);
     });
   },
@@ -115,8 +129,8 @@ export const PixelLayoutDB = {
     const store = tx.objectStore(STORE_LAYOUTS);
     for (const l of layouts) store.put(l);
     return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => { clearSharedStoreIdentityDeletions(STORE_LAYOUTS, layouts.map(layout => [layout.charId, layout.roomId])); resolve(); };
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('像素房间布局批量保存失败'));
     });
   },
 };

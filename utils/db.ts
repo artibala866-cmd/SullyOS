@@ -1,5 +1,5 @@
 import type { PrivateChatOpeningSource } from './privateChatOpening';
-import { readUserSaves, scopedDatabaseName, USER_SAVE_ID } from './userSaveScope';
+import { readUserSaves, scopedDatabaseName, USER_SAVE_ID, markSharedStoreIdentityDeletions, clearSharedStoreIdentityDeletions, isSharedAppearanceAsset } from './userSaveScope';
 import { isChatPreviewMessage } from './chatMessageVisibility';
 import { readLocalCursor } from './localRead';
 import { reportDatabaseFailure } from './databaseHealth';
@@ -61,6 +61,53 @@ const DB_NAME = scopedDatabaseName('AetherOS_Data');
 // v75: upgrade earlier fork v74 installations which were created before Meet story stores were merged.
 // The upgrade creates only missing stores and never clears existing messages, characters or story data.
 const DB_VERSION = 75;
+
+/** Shared library rows are copied between identity databases. Their deletes must
+ * survive A/B switches and all-identity backup restore. */
+function sharedStoreRowKey(store: IDBObjectStore, value: any): IDBValidKey {
+    const readPath = (path: string) => path.split('.').reduce((node, key) => node?.[key], value);
+    if (typeof store.keyPath === 'string') {
+        const key = readPath(store.keyPath);
+        if (key !== undefined) return key;
+    } else if (Array.isArray(store.keyPath)) {
+        const key = store.keyPath.map(readPath);
+        if (key.every(part => part !== undefined)) return key;
+    }
+    throw new Error('共享资源主键无法读取');
+}
+function filterSharedStoreRows(storeName: string, store: IDBObjectStore, rows: any[]): any[] {
+    const deleted = new Set(readUserSaves().sharedDeletions?.stores?.[storeName] || []);
+    return deleted.size ? rows.filter(row => !deleted.has(JSON.stringify(sharedStoreRowKey(store, row)))) : rows;
+}
+
+async function putSharedStoreRows(storeName: string, rows: any[]): Promise<void> {
+    if (!rows.length) return;
+    const db = await openDB();
+    const keys: IDBValidKey[] = [];
+    await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        try { for (const row of rows) { keys.push(sharedStoreRowKey(store, row)); store.put(row); } }
+        catch (error) { tx.abort(); reject(error); return; }
+        tx.oncomplete = () => resolve();
+        tx.onerror = tx.onabort = () => reject(tx.error || new Error(`保存共享资源失败：${storeName}`));
+    });
+    clearSharedStoreIdentityDeletions(storeName, keys);
+}
+async function deleteSharedStoreRows(storeName: string, keys: IDBValidKey[]): Promise<void> {
+    if (!keys.length) return;
+    const rollback = markSharedStoreIdentityDeletions(storeName, keys);
+    try {
+        const db = await openDB();
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(storeName, 'readwrite');
+            keys.forEach(key => tx.objectStore(storeName).delete(key));
+            tx.oncomplete = () => resolve();
+            tx.onerror = tx.onabort = () => reject(tx.error || new Error(`删除共享资源失败：${storeName}`));
+        });
+    } catch (error) { rollback(); throw error; }
+}
+
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分组定义（角色通过 groupId 指向；与群聊 groups 无关）
@@ -2409,22 +2456,13 @@ export const DB = {
       const transaction = db.transaction(STORE_EMOJIS, 'readonly');
       const store = transaction.objectStore(STORE_EMOJIS);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => resolve(filterSharedStoreRows(STORE_EMOJIS, store, request.result || []));
       request.onerror = () => reject(request.error);
     });
   },
 
   saveEmoji: async (name: string, url: string, categoryId?: string): Promise<void> => {
-    const db = await openDB();
-    // 同 saveAsset：等事务真正落盘并把失败抛出去。发完 put 就返回的话，配额不足
-    // （iOS Safari 常见）时写入静默丢失，「一键优化」还会照报「已转 N 张」。
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_EMOJIS, 'readwrite');
-      transaction.objectStore(STORE_EMOJIS).put({ name, url, categoryId });
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error || new Error('saveEmoji transaction aborted'));
-    });
+    await putSharedStoreRows(STORE_EMOJIS, [{ name, url, categoryId }]);
   },
 
   /**
@@ -2434,7 +2472,7 @@ export const DB = {
   saveEmojisBatch: async (emojis: Emoji[]): Promise<void> => {
     if (emojis.length === 0) return;
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_EMOJIS, 'readwrite');
       const store = tx.objectStore(STORE_EMOJIS);
       for (const emoji of emojis) store.add(emoji);
@@ -2442,12 +2480,11 @@ export const DB = {
       tx.onerror = () => reject(tx.error || new Error('表情包批量保存失败'));
       tx.onabort = () => reject(tx.error || new Error('表情包批量保存已撤销'));
     });
+    clearSharedStoreIdentityDeletions(STORE_EMOJIS, emojis.map(emoji => emoji.name));
   },
 
   deleteEmoji: async (name: string): Promise<void> => {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_EMOJIS, 'readwrite');
-    transaction.objectStore(STORE_EMOJIS).delete(name);
+    await deleteSharedStoreRows(STORE_EMOJIS, [name]);
   },
 
   // 表情包重命名: name 是主键, 改名 = 删旧键 + 写新键 (保留 url / categoryId)。
@@ -2489,35 +2526,35 @@ export const DB = {
           const transaction = db.transaction(STORE_EMOJI_CATEGORIES, 'readonly');
           const store = transaction.objectStore(STORE_EMOJI_CATEGORIES);
           const request = store.getAll();
-          request.onsuccess = () => resolve(request.result || []);
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_EMOJI_CATEGORIES, store, request.result || []));
           request.onerror = () => reject(request.error);
       });
   },
 
   saveEmojiCategory: async (category: EmojiCategory): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_EMOJI_CATEGORIES, 'readwrite');
-      transaction.objectStore(STORE_EMOJI_CATEGORIES).put(category);
+      await putSharedStoreRows(STORE_EMOJI_CATEGORIES, [category]);
   },
 
   deleteEmojiCategory: async (id: string): Promise<void> => {
       const db = await openDB();
-      const tx = db.transaction([STORE_EMOJI_CATEGORIES, STORE_EMOJIS], 'readwrite');
-      tx.objectStore(STORE_EMOJI_CATEGORIES).delete(id);
-      const emojiStore = tx.objectStore(STORE_EMOJIS);
-      const request = emojiStore.getAll();
-      request.onsuccess = () => {
-          const allEmojis = request.result as Emoji[];
-          allEmojis.forEach(e => {
-              if (e.categoryId === id) {
-                  emojiStore.delete(e.name);
-              }
+      const rollbackCategory = markSharedStoreIdentityDeletions(STORE_EMOJI_CATEGORIES, [id]);
+      let rollbackEmojis = () => {};
+      try {
+          await new Promise<void>((resolve, reject) => {
+              const tx = db.transaction([STORE_EMOJI_CATEGORIES, STORE_EMOJIS], 'readwrite');
+              const emojiStore = tx.objectStore(STORE_EMOJIS);
+              const request = emojiStore.getAll();
+              request.onsuccess = () => {
+                  const names = (request.result as Emoji[]).filter(emoji => emoji.categoryId === id).map(emoji => emoji.name);
+                  rollbackEmojis = markSharedStoreIdentityDeletions(STORE_EMOJIS, names);
+                  names.forEach(name => emojiStore.delete(name));
+                  tx.objectStore(STORE_EMOJI_CATEGORIES).delete(id);
+              };
+              request.onerror = () => { tx.abort(); reject(request.error); };
+              tx.oncomplete = () => resolve();
+              tx.onerror = tx.onabort = () => reject(tx.error || new Error('表情分类删除失败'));
           });
-      };
-      return new Promise((resolve, reject) => {
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-      });
+      } catch (error) { rollbackCategory(); rollbackEmojis(); throw error; }
   },
 
   // 「幽灵表情包」清理：删角色不会级联清理表情分类，导致只对已删角色可见的
@@ -2541,39 +2578,43 @@ export const DB = {
       const removedCategories: { id: string; name: string }[] = [];
       const fixedCategories: EmojiCategory[] = [];
       for (const cat of categories) {
-          if (!cat.allowedCharacterIds || cat.allowedCharacterIds.length === 0) continue; // 全员可见，不动
+          if (!cat.allowedCharacterIds || cat.allowedCharacterIds.length === 0) continue;
           const alive = cat.allowedCharacterIds.filter(cid => validIds.has(cid));
-          if (alive.length === cat.allowedCharacterIds.length) continue; // 绑定全部有效
-          if (alive.length === 0 && !cat.isSystem) {
-              removedCategories.push({ id: cat.id, name: cat.name });
-          } else {
-              // 系统分类绑定全失效时也走这里：清空绑定回落「全员可见」，绝不删系统分类
-              fixedCategories.push({ ...cat, allowedCharacterIds: alive });
-          }
+          if (alive.length === cat.allowedCharacterIds.length) continue;
+          if (alive.length === 0 && !cat.isSystem) removedCategories.push({ id: cat.id, name: cat.name });
+          else fixedCategories.push({ ...cat, allowedCharacterIds: alive });
       }
 
-      const removedCatIds = new Set(removedCategories.map(c => c.id));
-      const remainingCatIds = new Set(categories.map(c => c.id).filter(id => !removedCatIds.has(id)));
-      const emojisToDelete = emojis.filter(e => e.categoryId && !remainingCatIds.has(e.categoryId));
+      const removedCatIds = new Set(removedCategories.map(category => category.id));
+      const remainingCatIds = new Set(categories.map(category => category.id).filter(id => !removedCatIds.has(id)));
+      const emojisToDelete = emojis.filter(emoji => emoji.categoryId && !remainingCatIds.has(emoji.categoryId));
 
       if (!options.dryRun && (removedCategories.length || fixedCategories.length || emojisToDelete.length)) {
-          const db = await openDB();
-          const tx = db.transaction([STORE_EMOJI_CATEGORIES, STORE_EMOJIS], 'readwrite');
-          const catStore = tx.objectStore(STORE_EMOJI_CATEGORIES);
-          const emojiStore = tx.objectStore(STORE_EMOJIS);
-          removedCategories.forEach(c => catStore.delete(c.id));
-          fixedCategories.forEach(c => catStore.put(c));
-          emojisToDelete.forEach(e => emojiStore.delete(e.name));
-          await new Promise<void>((resolve, reject) => {
-              tx.oncomplete = () => resolve();
-              tx.onerror = () => reject(tx.error);
-              tx.onabort = () => reject(tx.error);
-          });
+          const rollbackCategories = markSharedStoreIdentityDeletions(STORE_EMOJI_CATEGORIES, removedCategories.map(category => category.id));
+          const rollbackEmojis = markSharedStoreIdentityDeletions(STORE_EMOJIS, emojisToDelete.map(emoji => emoji.name));
+          try {
+              const db = await openDB();
+              const tx = db.transaction([STORE_EMOJI_CATEGORIES, STORE_EMOJIS], 'readwrite');
+              const categoryStore = tx.objectStore(STORE_EMOJI_CATEGORIES);
+              const emojiStore = tx.objectStore(STORE_EMOJIS);
+              removedCategories.forEach(category => categoryStore.delete(category.id));
+              fixedCategories.forEach(category => categoryStore.put(category));
+              emojisToDelete.forEach(emoji => emojiStore.delete(emoji.name));
+              await new Promise<void>((resolve, reject) => {
+                  tx.oncomplete = () => resolve();
+                  tx.onerror = tx.onabort = () => reject(tx.error || new Error('表情分类整理失败'));
+              });
+              clearSharedStoreIdentityDeletions(STORE_EMOJI_CATEGORIES, fixedCategories.map(category => category.id));
+          } catch (error) {
+              rollbackCategories();
+              rollbackEmojis();
+              throw error;
+          }
       }
 
       return {
           removedCategories,
-          fixedCategories: fixedCategories.map(c => ({ id: c.id, name: c.name })),
+          fixedCategories: fixedCategories.map(category => ({ id: category.id, name: category.name })),
           removedEmojiCount: emojisToDelete.length,
       };
   },
@@ -2591,7 +2632,11 @@ export const DB = {
           const tx = db.transaction(STORE_EMOJIS, 'readwrite');
           const store = tx.objectStore(STORE_EMOJIS);
           SULLY_PRESET_EMOJIS.forEach(emoji => store.put(emoji));
-          await new Promise(resolve => { tx.oncomplete = resolve; });
+          await new Promise<void>((resolve, reject) => {
+              tx.oncomplete = () => resolve();
+              tx.onerror = tx.onabort = () => reject(tx.error || new Error('默认表情初始化失败'));
+          });
+          clearSharedStoreIdentityDeletions(STORE_EMOJIS, SULLY_PRESET_EMOJIS.map(emoji => emoji.name));
       }
   },
 
@@ -2601,27 +2646,17 @@ export const DB = {
       const transaction = db.transaction(STORE_THEMES, 'readonly');
       const store = transaction.objectStore(STORE_THEMES);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => resolve(filterSharedStoreRows(STORE_THEMES, store, request.result || []));
       request.onerror = () => reject(request.error);
     });
   },
 
   saveTheme: async (theme: ChatTheme): Promise<void> => {
-    const db = await openDB();
-    // 同 saveAsset：等事务落盘，配额不足时把错误抛给调用方，别让主题「保存成功」是假的。
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_THEMES, 'readwrite');
-      transaction.objectStore(STORE_THEMES).put(theme);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error || new Error('saveTheme transaction aborted'));
-    });
+    await putSharedStoreRows(STORE_THEMES, [theme]);
   },
 
   deleteTheme: async (id: string): Promise<void> => {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_THEMES, 'readwrite');
-    transaction.objectStore(STORE_THEMES).delete(id);
+    await deleteSharedStoreRows(STORE_THEMES, [id]);
   },
 
   getAllAssets: async (): Promise<{id: string, data: string}[]> => {
@@ -2630,7 +2665,10 @@ export const DB = {
       const transaction = db.transaction(STORE_ASSETS, 'readonly');
       const store = transaction.objectStore(STORE_ASSETS);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+          const deleted = new Set(readUserSaves().sharedDeletions?.stores?.assets || []);
+          resolve((request.result || []).filter((row: {id:string}) => !isSharedAppearanceAsset(row.id) || !deleted.has(JSON.stringify(row.id))));
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -2721,7 +2759,10 @@ export const DB = {
           const transaction = db.transaction(STORE_ASSETS, 'readonly');
           const store = transaction.objectStore(STORE_ASSETS);
           const request = store.get(id);
-          request.onsuccess = () => resolve(request.result?.data || null);
+          request.onsuccess = () => resolve(
+               isSharedAppearanceAsset(id) && readUserSaves().sharedDeletions?.stores?.assets?.includes(JSON.stringify(id))
+                   ? null : request.result?.data || null
+           );
           request.onerror = () => reject(request.error);
       });
   },
@@ -2733,7 +2774,10 @@ export const DB = {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_ASSETS, 'readwrite');
         transaction.objectStore(STORE_ASSETS).put({ id, data });
-        transaction.oncomplete = () => resolve();
+        transaction.oncomplete = () => {
+            if (isSharedAppearanceAsset(id)) clearSharedStoreIdentityDeletions('assets', [id]);
+            resolve();
+        };
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
     });
@@ -2746,7 +2790,10 @@ export const DB = {
       const transaction=db.transaction(STORE_ASSETS,'readwrite');
       const store=transaction.objectStore(STORE_ASSETS);
       for(const entry of entries)store.put(entry);
-      transaction.oncomplete=()=>resolve();
+      transaction.oncomplete=()=>{
+         clearSharedStoreIdentityDeletions('assets',entries.filter(entry=>isSharedAppearanceAsset(entry.id)).map(entry=>entry.id));
+         resolve();
+       };
       transaction.onerror=()=>reject(transaction.error);
       transaction.onabort=()=>reject(transaction.error||new Error('Asset batch aborted'));
     });
@@ -2758,7 +2805,10 @@ export const DB = {
           const transaction = db.transaction(STORE_ASSETS, 'readonly');
           const store = transaction.objectStore(STORE_ASSETS);
           const request = store.get(id);
-          request.onsuccess = () => resolve(request.result?.data ?? null);
+          request.onsuccess = () => resolve(
+               isSharedAppearanceAsset(id) && readUserSaves().sharedDeletions?.stores?.assets?.includes(JSON.stringify(id))
+                   ? null : request.result?.data ?? null
+           );
           request.onerror = () => reject(request.error);
       });
   },
@@ -2768,7 +2818,10 @@ export const DB = {
       return new Promise((resolve, reject) => {
           const transaction = db.transaction(STORE_ASSETS, 'readwrite');
           transaction.objectStore(STORE_ASSETS).put({ id, data });
-          transaction.oncomplete = () => resolve();
+          transaction.oncomplete = () => {
+               if (isSharedAppearanceAsset(id)) clearSharedStoreIdentityDeletions('assets', [id]);
+               resolve();
+           };
           transaction.onerror = () => reject(transaction.error);
           transaction.onabort = () => reject(transaction.error || new Error('saveAssetRaw transaction aborted'));
       });
@@ -2796,7 +2849,10 @@ export const DB = {
                   reject(error);
               }
           };
-          tx.oncomplete = () => resolve(updated);
+          tx.oncomplete = () => {
+               if (isSharedAppearanceAsset(id)) clearSharedStoreIdentityDeletions('assets', [id]);
+               resolve(updated);
+           };
           tx.onerror = () => reject(tx.error || new Error('Atomic asset update failed'));
           tx.onabort = () => reject(tx.error || new Error('Atomic asset update aborted'));
       });
@@ -2839,22 +2895,28 @@ export const DB = {
           reject(error);
         }
       };
-      tx.oncomplete=()=>resolve(updated);
+      tx.oncomplete=()=>{
+           if(isSharedAppearanceAsset(id)) clearSharedStoreIdentityDeletions('assets',[id]);
+           resolve(updated);
+       };
       tx.onerror=()=>reject(tx.error||new Error('恢复写入失败'));
       tx.onabort=()=>reject(tx.error||new Error('恢复事务未完成'));
     });
   },
 
   deleteAsset: async (id: string): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_ASSETS, 'readwrite');
-      transaction.objectStore(STORE_ASSETS).delete(id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error || new Error('deleteAsset aborted'));
-    });
-  },
+     const rollback = isSharedAppearanceAsset(id) ? markSharedStoreIdentityDeletions('assets', [id]) : () => {};
+     try {
+       const db = await openDB();
+       await new Promise<void>((resolve, reject) => {
+         const transaction = db.transaction(STORE_ASSETS, 'readwrite');
+         transaction.objectStore(STORE_ASSETS).delete(id);
+         transaction.oncomplete = () => resolve();
+         transaction.onerror = () => reject(transaction.error);
+         transaction.onabort = () => reject(transaction.error || new Error('deleteAsset aborted'));
+       });
+     } catch (error) { rollback(); throw error; }
+   },
 
   // ─── Blob 资源（图片二进制，见 utils/blobRef.ts）───────────────
   // IndexedDB 原生支持存 Blob（结构化克隆），比 base64 省 ~33% 空间、不占 JS 堆，
@@ -2990,21 +3052,17 @@ export const DB = {
       const transaction = db.transaction(STORE_JOURNAL_STICKERS, 'readonly');
       const store = transaction.objectStore(STORE_JOURNAL_STICKERS);
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => resolve(filterSharedStoreRows(STORE_JOURNAL_STICKERS, store, request.result || []));
       request.onerror = () => reject(request.error);
     });
   },
 
   saveJournalSticker: async (name: string, url: string): Promise<void> => {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_JOURNAL_STICKERS, 'readwrite');
-    transaction.objectStore(STORE_JOURNAL_STICKERS).put({ name, url });
+    await putSharedStoreRows(STORE_JOURNAL_STICKERS, [{ name, url }]);
   },
 
   deleteJournalSticker: async (name: string): Promise<void> => {
-    const db = await openDB();
-    const transaction = db.transaction(STORE_JOURNAL_STICKERS, 'readwrite');
-    transaction.objectStore(STORE_JOURNAL_STICKERS).delete(name);
+    await deleteSharedStoreRows(STORE_JOURNAL_STICKERS, [name]);
   },
 
   saveGalleryImage: async (img: GalleryImage): Promise<void> => {
@@ -4102,7 +4160,7 @@ export const DB = {
           let migrationFailure: unknown;
           request.onsuccess = () => {
               try {
-                  presets = (request.result || [])
+                  presets = filterSharedStoreRows(STORE_STORY_THEATER_PRESETS, store, request.result || [])
                       .map((preset: StoryTheaterPreset) => {
                           const repaired = restoreSavedStoryTavernPreset(preset);
                           if (repaired !== preset) store.put(repaired);
@@ -4132,7 +4190,10 @@ export const DB = {
       const read = store.getAll();
       let result: ReturnType<typeof resolveStoryPresetImport>;
       let failure: unknown;
-      tx.oncomplete = () => resolve(result);
+      tx.oncomplete = () => {
+        if (result && (result.overwritten || result.upgraded || !result.duplicate)) clearSharedStoreIdentityDeletions(STORE_STORY_THEATER_PRESETS, [result.preset.id]);
+        resolve(result);
+      };
       tx.onabort = () => reject(failure || tx.error || new Error('预设导入未完成'));
       read.onsuccess = () => {
         try {
@@ -4149,57 +4210,30 @@ export const DB = {
   },
 
   saveStoryTheaterPreset: async (preset: StoryTheaterPreset): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
-      transaction.objectStore(STORE_STORY_THEATER_PRESETS).put(preset);
-      return new Promise((resolve, reject) => {
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-          transaction.onabort = () => reject(transaction.error || new Error('saveStoryTheaterPreset aborted'));
-      });
+      await putSharedStoreRows(STORE_STORY_THEATER_PRESETS, [preset]);
   },
 
   deleteStoryTheaterPreset: async (id: string): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_STORY_THEATER_PRESETS, 'readwrite');
-      transaction.objectStore(STORE_STORY_THEATER_PRESETS).delete(id);
-      return new Promise((resolve, reject) => {
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error || new Error('剧情预设删除失败'));
-          transaction.onabort = () => reject(transaction.error || new Error('剧情预设删除已取消'));
-      });
+      await deleteSharedStoreRows(STORE_STORY_THEATER_PRESETS, [id]);
   },
 
   getStoryTheaterMasks: async (): Promise<StoryTheaterMask[]> => {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_STORY_THEATER_MASKS)) return [];
       return new Promise((resolve, reject) => {
-          const request = db.transaction(STORE_STORY_THEATER_MASKS, 'readonly').objectStore(STORE_STORY_THEATER_MASKS).getAll();
-          request.onsuccess = () => resolve((request.result || []).sort((a: StoryTheaterMask, b: StoryTheaterMask) => b.updatedAt - a.updatedAt));
+          const store = db.transaction(STORE_STORY_THEATER_MASKS, 'readonly').objectStore(STORE_STORY_THEATER_MASKS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_STORY_THEATER_MASKS, store, request.result || []).sort((a: StoryTheaterMask, b: StoryTheaterMask) => b.updatedAt - a.updatedAt));
           request.onerror = () => reject(request.error);
       });
   },
 
   saveStoryTheaterMask: async (mask: StoryTheaterMask): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_STORY_THEATER_MASKS, 'readwrite');
-      transaction.objectStore(STORE_STORY_THEATER_MASKS).put(mask);
-      return new Promise((resolve, reject) => {
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-          transaction.onabort = () => reject(transaction.error || new Error('saveStoryTheaterMask aborted'));
-      });
+      await putSharedStoreRows(STORE_STORY_THEATER_MASKS, [mask]);
   },
 
   deleteStoryTheaterMask: async (id: string): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_STORY_THEATER_MASKS, 'readwrite');
-      transaction.objectStore(STORE_STORY_THEATER_MASKS).delete(id);
-      return new Promise((resolve, reject) => {
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error || new Error('剧情面具删除失败'));
-          transaction.onabort = () => reject(transaction.error || new Error('剧情面具删除已取消'));
-      });
+      await deleteSharedStoreRows(STORE_STORY_THEATER_MASKS, [id]);
   },
 
   getAllNovels: async (): Promise<NovelBook[]> => {
@@ -4255,37 +4289,37 @@ export const DB = {
       if (!db.objectStoreNames.contains(STORE_VR_NOVELS)) return [];
       return new Promise((resolve, reject) => {
           const transaction = db.transaction(STORE_VR_NOVELS, 'readonly');
-          const request = transaction.objectStore(STORE_VR_NOVELS).getAll();
-          request.onsuccess = () => resolve(request.result || []);
+          const store = transaction.objectStore(STORE_VR_NOVELS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_VR_NOVELS, store, request.result || []));
           request.onerror = () => reject(request.error);
       });
   },
 
   saveVRNovel: async (novel: VRWorldNovel): Promise<void> => {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-          const transaction = db.transaction(STORE_VR_NOVELS, 'readwrite');
-          transaction.objectStore(STORE_VR_NOVELS).put(novel);
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error('书籍保存失败'));
-      });
+      await putSharedStoreRows(STORE_VR_NOVELS, [novel]);
   },
 
   deleteVRNovel: async (id: string): Promise<void> => {
-      const db = await openDB();
-      // 删书时连带删掉这本书的全部批注
-      const annIds: string[] = await new Promise((resolve) => {
-          if (!db.objectStoreNames.contains(STORE_VR_ANNOTATIONS)) return resolve([]);
-          const tx = db.transaction(STORE_VR_ANNOTATIONS, 'readonly');
-          const idx = tx.objectStore(STORE_VR_ANNOTATIONS).index('novelId');
-          const req = idx.getAll(id);
-          req.onsuccess = () => resolve((req.result || []).map((a: VRNovelAnnotation) => a.id));
-          req.onerror = () => resolve([]);
-      });
-      const tx = db.transaction([STORE_VR_NOVELS, STORE_VR_ANNOTATIONS], 'readwrite');
-      tx.objectStore(STORE_VR_NOVELS).delete(id);
-      const annStore = tx.objectStore(STORE_VR_ANNOTATIONS);
-      for (const aid of annIds) annStore.delete(aid);
+      const rollback = markSharedStoreIdentityDeletions(STORE_VR_NOVELS, [id]);
+      try {
+          const db = await openDB();
+          const annIds: string[] = await new Promise((resolve) => {
+              if (!db.objectStoreNames.contains(STORE_VR_ANNOTATIONS)) return resolve([]);
+              const tx = db.transaction(STORE_VR_ANNOTATIONS, 'readonly');
+              const idx = tx.objectStore(STORE_VR_ANNOTATIONS).index('novelId');
+              const req = idx.getAll(id);
+              req.onsuccess = () => resolve((req.result || []).map((annotation: VRNovelAnnotation) => annotation.id));
+              req.onerror = () => resolve([]);
+          });
+          await new Promise<void>((resolve, reject) => {
+              const tx = db.transaction([STORE_VR_NOVELS, STORE_VR_ANNOTATIONS], 'readwrite');
+              tx.objectStore(STORE_VR_NOVELS).delete(id);
+              annIds.forEach(annotationId => tx.objectStore(STORE_VR_ANNOTATIONS).delete(annotationId));
+              tx.oncomplete = () => resolve();
+              tx.onerror = tx.onabort = () => reject(tx.error || new Error('书籍删除失败'));
+          });
+      } catch (error) { rollback(); throw error; }
   },
 
   // --- VR World 小说批注 ---
@@ -4319,28 +4353,19 @@ export const DB = {
       if (!db.objectStoreNames.contains(STORE_CC_PARTS)) return [];
       return new Promise((resolve, reject) => {
           const transaction = db.transaction(STORE_CC_PARTS, 'readonly');
-          const request = transaction.objectStore(STORE_CC_PARTS).getAll();
-          request.onsuccess = () => resolve((request.result || []).sort((a: CustomCreatorPart, b: CustomCreatorPart) => a.createdAt - b.createdAt));
+          const store = transaction.objectStore(STORE_CC_PARTS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_CC_PARTS, store, request.result || []).sort((a: CustomCreatorPart, b: CustomCreatorPart) => a.createdAt - b.createdAt));
           request.onerror = () => reject(request.error);
       });
   },
 
   saveCustomCreatorPart: async (part: CustomCreatorPart): Promise<void> => {
-      const db = await openDB();
-      // 同 saveAsset：等事务落盘并把失败抛出去，配额不足时不再静默丢部件。
-      return new Promise((resolve, reject) => {
-          const transaction = db.transaction(STORE_CC_PARTS, 'readwrite');
-          transaction.objectStore(STORE_CC_PARTS).put(part);
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(transaction.error);
-          transaction.onabort = () => reject(transaction.error || new Error('saveCustomCreatorPart transaction aborted'));
-      });
+      await putSharedStoreRows(STORE_CC_PARTS, [part]);
   },
 
   deleteCustomCreatorPart: async (id: string): Promise<void> => {
-      const db = await openDB();
-      const transaction = db.transaction(STORE_CC_PARTS, 'readwrite');
-      transaction.objectStore(STORE_CC_PARTS).delete(id);
+      await deleteSharedStoreRows(STORE_CC_PARTS, [id]);
   },
 
   // --- 听歌房共享状态（单例 id='state'） ---
@@ -4436,18 +4461,17 @@ export const DB = {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_VR_SCRIPTS)) return [];
       return new Promise((resolve) => {
-          const request = db.transaction(STORE_VR_SCRIPTS, 'readonly').objectStore(STORE_VR_SCRIPTS).getAll();
-          request.onsuccess = () => resolve((request.result || []).sort((a: VRScript, b: VRScript) => b.createdAt - a.createdAt));
+          const store = db.transaction(STORE_VR_SCRIPTS, 'readonly').objectStore(STORE_VR_SCRIPTS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_VR_SCRIPTS, store, request.result || []).sort((a: VRScript, b: VRScript) => b.createdAt - a.createdAt));
           request.onerror = () => resolve([]);
       });
   },
   saveVRScript: async (script: VRScript): Promise<void> => {
-      const db = await openDB();
-      db.transaction(STORE_VR_SCRIPTS, 'readwrite').objectStore(STORE_VR_SCRIPTS).put(script);
+      await putSharedStoreRows(STORE_VR_SCRIPTS, [script]);
   },
   deleteVRScript: async (id: string): Promise<void> => {
-      const db = await openDB();
-      db.transaction(STORE_VR_SCRIPTS, 'readwrite').objectStore(STORE_VR_SCRIPTS).delete(id);
+      await deleteSharedStoreRows(STORE_VR_SCRIPTS, [id]);
   },
 
   // --- 剧院·历史舞台剧 ---
@@ -4474,18 +4498,17 @@ export const DB = {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_VR_PRESETS)) return [];
       return new Promise((resolve) => {
-          const request = db.transaction(STORE_VR_PRESETS, 'readonly').objectStore(STORE_VR_PRESETS).getAll();
-          request.onsuccess = () => resolve(request.result || []);
+          const store = db.transaction(STORE_VR_PRESETS, 'readonly').objectStore(STORE_VR_PRESETS);
+          const request = store.getAll();
+          request.onsuccess = () => resolve(filterSharedStoreRows(STORE_VR_PRESETS, store, request.result || []));
           request.onerror = () => resolve([]);
       });
   },
   saveVRPreset: async (preset: { key: string; name: string; prompt: string; blurb?: string }): Promise<void> => {
-      const db = await openDB();
-      db.transaction(STORE_VR_PRESETS, 'readwrite').objectStore(STORE_VR_PRESETS).put(preset);
+      await putSharedStoreRows(STORE_VR_PRESETS, [preset]);
   },
   deleteVRPreset: async (key: string): Promise<void> => {
-      const db = await openDB();
-      db.transaction(STORE_VR_PRESETS, 'readwrite').objectStore(STORE_VR_PRESETS).delete(key);
+      await deleteSharedStoreRows(STORE_VR_PRESETS, [key]);
   },
 
   // --- 邮局信件 ---

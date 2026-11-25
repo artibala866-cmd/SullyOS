@@ -3,7 +3,7 @@ import { openDB } from './db';
 import { toMountedWorldbook } from './worldbook';
 import { characterImageProfileKey } from './characterImageProfile';
 import { DECORATION_DELETED_STORE, parseDecorationDeletedIds } from './decorationTombstones';
-import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
+import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, isSharedAppearanceAsset, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
 export type SharedBaseResource = 'characters' | 'worldbooks' | 'characterGroups';
 export type SharedBaseDeletionPatch = Partial<Record<SharedBaseResource, string[]>>;
@@ -121,10 +121,7 @@ export function mergeCharacterBase(base: CharacterProfile, previous?: CharacterP
 }
 export const SHARED_STORES = ['character_groups', 'worldbooks', 'themes', 'emojis', 'emoji_categories', 'journal_stickers',
     'cc_custom_parts', 'pixel_home_assets', 'pixel_home_layouts', 'vr_novels', 'vr_scripts', 'vr_presets', 'story_theater_presets', 'story_theater_masks'];
-export function isSharedAsset(id: string): boolean {
-    return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1', DECORATION_DELETED_STORE].includes(id) ||
-        /^(icon_|widget_|deco_|appearance_preset_|decoration_|beauty_|chat_theme_)/.test(id);
-}
+export function isSharedAsset(id: string): boolean { return isSharedAppearanceAsset(id); }
 /** Shared asset IDs use last-active-save semantics, but a decoration library is
  * a collection inside one row. Merge by stable preset ID to keep target-only
  * saved backgrounds instead of erasing them on every identity switch. */
@@ -178,6 +175,17 @@ function all(db: IDBDatabase, name: string): Promise<any[]> {
         const tx = db.transaction(name, 'readonly'); const req = tx.objectStore(name).getAll();
         req.onsuccess = () => resolve(req.result); tx.onerror = tx.onabort = () => reject(tx.error);
     });
+}
+function sharedStorePrimaryKey(value: any, keyPath: string | string[] | null): IDBValidKey {
+    const readPath = (path: string) => path.split('.').reduce((node, key) => node?.[key], value);
+    if (typeof keyPath === 'string') {
+        const key = readPath(keyPath);
+        if (key !== undefined) return key;
+    } else if (Array.isArray(keyPath)) {
+        const key = keyPath.map(readPath);
+        if (key.every(part => part !== undefined)) return key;
+    }
+    throw new Error('共享资源主键无法读取，已停止切换以保护资料');
 }
 function openTarget(source: IDBDatabase, id: string, create: boolean): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -314,11 +322,19 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         // Character profiles and worldbooks are shared base records. Interaction
         // stores such as messages, memory nodes and story progress stay isolated.
         const storeNames = SHARED_STORES.filter(name => name !== 'worldbooks' && name !== 'character_groups' && source.objectStoreNames.contains(name));
+        const sharedStoreDeletions = registry.sharedDeletions?.stores || {};
         const [assets, ...resources] = await Promise.all([
             all(source, 'assets'),
-            ...storeNames.map(async name => sharedStoreRows(name, await all(source, name))),
+            ...storeNames.map(async name => {
+                const rows = sharedStoreRows(name, await all(source, name));
+                const store = source.transaction(name, 'readonly').objectStore(name);
+                const deleted = new Set(sharedStoreDeletions[name] || []);
+                if (!deleted.size) return rows;
+                return rows.filter(row => !deleted.has(JSON.stringify(sharedStorePrimaryKey(row, store.keyPath))));
+            }),
         ]);
-        const sharedAssets = assets.filter(row => isSharedAsset(row.id));
+        const deletedSharedAssetIds = new Set(sharedStoreDeletions.assets || []);
+        const sharedAssets = assets.filter(row => isSharedAsset(row.id) && !deletedSharedAssetIds.has(JSON.stringify(row.id)));
 
         target = await openTarget(source, targetId, !!create);
         preparedNew = !!create;
@@ -440,14 +456,26 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         })));
 
         const previousAssets = await all(target, 'assets');
-        const mergedSharedAssets = mergeSharedAppearanceAssets(sharedAssets, previousAssets);
+        const targetSharedAssets = previousAssets.filter(row => !deletedSharedAssetIds.has(JSON.stringify(row.id)));
+        const mergedSharedAssets = mergeSharedAppearanceAssets(sharedAssets, targetSharedAssets);
         await new Promise<void>((resolve, reject) => {
             const tx = target!.transaction(['assets', 'blob_assets', 'user_profile', ...storeNames], 'readwrite');
             for (let i = 0; i < storeNames.length; i++) {
-                const store = tx.objectStore(storeNames[i]);
+                const name = storeNames[i];
+                const store = tx.objectStore(name);
+                for (const token of sharedStoreDeletions[name] || []) {
+                    let key: IDBValidKey;
+                    try { key = JSON.parse(token); } catch { throw new Error(`共享资源删除记录损坏：${name}`); }
+                    store.delete(key);
+                }
                 for (const row of resources[i]) store.put(row);
             }
             const assetStore = tx.objectStore('assets');
+            for (const token of sharedStoreDeletions.assets || []) {
+                let key: IDBValidKey;
+                try { key = JSON.parse(token); } catch { throw new Error('共享外观资源删除记录损坏'); }
+                assetStore.delete(key);
+            }
             for (const row of mergedSharedAssets) assetStore.put(row);
             for (const row of blobs) tx.objectStore('blob_assets').put(row);
             if (newProfile) tx.objectStore('user_profile').put({ ...newProfile, id: 'me' });

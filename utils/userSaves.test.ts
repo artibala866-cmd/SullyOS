@@ -429,6 +429,128 @@ describe('user 身份存档隔离', () => {
         expect((await dbAAgain.getCharacter('grouped-role'))?.groupId).toBeUndefined();
         expect((await dbAAgain.getCharacter('grouped-role'))?.memories).toEqual([{ summary: 'A私密记忆' }]);
     });
+    it('keeps shared appearance asset deletion global while preserving private assets', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        await write(original, {
+            assets: [
+                { id: 'wallpaper', data: 'A背景' },
+                { id: 'custom_font_data', data: 'A字体' },
+                { id: 'private-only', data: 'A私密素材' },
+            ],
+            messages: [{ id: 51, charId: 'c', content: 'A私聊' }],
+        });
+        await (await import('./userSaves')).activateUserSave(SECOND, { name: 'B身份' });
+        original.close();
+
+        vi.resetModules();
+        const { DB: dbB } = await import('./db');
+        expect(await dbB.getAsset('private-only')).toBeNull();
+        await dbB.deleteAsset('wallpaper');
+        expect(await dbB.getAsset('wallpaper')).toBeNull();
+        expect(await dbB.getAssetRaw('wallpaper')).toBeNull();
+        expect((await dbB.getAllAssets()).map(asset => asset.id)).toEqual(['custom_font_data']);
+        expect((await import('./userSaveScope')).readUserSaves().sharedDeletions?.stores?.assets).toContain(JSON.stringify('wallpaper'));
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        vi.resetModules();
+        const { DB: dbA } = await import('./db');
+        expect(await dbA.getAsset('wallpaper')).toBeNull();
+        expect(await dbA.getAssetRaw('wallpaper')).toBeNull();
+        const a = await open('AetherOS_Data');
+        expect((await rows(a, 'assets')).map(asset => asset.id).sort()).toEqual(['custom_font_data', 'private-only']);
+        expect((await rows(a, 'messages')).map(message => message.content)).toEqual(['A私聊']);
+        a.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        vi.resetModules();
+        const { DB: dbBAfterSwitch } = await import('./db');
+        await dbBAfterSwitch.saveAssetRaw('wallpaper', 'B重新保存');
+        expect(await dbBAfterSwitch.getAsset('wallpaper')).toBe('B重新保存');
+        expect((await import('./userSaveScope')).readUserSaves().sharedDeletions?.stores?.assets || []).not.toContain(JSON.stringify('wallpaper'));
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        vi.resetModules();
+        const { DB: dbARecreated } = await import('./db');
+        expect(await dbARecreated.getAsset('wallpaper')).toBe('B重新保存');
+    });
+
+    it('propagates shared library deletes and category cascades across A/B/A/B', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        await write(original, {
+            themes: [
+                { id: 'theme-removed', name: '待删除主题', type: 'custom', user: {}, ai: {} },
+                { id: 'theme-kept', name: '保留主题', type: 'custom', user: {}, ai: {} },
+            ],
+            emoji_categories: [
+                { id: 'category-removed', name: '待删除分类' },
+                { id: 'category-kept', name: '保留分类' },
+            ],
+            emojis: [
+                { name: 'emoji-removed', url: 'removed.png', categoryId: 'category-removed' },
+                { name: 'emoji-kept', url: 'kept.png', categoryId: 'category-kept' },
+            ],
+            messages: [{ id: 31, charId: 'c', content: 'A私聊' }],
+        });
+        await (await import('./userSaves')).activateUserSave(SECOND, { name: 'B身份' });
+        original.close();
+
+        vi.resetModules();
+        const { DB: dbB } = await import('./db');
+        await dbB.deleteTheme('theme-removed');
+        await dbB.deleteEmojiCategory('category-removed');
+        const { readUserSaves } = await import('./userSaveScope');
+        expect(readUserSaves().sharedDeletions?.stores?.themes).toContain(JSON.stringify('theme-removed'));
+        expect(readUserSaves().sharedDeletions?.stores?.emoji_categories).toContain(JSON.stringify('category-removed'));
+        expect(readUserSaves().sharedDeletions?.stores?.emojis).toContain(JSON.stringify('emoji-removed'));
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        const a = await open('AetherOS_Data');
+        expect((await rows(a, 'themes')).map(theme => theme.id)).toEqual(['theme-kept']);
+        expect((await rows(a, 'emoji_categories')).map(category => category.id)).toEqual(['category-kept']);
+        expect((await rows(a, 'emojis')).map(emoji => emoji.name)).toEqual(['emoji-kept']);
+        expect((await rows(a, 'messages')).map(message => message.content)).toEqual(['A私聊']);
+        a.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        const b = await open(`AetherOS_Data__user_${SECOND}`);
+        expect((await rows(b, 'themes')).map(theme => theme.id)).toEqual(['theme-kept']);
+        expect((await rows(b, 'emoji_categories')).map(category => category.id)).toEqual(['category-kept']);
+        expect((await rows(b, 'emojis')).map(emoji => emoji.name)).toEqual(['emoji-kept']);
+        b.close();
+    });
+    it('prevents deleted pixel-home assets from returning after switching identities', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        const makeAsset = (id: string) => ({
+            id, name: id, originalImage: 'data:image/png;base64,AA==', pixelImage: 'data:image/png;base64,AA==',
+            pixelSize: 24, palette: ['#000000'], width: 1, height: 1, createdAt: 1, tags: [],
+        });
+        await write(original, { pixel_home_assets: [makeAsset('asset-delete'), makeAsset('asset-keep')] });
+        await (await import('./userSaves')).activateUserSave(SECOND, { name: 'B身份' });
+        original.close();
+
+        vi.resetModules();
+        const { PixelAssetDB } = await import('../apps/pixelHome/pixelHomeDb');
+        await PixelAssetDB.delete('asset-delete');
+        expect((await PixelAssetDB.getAll()).map(asset => asset.id)).toEqual(['asset-keep']);
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        vi.resetModules();
+        const { PixelAssetDB: pixelA } = await import('../apps/pixelHome/pixelHomeDb');
+        expect((await pixelA.getAll()).map(asset => asset.id)).toEqual(['asset-keep']);
+
+        const a = await open('AetherOS_Data');
+        expect((await rows(a, 'pixel_home_assets')).map(asset => asset.id)).toEqual(['asset-keep']);
+        a.close();
+    });
     it('merging common edits preserves target-specific memories and relationship/runtime data', async () => {
         const { baseCharacter, mergeCharacterBase } = await import('./userSaves');
         const previous: any = { id:'c', name:'旧名字', systemPrompt:'旧人设', description:'', avatar:'', memories:[{summary:'B的记忆'}],

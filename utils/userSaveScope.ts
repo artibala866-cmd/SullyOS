@@ -1,3 +1,5 @@
+import { DECORATION_DELETED_STORE } from './decorationTombstones';
+
 /** A document binds to one save for its whole lifetime. Old async work can only
  * write to that save, even while another tab changes the selected identity. */
 export const USER_SAVES_KEY = 'sully:user-saves:v1';
@@ -7,6 +9,8 @@ export interface SharedIdentityDeletions {
     characters?: string[];
     worldbooks?: string[];
     characterGroups?: string[];
+    /** Per-store primary-key tombstones for shared libraries. Keys are JSON-encoded IDB keys. */
+    stores?: Record<string, string[]>;
 }
 export interface UserSaveRegistry {
     activeId: string;
@@ -39,10 +43,27 @@ function parseRegistry(raw: string): UserSaveRegistry {
         (deletions !== undefined && (!deletions || typeof deletions !== 'object' || Array.isArray(deletions) ||
             (deletions.characters !== undefined && !validDeletionList(deletions.characters)) ||
             (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)) ||
-            (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)))))
+            (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)) ||
+            (deletions.stores !== undefined && (!deletions.stores || typeof deletions.stores !== 'object' || Array.isArray(deletions.stores) ||
+                Object.entries(deletions.stores).some(([name, ids]) => !/^[a-z0-9_]+$/.test(name) || !Array.isArray(ids) ||
+                    ids.some(token => !validSharedStoreTombstoneKey(name, token)) || new Set(ids).size !== ids.length))))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
 }
+function validEncodedSharedKey(token: unknown): token is string {
+    if (typeof token !== 'string') return false;
+    try {
+        const key = JSON.parse(token);
+        return typeof key === 'string' || (Array.isArray(key) && key.every(part => typeof part === 'string'));
+    } catch { return false; }
+}
+function validSharedStoreTombstoneKey(storeName: string, token: unknown): boolean {
+    if (!validEncodedSharedKey(token)) return false;
+    if (storeName !== 'assets') return true;
+    const key = JSON.parse(token);
+    return typeof key === 'string' && isSharedAppearanceAsset(key);
+}
+
 export function readUserSaves(): UserSaveRegistry {
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY);
     const recovery = nativeLocalStorage?.getItem(USER_SAVES_RECOVERY_KEY);
@@ -81,6 +102,11 @@ export function writeUserSaves(value: UserSaveRegistry, expectedRaw: string | nu
 }
 // Never silently fall back to the original save if an index is corrupt.
 export const USER_SAVE_ID = readUserSaves().activeId;
+
+export function isSharedAppearanceAsset(id: string): boolean {
+    return ['wallpaper', 'lock_wallpaper', 'wallpaper_user_backup', 'custom_font_data', 'room_custom_assets_list', 'chat_decoration_presets_v1', DECORATION_DELETED_STORE].includes(id) ||
+        /^(icon_|widget_|deco_|appearance_preset_|decoration_|beauty_|chat_theme_)/.test(id);
+}
 export const RETURN_TO_USER_PROFILE = (() => {
     try { if (nativeSessionStorage?.getItem(RETURN_KEY) === USER_SAVE_ID) { nativeSessionStorage.removeItem(RETURN_KEY); return true; } } catch { /* private storage may be unavailable */ }
     return false;
@@ -91,6 +117,39 @@ export function returnToProfileAfterUserSaveSwitch(id: string): void {
 export function scopedDatabaseName(name: string, id = USER_SAVE_ID): string {
     return id === DEFAULT_USER_SAVE ? name : `${name}__user_${id}`;
 }
+
+/** Shared-library deletions survive identity switches and whole-device restores.
+ * JSON encoding preserves IndexedDB string, number and compound array keys. */
+export function markSharedStoreIdentityDeletions(storeName: string, keys: IDBValidKey[]): () => void {
+    const tokens = [...new Set(keys.map(key => JSON.stringify(key)))];
+    if (!tokens.length) return () => {};
+    const registry = readUserSaves();
+    const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
+    const stores = { ...(registry.sharedDeletions?.stores || {}) };
+    const existing = new Set(stores[storeName] || []);
+    const added = tokens.filter(token => !existing.has(token));
+    if (!added.length) return () => {};
+    stores[storeName] = [...existing, ...added];
+    writeUserSaves({ ...registry, sharedDeletions: { ...(registry.sharedDeletions || {}), stores } }, raw);
+    return () => clearSharedStoreIdentityDeletions(storeName, added.map(token => JSON.parse(token) as IDBValidKey));
+}
+export function clearSharedStoreIdentityDeletions(storeName: string, keys: IDBValidKey[]): void {
+    const tokens = new Set(keys.map(key => JSON.stringify(key)));
+    if (!tokens.size) return;
+    const registry = readUserSaves();
+    const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
+    const currentStores = registry.sharedDeletions?.stores || {};
+    const current = currentStores[storeName] || [];
+    const remaining = current.filter(token => !tokens.has(token));
+    if (remaining.length === current.length) return;
+    const stores = { ...currentStores };
+    if (remaining.length) stores[storeName] = remaining;
+    else delete stores[storeName];
+    const sharedDeletions = { ...(registry.sharedDeletions || {}), stores };
+    if (!Object.keys(stores).length) delete sharedDeletions.stores;
+    writeUserSaves({ ...registry, sharedDeletions }, raw);
+}
+
 
 /** Settings and decoration are shared; all unknown keys default to isolated.
  * In particular, waterlines, drafts, relationships, pending replies and remote
