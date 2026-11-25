@@ -117,7 +117,7 @@ export const PixelLayoutDB = {
     return new Promise((resolve, reject) => {
       req.onsuccess = () => {
         const deleted = new Set(readUserSaves().sharedDeletions?.stores?.[STORE_LAYOUTS] || []);
-        resolve((req.result || []).filter(layout => !deleted.has(JSON.stringify([layout.charId, layout.roomId])));
+        resolve((req.result || []).filter(layout => !deleted.has(JSON.stringify([layout.charId, layout.roomId]))));
       };
       req.onerror = () => reject(req.error);
     });
