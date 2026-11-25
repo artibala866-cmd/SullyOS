@@ -526,7 +526,7 @@ const WorldbookApp: React.FC = () => {
         setTogglingBookIds(new Set(togglingBookIdsRef.current));
         try {
             await updateWorldbook(book.id, { disable: !book.disable });
-            trackEvent('世界书列表切换启用状态', { enabled: book.disable });
+            trackEvent('世界书列表切换启用状态', { enabled: !book.disable });
         } catch (error: any) {
             addToast(error?.message || '切换世界书状态失败，请重试', 'error');
         } finally {
