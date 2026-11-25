@@ -337,6 +337,9 @@ describe('user 身份存档隔离', () => {
 
         vi.resetModules();
         await (await import('./userSaves')).activateUserSave('original');
+        // The app performs a full reload after switching; re-import DB so its
+        // fixed USER_SAVE_ID points at the newly active original identity.
+        vi.resetModules();
         const {DB}=await import('./db');
         const {markSharedIdentityDeletions}=await import('./userSaves');
         markSharedIdentityDeletions({characters:[role.id],worldbooks:[book.id]});
@@ -347,6 +350,8 @@ describe('user 身份存档隔离', () => {
 
         vi.resetModules();
         await (await import('./userSaves')).activateUserSave(SECOND);
+        // Mirror the production reload before checking the B-scoped DB facade.
+        vi.resetModules();
         const bAfter=await open('AetherOS_Data__user_'+SECOND);
         expect((await rows(bAfter,'characters')).find(row=>row.id===role.id)?.memories).toEqual([{summary:'B私密记忆'}]);
         expect((await rows(bAfter,'worldbooks')).some(row=>row.id===book.id)).toBe(false);

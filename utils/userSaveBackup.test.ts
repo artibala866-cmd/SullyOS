@@ -159,4 +159,3 @@ it('round-trips shared deletion markers and does not restore deleted base cards/
   db.close();
  });
 
-});
