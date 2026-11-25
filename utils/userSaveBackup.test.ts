@@ -141,7 +141,8 @@ it('updates indexes when switching to an older restored identity without losing 
  expect(restored.transaction('messages').objectStore('messages').indexNames.contains('charId_type')).toBe(true);
  expect((await rows(restored,'messages'))[0].content).toBe('B聊天');
  restored.close();db.close();
- it('round-trips shared deletion markers and does not restore deleted base cards/books',async()=>{
+});
+it('round-trips shared deletion markers and does not restore deleted base cards/books',async()=>{
   const {db,registry}=await seed();
   const scope=await import('./userSaveScope');
   scope.writeUserSaves({...registry,sharedDeletions:{characters:['only-b'],worldbooks:['only-w']}},localStorage.getItem(key));

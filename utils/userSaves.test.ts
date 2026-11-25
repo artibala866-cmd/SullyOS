@@ -8,7 +8,7 @@ beforeEach(() => {
     vi.resetModules(); localStorage.clear();
     vi.stubGlobal('indexedDB', new IDBFactory());
     reload = vi.fn();
-    vi.stubGlobal('window', { localStorage, location: { reload }, addEventListener: vi.fn() });
+    vi.stubGlobal('window', { localStorage, location: { reload }, addEventListener: vi.fn(), dispatchEvent: vi.fn() });
 });
 afterEach(() => vi.unstubAllGlobals());
 async function rows(db: IDBDatabase, store: string): Promise<any[]> {
