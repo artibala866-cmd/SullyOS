@@ -6,6 +6,7 @@ export interface UserSave { id: string; name: string; restored?: boolean }
 export interface SharedIdentityDeletions {
     characters?: string[];
     worldbooks?: string[];
+    characterGroups?: string[];
 }
 export interface UserSaveRegistry {
     activeId: string;
@@ -37,7 +38,8 @@ function parseRegistry(raw: string): UserSaveRegistry {
             new Set(value.deletedSaves.map(s => s.id)).size !== value.deletedSaves.length)) ||
         (deletions !== undefined && (!deletions || typeof deletions !== 'object' || Array.isArray(deletions) ||
             (deletions.characters !== undefined && !validDeletionList(deletions.characters)) ||
-            (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)))))
+            (deletions.worldbooks !== undefined && !validDeletionList(deletions.worldbooks)) ||
+            (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)))))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
 }

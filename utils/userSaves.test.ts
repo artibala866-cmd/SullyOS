@@ -362,6 +362,73 @@ describe('user 身份存档隔离', () => {
         expect((await activeDB.getAllWorldbooks()).some(row=>row.id===book.id)).toBe(false);
         bAfter.close();
     });
+    it('syncs character groups across identities and never resurrects deleted groups or dangling groupIds', async () => {
+        const { openDB } = await import('./db');
+        const original = await openDB();
+        const { activateUserSave } = await import('./userSaves');
+        const role = {
+            id: 'grouped-role', name: '角色', avatar: '', description: '人设', systemPrompt: '设定',
+            groupId: 'group-a', memories: [{ summary: 'A私密记忆' }],
+        };
+        await write(original, {
+            characters: [role],
+            character_groups: [{ id: 'group-a', name: 'A分组', createdAt: 1 }],
+            messages: [{ id: 10, charId: role.id, content: 'A私聊' }],
+        });
+        await activateUserSave(SECOND, { name: 'B身份' });
+        original.close();
+
+        const b = await open(`AetherOS_Data__user_${SECOND}`);
+        expect((await rows(b, 'character_groups')).map(group => group.id)).toEqual(['group-a']);
+        await write(b, {
+            characters: [{ ...role, name: 'B角色名', memories: [{ summary: 'B私密记忆' }] }],
+            character_groups: [
+                { id: 'group-a', name: 'B重命名分组', createdAt: 1 },
+                { id: 'group-b', name: 'B新增分组', createdAt: 2 },
+            ],
+            messages: [{ id: 20, charId: role.id, content: 'B私聊' }],
+        });
+        b.close();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        vi.resetModules();
+        const { DB } = await import('./db');
+        const groupsA = await DB.getCharacterGroups();
+        expect(groupsA.map(group => group.id).sort()).toEqual(['group-a', 'group-b']);
+        expect(groupsA.find(group => group.id === 'group-a')?.name).toBe('B重命名分组');
+        expect((await DB.getCharacter('grouped-role'))?.groupId).toBe('group-a');
+        expect((await DB.getCharacter('grouped-role'))?.memories).toEqual([{ summary: 'A私密记忆' }]);
+        expect((await DB.getMessagesByCharId('grouped-role', true)).map(message => message.content)).toEqual(['A私聊']);
+
+        const { markSharedIdentityDeletions } = await import('./userSaves');
+        const rollback = markSharedIdentityDeletions({ characterGroups: ['group-a'] });
+        try {
+            await DB.deleteCharacterGroup('group-a');
+        } catch (error) {
+            rollback();
+            throw error;
+        }
+        expect((await DB.getCharacterGroups()).map(group => group.id)).toEqual(['group-b']);
+        expect((await DB.getCharacter('grouped-role'))?.groupId).toBeUndefined();
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave(SECOND);
+        vi.resetModules();
+        const { DB: dbB } = await import('./db');
+        expect((await dbB.getCharacterGroups()).map(group => group.id)).toEqual(['group-b']);
+        expect((await dbB.getCharacter('grouped-role'))?.groupId).toBeUndefined();
+        expect((await dbB.getCharacter('grouped-role'))?.memories).toEqual([{ summary: 'B私密记忆' }]);
+        expect((await dbB.getMessagesByCharId('grouped-role', true)).map(message => message.content)).toEqual(['B私聊']);
+
+        vi.resetModules();
+        await (await import('./userSaves')).activateUserSave('original');
+        vi.resetModules();
+        const { DB: dbAAgain } = await import('./db');
+        expect((await dbAAgain.getCharacterGroups()).map(group => group.id)).toEqual(['group-b']);
+        expect((await dbAAgain.getCharacter('grouped-role'))?.groupId).toBeUndefined();
+        expect((await dbAAgain.getCharacter('grouped-role'))?.memories).toEqual([{ summary: 'A私密记忆' }]);
+    });
     it('merging common edits preserves target-specific memories and relationship/runtime data', async () => {
         const { baseCharacter, mergeCharacterBase } = await import('./userSaves');
         const previous: any = { id:'c', name:'旧名字', systemPrompt:'旧人设', description:'', avatar:'', memories:[{summary:'B的记忆'}],

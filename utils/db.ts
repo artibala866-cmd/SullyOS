@@ -1267,7 +1267,10 @@ export const DB = {
       }
       const transaction = db.transaction(STORE_CHAR_GROUPS, 'readonly');
       const request = transaction.objectStore(STORE_CHAR_GROUPS).getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+          const deleted = new Set(readUserSaves().sharedDeletions?.characterGroups || []);
+          resolve((request.result || []).filter(group => !deleted.has(group.id)));
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -1283,15 +1286,23 @@ export const DB = {
     });
   },
 
-  // 只删分组定义。组内角色的 groupId 回落由 OSContext.deleteCharacterGroup 负责
-  // （角色 state 在 context 里，这里改了 DB 不改 state 会出现"删组后角色还挂在幽灵组里"）。
+  // 删除分组定义与清理成员引用必须在同一事务内完成，避免快速切档留下悬空 groupId。
   deleteCharacterGroup: async (id: string): Promise<void> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_CHAR_GROUPS, 'readwrite');
+      const transaction = db.transaction([STORE_CHAR_GROUPS, STORE_CHARACTERS], 'readwrite');
+      const characters = transaction.objectStore(STORE_CHARACTERS);
+      const request = characters.openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const character = cursor.value as CharacterProfile;
+        if (character.groupId === id) cursor.update({ ...character, groupId: undefined });
+        cursor.continue();
+      };
       transaction.objectStore(STORE_CHAR_GROUPS).delete(id);
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error('deleteCharacterGroup aborted'));
     });
   },
 

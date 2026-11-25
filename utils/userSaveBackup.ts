@@ -148,7 +148,8 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
     const backupDeletions = manifest.sharedDeletions;
     if (backupDeletions !== undefined && (!backupDeletions || typeof backupDeletions !== 'object' || Array.isArray(backupDeletions) ||
         (backupDeletions.characters !== undefined && !validDeletionList(backupDeletions.characters)) ||
-        (backupDeletions.worldbooks !== undefined && !validDeletionList(backupDeletions.worldbooks)))) throw new Error('全部身份删除记录无效');
+        (backupDeletions.worldbooks !== undefined && !validDeletionList(backupDeletions.worldbooks)) ||
+        (backupDeletions.characterGroups !== undefined && !validDeletionList(backupDeletions.characterGroups)))) throw new Error('全部身份删除记录无效');
     const ids=new Set<string>();
     for(const save of manifest.saves) {
         if(typeof save.id!=='string' || ids.has(save.id) || typeof save.name!=='string' || !save.name.trim() || save.name.length>100 || !Array.isArray(save.databases)) throw new Error('身份索引无效');
@@ -207,9 +208,11 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             const sharedDeletions = {
                 characters: [...new Set([...(registry.sharedDeletions?.characters || []), ...(manifest.sharedDeletions?.characters || [])])],
                 worldbooks: [...new Set([...(registry.sharedDeletions?.worldbooks || []), ...(manifest.sharedDeletions?.worldbooks || [])])],
+                characterGroups: [...new Set([...(registry.sharedDeletions?.characterGroups || []), ...(manifest.sharedDeletions?.characterGroups || [])])],
             };
             const deletedCharacters = new Set(sharedDeletions.characters);
             const deletedWorldbooks = new Set(sharedDeletions.worldbooks);
+            const deletedCharacterGroups = new Set(sharedDeletions.characterGroups);
             for(const [index,save] of manifest.saves.entries()) {
                 onProgress(`正在恢复身份 ${index+1}/${manifest.saves.length}：${save.name}`);
                 const id=crypto.randomUUID();if([...registry.saves,...(registry.deletedSaves??[])].some(save=>save.id===id)||added.some(save=>save.id===id))throw new Error('身份编号重复，请重新导入');added.push({id,name:save.name.slice(0,100),restored:true});
@@ -275,6 +278,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                             if(schema.name==='assets'&&!isSharedAsset(row.value.id))continue;
                             if(schema.name==='characters' && deletedCharacters.has(row.value.id))continue;
                             if(schema.name==='worldbooks' && deletedWorldbooks.has(row.value.id))continue;
+                            if(schema.name==='character_groups' && deletedCharacterGroups.has(row.value.id))continue;
                             const value=schema.name==='characters'?baseCharacter(row.value):sharedStoreRows(schema.name,[row.value])[0];
                             common.push(value);
                             const key=JSON.stringify(row.key);if(!items.has(key))items.set(key,value);
@@ -290,7 +294,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             if(nativeLocalStorage.getItem(USER_SAVES_KEY)!==revision)throw new Error('身份列表已变化，请重新导入');
             for(const [key,value] of missingShared) if(nativeLocalStorage.getItem(key)===null) {localKeys.push(key);nativeLocalStorage.setItem(key,value);}
             const nextRegistry = {...registry,saves:[...registry.saves,...added]};
-            if (sharedDeletions.characters.length || sharedDeletions.worldbooks.length) nextRegistry.sharedDeletions = sharedDeletions;
+            if (sharedDeletions.characters.length || sharedDeletions.worldbooks.length || sharedDeletions.characterGroups.length) nextRegistry.sharedDeletions = sharedDeletions;
             writeUserSaves(nextRegistry, revision);
             onProgress(`已恢复 ${added.length} 个身份副本，现有存档已保留`);
             return added.length;

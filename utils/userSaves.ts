@@ -1,11 +1,11 @@
-import type { CharacterProfile, UserProfile, Worldbook } from '../types';
+import type { CharacterGroup, CharacterProfile, UserProfile, Worldbook } from '../types';
 import { openDB } from './db';
 import { toMountedWorldbook } from './worldbook';
 import { characterImageProfileKey } from './characterImageProfile';
 import { DECORATION_DELETED_STORE, parseDecorationDeletedIds } from './decorationTombstones';
 import { createSaveStorage, DEFAULT_USER_SAVE, USER_SAVE_ID, USER_SAVES_KEY, nativeLocalStorage, readUserSaves, returnToProfileAfterUserSaveSwitch, scopedDatabaseName, isSharedPreference, writeUserSaves, type UserSaveRegistry } from './userSaveScope';
 
-export type SharedBaseResource = 'characters' | 'worldbooks';
+export type SharedBaseResource = 'characters' | 'worldbooks' | 'characterGroups';
 export type SharedBaseDeletionPatch = Partial<Record<SharedBaseResource, string[]>>;
 
 /** Publish a global deletion before the local DB mutation so stale copies cannot return. */
@@ -14,7 +14,7 @@ export function markSharedIdentityDeletions(patch: SharedBaseDeletionPatch): () 
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
     const added: SharedBaseDeletionPatch = {};
     const next = { ...(registry.sharedDeletions || {}) };
-    for (const resource of ['characters', 'worldbooks'] as const) {
+    for (const resource of ['characters', 'worldbooks', 'characterGroups'] as const) {
         const requested = [...new Set((patch[resource] || []).filter(id => typeof id === 'string' && id.length > 0))];
         const existing = new Set(next[resource] || []);
         const fresh = requested.filter(id => !existing.has(id));
@@ -33,7 +33,7 @@ export function clearSharedIdentityDeletions(patch: SharedBaseDeletionPatch): vo
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
     const next = { ...(registry.sharedDeletions || {}) };
     let changed = false;
-    for (const resource of ['characters', 'worldbooks'] as const) {
+    for (const resource of ['characters', 'worldbooks', 'characterGroups'] as const) {
         const remove = new Set(patch[resource] || []);
         if (!remove.size) continue;
         const current = next[resource] || [];
@@ -313,7 +313,7 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         const source = await openDB();
         // Character profiles and worldbooks are shared base records. Interaction
         // stores such as messages, memory nodes and story progress stay isolated.
-        const storeNames = SHARED_STORES.filter(name => name !== 'worldbooks' && source.objectStoreNames.contains(name));
+        const storeNames = SHARED_STORES.filter(name => name !== 'worldbooks' && name !== 'character_groups' && source.objectStoreNames.contains(name));
         const [assets, ...resources] = await Promise.all([
             all(source, 'assets'),
             ...storeNames.map(async name => sharedStoreRows(name, await all(source, name))),
@@ -336,10 +336,24 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
             db,
             characters: await all(db, 'characters') as CharacterProfile[],
             worldbooks: await all(db, 'worldbooks') as Worldbook[],
+            characterGroups: db.objectStoreNames.contains('character_groups')
+                ? await all(db, 'character_groups') as CharacterGroup[]
+                : [],
         })));
         const sourceSnapshot = snapshots[0];
         const deletedCharacters = new Set(registry.sharedDeletions?.characters || []);
         const deletedWorldbooks = new Set(registry.sharedDeletions?.worldbooks || []);
+        const deletedCharacterGroups = new Set(registry.sharedDeletions?.characterGroups || []);
+
+        const characterGroupById = new Map<string, CharacterGroup>();
+        for (const snapshot of snapshots.slice(1)) {
+            for (const group of snapshot.characterGroups) if (!characterGroupById.has(group.id)) characterGroupById.set(group.id, group);
+        }
+        // The active identity wins edits for the same stable group ID.
+        for (const group of sourceSnapshot.characterGroups) characterGroupById.set(group.id, group);
+        for (const id of deletedCharacterGroups) characterGroupById.delete(id);
+        const sharedCharacterGroups = Array.from(characterGroupById.values());
+        const sharedCharacterGroupIds = new Set(sharedCharacterGroups.map(group => group.id));
 
         const characterById = new Map<string, CharacterProfile>();
         for (const snapshot of snapshots.slice(1)) {
@@ -363,6 +377,8 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
 
         const bases = Array.from(characterById.values()).map(char => {
             const base = baseCharacter(char);
+            // A deleted or orphaned group must not leave a dangling groupId in any save.
+            if (base.groupId && !sharedCharacterGroupIds.has(base.groupId)) base.groupId = undefined;
             if (Array.isArray(base.mountedWorldbooks)) {
                 base.mountedWorldbooks = base.mountedWorldbooks
                     .filter(book => !deletedWorldbooks.has(book.id))
@@ -401,7 +417,9 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
         // Deleted character rows are retained privately but hidden globally;
         // deleted worldbooks are purged because they carry no private state.
         await Promise.all(snapshots.map(snapshot => new Promise<void>((resolve, reject) => {
-            const tx = snapshot.db.transaction(['characters', 'worldbooks'], 'readwrite');
+            const sharedStores = ['characters', 'worldbooks'];
+            if (snapshot.db.objectStoreNames.contains('character_groups')) sharedStores.push('character_groups');
+            const tx = snapshot.db.transaction(sharedStores, 'readwrite');
             const chars = tx.objectStore('characters');
             const previousById = new Map(snapshot.characters.map(char => [char.id, char]));
             for (const previous of snapshot.characters) {
@@ -412,6 +430,11 @@ async function activateUserSaveLocked(targetId: string, create?: { name: string 
             const books = tx.objectStore('worldbooks');
             books.clear();
             for (const book of sharedBooks) books.put(book);
+            if (snapshot.db.objectStoreNames.contains('character_groups')) {
+                const groups = tx.objectStore('character_groups');
+                groups.clear();
+                for (const group of sharedCharacterGroups) groups.put(group);
+            }
             tx.oncomplete = () => resolve();
             tx.onerror = tx.onabort = () => reject(tx.error || new Error('身份共享人设/世界书同步失败'));
         })));

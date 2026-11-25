@@ -3418,8 +3418,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const createCharacterGroup = async (name: string): Promise<CharacterGroup | null> => {
       const trimmed = name.trim();
       if (!trimmed) return null;
-      const newGroup: CharacterGroup = { id: `cgroup-${Date.now()}`, name: trimmed, createdAt: Date.now() };
+      const newGroup: CharacterGroup = { id: `cgroup-${crypto.randomUUID()}`, name: trimmed, createdAt: Date.now() };
       await DB.saveCharacterGroup(newGroup);
+      clearSharedIdentityDeletions({ characterGroups: [newGroup.id] });
       setCharacterGroups(prev => [...prev, newGroup]);
       return newGroup;
   };
@@ -3427,25 +3428,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const renameCharacterGroup = async (id: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      let target: CharacterGroup | undefined;
-      setCharacterGroups(prev => {
-          const updated = prev.map(g => g.id === id ? { ...g, name: trimmed } : g);
-          target = updated.find(g => g.id === id);
-          return updated;
-      });
-      if (target) await DB.saveCharacterGroup(target);
+      const current = characterGroups.find(group => group.id === id);
+      if (!current) return;
+      const target = { ...current, name: trimmed };
+      await DB.saveCharacterGroup(target);
+      clearSharedIdentityDeletions({ characterGroups: [id] });
+      setCharacterGroups(prev => prev.map(group => group.id === id ? target : group));
   };
 
-  // 删分组 = 组内角色回落「未分组」+ 删分组定义本身，角色不受影响
+  // 分组删除是共享基础资料变更：先发布删除标记，再在单个 IDB 事务里删除定义并清理角色引用。
   const deleteCharacterGroup = async (id: string) => {
-      setCharacters(prev => prev.map(c => {
-          if (c.groupId !== id) return c;
-          const next = { ...c, groupId: undefined };
-          DB.saveCharacter(next);
-          return next;
-      }));
-      await DB.deleteCharacterGroup(id);
-      setCharacterGroups(prev => prev.filter(g => g.id !== id));
+      if (!characterGroups.some(group => group.id === id)) return;
+      const rollback = markSharedIdentityDeletions({ characterGroups: [id] });
+      try {
+          await DB.deleteCharacterGroup(id);
+      } catch (error) {
+          rollback();
+          throw error;
+      }
+      setCharacters(prev => prev.map(character => character.groupId === id ? { ...character, groupId: undefined } : character));
+      setCharacterGroups(prev => prev.filter(group => group.id !== id));
   };
 
   // Group Methods

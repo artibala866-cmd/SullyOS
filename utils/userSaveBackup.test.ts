@@ -11,9 +11,9 @@ async function put(db:IDBDatabase,data:Record<string,any[]>){await new Promise<v
 async function seed(){
  const {openDB}=await import('./db');const db=await openDB();
  const registry={activeId:'original',saves:[{id:'original',name:'原来的故事'},{id:SECOND,name:'校园线'}]};localStorage.setItem(key,JSON.stringify(registry));
- await put(db,{characters:[{id:'c',name:'谢嬴',avatar:'blobref:avatar',description:'当前人设',systemPrompt:'人设',memories:[{summary:'A记忆'}]}],worldbooks:[{id:'w',name:'当前世界书'}],messages:[{id:11,charId:'c',content:'A聊天'}],user_profile:[{id:'me',name:'A身份',bio:'A设定',avatar:'blobref:avatar'}],blob_assets:[{id:'avatar',blob:new Blob(['头像'],{type:'image/png'})}]});
+ await put(db,{characters:[{id:'c',name:'谢嬴',avatar:'blobref:avatar',description:'当前人设',systemPrompt:'人设',memories:[{summary:'A记忆'}]}],character_groups:[{id:'group-a',name:'A分组',createdAt:1}],worldbooks:[{id:'w',name:'当前世界书'}],messages:[{id:11,charId:'c',content:'A聊天'}],user_profile:[{id:'me',name:'A身份',bio:'A设定',avatar:'blobref:avatar'}],blob_assets:[{id:'avatar',blob:new Blob(['头像'],{type:'image/png'})}]});
  const second=await new Promise<IDBDatabase>((resolve,reject)=>{const req=indexedDB.open('AetherOS_Data__user_'+SECOND,db.version);req.onupgradeneeded=()=>{const schema=db.transaction(Array.from(db.objectStoreNames));for(const name of Array.from(db.objectStoreNames)){const old=schema.objectStore(name);const target=req.result.createObjectStore(name,{keyPath:old.keyPath,autoIncrement:old.autoIncrement});for(const i of Array.from(old.indexNames)){const idx=old.index(i);target.createIndex(i,idx.keyPath,{unique:idx.unique,multiEntry:idx.multiEntry});}}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
- await put(second,{characters:[{id:'c',name:'谢嬴',avatar:'blobref:avatar',description:'备份里的旧人设',systemPrompt:'人设',memories:[{summary:'B记忆'}]},{id:'only-b',name:'B独有角色',avatar:'blobref:b-avatar',description:'人设',systemPrompt:'人设',memories:[{summary:'B私密经历'}]}],worldbooks:[{id:'w',name:'备份旧世界书'},{id:'only-w',name:'B独有世界书'}],messages:[{id:22,charId:'c',content:'B聊天'}],memory_nodes:[{id:'m',charId:'c',content:'B宫殿'}],memory_vectors:[{memoryId:'m',charId:'c',vector:new Uint8Array(new Float32Array([1.25,-2,0]).buffer),dimensions:3}],blob_assets:[{id:'avatar',blob:new Blob(['头像'],{type:'image/png'})},{id:'b-avatar',blob:new Blob(['B头像'],{type:'image/png'})},{id:'private',blob:new Blob(['B私聊图片'],{type:'image/png'})}],user_profile:[{id:'me',name:'B身份',bio:'B设定',avatar:'blobref:avatar'}],assets:[{id:'ls_mirror_v1',data:{data:{os_remote_vector_config:'旧云端'}}}],story_theaters:[{id:'story-b',title:'B剧情'}]});
+ await put(second,{characters:[{id:'c',name:'谢嬴',avatar:'blobref:avatar',description:'备份里的旧人设',systemPrompt:'人设',memories:[{summary:'B记忆'}]},{id:'only-b',name:'B独有角色',avatar:'blobref:b-avatar',description:'人设',systemPrompt:'人设',memories:[{summary:'B私密经历'}]}],character_groups:[{id:'only-group',name:'B旧分组',createdAt:2}],worldbooks:[{id:'w',name:'备份旧世界书'},{id:'only-w',name:'B独有世界书'}],messages:[{id:22,charId:'c',content:'B聊天'}],memory_nodes:[{id:'m',charId:'c',content:'B宫殿'}],memory_vectors:[{memoryId:'m',charId:'c',vector:new Uint8Array(new Float32Array([1.25,-2,0]).buffer),dimensions:3}],blob_assets:[{id:'avatar',blob:new Blob(['头像'],{type:'image/png'})},{id:'b-avatar',blob:new Blob(['B头像'],{type:'image/png'})},{id:'private',blob:new Blob(['B私聊图片'],{type:'image/png'})}],user_profile:[{id:'me',name:'B身份',bio:'B设定',avatar:'blobref:avatar'}],assets:[{id:'ls_mirror_v1',data:{data:{os_remote_vector_config:'旧云端'}}}],story_theaters:[{id:'story-b',title:'B剧情'}]});
  second.close();localStorage.setItem('palace_hwm_c','11');localStorage.setItem(`sully:save-data:${SECOND}:palace_hwm_c`,'22');localStorage.setItem('os_theme','原外观');localStorage.setItem(`sully:save-data:${SECOND}:os_remote_vector_config`,'旧云端');
  return {db,registry};
 }
@@ -145,17 +145,18 @@ it('updates indexes when switching to an older restored identity without losing 
 it('round-trips shared deletion markers and does not restore deleted base cards/books',async()=>{
   const {db,registry}=await seed();
   const scope=await import('./userSaveScope');
-  scope.writeUserSaves({...registry,sharedDeletions:{characters:['only-b'],worldbooks:['only-w']}},localStorage.getItem(key));
+  scope.writeUserSaves({...registry,sharedDeletions:{characters:['only-b'],worldbooks:['only-w'],characterGroups:['only-group']}},localStorage.getItem(key));
   const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
   const backup=await createAllUserSaveBackup();
   const zip=await JSZip.loadAsync(await backup.arrayBuffer());
   const manifest=JSON.parse(await zip.file('user-saves.json')!.async('string'));
-  expect(manifest.sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w']});
+  expect(manifest.sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w'],characterGroups:['only-group']});
   const restored=(await prepareUserSaveRestore(backup))!;
   await restored.restore();
-  expect(scope.readUserSaves().sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w']});
+  expect(scope.readUserSaves().sharedDeletions).toEqual({characters:['only-b'],worldbooks:['only-w'],characterGroups:['only-group']});
   expect((await rows(db,'characters')).some(row=>row.id==='only-b')).toBe(false);
   expect((await rows(db,'worldbooks')).some(row=>row.id==='only-w')).toBe(false);
+  expect((await rows(db,'character_groups')).some(row=>row.id==='only-group')).toBe(false);
   db.close();
  });
 
