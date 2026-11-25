@@ -263,6 +263,15 @@ describe('user 身份存档隔离', () => {
             id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',
             memories:[{summary:'A身份的私密记忆'}],
             linkGreetings:[{id:'opening-a',title:'原生开场',content:'原生开场内容'}],
+            companionTouchSettings:{enabledZones:['head'],reactions:{head:[{id:'touch-a',text:'摸摸头',performance:{emotion:'calm',gesture:'nod',camera:'medium',gaze:'viewer',intensity:1}}]}},
+            homeDefinition:{kind:'real',notes:'共享的人设家园说明'},
+            xhsEnabled:true,socialProfile:{handle:'角色账号',bio:'角色主页'},
+            lifeRecordEnabled:true,lifeRecordPeriodEnabled:false,lifeRecordMedEnabled:true,
+            lifeRecordExpenseEnabled:false,lifeRecordExerciseEnabled:true,
+            contextFollowsMemoryPalaceHwm:true,
+            scheduleStyle:'mindful',scheduleFeatureEnabled:true,
+            emotionConfig:{enabled:true,api:{baseUrl:'https://emotion.example/v1',apiKey:'shared-role-key',model:'emotion-model'}},
+            activeMsg2Config:{enabled:true,instantChatEnabled:true,tasks:[{taskUuid:'A-private-task'}],maxTokens:600,dailySendCap:5,lastSyncedAt:100},
         };
         const sourceBook = {id:'world-a',title:'原世界书',content:'A版本',category:'原分类',createdAt:1,updatedAt:1};
         await write(original,{characters:[sourceChar],worldbooks:[sourceBook]});
@@ -270,13 +279,30 @@ describe('user 身份存档隔离', () => {
         const fresh = await open('AetherOS_Data__user_'+SECOND);
         const [created] = await rows(fresh,'characters');
         expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
+        expect(created.companionTouchSettings).toEqual(sourceChar.companionTouchSettings);
+        expect(created.homeDefinition).toEqual(sourceChar.homeDefinition);
+        expect(created.xhsEnabled).toBe(true); expect(created.socialProfile).toEqual(sourceChar.socialProfile);
+        expect(created.lifeRecordEnabled).toBe(true); expect(created.lifeRecordPeriodEnabled).toBe(false);
+        expect(created.lifeRecordMedEnabled).toBe(true); expect(created.lifeRecordExpenseEnabled).toBe(false); expect(created.lifeRecordExerciseEnabled).toBe(true);
+        expect(created.contextFollowsMemoryPalaceHwm).toBe(true);
+        expect(created.scheduleStyle).toBe('mindful'); expect(created.scheduleFeatureEnabled).toBe(true);
+        expect(created.emotionConfig).toEqual(sourceChar.emotionConfig);
+        expect(created.activeMsg2Config).toMatchObject({enabled:true,instantChatEnabled:true,maxTokens:600,dailySendCap:5});
+        expect(created.activeMsg2Config.tasks).toBeUndefined();
+        expect(created.activeMsg2Config.lastSyncedAt).toBeUndefined();
         expect(created.memories).toEqual([]);
         fresh.close();original.close();
 
         const b = await open('AetherOS_Data__user_'+SECOND);
         await write(b,{
             characters:[
-                {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'}},
+                {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+                    companionTouchSettings:{enabledZones:['hand'],reactions:{hand:[{id:'touch-b',text:'握住手',performance:{emotion:'happy',gesture:'lean-in',camera:'close',gaze:'viewer',intensity:2}}]}},
+                    homeDefinition:{kind:'virtual',notes:'B修改后的共同家园设定'},xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
+                    lifeRecordEnabled:false,lifeRecordPeriodEnabled:true,lifeRecordMedEnabled:false,lifeRecordExpenseEnabled:true,lifeRecordExerciseEnabled:false,
+                    contextFollowsMemoryPalaceHwm:false,scheduleStyle:'lifestyle',scheduleFeatureEnabled:false,
+                    emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
+                    activeMsg2Config:{enabled:false,instantChatEnabled:false,tasks:[{taskUuid:'B-private-task'}],maxTokens:300,dailySendCap:2,lastSyncedAt:200}},
                 {id:'b',name:'B新增角色',avatar:'',description:'B的卡片',systemPrompt:'B新增人设',
                     memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']}},
             ],
@@ -294,8 +320,15 @@ describe('user 身份存档隔离', () => {
         const a = await open('AetherOS_Data');
         const rolesA = await rows(a,'characters');
         expect(rolesA.map(role=>role.id).sort()).toEqual(['a','b']);
-        expect(rolesA.find(role=>role.id==='a')).toMatchObject({
+        const mergedA = rolesA.find(role=>role.id==='a');
+        expect(mergedA).toMatchObject({
             name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'A身份的私密记忆'}],
+            companionTouchSettings:{enabledZones:['hand']},homeDefinition:{kind:'virtual',notes:'B修改后的共同家园设定'},
+            xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
+            lifeRecordEnabled:false,lifeRecordPeriodEnabled:true,lifeRecordMedEnabled:false,lifeRecordExpenseEnabled:true,lifeRecordExerciseEnabled:false,
+            contextFollowsMemoryPalaceHwm:false,scheduleStyle:'lifestyle',scheduleFeatureEnabled:false,
+            emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
+            activeMsg2Config:{enabled:false,instantChatEnabled:false,maxTokens:300,dailySendCap:2,tasks:[{taskUuid:'A-private-task'}],lastSyncedAt:100},
         });
         expect(rolesA.find(role=>role.id==='b')).toMatchObject({systemPrompt:'B新增人设',memories:[]});
         const booksA = await rows(a,'worldbooks');
@@ -312,6 +345,8 @@ describe('user 身份存档隔离', () => {
         expect(rolesB.map(role=>role.id).sort()).toEqual(['a','b']);
         expect(rolesB.find(role=>role.id==='a')).toMatchObject({
             name:'B修改后的甲',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+            emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
+            activeMsg2Config:{enabled:false,maxTokens:300,dailySendCap:2,tasks:[{taskUuid:'B-private-task'}],lastSyncedAt:200},
         });
         expect(rolesB.find(role=>role.id==='b')).toMatchObject({
             memories:[{summary:'只属于B的经历'}],impression:{text:'B的印象'},phoneState:{records:['B的手机']},
