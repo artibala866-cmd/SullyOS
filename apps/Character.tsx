@@ -2308,13 +2308,31 @@ ${isInitialGeneration ? `
                             <div key={g.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-neutral-50 border border-neutral-100">
                                 <input
                                     defaultValue={g.name}
-                                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) renameCharacterGroup(g.id, v); else e.target.value = g.name; }}
+                                    onBlur={e => {
+                                        const input = e.currentTarget;
+                                        const value = input.value.trim();
+                                        if (!value || value === g.name) {
+                                            input.value = g.name;
+                                            return;
+                                        }
+                                        void renameCharacterGroup(g.id, value).catch(error => {
+                                            input.value = g.name;
+                                            addToast(error?.message || '分组重命名失败，原名称已保留', 'error');
+                                        });
+                                    }}
                                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                     className="flex-1 min-w-0 bg-transparent text-sm text-neutral-700 outline-none border-b border-transparent focus:border-neutral-300 py-0.5"
                                 />
                                 <span className="text-xs text-neutral-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 个角色</span>
                                 <button
-                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`分组「${g.name}」已删除，组内角色回到未分组`, 'info'); }}
+                                    onClick={() => {
+                                        void deleteCharacterGroup(g.id)
+                                            .then(() => addToast(`分组「${g.name}」已删除，组内角色回到未分组`, 'info'))
+                                            .catch(error => {
+                                                console.error('[Character] 分组删除失败', error);
+                                                addToast(error?.message || '分组删除失败，原分组及角色归属已保留', 'error');
+                                            });
+                                    }}
                                     className="p-1.5 rounded-full text-neutral-300 hover:bg-neutral-50 hover:text-neutral-400 transition-all shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
