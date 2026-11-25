@@ -94,7 +94,7 @@ export const SHARED_CHARACTER_FIELDS = [
     'customDateSprites', 'spriteConfigLandscape', 'dateLightReading', 'dateAppearance', 'dateReadingShowAvatars', 'dateSkinSets', 'activeSkinSetId', 'dateStyleConfig',
     'dateExtraPresets', 'dateObserve', 'chibiStudio', 'homeDefinition', 'roomConfig', 'voiceProfile', 'timeAwarenessEnabled', 'customTimezoneEnabled', 'customTimezone',
     'dateTimeAwarenessEnabled', 'chatVoiceEnabled', 'chatVoiceAutoPlay', 'chatVoiceLang', 'dateVoiceEnabled', 'dateVoiceLang', 'callVoiceLang',
-    'xhsEnabled', 'socialProfile', 'lifeRecordEnabled', 'lifeRecordPeriodEnabled', 'lifeRecordMedEnabled', 'lifeRecordExpenseEnabled', 'lifeRecordExerciseEnabled',
+    'lifeRecordEnabled', 'lifeRecordPeriodEnabled', 'lifeRecordMedEnabled', 'lifeRecordExpenseEnabled', 'lifeRecordExerciseEnabled',
     'memoryPalaceEnabled', 'autoArchiveEnabled', 'memoryPalaceWaterline', 'embeddingConfig', 'personalityStyle', 'ruminationTendency', 'interactionAccommodation',
     'htmlModeEnabled', 'htmlModeCustomPrompt', 'chatCollaborationEnabled', 'chromeCustomCss', 'chatSound', 'chatSoundBound', 'showThinkingChain',
     'thinkingChainStyle', 'thinkingChainCustomColors', 'thinkingChainCustomPrompt', 'thinkingChainCustomCss', 'emotionConfig', 'scheduleStyle', 'scheduleFeatureEnabled',
