@@ -266,6 +266,19 @@ describe('user 身份存档隔离', () => {
         const sourceChar = {
             id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',
             memories:[{summary:'A身份的私密记忆'}],
+            writerPersona:'A角色自己的写作风格',writerPersonaGeneratedAt:101,
+            musicProfile:{
+                bio:'A角色的音乐品味',genreTags:['shoegaze'],signatureArtists:[{name:'A乐队'}],fmSeed:'A私有FM种子',
+                playlists:[{id:'role-playlist',title:'A夜行歌单',description:'角色自己整理',coverStyle:'gradient-01',mood:'dreamy',createdAt:1,updatedAt:1,
+                    songs:[
+                        {id:11,name:'A发现的歌',artists:'A乐队',album:'A专辑',albumPic:'',duration:180,fee:0,source:'discovered'},
+                        {id:12,name:'A从用户收藏的歌',artists:'用户歌手A',album:'用户专辑A',albumPic:'',duration:200,fee:0,source:'user'},
+                    ]}],
+                likedSongIds:[12],recentPlays:[{song:{id:12,name:'A从用户收藏的歌',artists:'用户歌手A',album:'用户专辑A',albumPic:'',duration:200,fee:0,source:'user'},at:111,context:'A身份听歌'}],
+                reviews:[{id:'review-a',targetType:'user_playlist',targetId:'playlist-a',targetTitle:'A的歌单',content:'A身份的评论',createdAt:112}],
+                currentListening:{songId:12,songName:'A从用户收藏的歌',artists:'用户歌手A',albumPic:'',startedAt:113},
+                canReadUserMusic:false,initializedAt:100,updatedAt:114,
+            },
             linkGreetings:[{id:'opening-a',title:'原生开场',content:'原生开场内容'}],
             companionTouchSettings:{enabledZones:['head'],reactions:{head:[{id:'touch-a',text:'摸摸头',performance:{emotion:'calm',gesture:'nod',camera:'medium',gaze:'viewer',intensity:1}}]}},
             homeDefinition:{kind:'real',notes:'共享的人设家园说明'},
@@ -283,6 +296,17 @@ describe('user 身份存档隔离', () => {
         const fresh = await open('AetherOS_Data__user_'+SECOND);
         const [created] = await rows(fresh,'characters');
         expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
+        expect(created.writerPersona).toBe('A角色自己的写作风格');
+        expect(created.writerPersonaGeneratedAt).toBe(101);
+        expect(created.musicProfile).toMatchObject({
+            bio:'A角色的音乐品味',genreTags:['shoegaze'],signatureArtists:[{name:'A乐队'}],fmSeed:'A私有FM种子',
+            playlists:[{id:'role-playlist',title:'A夜行歌单',songs:[{id:11,name:'A发现的歌',source:'discovered'}]}],
+        });
+        expect(created.musicProfile.likedSongIds).toBeUndefined();
+        expect(created.musicProfile.recentPlays).toBeUndefined();
+        expect(created.musicProfile.reviews).toBeUndefined();
+        expect(created.musicProfile.currentListening).toBeUndefined();
+        expect(created.musicProfile.canReadUserMusic).toBeUndefined();
         expect(created.companionTouchSettings).toEqual(sourceChar.companionTouchSettings);
         expect(created.homeDefinition).toEqual(sourceChar.homeDefinition);
         expect(created.xhsEnabled).toBeUndefined(); expect(created.socialProfile).toBeUndefined();
@@ -301,6 +325,18 @@ describe('user 身份存档隔离', () => {
         await write(b,{
             characters:[
                 {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+                    writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
+                    musicProfile:{
+                        ...sourceChar.musicProfile,bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',updatedAt:222,
+                        playlists:[{...sourceChar.musicProfile.playlists[0],title:'B夜行歌单',description:'B修改后的歌单设定',updatedAt:222,songs:[
+                            {id:13,name:'B发现的歌',artists:'B乐队',album:'B专辑',albumPic:'',duration:190,fee:0,source:'discovered'},
+                            {id:14,name:'B从用户收藏的歌',artists:'用户歌手B',album:'用户专辑B',albumPic:'',duration:210,fee:0,source:'user'},
+                        ]}],
+                        likedSongIds:[14],recentPlays:[{song:{id:14,name:'B从用户收藏的歌',artists:'用户歌手B',album:'用户专辑B',albumPic:'',duration:210,fee:0,source:'user'},at:221,context:'B身份听歌'}],
+                        reviews:[{id:'review-b',targetType:'user_record',targetId:'record-b',targetTitle:'B的记录',content:'B身份的评论',createdAt:222}],
+                        currentListening:{songId:14,songName:'B从用户收藏的歌',artists:'用户歌手B',albumPic:'',startedAt:223},
+                        canReadUserMusic:true,
+                    },
                     companionTouchSettings:{enabledZones:['hand'],reactions:{hand:[{id:'touch-b',text:'握住手',performance:{emotion:'happy',gesture:'lean-in',camera:'close',gaze:'viewer',intensity:2}}]}},
                     homeDefinition:{kind:'virtual',notes:'B修改后的共同家园设定'},xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
                     lifeRecordEnabled:false,lifeRecordPeriodEnabled:true,lifeRecordMedEnabled:false,lifeRecordExpenseEnabled:true,lifeRecordExerciseEnabled:false,
@@ -327,6 +363,18 @@ describe('user 身份存档隔离', () => {
         const mergedA = rolesA.find(role=>role.id==='a');
         expect(mergedA).toMatchObject({
             name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'A身份的私密记忆'}],
+            writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
+            musicProfile:{
+                bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',
+                likedSongIds:[12],canReadUserMusic:false,
+                playlists:[{id:'role-playlist',title:'B夜行歌单',songs:[
+                    {id:13,name:'B发现的歌',source:'discovered'},
+                    {id:12,name:'A从用户收藏的歌',source:'user'},
+                ]}],
+                recentPlays:[{song:{id:12,name:'A从用户收藏的歌'},at:111,context:'A身份听歌'}],
+                reviews:[{id:'review-a',content:'A身份的评论'}],
+                currentListening:{songId:12,songName:'A从用户收藏的歌',startedAt:113},
+            },
             companionTouchSettings:{enabledZones:['hand']},homeDefinition:{kind:'virtual',notes:'B修改后的共同家园设定'},
             xhsEnabled:true,socialProfile:{handle:'角色账号',bio:'角色主页'},
             lifeRecordEnabled:false,lifeRecordPeriodEnabled:true,lifeRecordMedEnabled:false,lifeRecordExpenseEnabled:true,lifeRecordExerciseEnabled:false,
@@ -349,6 +397,18 @@ describe('user 身份存档隔离', () => {
         expect(rolesB.map(role=>role.id).sort()).toEqual(['a','b']);
         expect(rolesB.find(role=>role.id==='a')).toMatchObject({
             name:'B修改后的甲',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+            writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
+            musicProfile:{
+                bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',
+                likedSongIds:[14],canReadUserMusic:true,
+                playlists:[{id:'role-playlist',title:'B夜行歌单',songs:[
+                    {id:13,name:'B发现的歌',source:'discovered'},
+                    {id:14,name:'B从用户收藏的歌',source:'user'},
+                ]}],
+                recentPlays:[{song:{id:14,name:'B从用户收藏的歌'},at:221,context:'B身份听歌'}],
+                reviews:[{id:'review-b',content:'B身份的评论'}],
+                currentListening:{songId:14,songName:'B从用户收藏的歌',startedAt:223},
+            },
             xhsEnabled:false,socialProfile:{handle:'B角色账号',bio:'B主页'},
             emotionConfig:{enabled:false,api:{baseUrl:'https://emotion-b.example/v1',apiKey:'b-key',model:'b-model'}},
             activeMsg2Config:{enabled:false,maxTokens:300,dailySendCap:2,tasks:[{taskUuid:'B-private-task'}],lastSyncedAt:200},
