@@ -110,7 +110,14 @@ async function checkDesktop(name,damage=false){
  await sharedPhoto.scrollIntoViewIfNeeded();
  await page.waitForFunction(()=>{const el=document.querySelector('.launcher-page img[alt="拍立得照片"]');return el?.complete&&el.naturalWidth>0;});
  await page.screenshot({path:out+'/desktop-'+name+'-shared-appearance.png'});
- const state=await inspect();for(const id of ['b_qa_theme_photo','b_qa_asset_photo','b_qa_deco'])assert(state.blobIds.includes(id));assert(!state.blobIds.includes('b_qa_private_pic')||state.id==='original');
+ const state=await inspect();
+ // Current launcher photos are live shared resources. The third fixture blob
+ // (b_qa_deco) belonged only to desktopDecorations, which OSContext deliberately
+ // strips as a retired feature before a new identity is created; it must not be
+ // copied into another identity merely to satisfy this old fixture.
+ for(const id of ['b_qa_theme_photo','b_qa_asset_photo']) assert(state.blobIds.includes(id), id+' must back a currently rendered shared launcher photo');
+ if(state.id!=='original') assert(!state.blobIds.includes('b_qa_deco'),'retired desktop decoration bytes must not be inherited');
+ assert(!state.blobIds.includes('b_qa_private_pic')||state.id==='original');
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
 }
 
