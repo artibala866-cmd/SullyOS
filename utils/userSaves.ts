@@ -107,54 +107,59 @@ export const SHARED_CHARACTER_FIELDS = [
 ] as const satisfies readonly (keyof CharacterProfile)[];
 
 // MusicProfile mixes character-owned taste with current-user listening and reactions.
-// Share the character's authored profile/playlists, but keep songs copied from the
+// Share the character's authored taste/playlists, but keep songs copied from the
 // current user's library and all listening/review/permission state inside each save.
 type CharacterMusicProfile = NonNullable<CharacterProfile['musicProfile']>;
-const SHARED_MUSIC_PROFILE_FIELDS = [
-    'bio', 'genreTags', 'signatureArtists', 'fmSeed', 'initializedAt', 'updatedAt',
-] as const satisfies readonly (keyof CharacterMusicProfile)[];
-const PRIVATE_MUSIC_PROFILE_FIELDS = [
-    'likedSongIds', 'recentPlays', 'reviews', 'currentListening', 'canReadUserMusic',
-] as const satisfies readonly (keyof CharacterMusicProfile)[];
-function baseMusicProfile(profile: CharacterMusicProfile): Partial<CharacterMusicProfile> {
-    const result: Record<string, unknown> = {};
-    for (const field of SHARED_MUSIC_PROFILE_FIELDS) {
-        if (profile[field] !== undefined) result[field] = profile[field];
-    }
-    // Playlists describe the character's taste. Tracks explicitly sourced from
-    // the current user's listening remain local to that identity.
-    result.playlists = (profile.playlists || []).map(playlist => ({
-        ...playlist,
-        songs: (playlist.songs || []).filter(song => song.source !== 'user'),
-    }));
-    return result as Partial<CharacterMusicProfile>;
+type CharacterPlaylistSong = CharacterMusicProfile['playlists'][number]['songs'][number];
+function baseMusicProfile(profile: CharacterMusicProfile): CharacterMusicProfile {
+    return {
+        bio: profile.bio,
+        genreTags: profile.genreTags,
+        signatureArtists: profile.signatureArtists,
+        playlists: (profile.playlists || []).map(playlist => ({
+            ...playlist,
+            songs: (playlist.songs || []).filter(song => song.source !== 'user'),
+        })),
+        // These fields are required by the Music UI, but their values belong to
+        // the current identity. A newly-created save starts with empty histories.
+        likedSongIds: [],
+        recentPlays: [],
+        reviews: [],
+        ...(profile.fmSeed !== undefined ? { fmSeed: profile.fmSeed } : {}),
+        ...(profile.initializedAt !== undefined ? { initializedAt: profile.initializedAt } : {}),
+        updatedAt: profile.updatedAt,
+    };
 }
 function mergeMusicProfileBase(
-    base: Partial<CharacterMusicProfile> | undefined,
+    base: CharacterMusicProfile | undefined,
     previous: CharacterMusicProfile | undefined,
 ): CharacterMusicProfile | undefined {
-    const merged: Record<string, unknown> = { ...(base || {}) };
-    for (const field of PRIVATE_MUSIC_PROFILE_FIELDS) {
-        const value = previous?.[field];
-        if (value !== undefined) merged[field] = value;
+    // Removing the shared music profile removes its shell everywhere as well.
+    if (!base) return undefined;
+    // Preserve only the current save's user-sourced tracks, and only while the
+    // corresponding shared playlist still exists.
+    const privateSongs = new Map<string, CharacterPlaylistSong[]>();
+    for (const playlist of previous?.playlists || []) {
+        const songs = (playlist.songs || []).filter(song => song.source === 'user');
+        if (songs.length) privateSongs.set(playlist.id, songs);
     }
-    // Keep each save's user-sourced songs only in playlists that still exist in
-    // the shared character profile. A deleted shared playlist must stay deleted.
-    if (Array.isArray(base?.playlists)) {
-        const privateSongs = new Map((previous?.playlists || []).map(playlist => [
-            playlist.id,
-            (playlist.songs || []).filter(song => song.source === 'user'),
-        ]));
-        merged.playlists = base.playlists.map(playlist => {
-            const retained = privateSongs.get(playlist.id) || [];
-            const existing = new Set(playlist.songs.map(song =>
-                [song.musicSource || 'netease', song.platformId || String(song.id), !!song.musicLocal].join(':')));
-            const additions = retained.filter(song =>
-                !existing.has([song.musicSource || 'netease', song.platformId || String(song.id), !!song.musicLocal].join(':')));
-            return additions.length ? { ...playlist, songs: [...playlist.songs, ...additions] } : playlist;
-        });
-    }
-    return Object.keys(merged).length ? merged as CharacterMusicProfile : undefined;
+    const playlists = base.playlists.map(playlist => {
+        const retained = privateSongs.get(playlist.id) || [];
+        const identity = (song: CharacterPlaylistSong) =>
+            [song.musicSource || 'netease', song.platformId || String(song.id), !!song.musicLocal].join(':');
+        const existing = new Set(playlist.songs.map(identity));
+        const additions = retained.filter(song => !existing.has(identity(song)));
+        return additions.length ? { ...playlist, songs: [...playlist.songs, ...additions] } : playlist;
+    });
+    return {
+        ...base,
+        playlists,
+        likedSongIds: previous?.likedSongIds ?? [],
+        recentPlays: previous?.recentPlays ?? [],
+        reviews: previous?.reviews ?? [],
+        ...(previous?.currentListening !== undefined ? { currentListening: previous.currentListening } : {}),
+        ...(previous?.canReadUserMusic !== undefined ? { canReadUserMusic: previous.canReadUserMusic } : {}),
+    };
 }
 
 // Active-message behavior limits are character settings. Its queued messages and
