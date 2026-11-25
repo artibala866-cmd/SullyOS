@@ -13,7 +13,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
 import { safeResponseJson } from '../utils/safeApi';
-import { testDialogueApiConnection } from '../utils/dialogueApiConnectionTest';
+import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
@@ -2419,12 +2419,12 @@ const Settings: React.FC = () => {
                         setTestingApi(true);
                         setTestApiResult(null);
                         try {
-                            const result = await testDialogueApiConnection({
-                                baseUrl: localUrl, apiKey: localKey, model: localModel, stream: localStream,
+                            const result = await checkApiConnectionWithoutGeneration({
+                                baseUrl: localUrl, apiKey: localKey, model: localModel,
                             });
-                            setTestApiResult(result);
+                            setTestApiResult(result.message);
                         } catch (err: any) {
-                            setTestApiResult(`❌ 测试请求失败: ${err?.message || '未知错误'}`);
+                            setTestApiResult(`❌ /models 连通性检查失败：${err?.message || '未知错误'}。没有发起模型生成请求。`);
                         } finally {
                             testingApiRef.current = false;
                             setTestingApi(false);
@@ -2437,7 +2437,7 @@ const Settings: React.FC = () => {
                             : 'border-primary/30 text-primary bg-primary/5 hover:bg-primary/10'
                     }`}
                 >
-                    {testingApi ? '测试中...' : '🧪 测试连接'}
+                    {testingApi ? '检查中...' : '免费检查 API 连通性'}
                 </button>
 
                 
