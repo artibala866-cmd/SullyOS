@@ -88,7 +88,10 @@ export async function worldbooksMountedInOtherUserSaves(characterId: string, can
  * never copy an unknown future relationship/history field into a fresh save. */
 export const SHARED_CHARACTER_FIELDS = [
     'id', 'cardImportOrigin', 'tavernGreetings', 'linkGreetings', 'name', 'avatar', 'description', 'systemPrompt', 'worldview', 'groupId', 'mountedWorldbooks',
+    // These are character-authored profiles, not a record of the current user's chat with them.
+    'writerPersona', 'writerPersonaGeneratedAt',
     'dialogueApi', 'videoAvatar', 'videoAvatarWardrobe', 'companionAvatar', 'videoCallBackground', 'companionBackground', 'companionThemeColor', 'companionTouchSettings',
+    'musicProfile',
     'videoCallPerformanceQuality', 'chatShowRemark', 'bubbleStyle', 'chatFineTune', 'chatAppearance', 'chatDecorationCssIsolated', 'chatBackground',
     'contextLimit', 'contextRangeMode', 'contextRangePolicyVersion', 'contextFollowsMemoryPalaceHwm', 'hideSystemLogs', 'dateBackground', 'dateSceneBackgrounds', 'sprites', 'spriteConfig',
     'customDateSprites', 'spriteConfigLandscape', 'dateLightReading', 'dateAppearance', 'dateReadingShowAvatars', 'dateSkinSets', 'activeSkinSetId', 'dateStyleConfig',
@@ -100,6 +103,57 @@ export const SHARED_CHARACTER_FIELDS = [
     'thinkingChainStyle', 'thinkingChainCustomColors', 'thinkingChainCustomPrompt', 'thinkingChainCustomCss', 'emotionConfig', 'scheduleStyle', 'scheduleFeatureEnabled',
 ] as const satisfies readonly (keyof CharacterProfile)[];
 
+// MusicProfile mixes character-owned taste with current-user listening and reactions.
+// Share the character's authored profile/playlists, but keep songs copied from the
+// current user's library and all listening/review/permission state inside each save.
+type CharacterMusicProfile = NonNullable<CharacterProfile['musicProfile']>;
+const SHARED_MUSIC_PROFILE_FIELDS = [
+    'bio', 'genreTags', 'signatureArtists', 'fmSeed', 'initializedAt', 'updatedAt',
+] as const satisfies readonly (keyof CharacterMusicProfile)[];
+const PRIVATE_MUSIC_PROFILE_FIELDS = [
+    'likedSongIds', 'recentPlays', 'reviews', 'currentListening', 'canReadUserMusic',
+] as const satisfies readonly (keyof CharacterMusicProfile)[];
+function baseMusicProfile(profile: CharacterMusicProfile): Partial<CharacterMusicProfile> {
+    const result: Record<string, unknown> = {};
+    for (const field of SHARED_MUSIC_PROFILE_FIELDS) {
+        if (profile[field] !== undefined) result[field] = profile[field];
+    }
+    // Playlists describe the character's taste. Tracks explicitly sourced from
+    // the current user's listening remain local to that identity.
+    result.playlists = (profile.playlists || []).map(playlist => ({
+        ...playlist,
+        songs: (playlist.songs || []).filter(song => song.source !== 'user'),
+    }));
+    return result as Partial<CharacterMusicProfile>;
+}
+function mergeMusicProfileBase(
+    base: Partial<CharacterMusicProfile> | undefined,
+    previous: CharacterMusicProfile | undefined,
+): CharacterMusicProfile | undefined {
+    const merged: Record<string, unknown> = { ...(base || {}) };
+    for (const field of PRIVATE_MUSIC_PROFILE_FIELDS) {
+        const value = previous?.[field];
+        if (value !== undefined) merged[field] = value;
+    }
+    // Keep each save's user-sourced songs only in playlists that still exist in
+    // the shared character profile. A deleted shared playlist must stay deleted.
+    if (Array.isArray(base?.playlists)) {
+        const privateSongs = new Map((previous?.playlists || []).map(playlist => [
+            playlist.id,
+            (playlist.songs || []).filter(song => song.source === 'user'),
+        ]));
+        merged.playlists = base.playlists.map(playlist => {
+            const retained = privateSongs.get(playlist.id) || [];
+            const existing = new Set(playlist.songs.map(song =>
+                [song.musicSource || 'netease', song.platformId || String(song.id), !!song.musicLocal].join(':')));
+            const additions = retained.filter(song =>
+                !existing.has([song.musicSource || 'netease', song.platformId || String(song.id), !!song.musicLocal].join(':')));
+            return additions.length ? { ...playlist, songs: [...playlist.songs, ...additions] } : playlist;
+        });
+    }
+    return Object.keys(merged).length ? merged as CharacterMusicProfile : undefined;
+}
+
 // Active-message behavior limits are character settings. Its queued messages and
 // delivery diagnostics remain private to each identity.
 const SHARED_ACTIVE_MSG2_FIELDS = [
@@ -110,6 +164,7 @@ const SHARED_ACTIVE_MSG2_FIELDS = [
 export function baseCharacter(char: CharacterProfile): CharacterProfile {
     const result: Record<string, unknown> = { memories: [] };
     for (const field of SHARED_CHARACTER_FIELDS) if (char[field] !== undefined) result[field] = char[field];
+    if (char.musicProfile) result.musicProfile = baseMusicProfile(char.musicProfile);
     if (char.activeMsg2Config) {
         const sharedConfig: Record<string, unknown> = {};
         for (const field of SHARED_ACTIVE_MSG2_FIELDS) {
@@ -131,6 +186,9 @@ export function mergeCharacterBase(base: CharacterProfile, previous?: CharacterP
     const result = { ...previous };
     for (const key of SHARED_CHARACTER_FIELDS) delete (result as any)[key];
     const merged = { ...result, ...base, memories: previous.memories ?? [] };
+    const musicProfile = mergeMusicProfileBase(base.musicProfile, previous.musicProfile);
+    if (musicProfile) merged.musicProfile = musicProfile;
+    else delete merged.musicProfile;
     // Keep each identity's queued messages and delivery diagnostics private,
     // while shared enablement/limits follow the character profile.
     const priorActiveMsg2 = previous.activeMsg2Config;
