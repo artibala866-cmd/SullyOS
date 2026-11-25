@@ -302,9 +302,9 @@ describe('user 身份存档隔离', () => {
             bio:'A角色的音乐品味',genreTags:['shoegaze'],signatureArtists:[{name:'A乐队'}],fmSeed:'A私有FM种子',
             playlists:[{id:'role-playlist',title:'A夜行歌单',songs:[{id:11,name:'A发现的歌',source:'discovered'}]}],
         });
-        expect(created.musicProfile.likedSongIds).toBeUndefined();
-        expect(created.musicProfile.recentPlays).toBeUndefined();
-        expect(created.musicProfile.reviews).toBeUndefined();
+        expect(created.musicProfile.likedSongIds).toEqual([]);
+        expect(created.musicProfile.recentPlays).toEqual([]);
+        expect(created.musicProfile.reviews).toEqual([]);
         expect(created.musicProfile.currentListening).toBeUndefined();
         expect(created.musicProfile.canReadUserMusic).toBeUndefined();
         expect(created.companionTouchSettings).toEqual(sourceChar.companionTouchSettings);
