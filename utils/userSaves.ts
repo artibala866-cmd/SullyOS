@@ -11,6 +11,9 @@ export type SharedBaseDeletionPatch = Partial<Record<SharedBaseResource, string[
 /** Publish a global deletion before the local DB mutation so stale copies cannot return. */
 export function markSharedIdentityDeletions(patch: SharedBaseDeletionPatch): () => void {
     const registry = readUserSaves();
+    // With only one live identity, deletion is already reflected in the sole DB.
+    // There is no stale sibling copy for a global tombstone to suppress.
+    if (registry.saves.length <= 1) return () => {};
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
     const added: SharedBaseDeletionPatch = {};
     const next = { ...(registry.sharedDeletions || {}) };
