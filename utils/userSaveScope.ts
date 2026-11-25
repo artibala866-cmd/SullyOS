@@ -150,8 +150,9 @@ export function clearSharedStoreIdentityDeletions(storeName: string, keys: IDBVa
     const stores = { ...currentStores };
     if (remaining.length) stores[storeName] = remaining;
     else delete stores[storeName];
-    const sharedDeletions = { ...(registry.sharedDeletions || {}), stores };
-    if (!Object.keys(stores).length) delete sharedDeletions.stores;
+    const sharedDeletions: SharedIdentityDeletions = { ...(registry.sharedDeletions || {}) };
+    if (Object.keys(stores).length) sharedDeletions.stores = stores;
+    else delete sharedDeletions.stores;
     writeUserSaves({ ...registry, sharedDeletions }, raw);
 }
 
