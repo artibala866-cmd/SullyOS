@@ -46,7 +46,7 @@ function parseRegistry(raw: string): UserSaveRegistry {
             (deletions.characterGroups !== undefined && !validDeletionList(deletions.characterGroups)) ||
             (deletions.stores !== undefined && (!deletions.stores || typeof deletions.stores !== 'object' || Array.isArray(deletions.stores) ||
                 Object.entries(deletions.stores).some(([name, ids]) => !/^[a-z0-9_]+$/.test(name) || !Array.isArray(ids) ||
-                    ids.some(token => !validSharedStoreTombstoneKey(name, token)) || new Set(ids).size !== ids.length)))))
+                    ids.some(token => !validSharedStoreTombstoneKey(name, token)) || new Set(ids).size !== ids.length))))))
         throw new Error('身份存档索引无法读取，请保留本地数据后重试');
     return value;
 }
