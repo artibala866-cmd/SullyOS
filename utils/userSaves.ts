@@ -88,19 +88,36 @@ export async function worldbooksMountedInOtherUserSaves(characterId: string, can
  * never copy an unknown future relationship/history field into a fresh save. */
 export const SHARED_CHARACTER_FIELDS = [
     'id', 'cardImportOrigin', 'tavernGreetings', 'linkGreetings', 'name', 'avatar', 'description', 'systemPrompt', 'worldview', 'groupId', 'mountedWorldbooks',
-    'dialogueApi', 'videoAvatar', 'videoAvatarWardrobe', 'companionAvatar', 'videoCallBackground', 'companionBackground', 'companionThemeColor',
+    'dialogueApi', 'videoAvatar', 'videoAvatarWardrobe', 'companionAvatar', 'videoCallBackground', 'companionBackground', 'companionThemeColor', 'companionTouchSettings',
     'videoCallPerformanceQuality', 'chatShowRemark', 'bubbleStyle', 'chatFineTune', 'chatAppearance', 'chatDecorationCssIsolated', 'chatBackground',
-    'contextLimit', 'contextRangeMode', 'contextRangePolicyVersion', 'hideSystemLogs', 'dateBackground', 'dateSceneBackgrounds', 'sprites', 'spriteConfig',
+    'contextLimit', 'contextRangeMode', 'contextRangePolicyVersion', 'contextFollowsMemoryPalaceHwm', 'hideSystemLogs', 'dateBackground', 'dateSceneBackgrounds', 'sprites', 'spriteConfig',
     'customDateSprites', 'spriteConfigLandscape', 'dateLightReading', 'dateAppearance', 'dateReadingShowAvatars', 'dateSkinSets', 'activeSkinSetId', 'dateStyleConfig',
-    'dateExtraPresets', 'dateObserve', 'chibiStudio', 'roomConfig', 'voiceProfile', 'timeAwarenessEnabled', 'customTimezoneEnabled', 'customTimezone',
+    'dateExtraPresets', 'dateObserve', 'chibiStudio', 'homeDefinition', 'roomConfig', 'voiceProfile', 'timeAwarenessEnabled', 'customTimezoneEnabled', 'customTimezone',
     'dateTimeAwarenessEnabled', 'chatVoiceEnabled', 'chatVoiceAutoPlay', 'chatVoiceLang', 'dateVoiceEnabled', 'dateVoiceLang', 'callVoiceLang',
+    'xhsEnabled', 'socialProfile', 'lifeRecordEnabled', 'lifeRecordPeriodEnabled', 'lifeRecordMedEnabled', 'lifeRecordExpenseEnabled', 'lifeRecordExerciseEnabled',
     'memoryPalaceEnabled', 'autoArchiveEnabled', 'memoryPalaceWaterline', 'embeddingConfig', 'personalityStyle', 'ruminationTendency', 'interactionAccommodation',
     'htmlModeEnabled', 'htmlModeCustomPrompt', 'chatCollaborationEnabled', 'chromeCustomCss', 'chatSound', 'chatSoundBound', 'showThinkingChain',
-    'thinkingChainStyle', 'thinkingChainCustomColors', 'thinkingChainCustomPrompt', 'thinkingChainCustomCss',
+    'thinkingChainStyle', 'thinkingChainCustomColors', 'thinkingChainCustomPrompt', 'thinkingChainCustomCss', 'emotionConfig', 'scheduleStyle', 'scheduleFeatureEnabled',
 ] as const satisfies readonly (keyof CharacterProfile)[];
+
+// Active-message behavior limits are character settings. Its queued messages and
+// delivery diagnostics remain private to each identity.
+const SHARED_ACTIVE_MSG2_FIELDS = [
+    'enabled', 'instantChatEnabled', 'maxTokens', 'maxUnansweredSends',
+    'minSendGapMinutes', 'dailySendCap', 'recurringStopAfter', 'maxActiveTasks',
+    'allowSelfRecurring', 'allowSelfForce',
+] as const satisfies readonly (keyof NonNullable<CharacterProfile['activeMsg2Config']>)[];
 export function baseCharacter(char: CharacterProfile): CharacterProfile {
     const result: Record<string, unknown> = { memories: [] };
     for (const field of SHARED_CHARACTER_FIELDS) if (char[field] !== undefined) result[field] = char[field];
+    if (char.activeMsg2Config) {
+        const sharedConfig: Record<string, unknown> = {};
+        for (const field of SHARED_ACTIVE_MSG2_FIELDS) {
+            const value = char.activeMsg2Config[field];
+            if (value !== undefined) sharedConfig[field] = value;
+        }
+        if (Object.keys(sharedConfig).length) result.activeMsg2Config = sharedConfig;
+    }
     // Decoration survives; inhabitants' histories, relationships and automation do not.
     if (char.home3D) {
         const { version, assetVersion, roomSizeVersion, homePalette, activeRoomId, rooms } = char.home3D;
@@ -114,6 +131,22 @@ export function mergeCharacterBase(base: CharacterProfile, previous?: CharacterP
     const result = { ...previous };
     for (const key of SHARED_CHARACTER_FIELDS) delete (result as any)[key];
     const merged = { ...result, ...base, memories: previous.memories ?? [] };
+    // Keep each identity's queued messages and delivery diagnostics private,
+    // while shared enablement/limits follow the character profile.
+    const priorActiveMsg2 = previous.activeMsg2Config;
+    const privateActiveMsg2 = {
+        ...(priorActiveMsg2?.tasks !== undefined ? { tasks: priorActiveMsg2.tasks } : {}),
+        ...(priorActiveMsg2?.lastSyncedAt !== undefined ? { lastSyncedAt: priorActiveMsg2.lastSyncedAt } : {}),
+        ...(priorActiveMsg2?.lastError !== undefined ? { lastError: priorActiveMsg2.lastError } : {}),
+    };
+    if (base.activeMsg2Config || Object.keys(privateActiveMsg2).length) {
+        merged.activeMsg2Config = {
+            ...(base.activeMsg2Config ?? { enabled: false }),
+            ...privateActiveMsg2,
+        } as NonNullable<CharacterProfile['activeMsg2Config']>;
+    } else {
+        delete merged.activeMsg2Config;
+    }
     // home3D mixes visual layout with runtime state: only carry its visual part.
     if (base.home3D && previous.home3D) merged.home3D = { ...previous.home3D, ...base.home3D, autonomy: previous.home3D.autonomy };
     if (base.vrState?.chibi && previous.vrState) merged.vrState = { ...previous.vrState, chibi: base.vrState.chibi };
