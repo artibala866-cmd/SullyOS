@@ -129,6 +129,10 @@ export function markSharedStoreIdentityDeletions(storeName: string, keys: IDBVal
     const tokens = [...new Set(keys.map(key => JSON.stringify(key)))];
     if (!tokens.length) return () => {};
     const registry = readUserSaves();
+    // A tombstone only prevents an older copy in another live identity from
+    // resurrecting a deleted row. With one live save there is no second copy;
+    // a future identity will be initialized from the already-deleted source DB.
+    if (registry.saves.length <= 1) return () => {};
     const raw = nativeLocalStorage?.getItem(USER_SAVES_KEY) ?? null;
     const stores = { ...(registry.sharedDeletions?.stores || {}) };
     const existing = new Set(stores[storeName] || []);
