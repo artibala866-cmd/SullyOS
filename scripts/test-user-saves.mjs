@@ -101,11 +101,15 @@ async function checkDesktop(name,damage=false){
   await page.waitForFunction(alt=>{const el=[...document.querySelectorAll('img')].find(img=>img.alt===alt);return el?.complete&&el.naturalWidth>0;},alt);
   if(alt==='照片 1'||alt==='拍立得照片')await page.screenshot({path:out+'/desktop-'+name+'-'+(alt==='照片 1'?'film':'photo')+'.png'});
  }
- // Free-positioned decorations belong to desktop page 3.
- await page.locator('.launcher-pages').evaluate(el=>el.scrollTo({left:el.clientWidth*2,behavior:'instant'}));
- const deco=page.locator('.launcher-page img[alt=""]').first();await deco.scrollIntoViewIfNeeded();
- await page.waitForFunction(()=>{const el=document.querySelector('.launcher-page img[alt=""]');return el?.complete&&el.naturalWidth>0;});
- await page.screenshot({path:out+'/desktop-'+name+'-decoration.png'});
+ // The current launcher puts the Polaroid photo on page 2; page 3 is the app grid
+ // and no longer renders the old free-positioned decoration <img alt=""> node.
+ // Verify the real rendered photo slot, while the blob assertion below keeps
+ // checking that the shared decoration binary survives the identity switch.
+ await page.locator('.launcher-pages').evaluate(el=>el.scrollTo({left:el.clientWidth,behavior:'instant'}));
+ const sharedPhoto=page.locator('.launcher-page img[alt="拍立得照片"]');
+ await sharedPhoto.scrollIntoViewIfNeeded();
+ await page.waitForFunction(()=>{const el=document.querySelector('.launcher-page img[alt="拍立得照片"]');return el?.complete&&el.naturalWidth>0;});
+ await page.screenshot({path:out+'/desktop-'+name+'-shared-appearance.png'});
  const state=await inspect();for(const id of ['b_qa_theme_photo','b_qa_asset_photo','b_qa_deco'])assert(state.blobIds.includes(id));assert(!state.blobIds.includes('b_qa_private_pic')||state.id==='original');
  await page.goto(origin+'/test/fixtures/user-saves.html');await ready();
 }
