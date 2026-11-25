@@ -165,7 +165,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
         (backupDeletions.worldbooks !== undefined && !validDeletionList(backupDeletions.worldbooks)) ||
         (backupDeletions.characterGroups !== undefined && !validDeletionList(backupDeletions.characterGroups)) ||
         (backupDeletions.stores !== undefined && (!backupDeletions.stores || typeof backupDeletions.stores !== 'object' || Array.isArray(backupDeletions.stores) ||
-            Object.entries(backupDeletions.stores).some(([name, ids]) => !/^[a-z0-9_]+$/.test(name) || !validDeletionList(ids) || ids.some(token => !validSharedStoreTombstoneKey(name, token)))))) throw new Error('全部身份删除记录无效');
+            Object.entries(backupDeletions.stores).some(([name, ids]) => !/^[a-z0-9_]+$/.test(name) || !validDeletionList(ids) || ids.some(token => !validSharedStoreTombstoneKey(name, token))))))) throw new Error('全部身份删除记录无效');
     const ids=new Set<string>();
     for(const save of manifest.saves) {
         if(typeof save.id!=='string' || ids.has(save.id) || typeof save.name!=='string' || !save.name.trim() || save.name.length>100 || !Array.isArray(save.databases)) throw new Error('身份索引无效');
