@@ -14,8 +14,11 @@ describe('billing safety across settings, chat and background evaluation', () =>
         expect(independentSettings).toContain('checkApiConnectionWithoutGeneration');
         expect(independentSettings).not.toContain('/chat/completions');
         expect(commonSettings).toContain('checkApiConnectionWithoutGeneration');
-        const testButton = commonSettings.slice(commonSettings.indexOf('免费检查 API 连通性') - 1500);
-        expect(testButton).not.toContain("messages: [{ role: 'user', content: 'Hi' }]");
+        expect(commonSettings).toContain('await checkApiConnectionWithoutGeneration({');
+        expect(commonSettings).not.toContain('testDialogueApiConnection');
+        expect(commonSettings).toContain('免费检查 API 连通性');
+        expect(commonSettings).not.toContain("messages: [{ role: 'user', content: 'Hi' }]");
+        expect(commonSettings).not.toContain('/chat/completions');
     });
 
     it('does not send any billable calls from the three memory API connection checks', () => {
