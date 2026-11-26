@@ -1234,9 +1234,11 @@ const Settings: React.FC = () => {
           // 但绝不能发给别人。media_only 只有媒体、不含密钥，视为可分享。
           if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
               const includesSettings = mode !== 'media_only';
-              const includesBackend = includesSettings && exportBackendConnection && mode !== 'all_saves';
+              const includesBackend = includesSettings && exportBackendConnection;
               const msg = includesBackend
-                  ? '该导出数据包含了明文密钥，以及主动消息 2.0 的后端连接（Worker 地址与主密钥）。拿到这个文件的人可以连上你那台 Worker，请不要发送给任何人'
+                  ? mode === 'all_saves'
+                      ? '该全部身份备份会包含每个已配置身份各自的主动消息 2.0 后端连接（Worker 地址、共享密钥、主密钥和用户 ID）。拿到文件的人可以连接这些 Worker 并访问对应云端数据，请不要分享给任何人'
+                      : '该导出数据包含主动消息 2.0 的后端连接（Worker 地址、共享密钥、主密钥和用户 ID）。拿到文件的人可以连上你的 Worker 并访问对应云端数据，请不要分享给任何人'
                   : includesSettings
                   ? '该导出数据包含了明文密钥，请不要发送给任何人'
                   : '该导出内容安全，可以用于分享';
@@ -1248,7 +1250,9 @@ const Settings: React.FC = () => {
 
           // Trigger export (Context handles loading state UI)
           identityBackupBusyRef.current = true; setIdentityBackupBusy(true);
-          const blob = mode === 'all_saves' ? await createAllUserSaveBackup(setIdentityBackupStatus) : await exportSystem(mode, { includeBackendConnection: exportBackendConnection });
+          const blob = mode === 'all_saves'
+              ? await createAllUserSaveBackup(setIdentityBackupStatus, { includeBackendConnection: exportBackendConnection })
+              : await exportSystem(mode, { includeBackendConnection: exportBackendConnection });
           
           const fileName = `Sully_Backup_${mode}_${new Date().toISOString().slice(0, 10)}.zip`;
           if (!Capacitor.isNativePlatform()) {
@@ -1283,7 +1287,19 @@ const Settings: React.FC = () => {
           if (file.name.toLowerCase().endsWith('.zip')) {
               const plan = await prepareUserSaveRestore(file);
               if (plan) {
-                  const count = await plan.restore(setIdentityBackupStatus);
+                  let allowBackendConnections = false;
+                  if (plan.backendConnections.length > 0) {
+                      const connections = plan.backendConnections
+                          .map(item => `「${item.identityName}」：${item.workerUrl}`)
+                          .join('\\n');
+                      allowBackendConnections = window.confirm(
+                          `这份全部身份备份包含以下主动消息 2.0 后端连接：\\n\\n${connections}\\n\\n`
+                          + '点「确定」会把每个连接恢复到对应的新身份；只有你自己的备份才建议连接。\\n\\n'
+                          + '如果这是别人给你的，点「取消」——连接后，你的 API 凭据和聊天上下文可能写进对方的服务器。\\n\\n'
+                          + '取消连接不会影响其它身份数据导入，之后可以在对应身份的设置里手动配置。',
+                      );
+                  }
+                  const count = await plan.restore(setIdentityBackupStatus, { allowBackendConnections });
                   addToast(`已恢复 ${count} 个身份副本，原存档已保留`, 'success');
                   window.location.reload();
                   return;
@@ -2014,15 +2030,17 @@ const Settings: React.FC = () => {
             <label className="mb-3 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
                 <input
                     type="checkbox"
-                    checked={identityBackupScope === 'current' && exportBackendConnection}
-                    disabled={identityBackupBusy || identityBackupScope === 'all'}
+                    checked={exportBackendConnection}
+                    disabled={identityBackupBusy}
                     onChange={(e) => setExportBackendConnection(e.target.checked)}
                     className="mt-0.5 shrink-0"
                 />
                 <span className="text-[11px] leading-relaxed text-slate-600">
                     <span className="font-bold">包含主动消息 2.0 的后端连接</span>
                     <span className="block text-slate-400">
-                        {identityBackupScope === 'all' ? '全部身份档位只备份本机数据，恢复后需重新配置云端连接。' : '换设备恢复时勾上，Worker 地址和密钥会一起带走。'}
+                        {identityBackupScope === 'all'
+                            ? '勾选后，会分别导出已配置身份各自的 Worker 地址、密钥和用户 ID；未配置的身份不会带连接信息。'
+                            : '换设备恢复时勾上，Worker 地址、密钥和用户 ID 会一起带走。'}
                         <span className="font-bold text-neutral-500">勾着导出的备份不要分享给别人</span>
                         ——拿到文件的人能连上你那台 Worker，也能解开里面的聊天记录。
                     </span>
