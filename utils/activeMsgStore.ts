@@ -1,4 +1,4 @@
-import { scopedDatabaseName } from './userSaveScope';
+import { scopedDatabaseName, USER_SAVE_ID } from './userSaveScope';
 import {
   ActiveMsg2GlobalConfig,
   ActiveMsg2InboxMessage,
@@ -46,6 +46,14 @@ const defaultGlobalConfig: ActiveMsg2GlobalConfig = {
 // 复用同一条连接, 并在连接被外部失效 (版本升级 / 浏览器强制关闭) 时清缓存自愈。
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+const ensureAmsgStores = (db: IDBDatabase): void => {
+  if (!db.objectStoreNames.contains(STORE_KV)) db.createObjectStore(STORE_KV, { keyPath: 'id' });
+  if (!db.objectStoreNames.contains(STORE_INBOX)) db.createObjectStore(STORE_INBOX, { keyPath: 'messageId' });
+  if (!db.objectStoreNames.contains(STORE_OUTBOUND_SESSIONS)) db.createObjectStore(STORE_OUTBOUND_SESSIONS, { keyPath: 'sessionId' });
+  if (!db.objectStoreNames.contains(STORE_PENDING_TOOL_CALLS)) db.createObjectStore(STORE_PENDING_TOOL_CALLS, { keyPath: 'sessionId' });
+  if (!db.objectStoreNames.contains(STORE_REASONING_BUFFER)) db.createObjectStore(STORE_REASONING_BUFFER, { keyPath: 'sessionId' });
+};
+
 const openDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
 
@@ -89,28 +97,8 @@ const openDB = (): Promise<IDBDatabase> => {
       resolve(db);
     };
     request.onupgradeneeded = () => {
-      const db = request.result;
-
-      if (!db.objectStoreNames.contains(STORE_KV)) {
-        db.createObjectStore(STORE_KV, { keyPath: 'id' });
-      }
-
-      if (!db.objectStoreNames.contains(STORE_INBOX)) {
-        db.createObjectStore(STORE_INBOX, { keyPath: 'messageId' });
-      }
-
-      // v2 的三张闲置表（见常量处注释），建出来只为跟 SW 那边的 schema 保持一致。
-      if (!db.objectStoreNames.contains(STORE_OUTBOUND_SESSIONS)) {
-        db.createObjectStore(STORE_OUTBOUND_SESSIONS, { keyPath: 'sessionId' });
-      }
-
-      if (!db.objectStoreNames.contains(STORE_PENDING_TOOL_CALLS)) {
-        db.createObjectStore(STORE_PENDING_TOOL_CALLS, { keyPath: 'sessionId' });
-      }
-
-      if (!db.objectStoreNames.contains(STORE_REASONING_BUFFER)) {
-        db.createObjectStore(STORE_REASONING_BUFFER, { keyPath: 'sessionId' });
-      }
+      // v2 的闲置表也必须保留：Service Worker 与页面共用这一份 schema。
+      ensureAmsgStores(request.result);
     };
   });
 
@@ -447,11 +435,88 @@ export const backupHasBackendConnection = (
  * id 本来就跟备份里的对不上——而那恰恰是最正当的自己人。能判断的只有拿着文件的人，
  * 所以这里的选择权交给导出的那一下，而不是留给导入时去猜。
  */
+/** Read an inactive identity's existing ActiveMsg database without creating an empty one. */
+async function openExistingAmsgDb(identityId: string): Promise<IDBDatabase | null> {
+  if (identityId === USER_SAVE_ID) return openDB();
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(scopedDatabaseName('ActiveMsg', identityId));
+    let absent = false;
+    let blocked = false;
+    request.onupgradeneeded = () => {
+      absent = true;
+      request.transaction?.abort();
+    };
+    request.onerror = () => absent ? resolve(null) : reject(request.error);
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error('主动消息数据库被其他页面占用，请关闭其他页面后重试'));
+    };
+    request.onsuccess = () => {
+      if (blocked) request.result.close();
+      else resolve(request.result);
+    };
+  });
+}
+
+/** Open/create an inactive identity's ActiveMsg database using the exact page/SW v2 schema. */
+async function openAmsgDbForWrite(identityId: string): Promise<IDBDatabase> {
+  if (identityId === USER_SAVE_ID) return openDB();
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(scopedDatabaseName('ActiveMsg', identityId), DB_VERSION);
+    request.onupgradeneeded = () => ensureAmsgStores(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('主动消息数据库被其他页面占用，请关闭其他页面后重试'));
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function readGlobalConfigFromDb(db: IDBDatabase): Promise<ActiveMsg2GlobalConfig> {
+  if (!db.objectStoreNames.contains(STORE_KV)) return { ...defaultGlobalConfig };
+  const stored = await new Promise<ActiveMsg2GlobalConfig | null>((resolve, reject) => {
+    const request = db.transaction(STORE_KV, 'readonly').objectStore(STORE_KV).get(GLOBAL_CONFIG_KEY);
+    request.onsuccess = () => resolve((request.result as KvRecord<ActiveMsg2GlobalConfig> | undefined)?.value ?? null);
+    request.onerror = () => reject(request.error);
+  });
+  return { ...defaultGlobalConfig, ...(stored || {}) };
+}
+
+async function readGlobalConfigForIdentity(identityId: string): Promise<ActiveMsg2GlobalConfig> {
+  if (identityId === USER_SAVE_ID) return ActiveMsgStore.getGlobalConfig();
+  const db = await openExistingAmsgDb(identityId);
+  if (!db) return { ...defaultGlobalConfig };
+  try {
+    return await readGlobalConfigFromDb(db);
+  } finally {
+    db.close();
+  }
+}
+
+async function saveGlobalConfigForIdentity(
+  identityId: string,
+  updates: Partial<ActiveMsg2GlobalConfig>,
+): Promise<ActiveMsg2GlobalConfig> {
+  if (identityId === USER_SAVE_ID) return ActiveMsgStore.saveGlobalConfig(updates);
+  const db = await openAmsgDbForWrite(identityId);
+  try {
+    const current = await readGlobalConfigFromDb(db);
+    const next: ActiveMsg2GlobalConfig = { ...current, ...updates, updatedAt: Date.now() };
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_KV, 'readwrite');
+      tx.objectStore(STORE_KV).put({ id: GLOBAL_CONFIG_KEY, value: next });
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+    return next;
+  } finally {
+    db.close();
+  }
+}
+
 export async function exportAmsg2GlobalConfig(
-  options: { includeBackendConnection?: boolean } = {},
+  options: { includeBackendConnection?: boolean; identityId?: string } = {},
 ): Promise<ActiveMsg2GlobalConfig | undefined> {
   try {
-    const config = await ActiveMsgStore.getGlobalConfig();
+    const config = await readGlobalConfigForIdentity(options.identityId || USER_SAVE_ID);
     if (!config.workerUrl?.trim()) return undefined;
     if (options.includeBackendConnection) return config;
     const stripped = { ...config };
@@ -479,7 +544,7 @@ export async function exportAmsg2GlobalConfig(
  */
 export async function importAmsg2GlobalConfig(
   config: ActiveMsg2GlobalConfig | null | undefined,
-  options: { allowBackendConnection?: boolean } = {},
+  options: { allowBackendConnection?: boolean; identityId?: string } = {},
 ): Promise<void> {
   if (!config || typeof config !== 'object') return;
   const { instantChatSupported: _dropped, workerBundleVersion: _droppedVersion, ...restorable } = config;
@@ -487,7 +552,11 @@ export async function importAmsg2GlobalConfig(
     for (const key of BACKEND_CONNECTION_KEYS) delete restorable[key];
   }
   if (Object.keys(restorable).length === 0) return;
-  await ActiveMsgStore.saveGlobalConfig({ ...restorable, instantChatSupported: undefined, workerBundleVersion: undefined });
+  await saveGlobalConfigForIdentity(options.identityId || USER_SAVE_ID, {
+    ...restorable,
+    instantChatSupported: undefined,
+    workerBundleVersion: undefined,
+  });
 }
 
 export const maskActiveMsgUserId = (userId: string) => {
