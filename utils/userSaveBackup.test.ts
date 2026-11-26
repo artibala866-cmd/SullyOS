@@ -17,6 +17,82 @@ async function seed(){
  second.close();localStorage.setItem('palace_hwm_c','11');localStorage.setItem(`sully:save-data:${SECOND}:palace_hwm_c`,'22');localStorage.setItem('os_theme','原外观');localStorage.setItem(`sully:save-data:${SECOND}:os_remote_vector_config`,'旧云端');
  return {db,registry};
 }
+it('opt-in exports each identity\'s own AMSG2 backend link and restores it to the matching copy',async()=>{
+ const {db}=await seed();
+ const {ActiveMsgStore,importAmsg2GlobalConfig}=await import('./activeMsgStore');
+ const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
+ await ActiveMsgStore.saveGlobalConfig({
+  workerUrl:'https://worker-a.example.workers.dev',serverToken:'token-a',masterKey:'master-a',userId:'user-a',instantChatEnabled:true,
+ });
+ await importAmsg2GlobalConfig({
+  workerUrl:'https://worker-b.example.workers.dev',serverToken:'token-b',masterKey:'master-b',userId:'user-b',
+ },{identityId:SECOND,allowBackendConnection:true});
+
+ const defaultBackup=await createAllUserSaveBackup();
+ const defaultZip=await JSZip.loadAsync(await defaultBackup.arrayBuffer());
+ const defaultManifest=JSON.parse(await defaultZip.file('user-saves.json')!.async('string'));
+ expect(defaultManifest.saves.every((save:any)=>save.amsg2GlobalConfig===undefined)).toBe(true);
+
+ const backup=await createAllUserSaveBackup(()=>{}, {includeBackendConnection:true});
+ const plan=(await prepareUserSaveRestore(backup))!;
+ expect(plan.backendConnections).toEqual([
+  {identityName:'原来的故事',workerUrl:'https://worker-a.example.workers.dev'},
+  {identityName:'校园线',workerUrl:'https://worker-b.example.workers.dev'},
+ ]);
+ db.close();
+
+ // Restore on a clean browser profile. Each new identity must receive its own
+ // connection record rather than inheriting the currently active identity's link.
+ localStorage.clear();
+ vi.stubGlobal('indexedDB',new IDBFactory());
+ vi.resetModules();
+ const {prepareUserSaveRestore:prepareFresh}=await import('./userSaveBackup');
+ const freshPlan=(await prepareFresh(backup))!;
+ expect(freshPlan.backendConnections).toHaveLength(2);
+ await freshPlan.restore(()=>{}, {allowBackendConnections:true});
+ const registry=JSON.parse(localStorage.getItem(key)!);
+ const restored=registry.saves.slice(1);
+ const {exportAmsg2GlobalConfig}=await import('./activeMsgStore');
+ const configs=await Promise.all(restored.map((save:any)=>exportAmsg2GlobalConfig({
+  includeBackendConnection:true,identityId:save.id,
+ })));
+ expect(configs[0]).toMatchObject({
+  workerUrl:'https://worker-a.example.workers.dev',serverToken:'token-a',masterKey:'master-a',userId:'user-a',
+ });
+ expect(configs[1]).toMatchObject({
+  workerUrl:'https://worker-b.example.workers.dev',serverToken:'token-b',masterKey:'master-b',userId:'user-b',
+ });
+});
+
+it('does not reconnect any identity Worker unless the all-identity restore is confirmed',async()=>{
+ const {db}=await seed();
+ const {ActiveMsgStore}=await import('./activeMsgStore');
+ const {createAllUserSaveBackup}=await import('./userSaveBackup');
+ await ActiveMsgStore.saveGlobalConfig({
+  workerUrl:'https://worker-private.example.workers.dev',serverToken:'private-token',masterKey:'private-master',
+  userId:'private-user',instantChatEnabled:true,
+ });
+ const backup=await createAllUserSaveBackup(()=>{}, {includeBackendConnection:true});
+ db.close();
+
+ localStorage.clear();
+ vi.stubGlobal('indexedDB',new IDBFactory());
+ vi.resetModules();
+ const {prepareUserSaveRestore}=await import('./userSaveBackup');
+ const plan=(await prepareUserSaveRestore(backup))!;
+ expect(plan.backendConnections).toHaveLength(1);
+ await plan.restore(); // No approval: only harmless local AMSG2 settings may be restored.
+ const registry=JSON.parse(localStorage.getItem(key)!);
+ const restored=registry.saves[1];
+ const {exportAmsg2GlobalConfig}=await import('./activeMsgStore');
+ const config=await exportAmsg2GlobalConfig({includeBackendConnection:true,identityId:restored.id});
+ expect(config?.workerUrl).toBeUndefined();
+ expect(config?.serverToken).toBeUndefined();
+ expect(config?.masterKey).toBeUndefined();
+ expect(config?.userId).toBeUndefined();
+ expect(config?.instantChatEnabled).toBe(true);
+});
+
 it('round-trips all identities, palace vectors, media and story into separate copies without overwriting local saves',async()=>{
  const {db,registry}=await seed();const {createAllUserSaveBackup,prepareUserSaveRestore}=await import('./userSaveBackup');
  const backup=await createAllUserSaveBackup();const zip=await JSZip.loadAsync(await backup.arrayBuffer());const manifest=JSON.parse(await zip.file('user-saves.json')!.async('string'));
