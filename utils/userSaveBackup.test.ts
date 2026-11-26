@@ -84,13 +84,18 @@ it('does not reconnect any identity Worker unless the all-identity restore is co
  await plan.restore(); // No approval: only harmless local AMSG2 settings may be restored.
  const registry=JSON.parse(localStorage.getItem(key)!);
  const restored=registry.saves[1];
- const {exportAmsg2GlobalConfig}=await import('./activeMsgStore');
- const config=await exportAmsg2GlobalConfig({includeBackendConnection:true,identityId:restored.id});
- expect(config?.workerUrl).toBeUndefined();
- expect(config?.serverToken).toBeUndefined();
- expect(config?.masterKey).toBeUndefined();
- expect(config?.userId).toBeUndefined();
- expect(config?.instantChatEnabled).toBe(true);
+ const db=await open('ActiveMsg__user_'+restored.id);
+ const stored=await new Promise<any>((resolve,reject)=>{
+  const request=db.transaction('kv','readonly').objectStore('kv').get('global-config');
+  request.onsuccess=()=>resolve(request.result?.value);
+  request.onerror=()=>reject(request.error);
+ });
+ expect(stored.workerUrl).toBeUndefined();
+ expect(stored.serverToken).toBeUndefined();
+ expect(stored.masterKey).toBeUndefined();
+ expect(stored.userId).toBeUndefined();
+ expect(stored.instantChatEnabled).toBe(true);
+ db.close();
 });
 
 it('round-trips all identities, palace vectors, media and story into separate copies without overwriting local saves',async()=>{
