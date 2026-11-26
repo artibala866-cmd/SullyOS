@@ -84,9 +84,9 @@ it('does not reconnect any identity Worker unless the all-identity restore is co
  await plan.restore(); // No approval: only harmless local AMSG2 settings may be restored.
  const registry=JSON.parse(localStorage.getItem(key)!);
  const restored=registry.saves[1];
- const db=await open('ActiveMsg__user_'+restored.id);
+ const activeMsgDb=await open('ActiveMsg__user_'+restored.id);
  const stored=await new Promise<any>((resolve,reject)=>{
-  const request=db.transaction('kv','readonly').objectStore('kv').get('global-config');
+  const request=activeMsgDb.transaction('kv','readonly').objectStore('kv').get('global-config');
   request.onsuccess=()=>resolve(request.result?.value);
   request.onerror=()=>reject(request.error);
  });
@@ -95,7 +95,7 @@ it('does not reconnect any identity Worker unless the all-identity restore is co
  expect(stored.masterKey).toBeUndefined();
  expect(stored.userId).toBeUndefined();
  expect(stored.instantChatEnabled).toBe(true);
- db.close();
+ activeMsgDb.close();
 });
 
 it('round-trips all identities, palace vectors, media and story into separate copies without overwriting local saves',async()=>{
