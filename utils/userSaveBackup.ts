@@ -3,6 +3,8 @@ import { createBackupArchive } from './backupArchive';
 import { openDB } from './db';
 import { baseCharacter, beginUserSaveOperation, isSharedAsset, referencedBlobs, repairSharedAppearanceBlobs, sharedStoreRows, SHARED_STORES } from './userSaves';
 import { createSaveStorage, isSharedPreference, nativeLocalStorage, readUserSaves, scopedDatabaseName, USER_SAVE_ID, USER_SAVES_KEY, isUserSaveIndexKey, writeUserSaves, type UserSave, type SharedIdentityDeletions } from './userSaveScope';
+import { backupHasBackendConnection, exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgStore';
+import type { ActiveMsg2GlobalConfig } from '../types';
 
 const FORMAT = 'sully-user-saves';
 const MANIFEST = 'user-saves.json';
@@ -27,7 +29,7 @@ const RESTORE_CONNECTION_PREFS = new Set([
     'sully-beauty-author-session-v1',
 ]);
 
-interface SaveSnapshot { id: string; name: string; preferences: Wire; databases: DatabaseSnapshot[] }
+interface SaveSnapshot { id: string; name: string; preferences: Wire; databases: DatabaseSnapshot[]; amsg2GlobalConfig?: Wire }
 function validEncodedSharedKey(token: unknown): token is string {
     if (typeof token !== 'string') return false;
     try {
@@ -70,7 +72,10 @@ function snapshot(db: IDBDatabase, selectedNames?: string[]): Promise<{ schema: 
         tx.oncomplete = () => resolve(result); tx.onerror = tx.onabort = () => reject(tx.error);
     });
 }
-export async function createAllUserSaveBackup(onProgress: Progress = () => {}): Promise<Blob> {
+export async function createAllUserSaveBackup(
+    onProgress: Progress = () => {},
+    options: { includeBackendConnection?: boolean } = {},
+): Promise<Blob> {
     const release = beginUserSaveOperation('备份身份存档');
     try {
         if (!nativeLocalStorage) throw new Error('本地存储不可用');
@@ -134,7 +139,18 @@ export async function createAllUserSaveBackup(onProgress: Progress = () => {}): 
                 }
                 databases.push({kind,version,stores:packed});
             }
-            saves.push({id:save.id,name:save.name,preferences:await encode(preferences),databases});
+            // ActiveMsg is a separate IndexedDB per identity. Keep each identity's
+            // Worker credentials beside that identity, and only read them on opt-in.
+            const amsg2GlobalConfig = options.includeBackendConnection
+                ? await exportAmsg2GlobalConfig({ includeBackendConnection: true, identityId: save.id })
+                : undefined;
+            saves.push({
+                id: save.id,
+                name: save.name,
+                preferences: await encode(preferences),
+                databases,
+                ...(amsg2GlobalConfig ? { amsg2GlobalConfig: await encode(amsg2GlobalConfig) } : {}),
+            });
         }
         archive.file(MANIFEST,JSON.stringify({format:FORMAT,version:1,saves,files,sharedDeletions:registry.sharedDeletions} satisfies Manifest));
         const blob = await archive.generateBlob(({percent})=>onProgress(`正在打包全部身份 ${Math.floor(percent)}%`));
@@ -143,7 +159,15 @@ export async function createAllUserSaveBackup(onProgress: Progress = () => {}): 
     } finally { release(); }
 }
 
-export interface UserSaveRestorePlan { count: number; restore: (onProgress?: Progress) => Promise<number> }
+export interface UserSaveRestorePlan {
+    count: number;
+    /** Worker URLs are safe to show in the restore prompt; credentials are never exposed here. */
+    backendConnections: { identityName: string; workerUrl: string }[];
+    restore: (
+        onProgress?: Progress,
+        options?: { allowBackendConnections?: boolean },
+    ) => Promise<number>;
+}
 /** Detects this format; old ZIP/JSON backups continue through their existing importer. */
 export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveRestorePlan | null> {
     // Read only the central directory when detecting the format. A legacy ZIP
@@ -210,8 +234,19 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
             default:throw new Error('身份备份包含未知记录类型');
         }
     };
+    const backendConnections: UserSaveRestorePlan['backendConnections'] = [];
+    for (const save of manifest.saves) {
+        if (save.amsg2GlobalConfig === undefined) continue;
+        const config = await decode(save.amsg2GlobalConfig) as ActiveMsg2GlobalConfig;
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('主动消息 2.0 备份配置无效');
+        }
+        if (backupHasBackendConnection(config)) {
+            backendConnections.push({ identityName: save.name, workerUrl: String(config.workerUrl).trim() });
+        }
+    }
     let used=false;
-    return {count:manifest.saves.length,restore:async (onProgress=()=>{}) => {
+    return {count:manifest.saves.length,backendConnections,restore:async (onProgress=()=>{}, options={}) => {
         if(used)throw new Error('这份恢复任务已经使用，请重新选择备份');used=true;
         const release=beginUserSaveOperation('恢复身份存档');
         const created: string[]=[], localKeys: string[]=[];
@@ -282,6 +317,19 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                     if(typeof value==='string' && isSharedPreference(key)) { if(nativeLocalStorage.getItem(key)===null) missingShared.set(key,value); continue; }
                     if(typeof value!=='string' || isSharedPreference(key) || isUserSaveIndexKey(key) || key.startsWith('sully:save-data:') || ['os_remote_vector_config','os_cloud_backup_config','os_realtime_config'].includes(key))continue;
                     const rawKey=`sully:save-data:${id}:${key}`;localKeys.push(rawKey);nativeLocalStorage.setItem(rawKey,value);
+                }
+                if (save.amsg2GlobalConfig !== undefined) {
+                    const config = await decode(save.amsg2GlobalConfig) as ActiveMsg2GlobalConfig;
+                    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+                        throw new Error('主动消息 2.0 备份配置无效');
+                    }
+                    // A restored identity gets its own ActiveMsg database. If any later
+                    // restore step fails, remove this database along with its new save.
+                    created.push(scopedDatabaseName('ActiveMsg', id));
+                    await importAmsg2GlobalConfig(config, {
+                        allowBackendConnection: options.allowBackendConnections === true,
+                        identityId: id,
+                    });
                 }
                 // Old mirrors must not re-enable the remote services excluded above.
                 const main=await existingDatabase(scopedDatabaseName(KINDS.main,id));
