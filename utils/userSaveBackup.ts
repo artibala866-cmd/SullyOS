@@ -246,7 +246,7 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
         }
     }
     let used=false;
-    return {count:manifest.saves.length,backendConnections,restore:async (onProgress=()=>{}, options={}) => {
+    return {count:manifest.saves.length,backendConnections,restore:async (onProgress: Progress = () => {}, options: {allowBackendConnections?: boolean} = {}) => {
         if(used)throw new Error('这份恢复任务已经使用，请重新选择备份');used=true;
         const release=beginUserSaveOperation('恢复身份存档');
         const created: string[]=[], localKeys: string[]=[];
