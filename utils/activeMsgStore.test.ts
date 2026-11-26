@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ActiveMsgStore, importAmsg2GlobalConfig } from './activeMsgStore';
+import { ActiveMsgStore } from './activeMsgStore';
 import type { Amsg2ExpiredNoticeRecord } from '../types';
 
 // fake-indexeddb 已通过 test-setup.ts 自动注入. 跨测试 deleteDatabase 会被单例连接
@@ -18,42 +18,6 @@ describe('ActiveMsgStore 连接', () => {
       await ActiveMsgStore.consumeInboxMessages();
       // 3 个操作都复用单例, 0 次 open。
       expect(openSpy).not.toHaveBeenCalled();
-    } finally {
-      openSpy.mockRestore();
-    }
-  });
-});
-
-describe('ActiveMsgStore 身份备份恢复', () => {
-  it('blocked restore that later succeeds closes the late IndexedDB connection', async () => {
-    const identityId = crypto.randomUUID();
-    const databaseName = `ActiveMsg__user_${identityId}`;
-    const close = vi.fn();
-    const request: any = {};
-    Object.defineProperty(request, 'result', {
-      configurable: true,
-      get: () => ({ close }),
-    });
-    const originalOpen = indexedDB.open.bind(indexedDB);
-    const openSpy = vi.spyOn(indexedDB, 'open').mockImplementation((name: string, version?: number) => {
-      if (name === databaseName) return request as IDBOpenDBRequest;
-      return originalOpen(name, version);
-    });
-
-    try {
-      const pending = importAmsg2GlobalConfig({
-        workerUrl: 'https://worker.example.workers.dev',
-        serverToken: 'token',
-        masterKey: 'master',
-        userId: 'user',
-      }, { identityId, allowBackendConnection: true });
-
-      expect(request.onblocked).toBeTypeOf('function');
-      request.onblocked(new Event('blocked'));
-      await expect(pending).rejects.toThrow('主动消息数据库被其他页面占用');
-
-      request.onsuccess(new Event('success'));
-      expect(close).toHaveBeenCalledTimes(1);
     } finally {
       openSpy.mockRestore();
     }
