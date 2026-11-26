@@ -1291,11 +1291,11 @@ const Settings: React.FC = () => {
                   if (plan.backendConnections.length > 0) {
                       const connections = plan.backendConnections
                           .map(item => `「${item.identityName}」：${item.workerUrl}`)
-                          .join('\\n');
+                          .join('\n');
                       allowBackendConnections = window.confirm(
-                          `这份全部身份备份包含以下主动消息 2.0 后端连接：\\n\\n${connections}\\n\\n`
-                          + '点「确定」会把每个连接恢复到对应的新身份；只有你自己的备份才建议连接。\\n\\n'
-                          + '如果这是别人给你的，点「取消」——连接后，你的 API 凭据和聊天上下文可能写进对方的服务器。\\n\\n'
+                          `这份全部身份备份包含以下主动消息 2.0 后端连接：\n\n${connections}\n\n`
+                          + '点「确定」会把每个连接恢复到对应的新身份；只有你自己的备份才建议连接。\n\n'
+                          + '如果这是别人给你的，点「取消」——连接后，你的 API 凭据和聊天上下文可能写进对方的服务器。\n\n'
                           + '取消连接不会影响其它身份数据导入，之后可以在对应身份的设置里手动配置。',
                       );
                   }
