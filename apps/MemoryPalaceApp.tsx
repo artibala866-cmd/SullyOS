@@ -1,6 +1,5 @@
 import { useIdentityCharacterOptions } from '../hooks/useIdentityCharacterOptions';
 import { ContextBuilder } from '../utils/context';
-import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 
 import MemoryMaintenancePanel from '../components/chat/MemoryMaintenancePanel';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
@@ -895,16 +894,12 @@ export default function MemoryPalaceApp() {
     const [embModel, setEmbModel] = useState(memoryPalaceConfig.embedding.model || 'BAAI/bge-m3');
     const [embDimensions, setEmbDimensions] = useState(memoryPalaceConfig.embedding.dimensions || 1024);
     const [configSaved, setConfigSaved] = useState(false);
-    const [testingEmb, setTestingEmb] = useState(false);
-    const [testResult, setTestResult] = useState<string | null>(null);
 
     // 副 API 配置（全局配置）
     const [lightUrl, setLightUrl] = useState(memoryPalaceConfig.lightLLM.baseUrl || '');
     const [lightKey, setLightKey] = useState(memoryPalaceConfig.lightLLM.apiKey || '');
     const [lightModel, setLightModel] = useState(memoryPalaceConfig.lightLLM.model || '');
     const [lightSaved, setLightSaved] = useState(false);
-    const [testingLight, setTestingLight] = useState(false);
-    const [lightTestResult, setLightTestResult] = useState<string | null>(null);
 
     // Rerank 配置（全局；cross-encoder 二次排序，独立于主召回的可选增强通道）
     const [rrEnabled, setRrEnabled] = useState(!!memoryPalaceConfig.rerank?.enabled);
@@ -913,8 +908,6 @@ export default function MemoryPalaceApp() {
     const [rrModel, setRrModel] = useState(memoryPalaceConfig.rerank?.model || 'BAAI/bge-reranker-v2-m3');
     const [rrTopN, setRrTopN] = useState(memoryPalaceConfig.rerank?.topN || 5);
     const [rrSaved, setRrSaved] = useState(false);
-    const [rrTesting, setRrTesting] = useState(false);
-    const [rrTestResult, setRrTestResult] = useState<string | null>(null);
 
     // 远程向量存储配置
     const [rvUrl, setRvUrl] = useState(remoteVectorConfig.supabaseUrl);
@@ -3294,50 +3287,6 @@ export default function MemoryPalaceApp() {
                         {lightSaved ? '✓ 已保存' : '保存副 API 配置'}
                     </button>
 
-                    {/* 测试副 API 连接 */}
-                    <button
-                        onClick={async () => {
-                            if (!lightUrl.trim() || !lightKey.trim() || !lightModel.trim()) return;
-                            setTestingLight(true);
-                            setLightTestResult(null);
-                            try {
-                                const check = await checkApiConnectionWithoutGeneration({
-                                    baseUrl: lightUrl, apiKey: lightKey, model: lightModel,
-                                });
-                                setLightTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
-                            } catch {
-                                setLightTestResult('[err]无法完成只读 /models 检查，未发送付费生成请求');
-                            } finally {
-                                setTestingLight(false);
-                            }
-                        }}
-                        disabled={testingLight || !lightUrl.trim() || !lightKey.trim() || !lightModel.trim()}
-                        style={{
-                            width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 12,
-                            border: '1px solid #52525244', fontWeight: 600, fontSize: 13,
-                            color: '#525252', background: 'white',
-                            cursor: (testingLight || !lightUrl.trim() || !lightKey.trim() || !lightModel.trim()) ? 'not-allowed' : 'pointer',
-                            opacity: (!lightUrl.trim() || !lightKey.trim() || !lightModel.trim()) ? 0.5 : 1,
-                        }}
-                    >
-                        {testingLight ? '测试中...' : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <Icon name="beaker" size={13} />
-                                <span>免费检查副 API</span>
-                            </span>
-                        )}
-                    </button>
-
-                    {lightTestResult && (
-                        <div style={{
-                            marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: lightTestResult.startsWith('[ok]') ? '#f7f7f7' : '#f7f7f7',
-                            color: lightTestResult.startsWith('[ok]') ? '#525252' : '#525252',
-                        }}>
-                            <StatusMessage msg={lightTestResult} />
-                        </div>
-                    )}
-
                     {!guideSetup && !hasLightApi && (
                         <div style={{ marginTop: 8, fontSize: 11, color: '#666666', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                             <Icon name="warning" size={12} />
@@ -3491,57 +3440,7 @@ export default function MemoryPalaceApp() {
                         {configSaved ? '✓ 已保存' : '保存配置'}
                     </button>
 
-                    {/* 测试 Embedding 连接 */}
-                    <button
-                        onClick={async () => {
-                            if (!embUrl.trim() || !embKey.trim()) return;
-                            setTestingEmb(true);
-                            setTestResult(null);
-                            try {
-                                const check = await checkApiConnectionWithoutGeneration({
-                                    baseUrl: embUrl, apiKey: embKey,
-                                    model: embModel.trim() || 'BAAI/bge-m3',
-                                });
-                                setTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
-                            } catch {
-                                setTestResult('[err]无法完成只读 /models 检查，未发送付费向量请求');
-                            } finally {
-                                setTestingEmb(false);
-                            }
-                        }}
-                        disabled={testingEmb || !embUrl.trim() || !embKey.trim()}
-                        style={{
-                            width: '100%',
-                            marginTop: 8,
-                            padding: '10px 0',
-                            borderRadius: 12,
-                            border: '1px solid #33333344',
-                            fontWeight: 600,
-                            fontSize: 13,
-                            color: '#333333',
-                            background: 'white',
-                            cursor: testingEmb ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        {testingEmb ? '测试中...' : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <Icon name="beaker" size={13} />
-                                <span>免费检查 Embedding</span>
-                            </span>
-                        )}
-                    </button>
-
-                    <p style={{ fontSize: 10, color: '#999', marginTop: 6 }}>仅检查 /models 列表，不生成付费向量，也不验证实际维度。</p>
                     <SkipVectorMemoryChoice />
-                    {testResult && (
-                        <div style={{
-                            marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: testResult.startsWith('[ok]') ? '#f7f7f7' : '#f7f7f7',
-                            color: testResult.startsWith('[ok]') ? '#525252' : '#525252',
-                        }}>
-                            <StatusMessage msg={testResult} />
-                        </div>
-                    )}
                 </div>
 
                 {!guideSetup && <>
@@ -3696,50 +3595,6 @@ export default function MemoryPalaceApp() {
                         {rrSaved ? '✓ 已保存' : '保存 Rerank 配置'}
                     </button>
 
-                    {/* 测试 rerank 连接 */}
-                    <button
-                        onClick={async () => {
-                            if (!rrUrl.trim() || !rrKey.trim()) return;
-                            setRrTesting(true);
-                            setRrTestResult(null);
-                            try {
-                                const check = await checkApiConnectionWithoutGeneration({
-                                    baseUrl: rrUrl, apiKey: rrKey,
-                                    model: rrModel.trim() || 'BAAI/bge-reranker-v2-m3',
-                                });
-                                setRrTestResult((check.message.startsWith('✅') ? '[ok]' : check.ok ? '[warn]' : '[err]') + check.message);
-                            } catch {
-                                setRrTestResult('[err]无法完成只读 /models 检查，未发送付费排序请求');
-                            } finally {
-                                setRrTesting(false);
-                            }
-                        }}
-                        disabled={rrTesting || !rrUrl.trim() || !rrKey.trim()}
-                        style={{
-                            width: '100%', marginTop: 8, padding: '10px 0',
-                            borderRadius: 12, border: '1px solid #57575744',
-                            fontWeight: 600, fontSize: 13, color: '#666666',
-                            background: 'white',
-                            cursor: rrTesting ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        {rrTesting ? '测试中...' : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <Icon name="beaker" size={13} />
-                                <span>免费检查 Rerank</span>
-                            </span>
-                        )}
-                    </button>
-
-                    {rrTestResult && (
-                        <div style={{
-                            marginTop: 8, fontSize: 12, padding: '8px 12px', borderRadius: 8,
-                            background: rrTestResult.startsWith('[ok]') ? '#f7f7f7' : rrTestResult.startsWith('[warn]') ? '#f7f7f7' : '#f7f7f7',
-                            color: rrTestResult.startsWith('[ok]') ? '#525252' : rrTestResult.startsWith('[warn]') ? '#525252' : '#525252',
-                        }}>
-                            <StatusMessage msg={rrTestResult} />
-                        </div>
-                    )}
                 </details>
 
                 {/* 远程向量存储（Supabase，可选）— 默认折叠 */}
