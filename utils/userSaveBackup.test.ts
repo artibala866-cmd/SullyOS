@@ -90,10 +90,10 @@ it('does not reconnect any identity Worker unless the all-identity restore is co
   request.onsuccess=()=>resolve(request.result?.value);
   request.onerror=()=>reject(request.error);
  });
- expect(stored.workerUrl).toBeUndefined();
+ expect(stored.workerUrl).toBe('');
  expect(stored.serverToken).toBeUndefined();
  expect(stored.masterKey).toBeUndefined();
- expect(stored.userId).toBeUndefined();
+ expect(stored.userId).toBe('');
  expect(stored.instantChatEnabled).toBe(true);
  activeMsgDb.close();
 });
