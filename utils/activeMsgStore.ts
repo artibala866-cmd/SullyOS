@@ -513,7 +513,7 @@ async function saveGlobalConfigForIdentity(
 }
 
 export async function exportAmsg2GlobalConfig(
-  options: { includeBackendConnection?: boolean; identityId?: string } = {},
+  options: { includeBackendConnection?: boolean; identityId?: string; throwOnError?: boolean } = {},
 ): Promise<ActiveMsg2GlobalConfig | undefined> {
   try {
     const config = await readGlobalConfigForIdentity(options.identityId || USER_SAVE_ID);
@@ -526,6 +526,7 @@ export async function exportAmsg2GlobalConfig(
     return Object.keys(stripped).length > 0 ? stripped : undefined;
   } catch (e) {
     console.warn('[amsg2] 读取全局配置失败，备份将不含这一项', e);
+    if (options.throwOnError) throw e;
     return undefined;
   }
 }
