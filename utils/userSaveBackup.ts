@@ -142,7 +142,7 @@ export async function createAllUserSaveBackup(
             // ActiveMsg is a separate IndexedDB per identity. Keep each identity's
             // Worker credentials beside that identity, and only read them on opt-in.
             const amsg2GlobalConfig = options.includeBackendConnection
-                ? await exportAmsg2GlobalConfig({ includeBackendConnection: true, identityId: save.id })
+                ? await exportAmsg2GlobalConfig({ includeBackendConnection: true, identityId: save.id, throwOnError: true })
                 : undefined;
             saves.push({
                 id: save.id,
@@ -325,7 +325,13 @@ export async function prepareUserSaveRestore(input: Blob): Promise<UserSaveResto
                     }
                     // A restored identity gets its own ActiveMsg database. If any later
                     // restore step fails, remove this database along with its new save.
-                    created.push(scopedDatabaseName('ActiveMsg', id));
+                    const activeMsgDbName = scopedDatabaseName('ActiveMsg', id);
+                    const existingAmsgDb = await existingDatabase(activeMsgDbName);
+                    if (existingAmsgDb) {
+                        existingAmsgDb.close();
+                        throw new Error('身份主动消息数据库已存在，请重新导入');
+                    }
+                    created.push(activeMsgDbName);
                     await importAmsg2GlobalConfig(config, {
                         allowBackendConnection: options.allowBackendConnections === true,
                         identityId: id,
