@@ -64,6 +64,32 @@ it('opt-in exports each identity\'s own AMSG2 backend link and restores it to th
  });
 });
 
+it('closes a late AMSG2 database connection after a blocked restore is rejected',async()=>{
+ const identityId=crypto.randomUUID();
+ const databaseName=`ActiveMsg__user_${identityId}`;
+ const close=vi.fn();
+ const request:any={};
+ Object.defineProperty(request,'result',{configurable:true,get:()=>({close})});
+ const originalOpen=indexedDB.open.bind(indexedDB);
+ const openSpy=vi.spyOn(indexedDB,'open').mockImplementation((name:string,version?:number)=>{
+  if(name===databaseName)return request as IDBOpenDBRequest;
+  return originalOpen(name,version);
+ });
+ try{
+  const {importAmsg2GlobalConfig}=await import('./activeMsgStore');
+  const pending=importAmsg2GlobalConfig({
+   workerUrl:'https://worker.example.workers.dev',serverToken:'token',masterKey:'master',userId:'user',
+  },{identityId,allowBackendConnection:true});
+  expect(request.onblocked).toBeTypeOf('function');
+  request.onblocked(new Event('blocked'));
+  await expect(pending).rejects.toThrow('主动消息数据库被其他页面占用');
+  request.onsuccess(new Event('success'));
+  expect(close).toHaveBeenCalledTimes(1);
+ }finally{
+  openSpy.mockRestore();
+ }
+});
+
 it('does not reconnect any identity Worker unless the all-identity restore is confirmed',async()=>{
  const {db}=await seed();
  const {ActiveMsgStore}=await import('./activeMsgStore');
