@@ -13,6 +13,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
 import { safeResponseJson } from '../utils/safeApi';
+import { checkApiConnectionWithoutGeneration } from '../utils/apiConnectionPreflight';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
