@@ -463,10 +463,25 @@ async function openAmsgDbForWrite(identityId: string): Promise<IDBDatabase> {
   if (identityId === USER_SAVE_ID) return openDB();
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(scopedDatabaseName('ActiveMsg', identityId), DB_VERSION);
+    let settled = false;
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
     request.onupgradeneeded = () => ensureAmsgStores(request.result);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error('主动消息数据库被其他页面占用，请关闭其他页面后重试'));
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => fail(request.error);
+    request.onblocked = () => fail(new Error('主动消息数据库被其他页面占用，请关闭其他页面后重试'));
+    request.onsuccess = () => {
+      // onblocked rejects promptly, but the IndexedDB request can still succeed later.
+      // Close that late connection so rollback/deleteDatabase cannot be left blocked.
+      if (settled) {
+        request.result.close();
+        return;
+      }
+      settled = true;
+      resolve(request.result);
+    };
   });
 }
 
