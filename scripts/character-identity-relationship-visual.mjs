@@ -55,7 +55,7 @@ async function run(width){
     await send('Page.navigate',{url:origin+'/tests/character-identity-relationship-visual.html'});
     let state;
     for(let i=0;i<180;i++){
-    await evaluate(`document.querySelector('#relationship-root textarea[aria-label="身份关系"]').focus()`);
+      state=await evaluate(`({ready:document.body.dataset.identityRelationshipReady==="true",error:document.body.dataset.visualError||"",overflow:document.documentElement.scrollWidth>innerWidth+1,field:!!document.querySelector('#relationship-root textarea[aria-label="身份关系"]'),label:document.body.innerText.includes("身份关系 (Relationship)")})`);
       if(state.error)throw Error('Visual fixture: '+state.error);
       if(state.ready)break;
       await sleep(150);
@@ -66,7 +66,7 @@ async function run(width){
     assert(rect.width>width-45,'Field is unexpectedly narrow '+JSON.stringify(rect));
     assert(rect.height>=80,'Field is too short '+JSON.stringify(rect));
     await screenshot('identity-relationship-before-edit');
-    await evaluate('document.querySelector("#relationship-root textarea[aria-label=\"身份关系\"]").focus()');
+    await evaluate(`document.querySelector('#relationship-root textarea[aria-label="身份关系"]').focus()`);
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
     await send('Input.insertText',{text:'新的关系设定测试'});
