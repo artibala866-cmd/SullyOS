@@ -20,16 +20,20 @@ describe('ContextBuilder 世界书公共契约', () => {
         books.forEach(b => expect(result.split(b.content)).toHaveLength(2));
     });
 
-    it('当前身份自定义关系优先于核心指令和后置世界书，末尾保留一致性约束', async () => {
+    it('当前身份关系在最终上下文再次明确，压过与之冲突的核心指令及世界书', async () => {
         const character = {
             ...char([book('conflicting', { position: 6, content: '本世界书把用户称为角色的恋人。' })]),
+            systemPrompt: '角色正文：我们已恋爱多年。',
+            worldview: '世界观：用户是角色的伴侣。',
             identityRelationship: '我们是只在网上交流的普通网友，还没有线下见过面。',
         } as CharacterProfile;
         const result = await ContextBuilder.buildCoreContext(character, user);
         expect(result).toContain('当前身份自定义 · 最高优先级');
         expect(result).toContain(character.identityRelationship);
         expect(result.indexOf('当前身份自定义')).toBeLessThan(result.indexOf('角色正文'));
-        expect(result).toContain('身份关系一致性复核');
+        expect(result).toContain('生成前最终复核 · 最高优先级');
+        expect(result.lastIndexOf(character.identityRelationship)).toBeGreaterThan(result.indexOf('本世界书把用户称为角色的恋人'));
+        expect(result.slice(result.lastIndexOf('生成前最终复核')).toContain(character.identityRelationship);
         expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
     });
 

@@ -17,7 +17,7 @@ export default function IdentityRelationshipField({ value, onChange }: IdentityR
         value={value || ''}
         onChange={event => onChange(event.target.value)}
         className="w-full h-24 bg-white rounded-[20px] p-5 border border-black/[0.06] text-sm shadow-sm resize-none focus:ring-1 focus:ring-[#999999]/30 transition-all vr-reader-scroll"
-        placeholder="填写角色与你当前身份的关系。留空则根据核心人设、世界观和世界书判断，不默认恋爱关系。"
+        placeholder="关系…"
       />
     </div>
   );

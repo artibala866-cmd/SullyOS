@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import IdentityRelationshipField from '../components/character/IdentityRelationshipField';
 
 function VisualFixture() {
-    const [relationship, setRelationship] = useState('我们是同一个社团的成员，目前只是普通朋友。');
+    const [relationship, setRelationship] = useState('');
     useEffect(() => {
         const field = document.querySelector('textarea[aria-label="身份关系"]');
         document.body.dataset.identityRelationshipReady = field ? 'true' : 'false';

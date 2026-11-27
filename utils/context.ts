@@ -44,8 +44,13 @@ const buildIdentityRelationshipContext = (char: CharacterProfile, includeWorldbo
         + '理解双方关系；通用 AI 伴侣设定、应用模式、亲昵称呼或时间间隔都不是恋爱关系证据。资料没有明确说明时，保持关系阶段未确定，不擅自将双方认定为恋人、情侣或亲密伴侣。\n\n';
 };
 
-const buildIdentityRelationshipPriorityReminder = (): string =>
-    '### 身份关系一致性复核\n整个上下文中的关系判断都必须与上方身份关系规则一致。不要凭通用互动话术编造共同经历、熟悉程度或恋爱关系，也不要仅因用户主动联系、使用亲昵称呼或发生普通互动就推进关系阶段。\n\n';
+const buildIdentityRelationshipPriorityReminder = (char: CharacterProfile): string => {
+    const relationship = typeof char.identityRelationship === 'string' ? char.identityRelationship.trim() : '';
+    if (relationship) {
+        return '### 当前身份关系（生成前最终复核 · 最高优先级）\n当前关系设定：\n' + relationship + '\n若核心指令、世界观、世界书、记忆、印象或其他上下文出现与这项关系不同的描述，均以此处当前身份关系为准。它只约束双方关系、关系阶段、称呼和互动边界，不改变角色自身性格与背景。不要自行改写或推进关系；只有用户明确修改，或互动中确实发生足以改变关系的新事实时才调整。\n\n';
+    }
+    return '### 身份关系一致性复核（生成前最终检查）\n用户未填写身份关系。只依据核心人设、世界观、已启用世界书和真实互动判断；资料不明确就保持关系未定，不默认恋爱，也不编造共同经历或熟悉程度。\n\n';
+};
 
 export const ContextBuilder = {
     /** 所有入口共用：只读取现有日程，不触发生成；按角色当地日期读取。 */
@@ -705,7 +710,7 @@ const renderCoreContext = async (
             context += `### 表达底线 (Anti-Filler)\n当你觉得"没什么可说"的时候，不要用空泛的感慨、万能句式或华丽排比去填充——那是没话找话，对方一眼就能看出来。素材永远比你以为的多：对方的用词、ta 怎么说的、ta 没说的部分、此刻的情境、你心里闪过的念头——挑一两条往深处走就够了。只使用确实发生或有记录依据的共同经历；宁可一个具体的小细节，不要编造双方的熟悉程度。\n\n`;
         }
 
-        context += buildIdentityRelationshipPriorityReminder();
+        context += buildIdentityRelationshipPriorityReminder(char);
 
         // Debug: warn about missing context sections
         const missing: string[] = [];
