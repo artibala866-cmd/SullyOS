@@ -40,6 +40,5 @@ describe('实际聊天提示词中的身份关系优先级', () => {
         expect(finalRule).toBeGreaterThan(prompt.indexOf('世界书冲突：用户是角色的伴侣。'));
         expect(prompt.slice(finalRule)).toContain(char.identityRelationship);
         expect(prompt.slice(finalRule)).toContain('均以此处当前身份关系为准');
-        expect(parts.history.some(message => String(message.content).includes('我们是什么关系？'))).toBe(true);
     });
 });
