@@ -45,6 +45,15 @@ describe('read-only character statistics', () => {
         expect(stats.otherRows.some(r => r.content.includes('stale'))).toBe(false);
         expect(stats.total).toBe(stats.historyCharacters + stats.memoryCharacters + stats.worldbookCharacters + stats.otherCharacters);
     });
+    it('shows the active identity relationship in the context breakdown without an AI-partner fallback', () => {
+        const char = character({ identityRelationship: '两人只是同事。', systemPrompt: '' });
+        const stats = buildCharacterStats(char, user, computeContextRangeSnapshot([], char, 0));
+        expect(stats.otherRows).toEqual(expect.arrayContaining([
+            expect.objectContaining({ title: '当前身份关系', content: '两人只是同事。' }),
+        ]));
+        expect(stats.otherRows.some(row => row.content.includes('你是一个温柔、拟人化的AI伴侣'))).toBe(false);
+        expect(stats.otherRows.some(row => row.content.includes('未填写核心指令'))).toBe(true);
+    });
     it('counts Unicode characters, labels the heuristic separately, and handles empty ranges', () => {
         expect(countContextCharacters('中😀')).toBe(2);
         expect(estimateContextTokens('')).toBe(0);

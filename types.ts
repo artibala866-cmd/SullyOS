@@ -3071,6 +3071,8 @@ export interface CharacterProfile {
   /** Only the chat title uses the remark; the canonical name stays unchanged. */
   chatShowRemark?: boolean;
   systemPrompt: string;
+  /** 当前用户身份与该角色之间的私有关系设定；不随角色基础资料同步或角色卡分享。 */
+  identityRelationship?: string;
   worldview?: string;
   /** 角色分组：指向 CharacterGroup.id；空或指向已删分组 = 未分组。仅本地组织用，不随角色卡导出 */
   groupId?: string;

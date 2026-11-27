@@ -30,6 +30,23 @@ import {
  * 包含：身份设定、用户画像、世界观、核心记忆、详细记忆、以及角色内心看法。
  */
 export interface EmotionContextOptions { surface?: 'chat' | 'home'; innerState?: string }
+
+const buildIdentityRelationshipContext = (char: CharacterProfile, includeWorldbooks = true): string => {
+    const relationship = typeof char.identityRelationship === 'string' ? char.identityRelationship.trim() : '';
+    if (relationship) {
+        return '### 你与当前用户的身份关系（当前身份自定义 · 最高优先级）\n'
+            + relationship + '\n请将这项设定作为你与当前用户关系的首要依据，并据此决定称呼、态度、互动边界和关系阶段。通用聊天规范、默认陪伴语气或模糊暗示不能覆盖这项设定；只有用户明确修改，或互动中确实发生了足以改变关系的新事实时，才调整关系。\n\n';
+    }
+    const sources = includeWorldbooks
+        ? '角色核心指令、世界观、已启用的世界书和真实发生的互动事实'
+        : '当前提供的角色设定、世界观和可确认的互动事实';
+    return '### 你与当前用户的关系读取规则\n用户没有单独填写身份关系。请只依据' + sources
+        + '理解双方关系；通用 AI 伴侣设定、应用模式、亲昵称呼或时间间隔都不是恋爱关系证据。资料没有明确说明时，保持关系阶段未确定，不擅自将双方认定为恋人、情侣或亲密伴侣。\n\n';
+};
+
+const buildIdentityRelationshipPriorityReminder = (): string =>
+    '### 身份关系一致性复核\n整个上下文中的关系判断都必须与上方身份关系规则一致。不要凭通用互动话术编造共同经历、熟悉程度或恋爱关系，也不要仅因用户主动联系、使用亲昵称呼或发生普通互动就推进关系阶段。\n\n';
+
 export const ContextBuilder = {
     /** 所有入口共用：只读取现有日程，不触发生成；按角色当地日期读取。 */
     buildCurrentScheduleContext: async (char: CharacterProfile, allowScheduleChange = false, snapshot?: Promise<DailySchedule | null>): Promise<string> => {
@@ -78,7 +95,8 @@ export const ContextBuilder = {
 
         // 2. 核心指令（完整，不截断）
         context += `### 核心指令\n`;
-        context += `${char.systemPrompt || '你是一个温柔、拟人化的AI伴侣。'}\n\n`;
+        context += `${char.systemPrompt?.trim() || '未填写核心指令；请依据现有角色资料和明确互动事实回应，不要补造默认人格或关系。'}\n\n`;
+        context += buildIdentityRelationshipContext(char, false);
 
         // 2b. 自我领悟词条（常驻自我认知，影响情绪评估）
         if (char.selfInsights && char.selfInsights.length > 0) {
@@ -556,7 +574,8 @@ const renderCoreContext = async (
         // Change: Explicitly label description as User Note to avoid literal interpretation
         context += `- 用户备注/爱称 (User Note/Nickname): ${char.description || '无'}\n`;
         context += `  (注意: 这个备注是用户对你的称呼或印象，可能包含比喻。如果备注内容（如“快乐小狗”）与你的核心设定冲突，请以核心设定为准，不要真的扮演成动物，除非核心设定里写了你是动物。)\n`;
-        context += `- 核心性格/指令:\n${char.systemPrompt || '你是一个温柔、拟人化的AI伴侣。'}\n\n`;
+        context += buildIdentityRelationshipContext(char);
+        context += `- 核心性格/指令:\n${char.systemPrompt?.trim() || '未填写核心指令；请依据现有角色资料和明确互动事实回应，不要补造默认人格或关系。'}\n\n`;
 
         // 1a. 真实时间感知 (Time Awareness) — 跟随 timeAwarenessEnabled 设置，默认开启。
         // 统一在 buildCoreContext 注入，让所有调用方（私聊/查手机/人际关系/通话/约会…）都知道"现在"。
@@ -683,8 +702,10 @@ const renderCoreContext = async (
         // 完整方法版在 datePrompts 的 DIG_DEEPER_BLOCK（见面模式专用，可按角色开关）。
         // 群聊流（groupOptions）跳过：多成员场景会重复注入 N 份，群聊侧暂不接入。
         if (!groupOptions) {
-            context += `### 表达底线 (Anti-Filler)\n当你觉得"没什么可说"的时候，不要用空泛的感慨、万能句式或华丽排比去填充——那是没话找话，对方一眼就能看出来。素材永远比你以为的多：对方的用词、ta 怎么说的、ta 没说的部分、此刻的情境、你们的过去、你心里闪过的念头——挑一两条往深处走就够了。宁可一个具体的小细节，不要一句谁都能说的话。\n\n`;
+            context += `### 表达底线 (Anti-Filler)\n当你觉得"没什么可说"的时候，不要用空泛的感慨、万能句式或华丽排比去填充——那是没话找话，对方一眼就能看出来。素材永远比你以为的多：对方的用词、ta 怎么说的、ta 没说的部分、此刻的情境、你心里闪过的念头——挑一两条往深处走就够了。只使用确实发生或有记录依据的共同经历；宁可一个具体的小细节，不要编造双方的熟悉程度。\n\n`;
         }
+
+        context += buildIdentityRelationshipPriorityReminder();
 
         // Debug: warn about missing context sections
         const missing: string[] = [];

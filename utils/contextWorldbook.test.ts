@@ -20,6 +20,41 @@ describe('ContextBuilder 世界书公共契约', () => {
         books.forEach(b => expect(result.split(b.content)).toHaveLength(2));
     });
 
+    it('当前身份自定义关系优先于核心指令和后置世界书，末尾保留一致性约束', async () => {
+        const character = {
+            ...char([book('conflicting', { position: 6, content: '本世界书把用户称为角色的恋人。' })]),
+            identityRelationship: '我们是只在网上交流的普通网友，还没有线下见过面。',
+        } as CharacterProfile;
+        const result = await ContextBuilder.buildCoreContext(character, user);
+        expect(result).toContain('当前身份自定义 · 最高优先级');
+        expect(result).toContain(character.identityRelationship);
+        expect(result.indexOf('当前身份自定义')).toBeLessThan(result.indexOf('角色正文'));
+        expect(result).toContain('身份关系一致性复核');
+        expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
+    });
+
+    it('关系字段留空时回到人设、世界观、世界书和明确互动，不使用 AI 伴侣默认值', async () => {
+        const character = {
+            ...char([book('relationship-source', { content: '两人是多年同学。' })]),
+            identityRelationship: '   ',
+            worldview: '故事发生在大学校园。',
+        } as CharacterProfile;
+        const result = await ContextBuilder.buildCoreContext(character, user);
+        expect(result).toContain('关系读取规则');
+        expect(result).toContain('角色正文');
+        expect(result).toContain('故事发生在大学校园');
+        expect(result).toContain('WB_relationship-source_正文');
+        expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
+    });
+
+    it('情绪评估用角色设定上下文也能读取当前身份的关系，且不补 AI 伴侣默认人格', async () => {
+        const character = { ...char([]), identityRelationship: '两人是竞争对手。' } as CharacterProfile;
+        const result = await ContextBuilder.buildRoleSettingsContext(character, { skipMemories: true });
+        expect(result).toContain('两人是竞争对手。');
+        expect(result).toContain('当前身份自定义 · 最高优先级');
+        expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
+    });
+
     it('同一个入口返回核心文本与按深度注入的完整消息，无需调用方再处理世界书', async () => {
         const character = char([book('fixed', { position: 1 }), book('depth')]);
         const result = (await ContextBuilder.buildCharacterContext({ char: character, user, history: [] }));

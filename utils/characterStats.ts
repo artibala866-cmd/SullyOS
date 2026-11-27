@@ -48,7 +48,8 @@ export function buildCharacterStats(char: CharacterProfile, user: UserProfile, r
     const historyCharacters = [...sources.values()].reduce((sum, s) => sum + s.characters, 0);
     const imp = normalizeUserImpression(char.impression);
     const otherRows = [
-        { title: '角色身份与核心设定', content: [char.name, char.description || '无', char.systemPrompt || '你是一个温柔、拟人化的AI伴侣。'].join('\n') },
+        { title: '角色身份与核心设定', content: [char.name, char.description || '无', char.systemPrompt || '未填写核心指令'].join('\n') },
+        { title: '当前身份关系', content: char.identityRelationship || '' },
         { title: '世界观', content: char.worldview || '' },
         { title: '内在认知', content: (char.selfInsights || []).join('\n') },
         { title: '用户画像', content: [user.name, user.bio || '无'].join('\n') },

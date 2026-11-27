@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<title>神经链接身份关系 · 移动端视觉检查</title>
+<script src="/vendor/tailwind-3.4.17.js"></script>
+<style>html,body,#root{margin:0;width:100%;min-height:100%;background:#f2f2f2;font-family:system-ui,"PingFang SC","Noto Sans CJK SC",sans-serif}*{box-sizing:border-box}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>window.addEventListener('error',e=>{document.body.dataset.visualError=String(e.message)});window.addEventListener('unhandledrejection',e=>{document.body.dataset.visualError=String(e.reason)});</script>
+<script type="module" src="/tests/character-identity-relationship-visual.tsx"></script>
+</body>
+</html>

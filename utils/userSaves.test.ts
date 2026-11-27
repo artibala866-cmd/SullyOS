@@ -264,7 +264,7 @@ describe('user 身份存档隔离', () => {
         const { openDB } = await import('./db');
         const original = await openDB();
         const sourceChar = {
-            id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',
+            id:'a',name:'甲角色',avatar:'',description:'原始设定',systemPrompt:'人设A',identityRelationship:'A身份与角色是普通网友。',
             memories:[{summary:'A身份的私密记忆'}],
             writerPersona:'A角色自己的写作风格',writerPersonaGeneratedAt:101,
             musicProfile:{
@@ -296,6 +296,7 @@ describe('user 身份存档隔离', () => {
         const fresh = await open('AetherOS_Data__user_'+SECOND);
         const [created] = await rows(fresh,'characters');
         expect(created.linkGreetings).toEqual(sourceChar.linkGreetings);
+        expect(created.identityRelationship).toBeUndefined();
         expect(created.writerPersona).toBe('A角色自己的写作风格');
         expect(created.writerPersonaGeneratedAt).toBe(101);
         expect(created.musicProfile).toMatchObject({
@@ -324,7 +325,7 @@ describe('user 身份存档隔离', () => {
         const b = await open('AetherOS_Data__user_'+SECOND);
         await write(b,{
             characters:[
-                {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+                {...sourceChar,name:'B修改后的甲',systemPrompt:'B版人设',identityRelationship:'B身份与角色是长期合作搭档。',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
                     writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
                     musicProfile:{
                         ...sourceChar.musicProfile,bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',updatedAt:222,
@@ -362,7 +363,7 @@ describe('user 身份存档隔离', () => {
         expect(rolesA.map(role=>role.id).sort()).toEqual(['a','b']);
         const mergedA = rolesA.find(role=>role.id==='a');
         expect(mergedA).toMatchObject({
-            name:'B修改后的甲',systemPrompt:'B版人设',memories:[{summary:'A身份的私密记忆'}],
+            name:'B修改后的甲',systemPrompt:'B版人设',identityRelationship:'A身份与角色是普通网友。',memories:[{summary:'A身份的私密记忆'}],
             writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
             musicProfile:{
                 bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',
@@ -396,7 +397,7 @@ describe('user 身份存档隔离', () => {
         const rolesB = await rows(bAgain,'characters');
         expect(rolesB.map(role=>role.id).sort()).toEqual(['a','b']);
         expect(rolesB.find(role=>role.id==='a')).toMatchObject({
-            name:'B修改后的甲',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
+            name:'B修改后的甲',identityRelationship:'B身份与角色是长期合作搭档。',memories:[{summary:'B自己的甲角色记忆'}],impression:{text:'B对用户的印象'},
             writerPersona:'B修改后的角色写作风格',writerPersonaGeneratedAt:222,
             musicProfile:{
                 bio:'B修改后的角色音乐品味',genreTags:['post-rock'],signatureArtists:[{name:'B乐队'}],fmSeed:'B修改后的FM种子',
@@ -654,12 +655,12 @@ describe('user 身份存档隔离', () => {
     it('merging common edits preserves target-specific memories and relationship/runtime data', async () => {
         const { baseCharacter, mergeCharacterBase } = await import('./userSaves');
         const previous: any = { id:'c', name:'旧名字', systemPrompt:'旧人设', description:'', avatar:'', memories:[{summary:'B的记忆'}],
-            impression:{text:'B的印象'}, chatBlock:{blockedByUser:true}, contextUserStartMessageId:42,
+            impression:{text:'B的印象'}, identityRelationship:'B身份与角色的私有关系', chatBlock:{blockedByUser:true}, contextUserStartMessageId:42,
             home3D:{version:1,rooms:[],activeRoomId:'r',records:['B记录'],autonomy:true} };
         const base = baseCharacter({...previous,name:'新名字',memories:[{summary:'A的记忆'}],home3D:{...previous.home3D,records:['A记录']}});
         const merged = mergeCharacterBase(base, previous);
         expect(merged.name).toBe('新名字'); expect(merged.memories).toEqual(previous.memories);
-        expect(merged.impression).toEqual(previous.impression); expect(merged.contextUserStartMessageId).toBe(42);
+        expect(merged.impression).toEqual(previous.impression); expect(merged.identityRelationship).toBe(previous.identityRelationship); expect(merged.contextUserStartMessageId).toBe(42);
         expect(merged.home3D?.records).toEqual(['B记录']); expect(merged.home3D?.autonomy).toBe(true);
     });
     it('aborted target transaction never changes selection or original records', async () => {

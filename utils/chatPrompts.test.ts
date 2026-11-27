@@ -197,3 +197,15 @@ describe('拉黑期间拒收消息的 AI 上下文隔离', () => {
         expect(text).toContain('之前的正常回复');
     });
 });
+
+
+describe('长时间间隔提示不会替角色预设恋爱关系', () => {
+    it('超过一天时明确以当前身份关系和角色资料为依据', () => {
+        const now = new Date(2026, 10, 27, 12, 0, 0).getTime();
+        const previous = { id: 1, charId: 'c1', role: 'assistant', type: 'text', content: '上次消息', timestamp: now - 4 * 24 * 60 * 60 * 1000 } as any;
+        const hint = ChatPrompts.getTimeGapHint(previous, now);
+        expect(hint).toContain('当前身份关系设定');
+        expect(hint).toContain('时间间隔本身不代表恋爱或亲密关系');
+        expect(hint).not.toContain('想念、生气、担心或冷漠');
+    });
+});

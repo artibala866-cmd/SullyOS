@@ -24,6 +24,7 @@ export const CARD_STRIPPED_FIELDS = [
   'proactiveConfig',
   'activeMsg2Config',
   'cardImportOrigin', // 导入身份属于本机，绝不把来源记录输出到分享卡
+  'identityRelationship', // 当前用户与角色之间的私密关系，不随角色卡分享
 
   // 2) 美化
   'embeddedTheme',           // CharacterExportData 上的内嵌主题（导入侧一并剥离）

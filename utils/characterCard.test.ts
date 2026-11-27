@@ -28,6 +28,7 @@ describe('stripSensitiveCardFields', () => {
     const card = {
       name: '小红',
       systemPrompt: 'sp',
+      identityRelationship: '当前用户与角色的私密关系',
       worldview: '世界观',
       sprites: { happy: 'data:img' },
       // 美化
@@ -59,7 +60,7 @@ describe('stripSensitiveCardFields', () => {
 
     // 全部被剥离
     for (const key of ['bubbleStyle', 'chatFineTune', 'chromeCustomCss', 'embeddedTheme', 'chatBackground',
-      'chatVoiceLang', 'dateVoiceLang', 'activeBuffs', 'buffInjection', 'phoneState', 'savedDateState',
+      'chatVoiceLang', 'dateVoiceLang', 'activeBuffs', 'buffInjection', 'phoneState', 'savedDateState', 'identityRelationship',
       'videoCallPerformancePersona', 'videoCallPerformancePersonaGeneratedAt', 'companionTouchSettings']) {
       expect(out).not.toHaveProperty(key);
     }

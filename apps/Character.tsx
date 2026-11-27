@@ -4,6 +4,7 @@ import { clearCharacterImageProfile, readCharacterImageProfile, writeCharacterIm
 import { readLifeClock, writeLifeClock } from '../utils/sullyLifeClock';
 import CharacterApiPanel from '../components/character/CharacterApiPanel';
 import CharacterSettingsSection from '../components/character/CharacterSettingsSection';
+import IdentityRelationshipField from '../components/character/IdentityRelationshipField';
 import CharacterStatsPanel from '../components/character/CharacterStatsPanel';
 import { characterRemark } from '../utils/characterRemark';
 import { loadCharacterContextMessages, DEFAULT_MANUAL_CONTEXT_LIMIT, CONTEXT_RANGE_POLICY_VERSION } from '../utils/chatContextRange';
@@ -1628,6 +1629,11 @@ ${isInitialGeneration ? `
                                    )}
                                </div>
                            </div>
+
+                           <IdentityRelationshipField
+                               value={formData.identityRelationship}
+                               onChange={value => handleChange('identityRelationship', value)}
+                           />
 
                            <div>
                                <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
