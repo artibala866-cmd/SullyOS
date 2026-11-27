@@ -32,7 +32,7 @@ describe('ContextBuilder 世界书公共契约', () => {
         expect(result).toContain(character.identityRelationship);
         expect(result.indexOf('当前身份自定义')).toBeLessThan(result.indexOf('角色正文'));
         expect(result).toContain('生成前最终复核 · 最高优先级');
-        expect(result.lastIndexOf(character.identityRelationship)).toBeGreaterThan(result.indexOf('本世界书把用户称为角色的恋人'));
+        expect(result.lastIndexOf(character.identityRelationship!)).toBeGreaterThan(result.indexOf('本世界书把用户称为角色的恋人'));
         expect(result.slice(result.lastIndexOf('生成前最终复核'))).toContain(character.identityRelationship);
         expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
     });
