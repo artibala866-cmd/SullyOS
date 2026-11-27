@@ -43,7 +43,7 @@ async function run(width){
     });
     const evaluate=async expression=>{
       const response=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
-      if(response.exceptionDetails)throw Error(response.exceptionDetails.text);
+      if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text || JSON.stringify(response.exceptionDetails));
       return response.result?.value;
     };
     const screenshot=async name=>{
@@ -55,14 +55,14 @@ async function run(width){
     await send('Page.navigate',{url:origin+'/tests/character-identity-relationship-visual.html'});
     let state;
     for(let i=0;i<180;i++){
-      state=await evaluate('({ready:document.body.dataset.identityRelationshipReady==="true",error:document.body.dataset.visualError||"",overflow:document.documentElement.scrollWidth>innerWidth+1,field:!!document.querySelector("#relationship-root textarea[aria-label=\"身份关系\"]"),label:document.body.innerText.includes("身份关系 (Relationship)")})');
+    await evaluate(`document.querySelector('#relationship-root textarea[aria-label="身份关系"]').focus()`);
       if(state.error)throw Error('Visual fixture: '+state.error);
       if(state.ready)break;
       await sleep(150);
     }
     assert(state?.ready&&state.field&&state.label,'Identity relationship field did not render '+JSON.stringify(state));
     assert(!state.overflow,'Horizontal overflow at '+width+'px');
-    const rect=await evaluate('document.querySelector("#relationship-root textarea[aria-label=\"身份关系\"]").getBoundingClientRect().toJSON()');
+    const rect=await evaluate(`document.querySelector('#relationship-root textarea[aria-label="身份关系"]').getBoundingClientRect().toJSON()`);
     assert(rect.width>width-45,'Field is unexpectedly narrow '+JSON.stringify(rect));
     assert(rect.height>=80,'Field is too short '+JSON.stringify(rect));
     await screenshot('identity-relationship-before-edit');
@@ -70,7 +70,7 @@ async function run(width){
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});
     await send('Input.insertText',{text:'新的关系设定测试'});
-    const edited=await evaluate('({value:document.querySelector("#relationship-root textarea[aria-label=\"身份关系\"]").value,overflow:document.documentElement.scrollWidth>innerWidth+1})');
+    const edited=await evaluate(`({value:document.querySelector('#relationship-root textarea[aria-label="身份关系"]').value,overflow:document.documentElement.scrollWidth>innerWidth+1})`);
     assert(edited.value.includes('新的关系设定测试'),'Textarea did not accept user input '+JSON.stringify(edited));
     assert(!edited.overflow,'Input caused horizontal overflow');
     await sleep(200);
