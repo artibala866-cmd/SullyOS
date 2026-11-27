@@ -55,7 +55,7 @@ async function run(width){
     await send('Page.navigate',{url:origin+'/tests/character-identity-relationship-visual.html'});
     let state;
     for(let i=0;i<180;i++){
-      state=await evaluate(`({ready:document.body.dataset.identityRelationshipReady==="true",error:document.body.dataset.visualError||"",overflow:document.documentElement.scrollWidth>innerWidth+1,field:!!document.querySelector('#relationship-root textarea[aria-label="身份关系"]'),label:document.body.innerText.includes("身份关系 (Relationship)")})`);
+      state=await evaluate(`({ready:document.body?.dataset.identityRelationshipReady==="true",error:document.body?.dataset.visualError||"",overflow:(document.documentElement?.scrollWidth||0)>innerWidth+1,field:!!document.querySelector('#relationship-root textarea[aria-label="身份关系"]'),label:(document.body?.innerText||"").includes("身份关系 (Relationship)")})`);
       if(state.error)throw Error('Visual fixture: '+state.error);
       if(state.ready)break;
       await sleep(150);
