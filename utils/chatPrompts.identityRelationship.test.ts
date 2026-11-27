@@ -31,6 +31,8 @@ describe('实际聊天提示词中的身份关系优先级', () => {
             { weatherEnabled: false, newsEnabled: false } as any,
         );
         const prompt = parts.stable + parts.volatileState + parts.recencyTail;
+        expect(parts.recencyTail).toContain('生成前最终复核 · 最高优先级');
+        expect(parts.recencyTail).toContain(char.identityRelationship);
         const finalRule = prompt.lastIndexOf('生成前最终复核 · 最高优先级');
         expect(prompt).toContain('人设冲突：你们已交往多年。');
         expect(prompt).toContain('世界观冲突：用户是你的恋人。');

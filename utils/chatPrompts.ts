@@ -6,7 +6,7 @@ import { selectCharacterContextMessages } from './chatContextRange';
 import { isRejectedPrivateMessage } from './chatBlock';
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
-import { ContextBuilder } from './context';
+import { ContextBuilder, buildIdentityRelationshipPriorityReminder } from './context';
 import { DB } from './db';
 import { findPendingMusicInvite } from './musicInviteStatus';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -1068,7 +1068,8 @@ ${voiceActingGuide()}`;
         baseSystemPrompt += `\n\n### 本轮身份关系执行校验\n优先遵守上方“你与当前用户的身份关系”或“关系读取规则”。有自定义关系时，按其身份、称呼、边界和关系阶段扮演；留空时只根据角色人设、世界观、世界书及真实互动判断。聊天格式、时间跨度、撒娇/关心等通用示例都不能自行建立恋爱关系或虚构共同经历。\n`;
 
         // Shared with in-person interaction; keep this after chat-specific mode instructions.
-        const recencyTail = buildCharacterResponsePrinciples(char.name, userProfile.name);
+        const recencyTail = buildCharacterResponsePrinciples(char.name, userProfile.name)
+            + '\\n\\n' + buildIdentityRelationshipPriorityReminder(char);
 
         const perfTotal = Math.round(performance.now() - perfT0);
         const timingStr = Object.entries(timings)

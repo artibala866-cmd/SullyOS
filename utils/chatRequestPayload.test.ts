@@ -100,6 +100,117 @@ it('keeps this request history when the archive waterline advances during async 
     } finally { localStorage.removeItem(key); }
 });
 
+it('模拟真实私聊请求：自定义身份关系在冲突人设与深度世界书之后仍是最终依据', async () => {
+    localStorage.removeItem(MCP_SERVERS_KEY);
+    const relation = '我们是网上认识的普通网友，尚未线下见面，不是恋爱关系。';
+    const personaConflict = '人设冲突：你们已交往多年。';
+    const worldviewConflict = '世界观冲突：用户是你的恋人。';
+    const worldbookConflict = '世界书冲突：用户是角色的伴侣。';
+    const input = {
+        ...baseInput(),
+        char: {
+            ...baseInput().char,
+            name: '角色甲',
+            timeAwarenessEnabled: false,
+            memoryPalaceEnabled: false,
+            systemPrompt: personaConflict,
+            worldview: worldviewConflict,
+            identityRelationship: relation,
+            mountedWorldbooks: [{
+                id: 'identity-relationship-depth',
+                title: '冲突关系世界书',
+                content: worldbookConflict,
+                constant: true,
+                position: 4,
+                depth: 0,
+                role: 0,
+            }],
+        } as any,
+        historyMsgs: [{
+            id: 901,
+            charId: 'char-timely',
+            role: 'user',
+            type: 'text',
+            content: '我们是什么关系？',
+            timestamp: Date.now(),
+        }] as any[],
+        realtimeConfig: { weatherEnabled: false, newsEnabled: false } as any,
+    };
+    const payload = await buildChatRequestPayload(input);
+    const firstSystem = String(payload.fullMessages[0]?.content || '');
+    const worldbookIndex = payload.fullMessages.findIndex(message =>
+        String(message.content || '').includes(worldbookConflict));
+    const finalSystemIndex = payload.fullMessages.map((message, index) =>
+        message.role === 'system' ? index : -1).filter(index => index >= 0).at(-1) ?? -1;
+    const finalSystem = String(payload.fullMessages[finalSystemIndex]?.content || '');
+
+    expect(payload.fullMessages[0]?.role).toBe('system');
+    expect(firstSystem).toContain('当前身份自定义 · 最高优先级');
+    expect(firstSystem).toContain(relation);
+    expect(firstSystem.indexOf('当前身份自定义 · 最高优先级')).toBeLessThan(firstSystem.indexOf(personaConflict));
+    expect(firstSystem).toContain(worldviewConflict);
+    expect(worldbookIndex).toBeGreaterThan(0);
+    expect(finalSystemIndex).toBeGreaterThan(worldbookIndex);
+    expect(finalSystem).toContain('生成前最终复核 · 最高优先级');
+    expect(finalSystem).toContain(relation);
+    expect(finalSystem).toContain('均以此处当前身份关系为准');
+    expect(joinMessages(payload.fullMessages)).toContain('我们是什么关系？');
+});
+
+it('模拟真实私聊请求：身份关系留空时仍读取人设与世界书，不自动判为恋爱', async () => {
+    localStorage.removeItem(MCP_SERVERS_KEY);
+    const persona = '角色人设：两人是多年同学。';
+    const worldview = '世界观：故事发生在大学校园。';
+    const worldbook = '世界书：两人从小一起长大。';
+    const input = {
+        ...baseInput(),
+        char: {
+            ...baseInput().char,
+            name: '角色乙',
+            timeAwarenessEnabled: false,
+            memoryPalaceEnabled: false,
+            systemPrompt: persona,
+            worldview,
+            identityRelationship: '   ',
+            mountedWorldbooks: [{
+                id: 'identity-relationship-empty',
+                title: '关系来源世界书',
+                content: worldbook,
+                constant: true,
+                position: 4,
+                depth: 0,
+                role: 0,
+            }],
+        } as any,
+        historyMsgs: [{
+            id: 902,
+            charId: 'char-timely',
+            role: 'user',
+            type: 'text',
+            content: '你觉得我们是什么关系？',
+            timestamp: Date.now(),
+        }] as any[],
+        realtimeConfig: { weatherEnabled: false, newsEnabled: false } as any,
+    };
+    const payload = await buildChatRequestPayload(input);
+    const firstSystem = String(payload.fullMessages[0]?.content || '');
+    const worldbookIncluded = payload.fullMessages.some(message =>
+        String(message.content || '').includes(worldbook));
+    const finalSystemIndex = payload.fullMessages.map((message, index) =>
+        message.role === 'system' ? index : -1).filter(index => index >= 0).at(-1) ?? -1;
+    const finalSystem = String(payload.fullMessages[finalSystemIndex]?.content || '');
+
+    expect(firstSystem).toContain('关系读取规则');
+    expect(firstSystem).toContain(persona);
+    expect(firstSystem).toContain(worldview);
+    expect(worldbookIncluded).toBe(true);
+    expect(finalSystem).toContain('身份关系一致性复核（生成前最终检查）');
+    expect(finalSystem).toContain('用户未填写身份关系');
+    expect(finalSystem).toContain('只依据核心人设、世界观、已启用世界书和真实互动判断');
+    expect(finalSystem).toContain('不默认恋爱');
+    expect(joinMessages(payload.fullMessages)).toContain('你觉得我们是什么关系？');
+});
+ 
 beforeEach(() => {
     // 天气/热搜真去联网太慢也不稳定，桩成固定内容；测的是「这一段进没进 prompt」。
     vi.spyOn(RealtimeContextManager, 'fetchWeather').mockResolvedValue({

@@ -56,6 +56,8 @@ describe('ContextBuilder 世界书公共契约', () => {
         const result = await ContextBuilder.buildRoleSettingsContext(character, { skipMemories: true });
         expect(result).toContain('两人是竞争对手。');
         expect(result).toContain('当前身份自定义 · 最高优先级');
+        expect(result).toContain('生成前最终复核 · 最高优先级');
+        expect(result.slice(result.lastIndexOf('生成前最终复核')).toContain('两人是竞争对手。'));
         expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
     });
 
