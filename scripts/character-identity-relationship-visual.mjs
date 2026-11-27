@@ -60,7 +60,8 @@ async function run(width){
       if(state.ready)break;
       await sleep(150);
     }
-    assert(state?.ready&&state.field&&state.label,'Identity relationship field did not render '+JSON.stringify(state));\n    assert(state.placeholder==='关系…','Placeholder should be short and match other fields '+JSON.stringify(state));
+    assert(state?.ready&&state.field&&state.label,'Identity relationship field did not render '+JSON.stringify(state));
+    assert(state.placeholder==='关系…','Placeholder should be short and match other fields '+JSON.stringify(state));
     assert(!state.overflow,'Horizontal overflow at '+width+'px');
     const rect=await evaluate(`document.querySelector('#relationship-root textarea[aria-label="身份关系"]').getBoundingClientRect().toJSON()`);
     assert(rect.width>width-45,'Field is unexpectedly narrow '+JSON.stringify(rect));
