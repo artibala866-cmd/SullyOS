@@ -39,12 +39,12 @@ describe('ContextBuilder 世界书公共契约', () => {
             identityRelationship: '   ',
             worldview: '故事发生在大学校园。',
         } as CharacterProfile;
-        const result = await ContextBuilder.buildCoreContext(character, user);
-        expect(result).toContain('关系读取规则');
-        expect(result).toContain('角色正文');
-        expect(result).toContain('故事发生在大学校园');
-        expect(result).toContain('WB_relationship-source_正文');
-        expect(result).not.toContain('你是一个温柔、拟人化的AI伴侣');
+        const result = await ContextBuilder.buildCharacterContext({ char: character, user, history: [] });
+        expect(result.coreContext).toContain('关系读取规则');
+        expect(result.coreContext).toContain('角色正文');
+        expect(result.coreContext).toContain('故事发生在大学校园');
+        expect(JSON.stringify(result.messages)).toContain('两人是多年同学。');
+        expect(result.coreContext).not.toContain('你是一个温柔、拟人化的AI伴侣');
     });
 
     it('情绪评估用角色设定上下文也能读取当前身份的关系，且不补 AI 伴侣默认人格', async () => {
