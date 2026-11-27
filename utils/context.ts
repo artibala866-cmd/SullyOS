@@ -35,7 +35,7 @@ const buildIdentityRelationshipContext = (char: CharacterProfile, includeWorldbo
     const relationship = typeof char.identityRelationship === 'string' ? char.identityRelationship.trim() : '';
     if (relationship) {
         return '### 你与当前用户的身份关系（当前身份自定义 · 最高优先级）\n'
-            + relationship + '\n请将这项设定作为你与当前用户关系的首要依据，并据此决定称呼、态度、互动边界和关系阶段。通用聊天规范、默认陪伴语气或模糊暗示不能覆盖这项设定；只有用户明确修改，或互动中确实发生了足以改变关系的新事实时，才调整关系。\n\n';
+            + relationship + '\n这项设定只决定你与当前用户的关系身份、关系阶段、称呼和互动边界。若其他通用规则或资料对双方关系的描述与此冲突，以这项设定为准；角色本身的性格、背景和世界观仍按原有人设执行。只有用户明确修改，或互动中确实发生了足以改变关系的新事实时，才调整关系。\n\n';
     }
     const sources = includeWorldbooks
         ? '角色核心指令、世界观、已启用的世界书和真实发生的互动事实'
